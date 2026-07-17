@@ -317,11 +317,14 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
   entries by a constant or build on `CrudServiceTemplate` directly (read the base class
-  and pick). Queries: ownership (scope-filtered), tools
-  (`mcpExposed && published && online` + caller visibility: system → all; org
-  participant → `os-api`-zone entries; app participant → own-app + `os-api` entries —
-  keep this filter in ONE place with a comment pointing at `StompAuthorizerFactory`;
-  `sendAllowed` remains the call-time enforcement, this is only the listing view).
+  and pick). Queries: ownership (scope-filtered), tools — `findMcpToolsForOwner`
+  (`mcpExposed && published && online` + visibility: system → all; org owner →
+  `os-api`-zone entries; app owner → own-app + `os-api` entries — keep this filter in
+  ONE place with a comment pointing at `StompAuthorizerFactory`; `sendAllowed` remains
+  the call-time enforcement, this is only the listing view). `findMcpToolsForOwner`
+  returns `Page<McpToolDefinition>` flattened from the matching entries: the ES query
+  MUST `_source`-filter to the `mcpTools` field so contracts never leave Elasticsearch
+  on the tools path.
 - `reportUnreachable(cri)` — debounced per CRI (seconds; Caffeine). Re-checks
   `eventBusService.hasListeners(cri)` and partial-updates the liveness fields to the
   VERIFIED state — never a blind offline write. Safe for any authenticated caller whose

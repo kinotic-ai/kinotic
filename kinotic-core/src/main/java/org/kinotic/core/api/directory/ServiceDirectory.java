@@ -44,17 +44,18 @@ public interface ServiceDirectory {
                                                               Pageable pageable);
 
     /**
-     * Returns the MCP-exposed, online entries a caller in the given scope may call: a system caller
-     * (both ids null) sees all, an organization caller sees {@code os-api}-zone entries, and an application caller sees
-     * its own application's entries plus {@code os-api}-zone entries. Mirrors the zone send rules enforced at call time.
-     * @param organizationId the caller's organization, or null for a system caller
-     * @param applicationId the caller's application, or null
+     * Returns the online MCP tools the given owner scope may call — not only what it owns: a system owner
+     * (both ids null) sees all tools, an organization owner sees {@code os-api}-zone tools, and an application owner
+     * sees its own application's tools plus {@code os-api}-zone tools. Mirrors the zone send rules enforced at call
+     * time.
+     * @param organizationId the owner's organization, or null for a system owner
+     * @param applicationId the owner's application, or null
      * @param pageable the page settings to use
-     * @return a page of callable entries
+     * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findMcpToolsForCaller(String organizationId,
-                                                                        String applicationId,
-                                                                        Pageable pageable);
+    CompletableFuture<Page<McpToolDefinition>> findMcpToolsForOwner(String organizationId,
+                                                                    String applicationId,
+                                                                    Pageable pageable);
 
     /**
      * Reports that a caller could not reach the service at the given CRI. Implementations re-check current
