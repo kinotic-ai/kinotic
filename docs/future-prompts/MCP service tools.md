@@ -320,7 +320,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
   entries by a constant or build on `CrudServiceTemplate` directly (read the base class
-  and pick). Queries: ownership — `findEntriesOwnedBy` (scope-filtered), tools —
+  and pick). Queries: scope listing — `findEntriesScopedTo`, tools —
   `findMcpToolsCallableBy` (`mcpExposed && published && online` + the decision #7
   zone matrix: system → all; org scope → `os-api` + `app-api` zones; app scope → own
   `app.<org>.<app>` + `app-api` zones — keep this filter in ONE place with a comment
@@ -450,7 +450,7 @@ The boot is the expensive part and happens once; each assertion is cheap.
 - Expose a service-listing function as an MCP tool (the directory eating its own dog
   food): a `@Publish`ed service (home: `kinotic-os-api` or `kinotic-domain`, wherever
   fits the module's existing service layout) delegating to core's
-  `findEntriesOwnedBy`, annotated
+  `findEntriesScopedTo`, annotated
   `@McpTool(description = "Lists the services this application provides, with their functions and schemas", readOnlyHint = true)`.
   Publish it in the **`app-api` zone** — per the decision #7 matrix that is the only
   OS-provided zone application participants may call (and org participants may call it

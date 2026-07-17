@@ -32,16 +32,17 @@ public interface ServiceDirectory {
     CompletableFuture<Void> unregister(String entryId);
 
     /**
-     * Returns the entries owned by the given scope. System (OS) entries are never returned, so a scope only ever sees
-     * what it provides.
-     * @param organizationId the owning organization to filter by
-     * @param applicationId the owning application to filter by, or null to include all of the organization's entries
+     * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
+     * they never match a non-null scope — an organization or application only ever sees what it provides. A system
+     * scope (both ids null) returns all entries.
+     * @param organizationId the organization scope to filter by, or null for the system scope
+     * @param applicationId the application scope to filter by, or null to include all of the organization's entries
      * @param pageable the page settings to use
-     * @return a page of owned entries
+     * @return a page of entries in the given scope
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesOwnedBy(String organizationId,
-                                                                      String applicationId,
-                                                                      Pageable pageable);
+    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+                                                                       String applicationId,
+                                                                       Pageable pageable);
 
     /**
      * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
