@@ -76,9 +76,12 @@ disagree, the code wins: read the referenced source before implementing against 
    `organizationId == participant's`, so OS entries are structurally unreachable there.
 7. **Three visibility questions, three filters** (never conflate):
    - *What can I call?* → MCP `tools/list` = (zone send rules mirroring
-     `StompAuthorizerFactory`) ∩ (`mcpExposed`) ∩ (`online`). Org/app participants DO
-     see MCP-exposed OS (`os-api` zone) tools here — an LLM can only call what is
-     listed.
+     `StompAuthorizerFactory.java:66-90`) ∩ (`mcpExposed`) ∩ (`online`). Exactly the
+     send rules, nothing more: system → all zones; org participant → `os-api` +
+     `app-api` zones (never `app.<org>.<app>` zones); app participant → own
+     `app.<org>.<app>` + `app-api` zones (never `os-api`). An LLM can only call what
+     is listed — so OS tools meant for app users must be published in the `app-api`
+     zone, and OS tools meant for org users in `os-api`.
    - *What belongs to my app?* → ownership queries, participant-org filtered; OS
      entries never appear.
    - *Telemetry* → out of scope for this plan (spans carry producing-service scope; a
@@ -317,14 +320,15 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
   entries by a constant or build on `CrudServiceTemplate` directly (read the base class
-  and pick). Queries: ownership (scope-filtered), tools — `findMcpToolsForOwner`
-  (`mcpExposed && published && online` + visibility: system → all; org owner →
-  `os-api`-zone entries; app owner → own-app + `os-api` entries — keep this filter in
-  ONE place with a comment pointing at `StompAuthorizerFactory`; `sendAllowed` remains
-  the call-time enforcement, this is only the listing view). `findMcpToolsForOwner`
-  returns `Page<McpToolDefinition>` flattened from the matching entries: the ES query
-  MUST `_source`-filter to the `mcpTools` field so contracts never leave Elasticsearch
-  on the tools path.
+  and pick). Queries: ownership — `findEntriesOwnedBy` (scope-filtered), tools —
+  `findMcpToolsCallableBy` (`mcpExposed && published && online` + the decision #7
+  zone matrix: system → all; org scope → `os-api` + `app-api` zones; app scope → own
+  `app.<org>.<app>` + `app-api` zones — keep this filter in ONE place with a comment
+  pointing at `StompAuthorizerFactory`; `sendAllowed` remains the call-time
+  enforcement, this is only the listing view). `findMcpToolsCallableBy` returns
+  `Page<McpToolDefinition>` flattened from the matching entries: the ES query MUST
+  `_source`-filter to the `mcpTools` field so contracts never leave Elasticsearch on
+  the tools path.
 - `reportUnreachable(cri)` — debounced per CRI (seconds; Caffeine). Re-checks
   `eventBusService.hasListeners(cri)` and partial-updates the liveness fields to the
   VERIFIED state — never a blind offline write. Safe for any authenticated caller whose
@@ -430,10 +434,10 @@ as each participant type where relevant:
   Phase 1 emitter and Phase 2 capture), hints; a registered-then-unregistered service's
   tool absent from the listing (proving the liveness flag).
 - `tools/call`: happy path, unknown-argument error, offline-service error.
-- Scope matrix (the security invariants): app participant sees own-app + `os-api` tools
-  and never another app's; org participant sees `os-api` tools; ownership queries never
-  return OS entries; a `@McpTool` method with a streaming return type fails
-  registration.
+- Scope matrix (the security invariants, per decision #7): app participant sees own-app
+  + `app-api` tools, never `os-api` tools, never another app's; org participant sees
+  `os-api` + `app-api` tools, never any app-zone tools; ownership queries never return
+  OS entries; a `@McpTool` method with a streaming return type fails registration.
 The boot is the expensive part and happens once; each assertion is cheap.
 
 ~10–11 files. Verify: `:kinotic-api-gateway:test` + the e2e. Commit.
@@ -446,13 +450,15 @@ The boot is the expensive part and happens once; each assertion is cheap.
 - Expose a service-listing function as an MCP tool (the directory eating its own dog
   food): a `@Publish`ed service (home: `kinotic-os-api` or `kinotic-domain`, wherever
   fits the module's existing service layout) delegating to core's
-  `ServiceDirectory` ownership query, annotated
+  `findEntriesOwnedBy`, annotated
   `@McpTool(description = "Lists the services this application provides, with their functions and schemas", readOnlyHint = true)`.
-  An org user's LLM introspects its own app's services through the same tool path,
-  scope-filtered automatically by participant.
+  Publish it in the **`app-api` zone** — per the decision #7 matrix that is the only
+  OS-provided zone application participants may call (and org participants may call it
+  too). An app user's LLM introspects its own app's services through the same tool
+  path, scope-filtered automatically by participant.
 - Extend the Phase 4 e2e test class (do not add a new harness): an
   `ApplicationParticipant` MCP session lists the introspection tool, calls it, and
-  receives only its own app's entries (never OS entries), while OS `os-api` tools
+  receives only its own app's entries (never OS entries), while other `app-api` tools
   remain callable.
 - Decide-with-user during approval: which other OS services get `@McpTool` in this pass
   (candidates: `ApplicationService` creation/listing). Default: only the introspection

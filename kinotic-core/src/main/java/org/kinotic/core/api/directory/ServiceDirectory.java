@@ -32,30 +32,30 @@ public interface ServiceDirectory {
     CompletableFuture<Void> unregister(String entryId);
 
     /**
-     * Returns the entries owned by the given scope. System (OS) entries are never returned, so an owner only ever sees
+     * Returns the entries owned by the given scope. System (OS) entries are never returned, so a scope only ever sees
      * what it provides.
      * @param organizationId the owning organization to filter by
      * @param applicationId the owning application to filter by, or null to include all of the organization's entries
      * @param pageable the page settings to use
      * @return a page of owned entries
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findByOwner(String organizationId,
-                                                              String applicationId,
-                                                              Pageable pageable);
+    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesOwnedBy(String organizationId,
+                                                                      String applicationId,
+                                                                      Pageable pageable);
 
     /**
-     * Returns the online MCP tools the given owner scope may call — not only what it owns: a system owner
-     * (both ids null) sees all tools, an organization owner sees {@code os-api}-zone tools, and an application owner
-     * sees its own application's tools plus {@code os-api}-zone tools. Mirrors the zone send rules enforced at call
-     * time.
-     * @param organizationId the owner's organization, or null for a system owner
-     * @param applicationId the owner's application, or null
+     * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
+     * a system scope (both ids null) sees all tools, an organization scope sees {@code os-api}- and
+     * {@code app-api}-zone tools, and an application scope sees its own {@code app.<org>.<app>}-zone tools plus
+     * {@code app-api}-zone tools.
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
      * @param pageable the page settings to use
      * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
      */
-    CompletableFuture<Page<McpToolDefinition>> findMcpToolsForOwner(String organizationId,
-                                                                    String applicationId,
-                                                                    Pageable pageable);
+    CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+                                                                      String applicationId,
+                                                                      Pageable pageable);
 
     /**
      * Reports that a caller could not reach the service at the given CRI. Implementations re-check current
