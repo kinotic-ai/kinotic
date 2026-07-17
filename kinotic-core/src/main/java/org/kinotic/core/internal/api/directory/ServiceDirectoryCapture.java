@@ -40,7 +40,7 @@ import java.util.Set;
  */
 @Slf4j
 @Component
-public class ServiceDirectoryRegistrar {
+public class ServiceDirectoryCapture {
 
     private final SchemaFactory schemaFactory;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
@@ -48,7 +48,7 @@ public class ServiceDirectoryRegistrar {
     private final McpJsonSchemaGenerator schemaGenerator;
     private final String sourceVersion;
 
-    public ServiceDirectoryRegistrar(SchemaFactory schemaFactory,
+    public ServiceDirectoryCapture(SchemaFactory schemaFactory,
                                      IdlConverterFactory idlConverterFactory,
                                      ReactiveAdapterRegistry reactiveAdapterRegistry,
                                      ObjectProvider<ServiceDirectory> serviceDirectoryProvider) {
@@ -56,7 +56,7 @@ public class ServiceDirectoryRegistrar {
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
-        this.sourceVersion = ServiceDirectoryRegistrar.class.getPackage().getImplementationVersion();
+        this.sourceVersion = ServiceDirectoryCapture.class.getPackage().getImplementationVersion();
     }
 
     /**
