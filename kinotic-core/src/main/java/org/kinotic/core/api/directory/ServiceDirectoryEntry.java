@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 
 import java.time.Instant;
@@ -21,12 +22,18 @@ import java.util.List;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class ServiceDirectoryEntry {
+public class ServiceDirectoryEntry implements Identifiable<String> {
 
     /**
      * The non-null scope parts plus namespace and name, dot-joined and lowercased.
      */
     private String id;
+
+    /**
+     * The service's base resource address ({@code srv://...} without version), used to correlate this entry with
+     * listener registrations for liveness.
+     */
+    private String serviceAddress;
 
     /**
      * The owning organization, or null for a system service.

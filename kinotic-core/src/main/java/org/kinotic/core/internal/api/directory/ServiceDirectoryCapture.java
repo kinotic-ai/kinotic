@@ -143,6 +143,7 @@ public class ServiceDirectoryCapture {
 
         return new ServiceDirectoryEntry()
                 .setId(entryId(serviceIdentifier))
+                .setServiceAddress(serviceIdentifier.cri().baseResource())
                 .setNamespace(serviceIdentifier.namespace())
                 .setName(serviceIdentifier.name())
                 .setVersion(serviceIdentifier.version())
