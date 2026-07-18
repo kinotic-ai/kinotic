@@ -47,10 +47,9 @@ public abstract class AbstractServiceDirectory implements ServiceDirectory {
     private final String sourceVersion;
 
     protected AbstractServiceDirectory(SchemaFactory schemaFactory,
-                                       IdlConverterFactory idlConverterFactory,
-                                       ReactiveAdapterRegistry reactiveAdapterRegistry) {
+                                       IdlConverterFactory idlConverterFactory) {
         this.schemaFactory = schemaFactory;
-        this.reactiveAdapterRegistry = reactiveAdapterRegistry;
+        this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.sourceVersion = AbstractServiceDirectory.class.getPackage().getImplementationVersion();
     }

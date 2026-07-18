@@ -5,31 +5,31 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.AbstractServiceDirectory;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
-import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.idl.api.schema.ServiceDefinition;
-import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.converter.IdlConverterFactory;
+import org.kinotic.idl.api.directory.SchemaFactory;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The Elasticsearch-backed {@link ServiceDirectory}. Its presence as a bean is what activates core's capture path.
- * <p>
- * Enforces the write-path scope invariant and recomputes {@code mcpExposed} from the contract so the flag is never
- * trusted from input. Contract upserts leave the liveness fields alone; the liveness owner is the single writer for
- * those.
+ * The Elasticsearch-backed {@link ServiceDirectory}. Its presence as a bean is what activates the registration
+ * path's directory calls. Contract upserts leave the liveness fields alone; the liveness owner is the single writer
+ * for those.
  */
 @Slf4j
 @Component
-public class ElasticServiceDirectory implements ServiceDirectory {
+public class ElasticServiceDirectory extends AbstractServiceDirectory {
 
     private final ServiceDirectoryEntryRepository repository;
     private final EventBusService eventBusService;
@@ -40,24 +40,31 @@ public class ElasticServiceDirectory implements ServiceDirectory {
                                                                   .build();
 
     public ElasticServiceDirectory(ServiceDirectoryEntryRepository repository,
-                                   EventBusService eventBusService) {
+                                   EventBusService eventBusService,
+                                   SchemaFactory schemaFactory,
+                                   IdlConverterFactory idlConverterFactory) {
+        super(schemaFactory, idlConverterFactory);
         this.repository = repository;
         this.eventBusService = eventBusService;
     }
 
     @Override
-    public CompletableFuture<Void> register(ServiceDirectoryEntry entry) {
-        if (entry.getApplicationId() != null && entry.getOrganizationId() == null) {
-            return CompletableFuture.failedFuture(
-                    new IllegalArgumentException("applicationId requires organizationId for entry " + entry.getId()));
-        }
-        entry.setMcpExposed(computeMcpExposed(entry));
-        return repository.upsertContract(entry);
+    protected CompletableFuture<Void> registerMcpService(ServiceIdentifier serviceIdentifier,
+                                                         Class<?> serviceInterface) {
+        // buildEntry reflects the interface and generates schemas — skipped when the stored entry
+        // was already built by this kinotic version
+        return repository.findById(entryId(serviceIdentifier))
+                         .thenCompose(existing -> {
+                             if (existing != null && Objects.equals(existing.getSourceVersion(), getSourceVersion())) {
+                                 return CompletableFuture.completedFuture(null);
+                             }
+                             return repository.upsertContract(buildEntry(serviceIdentifier, serviceInterface));
+                         });
     }
 
     @Override
-    public CompletableFuture<Void> unregister(String entryId) {
-        return repository.setOnline(entryId, false, Instant.now());
+    protected CompletableFuture<Void> unregisterMcpService(ServiceIdentifier serviceIdentifier) {
+        return repository.setOnline(entryId(serviceIdentifier), false, Instant.now());
     }
 
     @Override
@@ -88,19 +95,6 @@ public class ElasticServiceDirectory implements ServiceDirectory {
                               .thenCompose(online -> repository.setOnlineByAddress(parsed.baseResource(),
                                                                                   online,
                                                                                   Instant.now()));
-    }
-
-    private boolean computeMcpExposed(ServiceDirectoryEntry entry) {
-        ServiceDefinition contract = entry.getContract();
-        if (contract == null || contract.getFunctions() == null) {
-            return false;
-        }
-        for (FunctionDefinition function : contract.getFunctions()) {
-            if (function.containsDecorator(McpToolC3Decorator.class)) {
-                return true;
-            }
-        }
-        return false;
     }
 
 }
