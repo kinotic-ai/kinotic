@@ -13,13 +13,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Creates all necessary verticles at runtime so multiple instances can be used
+ * TODO: remove when we no longer need as a reference.
  * Created By navidmitchell 🤯on 3/6/24
  */
 @RequiredArgsConstructor
 public class PersistenceVerticleFactory {
 
     // Common Deps
-    private final KinoticDomainProperties kinoticDomainProperties;
     private final SecurityContext securityContext;
     private final PersistenceProperties properties;
     private final SecurityService securityService;
@@ -31,11 +31,11 @@ public class PersistenceVerticleFactory {
     private final DelegatingGqlHandler delegatingGqlHandler;
 
 
-    public GqlVerticle createGqlVerticle(){
-        return new GqlVerticle(delegatingGqlHandler, properties, kinoticDomainProperties.getDomain().getSsl(), kinoticDomainProperties.getCors(), securityService, securityContext);
-    }
-
-    public OpenApiVerticle createOpenApiVerticle(){
-        return new OpenApiVerticle(properties, kinoticDomainProperties.getDomain().getSsl(), openApiVertxRouterFactory.createRouter());
-    }
+//    public GqlVerticle createGqlVerticle(){
+//        return new GqlVerticle(delegatingGqlHandler, properties, kinoticDomainProperties.getDomain().getSsl(), kinoticDomainProperties.getCors(), securityService, securityContext);
+//    }
+//
+//    public OpenApiVerticle createOpenApiVerticle(){
+//        return new OpenApiVerticle(properties, kinoticDomainProperties.getDomain().getSsl(), openApiVertxRouterFactory.createRouter());
+//    }
 }

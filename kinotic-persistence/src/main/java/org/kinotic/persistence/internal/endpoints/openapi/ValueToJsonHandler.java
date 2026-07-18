@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.model.FastestType;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.internal.utils.VertxWebUtil;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
@@ -49,12 +49,12 @@ class ValueToJsonHandler<T> implements Completable<T> {
                         byte[] bytes = objectMapper.writeValueAsBytes(value);
                         context.response().end(Buffer.buffer(bytes));
                     } catch (JacksonException e) {
-                        VertxWebUtil.writeException(context, e);
+                        ApiGatewayUtil.writeException(context, e);
                     }
                 }
             }
         } else {
-            VertxWebUtil.writeException(context, throwable);
+            ApiGatewayUtil.writeException(context, throwable);
         }
     }
 }

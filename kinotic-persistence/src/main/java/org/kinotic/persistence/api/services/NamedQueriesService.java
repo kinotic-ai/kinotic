@@ -2,7 +2,7 @@ package org.kinotic.persistence.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;

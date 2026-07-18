@@ -1,0 +1,41 @@
+package org.kinotic.domain.internal.config;
+
+import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.SecretStorageProperties;
+import org.kinotic.domain.internal.api.secret.AzureKeyVaultBackend;
+import org.kinotic.domain.internal.api.secret.ChronicleMapBackend;
+import org.kinotic.domain.internal.api.secret.InMemoryBackend;
+import org.kinotic.domain.internal.api.secret.SecretStorageBackend;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.io.IOException;
+
+@Configuration
+@Slf4j
+public class SecretStorageConfiguration {
+
+    @Bean
+    public SecretStorageBackend secretStorageBackend(KinoticDomainProperties properties) throws IOException {
+        SecretStorageProperties settings = properties.getDomain().getSecretStorage();
+        if (settings == null || settings.getBackend() == null) {
+            log.info("No secret storage backend configured, using in-memory storage");
+            return new InMemoryBackend();
+        }
+        return switch (settings.getBackend()) {
+            case HFT -> createChronicleMapBackend(settings);
+            case AZURE -> createAzureBackend(settings);
+        };
+    }
+
+    private ChronicleMapBackend createChronicleMapBackend(SecretStorageProperties secretStorageProperties) throws IOException {
+        log.info("Using Chronicle Map secret storage");
+        return new ChronicleMapBackend(secretStorageProperties.getChronicleMap());
+    }
+
+    private AzureKeyVaultBackend createAzureBackend(SecretStorageProperties settings) {
+        log.info("Using Azure Key Vault secret storage");
+        return new AzureKeyVaultBackend(settings.getAzure());
+    }
+}

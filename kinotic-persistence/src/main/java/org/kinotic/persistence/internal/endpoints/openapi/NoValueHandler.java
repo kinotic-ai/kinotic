@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.endpoints.openapi;
 import io.vertx.core.Completable;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.persistence.internal.utils.VertxWebUtil;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 
 /**
  * Created by Navíd Mitchell 🤪on 6/22/23.
@@ -16,7 +16,7 @@ class NoValueHandler implements Completable<Void> {
     @Override
     public void complete(Void aVoid, Throwable throwable) {
         if(throwable != null){
-            VertxWebUtil.writeException(context, throwable);
+            ApiGatewayUtil.writeException(context, throwable);
         }else {
             context.response().setStatusCode(200);
             context.response().end();

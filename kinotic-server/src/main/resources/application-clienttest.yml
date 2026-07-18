@@ -5,6 +5,3 @@ kinotic:
   disableOsApi: true
   disablePersistence: true
   disableGithub: true
-  secretStorage:
-    # clienttest drops the development profile that supplies this; SecretNameDeriver needs it at startup.
-    masterKey: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=

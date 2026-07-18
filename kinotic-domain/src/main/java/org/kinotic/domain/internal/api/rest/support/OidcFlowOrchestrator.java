@@ -4,21 +4,15 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
-import io.vertx.ext.auth.oauth2.OAuth2Auth;
-import io.vertx.ext.auth.oauth2.OAuth2AuthorizationURL;
-import io.vertx.ext.auth.oauth2.OAuth2FlowType;
-import io.vertx.ext.auth.oauth2.OAuth2Options;
-import io.vertx.ext.auth.oauth2.Oauth2Credentials;
+import io.vertx.ext.auth.oauth2.*;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.domain.api.model.iam.OidcConfiguration;
-import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
+import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -156,15 +150,6 @@ public class OidcFlowOrchestrator {
                                 .putAdditionalParameter("nonce", nonce)));
     }
 
-    private Future<OAuth2Auth> buildOAuth2Auth(BaseOidcConfiguration config) {
-        return Future.fromCompletionStage(secretReferenceResolver.resolve(secretNameOf(config)))
-                     .compose(secret -> createOAuth2Auth(config, secret))
-                     .onFailure(err -> {
-                         log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err);
-                         oauth2AuthCache.remove(config.getId());
-                     });
-    }
-
     /**
      * @param config       the persisted OIDC configuration (must have authority set)
      * @param clientSecret resolved client secret, or null for public-client flows
@@ -243,19 +228,13 @@ public class OidcFlowOrchestrator {
     }
 
     private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
-        return oauth2AuthCache.computeIfAbsent(config.getId(), id -> buildOAuth2Auth(config));
+        return oauth2AuthCache.computeIfAbsent(config.getId(), id ->
+                Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()))
+                      .compose(secret -> createOAuth2Auth(config, secret))
+                      .onFailure(err -> {
+                          log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err);
+                          oauth2AuthCache.remove(config.getId());
+                      }));
     }
 
-    /**
-     * Resolves the Key Vault secret name for confidential-client configs. Both concrete
-     * config types carry one today; the {@code default} branch yields {@code null} so a
-     * future public-client (PKCE-only) subclass needs no change here.
-     */
-    private String secretNameOf(BaseOidcConfiguration config) {
-        return switch (config) {
-            case OidcConfiguration c -> c.getSecretNameRef();
-            case OrgSignupOidcConfiguration c -> c.getSecretNameRef();
-            default -> null;
-        };
-    }
 }

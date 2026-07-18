@@ -69,11 +69,6 @@ public class KinoticProperties {
      */
     private IgniteProperties ignite = new IgniteProperties();
 
-    /**
-     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
-     */
-    private CorsProperties cors = new CorsProperties();
-
     private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
 
     /**
@@ -85,11 +80,6 @@ public class KinoticProperties {
      * The maximum amount of off-heap memory to use for Ignite cache storage.
      */
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
-
-    /**
-     * Secret storage configuration. If null, an in-memory backend is used.
-     */
-    private SecretStorageProperties secretStorage;
 
     /**
      * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).

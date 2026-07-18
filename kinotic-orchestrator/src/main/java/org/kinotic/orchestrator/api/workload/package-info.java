@@ -7,4 +7,4 @@ package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.internal.utils.DomainUtil;
+import org.kinotic.domain.api.utils.DomainUtil;

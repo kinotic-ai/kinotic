@@ -4,7 +4,7 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Resolves a named secret from external storage (typically Azure Key Vault) by its
- * known name. Distinct from {@link SecretStorageService} — that service stores secrets
+ * known name. Distinct from {@code SecretStorageService} — that service stores secrets
  * Kinotic itself owns under HKDF-derived opaque names, while this resolver fetches
  * secrets that an operator put in the vault under human-readable names (OIDC client
  * secrets, third-party API keys, etc.) and Kinotic only reads.

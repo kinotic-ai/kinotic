@@ -20,10 +20,4 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public class OrgSignupOidcConfiguration extends BaseOidcConfiguration {
 
-    /**
-     * Name of the OAuth client secret in the platform Azure Key Vault. The vault URI
-     * is global config (one Key Vault per Kinotic deployment); the resolver always
-     * fetches the latest version.
-     */
-    private String secretNameRef;
 }

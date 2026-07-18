@@ -20,3 +20,9 @@
 * Move get rid of kinotic-core/src/main/java/org/kinotic/core/api/config/SslHelper.java 
 
 
+# UI
+* Add link to github repo from project
+
+
+# Grafana Labs
+* We may want the multi tenancy to be org.app.tenant , so metrics can be displayed to our customers’ users. 

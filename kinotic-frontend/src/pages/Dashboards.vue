@@ -6,7 +6,6 @@ import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
 import CrudTable from '@/components/CrudTable.vue'
 import Button from 'primevue/button'
-import Menu from 'primevue/menu'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
 import { type IDataSource, type IterablePage, Pageable } from '@kinotic-ai/core'
@@ -26,8 +25,6 @@ const title = computed(() => `Dashboards${currentApplicationId.value ? ` – ${c
 const dashboardService = new DashboardEntityRepository()
 const crudTableRef = ref<any>(null)
 const tableKey = ref(0)
-const actionMenus = ref<any[]>([])
-const currentActionItem = ref<Dashboard | null>(null)
 const showDeleteModal = ref(false)
 const selectedDashboard = ref<Dashboard | null>(null)
 const isDeleting = ref(false)
@@ -111,8 +108,7 @@ const tableHeaders = [
   { field: 'name', header: 'Name', sortable: true },
   { field: 'description', header: 'Description', sortable: true },
   { field: 'created', header: 'Created', sortable: true },
-  { field: 'updated', header: 'Updated', sortable: true },
-  { field: 'actions', header: '', sortable: false }
+  { field: 'updated', header: 'Updated', sortable: true }
 ]
 
 const openDeleteModal = (dashboard: Dashboard) => {
@@ -153,14 +149,6 @@ const deleteDashboard = async () => {
     })
   } finally {
     isDeleting.value = false
-  }
-}
-
-const toggleMenu = (event: Event, item: Dashboard, index: number) => {
-  currentActionItem.value = item
-  const menu = actionMenus.value[index]
-  if (menu) {
-    menu.toggle(event)
   }
 }
 
@@ -213,8 +201,7 @@ watch(() => router.currentRoute.value.query.refresh, () => {
         :headers="tableHeaders"
         :defaultPageSize="50"
         :isShowAddNew="true"
-        :isShowDelete="true"
-        @delete="deleteDashboard"
+        :row-actions="getActionMenu"
         @onRowClick="openDashboard"
         @add-item="createNewDashboard"
         createNewButtonText="New dashboard"
@@ -225,25 +212,6 @@ watch(() => router.currentRoute.value.query.refresh, () => {
         </template>
         <template #item.updated="{ item }">
           {{ item.updated ? new Date(item.updated).toLocaleDateString() : '-' }}
-        </template>
-        <template #item.actions="{ item }">
-          <div class="flex items-center justify-center">
-            <Button
-              icon="pi pi-ellipsis-v"
-              @click.stop="(event) => toggleMenu(event, item, item.id)"
-              aria-haspopup="true"
-              :aria-controls="'action_menu_' + item.id"
-              type="button"
-              severity="secondary"
-              variant="text"
-            />
-            <Menu
-              :ref="(el) => (actionMenus[item.id] = el)"
-              :model="getActionMenu(item)"
-              :popup="true"
-              :id="'action_menu_' + item.id"
-            />
-          </div>
         </template>
       </CrudTable>
     </div>

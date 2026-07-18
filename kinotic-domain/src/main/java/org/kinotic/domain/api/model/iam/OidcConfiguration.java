@@ -40,12 +40,6 @@ public class OidcConfiguration extends BaseOidcConfiguration implements Organiza
      */
     private String organizationId;
 
-    /**
-     * Name of the OAuth client secret in the platform Azure Key Vault. The vault URI
-     * is global config (one Key Vault per Kinotic deployment); the resolver always
-     * fetches the latest version.
-     */
-    private String secretNameRef;
 
     /**
      * Optional cluster-internal URL used for backchannel token validation when the

@@ -14,9 +14,7 @@ import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.core.api.config.SslHelper;
-import org.kinotic.core.internal.utils.CorsUtil;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.springframework.stereotype.Component;
@@ -31,8 +29,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ApiGatewayVertcleFactory {
 
+    private static final String STOMP_WEBSOCKET_PATH = "/v1";
+
     private final KinoticApiGatewayProperties properties;
-    private final KinoticDomainProperties domainProperties;
     private final StompServerHandlerFactory stompServerHandlerFactory;
     private final List<SuppliesGatewayRoutes> gatewayRoutes;
     private final HealthChecks healthChecks;
@@ -40,13 +39,14 @@ public class ApiGatewayVertcleFactory {
     private final SessionStore sessionStore;
 
     public StompServerVerticle createApiGatewayVerticle(){
-        Router router = Router.router(vertx);
-
-        // CORS first — the SPA is a different origin from this gateway (portal.kinotic.ai
-        // vs api.kinotic.ai in prod, vite's :5173 in dev). They're same-site, so the
-        // SameSite=Lax session cookie flows; credentialed CORS (kinotic.cors.*) lets the
-        // cross-origin login fetch store it. Shared with the openapi/graphql routes.
-        router.route().handler(CorsUtil.createCorsHandler(properties.getCors()));
+        // Router arrives pre-wired with CORS and the exception-converting failure handler, so an
+        // unhandled failure from any mounted route renders as JSON with a mapped status instead of
+        // Vert.x's default bare reason-phrase 500. CORS: the SPA is a different origin from this
+        // gateway (portal.kinotic.ai vs api.kinotic.ai in prod, vite's :5173 in dev). They're
+        // same-site, so the SameSite=Lax session cookie flows; credentialed CORS
+        // (kinotic.apiGateway.cors.*) lets the cross-origin login fetch store it. Shared with the
+        // openapi/graphql routes.
+        Router router = ApiGatewayUtil.createRouterWithCors(vertx, properties.getApiGateway().getCors());
 
         // Health check on the api-gateway port so probes work even when the static
         // web-server (9090) is disabled in KinD/Azure.
@@ -70,23 +70,25 @@ public class ApiGatewayVertcleFactory {
         // here, so a disabled module contributes nothing and the gateway still boots.
         gatewayRoutes.forEach(routes -> routes.mountRoutes(router));
 
-        StompServerOptions stompServerOptions = properties.getApiGateway().getStomp();
-        // we override the body length with the continuum properties
-        stompServerOptions.setMaxBodyLength(properties.getMaxEventPayloadSize());
-
         // The STOMP WebSocket handshake authenticates from the browser session, so the
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
-        router.route(stompServerOptions.getWebsocketPath()).handler(sessionHandler);
+        router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
 
-        HttpServerOptions serverOptions = new HttpServerOptions();
-        serverOptions.setWebSocketSubProtocols(List.of("v12.stomp"));
-        serverOptions.setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
-        SslHelper.applySsl(serverOptions, domainProperties.getDomain().getSsl());
+        StompServerOptions stompServerOptions = new StompServerOptions()
+                .setWebsocketPath(STOMP_WEBSOCKET_PATH)
+                .setDebugEnabled(properties.isDebug())
+                .setMaxBodyLength(properties.getMaxEventPayloadSize());
+
+        HttpServerOptions serverOptions = new HttpServerOptions()
+                .setPort(properties.getApiGateway().getStompPort())
+                .setWebSocketSubProtocols(List.of("v12.stomp"))
+                .setMaxWebSocketFrameSize(properties.getMaxEventPayloadSize());
+        ApiGatewayUtil.applySsl(serverOptions, properties.getApiGateway().getSsl());
 
         return StompServerVerticleFactory.create(serverOptions, stompServerOptions, stompServerHandlerFactory, router);
     }
 
     public WebServerVerticle createWebServerVerticle(){
-        return new WebServerVerticle(properties.getApiGateway().getWebServer(), domainProperties.getDomain().getSsl());
+        return new WebServerVerticle(properties.getApiGateway().getWebServer(), properties.getApiGateway().getSsl());
     }
 }

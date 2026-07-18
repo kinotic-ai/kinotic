@@ -12,6 +12,8 @@ import type { CrudHeader } from "@/types/CrudHeader";
 import type { Identifiable } from "@kinotic-ai/core";
 import { onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import { useToast } from "primevue/usetoast";
+import { showErrorToast } from "@/util/helpers";
 import DatetimeUtil from "@/util/DatetimeUtil";
 import { createDebug } from "@/util/debug";
 import { isDark as darkMode } from '@/composables/useTheme'
@@ -20,6 +22,7 @@ const debug = createDebug('application-list');
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false },
@@ -115,8 +118,17 @@ function onApplicationSubmit(created: Application): void {
   showSidebar.value = false;
 }
 
-function onEditItem(item: Identifiable<string>): void {
-  router.push(`${route.path}/edit/${item.id}`);
+async function deleteApplication(item: Application): Promise<void> {
+  try {
+    await dataSource.deleteById(item.id!);
+    toast.add({ severity: "success", summary: "Application deleted", life: 4000 });
+    APPLICATION_STATE.allApplications = APPLICATION_STATE.allApplications.filter(
+      (a) => a.id !== item.id
+    );
+    refreshTable();
+  } catch (err) {
+    showErrorToast(toast, "Failed to delete application", err, { life: 8000 });
+  }
 }
 </script>
 
@@ -133,10 +145,11 @@ function onEditItem(item: Identifiable<string>): void {
       :singleExpand="false"
       :enableViewSwitcher="true"
       emptyStateText="No applications yet"
+      :isShowDelete="true"
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddItem"
-      @edit-item="onEditItem"
+      @delete-item="deleteApplication"
       @onRowClick="toApplicationPage"
       class="application-list__table !text-sm"
     >

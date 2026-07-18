@@ -41,7 +41,9 @@ import java.util.concurrent.TimeUnit;
  * Slugifies the project name with the same {@link Slugify} configuration used by
  * {@code DefaultProjectService} when deriving the project id, so a name that
  * passes the platform-side id-uniqueness check produces an identically-shaped
- * GitHub repo name.
+ * GitHub repo name. That slug is also exposed to the templates as
+ * {@code projectSlug} for values that must be identifiers rather than the raw name;
+ * the repo name is the same slug truncated to GitHub's repo-name length limit.
  */
 @Slf4j
 @Component
@@ -60,11 +62,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     @Override
     public CompletableFuture<Project> provision(Project project) {
+        Validate.notBlank(project.getName(), "Project name must not be blank");
         String repoName = toRepoName(project.getName());
-        if (repoName.isEmpty()) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException(
-                    "Project name '" + project.getName() + "' produces an empty GitHub repository name"));
-        }
         return requireInstallation().compose(install -> {
             long installationId = install.getGithubInstallationId();
             // repoId is null — the repo doesn't exist yet, so we mint an
@@ -208,7 +207,12 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Map<String, Object> contextFor(Project project) {
+        // projectName is the human-facing name; projectSlug is its slug, for template
+        // values that must be npm identifiers (e.g. the package.json name), which the
+        // raw name is not. It is not truncated to the repo-name cap: an npm identifier
+        // shouldn't inherit GitHub's repo-name length limit.
         return Map.of("projectName", project.getName(),
+                      "projectSlug", SLUGIFY.slugify(project.getName()),
                       "organization", project.getOrganizationId(),
                       "application", project.getApplicationId());
     }
@@ -244,7 +248,6 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private static String toRepoName(String projectName) {
-        if (projectName == null) return "";
         String s = SLUGIFY.slugify(projectName);
         if (s.length() > GITHUB_REPO_NAME_MAX) s = s.substring(0, GITHUB_REPO_NAME_MAX);
         return s;

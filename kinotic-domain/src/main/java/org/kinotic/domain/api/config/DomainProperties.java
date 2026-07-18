@@ -4,7 +4,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.core.api.config.SslProperties;
 
 import java.time.Duration;
 import java.util.List;
@@ -37,11 +36,6 @@ public class DomainProperties {
     private String apiBaseUrl = null;
 
     /**
-     * SSL/TLS configuration for all Vert.x HTTP servers.
-     */
-    private SslProperties ssl = new SslProperties();
-
-    /**
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();
@@ -50,6 +44,11 @@ public class DomainProperties {
      * Loki configuration for the {@code LogService}.
      */
     private LokiProperties loki = new LokiProperties();
+
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageProperties secretStorage;
 
     @NotNull
     private Duration elasticConnectionTimeout = Duration.ofSeconds(5);

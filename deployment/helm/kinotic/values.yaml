@@ -32,12 +32,11 @@ properties:
 
 # Kinotic platform — mirrors the Spring property structure:
 #   kinotic.persistence.*  → ports, ES, health
-#   kinotic.apiGateway.*   → STOMP, static web server
-#   kinotic.domain.*       → public URLs, TLS, email, platform OIDC providers
-#   kinotic.cors.*         → CORS (allowed origins, credentials)
+#   kinotic.apiGateway.*   → STOMP, static web server, TLS, CORS
+#   kinotic.domain.*       → public URLs, email, platform OIDC providers
 #   kinotic.ignite.*       → cluster (set in application-kubernetes.yml)
 kinotic:
-  # kinotic.domain.* — domain-layer configuration (public URLs, TLS, email).
+  # kinotic.domain.* — domain-layer configuration (public URLs, email).
   domain:
     # Public base URL of the SPA (no trailing slash) — used for verification email links
     # and post-OIDC SPA redirects. Must be set per-environment.
@@ -77,16 +76,17 @@ kinotic:
     username: "elastic"
     secretName: "kinotic-es-es-elastic-user"
     secretKey: "elastic"
-  # kinotic.apiGateway.stomp.*
+  # STOMP listen port — consumed by the deployment/service templates to expose the container.
+  # Keep in sync with the app's kinotic.apiGateway.stompPort (default 58503); the chart does not
+  # inject it as an env var, so overriding here only moves the k8s plumbing, not the app's port.
   stomp:
     port: 58503
-    websocketPath: /v1
   # kinotic.ignite.cluster.* — used by ignite-service template
   cluster:
     discoveryPort: 47500
     communicationPort: 47100
 
-# TLS (kinotic.domain.ssl.*)
+# TLS (kinotic.apiGateway.ssl.*)
 tls:
   enabled: false
   secretName: kinotic-tls
@@ -133,7 +133,7 @@ platformSecrets:
     secretStorageMasterKeys: kinotic-secret-storage-master-keys
 
 # OIDC client secrets are now resolved at runtime by SecretReferenceResolver — Azure Key
-# Vault in production (kinotic.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
+# Vault in production (kinotic.domain.secretStorage.azure.vaultUrl) or KINOTIC_AKV_<sanitizedName>
 # env vars in dev/local. The secret name on each OidcConfiguration row points at the AKV
 # entry; nothing is mounted into the pod.
 

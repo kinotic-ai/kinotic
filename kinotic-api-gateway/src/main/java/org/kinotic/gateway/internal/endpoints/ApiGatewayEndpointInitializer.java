@@ -7,6 +7,7 @@ import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,28 +27,32 @@ public class ApiGatewayEndpointInitializer {
 
     private final ApiGatewayVertcleFactory apiGatewayVertcleFactory;
     private final KinoticProperties kinoticProperties;
-    private final KinoticApiGatewayProperties apiGatewayProperties;
+    private final ApiGatewayProperties apiGatewayProperties;
     private final Vertx vertx;
 
     @PostConstruct
     public void init(){
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
-        log.info("{} Cores will be used for Kinotic Endpoints", numToDeploy);
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
-        log.info("Deploying {} API Gateway Endpoint(s)", numToDeploy);
         vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
 
-        if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {
+        if (apiGatewayProperties.getWebServer().isEnabled()) {
             vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions());
         }
     }
 
-        @EventListener
+    @EventListener
     public void onApplicationReadyEvent(ApplicationReadyEvent event) {
-            if (apiGatewayProperties.getApiGateway().getWebServer().isEnabled()) {
-                log.info("Deploying static web server on port {}", apiGatewayProperties.getApiGateway().getWebServer().getPort());
-            }
+        int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
+        log.info("Deploying {} API Gateway Endpoint(s), 1 per core", numToDeploy);
+
+
+        log.info("Deploying API Server at http{}://{}", apiGatewayProperties.getSsl().isEnabled() ? "s" : "", apiGatewayProperties.getStompPort());
+
+        if (apiGatewayProperties.getWebServer().isEnabled()) {
+            log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());
+        }
     }
 
 }

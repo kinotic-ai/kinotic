@@ -129,8 +129,14 @@ async function onProjectSubmit(): Promise<void> {
   }
 }
 
-function onEditItem(item: Identifiable<string>): void {
-  router.push(`${route.path}/edit/${item.id}`)
+async function deleteProject(item: Project): Promise<void> {
+  try {
+    await Kinotic.projects.deleteById(item.id!)
+    toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
+    refreshTable()
+  } catch (err) {
+    showErrorToast(toast, 'Failed to delete project', err, { life: 8000 })
+  }
 }
 
 async function toProjectPage(item: Identifiable<string>): Promise<void> {
@@ -193,10 +199,11 @@ async function retryRepoInit(project: Project): Promise<void> {
       :search="searchText"
       @update:search="updateRouteQuery"
       @add-item="onAddProject"
-      @edit-item="onEditItem"
+      @delete-item="deleteProject"
       @onRowClick="toProjectPage"
       createNewButtonText="New Project"
       emptyStateText="No projects yet"
+      :isShowDelete="true"
       :isShowAddNew="true"
       class="!text-sm"
     >

@@ -1,266 +1,111 @@
+# Three-node kinotic-server cluster for integration testing.
+#
+# Clustering uses Ignite SHAREDFS discovery: every node rendezvous through the shared
+# /sharedfs bind mount, so they must all point at the same host directory.
+#
+# Prerequisites the compose file does not provision:
+#   - An Elasticsearch reachable at KINOTIC_ELASTIC_{SCHEME,HOST,PORT} (set via shell/.env).
+#   - The kinotic migration must already have run against that Elasticsearch.
+# Each node self-seeds its own dev platform secrets (development profile), so this cluster is
+# for wiring/cluster-formation testing, not cross-node JWT validation.
+
+x-kinotic-node: &kinotic-node
+  image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0-SNAPSHOT}
+  pull_policy: always
+  healthcheck:
+    test: ["CMD", "/workspace/health-check"]
+    interval: 15s
+    timeout: 10s
+    retries: 5
+    start_period: 120s
+  volumes:
+    - type: bind
+      source: ${HOME}/kinotic/sharedfs
+      target: /sharedfs
+      read_only: false
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  deploy:
+    resources:
+      reservations:
+        memory: 4G
+      limits:
+        memory: 4G
+
+x-kinotic-env: &kinotic-env
+  BPL_JVM_HEAD_ROOM: 10
+  JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+  KINOTIC_MAXOFFHEAPMEMORY: 419430400
+  SPRING_PROFILES_ACTIVE: development,compose
+  # Ignite SHAREDFS discovery — all nodes coordinate through the shared /sharedfs volume
+  KINOTIC_DISABLECLUSTERING: "false"
+  KINOTIC_IGNITE_DISCOVERYTYPE: SHAREDFS
+  KINOTIC_IGNITE_JOINTIMEOUTMS: 0
+  KINOTIC_IGNITE_SHAREDFSPATH: /sharedfs
+  # External Elasticsearch — connection supplied through the KINOTIC_ELASTIC_* shell/.env vars
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: ${KINOTIC_ELASTIC_SCHEME}
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: ${KINOTIC_ELASTIC_HOST}
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: ${KINOTIC_ELASTIC_PORT}
+  KINOTIC_DOMAIN_EMAIL_ENABLED: "false"
+  # Spring AI autoconfiguration requires a key to be present; a dummy is fine for cluster tests
+  SPRING_AI_OPENAI_API-KEY: "noop"
+  SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
+  SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
+  OTEL_METRICS_EXPORTER: none
+  OTEL_TRACES_EXPORTER: none
+  OTEL_LOGS_EXPORTER: none
+  OTEL_SERVICE_NAME: kinotic-server
+  # Paketo THC probe targets the api-gateway /health route, which is mounted on the STOMP port
+  THC_PATH: /health
 
 services:
-  structures-node1:
-    image: docker.io/kinoticai/structures-server:3.6.0-SNAPSHOT
-    healthcheck:
-      test: ["CMD", "/workspace/health-check"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+  kinotic-node1:
+    <<: *kinotic-node
+    container_name: kinotic-node1
     environment:
-      BPL_JVM_HEAD_ROOM: 10
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
-      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
-      CONTINUUM_GATEWAY_STOMP_PORT: 58501
-
-      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
-
-      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node1.csv"
-
-      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
-      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
-      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47501
-      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47101
-      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
-      # Test instance connects via localhost:47501 which maps to this container
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
-      # Static IP addresses for all nodes in the cluster
-      # Format: host:port,host:port,...
-      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
-      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
-      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
-
-      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
-      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
-      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
-      STRUCTURES_HEALTH_CHECK_PATH: /health
-      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: true
-      STRUCTURES_WEB_SERVER_PORT: 9091
-      STRUCTURES_OPEN_API_PORT: 8081
-      STRUCTURES_GRAPHQL_PORT: 4001
-      OTEL_METRICS_EXPORTER: none
-      OTEL_TRACES_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
-
-      SPRING_AI_OPENAI_API_KEY: "noop"
-      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
-      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
-      SPRING_AI_OPENAI_API-KEY: "DUMMY"
-      
-      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
-      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
-      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
-      STRUCTURES_BASE_URL: http://127.0.0.1
-      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
-      STRUCTURES_OPEN_API_PATH: /api/
-      STRUCTURES_GRAPHQL_PATH: /graphql/
-      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
-      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
-      OTEL_SERVICE_NAME: structures-server
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
-
-    volumes:
-      - type: bind
-        source: ${HOME}/structures/sharedfs
-        target: /sharedfs
-        read_only: false
-      - type: bind
-        source: ${HOME}/structures/eviction-data
-        target: /eviction-data
-        read_only: false
+      <<: *kinotic-env
+      KINOTIC_APIGATEWAY_STOMPPORT: 58501
+      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9091
+      KINOTIC_IGNITE_DISCOVERYPORT: 47501
+      KINOTIC_IGNITE_COMMUNICATIONPORT: 47101
+      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9091"
+      THC_PORT: 58501
     ports:
       - "9091:9091"
-      - "8081:8081"
-      - "4001:4001"
       - "47501:47501"
       - "47101:47101"
       - "58501:58501"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    deploy:
-      resources:
-        reservations:
-          memory: 4G
-        limits:
-          memory: 4G
 
-  structures-node2:
-    image: docker.io/kinoticai/structures-server:3.6.0-SNAPSHOT
-    healthcheck:
-      test: ["CMD", "/workspace/health-check"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+  kinotic-node2:
+    <<: *kinotic-node
+    container_name: kinotic-node2
     environment:
-      BPL_JVM_HEAD_ROOM: 10
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
-      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
-      CONTINUUM_GATEWAY_STOMP_PORT: 58502
-
-      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
-
-      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node2.csv"
-
-      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
-      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
-      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47502
-      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47102
-      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
-      # Test instance connects via localhost:47502 which maps to this container
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
-      # Static IP addresses for all nodes in the cluster
-      # Format: host:port,host:port,...
-      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
-      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
-      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
-
-      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
-      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
-      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
-      STRUCTURES_HEALTH_CHECK_PATH: /health
-      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false
-      STRUCTURES_WEB_SERVER_PORT: 9092
-      STRUCTURES_OPEN_API_PORT: 8082
-      STRUCTURES_GRAPHQL_PORT: 4002
-      OTEL_METRICS_EXPORTER: none
-      OTEL_TRACES_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
-
-      SPRING_AI_OPENAI_API_KEY: "noop"
-      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
-      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
-      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
-      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
-      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
-      STRUCTURES_BASE_URL: http://127.0.0.1
-      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
-      STRUCTURES_OPEN_API_PATH: /api/
-      STRUCTURES_GRAPHQL_PATH: /graphql/
-      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
-      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
-      OTEL_SERVICE_NAME: structures-server
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
-      SPRING_AI_OPENAI_API-KEY: "DUMMY"
-
-    volumes:
-      - type: bind
-        source: ${HOME}/structures/sharedfs
-        target: /sharedfs
-        read_only: false
-      - type: bind
-        source: ${HOME}/structures/eviction-data
-        target: /eviction-data
-        read_only: false
+      <<: *kinotic-env
+      KINOTIC_APIGATEWAY_STOMPPORT: 58502
+      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9092
+      KINOTIC_IGNITE_DISCOVERYPORT: 47502
+      KINOTIC_IGNITE_COMMUNICATIONPORT: 47102
+      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9092"
+      THC_PORT: 58502
     ports:
       - "9092:9092"
-      - "8082:8082"
-      - "4002:4002"
       - "47502:47502"
       - "47102:47102"
       - "58502:58502"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    deploy:
-      resources:
-        reservations:
-          memory: 4G
-        limits:
-          memory: 4G
 
-  structures-node3:
-    image: docker.io/kinoticai/structures-server:3.6.0-SNAPSHOT
-    healthcheck:
-      test: ["CMD", "/workspace/health-check"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+  kinotic-node3:
+    <<: *kinotic-node
+    container_name: kinotic-node3
     environment:
-      BPL_JVM_HEAD_ROOM: 10
-      JAVA_TOOL_OPTIONS: -Djava.net.preferIPv4Stack=true -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar
-      CONTINUUM_MAX_OFF_HEAP_MEMORY: 419430400
-      CONTINUUM_GATEWAY_STOMP_PORT: 58503
-
-      SPRING_PROFILES_ACTIVE: production,debug,eviction-tracking
-
-      STRUCTURES_CACHE_EVICTION_CSV_PATH: "/eviction-data/evictions-structures-node3.csv"
-
-      CONTINUUM_CLUSTER_DISCOVERY_TYPE: SHAREDFS
-      CONTINUUM_CLUSTER_DISABLE_CLUSTERING: false
-      CONTINUUM_CLUSTER_JOIN_TIMEOUT_MS: 0
-      CONTINUUM_CLUSTER_DISCOVERY_PORT: 47503
-      CONTINUUM_CLUSTER_COMMUNICATION_PORT: 47103
-      # Container local address: bind to 0.0.0.0 (all interfaces) for port mapping
-      # Test instance connects via localhost:47503 which maps to this container
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESS: 0.0.0.0
-      # Static IP addresses for all nodes in the cluster
-      # Format: host:port,host:port,...
-      # Test instance: host.docker.internal:47500 (containers can reach via host gateway)
-      # Containers: localhost:47501-47503 (test instance can reach via port mapping)
-      # CONTINUUM_CLUSTER_LOCAL_ADDRESSES: host.docker.internal:47500,structures-node1:47501,structures-node2:47502,structures-node3:47503
-      CONTINUUM_CLUSTER_SHARED_FS_PATH: /sharedfs
-
-      STRUCTURES_ELASTICCONNECTIONS_0_SCHEME: ${STRUCTURES_ELASTIC_SCHEME}
-      STRUCTURES_ELASTICCONNECTIONS_0_HOST: ${STRUCTURES_ELASTIC_HOST}
-      STRUCTURES_ELASTICCONNECTIONS_0_PORT: ${STRUCTURES_ELASTIC_PORT}
-      STRUCTURES_HEALTH_CHECK_PATH: /health
-      STRUCTURES_INITIALIZE_WITH_SAMPLE_DATA: false
-      STRUCTURES_WEB_SERVER_PORT: 9093
-      STRUCTURES_OPEN_API_PORT: 8083
-      STRUCTURES_GRAPHQL_PORT: 4003
-      OTEL_METRICS_EXPORTER: none
-      OTEL_TRACES_EXPORTER: none
-      OTEL_LOGS_EXPORTER: none
-
-      SPRING_AI_OPENAI_API_KEY: "noop"
-      SPRING_AI_OPENAI_BASE_URL: "https://api.x.ai"
-      SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL: "grok-4"
-      STRUCTURES_TENANT_ID_FIELD_NAME: tenantId
-      STRUCTURES_ELASTIC_CONNECTION_TIMEOUT: 5s
-      STRUCTURES_ELASTIC_SOCKET_TIMEOUT: 60s
-      STRUCTURES_BASE_URL: http://127.0.0.1
-      STRUCTURES_OPEN_API_SECURITY_TYPE: BASIC
-      STRUCTURES_OPEN_API_PATH: /api/
-      STRUCTURES_GRAPHQL_PATH: /graphql/
-      STRUCTURES_CORS_ALLOWED_ORIGIN_PATTERN: '*'
-      STRUCTURES_ENABLE_STATIC_FILE_SERVER: true
-      OTEL_SERVICE_NAME: structures-server
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_RESOURCE_ATTRIBUTES: service.name=structures-server
-      SPRING_AI_OPENAI_API-KEY: "DUMMY"
-
-    volumes:
-      - type: bind
-        source: ${HOME}/structures/sharedfs
-        target: /sharedfs
-        read_only: false
-      - type: bind
-        source: ${HOME}/structures/eviction-data
-        target: /eviction-data
-        read_only: false
+      <<: *kinotic-env
+      KINOTIC_APIGATEWAY_STOMPPORT: 58503
+      KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9093
+      KINOTIC_IGNITE_DISCOVERYPORT: 47503
+      KINOTIC_IGNITE_COMMUNICATIONPORT: 47103
+      KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9093"
+      THC_PORT: 58503
     ports:
       - "9093:9093"
-      - "8083:8083"
-      - "4003:4003"
       - "47503:47503"
       - "47103:47103"
       - "58503:58503"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    deploy:
-      resources:
-        reservations:
-          memory: 4G
-        limits:
-          memory: 4G
