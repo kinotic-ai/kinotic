@@ -7,14 +7,15 @@ import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.internal.api.directory.ServiceDirectoryCapture;
 import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
@@ -34,12 +35,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
     private final ServiceRegistry serviceRegistry;
-    private final ServiceDirectoryCapture serviceDirectoryCapture;
+    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
 
     public ServiceRegistrationBeanPostProcessor(ServiceRegistry serviceRegistry,
-                                                ServiceDirectoryCapture serviceDirectoryCapture) {
+                                                ObjectProvider<ServiceDirectory> serviceDirectoryProvider) {
         this.serviceRegistry = serviceRegistry;
-        this.serviceDirectoryCapture = serviceDirectoryCapture;
+        this.serviceDirectoryProvider = serviceDirectoryProvider;
     }
 
     @Override
@@ -60,11 +61,21 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 log.error("Error Registering service {}", serviceIdentifier, e);
             }
 
-            // Directory capture is a secondary concern; a bad @McpTool annotation must not crash service registration
-            try {
-                serviceDirectoryCapture.capture(serviceIdentifier, clazz);
-            } catch (Exception e) {
-                log.error("Failed to capture MCP tools for service {}: {}", serviceIdentifier, e.getMessage(), e);
+            // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
+            // With no directory bean present nothing at all happens here.
+            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
+            if (serviceDirectory != null) {
+                try {
+                    serviceDirectory.register(serviceIdentifier, clazz)
+                                    .whenComplete((ignored, throwable) -> {
+                                        if (throwable != null) {
+                                            log.error("Failed to register service {} in the ServiceDirectory",
+                                                      serviceIdentifier, throwable);
+                                        }
+                                    });
+                } catch (Exception e) {
+                    log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
+                }
             }
         });
         return bean;
@@ -87,7 +98,20 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 log.error("Error Un-Registering service {}", serviceIdentifier, e);
             }
 
-            serviceDirectoryCapture.remove(serviceIdentifier, clazz);
+            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
+            if (serviceDirectory != null) {
+                try {
+                    serviceDirectory.unregister(serviceIdentifier, clazz)
+                                    .whenComplete((ignored, throwable) -> {
+                                        if (throwable != null) {
+                                            log.error("Failed to mark service {} offline in the ServiceDirectory",
+                                                      serviceIdentifier, throwable);
+                                        }
+                                    });
+                } catch (Exception e) {
+                    log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
+                }
+            }
         });
     }
 

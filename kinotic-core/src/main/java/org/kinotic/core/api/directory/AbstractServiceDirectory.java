@@ -1,10 +1,8 @@
-package org.kinotic.core.internal.api.directory;
+package org.kinotic.core.api.directory;
 
-import lombok.extern.slf4j.Slf4j;
+import lombok.AccessLevel;
+import lombok.Getter;
 import org.kinotic.core.api.annotations.McpTool;
-import org.kinotic.core.api.directory.McpToolDefinition;
-import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -17,10 +15,8 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -29,83 +25,82 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /**
- * Captures MCP-exposed published services into the {@link ServiceDirectory} at registration time.
- * <p>
- * The directory is resolved optionally, so a standalone core deployment with no directory implementation does no
- * capture work at all. When a directory is present, a service is captured only if at least one of its methods carries
- * {@link McpTool}; the C3 contract, MCP tool decorators, and ready-to-serve tool definitions are built once here and
- * stored on the entry.
+ * Base class for {@link ServiceDirectory} implementations. Handles the MCP exposure check on
+ * {@link #register}/{@link #unregister} — a service with no {@link McpTool} function costs nothing beyond an
+ * annotation scan — and provides {@link #buildEntry} so an implementation performs the contract reflection and
+ * schema generation only when it determines the entry actually needs to be stored.
  */
-@Slf4j
-@Component
-public class ServiceDirectoryCapture {
+public abstract class AbstractServiceDirectory implements ServiceDirectory {
 
     private final SchemaFactory schemaFactory;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
-    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     private final McpJsonSchemaGenerator schemaGenerator;
+
+    /**
+     * The version stamped on entries built by {@link #buildEntry}, so an implementation can skip rebuilding an entry
+     * whose stored {@code sourceVersion} already matches.
+     */
+    @Getter(AccessLevel.PROTECTED)
     private final String sourceVersion;
 
-    public ServiceDirectoryCapture(SchemaFactory schemaFactory,
-                                     IdlConverterFactory idlConverterFactory,
-                                     ReactiveAdapterRegistry reactiveAdapterRegistry,
-                                     ObjectProvider<ServiceDirectory> serviceDirectoryProvider) {
+    protected AbstractServiceDirectory(SchemaFactory schemaFactory,
+                                       IdlConverterFactory idlConverterFactory,
+                                       ReactiveAdapterRegistry reactiveAdapterRegistry) {
         this.schemaFactory = schemaFactory;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
-        this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
-        this.sourceVersion = ServiceDirectoryCapture.class.getPackage().getImplementationVersion();
+        this.sourceVersion = AbstractServiceDirectory.class.getPackage().getImplementationVersion();
+    }
+
+    @Override
+    public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (mcpMethods(serviceInterface).isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return registerMcpService(serviceIdentifier, serviceInterface);
+    }
+
+    @Override
+    public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (mcpMethods(serviceInterface).isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return unregisterMcpService(serviceIdentifier);
     }
 
     /**
-     * Captures the service into the directory if a directory implementation is present and the interface is
-     * MCP-exposed.
+     * Stores the contract of an MCP-exposed service. Build the entry with {@link #buildEntry} only when it needs to
+     * be stored — an entry whose stored {@code sourceVersion} matches {@link #getSourceVersion()} is already current.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
-     * @throws IllegalStateException if an {@code @McpTool} function has a streaming return type or two functions
-     *                               produce the same tool name
+     * @return a {@link CompletableFuture} completing when registration is handled
      */
-    public void capture(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        ServiceDirectory directory = serviceDirectoryProvider.getIfAvailable();
-        if (directory == null) {
-            return;
-        }
-        Map<String, Method> mcpMethods = mcpMethods(serviceInterface);
-        if (mcpMethods.isEmpty()) {
-            return;
-        }
-
-        ServiceDirectoryEntry entry = buildEntry(serviceIdentifier, serviceInterface, mcpMethods);
-        directory.register(entry).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, throwable);
-            }
-        });
-    }
+    protected abstract CompletableFuture<Void> registerMcpService(ServiceIdentifier serviceIdentifier,
+                                                                  Class<?> serviceInterface);
 
     /**
-     * Marks a previously captured service offline. No-op when no directory is present or the interface is not
-     * MCP-exposed.
+     * Marks the entry for an MCP-exposed service offline. Entries are never deleted; a known-but-offline service is
+     * a feature.
      * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being unregistered
+     * @return a {@link CompletableFuture} completing when the entry is marked offline
      */
-    public void remove(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        ServiceDirectory directory = serviceDirectoryProvider.getIfAvailable();
-        if (directory == null || mcpMethods(serviceInterface).isEmpty()) {
-            return;
-        }
-        directory.unregister(entryId(serviceIdentifier)).whenComplete((ignored, throwable) -> {
-            if (throwable != null) {
-                log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, throwable);
-            }
-        });
-    }
+    protected abstract CompletableFuture<Void> unregisterMcpService(ServiceIdentifier serviceIdentifier);
 
-    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
-                                             Class<?> serviceInterface,
-                                             Map<String, Method> mcpMethods) {
+    /**
+     * Builds the complete directory entry for an MCP-exposed service: the C3 contract, MCP tool decorators, and
+     * ready-to-serve tool definitions. This performs reflection and schema generation — call it only when the entry
+     * will be stored.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being registered
+     * @return the entry ready to store
+     * @throws IllegalStateException if an {@link McpTool} function has a streaming return type or two functions
+     *                               produce the same tool name
+     */
+    protected ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        Map<String, Method> mcpMethods = mcpMethods(serviceInterface);
         NamespaceDefinition namespace = schemaFactory.createForService(serviceInterface);
         ServiceDefinition contract = namespace.getServices().iterator().next();
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace);
@@ -153,6 +148,19 @@ public class ServiceDirectoryCapture {
                 .setPublished(true)
                 .setMcpExposed(true)
                 .setMcpTools(tools);
+    }
+
+    /**
+     * The directory entry id for a service registered at runtime.
+     * @param serviceIdentifier the identifier the service registered under
+     * @return the entry id
+     */
+    protected String entryId(ServiceIdentifier serviceIdentifier) {
+        // runtime capture is always SYSTEM scope, so the id is namespace + name with no scope parts to prepend
+        String namespace = serviceIdentifier.namespace();
+        String name = serviceIdentifier.name();
+        String id = namespace != null && !namespace.isEmpty() ? namespace + "." + name : name;
+        return id.toLowerCase();
     }
 
     private void rejectStreaming(ServiceIdentifier serviceIdentifier, String functionName, Method method) {
@@ -219,14 +227,6 @@ public class ServiceDirectoryCapture {
                                             + " does not fit the required 1-128 character bound");
         }
         return toolName;
-    }
-
-    private String entryId(ServiceIdentifier serviceIdentifier) {
-        // runtime capture is always SYSTEM scope, so the id is namespace + name with no scope parts to prepend
-        String namespace = serviceIdentifier.namespace();
-        String name = serviceIdentifier.name();
-        String id = namespace != null && !namespace.isEmpty() ? namespace + "." + name : name;
-        return id.toLowerCase();
     }
 
 }

@@ -2,34 +2,38 @@ package org.kinotic.core.api.directory;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.service.ServiceIdentifier;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Keeps track of registered service contracts and the MCP tools they expose.
  * <p>
- * {@code kinotic-core} defines this API but ships no implementation: capture resolves it optionally, so a standalone
- * core deployment with no implementation bean does no directory work at all. The Elasticsearch implementation lives in
- * {@code kinotic-domain}.
+ * {@code kinotic-core} defines this API but ships no implementation: the registration path resolves it optionally,
+ * so a standalone core deployment with no implementation bean does nothing at all. The Elasticsearch implementation
+ * lives in {@code kinotic-domain}.
  *
  * Created by navid on 2019-06-11.
  */
 public interface ServiceDirectory {
 
     /**
-     * Upserts the contract fields of an entry. Implementations must not let this clobber the liveness fields
-     * ({@code online}, {@code lastStatusChange}) they maintain independently.
-     * @param entry the entry to upsert
-     * @return a {@link CompletableFuture} completing when the entry is stored
+     * Registers a published service with the directory. What is captured and stored — and whether any work happens
+     * at all — is the implementation's decision.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being registered
+     * @return a {@link CompletableFuture} completing when registration is handled
      */
-    CompletableFuture<Void> register(ServiceDirectoryEntry entry);
+    CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
-     * Marks the entry with the given id offline. Entries are never deleted; a known-but-offline service is a feature.
-     * @param entryId the id of the entry to mark offline
+     * Marks a previously registered service's entry offline. Entries are never deleted; a known-but-offline service
+     * is a feature.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being unregistered
      * @return a {@link CompletableFuture} completing when the entry is marked offline
      */
-    CompletableFuture<Void> unregister(String entryId);
+    CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so

@@ -248,26 +248,29 @@ exposes the `api` configuration).
     (e.g. `srv://com.acme.CatalogService/search` → `com_acme_CatalogService-search`).
     Deterministic, collision-checked within one service at capture (fail loudly). No
     parsing names back apart — resolution uses the stored `cri`/`functionName`.
-  - `ServiceDirectory` reshaped: `register(ServiceDirectoryEntry)` (upsert of contract
-    fields — implementations must NOT let it clobber liveness fields they maintain),
-    `unregister(String entryId)` (marks offline; entries are never deleted —
-    known-but-offline is a feature), ownership query (participant-scoped), a
-    tools query for MCP (`mcpExposed` + `online` + caller visibility per decision #7),
-    `reportUnreachable(String cri)`. Exact signatures follow existing core async style
-    (`CompletableFuture`, `Page`/`Pageable` from `api/crud`).
-- Capture in the registration path (`ServiceRegistrationBeanPostProcessor` /
-  `DefaultServiceRegistry` — pick the seam that has the interface `Class` and
-  `ServiceIdentifier` in hand): resolve `ServiceDirectory` OPTIONALLY
-  (`ObjectProvider` / `@Autowired(required=false)`); **when no impl bean exists, skip
-  capture entirely** — no schema work, no state, nothing (decision #3: standalone-core
-  deployments must not pay for this). When present and the interface has any `@McpTool`
-  method: build the `ServiceDefinition` via idl's `SchemaFactory`, attach
-  `McpToolC3Decorator` + function `metadata` descriptions from the annotations, REJECT
-  streaming-return functions (decision #10), assemble the `McpToolDefinition`s
-  (inputSchema via `McpJsonSchemaGenerator`, toolName via the naming rule above), and
-  call `serviceDirectory.register(entry)` (SYSTEM scope: org/app null;
-  `sourceVersion` = kinotic version). Unregistration calls
-  `serviceDirectory.unregister(id)`. Core ships NO `ServiceDirectory` implementation.
+  - `ServiceDirectory` reshaped: `register(ServiceIdentifier, Class<?>)` /
+    `unregister(ServiceIdentifier, Class<?>)` (what is captured, stored, and when is
+    the IMPLEMENTATION's decision; entries are never deleted — known-but-offline is a
+    feature), scope listing, a tools query for MCP (`mcpExposed` + `online` + zone
+    visibility per decision #7), `reportUnreachable(String cri)`. Exact signatures
+    follow existing core async style (`CompletableFuture`, `Page`/`Pageable` from
+    `api/crud`).
+  - `AbstractServiceDirectory` (same package) — the common capture logic for ALL
+    implementations, NOT a bean: `register`/`unregister` cost nothing beyond an
+    `@McpTool` annotation scan for unexposed services, then delegate to abstract
+    `registerMcpService`/`unregisterMcpService`; protected `buildEntry` performs the
+    expensive work (contract via idl's `SchemaFactory`, `McpToolC3Decorator` + function
+    `metadata` descriptions from the annotations, streaming-return REJECTION per
+    decision #10, `McpToolDefinition`s with inputSchema via `McpJsonSchemaGenerator`
+    and toolName via the naming rule above; SYSTEM scope: org/app null;
+    `sourceVersion` = kinotic version) and is invoked ONLY when the implementation
+    decides the entry must be stored — never eagerly.
+- The registration path (`ServiceRegistrationBeanPostProcessor`) resolves
+  `ServiceDirectory` OPTIONALLY (`ObjectProvider`) and calls
+  `register(serviceIdentifier, interface)` / `unregister(...)` directly — **with no
+  impl bean present, literally nothing happens: no beans, no dependencies, no schema
+  work** (decision #3: standalone-core deployments must not pay for this). Core ships
+  NO `ServiceDirectory` implementation and NO directory-related `@Component`.
 - One-line Javadoc contrast while touching these files (decision #9 naming note):
   `ServiceDescriptor`/`FunctionDescriptor` = node-local invocable view;
   `ServiceDefinition` (and the directory) = declarative, serializable contract view.
@@ -310,12 +313,16 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 
 **Create (in `kinotic-domain`, implementing core's `ServiceDirectory`):**
 
-- `internal/api/ElasticServiceDirectory` — the sole `ServiceDirectory` impl bean (plain
-  `@Component`; core has none — its presence is what activates core's capture).
-  Enforces the write-path scope invariant (`applicationId` without `organizationId`
-  rejected, same rule as `KinoticSecurityService`); computes `mcpExposed` at write,
-  never accepts it from input; `register` upserts contract fields WITHOUT touching
-  `online`/`lastStatusChange` (single-writer: the singleton owns those).
+- `internal/api/ElasticServiceDirectory extends AbstractServiceDirectory` — the sole
+  `ServiceDirectory` impl bean (plain `@Component`; core has none — its presence is
+  what activates the registration path's directory calls). `registerMcpService`: fetch
+  the stored entry's `sourceVersion` first and **skip `buildEntry` entirely when it
+  matches `getSourceVersion()`** — on a same-version boot no reflection or schema
+  generation runs anywhere in the cluster after the first node. When storing: upsert
+  contract fields WITHOUT touching `online`/`lastStatusChange` (single-writer: the
+  singleton owns those). Enforces the write-path scope invariant (`applicationId`
+  without `organizationId` rejected, same rule as `KinoticSecurityService`); computes
+  `mcpExposed` at write, never accepts it from input.
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
