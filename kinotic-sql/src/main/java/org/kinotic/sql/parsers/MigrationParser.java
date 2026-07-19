@@ -5,9 +5,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.antlr.v4.runtime.BaseErrorListener;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.Recognizer;
+import org.antlr.v4.runtime.Token;
 import org.kinotic.sql.domain.MigrationContent;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
@@ -50,8 +54,40 @@ public class MigrationParser {
         KinoticSQLLexer lexer = new KinoticSQLLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         KinoticSQLParser parser = new KinoticSQLParser(tokens);
+        // Replace ANTLR's default console listeners so syntax errors fail the parse
+        // instead of being logged to stderr and silently repaired by error recovery.
+        SyntaxErrorListener errorListener = new SyntaxErrorListener();
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(errorListener);
+        parser.removeErrorListeners();
+        parser.addErrorListener(errorListener);
         KinoticSQLParser.MigrationsContext tree = parser.migrations();
+        errorListener.throwIfErrors(input.getSourceName());
         return new MigrationVisitor(statementParsers).visit(tree);
+    }
+
+    private static class SyntaxErrorListener extends BaseErrorListener {
+        private final List<String> errors = new java.util.ArrayList<>();
+
+        @Override
+        public void syntaxError(Recognizer<?, ?> recognizer,
+                                Object offendingSymbol,
+                                int line,
+                                int charPositionInLine,
+                                String msg,
+                                RecognitionException e) {
+            // offendingSymbol is a Token for parser errors and null for lexer errors, where msg already names the bad character
+            String near = offendingSymbol instanceof Token token ? " near '" + token.getText() + "'" : "";
+            errors.add("line " + line + ":" + charPositionInLine + near + " - " + msg);
+        }
+
+        // Errors are collected rather than thrown from syntaxError so one parse reports every error in the file
+        void throwIfErrors(String sourceName) {
+            if (!errors.isEmpty()) {
+                throw new IllegalArgumentException("Migration " + sourceName + " contains " + errors.size()
+                        + " syntax error(s):\n" + String.join("\n", errors));
+            }
+        }
     }
 
     private static class MigrationVisitor extends KinoticSQLBaseVisitor<MigrationContent> {

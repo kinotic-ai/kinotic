@@ -26,8 +26,8 @@ createDataStreamStatement
     ;
 
 dataStreamOption
-    : DATA_RETENTION EQUALS STRING
-    | TIME_REFERENCE EQUALS STRING
+    : DATA_RETENTION ASSIGN STRING
+    | TIME_REFERENCE ASSIGN STRING
     ;
 
 createComponentTemplateStatement
@@ -39,8 +39,8 @@ createIndexTemplateStatement
     ;
 
 templatePart
-    : NUMBER_OF_SHARDS EQUALS INTEGER_LITERAL
-    | NUMBER_OF_REPLICAS EQUALS INTEGER_LITERAL
+    : NUMBER_OF_SHARDS ASSIGN INTEGER_LITERAL
+    | NUMBER_OF_REPLICAS ASSIGN INTEGER_LITERAL
     | columnDefinition
     ;
 
@@ -57,15 +57,15 @@ reindexOptions
     ;
 
 reindexOption
-    : CONFLICTS EQUALS (ABORT | PROCEED)
-    | MAX_DOCS EQUALS INTEGER_LITERAL
-    | SLICES EQUALS (AUTO | INTEGER_LITERAL)
-    | SIZE EQUALS INTEGER_LITERAL
-    | SOURCE_FIELDS EQUALS STRING
-    | QUERY EQUALS STRING
-    | SCRIPT EQUALS STRING
-    | WAIT EQUALS (TRUE | FALSE)
-    | SKIP_IF_NO_SOURCE EQUALS (TRUE | FALSE)
+    : CONFLICTS ASSIGN (ABORT | PROCEED)
+    | MAX_DOCS ASSIGN INTEGER_LITERAL
+    | SLICES ASSIGN (AUTO | INTEGER_LITERAL)
+    | SIZE ASSIGN INTEGER_LITERAL
+    | SOURCE_FIELDS ASSIGN STRING
+    | QUERY ASSIGN STRING
+    | SCRIPT ASSIGN STRING
+    | WAIT ASSIGN (TRUE | FALSE)
+    | SKIP_IF_NO_SOURCE ASSIGN (TRUE | FALSE)
     ;
 
 updateStatement
@@ -92,7 +92,7 @@ value
     ;
 
 assignment
-    : ID EQUALS expression
+    : ID ASSIGN expression
     ;
 
 expression
@@ -241,6 +241,8 @@ DECIMAL: 'DECIMAL';
 UNION: 'UNION';
 
 // Punctuation and Operators
+// '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
+ASSIGN: '=';
 COMMA: ',';
 DIVIDE: '/';
 EQUALS: '==';
