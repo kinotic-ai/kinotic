@@ -41,12 +41,6 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link KinoticSQLParser#assignOp}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitAssignOp(KinoticSQLParser.AssignOpContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#createComponentTemplateStatement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

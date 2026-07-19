@@ -26,14 +26,8 @@ createDataStreamStatement
     ;
 
 dataStreamOption
-    : DATA_RETENTION assignOp STRING
-    | TIME_REFERENCE assignOp STRING
-    ;
-
-// Assignment positions accept SQL-style '=' as well as '=='; comparisons accept only '=='
-assignOp
-    : EQUALS
-    | ASSIGN
+    : DATA_RETENTION ASSIGN STRING
+    | TIME_REFERENCE ASSIGN STRING
     ;
 
 createComponentTemplateStatement
@@ -45,8 +39,8 @@ createIndexTemplateStatement
     ;
 
 templatePart
-    : NUMBER_OF_SHARDS assignOp INTEGER_LITERAL
-    | NUMBER_OF_REPLICAS assignOp INTEGER_LITERAL
+    : NUMBER_OF_SHARDS ASSIGN INTEGER_LITERAL
+    | NUMBER_OF_REPLICAS ASSIGN INTEGER_LITERAL
     | columnDefinition
     ;
 
@@ -63,15 +57,15 @@ reindexOptions
     ;
 
 reindexOption
-    : CONFLICTS assignOp (ABORT | PROCEED)
-    | MAX_DOCS assignOp INTEGER_LITERAL
-    | SLICES assignOp (AUTO | INTEGER_LITERAL)
-    | SIZE assignOp INTEGER_LITERAL
-    | SOURCE_FIELDS assignOp STRING
-    | QUERY assignOp STRING
-    | SCRIPT assignOp STRING
-    | WAIT assignOp (TRUE | FALSE)
-    | SKIP_IF_NO_SOURCE assignOp (TRUE | FALSE)
+    : CONFLICTS ASSIGN (ABORT | PROCEED)
+    | MAX_DOCS ASSIGN INTEGER_LITERAL
+    | SLICES ASSIGN (AUTO | INTEGER_LITERAL)
+    | SIZE ASSIGN INTEGER_LITERAL
+    | SOURCE_FIELDS ASSIGN STRING
+    | QUERY ASSIGN STRING
+    | SCRIPT ASSIGN STRING
+    | WAIT ASSIGN (TRUE | FALSE)
+    | SKIP_IF_NO_SOURCE ASSIGN (TRUE | FALSE)
     ;
 
 updateStatement
@@ -98,7 +92,7 @@ value
     ;
 
 assignment
-    : ID assignOp expression
+    : ID ASSIGN expression
     ;
 
 expression
@@ -247,6 +241,7 @@ DECIMAL: 'DECIMAL';
 UNION: 'UNION';
 
 // Punctuation and Operators
+// '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
 ASSIGN: '=';
 COMMA: ',';
 DIVIDE: '/';

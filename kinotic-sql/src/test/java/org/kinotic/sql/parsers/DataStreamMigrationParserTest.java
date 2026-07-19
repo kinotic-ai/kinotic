@@ -30,7 +30,6 @@ class DataStreamMigrationParserTest {
     @Test
     void dataStreamWithRetention() {
         CreateDataStreamStatement statement = assertInstanceOf(CreateDataStreamStatement.class, parseSingle(
-            // '=' form; the '==' form is covered by dataStreamWithTimeReferenceAndRetention
             "CREATE DATA STREAM events (level KEYWORD, message TEXT) WITH (DATA_RETENTION = '30d');"));
 
         assertEquals("events", statement.streamName());
@@ -56,7 +55,7 @@ class DataStreamMigrationParserTest {
     void dataStreamWithTimeReferenceAndRetention() {
         CreateDataStreamStatement statement = assertInstanceOf(CreateDataStreamStatement.class, parseSingle(
             "CREATE DATA STREAM sensor_readings (id KEYWORD, eventTime DATE, value DOUBLE) "
-            + "WITH (DATA_RETENTION == '30d', TIME_REFERENCE == 'eventTime');"));
+            + "WITH (DATA_RETENTION = '30d', TIME_REFERENCE = 'eventTime');"));
 
         assertEquals("sensor_readings", statement.streamName());
         assertEquals("30d", statement.dataRetention());

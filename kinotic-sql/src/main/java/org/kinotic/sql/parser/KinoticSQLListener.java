@@ -58,16 +58,6 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link KinoticSQLParser#assignOp}.
-	 * @param ctx the parse tree
-	 */
-	void enterAssignOp(KinoticSQLParser.AssignOpContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link KinoticSQLParser#assignOp}.
-	 * @param ctx the parse tree
-	 */
-	void exitAssignOp(KinoticSQLParser.AssignOpContext ctx);
-	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#createComponentTemplateStatement}.
 	 * @param ctx the parse tree
 	 */
