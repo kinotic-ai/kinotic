@@ -57,15 +57,24 @@ class MigrationParserSyntaxErrorTest {
     }
 
     @Test
-    void whenDoubleEqualsUsedInAssignmentPosition_thenParseFails() {
-        assertThrows(IllegalArgumentException.class, () -> parser.parse(
+    void whenDoubleEqualsUsedInAssignmentPosition_thenErrorNamesExpectedOperator() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parser.parse(
             "CREATE DATA STREAM events (level KEYWORD) WITH (DATA_RETENTION == '30d');"));
+
+        assertTrue(e.getMessage().contains("line 1"), "expected line number in: " + e.getMessage());
+        assertTrue(e.getMessage().contains("near '=='"), "expected offending operator in: " + e.getMessage());
+        assertTrue(e.getMessage().contains("expecting '='"), "expected correct operator hint in: " + e.getMessage());
     }
 
     @Test
-    void whenSingleEqualsUsedInComparison_thenParseFails() {
-        assertThrows(IllegalArgumentException.class, () -> parser.parse(
+    void whenSingleEqualsUsedInComparison_thenErrorNamesExpectedOperators() {
+        IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> parser.parse(
             "UPDATE events SET level = 'INFO' WHERE level = 'DEBUG';"));
+
+        assertTrue(e.getMessage().contains("line 1"), "expected line number in: " + e.getMessage());
+        // "near '='" cannot match the '==' token, so this pins the offending operator precisely
+        assertTrue(e.getMessage().contains("near '='"), "expected offending operator in: " + e.getMessage());
+        assertTrue(e.getMessage().contains("'=='"), "expected comparison operators in hint: " + e.getMessage());
     }
 
     @Test
