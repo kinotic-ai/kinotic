@@ -371,6 +371,8 @@ Gotchas: `livemode` guard in the dispatcher (Stripe sends test events to live UR
 6. **End-user billing:** plan/catalog projection, Kinotic-branded Checkout, subscriptions + metered components (metering aggregator → platform meters). Detailed design in §14; launch scope is generic templates only (metered components deferred).
 7. **Dashboards:** usage + earnings views from the time-series store and ledger; refund/dispute ops tooling.
 
+**Sequencing constraint:** `recordRefund`/`recordDispute*` must land **before the first live payout sweep** (inside round 5, ahead of enabling the scheduler). Until then a refund issued from the Stripe dashboard debits Kinotic's Stripe balance while the ledger still credits the org — with no payouts running that's a reporting discrepancy, but with payouts live it becomes real over-payment that needs clawback.
+
 ## 14. Two-level subscriptions (detail for §13.4–§13.6)
 
 Two distinct subscription concepts, deliberately decoupled:
