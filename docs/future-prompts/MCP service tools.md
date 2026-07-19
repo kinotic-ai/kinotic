@@ -278,18 +278,19 @@ exposes the `api` configuration).
   `ServiceDefinition` (and the directory) = declarative, serializable contract view.
   Preserve all existing authorship comments verbatim.
 - Liveness read primitives on `EventBusService` (implemented in
-  `DefaultEventBusService`, consumed by Phase 3 — build nothing beyond these):
+  `DefaultEventBusService` on top of `KinoticIgniteClusterManager`, consumed by
+  Phase 3 — build nothing beyond these):
   - `monitorListenerChanges()` → `Flux<ListenerChange>` (`ListenerChange` record —
-    address + `ListenerStatus` — own file in `api/event`): ONE Ignite cache-entry
-    listener over the vertx subscription cache filtered to `srv://` addresses (reuse
-    the machinery at `DefaultEventBusService.java:107-160`, minus the per-address
-    filter).
-  - `hasListeners(CRI)` → `CompletableFuture<Boolean>`: one-shot
-    `clusterManager.getRegistrations` read (the initial check inside
-    `monitorListenerStatus`, ~:142), no listener registration.
-  - `activeServiceAddresses()` → `CompletableFuture<Set<String>>`: one scan of the
-    subscription cache for `srv://` addresses (reconciliation snapshot — set-diff
-    beats per-entry lookups at 100k entries).
+    address + `ListenerStatus` — own file in `api/event`): a `srv://`-prefix monitor on
+    `KinoticIgniteClusterManager`, fed by the same `RegistrationListener` updates vertx
+    uses for message routing. Each change carries the ADDRESS-LEVEL status aggregated
+    from the event's full registration list. The stream errors on registration-update
+    continuity loss — subscribers resubscribe and re-snapshot.
+  - `isAnybodyListening(CRI)` (pre-existing) → one-shot
+    `clusterManager.getRegistrations` read; the point-in-time verification primitive.
+  - `activeServiceAddresses()` → `Future<Set<String>>`: subscription snapshot via
+    `KinoticIgniteClusterManager.registeredAddresses(prefix)` (reconciliation baseline
+    — set-diff beats per-entry lookups at 100k entries).
 
 **Tests:** none (policy above) — compile + code review at the pause; behavior lands in
 the Phase 4 e2e.
@@ -339,7 +340,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `_source`-filter to the `mcpTools` field so contracts never leave Elasticsearch on
   the tools path.
 - `reportUnreachable(cri)` — debounced per CRI (seconds; Caffeine). Re-checks
-  `eventBusService.hasListeners(cri)` and partial-updates the liveness fields to the
+  `eventBusService.isAnybodyListening(cri)` and partial-updates the liveness fields to the
   VERIFIED state — never a blind offline write. Safe for any authenticated caller whose
   zone rules allow sending to that CRI (it can only trigger a verification).
 - `internal/api/services/ServiceLivenessUpdater` — the HA cluster singleton
@@ -349,7 +350,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `ListenerChange` is an INVALIDATION TRIGGER, never a value to write — the
   subscription cache holds one entry per (address, node registration), so an INACTIVE
   event may mean one instance of several stopped while the address is still served.
-  On any change for an address: re-check `eventBusService.hasListeners(cri)` and
+  On any change for an address: re-check `eventBusService.isAnybodyListening(cri)` and
   partial-update the two liveness fields to the VERIFIED state (debounce per address,
   seconds — a node death emits a burst per address). This makes all three liveness
   layers uniform: signal → verify → write; no path writes an unverified value.
