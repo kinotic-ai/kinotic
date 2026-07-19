@@ -3,6 +3,7 @@ package org.kinotic.billing.internal.api.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.billing.api.config.BillingConstants;
 import org.kinotic.billing.api.model.LedgerEntry;
 import org.kinotic.billing.api.model.LedgerEntryType;
 import org.kinotic.billing.api.model.MerchantOfRecord;
@@ -54,6 +55,11 @@ public class DefaultRevenueSplitService implements RevenueSplitService {
                                          return CompletableFuture.failedFuture(new IllegalStateException(
                                                  "Charge " + stripeChargeId + " has no settled balance transaction yet"));
                                      }
+                                     if (!BillingConstants.LEDGER_CURRENCY.equals(details.getCurrency())) {
+                                         return CompletableFuture.failedFuture(new IllegalStateException(
+                                                 "Charge " + stripeChargeId + " is in currency '" + details.getCurrency()
+                                                 + "' but the ledger operates in '" + BillingConstants.LEDGER_CURRENCY + "' only"));
+                                     }
                                      return recordForOrg(details, orgId);
                                  });
     }
@@ -73,7 +79,7 @@ public class DefaultRevenueSplitService implements RevenueSplitService {
                                     }
                                     return revenueSplitRepository.findById(details.getChargeId(), orgId)
                                                                  .thenCompose(existing -> existing != null
-                                                                         ? CompletableFuture.completedFuture(existing)
+                                                                         ? ensureEarningEntryPosted(existing)
                                                                          : createSplit(details, orgId, profile));
                                 });
     }
@@ -106,22 +112,40 @@ public class DefaultRevenueSplitService implements RevenueSplitService {
                                             .setStatus(RevenueSplitStatus.EARNED)
                                             .setCreated(now)
                                             .setUpdated(now);
-                                    LedgerEntry earning = new LedgerEntry()
-                                            .setId(LedgerEntryIds.entryId(details.getChargeId(), LedgerEntryType.EARNING))
-                                            .setOrganizationId(orgId)
-                                            .setApplicationId(details.getApplicationId())
-                                            .setEntryType(LedgerEntryType.EARNING)
-                                            .setAmount(amounts.netToOrganization())
-                                            .setCurrency(details.getCurrency())
-                                            .setStripeObjectId(details.getChargeId())
-                                            .setRevenueSplitId(details.getChargeId())
-                                            .setCreated(now);
                                     // Save order matters for crash recovery: a split without its earning
-                                    // entry is recoverable by replaying the charge (deterministic ids);
-                                    // the reverse would credit money with no explanation attached.
+                                    // entry is healed by ensureEarningEntryPosted on replay; the reverse
+                                    // would credit money with no explanation attached.
                                     return revenueSplitRepository.save(split, orgId)
-                                                                 .thenCompose(saved -> ledgerEntryRepository.save(earning, orgId)
+                                                                 .thenCompose(saved -> ledgerEntryRepository.save(earningEntryFor(saved), orgId)
                                                                                                             .thenApply(entry -> saved));
                                 });
+    }
+
+    private CompletableFuture<RevenueSplit> ensureEarningEntryPosted(RevenueSplit split) {
+        String orgId = split.getOrganizationId();
+        String entryId = LedgerEntryIds.entryId(split.getId(), LedgerEntryType.EARNING);
+        return ledgerEntryRepository.findById(entryId, orgId)
+                                    .thenCompose(entry -> {
+                                        if (entry != null) {
+                                            return CompletableFuture.completedFuture(split);
+                                        }
+                                        // Crash window: the split was persisted but its earning entry
+                                        // wasn't. Repost from the stored split so the replay converges.
+                                        return ledgerEntryRepository.save(earningEntryFor(split), orgId)
+                                                                    .thenApply(saved -> split);
+                                    });
+    }
+
+    private LedgerEntry earningEntryFor(RevenueSplit split) {
+        return new LedgerEntry()
+                .setId(LedgerEntryIds.entryId(split.getId(), LedgerEntryType.EARNING))
+                .setOrganizationId(split.getOrganizationId())
+                .setApplicationId(split.getApplicationId())
+                .setEntryType(LedgerEntryType.EARNING)
+                .setAmount(split.getNetToOrganization())
+                .setCurrency(BillingConstants.LEDGER_CURRENCY)
+                .setStripeObjectId(split.getId())
+                .setRevenueSplitId(split.getId())
+                .setCreated(split.getCreated());
     }
 }

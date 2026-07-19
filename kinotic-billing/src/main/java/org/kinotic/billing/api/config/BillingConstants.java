@@ -28,6 +28,13 @@ public final class BillingConstants {
      */
     public static final long DEFAULT_PLATFORM_FEE_BASIS_POINTS = 500;
 
+    /**
+     * The single currency the ledger operates in (US-only launch, design §7.1). Charges in
+     * any other currency are rejected — balance aggregation sums amounts across entries and
+     * would silently mix currencies otherwise.
+     */
+    public static final String LEDGER_CURRENCY = "usd";
+
     // Metadata contract: every Stripe object Kinotic creates carries these keys, and the
     // ledger resolves ownership from them. Treat as an immutable API.
     public static final String METADATA_ORG_ID = "orgId";

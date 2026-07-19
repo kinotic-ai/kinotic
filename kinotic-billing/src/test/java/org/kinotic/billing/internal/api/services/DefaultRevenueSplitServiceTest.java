@@ -15,6 +15,7 @@ import org.kinotic.billing.internal.api.repositories.RevenueSplitRepository;
 import org.kinotic.billing.internal.api.services.client.StripeChargeDetails;
 import org.kinotic.billing.internal.api.services.client.StripeClientFacade;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -94,15 +95,55 @@ public class DefaultRevenueSplitServiceTest {
 
     @Test
     public void whenChargeAlreadyRecorded_thenNoOpAndNoDuplicateLedgerEntry() {
-        RevenueSplit existing = new RevenueSplit().setId(CHARGE_ID).setOrganizationId(ORG_ID)
-                                                  .setStatus(RevenueSplitStatus.EARNED);
+        RevenueSplit existing = existingSplit();
         splitRepository.store.put(CHARGE_ID, existing);
+        ledgerRepository.store.put("ch_test123:EARNING",
+                                   new LedgerEntry().setId("ch_test123:EARNING").setOrganizationId(ORG_ID));
 
         RevenueSplit result = service.recordCharge(CHARGE_ID).join();
 
         assertSame(existing, result);
         assertEquals(0, splitRepository.saveCount);
         assertEquals(0, ledgerRepository.saveCount);
+    }
+
+    @Test
+    public void whenSplitExistsButEarningEntryMissing_thenEntryRepostedFromSplit() {
+        // Crash window: the split was saved but the process died before the earning entry
+        // landed — replaying the charge must heal the ledger.
+        RevenueSplit existing = existingSplit();
+        splitRepository.store.put(CHARGE_ID, existing);
+
+        RevenueSplit result = service.recordCharge(CHARGE_ID).join();
+
+        assertSame(existing, result);
+        assertEquals(0, splitRepository.saveCount);
+        assertEquals(1, ledgerRepository.saveCount);
+        LedgerEntry reposted = ledgerRepository.store.get("ch_test123:EARNING");
+        assertNotNull(reposted);
+        assertEquals(existing.getNetToOrganization(), reposted.getAmount());
+        assertEquals(ORG_ID, reposted.getOrganizationId());
+    }
+
+    @Test
+    public void whenChargeCurrencyIsNotLedgerCurrency_thenFailsWithoutPersisting() {
+        facade.details.setCurrency("eur");
+
+        CompletionException error = assertThrows(CompletionException.class,
+                                                 () -> service.recordCharge(CHARGE_ID).join());
+
+        assertInstanceOf(IllegalStateException.class, error.getCause());
+        assertEquals(0, splitRepository.saveCount);
+        assertEquals(0, ledgerRepository.saveCount);
+    }
+
+    private RevenueSplit existingSplit() {
+        return new RevenueSplit().setId(CHARGE_ID)
+                                 .setOrganizationId(ORG_ID)
+                                 .setApplicationId("app1")
+                                 .setNetToOrganization(4575)
+                                 .setStatus(RevenueSplitStatus.EARNED)
+                                 .setCreated(new Date());
     }
 
     @Test
@@ -182,6 +223,11 @@ public class DefaultRevenueSplitServiceTest {
 
         InMemoryLedgerEntryRepository() {
             super(null, null);
+        }
+
+        @Override
+        public CompletableFuture<LedgerEntry> findById(String id, String orgId) {
+            return CompletableFuture.completedFuture(store.get(id));
         }
 
         @Override

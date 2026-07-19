@@ -72,6 +72,13 @@ public class StripeEventDispatcherTest {
                      () -> dispatcher.dispatch(chargeSucceeded().setRelatedObjectId(null)).join());
     }
 
+    @Test
+    public void whenEventTypeNull_thenFailsInsteadOfThrowingNpe() {
+        assertThrows(CompletionException.class,
+                     () -> dispatcher.dispatch(chargeSucceeded().setEventType(null)).join());
+        assertTrue(revenueSplitService.recordedCharges.isEmpty());
+    }
+
     static class RecordingRevenueSplitService implements RevenueSplitService {
         final List<String> recordedCharges = new ArrayList<>();
         RuntimeException failure;

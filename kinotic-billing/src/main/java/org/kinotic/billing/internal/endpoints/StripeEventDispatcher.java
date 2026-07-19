@@ -26,6 +26,12 @@ public class StripeEventDispatcher {
     private final boolean expectedLivemode;
 
     public CompletableFuture<Void> dispatch(StripeWebhookEvent event) {
+        if (event.getEventType() == null) {
+            // A verified Stripe payload always carries a type; its absence means the record
+            // is corrupt — fail (→ dead-letter) rather than NPE in the switch below.
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Stripe event " + event.getId() + " carries no event type"));
+        }
         if (event.getLivemode() != null && event.getLivemode() != expectedLivemode) {
             log.warn("Ignoring Stripe event {} ({}): livemode={} but this deployment expects livemode={}",
                      event.getId(), event.getEventType(), event.getLivemode(), expectedLivemode);

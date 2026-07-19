@@ -4,6 +4,8 @@ import org.kinotic.billing.api.model.StripeWebhookEvent;
 import org.kinotic.billing.api.model.StripeWebhookEventStatus;
 import org.kinotic.billing.api.services.StripeWebhookEventService;
 import org.kinotic.billing.internal.api.repositories.StripeWebhookEventRepository;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +26,11 @@ public class DefaultStripeWebhookEventService extends AbstractCrudService<Stripe
     @Override
     public CompletableFuture<Boolean> insertIfAbsent(StripeWebhookEvent event) {
         return webhookEventRepository.insertIfAbsent(event);
+    }
+
+    @Override
+    public CompletableFuture<Page<StripeWebhookEvent>> findUnprocessed(Pageable pageable) {
+        return webhookEventRepository.findUnprocessed(pageable);
     }
 
     @Override
