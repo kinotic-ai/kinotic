@@ -80,7 +80,7 @@ public class ServiceLivenessUpdater {
     }
 
     private void verify(String address) {
-        eventBusService.hasListeners(CRI.create(address)).onComplete(result -> {
+        eventBusService.isAnybodyListening(CRI.create(address)).onComplete(result -> {
             if (result.succeeded()) {
                 repository.setOnlineByAddress(address, result.result(), Instant.now())
                           .exceptionally(throwable -> {

@@ -96,8 +96,9 @@ class GitHubProjectRepoProvisionerTest {
         Map<String, TreeEntry> tree = captor.getValue().stream()
                                             .collect(java.util.stream.Collectors.toMap(TreeEntry::path, e -> e));
 
-        // .liquid content rendered with the project context, suffix stripped
-        assertEquals("{\"name\": \"demo\", \"org\": \"org-1\", \"app\": \"app-1\"}",
+        // .liquid content rendered with the project context, suffix stripped;
+        // projectSlug carries the repo-name slug, projectName the raw name
+        assertEquals("{\"name\": \"demo\", \"display\": \"demo\", \"org\": \"org-1\", \"app\": \"app-1\"}",
                      tree.get("package.json").content());
         // liquid in paths rendered
         assertTrue(tree.containsKey("src/Demo.ts"));
@@ -177,7 +178,7 @@ class GitHubProjectRepoProvisionerTest {
             addEntry(tar, "root/spawn.json",
                      "{\"propertySchema\": {\"projectName\": {\"type\": \"string\"}}}".getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/package.json.liquid",
-                     "{\"name\": \"{{projectName}}\", \"org\": \"{{organization}}\", \"app\": \"{{application}}\"}"
+                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organization}}\", \"app\": \"{{application}}\"}"
                              .getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
                      "export class {{ projectName | camelCase | upperFirst }} {}".getBytes(StandardCharsets.UTF_8), false);

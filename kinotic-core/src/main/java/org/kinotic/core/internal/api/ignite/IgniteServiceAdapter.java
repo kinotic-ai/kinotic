@@ -1,6 +1,6 @@
 
 
-package org.kinotic.core.internal.api.aignite;
+package org.kinotic.core.internal.api.ignite;
 
 import org.apache.commons.lang3.Validate;
 import org.apache.ignite.resources.SpringApplicationContextResource;

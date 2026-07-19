@@ -4,7 +4,7 @@ import io.vertx.core.Completable;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.persistence.internal.utils.VertxWebUtil;
+import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/2/24.
@@ -21,7 +21,7 @@ public class CountHandler implements Completable<Long> {
             context.response().setStatusCode(200);
             context.response().end(Buffer.buffer("{ \"count\": " + value.toString() + '}'));
         } else {
-            VertxWebUtil.writeException(context, throwable);
+            ApiGatewayUtil.writeException(context, throwable);
         }
     }
 }

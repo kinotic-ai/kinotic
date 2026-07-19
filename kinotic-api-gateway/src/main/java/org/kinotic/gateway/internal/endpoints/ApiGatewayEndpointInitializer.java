@@ -4,11 +4,9 @@ package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
-import io.vertx.ext.stomp.lite.StompServerOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.slf4j.Logger;
@@ -28,7 +26,7 @@ public class ApiGatewayEndpointInitializer {
     private static final Logger log = LoggerFactory.getLogger(ApiGatewayEndpointInitializer.class);
 
     private final ApiGatewayVertcleFactory apiGatewayVertcleFactory;
-    private final KinoticDomainProperties kinoticProperties;
+    private final KinoticProperties kinoticProperties;
     private final ApiGatewayProperties apiGatewayProperties;
     private final Vertx vertx;
 
@@ -50,8 +48,7 @@ public class ApiGatewayEndpointInitializer {
         log.info("Deploying {} API Gateway Endpoint(s), 1 per core", numToDeploy);
 
 
-        StompServerOptions stompServerOptions = apiGatewayProperties.getStomp();
-        log.info("Deploying API Server at http{}://{}", kinoticProperties.getDomain().getSsl().isEnabled() ? "s" : "", stompServerOptions.getPort());
+        log.info("Deploying API Server at http{}://{}", apiGatewayProperties.getSsl().isEnabled() ? "s" : "", apiGatewayProperties.getStompPort());
 
         if (apiGatewayProperties.getWebServer().isEnabled()) {
             log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());

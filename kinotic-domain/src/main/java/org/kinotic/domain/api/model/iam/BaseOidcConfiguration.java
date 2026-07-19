@@ -61,4 +61,11 @@ public abstract class BaseOidcConfiguration implements Identifiable<String> {
     private Date created;
 
     private Date updated;
+
+    /**
+     * Name of the OAuth client secret in the platform Azure Key Vault. The vault URI
+     * is global config (one Key Vault per Kinotic deployment); the resolver always
+     * fetches the latest version.
+     */
+    private String secretNameRef;
 }

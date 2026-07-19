@@ -50,24 +50,18 @@ public interface EventBusService {
     /**
      * Monitors the status of listeners for the {@link CRI#baseResource()} of the given {@link CRI}
      * @param cri to check for registered listeners
-     * @return a {@link Flux} that returns a stream of statuses for the given listener
+     * @return a {@link Flux} that emits the current status on subscribe and every status transition after that
      */
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
 
     /**
-     * Monitors listener registration changes across all service ({@code srv://}) addresses as a stream of deltas.
-     * The stream carries only changes; take a snapshot with {@link #activeServiceAddresses()} to establish a baseline.
+     * Monitors listener registration changes across all service ({@code srv://}) addresses. Each change carries the
+     * address and its resulting status. The stream carries only changes; take a snapshot with
+     * {@link #activeServiceAddresses()} to establish a baseline. The stream errors when registration update
+     * continuity is lost — resubscribe and re-snapshot to recover.
      * @return a {@link Flux} of {@link ListenerChange}s for service addresses
      */
     Flux<ListenerChange> monitorListenerChanges();
-
-    /**
-     * Checks whether the {@link CRI#baseResource()} of the given {@link CRI} currently has a registered listener,
-     * reading the authoritative cluster registrations directly.
-     * @param cri to check for a registered listener
-     * @return a {@link Future} containing true if a listener is registered, false if not
-     */
-    Future<Boolean> hasListeners(CRI cri);
 
     /**
      * Snapshots every service ({@code srv://}) address that currently has a registered listener.

@@ -8,11 +8,11 @@ import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
-import io.vertx.spi.cluster.ignite.IgniteClusterManager;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
+import org.kinotic.core.internal.api.ignite.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -33,14 +33,14 @@ public class KinoticVertxConfig {
             value="kinotic.disableClustering",
             havingValue = "false",
             matchIfMissing = true)
-    public ClusterManager clusterManager(Ignite ignite){
+    public KinoticIgniteClusterManager clusterManager(Ignite ignite){
         if(ignite == null){
             throw new IllegalStateException("Something is wrong with the configuration Ignite is null");
         }
         // make sure clustering is enabled
         System.setProperty("vertx.clustered","true");
 
-        return new IgniteClusterManager(ignite);
+        return new KinoticIgniteClusterManager(ignite);
     }
 
     @Bean

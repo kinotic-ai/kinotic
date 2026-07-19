@@ -2,7 +2,7 @@ package org.kinotic.domain.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.kinotic.core.internal.api.aignite.IgniteServiceAdapter;
+import org.kinotic.core.internal.api.ignite.IgniteServiceAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;

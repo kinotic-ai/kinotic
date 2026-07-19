@@ -89,7 +89,7 @@ public class ElasticServiceDirectory extends AbstractServiceDirectory {
         reportDebounce.put(cri, Boolean.TRUE);
         CRI parsed = CRI.create(cri);
         // verify against current registrations before writing; a report is an invalidation trigger, not a value
-        return eventBusService.hasListeners(parsed)
+        return eventBusService.isAnybodyListening(parsed)
                               .toCompletionStage()
                               .toCompletableFuture()
                               .thenCompose(online -> repository.setOnlineByAddress(parsed.baseResource(),

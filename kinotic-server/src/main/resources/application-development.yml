@@ -24,9 +24,10 @@ kinotic:
       # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
       # storage names. Dev-only value — production supplies this via Azure Key Vault.
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
-  cors:
-    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
-    allowCredentials: true
+  apiGateway:
+    cors:
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+      allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS

@@ -1,6 +1,6 @@
 
 
-package org.kinotic.core.internal.api.aignite;
+package org.kinotic.core.internal.api.ignite;
 
 public interface SuspendableObserver<T> extends Observer<T> {
 
