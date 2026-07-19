@@ -49,7 +49,7 @@ public class ElasticServiceDirectory extends AbstractServiceDirectory {
     }
 
     @Override
-    protected CompletableFuture<Void> registerMcpService(ServiceIdentifier serviceIdentifier,
+    protected CompletableFuture<Void> registerService(ServiceIdentifier serviceIdentifier,
                                                          Class<?> serviceInterface) {
         // buildEntry reflects the interface and generates schemas — skipped when the stored entry
         // was already built by this kinotic version
@@ -63,7 +63,7 @@ public class ElasticServiceDirectory extends AbstractServiceDirectory {
     }
 
     @Override
-    protected CompletableFuture<Void> unregisterMcpService(ServiceIdentifier serviceIdentifier) {
+    protected CompletableFuture<Void> unregisterService(ServiceIdentifier serviceIdentifier) {
         return repository.setOnline(entryId(serviceIdentifier), false, Instant.now());
     }
 

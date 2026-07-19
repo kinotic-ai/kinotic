@@ -28,10 +28,10 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Base class for {@link ServiceDirectory} implementations. Handles the MCP exposure check on
- * {@link #register}/{@link #unregister} — a service with no {@link McpTool} function costs nothing beyond an
- * annotation scan — and provides {@link #buildEntry} so an implementation performs the contract reflection and
- * schema generation only when it determines the entry actually needs to be stored.
+ * Base class for {@link ServiceDirectory} implementations. Provides {@link #buildEntry}, which builds the directory
+ * entry for ANY published service — MCP tool definitions are added for functions carrying {@link McpTool} — so an
+ * implementation performs the contract reflection and schema generation only when it determines the entry actually
+ * needs to be stored.
  */
 public abstract class AbstractServiceDirectory implements ServiceDirectory {
 
@@ -56,42 +56,36 @@ public abstract class AbstractServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (mcpMethods(serviceInterface).isEmpty()) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return registerMcpService(serviceIdentifier, serviceInterface);
+        return registerService(serviceIdentifier, serviceInterface);
     }
 
     @Override
     public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (mcpMethods(serviceInterface).isEmpty()) {
-            return CompletableFuture.completedFuture(null);
-        }
-        return unregisterMcpService(serviceIdentifier);
+        return unregisterService(serviceIdentifier);
     }
 
     /**
-     * Stores the contract of an MCP-exposed service. Build the entry with {@link #buildEntry} only when it needs to
-     * be stored — an entry whose stored {@code sourceVersion} matches {@link #getSourceVersion()} is already current.
+     * Stores the contract of a published service. Build the entry with {@link #buildEntry} only when it needs to be
+     * stored — an entry whose stored {@code sourceVersion} matches {@link #getSourceVersion()} is already current.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
      * @return a {@link CompletableFuture} completing when registration is handled
      */
-    protected abstract CompletableFuture<Void> registerMcpService(ServiceIdentifier serviceIdentifier,
-                                                                  Class<?> serviceInterface);
+    protected abstract CompletableFuture<Void> registerService(ServiceIdentifier serviceIdentifier,
+                                                               Class<?> serviceInterface);
 
     /**
-     * Marks the entry for an MCP-exposed service offline. Entries are never deleted; a known-but-offline service is
+     * Marks the entry for a published service offline. Entries are never deleted; a known-but-offline service is
      * a feature.
      * @param serviceIdentifier the identifier the service registered under
      * @return a {@link CompletableFuture} completing when the entry is marked offline
      */
-    protected abstract CompletableFuture<Void> unregisterMcpService(ServiceIdentifier serviceIdentifier);
+    protected abstract CompletableFuture<Void> unregisterService(ServiceIdentifier serviceIdentifier);
 
     /**
-     * Builds the complete directory entry for an MCP-exposed service: the C3 contract, MCP tool decorators, and
-     * ready-to-serve tool definitions. This performs reflection and schema generation — call it only when the entry
-     * will be stored.
+     * Builds the complete directory entry for a published service: the C3 contract, and — for functions carrying
+     * {@link McpTool} — tool decorators and ready-to-serve tool definitions. This performs reflection and schema
+     * generation — call it only when the entry will be stored.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
      * @return the entry ready to store
@@ -145,8 +139,8 @@ public abstract class AbstractServiceDirectory implements ServiceDirectory {
                 .setContract(contract)
                 .setSourceVersion(sourceVersion)
                 .setPublished(true)
-                .setMcpExposed(true)
-                .setMcpTools(tools);
+                .setMcpExposed(!tools.isEmpty())
+                .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
     /**

@@ -256,15 +256,17 @@ exposes the `api` configuration).
     follow existing core async style (`CompletableFuture`, `Page`/`Pageable` from
     `api/crud`).
   - `AbstractServiceDirectory` (same package) — the common capture logic for ALL
-    implementations, NOT a bean: `register`/`unregister` cost nothing beyond an
-    `@McpTool` annotation scan for unexposed services, then delegate to abstract
-    `registerMcpService`/`unregisterMcpService`; protected `buildEntry` performs the
-    expensive work (contract via idl's `SchemaFactory`, `McpToolC3Decorator` + function
-    `metadata` descriptions from the annotations, streaming-return REJECTION per
-    decision #10, `McpToolDefinition`s with inputSchema via `McpJsonSchemaGenerator`
-    and toolName via the naming rule above; SYSTEM scope: org/app null;
-    `sourceVersion` = kinotic version) and is invoked ONLY when the implementation
-    decides the entry must be stored — never eagerly.
+    implementations, NOT a bean: `register`/`unregister` delegate to abstract
+    `registerService`/`unregisterService`; protected `buildEntry` performs the
+    expensive work and is invoked ONLY when the implementation decides the entry must
+    be stored — never eagerly. **EVERY published service gets an entry** (the complete
+    directory serves health, project views, and introspection — not only MCP):
+    contract via idl's `SchemaFactory` for all functions; for functions carrying
+    `@McpTool` additionally `McpToolC3Decorator` + function `metadata` descriptions,
+    streaming-return REJECTION per decision #10, and `McpToolDefinition`s with
+    inputSchema via `McpJsonSchemaGenerator` and toolName via the naming rule above.
+    `mcpExposed` = whether any tool exists, derived, never input. SYSTEM scope:
+    org/app null; `sourceVersion` = kinotic version.
 - The registration path (`ServiceRegistrationBeanPostProcessor`) resolves
   `ServiceDirectory` OPTIONALLY (`ObjectProvider`) and calls
   `register(serviceIdentifier, interface)` / `unregister(...)` directly — **with no
