@@ -75,10 +75,11 @@ public abstract class AbstractServiceDirectory implements ServiceDirectory {
                                                                Class<?> serviceInterface);
 
     /**
-     * Marks the entry for a published service offline. Entries are never deleted; a known-but-offline service is
-     * a feature.
+     * Handles the calling node no longer providing the service. Other nodes may still provide it, so liveness must
+     * be derived from cluster state, never assumed from this call. Entries are never deleted; a known-but-offline
+     * service is a feature.
      * @param serviceIdentifier the identifier the service registered under
-     * @return a {@link CompletableFuture} completing when the entry is marked offline
+     * @return a {@link CompletableFuture} completing when the notification is handled
      */
     protected abstract CompletableFuture<Void> unregisterService(ServiceIdentifier serviceIdentifier);
 

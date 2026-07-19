@@ -27,11 +27,12 @@ public interface ServiceDirectory {
     CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
-     * Marks a previously registered service's entry offline. Entries are never deleted; a known-but-offline service
-     * is a feature.
+     * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
+     * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
+     * known-but-offline service is a feature.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being unregistered
-     * @return a {@link CompletableFuture} completing when the entry is marked offline
+     * @return a {@link CompletableFuture} completing when the notification is handled
      */
     CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 

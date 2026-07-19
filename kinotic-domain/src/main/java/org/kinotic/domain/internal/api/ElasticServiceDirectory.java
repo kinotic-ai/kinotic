@@ -58,13 +58,30 @@ public class ElasticServiceDirectory extends AbstractServiceDirectory {
                              if (existing != null && Objects.equals(existing.getSourceVersion(), getSourceVersion())) {
                                  return CompletableFuture.completedFuture(null);
                              }
-                             return repository.upsertContract(buildEntry(serviceIdentifier, serviceInterface));
+                             // a new entry starts with online unset, and the ACTIVE registration event fired
+                             // before the entry existed — refresh from the verified cluster state
+                             return repository.upsertContract(buildEntry(serviceIdentifier, serviceInterface))
+                                              .thenCompose(v -> refreshOnline(serviceIdentifier));
                          });
     }
 
     @Override
     protected CompletableFuture<Void> unregisterService(ServiceIdentifier serviceIdentifier) {
-        return repository.setOnline(entryId(serviceIdentifier), false, Instant.now());
+        // this node leaving says nothing about other instances of the service — verify, never
+        // write offline blindly
+        return refreshOnline(serviceIdentifier);
+    }
+
+    /**
+     * Sets the entry's liveness to the verified cluster-wide registration state.
+     */
+    private CompletableFuture<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+        return eventBusService.isAnybodyListening(serviceIdentifier.cri())
+                              .toCompletionStage()
+                              .toCompletableFuture()
+                              .thenCompose(online -> repository.setOnline(entryId(serviceIdentifier),
+                                                                          online,
+                                                                          Instant.now()));
     }
 
     @Override
