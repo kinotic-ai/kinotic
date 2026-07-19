@@ -333,7 +333,7 @@ Gotchas: `livemode` guard in the dispatcher (Stripe sends test events to live UR
 
 ### C. Product
 
-1. **MVP billing models offered to Customers.** Recommend: fixed-price subscriptions + usage-based metered components (the metering pipeline is core anyway); one-time purchases if cheap; defer per-seat/tiers/coupons as fast-follow. DECIDED: the platform **free tier is modeled as a $0 subscription** — every org has a subscription from day one, so entering monetization is a plan change, not a new enrollment, and the metering/entitlement machinery is exercised uniformly for free and paid orgs alike.
+1. **MVP billing models offered to Customers.** Recommend: fixed-price subscriptions + usage-based metered components (the metering pipeline is core anyway); one-time purchases if cheap; defer per-seat/tiers/coupons as fast-follow. DECIDED: the platform **free tier is modeled as a $0 subscription** — every org has a subscription from day one, so entering monetization is a plan change, not a new enrollment, and the metering/entitlement machinery is exercised uniformly for free and paid orgs alike. DECIDED (direction): launch with **generic subscription templates** — a small fixed set of flat recurring price shapes an app owner picks from — and let real usage data drive the richer catalog (tiers, per-seat, metered) later. This costs the ledger nothing: Stripe Billing collapses every subscription shape into invoices → charges, and the ledger's only entry point is `recordCharge`, so subscription sophistication and ledger complexity grow on independent axes (ledger complexity comes from refunds/disputes/payouts, not billing models).
 2. **Checkout & End-user portal.** Recommend Stripe Checkout (hosted, Kinotic-branded) + Stripe Customer Portal for self-serve subscription management at MVP; embedded Elements later.
 3. **Monetization review checklist.** Exact contents of the gate (§9): category/MCC attestation, tax code, pricing linkage, prohibited list, refund-policy acknowledgment.
 4. **Customer earnings UI scope.** Balance + statements + payout history from the ledger (ours), bank/account management via Connect embedded components — confirm this split.
@@ -368,10 +368,49 @@ Gotchas: `livemode` guard in the dispatcher (Stripe sends test events to live UR
 3. **Ledger core (§7):** entities, `RevenueSplitService.recordCharge`, derived balances — provable with test-mode charges before any UI exists.
 4. **Org integration:** `OrganizationBillingProfile`, onboarding UI, monetization review gate wiring.
 5. **Payouts:** scheduler, batched transfers, reconciliation, earnings statements.
-6. **End-user billing:** plan/catalog projection, Kinotic-branded Checkout, subscriptions + metered components (metering aggregator → platform meters).
+6. **End-user billing:** plan/catalog projection, Kinotic-branded Checkout, subscriptions + metered components (metering aggregator → platform meters). Detailed design in §14; launch scope is generic templates only (metered components deferred).
 7. **Dashboards:** usage + earnings views from the time-series store and ledger; refund/dispute ops tooling.
 
-## 14. References
+## 14. Two-level subscriptions (detail for §13.4–§13.6)
+
+Two distinct subscription concepts, deliberately decoupled:
+
+| Level | Who subscribes to whom | Selected by | MVP shape |
+|---|---|---|---|
+| **Platform plan** | Org → Kinotic, **per Application** | Org admin picks the Kinotic tier each app runs on | `FREE` only — internal state, no Stripe object (nothing to charge) |
+| **App subscription** | End-user → Application (Kinotic as MoR) | Org admin defines plan templates for their app's users | Generic templates: flat monthly (annual optional) at an admin-chosen price |
+
+The two compose freely — the canonical launch scenario is exactly: *org on the free platform tier while their application's users pay $X/month*. The platform tier governs resource limits and (later) the take rate; the app subscription governs end-user revenue. Money plumbing (billing profile, recipient account, payouts) stays **org-level** regardless of how many apps monetize.
+
+### 14.1 Domain model additions (codebase)
+
+| Entity | Key fields | Notes |
+|---|---|---|
+| `ApplicationPlan` (org-scoped) | `id`, `organizationId`, `applicationId`, `name`, `long amountMonthly` (minor units, `LEDGER_CURRENCY`), `PlanInterval interval` (`MONTHLY`, `ANNUAL`), `stripeProductId`, `stripePriceId`, `ApplicationPlanStatus status` (`DRAFT`, `ACTIVE`, `RETIRED`), `created`, `updated` | Kinotic-native source of truth, **projected** into Stripe (one Product per Application, one recurring Price per plan) on activation — never bound to a Stripe account (§4.3 rail escape hatch). Stripe Prices are immutable: a price change retires the plan and creates a successor |
+| `AppSubscription` (org-scoped) | `id` = Stripe subscription id, `organizationId`, `applicationId`, `tenantId`, `endUserId`, `applicationPlanId`, `AppSubscriptionStatus status`, `currentPeriodEnd` | **Entitlement projection** maintained from `customer.subscription.*` webhooks — the application runtime's fast "is this user subscribed" check, no Stripe call in the request path |
+| Platform plan (per app) | `platformPlanId` field on the Application (or its app-scoped config) | `FREE` constant at launch. When paid tiers arrive, `PlatformFeePolicy` widens from `feeBasisPointsFor(profile)` to resolve the **application's** plan — `RevenueSplit` already records `applicationId` + `pricingPlanId` per charge, so retroactive analysis works from day one |
+
+Services (following §7.3 conventions): `ApplicationPlanService` (org-scoped CRUD; `activate(planId)` gated on the app having **passed monetization review** (§9) and projecting Product/Price into Stripe), `AppSubscriptionService` (webhook-driven projection plus `entitlementFor(applicationId, endUserId)`), and a checkout service minting Stripe Checkout Sessions (`mode=subscription`, the metadata contract stamped on the subscription — Stripe propagates it to invoices and charges, which is what makes `recordCharge` attribution work unchanged) and Customer Portal sessions.
+
+Webhook dispatcher additions: `customer.subscription.created/updated/deleted` → `AppSubscriptionService`; `invoice.payment_failed` → subscription status `PAST_DUE` (Stripe Smart Retries handle recovery; §11-C's decisions). **No ledger changes** — renewals arrive as `charge.succeeded` like every other charge.
+
+### 14.2 UI elements
+
+**Org-admin (Kinotic portal):**
+- *App Settings → Monetization tab*: platform tier display (Free); the guided monetization journey — recipient onboarding via embedded component when the org has no billing profile yet → plan editor (name + price) → activate (blocked until app review passes + recipient transfers are active) → earnings panel (`balanceFor`) with drill-down to splits.
+- *Org → Billing page*: billing profile status, payout schedule (read-only until §13.5), statements later.
+
+**End-user (inside the application):** a subscribe action that redirects to Kinotic-branded hosted Checkout and a manage action opening the Customer Portal — surfaced to app code through a platform SDK/endpoint that mints the sessions server-side (apps never see Stripe keys). The exact SDK surface is designed with the app-runtime team in §13.6 implementation.
+
+### 14.3 Rollout order within §13.6
+
+1. `ApplicationPlan` CRUD + Stripe projection (behind the monetization review gate)
+2. Checkout session minting + metadata contract on subscriptions
+3. `AppSubscription` projection + entitlement lookup
+4. Portal UI (Monetization tab, earnings panel)
+5. Publish the org-admin guide (Appendix B) to `website/content`
+
+## 15. References
 
 - Merchant of record in Connect — https://docs.stripe.com/connect/merchant-of-record
 - Separate charges and transfers — https://docs.stripe.com/connect/separate-charges-and-transfers
@@ -393,3 +432,47 @@ Gotchas: `livemode` guard in the dispatcher (Stripe sends test events to live UR
 - **Customer as MoR (direct charges + full merchant accounts, `application_fee_*` cut).** The prior draft's architecture. Rejected for MVP: weaker platform legitimacy, full merchant KYC friction on every Customer, and the "pay the platform bill from proceeds" goal requires two mechanisms + reconciliation instead of ledger netting. Preserved as the **graduation path** for large orgs (§4.3).
 - **Destination charges as the primary rail.** Kinotic-MoR but Stripe auto-splits per charge. Rejected: forfeits transfer batching (per-payout fees), can't bundle across Applications, and the ledger is needed regardless — two split mechanisms is one too many.
 - **Stripe Managed Payments (Stripe as MoR).** Explicitly incompatible with Connect (single sellers of their own digital products only). Useful only as the 7–9% pricing benchmark for MoR burden.
+
+## Appendix B. Org-admin guide draft — "Add subscriptions to your application"
+
+> DRAFT: moves to `website/content` when §13.6 ships (per the docs-reflect-current-system rule, it must not be published before the feature exists). Keep in sync with §14 while drafting.
+
+Kinotic handles payments end to end for your application: your users subscribe through Kinotic checkout, Kinotic collects the money as the merchant of record, and you receive your share as automatic payouts — no payment processor account, tax registration, or PCI paperwork on your side. Your organization can stay on the free platform tier while your application's users pay for subscriptions; the two are independent.
+
+### Prerequisites
+
+- Your application is deployed and has passed monetization review (requested from App Settings → Monetization).
+- You are an organization admin.
+
+### 1. Connect your payout account
+
+App Settings → Monetization → **Set up payouts**. You'll be asked for your business name, website, and a bank account — typically a few minutes. Payouts are held until this completes; your app can start selling as soon as transfers are enabled.
+
+### 2. Create a plan
+
+**Add plan** → give it a name your users will recognize (e.g. "Pro") and a monthly price. Annual billing is optional. Prices are fixed once a plan is live — to change pricing, retire the plan and create a new one; existing subscribers keep their price until they cancel.
+
+### 3. Activate
+
+**Activate** publishes the plan. From this moment your application can offer subscriptions.
+
+### 4. Add subscribe to your application
+
+Use the platform SDK to send a user to checkout and to check a user's subscription:
+
+```
+// exact SDK surface published with the feature — illustrative shape:
+kinotic.billing.checkout(planId)        // redirects the current user to Kinotic checkout
+kinotic.billing.entitlement()           // → { subscribed: true, plan: "Pro", renewsAt: ... }
+kinotic.billing.managePortal()          // lets the user cancel or update their card
+```
+
+Your users see Kinotic-branded checkout and "KINOTIC* <YOUR APP>" on their card statement; Kinotic handles receipts, failed-payment retries, and refund requests under the platform refund policy.
+
+### 5. Track your earnings
+
+App Settings → Monetization shows your balance and every payment behind it: for each charge, the full breakdown — what the user paid, card processing cost, Kinotic's platform fee, and your net. Payouts arrive on your payout schedule (weekly by default) once your balance clears the hold period.
+
+### Fees
+
+Kinotic's platform fee is deducted from each payment along with card processing costs; the remainder is yours. Current rates are shown on the Monetization tab before you activate a plan.
