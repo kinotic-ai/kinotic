@@ -62,7 +62,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             }
 
             // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
-            // With no directory bean present nothing at all happens here.
+            // With no directory bean present, nothing at all happens here.
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {

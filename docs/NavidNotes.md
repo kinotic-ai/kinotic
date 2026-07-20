@@ -26,3 +26,6 @@
 
 # Grafana Labs
 * We may want the multi tenancy to be org.app.tenant , so metrics can be displayed to our customers’ users. 
+
+# KinoticIgniteClusterManager
+* revisit the statusFlux and changesFlux AI thinks they are good, I feel like the are redundant.
