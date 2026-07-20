@@ -36,8 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class DefaultEventBusService implements EventBusService {
 
-    private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
-
     private final KinoticIgniteClusterManager clusterManager;
     private final Vertx vertx;
     // Addresses this node currently has a local consumer for, reference counted. Populated only by
@@ -86,7 +84,7 @@ public class DefaultEventBusService implements EventBusService {
         if(clusterManager == null){
             throw new IllegalStateException("This method is not available when clustering is disabled");
         }
-        return clusterManager.changesFlux(SERVICE_ADDRESS_PREFIX);
+        return clusterManager.serviceChangesFlux();
     }
 
     @Override
@@ -95,7 +93,7 @@ public class DefaultEventBusService implements EventBusService {
             throw new IllegalStateException("This method is not available when clustering is disabled");
         }
         // scanning the cluster registrations is blocking work
-        return vertx.executeBlocking(() -> clusterManager.registeredAddresses(SERVICE_ADDRESS_PREFIX));
+        return vertx.executeBlocking(() -> clusterManager.registeredServiceAddresses());
     }
 
     @Override

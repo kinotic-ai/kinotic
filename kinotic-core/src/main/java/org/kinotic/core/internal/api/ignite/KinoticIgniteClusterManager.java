@@ -9,6 +9,7 @@ import io.vertx.spi.cluster.ignite.impl.IgniteRegistrationInfo;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.ListenerChange;
 import org.kinotic.core.api.event.ListenerStatus;
 import reactor.core.publisher.Flux;
@@ -35,9 +36,13 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     // The cache vertx-ignite keeps event bus subscriptions in, keyed by (address, node) registration
     private static final String VERTX_SUBSCRIPTION_CACHE = "__vertx.subs";
 
+    private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
+
     private final Ignite ignite;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
-    private final Map<String, PrefixMonitor> prefixMonitors = new ConcurrentHashMap<>();
+    // Guards serviceMonitor creation/removal and its subscriber count
+    private final Object serviceMonitorLock = new Object();
+    private volatile ServiceMonitor serviceMonitor;
 
     public KinoticIgniteClusterManager(Ignite ignite) {
         super(ignite);
@@ -52,7 +57,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             @Override
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
-                        || prefixMonitorFor(address) != null
+                        || (serviceMonitor != null && address.startsWith(SERVICE_ADDRESS_PREFIX))
                         || registrationListener.wantsUpdatesFor(address);
             }
 
@@ -63,9 +68,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
                 }
-                PrefixMonitor prefixMonitor = prefixMonitorFor(event.address());
-                if(prefixMonitor != null){
-                    prefixMonitor.emit(new ListenerChange(event.address(), statusOf(event.registrations())));
+                ServiceMonitor changeMonitor = serviceMonitor;
+                if(changeMonitor != null && event.address().startsWith(SERVICE_ADDRESS_PREFIX)){
+                    changeMonitor.emit(new ListenerChange(event.address(), statusOf(event.registrations())));
                 }
             }
 
@@ -75,10 +80,12 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 // Continuity of registration updates was lost, so the current state of every
                 // monitored address must be re-queried
                 monitors.keySet().forEach(address -> refresh(address, false));
-                // Prefix monitors cannot be re-queried address by address; subscribers recover by
-                // resubscribing and re-snapshotting via registeredAddresses
-                prefixMonitors.values().forEach(m -> m.fail(new IllegalStateException(
-                        "Registration update continuity was lost")));
+                // The service monitor cannot be re-queried address by address; subscribers recover by
+                // resubscribing and re-snapshotting via registeredServiceAddresses
+                ServiceMonitor changeMonitor = serviceMonitor;
+                if(changeMonitor != null){
+                    changeMonitor.fail(new IllegalStateException("Registration update continuity was lost"));
+                }
             }
         });
     }
@@ -106,31 +113,35 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     }
 
     /**
-     * A {@link Flux} of {@link ListenerChange}s for every address with the given prefix, shared between all
-     * subscribers for the same prefix. Carries only changes — snapshot with {@link #registeredAddresses} to
-     * establish a baseline. Errors when registration update continuity is lost; subscribers recover by
-     * resubscribing and re-snapshotting.
-     * @param addressPrefix the address prefix to monitor
+     * A {@link Flux} of {@link ListenerChange}s for every service ({@code srv://}) address, shared between all
+     * subscribers. Carries only changes — snapshot with {@link #registeredServiceAddresses} to establish a
+     * baseline. Errors when registration update continuity is lost; subscribers recover by resubscribing and
+     * re-snapshotting.
      * @return the change flux
      */
-    public Flux<ListenerChange> changesFlux(String addressPrefix) {
+    public Flux<ListenerChange> serviceChangesFlux() {
         return Flux.defer(() -> {
-            PrefixMonitor monitor = prefixMonitors.compute(addressPrefix, (p, existing) -> {
-                PrefixMonitor m = existing != null ? existing : new PrefixMonitor();
-                m.subscribers++;
-                return m;
-            });
+            ServiceMonitor monitor;
+            synchronized(serviceMonitorLock){
+                monitor = serviceMonitor != null ? serviceMonitor : (serviceMonitor = new ServiceMonitor());
+                monitor.subscribers++;
+            }
             return monitor.sink.asFlux()
-                               .doFinally(signal -> prefixMonitors.computeIfPresent(addressPrefix, (p, m) -> --m.subscribers == 0 ? null : m));
+                               .doFinally(signal -> {
+                                   synchronized(serviceMonitorLock){
+                                       if(--monitor.subscribers == 0 && serviceMonitor == monitor){
+                                           serviceMonitor = null;
+                                       }
+                                   }
+                               });
         });
     }
 
     /**
-     * Snapshots every address with the given prefix that currently has a registered listener. Blocking.
-     * @param addressPrefix the address prefix to filter by
-     * @return the set of registered addresses
+     * Snapshots every service ({@code srv://}) address that currently has a registered listener. Blocking.
+     * @return the set of registered service addresses
      */
-    public Set<String> registeredAddresses(String addressPrefix) {
+    public Set<String> registeredServiceAddresses() {
         IgniteCache<IgniteRegistrationInfo, Boolean> cache = ignite.cache(VERTX_SUBSCRIPTION_CACHE);
         if(cache == null){
             throw new IllegalStateException("The vertx subscription cache is not available");
@@ -138,20 +149,11 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
         Set<String> addresses = new HashSet<>();
         for(Cache.Entry<IgniteRegistrationInfo, Boolean> entry : cache){
             String address = entry.getKey().address();
-            if(address.startsWith(addressPrefix)){
+            if(address.startsWith(SERVICE_ADDRESS_PREFIX)){
                 addresses.add(address);
             }
         }
         return addresses;
-    }
-
-    private PrefixMonitor prefixMonitorFor(String address) {
-        for(Map.Entry<String, PrefixMonitor> entry : prefixMonitors.entrySet()){
-            if(address.startsWith(entry.getKey())){
-                return entry.getValue();
-            }
-        }
-        return null;
     }
 
     private void refresh(String address, boolean seed) {
@@ -215,13 +217,14 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     }
 
     /**
-     * Per-prefix sink plus the subscriber count used to remove idle entries. Changes are dropped when no
-     * subscriber is attached — a subscriber establishes its baseline with {@link #registeredAddresses} anyway.
+     * Sink for service-address registration changes plus the subscriber count used to drop the monitor when
+     * idle. Changes are dropped when no subscriber is attached — a subscriber establishes its baseline with
+     * {@link #registeredServiceAddresses} anyway.
      */
-    private static class PrefixMonitor {
+    private static class ServiceMonitor {
 
         final Sinks.Many<ListenerChange> sink = Sinks.many().multicast().directBestEffort();
-        int subscribers; // mutated only inside prefixMonitors.compute* blocks for this prefix
+        int subscribers; // mutated only while serviceMonitorLock is held
 
         void emit(ListenerChange change) {
             Sinks.EmitResult result = sink.tryEmitNext(change);
