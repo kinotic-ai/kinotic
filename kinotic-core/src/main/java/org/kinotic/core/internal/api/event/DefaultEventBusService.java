@@ -93,7 +93,7 @@ public class DefaultEventBusService implements EventBusService {
             throw new IllegalStateException("This method is not available when clustering is disabled");
         }
         // scanning the cluster registrations is blocking work
-        return vertx.executeBlocking(() -> clusterManager.registeredServiceAddresses());
+        return vertx.executeBlocking(clusterManager::registeredServiceAddresses);
     }
 
     @Override
