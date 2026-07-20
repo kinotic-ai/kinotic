@@ -343,18 +343,19 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   `eventBusService.isAnybodyListening(cri)` and partial-updates the liveness fields to the
   VERIFIED state — never a blind offline write. Safe for any authenticated caller whose
   zone rules allow sending to that CRI (it can only trigger a verification).
-- `internal/api/services/ServiceLivenessUpdater` — the HA cluster singleton
-  (architecture decision #5). Lifecycle: on start, reconcile
-  (`activeServiceAddresses()` snapshot, set-diff, bulk partial-update `online` +
-  `lastStatusChange`), then consume `monitorListenerChanges()`. CRITICAL: a
-  `ListenerChange` is an INVALIDATION TRIGGER, never a value to write — the
-  subscription cache holds one entry per (address, node registration), so an INACTIVE
-  event may mean one instance of several stopped while the address is still served.
-  On any change for an address: re-check `eventBusService.isAnybodyListening(cri)` and
-  partial-update the two liveness fields to the VERIFIED state (debounce per address,
-  seconds — a node death emits a burst per address). This makes all three liveness
-  layers uniform: signal → verify → write; no path writes an unverified value.
-  Periodic re-reconcile (~10 min). Addresses matching no entry are ignored.
+- Liveness maintenance lives in CORE (`core/internal/api/directory/` —
+  `ServiceLivenessUpdater`, an Ignite `Service` deployed as the HA cluster singleton by
+  `ServiceLivenessSingletonDeployer`, which deploys NOTHING when no `ServiceDirectory`
+  bean is present). It writes through the `ServiceDirectory` API (`updateLiveness`,
+  `reconcileLiveness`), so this module only implements those two methods by delegating
+  to the repository. Updater lifecycle (architecture decision #5): subscribe to
+  `monitorListenerChanges()` FIRST, then reconcile (`activeServiceAddresses()`
+  snapshot) so no change falls between snapshot and subscription; on each
+  `ListenerChange`, re-verify via `isAnybodyListening` (debounced per address) and
+  write the VERIFIED state; on stream error (registration continuity loss),
+  resubscribe then reconcile. All liveness layers are uniform: signal → verify →
+  write; no path writes an unverified value. Periodic re-reconcile (~10 min).
+  Addresses matching no entry are ignored.
 
 **Tests:** none (policy above) — the capture path, scope invariants, and liveness are
 asserted in the Phase 4 e2e.
