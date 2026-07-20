@@ -5,7 +5,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
-import org.kinotic.core.internal.utils.ZoneUtil;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;

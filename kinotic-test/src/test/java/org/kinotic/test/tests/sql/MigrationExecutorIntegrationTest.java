@@ -124,16 +124,16 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
         // Given
         String componentTemplateContent = """
             CREATE COMPONENT TEMPLATE test_template_index (
-                NUMBER_OF_SHARDS == 3,
-                NUMBER_OF_REPLICAS == 1,
+                NUMBER_OF_SHARDS = 3,
+                NUMBER_OF_REPLICAS = 1,
                 id KEYWORD,
                 name TEXT
             );
             """;
         String indexTemplateContent = """
             CREATE INDEX TEMPLATE test_index_template_index FOR "test-index-*" USING test_template_index WITH (
-                NUMBER_OF_SHARDS == 2,
-                NUMBER_OF_REPLICAS == 1,
+                NUMBER_OF_SHARDS = 2,
+                NUMBER_OF_REPLICAS = 1,
                 status TEXT
             );
             """;
@@ -201,13 +201,13 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             """;
         String reindexContent = """
             REINDEX test_table_reindex_source INTO test_table_reindex_dest WITH (
-                CONFLICTS == PROCEED,
-                MAX_DOCS == 100,
-                SLICES == AUTO,
-                SIZE == 1000,
-                SOURCE_FIELDS == 'id,name',
-                QUERY == 'name:test',
-                WAIT == TRUE
+                CONFLICTS = PROCEED,
+                MAX_DOCS = 100,
+                SLICES = AUTO,
+                SIZE = 1000,
+                SOURCE_FIELDS = 'id,name',
+                QUERY = 'name:test',
+                WAIT = TRUE
             );
             """;
 
@@ -251,9 +251,9 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             """;
         String reindexContent = """
             REINDEX test_table_reindex_script_source INTO test_table_reindex_script_dest WITH (
-                CONFLICTS == PROCEED,
-                SCRIPT == 'ctx._source.status = ctx._source.age >= 18 ? "adult" : "minor"',
-                WAIT == TRUE
+                CONFLICTS = PROCEED,
+                SCRIPT = 'ctx._source.status = ctx._source.age >= 18 ? "adult" : "minor"',
+                WAIT = TRUE
             );
             """;
 
@@ -298,7 +298,7 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
             INSERT INTO test_table_update (id, name, age) VALUES ('1', 'test', 20) WITH REFRESH;
             """;
         String updateContent = """
-            UPDATE test_table_update SET age == 21 WHERE id == '1' WITH REFRESH;
+            UPDATE test_table_update SET age = 21 WHERE id == '1' WITH REFRESH;
             """;
 
         Migration createTableMigration = migration(1, "V1__create_test_table", createTableContent);
