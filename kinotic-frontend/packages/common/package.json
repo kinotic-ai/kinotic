@@ -15,6 +15,7 @@
     "vue-router": "^5.0.6"
   },
   "devDependencies": {
-    "@types/debug": "^4.1.13"
+    "@types/debug": "^4.1.13",
+    "@vue/tsconfig": "^0.9.1"
   }
 }

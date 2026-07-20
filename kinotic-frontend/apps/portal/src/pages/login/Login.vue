@@ -96,9 +96,7 @@ import { useToast } from 'primevue/usetoast'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { KinoticStates } from '@/states'
 import { type IUserState } from '@/states/IUserState'
-import { createDebug } from '@kinotic-ai/frontend-common'
-import { apiUrl } from '@kinotic-ai/frontend-common'
-import { AuthPageShell } from '@kinotic-ai/frontend-common'
+import { apiUrl, AuthPageShell, createDebug, postCredentials, readAuthError } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 
 const debug = createDebug('login')
@@ -188,7 +186,7 @@ async function handleEmailSubmit() {
       body: JSON.stringify({ email: email.value })
     })
     if (!res.ok) {
-      const message = await readError(res, 'Lookup failed')
+      const message = await readAuthError(res, 'Lookup failed')
       displayError(message)
       return
     }
@@ -215,19 +213,7 @@ async function handlePasswordSubmit() {
   }
   loading.value = true
   try {
-    // Verify the password; on success the gateway establishes the browser session and sets
-    // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
-    const res = await fetch(apiUrl('/api/auth/org/login'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email: email.value, password: password.value })
-    })
-    if (!res.ok) {
-      displayError(await readError(res, 'Invalid credentials'))
-      password.value = ''
-      return
-    }
+    await postCredentials('/api/auth/org/login', email.value, password.value)
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await userState.login()
     const referer = (route.query.referer as string | undefined) || '/applications'
@@ -256,15 +242,6 @@ function focusPasswordInput() {
   const input = passwordInput.value
   const inner = input?.$el?.querySelector('input[type="password"]') ?? input?.$el?.querySelector('input')
   inner?.focus?.()
-}
-
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json()
-    return body?.error ?? fallback
-  } catch {
-    return fallback
-  }
 }
 
 function displayError(text: string) {

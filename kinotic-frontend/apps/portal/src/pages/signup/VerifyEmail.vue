@@ -50,7 +50,7 @@ import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'
-import { apiUrl } from '@kinotic-ai/frontend-common'
+import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
@@ -116,7 +116,7 @@ async function handleSubmit() {
     })
 
     if (!response.ok) {
-      displayAlert(await readError(response, 'Account creation failed'))
+      displayAlert(await readAuthError(response, 'Account creation failed'))
       return
     }
 
@@ -130,14 +130,6 @@ async function handleSubmit() {
   }
 }
 
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json()
-    return body?.error ?? fallback
-  } catch {
-    return fallback
-  }
-}
 
 function displayAlert(text: string) {
   toast.add({

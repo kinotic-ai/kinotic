@@ -55,7 +55,7 @@ import { useToast } from 'primevue/usetoast'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
-import { apiUrl } from '@kinotic-ai/frontend-common'
+import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
 
@@ -117,7 +117,7 @@ async function handleSubmit() {
       body: JSON.stringify(req)
     })
     if (!res.ok) {
-      const message = await readError(res, 'Could not create organization')
+      const message = await readAuthError(res, 'Could not create organization')
       displayError(message)
       return
     }
@@ -131,14 +131,6 @@ async function handleSubmit() {
   }
 }
 
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json()
-    return body?.error ?? fallback
-  } catch {
-    return fallback
-  }
-}
 
 function displayError(text: string) {
   toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })

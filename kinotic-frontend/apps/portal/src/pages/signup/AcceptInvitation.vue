@@ -84,7 +84,7 @@ import SetPasswordFields from '@/components/SetPasswordFields.vue'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 import { CONTINUUM_UI } from '@/IContinuumUI'
 import { KinoticStates } from '@/states'
-import { apiUrl } from '@kinotic-ai/frontend-common'
+import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 
 interface InviteProvider {
   id: string
@@ -162,7 +162,7 @@ async function loadDetails() {
   try {
     const res = await fetch(apiUrl('/api/auth/invite/details?token=' + encodeURIComponent(token.value)), { credentials: 'include' })
     if (!res.ok) {
-      invalidMessage.value = await readError(res, invalidMessage.value)
+      invalidMessage.value = await readAuthError(res, invalidMessage.value)
       phase.value = 'invalid'
       return
     }
@@ -210,7 +210,7 @@ async function handleAccept() {
       })
     })
     if (!res.ok) {
-      toast.add({ severity: 'error', summary: 'Error', detail: await readError(res, 'Failed to accept invitation'), life: 8000 })
+      toast.add({ severity: 'error', summary: 'Error', detail: await readAuthError(res, 'Failed to accept invitation'), life: 8000 })
       return
     }
 
@@ -246,14 +246,6 @@ function errorCodeToMessage(code: string): string {
   }
 }
 
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json()
-    return body?.error ?? fallback
-  } catch {
-    return fallback
-  }
-}
 </script>
 
 <style scoped>

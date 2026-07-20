@@ -44,7 +44,7 @@ import Button from 'primevue/button'
 import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
-import { apiUrl, AuthPageShell, createDebug } from '@kinotic-ai/frontend-common'
+import { AuthPageShell, createDebug, postCredentials } from '@kinotic-ai/frontend-common'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 const debug = createDebug('system-login')
@@ -73,19 +73,7 @@ async function handleSubmit() {
   }
   loading.value = true
   try {
-    // Verify the credentials; on success the gateway establishes the browser session and sets
-    // the session cookie. credentials:'include' so the cross-origin Set-Cookie is stored.
-    const res = await fetch(apiUrl('/api/auth/system/login'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ email: email.value, password: password.value })
-    })
-    if (!res.ok) {
-      displayError(await readError(res, 'Invalid credentials'))
-      password.value = ''
-      return
-    }
+    await postCredentials('/api/auth/system/login', email.value, password.value)
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await SYSTEM_USER_STATE.login()
     const referer = (route.query.referer as string | undefined) || '/overview'
@@ -96,15 +84,6 @@ async function handleSubmit() {
     password.value = ''
   } finally {
     loading.value = false
-  }
-}
-
-async function readError(res: Response, fallback: string): Promise<string> {
-  try {
-    const body = await res.json()
-    return body?.error ?? fallback
-  } catch {
-    return fallback
   }
 }
 
