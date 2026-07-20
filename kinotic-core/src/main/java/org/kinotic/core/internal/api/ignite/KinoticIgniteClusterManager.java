@@ -43,9 +43,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
     private final Ignite ignite;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
-    // Guards serviceMonitor creation/removal and its subscriber count
-    private final Object serviceMonitorLock = new Object();
-    private volatile ServiceMonitor serviceMonitor;
+    // Holds at most one entry, keyed by SERVICE_ADDRESS_PREFIX; compute/computeIfPresent give the
+    // same atomic create/count/remove lifecycle as the monitors map
+    private final Map<String, ServiceMonitor> serviceMonitors = new ConcurrentHashMap<>(1);
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
@@ -84,7 +84,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             @Override
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
-                        || (serviceMonitor != null && address.startsWith(SERVICE_ADDRESS_PREFIX))
+                        || (!serviceMonitors.isEmpty() && address.startsWith(SERVICE_ADDRESS_PREFIX))
                         || registrationListener.wantsUpdatesFor(address);
             }
 
@@ -95,9 +95,11 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
                 }
-                ServiceMonitor changeMonitor = serviceMonitor;
-                if(changeMonitor != null && event.address().startsWith(SERVICE_ADDRESS_PREFIX)){
-                    changeMonitor.emit(new ListenerChange(event.address(), statusOf(event.registrations())));
+                if(event.address().startsWith(SERVICE_ADDRESS_PREFIX)){
+                    ServiceMonitor changeMonitor = serviceMonitors.get(SERVICE_ADDRESS_PREFIX);
+                    if(changeMonitor != null){
+                        changeMonitor.emit(new ListenerChange(event.address(), statusOf(event.registrations())));
+                    }
                 }
             }
 
@@ -109,7 +111,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 monitors.keySet().forEach(address -> refresh(address, false));
                 // The service monitor cannot be re-queried address by address; subscribers recover by
                 // resubscribing and re-snapshotting via registeredServiceAddresses
-                ServiceMonitor changeMonitor = serviceMonitor;
+                ServiceMonitor changeMonitor = serviceMonitors.get(SERVICE_ADDRESS_PREFIX);
                 if(changeMonitor != null){
                     changeMonitor.fail(new IllegalStateException("Registration update continuity was lost"));
                 }
@@ -150,19 +152,13 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     public Flux<ListenerChange> serviceChangesFlux() {
         return Flux.defer(() -> {
             Context context = deliveryContext();
-            ServiceMonitor monitor;
-            synchronized(serviceMonitorLock){
-                monitor = serviceMonitor != null ? serviceMonitor : (serviceMonitor = new ServiceMonitor(context));
-                monitor.subscribers++;
-            }
+            ServiceMonitor monitor = serviceMonitors.compute(SERVICE_ADDRESS_PREFIX, (p, existing) -> {
+                ServiceMonitor m = existing != null ? existing : new ServiceMonitor(context);
+                m.subscribers++;
+                return m;
+            });
             return monitor.sink.asFlux()
-                               .doFinally(signal -> {
-                                   synchronized(serviceMonitorLock){
-                                       if(--monitor.subscribers == 0 && serviceMonitor == monitor){
-                                           serviceMonitor = null;
-                                       }
-                                   }
-                               });
+                               .doFinally(signal -> serviceMonitors.computeIfPresent(SERVICE_ADDRESS_PREFIX, (p, m) -> --m.subscribers == 0 ? null : m));
         });
     }
 
@@ -263,7 +259,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private static class ServiceMonitor {
 
         final Sinks.Many<ListenerChange> sink = Sinks.many().multicast().directBestEffort();
-        int subscribers; // mutated only while serviceMonitorLock is held
+        int subscribers; // mutated only inside serviceMonitors.compute* blocks
         private final Context deliveryContext;
 
         ServiceMonitor(Context deliveryContext) {
