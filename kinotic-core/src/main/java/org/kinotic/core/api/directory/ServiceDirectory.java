@@ -4,7 +4,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
 
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -72,22 +71,5 @@ public interface ServiceDirectory {
      * @return a {@link CompletableFuture} completing when the report has been accepted
      */
     CompletableFuture<Void> reportUnreachable(String cri);
-
-    /**
-     * Sets the liveness of the entry for the given service address. Called by the platform's liveness maintenance
-     * with values verified against current cluster registrations.
-     * @param serviceAddress the service address whose entry is updated
-     * @param online the verified liveness state
-     * @return a {@link CompletableFuture} completing when the entry is updated
-     */
-    CompletableFuture<Void> updateLiveness(String serviceAddress, boolean online);
-
-    /**
-     * Corrects the liveness of every entry against the full set of currently active service addresses: entries
-     * whose address is present become online, all others become offline.
-     * @param activeServiceAddresses the complete snapshot of service addresses with registered listeners
-     * @return a {@link CompletableFuture} completing when all entries are corrected
-     */
-    CompletableFuture<Void> reconcileLiveness(Set<String> activeServiceAddresses);
 
 }

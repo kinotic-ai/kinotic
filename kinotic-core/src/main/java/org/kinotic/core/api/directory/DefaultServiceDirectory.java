@@ -1,8 +1,13 @@
 package org.kinotic.core.api.directory;
 
-import lombok.AccessLevel;
-import lombok.Getter;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.annotations.McpTool;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -19,81 +24,118 @@ import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
 
 import java.lang.reflect.Method;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Base class for {@link ServiceDirectory} implementations. Provides {@link #buildEntry}, which builds the directory
- * entry for ANY published service — MCP tool definitions are added for functions carrying {@link McpTool} — so an
- * implementation performs the contract reflection and schema generation only when it determines the entry actually
- * needs to be stored.
+ * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
+ * registrations, and serves the directory queries. Storage is supplied by the {@link ServiceDirectoryRepository}
+ * strategy; the module providing a repository wires this as the {@link ServiceDirectory} bean.
  */
-public abstract class AbstractServiceDirectory implements ServiceDirectory {
+@Slf4j
+public class DefaultServiceDirectory implements ServiceDirectory {
 
+    private final ServiceDirectoryRepository repository;
+    private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final McpJsonSchemaGenerator schemaGenerator;
 
-    /**
-     * The version stamped on entries built by {@link #buildEntry}, so an implementation can skip rebuilding an entry
-     * whose stored {@code sourceVersion} already matches.
-     */
-    @Getter(AccessLevel.PROTECTED)
+    // Stamped on built entries so registerService can skip rebuilding an entry whose stored
+    // sourceVersion already matches
     private final String sourceVersion;
 
-    protected AbstractServiceDirectory(SchemaFactory schemaFactory,
-                                       IdlConverterFactory idlConverterFactory) {
+    // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
+    private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
+                                                                  .expireAfterWrite(Duration.ofSeconds(5))
+                                                                  .build();
+
+    public DefaultServiceDirectory(ServiceDirectoryRepository repository,
+                                   EventBusService eventBusService,
+                                   SchemaFactory schemaFactory,
+                                   IdlConverterFactory idlConverterFactory) {
+        this.repository = repository;
+        this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
         this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
-        this.sourceVersion = AbstractServiceDirectory.class.getPackage().getImplementationVersion();
+        this.sourceVersion = DefaultServiceDirectory.class.getPackage().getImplementationVersion();
     }
 
     @Override
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        return registerService(serviceIdentifier, serviceInterface);
+        // buildEntry reflects the interface and generates schemas — skipped when the stored entry
+        // was already built by this kinotic version
+        return repository.findById(entryId(serviceIdentifier))
+                         .thenCompose(existing -> {
+                             if (existing != null && Objects.equals(existing.getSourceVersion(), sourceVersion)) {
+                                 return CompletableFuture.completedFuture(null);
+                             }
+                             // a new entry starts with online unset, and the ACTIVE registration event fired
+                             // before the entry existed — refresh from the verified cluster state
+                             return repository.upsertContract(buildEntry(serviceIdentifier, serviceInterface))
+                                              .thenCompose(v -> refreshOnline(serviceIdentifier));
+                         });
     }
 
     @Override
     public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        return unregisterService(serviceIdentifier);
+        // this node leaving says nothing about other instances of the service — verify, never
+        // write offline blindly
+        return refreshOnline(serviceIdentifier);
+    }
+
+    @Override
+    public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+                                                                              String applicationId,
+                                                                              Pageable pageable) {
+        return repository.findEntriesScopedTo(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+                                                                             String applicationId,
+                                                                             Pageable pageable) {
+        return repository.findMcpToolsCallableBy(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<Void> reportUnreachable(String cri) {
+        if (reportDebounce.getIfPresent(cri) != null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        reportDebounce.put(cri, Boolean.TRUE);
+        CRI parsed = CRI.create(cri);
+        // verify against current registrations before writing; a report is an invalidation trigger, not a value
+        return eventBusService.isAnybodyListening(parsed)
+                              .toCompletionStage()
+                              .toCompletableFuture()
+                              .thenCompose(online -> repository.setOnlineByAddress(parsed.baseResource(),
+                                                                                   online,
+                                                                                   Instant.now()));
     }
 
     /**
-     * Stores the contract of a published service. Build the entry with {@link #buildEntry} only when it needs to be
-     * stored — an entry whose stored {@code sourceVersion} matches {@link #getSourceVersion()} is already current.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being registered
-     * @return a {@link CompletableFuture} completing when registration is handled
+     * Sets the entry's liveness to the verified cluster-wide registration state.
      */
-    protected abstract CompletableFuture<Void> registerService(ServiceIdentifier serviceIdentifier,
-                                                               Class<?> serviceInterface);
+    private CompletableFuture<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+        return eventBusService.isAnybodyListening(serviceIdentifier.cri())
+                              .toCompletionStage()
+                              .toCompletableFuture()
+                              .thenCompose(online -> repository.setOnline(entryId(serviceIdentifier),
+                                                                          online,
+                                                                          Instant.now()));
+    }
 
-    /**
-     * Handles the calling node no longer providing the service. Other nodes may still provide it, so liveness must
-     * be derived from cluster state, never assumed from this call. Entries are never deleted; a known-but-offline
-     * service is a feature.
-     * @param serviceIdentifier the identifier the service registered under
-     * @return a {@link CompletableFuture} completing when the notification is handled
-     */
-    protected abstract CompletableFuture<Void> unregisterService(ServiceIdentifier serviceIdentifier);
-
-    /**
-     * Builds the complete directory entry for a published service: the C3 contract, and — for functions carrying
-     * {@link McpTool} — tool decorators and ready-to-serve tool definitions. This performs reflection and schema
-     * generation — call it only when the entry will be stored.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being registered
-     * @return the entry ready to store
-     * @throws IllegalStateException if an {@link McpTool} function has a streaming return type or two functions
-     *                               produce the same tool name
-     */
-    protected ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
         Map<String, Method> mcpMethods = mcpMethods(serviceInterface);
         NamespaceDefinition namespace = schemaFactory.createForService(serviceInterface);
         ServiceDefinition contract = namespace.getServices().iterator().next();
@@ -144,12 +186,7 @@ public abstract class AbstractServiceDirectory implements ServiceDirectory {
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
-    /**
-     * The directory entry id for a service registered at runtime.
-     * @param serviceIdentifier the identifier the service registered under
-     * @return the entry id
-     */
-    protected String entryId(ServiceIdentifier serviceIdentifier) {
+    private String entryId(ServiceIdentifier serviceIdentifier) {
         // runtime capture is always SYSTEM scope, so the id is namespace + name with no scope parts to prepend
         String namespace = serviceIdentifier.namespace();
         String name = serviceIdentifier.name();

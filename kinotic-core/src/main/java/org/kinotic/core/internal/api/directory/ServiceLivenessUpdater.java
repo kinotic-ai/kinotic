@@ -6,8 +6,10 @@ import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryRepository;
 import reactor.core.Disposable;
+
+import java.time.Instant;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -31,8 +33,8 @@ public class ServiceLivenessUpdater implements Service {
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = EventBusService.class)
     private transient EventBusService eventBusService;
-    @SpringResource(resourceClass = ServiceDirectory.class)
-    private transient ServiceDirectory serviceDirectory;
+    @SpringResource(resourceClass = ServiceDirectoryRepository.class)
+    private transient ServiceDirectoryRepository repository;
     @SpringResource(resourceClass = Vertx.class)
     private transient Vertx vertx;
 
@@ -104,7 +106,7 @@ public class ServiceLivenessUpdater implements Service {
     private void verify(String address) {
         eventBusService.isAnybodyListening(CRI.create(address)).onComplete(result -> {
             if (result.succeeded()) {
-                serviceDirectory.updateLiveness(address, result.result())
+                repository.setOnlineByAddress(address, result.result(), Instant.now())
                           .exceptionally(throwable -> {
                               log.error("Failed to write verified liveness for {}", address, throwable);
                               return null;
@@ -118,7 +120,7 @@ public class ServiceLivenessUpdater implements Service {
     private void reconcile() {
         eventBusService.activeServiceAddresses().onComplete(result -> {
             if (result.succeeded()) {
-                serviceDirectory.reconcileLiveness(result.result())
+                repository.reconcileLiveness(result.result(), Instant.now())
                           .exceptionally(throwable -> {
                               log.error("Liveness reconciliation failed", throwable);
                               return null;

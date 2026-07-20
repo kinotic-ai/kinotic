@@ -1,0 +1,82 @@
+package org.kinotic.core.api.directory;
+
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+
+import java.time.Instant;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * Storage strategy for the {@link DefaultServiceDirectory}. A module providing an implementation of this repository
+ * supplies where directory entries live; all directory behavior (capture, verification, liveness maintenance) is
+ * provided by the platform on top of it.
+ */
+public interface ServiceDirectoryRepository {
+
+    /**
+     * Finds an entry by id.
+     * @param id the entry id
+     * @return a {@link CompletableFuture} containing the entry, or null when none exists
+     */
+    CompletableFuture<ServiceDirectoryEntry> findById(String id);
+
+    /**
+     * Upserts the contract fields of an entry, leaving the liveness fields ({@code online},
+     * {@code lastStatusChange}) untouched.
+     * @param entry the entry to upsert
+     * @return a {@link CompletableFuture} completing when the entry is stored
+     */
+    CompletableFuture<Void> upsertContract(ServiceDirectoryEntry entry);
+
+    /**
+     * Sets the liveness fields of the entry with the given id.
+     * @param entryId the entry id
+     * @param online the liveness state
+     * @param when the time of the state change
+     * @return a {@link CompletableFuture} completing when the entry is updated
+     */
+    CompletableFuture<Void> setOnline(String entryId, boolean online, Instant when);
+
+    /**
+     * Sets the liveness fields of the entry with the given service address.
+     * @param serviceAddress the service address of the entry
+     * @param online the liveness state
+     * @param when the time of the state change
+     * @return a {@link CompletableFuture} completing when the entry is updated
+     */
+    CompletableFuture<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
+
+    /**
+     * Corrects the liveness of every entry against the full set of currently active service addresses: entries
+     * whose address is present become online, all others become offline.
+     * @param activeAddresses the complete snapshot of service addresses with registered listeners
+     * @param when the time of the correction
+     * @return a {@link CompletableFuture} completing when all entries are corrected
+     */
+    CompletableFuture<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
+
+    /**
+     * Returns the entries scoped to the given organization/application. A system scope (both ids null) returns all
+     * entries.
+     * @param organizationId the organization scope to filter by, or null for the system scope
+     * @param applicationId the application scope to filter by, or null to include all of the organization's entries
+     * @param pageable the page settings to use
+     * @return a page of entries in the given scope
+     */
+    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+                                                                       String applicationId,
+                                                                       Pageable pageable);
+
+    /**
+     * Returns the online MCP tools callable by the given scope per the zone send rules.
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
+     * @param pageable the page settings to use
+     * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
+     */
+    CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+                                                                      String applicationId,
+                                                                      Pageable pageable);
+
+}
