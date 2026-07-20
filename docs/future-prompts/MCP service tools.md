@@ -316,16 +316,15 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 
 **Create (in `kinotic-domain`, implementing core's `ServiceDirectory`):**
 
-- `internal/api/ElasticServiceDirectory extends AbstractServiceDirectory` — the sole
-  `ServiceDirectory` impl bean (plain `@Component`; core has none — its presence is
-  what activates the registration path's directory calls). `registerMcpService`: fetch
-  the stored entry's `sourceVersion` first and **skip `buildEntry` entirely when it
-  matches `getSourceVersion()`** — on a same-version boot no reflection or schema
-  generation runs anywhere in the cluster after the first node. When storing: upsert
-  contract fields WITHOUT touching `online`/`lastStatusChange` (single-writer: the
-  singleton owns those). Enforces the write-path scope invariant (`applicationId`
-  without `organizationId` rejected, same rule as `KinoticSecurityService`); computes
-  `mcpExposed` at write, never accepts it from input.
+- Storage is the STRATEGY: core owns the one concrete `DefaultServiceDirectory`
+  (capture with `sourceVersion` skip, verified liveness refresh on register/unregister,
+  `reportUnreachable` debounce+verify, query delegation), built over the
+  `ServiceDirectoryRepository` SPI (`core/api/directory`). This module implements ONLY
+  the repository (its existing `ServiceDirectoryEntryRepository` implements the SPI)
+  and wires the bean in `internal/config/ServiceDirectoryConfig` — the bean's presence
+  activates the registration path's directory calls and the liveness singleton.
+  Contract upserts never touch `online`/`lastStatusChange` (single-writer: the
+  liveness machinery owns those).
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
