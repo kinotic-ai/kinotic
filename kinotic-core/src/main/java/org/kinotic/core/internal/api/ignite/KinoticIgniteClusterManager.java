@@ -1,6 +1,8 @@
 package org.kinotic.core.internal.api.ignite;
 
+import io.vertx.core.Context;
 import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.spi.cluster.RegistrationListener;
 import io.vertx.core.spi.cluster.RegistrationUpdateEvent;
@@ -26,7 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * An {@link IgniteClusterManager} that additionally provides a {@link Flux} of {@link ListenerStatus} for
  * any event bus address, fed by the registration updates it already receives for message routing.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
- * how often monitors come and go.
+ * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
+ * cluster threads that observe registration changes.
  *
  * Created by Navid on 7/13/26
  */
@@ -43,10 +46,34 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     // Guards serviceMonitor creation/removal and its subscriber count
     private final Object serviceMonitorLock = new Object();
     private volatile ServiceMonitor serviceMonitor;
+    private volatile Vertx vertx;
+    private volatile Context deliveryContext;
 
     public KinoticIgniteClusterManager(Ignite ignite) {
         super(ignite);
         this.ignite = ignite;
+    }
+
+    @Override
+    public void init(Vertx vertx) {
+        super.init(vertx);
+        this.vertx = vertx;
+    }
+
+    // One shared context all monitors deliver on, so subscriber chains never run on the cluster
+    // threads that observe registration changes. Created lazily on first subscription — init runs
+    // while vertx is still bootstrapping.
+    private Context deliveryContext() {
+        Context context = deliveryContext;
+        if(context == null){
+            synchronized(this){
+                if(deliveryContext == null){
+                    deliveryContext = vertx.getOrCreateContext();
+                }
+                context = deliveryContext;
+            }
+        }
+        return context;
     }
 
     @Override
@@ -99,8 +126,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
      */
     public Flux<ListenerStatus> statusFlux(String address) {
         return Flux.defer(() -> {
+            Context context = deliveryContext();
             AddressMonitor monitor = monitors.compute(address, (a, existing) -> {
-                AddressMonitor m = existing != null ? existing : new AddressMonitor();
+                AddressMonitor m = existing != null ? existing : new AddressMonitor(context);
                 m.subscribers++;
                 return m;
             });
@@ -121,9 +149,10 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
      */
     public Flux<ListenerChange> serviceChangesFlux() {
         return Flux.defer(() -> {
+            Context context = deliveryContext();
             ServiceMonitor monitor;
             synchronized(serviceMonitorLock){
-                monitor = serviceMonitor != null ? serviceMonitor : (serviceMonitor = new ServiceMonitor());
+                monitor = serviceMonitor != null ? serviceMonitor : (serviceMonitor = new ServiceMonitor(context));
                 monitor.subscribers++;
             }
             return monitor.sink.asFlux()
@@ -183,29 +212,39 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     }
 
     /**
-     * Per-address sink plus the subscriber count used to remove idle entries. Emission is
-     * synchronized so a seed racing an update event cannot overwrite the newer status with a stale one.
+     * Per-address sink plus the subscriber count used to remove idle entries. Emissions are serialized
+     * on the delivery context; the emitted flag keeps a seed scheduled behind an update event from
+     * overwriting the newer status with a stale one.
      */
     private static class AddressMonitor {
 
         final Sinks.Many<ListenerStatus> sink = Sinks.many().replay().latest();
         int subscribers; // mutated only inside monitors.compute* blocks for this address
-        private boolean emitted;
+        private final Context deliveryContext;
+        private boolean emitted; // touched only on the delivery context
 
-        synchronized void emit(ListenerStatus status) {
-            emitted = true;
-            tryEmit(status);
+        AddressMonitor(Context deliveryContext) {
+            this.deliveryContext = deliveryContext;
         }
 
-        synchronized void seed(ListenerStatus status) {
-            if(!emitted){
+        void emit(ListenerStatus status) {
+            deliveryContext.runOnContext(v -> {
                 emitted = true;
                 tryEmit(status);
-            }
+            });
         }
 
-        synchronized void fail(Throwable throwable) {
-            sink.tryEmitError(throwable);
+        void seed(ListenerStatus status) {
+            deliveryContext.runOnContext(v -> {
+                if(!emitted){
+                    emitted = true;
+                    tryEmit(status);
+                }
+            });
+        }
+
+        void fail(Throwable throwable) {
+            deliveryContext.runOnContext(v -> sink.tryEmitError(throwable));
         }
 
         private void tryEmit(ListenerStatus status) {
@@ -225,16 +264,23 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
         final Sinks.Many<ListenerChange> sink = Sinks.many().multicast().directBestEffort();
         int subscribers; // mutated only while serviceMonitorLock is held
+        private final Context deliveryContext;
+
+        ServiceMonitor(Context deliveryContext) {
+            this.deliveryContext = deliveryContext;
+        }
 
         void emit(ListenerChange change) {
-            Sinks.EmitResult result = sink.tryEmitNext(change);
-            if(result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER){
-                log.warn("Failed to emit ListenerChange {}: {}", change, result);
-            }
+            deliveryContext.runOnContext(v -> {
+                Sinks.EmitResult result = sink.tryEmitNext(change);
+                if(result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER){
+                    log.warn("Failed to emit ListenerChange {}: {}", change, result);
+                }
+            });
         }
 
         void fail(Throwable throwable) {
-            sink.tryEmitError(throwable);
+            deliveryContext.runOnContext(v -> sink.tryEmitError(throwable));
         }
     }
 }
