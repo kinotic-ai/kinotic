@@ -4,7 +4,6 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
-import org.apache.ignite.services.ServiceContext;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
@@ -45,7 +44,7 @@ public class ServiceLivenessUpdater implements Service {
     private transient ConcurrentMap<String, Long> pendingVerifications;
 
     @Override
-    public void init(ServiceContext ctx) {
+    public void init() {
         log.info("Starting service liveness updater singleton");
         // this instance was serialized to the hosting node, so runtime state is created here rather
         // than in field initializers, which do not run on deserialization
@@ -57,12 +56,12 @@ public class ServiceLivenessUpdater implements Service {
     }
 
     @Override
-    public void execute(ServiceContext ctx) {
+    public void execute() {
         // passive service: all work is driven by the change stream and timers started in init
     }
 
     @Override
-    public void cancel(ServiceContext ctx) {
+    public void cancel() {
         log.info("Stopping service liveness updater singleton");
         cancelled = true;
         if (subscription != null) {
