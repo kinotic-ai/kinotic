@@ -4,7 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.internal.utils.ZoneUtil;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;

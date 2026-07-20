@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.utils;
+package org.kinotic.core.api.utils;
 
 import org.apache.commons.lang3.Validate;
 

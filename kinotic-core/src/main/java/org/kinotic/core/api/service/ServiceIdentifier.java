@@ -4,7 +4,7 @@ package org.kinotic.core.api.service;
 
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.internal.utils.ZoneUtil;
+import org.kinotic.core.api.utils.ZoneUtil;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
