@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.kinotic.core.internal.api.ignite.IgniteServiceAdapter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -30,8 +29,9 @@ public class ServiceLivenessSingletonDeployer {
             log.warn("Ignite is not available; the service liveness updater singleton will not be deployed");
             return;
         }
-        ignite.services().deployClusterSingleton(SINGLETON_NAME,
-                new IgniteServiceAdapter(SINGLETON_NAME, ServiceLivenessUpdater.class, new Object[0]));
+        // ServiceLivenessUpdater is an Ignite Service; its Spring dependencies are injected via
+        // @SpringResource on the node Ignite elects to host it
+        ignite.services().deployClusterSingleton(SINGLETON_NAME, new ServiceLivenessUpdater());
     }
 
 }

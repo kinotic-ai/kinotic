@@ -1,13 +1,13 @@
 package org.kinotic.domain.internal.api.services;
 
 import io.vertx.core.Vertx;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.resources.SpringResource;
+import org.apache.ignite.services.Service;
+import org.apache.ignite.services.ServiceContext;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.Disposable;
 
 import java.time.Instant;
@@ -15,11 +15,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
- * The single cluster-wide maintainer of the directory's {@code online} liveness flag.
- * <p>
- * This runs as one HA cluster singleton (deployed via {@code IgniteServiceAdapter}), so it is instantiated by Ignite
- * and Spring-wired via field injection rather than a constructor. All three liveness layers are uniform —
- * signal &rarr; verify &rarr; write:
+ * The single cluster-wide maintainer of the directory's {@code online} liveness flag, running as one HA cluster
+ * singleton on the Ignite service grid. All three liveness layers are uniform — signal &rarr; verify &rarr; write:
  * <ul>
  *   <li>on start and on a periodic timer, reconcile against the full snapshot of active service addresses;</li>
  *   <li>on each {@link org.kinotic.core.api.event.ListenerChange}, re-verify the address's current registrations
@@ -27,44 +24,69 @@ import java.util.concurrent.ConcurrentMap;
  * </ul>
  */
 @Slf4j
-public class ServiceLivenessUpdater {
+public class ServiceLivenessUpdater implements Service {
 
     private static final long DEBOUNCE_MS = 2_000;
     private static final long RECONCILE_INTERVAL_MS = 600_000;
+    private static final long RESUBSCRIBE_DELAY_MS = 5_000;
 
-    @Autowired
-    private EventBusService eventBusService;
-    @Autowired
-    private ServiceDirectoryEntryRepository repository;
-    @Autowired
-    private Vertx vertx;
+    // Injected by Ignite on the node elected to host the singleton
+    @SpringResource(resourceClass = EventBusService.class)
+    private transient EventBusService eventBusService;
+    @SpringResource(resourceClass = ServiceDirectoryEntryRepository.class)
+    private transient ServiceDirectoryEntryRepository repository;
+    @SpringResource(resourceClass = Vertx.class)
+    private transient Vertx vertx;
 
-    private Disposable subscription;
-    private long reconcileTimerId = -1;
+    private transient volatile boolean cancelled;
+    private transient Disposable subscription;
+    private transient long reconcileTimerId;
     // address -> the pending verify timer, so a burst of changes for one address collapses to a single verify
-    private final ConcurrentMap<String, Long> pendingVerifications = new ConcurrentHashMap<>();
+    private transient ConcurrentMap<String, Long> pendingVerifications;
 
-    @PostConstruct
-    public void start() {
+    @Override
+    public void init(ServiceContext ctx) {
         log.info("Starting service liveness updater singleton");
+        // this instance was serialized to the hosting node, so runtime state is created here rather
+        // than in field initializers, which do not run on deserialization
+        cancelled = false;
+        pendingVerifications = new ConcurrentHashMap<>();
         reconcile();
-        subscription = eventBusService.monitorListenerChanges()
-                                      .subscribe(change -> onChange(change.address()),
-                                                 error -> log.error("Listener change stream failed", error));
+        subscribeToChanges();
         reconcileTimerId = vertx.setPeriodic(RECONCILE_INTERVAL_MS, id -> reconcile());
     }
 
-    @PreDestroy
-    public void stop() {
+    @Override
+    public void execute(ServiceContext ctx) {
+        // passive service: all work is driven by the change stream and timers started in init
+    }
+
+    @Override
+    public void cancel(ServiceContext ctx) {
         log.info("Stopping service liveness updater singleton");
+        cancelled = true;
         if (subscription != null) {
             subscription.dispose();
         }
-        if (reconcileTimerId != -1) {
-            vertx.cancelTimer(reconcileTimerId);
-        }
+        vertx.cancelTimer(reconcileTimerId);
         pendingVerifications.values().forEach(vertx::cancelTimer);
         pendingVerifications.clear();
+    }
+
+    private void subscribeToChanges() {
+        subscription = eventBusService.monitorListenerChanges()
+                                      .subscribe(change -> onChange(change.address()),
+                                                 error -> {
+                                                     // the stream errors when registration update continuity is
+                                                     // lost; recover by re-snapshotting and resubscribing
+                                                     log.warn("Listener change stream failed; reconciling and resubscribing", error);
+                                                     vertx.setTimer(RESUBSCRIBE_DELAY_MS, id -> {
+                                                         if (!cancelled) {
+                                                             reconcile();
+                                                             subscribeToChanges();
+                                                         }
+                                                     });
+                                                 });
     }
 
     private void onChange(String address) {
