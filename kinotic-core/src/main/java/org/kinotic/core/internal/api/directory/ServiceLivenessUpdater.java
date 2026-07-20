@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.api.services;
+package org.kinotic.core.internal.api.directory;
 
 import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
@@ -6,10 +6,9 @@ import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import reactor.core.Disposable;
 
-import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -32,8 +31,8 @@ public class ServiceLivenessUpdater implements Service {
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = EventBusService.class)
     private transient EventBusService eventBusService;
-    @SpringResource(resourceClass = ServiceDirectoryEntryRepository.class)
-    private transient ServiceDirectoryEntryRepository repository;
+    @SpringResource(resourceClass = ServiceDirectory.class)
+    private transient ServiceDirectory serviceDirectory;
     @SpringResource(resourceClass = Vertx.class)
     private transient Vertx vertx;
 
@@ -105,7 +104,7 @@ public class ServiceLivenessUpdater implements Service {
     private void verify(String address) {
         eventBusService.isAnybodyListening(CRI.create(address)).onComplete(result -> {
             if (result.succeeded()) {
-                repository.setOnlineByAddress(address, result.result(), Instant.now())
+                serviceDirectory.updateLiveness(address, result.result())
                           .exceptionally(throwable -> {
                               log.error("Failed to write verified liveness for {}", address, throwable);
                               return null;
@@ -119,7 +118,7 @@ public class ServiceLivenessUpdater implements Service {
     private void reconcile() {
         eventBusService.activeServiceAddresses().onComplete(result -> {
             if (result.succeeded()) {
-                repository.reconcileLiveness(result.result(), Instant.now())
+                serviceDirectory.reconcileLiveness(result.result())
                           .exceptionally(throwable -> {
                               log.error("Liveness reconciliation failed", throwable);
                               return null;

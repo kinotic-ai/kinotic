@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -112,6 +113,16 @@ public class ElasticServiceDirectory extends AbstractServiceDirectory {
                               .thenCompose(online -> repository.setOnlineByAddress(parsed.baseResource(),
                                                                                   online,
                                                                                   Instant.now()));
+    }
+
+    @Override
+    public CompletableFuture<Void> updateLiveness(String serviceAddress, boolean online) {
+        return repository.setOnlineByAddress(serviceAddress, online, Instant.now());
+    }
+
+    @Override
+    public CompletableFuture<Void> reconcileLiveness(Set<String> activeServiceAddresses) {
+        return repository.reconcileLiveness(activeServiceAddresses, Instant.now());
     }
 
 }
