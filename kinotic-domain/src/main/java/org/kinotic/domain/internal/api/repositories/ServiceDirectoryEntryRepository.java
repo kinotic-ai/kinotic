@@ -6,7 +6,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
-import org.kinotic.core.api.directory.ServiceDirectoryRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -25,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * applied explicitly in the queries here.
  */
 @Component
-public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> implements ServiceDirectoryRepository {
+public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
 
     // v1 reconciliation reads the whole directory in one page. The directory only holds self-captured system
     // services today; page through it once customer contracts (which could reach 100k) start landing.

@@ -37,13 +37,13 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
- * registrations, and serves the directory queries. Storage is supplied by the {@link ServiceDirectoryRepository}
- * strategy; the module providing a repository wires this as the {@link ServiceDirectory} bean.
+ * registrations, and serves the directory queries. Storage is supplied by a {@link ServiceDirectoryStrategy};
+ * the module providing a strategy wires this as the {@link ServiceDirectory} bean.
  */
 @Slf4j
 public class DefaultServiceDirectory implements ServiceDirectory {
 
-    private final ServiceDirectoryRepository repository;
+    private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
@@ -58,11 +58,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
                                                                   .build();
 
-    public DefaultServiceDirectory(ServiceDirectoryRepository repository,
+    public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
                                    EventBusService eventBusService,
                                    SchemaFactory schemaFactory,
                                    IdlConverterFactory idlConverterFactory) {
-        this.repository = repository;
+        this.strategy = strategy;
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
         this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
@@ -74,14 +74,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
         // buildEntry reflects the interface and generates schemas — skipped when the stored entry
         // was already built by this kinotic version
-        return repository.findById(entryId(serviceIdentifier))
+        return strategy.findById(entryId(serviceIdentifier))
                          .thenCompose(existing -> {
                              if (existing != null && Objects.equals(existing.getSourceVersion(), sourceVersion)) {
                                  return CompletableFuture.completedFuture(null);
                              }
                              // a new entry starts with online unset, and the ACTIVE registration event fired
                              // before the entry existed — refresh from the verified cluster state
-                             return repository.upsertContract(buildEntry(serviceIdentifier, serviceInterface))
+                             return strategy.upsertContract(buildEntry(serviceIdentifier, serviceInterface))
                                               .thenCompose(v -> refreshOnline(serviceIdentifier));
                          });
     }
@@ -97,14 +97,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                               String applicationId,
                                                                               Pageable pageable) {
-        return repository.findEntriesScopedTo(organizationId, applicationId, pageable);
+        return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
     @Override
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                              String applicationId,
                                                                              Pageable pageable) {
-        return repository.findMcpToolsCallableBy(organizationId, applicationId, pageable);
+        return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
@@ -118,7 +118,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return eventBusService.isAnybodyListening(parsed)
                               .toCompletionStage()
                               .toCompletableFuture()
-                              .thenCompose(online -> repository.setOnlineByAddress(parsed.baseResource(),
+                              .thenCompose(online -> strategy.setOnlineByAddress(parsed.baseResource(),
                                                                                    online,
                                                                                    Instant.now()));
     }
@@ -130,7 +130,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return eventBusService.isAnybodyListening(serviceIdentifier.cri())
                               .toCompletionStage()
                               .toCompletableFuture()
-                              .thenCompose(online -> repository.setOnline(entryId(serviceIdentifier),
+                              .thenCompose(online -> strategy.setOnline(entryId(serviceIdentifier),
                                                                           online,
                                                                           Instant.now()));
     }

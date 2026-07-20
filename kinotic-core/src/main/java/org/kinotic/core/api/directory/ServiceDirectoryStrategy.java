@@ -8,11 +8,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Storage strategy for the {@link DefaultServiceDirectory}. A module providing an implementation of this repository
- * supplies where directory entries live; all directory behavior (capture, verification, liveness maintenance) is
- * provided by the platform on top of it.
+ * Strategy encapsulating how directory entries are persisted and queried for a particular backend. A concrete
+ * strategy owns its backend's data access; all directory behavior (capture, verification, liveness maintenance) is
+ * provided by the platform through {@link DefaultServiceDirectory} on top of it.
  */
-public interface ServiceDirectoryRepository {
+public interface ServiceDirectoryStrategy {
 
     /**
      * Finds an entry by id.

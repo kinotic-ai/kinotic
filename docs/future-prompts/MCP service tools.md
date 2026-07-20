@@ -316,15 +316,18 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 
 **Create (in `kinotic-domain`, implementing core's `ServiceDirectory`):**
 
-- Storage is the STRATEGY: core owns the one concrete `DefaultServiceDirectory`
-  (capture with `sourceVersion` skip, verified liveness refresh on register/unregister,
-  `reportUnreachable` debounce+verify, query delegation), built over the
-  `ServiceDirectoryRepository` SPI (`core/api/directory`). This module implements ONLY
-  the repository (its existing `ServiceDirectoryEntryRepository` implements the SPI)
-  and wires the bean in `internal/config/ServiceDirectoryConfig` — the bean's presence
-  activates the registration path's directory calls and the liveness singleton.
-  Contract upserts never touch `online`/`lastStatusChange` (single-writer: the
-  liveness machinery owns those).
+- Storage is a classic GoF Strategy with the three data-access layers intact: core owns
+  the one concrete `DefaultServiceDirectory` context (capture with `sourceVersion` skip,
+  verified liveness refresh on register/unregister, `reportUnreachable` debounce+verify,
+  query delegation) over the `ServiceDirectoryStrategy` interface (`core/api/directory`).
+  This module contributes `internal/api/ElasticServiceDirectoryStrategy` (a `@Component`
+  implementing the strategy) which delegates to its own module-private
+  `ServiceDirectoryEntryRepository` DAO — the repository implements nothing from core.
+  `internal/config/ServiceDirectoryConfig` wires `DefaultServiceDirectory` over the
+  strategy as the `ServiceDirectory` bean — the bean's presence activates the
+  registration path's directory calls and the liveness singleton. Contract upserts
+  never touch `online`/`lastStatusChange` (single-writer: the liveness machinery owns
+  those).
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system

@@ -2,7 +2,7 @@ package org.kinotic.core.internal.api.directory;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.kinotic.core.api.directory.ServiceDirectoryRepository;
+import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -20,18 +20,18 @@ public class ServiceLivenessSingletonDeployer {
     private static final String SINGLETON_NAME = "kinotic-service-liveness-updater";
 
     private final Ignite ignite;
-    private final ObjectProvider<ServiceDirectoryRepository> serviceDirectoryRepositoryProvider;
+    private final ObjectProvider<ServiceDirectoryStrategy> strategyProvider;
 
     public ServiceLivenessSingletonDeployer(@Autowired(required = false) Ignite ignite,
-                                            ObjectProvider<ServiceDirectoryRepository> serviceDirectoryRepositoryProvider) {
+                                            ObjectProvider<ServiceDirectoryStrategy> strategyProvider) {
         this.ignite = ignite;
-        this.serviceDirectoryRepositoryProvider = serviceDirectoryRepositoryProvider;
+        this.strategyProvider = strategyProvider;
     }
 
     @EventListener(ApplicationReadyEvent.class)
     public void deploy() {
-        // with no directory repository there is no liveness to maintain, and nothing is deployed
-        if (serviceDirectoryRepositoryProvider.getIfAvailable() == null) {
+        // with no directory strategy there is no liveness to maintain, and nothing is deployed
+        if (strategyProvider.getIfAvailable() == null) {
             return;
         }
         if (ignite == null) {
