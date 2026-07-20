@@ -50,8 +50,10 @@ public class ServiceLivenessUpdater implements Service {
         // than in field initializers, which do not run on deserialization
         cancelled = false;
         pendingVerifications = new ConcurrentHashMap<>();
-        reconcile();
+        // subscribe before snapshotting so a change between the two cannot be missed; verify is
+        // idempotent, so changes arriving while the reconcile runs are harmless
         subscribeToChanges();
+        reconcile();
         reconcileTimerId = vertx.setPeriodic(RECONCILE_INTERVAL_MS, id -> reconcile());
     }
 
@@ -81,8 +83,8 @@ public class ServiceLivenessUpdater implements Service {
                                                      log.warn("Listener change stream failed; reconciling and resubscribing", error);
                                                      vertx.setTimer(RESUBSCRIBE_DELAY_MS, id -> {
                                                          if (!cancelled) {
-                                                             reconcile();
                                                              subscribeToChanges();
+                                                             reconcile();
                                                          }
                                                      });
                                                  });
