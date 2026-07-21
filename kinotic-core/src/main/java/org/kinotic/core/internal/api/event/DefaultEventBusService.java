@@ -15,8 +15,8 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
-import org.kinotic.core.api.event.ListenerChange;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.event.ServiceListenerEvent;
 import org.kinotic.core.internal.api.ignite.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -80,11 +80,11 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Flux<ListenerChange> monitorListenerChanges() {
+    public Flux<ServiceListenerEvent> monitorServiceListenerEvents() {
         if(clusterManager == null){
             throw new IllegalStateException("This method is not available when clustering is disabled");
         }
-        return clusterManager.serviceChangesFlux();
+        return clusterManager.serviceListenerEventsFlux();
     }
 
     @Override

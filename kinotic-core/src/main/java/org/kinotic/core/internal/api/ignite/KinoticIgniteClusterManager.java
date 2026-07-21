@@ -12,8 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.ListenerChange;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.event.ServiceListenerChange;
+import org.kinotic.core.api.event.ServiceListenerContinuityLost;
+import org.kinotic.core.api.event.ServiceListenerEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
@@ -43,9 +45,8 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
     private final Ignite ignite;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
-    // Hot sink shared by every serviceChangesFlux subscriber. Volatile because failServiceChanges
-    // swaps in a fresh sink after erroring — a terminated sink is permanent
-    private volatile Sinks.Many<ListenerChange> serviceSink = Sinks.many().multicast().directBestEffort();
+    // Hot sink shared by every serviceListenerEventsFlux subscriber; never terminates
+    private final Sinks.Many<ServiceListenerEvent> serviceListenerSink = Sinks.many().multicast().directBestEffort();
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
@@ -84,7 +85,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             @Override
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
-                        || (serviceSink.currentSubscriberCount() > 0 && address.startsWith(SERVICE_ADDRESS_PREFIX))
+                        || (serviceListenerSink.currentSubscriberCount() > 0 && address.startsWith(SERVICE_ADDRESS_PREFIX))
                         || registrationListener.wantsUpdatesFor(address);
             }
 
@@ -99,8 +100,8 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
                 }
-                if(event.address().startsWith(SERVICE_ADDRESS_PREFIX) && serviceSink.currentSubscriberCount() > 0){
-                    emitServiceChange(new ListenerChange(event.address(), statusOf(event.registrations())));
+                if(event.address().startsWith(SERVICE_ADDRESS_PREFIX) && serviceListenerSink.currentSubscriberCount() > 0){
+                    emitServiceListenerEvent(new ServiceListenerChange(event.address(), statusOf(event.registrations())));
                 }
             }
 
@@ -110,9 +111,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 // Continuity of registration updates was lost, so the current state of every
                 // monitored address must be re-queried
                 monitors.keySet().forEach(address -> refresh(address, false));
-                // The service sink cannot be re-queried address by address; subscribers recover by
-                // resubscribing and re-snapshotting via registeredServiceAddresses
-                failServiceChanges(new IllegalStateException("Registration update continuity was lost"));
+                // The service address space cannot be re-queried address by address; subscribers
+                // rebuild their baseline from a registeredServiceAddresses snapshot
+                emitServiceListenerEvent(new ServiceListenerContinuityLost());
             }
         });
     }
@@ -141,32 +142,21 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     }
 
     /**
-     * A {@link Flux} of {@link ListenerChange}s for every service ({@code srv://}) address, shared between all
-     * subscribers. Carries only changes — snapshot with {@link #registeredServiceAddresses} to establish a
-     * baseline. Errors when registration update continuity is lost; subscribers recover by resubscribing and
-     * re-snapshotting.
-     * @return the change flux
+     * A hot {@link Flux} of {@link ServiceListenerEvent}s for every service ({@code srv://}) address, shared
+     * between all subscribers. Carries only events — snapshot with {@link #registeredServiceAddresses} to
+     * establish a baseline, and rebuild it whenever a {@link ServiceListenerContinuityLost} arrives.
+     * @return the event flux
      */
-    public Flux<ListenerChange> serviceChangesFlux() {
-        // defer so a resubscribe after a continuity-loss error resolves the replacement sink
-        return Flux.defer(() -> serviceSink.asFlux());
+    public Flux<ServiceListenerEvent> serviceListenerEventsFlux() {
+        return serviceListenerSink.asFlux();
     }
 
-    // Both sink accessors run on the delivery context, so an emit racing failServiceChanges cannot
-    // reach a just-terminated sink
-    private void emitServiceChange(ListenerChange change) {
+    private void emitServiceListenerEvent(ServiceListenerEvent event) {
         deliveryContext().runOnContext(v -> {
-            Sinks.EmitResult result = serviceSink.tryEmitNext(change);
+            Sinks.EmitResult result = serviceListenerSink.tryEmitNext(event);
             if(result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER){
-                log.warn("Failed to emit ListenerChange {}: {}", change, result);
+                log.warn("Failed to emit ServiceListenerEvent {}: {}", event, result);
             }
-        });
-    }
-
-    private void failServiceChanges(Throwable throwable) {
-        deliveryContext().runOnContext(v -> {
-            serviceSink.tryEmitError(throwable);
-            serviceSink = Sinks.many().multicast().directBestEffort();
         });
     }
 

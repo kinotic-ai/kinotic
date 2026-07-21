@@ -58,7 +58,7 @@ disagree, the code wins: read the referenced source before implementing against 
    singleton idiom first) consuming one bus-wide listener-change stream and applying
    partial updates; connect/disconnect events are rare, so write volume is trivial.
    Three correction layers, each with a distinct job:
-   - **Event stream** (fast, usually right): deltas from `monitorListenerChanges()`.
+   - **Event stream** (fast, usually right): deltas from `monitorServiceListenerEvents()`.
    - **Reconciliation** (slow, complete): on singleton start and a periodic timer
      (~10 min), snapshot `activeServiceAddresses()`, set-diff against entries,
      bulk-correct — without this, one event missed during failover lies forever.
@@ -281,12 +281,14 @@ exposes the `api` configuration).
 - Liveness read primitives on `EventBusService` (implemented in
   `DefaultEventBusService` on top of `KinoticIgniteClusterManager`, consumed by
   Phase 3 — build nothing beyond these):
-  - `monitorListenerChanges()` → `Flux<ListenerChange>` (`ListenerChange` record —
-    address + `ListenerStatus` — own file in `api/event`): a `srv://`-prefix monitor on
+  - `monitorServiceListenerEvents()` → `Flux<ServiceListenerEvent>` (sealed interface in
+    `api/event`, one file per type: `ServiceListenerChange` — address + `ListenerStatus`
+    — and `ServiceListenerContinuityLost`): a hot `srv://` monitor on
     `KinoticIgniteClusterManager`, fed by the same `RegistrationListener` updates vertx
     uses for message routing. Each change carries the ADDRESS-LEVEL status aggregated
-    from the event's full registration list. The stream errors on registration-update
-    continuity loss — subscribers resubscribe and re-snapshot.
+    from the event's full registration list. The stream never terminates: a gap in
+    registration-update continuity is delivered in-band as
+    `ServiceListenerContinuityLost`, telling subscribers to rebuild their baseline.
   - `isAnybodyListening(CRI)` (pre-existing) → one-shot
     `clusterManager.getRegistrations` read; the point-in-time verification primitive.
   - `activeServiceAddresses()` → `Future<Set<String>>`: subscription snapshot via
@@ -348,17 +350,16 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   zone rules allow sending to that CRI (it can only trigger a verification).
 - Liveness maintenance lives in CORE (`core/internal/api/directory/` —
   `ServiceLivenessUpdater`, an Ignite `Service` deployed as the HA cluster singleton by
-  `ServiceLivenessSingletonDeployer`, which deploys NOTHING when no `ServiceDirectory`
-  bean is present). It writes through the `ServiceDirectory` API (`updateLiveness`,
-  `reconcileLiveness`), so this module only implements those two methods by delegating
-  to the repository. Updater lifecycle (architecture decision #5): subscribe to
-  `monitorListenerChanges()` FIRST, then reconcile (`activeServiceAddresses()`
+  `ServiceLivenessSingletonDeployer`, which deploys NOTHING when no
+  `ServiceDirectoryStrategy` bean is present). It writes through the
+  `ServiceDirectoryStrategy` liveness methods (`setOnlineByAddress`,
+  `reconcileLiveness`). Updater lifecycle (architecture decision #5): subscribe to
+  `monitorServiceListenerEvents()` FIRST, then reconcile (`activeServiceAddresses()`
   snapshot) so no change falls between snapshot and subscription; on each
-  `ListenerChange`, re-verify via `isAnybodyListening` (debounced per address) and
-  write the VERIFIED state; on stream error (registration continuity loss),
-  resubscribe then reconcile. All liveness layers are uniform: signal → verify →
-  write; no path writes an unverified value. Periodic re-reconcile (~10 min).
-  Addresses matching no entry are ignored.
+  `ServiceListenerChange`, re-verify via `isAnybodyListening` (debounced per address)
+  and write the VERIFIED state; on `ServiceListenerContinuityLost`, reconcile. All
+  liveness layers are uniform: signal → verify → write; no path writes an unverified
+  value. Periodic re-reconcile (~10 min). Addresses matching no entry are ignored.
 
 **Tests:** none (policy above) — the capture path, scope invariants, and liveness are
 asserted in the Phase 4 e2e.

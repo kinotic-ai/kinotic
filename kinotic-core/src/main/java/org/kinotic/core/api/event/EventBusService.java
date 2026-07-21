@@ -55,13 +55,14 @@ public interface EventBusService {
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
 
     /**
-     * Monitors listener registration changes across all service ({@code srv://}) addresses. Each change carries the
-     * address and its resulting status. The stream carries only changes; take a snapshot with
-     * {@link #activeServiceAddresses()} to establish a baseline. The stream errors when registration update
-     * continuity is lost — resubscribe and re-snapshot to recover.
-     * @return a {@link Flux} of {@link ListenerChange}s for service addresses
+     * Monitors listener registration events across all service ({@code srv://}) addresses. A
+     * {@link ServiceListenerChange} carries one address and its resulting status; a
+     * {@link ServiceListenerContinuityLost} signals that changes may have been missed. The stream carries only
+     * events; take a snapshot with {@link #activeServiceAddresses()} to establish a baseline, and rebuild it
+     * whenever continuity is lost.
+     * @return a {@link Flux} of {@link ServiceListenerEvent}s
      */
-    Flux<ListenerChange> monitorListenerChanges();
+    Flux<ServiceListenerEvent> monitorServiceListenerEvents();
 
     /**
      * Snapshots every service ({@code srv://}) address that currently has a registered listener.

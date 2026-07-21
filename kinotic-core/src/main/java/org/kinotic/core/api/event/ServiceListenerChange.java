@@ -5,5 +5,5 @@ package org.kinotic.core.api.event;
  * @param address the base resource address whose listener registration changed
  * @param status {@link ListenerStatus#ACTIVE} when a listener registered, {@link ListenerStatus#INACTIVE} when one left
  */
-public record ListenerChange(String address, ListenerStatus status) {
+public record ServiceListenerChange(String address, ListenerStatus status) implements ServiceListenerEvent {
 }
