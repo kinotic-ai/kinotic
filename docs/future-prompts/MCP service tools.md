@@ -222,7 +222,7 @@ exposes the `api` configuration).
     kinotic-domain):
 
     ```java
-    private String id;               // non-null scope parts + namespace + name, dot-joined, lowercased
+    private String id;               // lowercased qualifiedName (zone.namespace.name, unset parts omitted)
     private String organizationId;   // null for OS/system services
     private String applicationId;    // null for OS/org-level; never set without organizationId
     private String projectId;        // customer provenance only

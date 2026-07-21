@@ -303,11 +303,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private String entryId(ServiceIdentifier serviceIdentifier) {
-        // runtime capture is always SYSTEM scope, so the id is namespace + name with no scope parts to prepend
-        String namespace = serviceIdentifier.namespace();
-        String name = serviceIdentifier.name();
-        String id = namespace != null && !namespace.isEmpty() ? namespace + "." + name : name;
-        return id.toLowerCase();
+        // the id shares the identity the service is addressed by — the CRI is built from the same qualifiedName
+        return serviceIdentifier.qualifiedName().toLowerCase();
     }
 
     private Map<String, Method> methodsByName(Class<?> serviceInterface) {
