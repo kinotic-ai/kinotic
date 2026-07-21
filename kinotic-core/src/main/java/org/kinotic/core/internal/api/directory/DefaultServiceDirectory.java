@@ -260,27 +260,33 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
         // tool-ness is carried by the C3 contract: SchemaFactory attached the decorator during conversion
         for (FunctionDefinition function : serviceDefinition.getFunctions()) {
+
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
-            if (decorator == null) {
-                continue;
-            }
-            rejectStreaming(serviceIdentifier, function.getName(), methodsByName.get(function.getName()));
+            if (decorator != null) {
 
-            String toolName = toolName(serviceIdentifier, function.getName(), decorator);
-            if (!toolNames.add(toolName)) {
-                throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
-                                                + serviceIdentifier);
-            }
+                ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(methodsByName.get(function.getName())
+                                                                                          .getReturnType());
+                if (adapter != null && adapter.isMultiValue()) {
+                    throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
+                                                            + " has a streaming return type, which MCP tools do not support");
+                }
 
-            tools.add(new McpToolDefinition()
-                              .setToolName(toolName)
-                              .setDescription(decorator.getDescription())
-                              .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
-                              .setCri(serviceIdentifier.cri().raw())
-                              .setFunctionName(function.getName())
-                              .setReadOnlyHint(decorator.isReadOnlyHint())
-                              .setDestructiveHint(decorator.isDestructiveHint())
-                              .setIdempotentHint(decorator.isIdempotentHint()));
+                String toolName = toolName(serviceIdentifier, function.getName(), decorator);
+                if (!toolNames.add(toolName)) {
+                    throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
+                                                            + serviceIdentifier);
+                }
+
+                tools.add(new McpToolDefinition()
+                                  .setToolName(toolName)
+                                  .setDescription(decorator.getDescription())
+                                  .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
+                                  .setCri(serviceIdentifier.cri().raw())
+                                  .setFunctionName(function.getName())
+                                  .setReadOnlyHint(decorator.isReadOnlyHint())
+                                  .setDestructiveHint(decorator.isDestructiveHint())
+                                  .setIdempotentHint(decorator.isIdempotentHint()));
+            }
         }
 
         return new ServiceDirectoryEntry()
@@ -302,14 +308,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         String name = serviceIdentifier.name();
         String id = namespace != null && !namespace.isEmpty() ? namespace + "." + name : name;
         return id.toLowerCase();
-    }
-
-    private void rejectStreaming(ServiceIdentifier serviceIdentifier, String functionName, Method method) {
-        ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(method.getReturnType());
-        if (adapter != null && adapter.isMultiValue()) {
-            throw new IllegalStateException("@McpTool function '" + functionName + "' on service " + serviceIdentifier
-                                            + " has a streaming return type, which MCP tools do not support");
-        }
     }
 
     private Map<String, Method> methodsByName(Class<?> serviceInterface) {
