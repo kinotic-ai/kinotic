@@ -7,7 +7,7 @@ import org.apache.ignite.services.Service;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.ServiceListenerChange;
 import org.kinotic.core.api.event.ServiceListenerContinuityLost;
-import org.kinotic.core.api.directory.DefaultServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import reactor.core.Disposable;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,8 +33,8 @@ public class ServiceLivenessUpdater implements Service {
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = EventBusService.class)
     private transient EventBusService eventBusService;
-    @SpringResource(resourceClass = DefaultServiceDirectory.class)
-    private transient DefaultServiceDirectory serviceDirectory;
+    @SpringResource(resourceClass = ServiceDirectory.class)
+    private transient ServiceDirectory serviceDirectory;
     @SpringResource(resourceClass = Vertx.class)
     private transient Vertx vertx;
 

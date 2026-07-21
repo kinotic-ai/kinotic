@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     version KEYWORD,
     zone KEYWORD,
     description TEXT,
-    contract JSON NOT INDEXED,
+    serviceDefinition JSON NOT INDEXED,
     sourceVersion KEYWORD,
     published BOOLEAN,
     mcpExposed BOOLEAN,

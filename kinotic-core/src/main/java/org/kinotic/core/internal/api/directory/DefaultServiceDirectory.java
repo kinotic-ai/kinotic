@@ -1,11 +1,16 @@
-package org.kinotic.core.api.directory;
+package org.kinotic.core.internal.api.directory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.McpTool;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -19,8 +24,12 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.time.Duration;
@@ -36,17 +45,23 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
- * registrations, and serves the directory queries. Storage is supplied by a {@link ServiceDirectoryStrategy};
- * the module providing a strategy wires this as the {@link ServiceDirectory} bean.
+ * registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA cluster
+ * singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; without a strategy bean the
+ * directory is inert — mutations complete immediately, queries return empty pages, and nothing is deployed.
  */
 @Slf4j
+@Component
 public class DefaultServiceDirectory implements ServiceDirectory {
 
+    private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
+
+    // Null on deployments with no directory backend module, which leaves the directory inert
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final McpJsonSchemaGenerator schemaGenerator;
+    private final Ignite ignite;
 
     // Stamped on built entries so registerService can skip rebuilding an entry whose stored
     // sourceVersion already matches
@@ -57,20 +72,40 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
                                                                   .build();
 
-    public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
+    public DefaultServiceDirectory(ObjectProvider<ServiceDirectoryStrategy> strategyProvider,
                                    EventBusService eventBusService,
                                    SchemaFactory schemaFactory,
-                                   IdlConverterFactory idlConverterFactory) {
-        this.strategy = strategy;
+                                   IdlConverterFactory idlConverterFactory,
+                                   ObjectProvider<Ignite> igniteProvider) {
+        this.strategy = strategyProvider.getIfAvailable();
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
         this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
+        this.ignite = igniteProvider.getIfAvailable();
         this.sourceVersion = DefaultServiceDirectory.class.getPackage().getImplementationVersion();
+    }
+
+    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployLivenessSingleton() {
+        if (strategy == null) {
+            return;
+        }
+        if (ignite == null) {
+            log.warn("Ignite is not available; the service liveness updater singleton will not be deployed");
+            return;
+        }
+        // ServiceLivenessUpdater is an Ignite Service; its Spring dependencies are injected via
+        // @SpringResource on the node Ignite elects to host it
+        ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
     }
 
     @Override
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         // buildEntry reflects the interface and generates schemas — skipped when the stored entry
         // was already built by this kinotic version
         return strategy.findById(entryId(serviceIdentifier))
@@ -87,6 +122,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         return refreshOnline(serviceIdentifier);
@@ -96,6 +134,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                               String applicationId,
                                                                               Pageable pageable) {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(new Page<>(List.of(), 0L));
+        }
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
@@ -103,12 +144,15 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                              String applicationId,
                                                                              Pageable pageable) {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(new Page<>(List.of(), 0L));
+        }
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
     public CompletableFuture<Void> reportUnreachable(String cri) {
-        if (reportDebounce.getIfPresent(cri) != null) {
+        if (strategy == null || reportDebounce.getIfPresent(cri) != null) {
             return CompletableFuture.completedFuture(null);
         }
         reportDebounce.put(cri, Boolean.TRUE);
@@ -116,12 +160,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return verifyLiveness(CRI.create(cri).baseResource());
     }
 
-    /**
-     * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
-     * @param serviceAddress the service address to verify
-     * @return a {@link CompletableFuture} completing when the verified state is stored
-     */
+    @Override
     public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
                               .toCompletionStage()
                               .toCompletableFuture()
@@ -130,11 +173,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                                 Instant.now()));
     }
 
-    /**
-     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
-     * @return a {@link CompletableFuture} completing when all entries are corrected
-     */
+    @Override
     public CompletableFuture<Void> reconcileLiveness() {
+        if (strategy == null) {
+            return CompletableFuture.completedFuture(null);
+        }
         return eventBusService.activeServiceAddresses()
                               .toCompletionStage()
                               .toCompletableFuture()
@@ -156,13 +199,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
         Map<String, Method> mcpMethods = mcpMethods(serviceInterface);
         NamespaceDefinition namespace = schemaFactory.createForService(serviceInterface);
-        ServiceDefinition contract = namespace.getServices().iterator().next();
+        ServiceDefinition serviceDefinition = namespace.getServices().iterator().next();
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace);
 
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
-        for (FunctionDefinition function : contract.getFunctions()) {
+        for (FunctionDefinition function : serviceDefinition.getFunctions()) {
             Method method = mcpMethods.get(function.getName());
             if (method == null) {
                 continue;
@@ -196,7 +239,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setName(serviceIdentifier.name())
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
-                .setContract(contract)
+                .setServiceDefinition(serviceDefinition)
                 .setSourceVersion(sourceVersion)
                 .setPublished(true)
                 .setMcpExposed(!tools.isEmpty())

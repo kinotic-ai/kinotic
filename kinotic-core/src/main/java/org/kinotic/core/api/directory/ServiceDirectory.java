@@ -72,4 +72,17 @@ public interface ServiceDirectory {
      */
     CompletableFuture<Void> reportUnreachable(String cri);
 
+    /**
+     * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
+     * @param serviceAddress the service address to verify
+     * @return a {@link CompletableFuture} completing when the verified state is stored
+     */
+    CompletableFuture<Void> verifyLiveness(String serviceAddress);
+
+    /**
+     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
+     * @return a {@link CompletableFuture} completing when all entries are corrected
+     */
+    CompletableFuture<Void> reconcileLiveness();
+
 }

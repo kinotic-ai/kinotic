@@ -66,7 +66,7 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
     /**
      * The C3 contract for the service, decorators included.
      */
-    private ServiceDefinition contract;
+    private ServiceDefinition serviceDefinition;
 
     /**
      * The kinotic release for a runtime capture, or a commit SHA for a synced contract.

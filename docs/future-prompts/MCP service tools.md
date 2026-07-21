@@ -231,7 +231,7 @@ exposes the `api` configuration).
     private String projectId;        // customer provenance only
     private String namespace, name, version, zone;   // from ServiceIdentifier; zone drives tools-query visibility (decision #7)
     private String description;
-    private ServiceDefinition contract;        // the C3 contract, decorators included
+    private ServiceDefinition serviceDefinition; // the C3 contract, decorators included
     private String sourceVersion;    // kinotic release (runtime capture) or commit SHA (future sync)
     private boolean published;
     private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
@@ -322,15 +322,16 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 - Storage is a classic GoF Strategy with the three data-access layers intact: core owns
   the one concrete `DefaultServiceDirectory` context (capture with `sourceVersion` skip,
   verified liveness refresh on register/unregister, `reportUnreachable` debounce+verify,
-  query delegation) over the `ServiceDirectoryStrategy` interface (`core/api/directory`).
-  This module contributes `internal/api/ElasticServiceDirectoryStrategy` (a `@Component`
+  query delegation), a `@Component` in `core/internal/api/directory` that resolves its
+  `ServiceDirectoryStrategy` (`core/api/directory`) via `ObjectProvider` — with no
+  strategy bean the directory is inert (mutations complete immediately, queries return
+  empty pages, nothing is deployed), preserving the standalone-core invariant. This
+  module contributes ONLY `internal/api/ElasticServiceDirectoryStrategy` (a `@Component`
   implementing the strategy) which delegates to its own module-private
-  `ServiceDirectoryEntryRepository` DAO — the repository implements nothing from core.
-  `internal/config/ServiceDirectoryConfig` wires `DefaultServiceDirectory` over the
-  strategy as the `ServiceDirectory` bean — the bean's presence activates the
-  registration path's directory calls and the liveness singleton. Contract upserts
-  never touch `online`/`lastStatusChange` (single-writer: the liveness machinery owns
-  those).
+  `ServiceDirectoryEntryRepository` DAO — the repository implements nothing from core,
+  and no config class is needed: the strategy bean's presence activates everything.
+  Contract upserts never touch `online`/`lastStatusChange` (single-writer: the liveness
+  machinery owns those).
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by
   `organizationId` and assume it non-null — system entries break that; route system
@@ -350,9 +351,9 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   zone rules allow sending to that CRI (it can only trigger a verification).
 - Liveness maintenance lives in CORE (`core/internal/api/directory/` —
   `ServiceLivenessUpdater`, an Ignite `Service` deployed as the HA cluster singleton by
-  `ServiceLivenessSingletonDeployer`, which deploys NOTHING when no
-  `DefaultServiceDirectory` bean is present). It writes through the context's liveness
-  methods (`DefaultServiceDirectory.verifyLiveness`/`reconcileLiveness`) — the
+  `DefaultServiceDirectory.deployLivenessSingleton` on `ApplicationReadyEvent`; no
+  separate deployer class, and nothing deploys without a strategy bean). It writes
+  through `ServiceDirectory.verifyLiveness`/`reconcileLiveness` — the
   `ServiceDirectoryStrategy` stays a hidden detail of the context, with no consumer
   outside it. Updater lifecycle (architecture decision #5): subscribe to
   `monitorServiceListenerEvents()` FIRST, then reconcile (`activeServiceAddresses()`
