@@ -40,10 +40,10 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     /**
-     * Upserts the contract fields of an entry as a partial update, leaving the liveness fields untouched so a
-     * re-registration never clobbers the {@code online} state the liveness owner maintains.
+     * Upserts an entry as a partial update, leaving the liveness fields untouched so a re-registration never
+     * clobbers the {@code online} state the liveness owner maintains.
      */
-    public CompletableFuture<Void> upsertContract(ServiceDirectoryEntry entry) {
+    public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
         @SuppressWarnings("unchecked")
         Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
         partial.remove("online");

@@ -112,7 +112,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                              }
                              // a new entry starts with online unset, and the ACTIVE registration event fired
                              // before the entry existed — refresh from the verified cluster state
-                             return strategy.upsertContract(buildEntry(serviceIdentifier, serviceInterface))
+                             return strategy.upsertEntry(buildEntry(serviceIdentifier, serviceInterface))
                                               .thenCompose(v -> refreshOnline(serviceIdentifier));
                          });
     }

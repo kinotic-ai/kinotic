@@ -28,8 +28,8 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     @Override
-    public CompletableFuture<Void> upsertContract(ServiceDirectoryEntry entry) {
-        return repository.upsertContract(entry);
+    public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
+        return repository.upsertEntry(entry);
     }
 
     @Override

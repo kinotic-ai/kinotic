@@ -332,7 +332,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   strategy) which delegates to its own module-private `ServiceDirectoryEntryRepository`
   DAO — the repository implements nothing from core, and no config class is needed: the
   strategy bean's presence activates everything.
-  Contract upserts never touch `online`/`lastStatusChange` (single-writer: the liveness
+  Entry upserts never touch `online`/`lastStatusChange` (single-writer: the liveness
   machinery owns those).
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index
   `kinotic_service_directory`. NOTE: the org/project-scoped repository bases route by

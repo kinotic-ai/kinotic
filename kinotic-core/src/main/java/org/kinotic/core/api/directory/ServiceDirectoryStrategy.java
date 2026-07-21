@@ -22,12 +22,11 @@ public interface ServiceDirectoryStrategy {
     CompletableFuture<ServiceDirectoryEntry> findById(String id);
 
     /**
-     * Upserts the contract fields of an entry, leaving the liveness fields ({@code online},
-     * {@code lastStatusChange}) untouched.
+     * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
      * @param entry the entry to upsert
      * @return a {@link CompletableFuture} completing when the entry is stored
      */
-    CompletableFuture<Void> upsertContract(ServiceDirectoryEntry entry);
+    CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry);
 
     /**
      * Sets the liveness fields of the entry with the given id.
