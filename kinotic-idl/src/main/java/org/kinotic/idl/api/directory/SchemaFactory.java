@@ -3,7 +3,6 @@
 package org.kinotic.idl.api.directory;
 
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.api.schema.NamespaceDefinition;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -22,12 +21,12 @@ public interface SchemaFactory {
     C3Type createForClass(Class<?> clazz);
 
     /**
-     * Creates a {@link NamespaceDefinition} for the given {@link Class}
+     * Creates a {@link ServiceSchema} for the given {@link Class}
      * This method treats the class as a java "service"
      *
      * @param clazz the class to create the schema for
-     * @return the newly created {@link NamespaceDefinition}
+     * @return the newly created {@link ServiceSchema}
      */
-    NamespaceDefinition createForService(Class<?> clazz);
+    ServiceSchema createForService(Class<?> clazz);
 
 }

@@ -16,9 +16,9 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.directory.ServiceSchema;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
-import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -166,9 +166,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        NamespaceDefinition namespace = schemaFactory.createForService(serviceInterface);
-        ServiceDefinition serviceDefinition = namespace.getServices().iterator().next();
-        Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace);
+        ServiceSchema schema = schemaFactory.createForService(serviceInterface);
+        ServiceDefinition serviceDefinition = schema.serviceDefinition();
+        Map<String, ObjectC3Type> referenceResolver = referenceResolver(schema.referencedTypes());
         Map<String, Method> methodsByName = methodsByName(serviceInterface);
 
         List<McpToolDefinition> tools = new ArrayList<>();
@@ -236,9 +236,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return ret;
     }
 
-    private Map<String, ObjectC3Type> referenceResolver(NamespaceDefinition namespace) {
+    private Map<String, ObjectC3Type> referenceResolver(List<ComplexC3Type> referencedTypes) {
         Map<String, ObjectC3Type> resolver = new HashMap<>();
-        for (ComplexC3Type type : namespace.getComplexC3Types()) {
+        for (ComplexC3Type type : referencedTypes) {
             if (type instanceof ObjectC3Type objectType) {
                 resolver.put(objectType.getQualifiedName(), objectType);
             }
