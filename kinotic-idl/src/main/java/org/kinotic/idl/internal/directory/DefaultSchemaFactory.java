@@ -2,17 +2,21 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
+
+import java.util.List;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -82,6 +86,17 @@ public class DefaultSchemaFactory implements SchemaFactory {
             }
 
             functionDefinition.setName(method.getName());
+
+            McpTool mcpTool = method.getAnnotation(McpTool.class);
+            if(mcpTool != null){
+                functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
+                        .setName(mcpTool.name().isEmpty() ? null : mcpTool.name())
+                        .setDescription(mcpTool.description())
+                        .setReadOnlyHint(mcpTool.readOnlyHint())
+                        .setDestructiveHint(mcpTool.destructiveHint())
+                        .setIdempotentHint(mcpTool.idempotentHint())));
+            }
+
             serviceDefinition.addFunction(functionDefinition);
 
         }, ReflectionUtils.USER_DECLARED_METHODS);

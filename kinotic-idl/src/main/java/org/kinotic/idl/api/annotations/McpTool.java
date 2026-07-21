@@ -1,4 +1,4 @@
-package org.kinotic.core.api.annotations;
+package org.kinotic.idl.api.annotations;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -7,7 +7,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method on a {@link Publish}ed service interface as a Model Context Protocol tool.
+ * Marks a method on a published ({@code @Publish}) service interface as a Model Context Protocol tool.
  * A service is MCP-exposed when at least one of its methods carries this annotation, and each annotated method
  * becomes a callable tool whose {@link #description} and hints are surfaced to LLM callers.
  */

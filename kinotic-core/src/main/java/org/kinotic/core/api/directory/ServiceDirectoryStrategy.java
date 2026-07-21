@@ -15,13 +15,6 @@ import java.util.concurrent.CompletableFuture;
 public interface ServiceDirectoryStrategy {
 
     /**
-     * Finds an entry by id.
-     * @param id the entry id
-     * @return a {@link CompletableFuture} containing the entry, or null when none exists
-     */
-    CompletableFuture<ServiceDirectoryEntry> findById(String id);
-
-    /**
      * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
      * @param entry the entry to upsert
      * @return a {@link CompletableFuture} completing when the entry is stored

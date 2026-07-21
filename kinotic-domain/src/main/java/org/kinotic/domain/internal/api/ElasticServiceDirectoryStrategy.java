@@ -23,11 +23,6 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     private final ServiceDirectoryEntryRepository repository;
 
     @Override
-    public CompletableFuture<ServiceDirectoryEntry> findById(String id) {
-        return repository.findById(id);
-    }
-
-    @Override
     public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
         return repository.upsertEntry(entry);
     }
