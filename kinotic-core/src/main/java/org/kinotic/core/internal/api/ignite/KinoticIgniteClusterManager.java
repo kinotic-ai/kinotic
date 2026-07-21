@@ -43,9 +43,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
     private final Ignite ignite;
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
-    // Holds at most one entry, keyed by SERVICE_ADDRESS_PREFIX; compute/computeIfPresent give the
-    // same atomic create/count/remove lifecycle as the monitors map
-    private final Map<String, ServiceMonitor> serviceMonitors = new ConcurrentHashMap<>(1);
+    // Hot sink shared by every serviceChangesFlux subscriber. Volatile because failServiceChanges
+    // swaps in a fresh sink after erroring — a terminated sink is permanent
+    private volatile Sinks.Many<ListenerChange> serviceSink = Sinks.many().multicast().directBestEffort();
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
@@ -84,7 +84,7 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             @Override
             public boolean wantsUpdatesFor(String address) {
                 return monitors.containsKey(address)
-                        || (!serviceMonitors.isEmpty() && address.startsWith(SERVICE_ADDRESS_PREFIX))
+                        || (serviceSink.currentSubscriberCount() > 0 && address.startsWith(SERVICE_ADDRESS_PREFIX))
                         || registrationListener.wantsUpdatesFor(address);
             }
 
@@ -99,11 +99,8 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
                 }
-                if(event.address().startsWith(SERVICE_ADDRESS_PREFIX)){
-                    ServiceMonitor changeMonitor = serviceMonitors.get(SERVICE_ADDRESS_PREFIX);
-                    if(changeMonitor != null){
-                        changeMonitor.emit(new ListenerChange(event.address(), statusOf(event.registrations())));
-                    }
+                if(event.address().startsWith(SERVICE_ADDRESS_PREFIX) && serviceSink.currentSubscriberCount() > 0){
+                    emitServiceChange(new ListenerChange(event.address(), statusOf(event.registrations())));
                 }
             }
 
@@ -113,12 +110,9 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
                 // Continuity of registration updates was lost, so the current state of every
                 // monitored address must be re-queried
                 monitors.keySet().forEach(address -> refresh(address, false));
-                // The service monitor cannot be re-queried address by address; subscribers recover by
+                // The service sink cannot be re-queried address by address; subscribers recover by
                 // resubscribing and re-snapshotting via registeredServiceAddresses
-                ServiceMonitor changeMonitor = serviceMonitors.get(SERVICE_ADDRESS_PREFIX);
-                if(changeMonitor != null){
-                    changeMonitor.fail(new IllegalStateException("Registration update continuity was lost"));
-                }
+                failServiceChanges(new IllegalStateException("Registration update continuity was lost"));
             }
         });
     }
@@ -154,15 +148,25 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
      * @return the change flux
      */
     public Flux<ListenerChange> serviceChangesFlux() {
-        return Flux.defer(() -> {
-            Context context = deliveryContext();
-            ServiceMonitor monitor = serviceMonitors.compute(SERVICE_ADDRESS_PREFIX, (p, existing) -> {
-                ServiceMonitor m = existing != null ? existing : new ServiceMonitor(context);
-                m.subscribers++;
-                return m;
-            });
-            return monitor.sink.asFlux()
-                               .doFinally(signal -> serviceMonitors.computeIfPresent(SERVICE_ADDRESS_PREFIX, (p, m) -> --m.subscribers == 0 ? null : m));
+        // defer so a resubscribe after a continuity-loss error resolves the replacement sink
+        return Flux.defer(() -> serviceSink.asFlux());
+    }
+
+    // Both sink accessors run on the delivery context, so an emit racing failServiceChanges cannot
+    // reach a just-terminated sink
+    private void emitServiceChange(ListenerChange change) {
+        deliveryContext().runOnContext(v -> {
+            Sinks.EmitResult result = serviceSink.tryEmitNext(change);
+            if(result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER){
+                log.warn("Failed to emit ListenerChange {}: {}", change, result);
+            }
+        });
+    }
+
+    private void failServiceChanges(Throwable throwable) {
+        deliveryContext().runOnContext(v -> {
+            serviceSink.tryEmitError(throwable);
+            serviceSink = Sinks.many().multicast().directBestEffort();
         });
     }
 
@@ -255,32 +259,4 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
         }
     }
 
-    /**
-     * Sink for service-address registration changes plus the subscriber count used to drop the monitor when
-     * idle. Changes are dropped when no subscriber is attached — a subscriber establishes its baseline with
-     * {@link #registeredServiceAddresses} anyway.
-     */
-    private static class ServiceMonitor {
-
-        final Sinks.Many<ListenerChange> sink = Sinks.many().multicast().directBestEffort();
-        int subscribers; // mutated only inside serviceMonitors.compute* blocks
-        private final Context deliveryContext;
-
-        ServiceMonitor(Context deliveryContext) {
-            this.deliveryContext = deliveryContext;
-        }
-
-        void emit(ListenerChange change) {
-            deliveryContext.runOnContext(v -> {
-                Sinks.EmitResult result = sink.tryEmitNext(change);
-                if(result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER){
-                    log.warn("Failed to emit ListenerChange {}: {}", change, result);
-                }
-            });
-        }
-
-        void fail(Throwable throwable) {
-            deliveryContext.runOnContext(v -> sink.tryEmitError(throwable));
-        }
-    }
 }
