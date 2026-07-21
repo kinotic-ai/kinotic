@@ -90,7 +90,11 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
             @Override
             public void registrationsUpdated(RegistrationUpdateEvent event) {
-                registrationListener.registrationsUpdated(event);
+                // an update fired for a monitor is not forwarded unless the wrapped listener asked
+                // for the address, matching what the cluster manager would deliver without this wrapper
+                if(registrationListener.wantsUpdatesFor(event.address())){
+                    registrationListener.registrationsUpdated(event);
+                }
                 AddressMonitor monitor = monitors.get(event.address());
                 if(monitor != null){
                     monitor.emit(statusOf(event.registrations()));
