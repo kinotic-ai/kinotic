@@ -3,6 +3,7 @@
 
 package org.kinotic.core.internal;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
@@ -30,18 +31,13 @@ import java.util.function.BiConsumer;
  * Created by Navid Mitchell on 11/28/18.
  */
 @Component
+@RequiredArgsConstructor
 public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBeanPostProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
     private final ServiceRegistry serviceRegistry;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
-
-    public ServiceRegistrationBeanPostProcessor(ServiceRegistry serviceRegistry,
-                                                ObjectProvider<ServiceDirectory> serviceDirectoryProvider) {
-        this.serviceRegistry = serviceRegistry;
-        this.serviceDirectoryProvider = serviceDirectoryProvider;
-    }
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {

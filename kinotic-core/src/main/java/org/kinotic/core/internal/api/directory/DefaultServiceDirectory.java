@@ -88,11 +88,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     @EventListener(ApplicationReadyEvent.class)
     public void deployLivenessSingleton() {
         if (ignite == null) {
-            log.warn("Ignite is not available; the service liveness updater singleton will not be deployed");
+            log.error("Ignite is not available; the service liveness updater singleton will not be deployed! This means the service directory will never be updated.");
             return;
         }
-        // ServiceLivenessUpdater is an Ignite Service; its Spring dependencies are injected via
-        // @SpringResource on the node Ignite elects to host it
+        // ServiceLivenessUpdater is an Ignite Service that manages the liveness of services
         ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
     }
 
