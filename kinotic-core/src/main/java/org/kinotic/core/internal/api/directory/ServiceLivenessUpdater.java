@@ -77,8 +77,10 @@ public class ServiceLivenessUpdater implements Service {
                                       .subscribe(event -> {
                                           switch (event) {
                                               case ServiceListenerChange change -> onChange(change.address());
-                                              // a gap invalidates every delta since the last baseline; only a
-                                              // full reconcile can restore correctness
+                                              // changes may have been missed while continuity was lost, and a
+                                              // service that went offline during the gap will never emit another
+                                              // change — so waiting for per-address changes cannot catch up;
+                                              // reconcile() corrects every entry against a fresh snapshot
                                               case ServiceListenerContinuityLost ignored -> reconcile();
                                           }
                                       },
