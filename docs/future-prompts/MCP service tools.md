@@ -232,7 +232,6 @@ exposes the `api` configuration).
     private String namespace, name, version, zone;   // from ServiceIdentifier; zone drives tools-query visibility (decision #7)
     private String description;
     private ServiceDefinition serviceDefinition; // the C3 contract, decorators included
-    private String sourceVersion;    // kinotic release (runtime capture) or commit SHA (future sync)
     private boolean published;
     private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
     private List<McpToolDefinition> mcpTools;  // ready-to-serve, built at capture (decision #9)
@@ -272,7 +271,8 @@ exposes the `api` configuration).
     streaming-return REJECTION per decision #10, and `McpToolDefinition`s with
     inputSchema via `McpJsonSchemaGenerator` and toolName via the naming rule above.
     `mcpExposed` = whether any tool exists, derived, never input. SYSTEM scope:
-    org/app null; `sourceVersion` = kinotic version.
+    org/app null. Capture always rebuilds and upserts — the upsert is idempotent, so a
+    boot-time re-registration can never leave a stale contract.
 - The registration path (`ServiceRegistrationBeanPostProcessor`) resolves
   `ServiceDirectory` OPTIONALLY (`ObjectProvider`) and calls
   `register(serviceIdentifier, interface)` / `unregister(...)` directly — **with no
@@ -325,7 +325,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 **Create (in `kinotic-domain`, implementing core's `ServiceDirectory`):**
 
 - Storage is a classic GoF Strategy with the three data-access layers intact: core owns
-  the one concrete `DefaultServiceDirectory` context (capture with `sourceVersion` skip,
+  the one concrete `DefaultServiceDirectory` context (capture on every registration,
   verified liveness refresh on register/unregister, `reportUnreachable` debounce+verify,
   query delegation), a `@Component` in `core/internal/api/directory` gated by
   `@ConditionalOnBean(ServiceDirectoryStrategy.class)` — with no strategy bean there is

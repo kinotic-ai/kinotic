@@ -40,7 +40,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
@@ -69,10 +68,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
-    // Stamped on built entries so registerService can skip rebuilding an entry whose stored
-    // sourceVersion already matches
-    private final String sourceVersion;
-
     // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
     private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
@@ -89,7 +84,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = igniteProvider.getIfAvailable();
-        this.sourceVersion = DefaultServiceDirectory.class.getPackage().getImplementationVersion();
     }
 
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
@@ -106,18 +100,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        // buildEntry reflects the interface and generates schemas — skipped when the stored entry
-        // was already built by this kinotic version
-        return strategy.findById(entryId(serviceIdentifier))
-                         .thenCompose(existing -> {
-                             if (existing != null && Objects.equals(existing.getSourceVersion(), sourceVersion)) {
-                                 return CompletableFuture.completedFuture(null);
-                             }
-                             // a new entry starts with online unset, and the ACTIVE registration event fired
-                             // before the entry existed — refresh from the verified cluster state
-                             return strategy.upsertEntry(buildEntry(serviceIdentifier, serviceInterface))
-                                              .thenCompose(v -> refreshOnline(serviceIdentifier));
-                         });
+        // a new entry starts with online unset, and the ACTIVE registration event fired before the
+        // entry existed — refresh from the verified cluster state after the upsert
+        return strategy.upsertEntry(buildEntry(serviceIdentifier, serviceInterface))
+                       .thenCompose(v -> refreshOnline(serviceIdentifier));
     }
 
     @Override
@@ -225,7 +211,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
                 .setServiceDefinition(serviceDefinition)
-                .setSourceVersion(sourceVersion)
                 .setPublished(true)
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
