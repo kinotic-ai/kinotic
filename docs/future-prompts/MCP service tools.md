@@ -245,10 +245,15 @@ exposes the `api` configuration).
     hints. No parameter metadata: argument binding happens on the service node via the
     named-arguments content type (Phase 4), never from stored state.
   - Tool naming lives HERE (core, where names are minted at capture — not the gateway):
-    many MCP hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
-    (e.g. `srv://com.acme.CatalogService/search` → `com_acme_CatalogService-search`).
-    Deterministic, collision-checked within one service at capture (fail loudly). No
-    parsing names back apart — resolution uses the stored `cri`/`functionName`.
+    `@McpTool.name` overrides when given (validated verbatim against
+    `^[a-zA-Z0-9_-]{1,128}$`, rejected when invalid — never silently sanitized);
+    otherwise minted from the qualified name — many MCP hosts enforce that pattern, so
+    dots/slashes are encoded (e.g. `srv://com.acme.CatalogService/search` →
+    `com_acme_CatalogService-search`). Deterministic, collision-checked within one
+    service at capture (fail loudly). No parsing names back apart — resolution uses the
+    stored `cri`/`functionName`. Capture cannot see other services, so names are NOT
+    globally unique — custom names especially may collide across services; the call
+    path handles that (Phase 4).
   - `ServiceDirectory` reshaped: `register(ServiceIdentifier, Class<?>)` /
     `unregister(ServiceIdentifier, Class<?>)` (what is captured, stored, and when is
     the IMPLEMENTATION's decision; entries are never deleted — known-but-offline is a
@@ -425,10 +430,11 @@ block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`
   implements the same binding from its CLI-generated C3 contract when TS contract sync
   lands — see out of scope).
 - `McpToolInvoker` — `tools/call`: resolve the `McpToolDefinition` by `toolName` from
-  the caller-visible tools query (names were minted and collision-checked at capture —
-  Phase 2; never parse a tool name apart, use the stored `cri`/`functionName`; verify
-  the caller may send to that CRI — same zone rules as STOMP); unknown tool → JSON-RPC
-  error per spec; forward the MCP `arguments` object VERBATIM as the body with the
+  the caller-visible tools query (never parse a tool name apart, use the stored
+  `cri`/`functionName`; verify the caller may send to that CRI — same zone rules as
+  STOMP); unknown tool → JSON-RPC error per spec; MORE THAN ONE match (names are only
+  unique within a service — Phase 2) → tool error naming the ambiguity, never
+  first-wins; forward the MCP `arguments` object VERBATIM as the body with the
   named-arguments content type — the gateway does no argument mapping; mint a unique
   `reply://` CRI (mirror `EndpointConnectionHandler`'s replyToId approach), `listen` on
   it, build the `Event` with sender participant + reply-to + content-type headers, send

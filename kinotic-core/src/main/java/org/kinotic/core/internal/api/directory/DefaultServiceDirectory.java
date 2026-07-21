@@ -43,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 /**
  * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
@@ -58,6 +59,8 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
+
+    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,128}$");
 
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
@@ -197,7 +200,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             McpTool annotation = method.getAnnotation(McpTool.class);
             attachDecorator(function, annotation);
 
-            String toolName = toolName(serviceIdentifier, function.getName());
+            String toolName = toolName(serviceIdentifier, function.getName(), annotation);
             if (!toolNames.add(toolName)) {
                 throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
                                                 + serviceIdentifier);
@@ -280,16 +283,20 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Encodes the service address and function name into an MCP tool name matching {@code ^[a-zA-Z0-9_-]{1,128}$}:
-     * dots become {@code _} and the function is separated by {@code -}. Names are minted here, never parsed back apart.
+     * Returns the tool name for the function: {@link McpTool#name()} when given, otherwise the service's qualified
+     * name and the function name encoded to fit {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _}, the function
+     * is separated by {@code -}). Names are minted here, never parsed back apart.
      */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
-        String toolName = (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
-                .replaceAll("[^a-zA-Z0-9_-]", "_");
-        if (toolName.isEmpty() || toolName.length() > 128) {
+    private String toolName(ServiceIdentifier serviceIdentifier, String functionName, McpTool annotation) {
+        // an explicit name is used verbatim and rejected when invalid, never silently sanitized
+        String toolName = annotation.name().isEmpty()
+                          ? (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
+                                  .replaceAll("[^a-zA-Z0-9_-]", "_")
+                          : annotation.name();
+        if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
                                             + "' on service " + serviceIdentifier
-                                            + " does not fit the required 1-128 character bound");
+                                            + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
         }
         return toolName;
     }
