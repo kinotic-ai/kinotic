@@ -25,7 +25,7 @@ import java.util.List;
 public class ServiceDirectoryEntry implements Identifiable<String> {
 
     /**
-     * The service's lowercased qualified name ({@code zone.namespace.name}, omitting unset parts).
+     * The service's qualified name ({@code zone.namespace.name}, omitting unset parts).
      */
     private String id;
 

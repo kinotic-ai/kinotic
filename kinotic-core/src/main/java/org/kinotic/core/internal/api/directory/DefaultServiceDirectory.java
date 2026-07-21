@@ -303,8 +303,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private String entryId(ServiceIdentifier serviceIdentifier) {
-        // the id shares the identity the service is addressed by — the CRI is built from the same qualifiedName
-        return serviceIdentifier.qualifiedName().toLowerCase();
+        // the id IS the identity the service is addressed by — the CRI is built from the same qualifiedName
+        return serviceIdentifier.qualifiedName();
     }
 
     private Map<String, Method> methodsByName(Class<?> serviceInterface) {
