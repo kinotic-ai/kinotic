@@ -106,8 +106,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         if (!queued) {
-            // a late registration (lazily created bean) cannot join a batch — capture it immediately.
-            // The entry starts with online unset and its ACTIVE registration event fired before the
+            // a late registration (lazily created bean) cannot join a batch, capture it immediately.
+            // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
             captureAll(Map.of(serviceIdentifier, serviceInterface))
                     .thenCompose(v -> refreshOnline(serviceIdentifier))
@@ -244,7 +244,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return eventBusService.isAnybodyListening(serviceIdentifier.cri())
                               .toCompletionStage()
                               .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnline(entryId(serviceIdentifier),
+                              .thenCompose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
                                                                           online,
                                                                           Instant.now()));
     }
@@ -290,7 +290,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
 
         return new ServiceDirectoryEntry()
-                .setId(entryId(serviceIdentifier))
+                .setId(serviceIdentifier.qualifiedName())
                 .setServiceAddress(serviceIdentifier.cri().baseResource())
                 .setNamespace(serviceIdentifier.namespace())
                 .setName(serviceIdentifier.name())
@@ -300,11 +300,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setPublished(true)
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
-    }
-
-    private String entryId(ServiceIdentifier serviceIdentifier) {
-        // the id IS the identity the service is addressed by — the CRI is built from the same qualifiedName
-        return serviceIdentifier.qualifiedName();
     }
 
     private Map<String, Method> methodsByName(Class<?> serviceInterface) {
