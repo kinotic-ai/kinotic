@@ -259,7 +259,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                        : new ArrayList<>();
         decorators.add(decorator);
         function.setDecorators(decorators);
-        function.setMetadata(Map.of("description", annotation.description()));
+
+        Map<String, Object> metadata = function.getMetadata() != null
+                                       ? new HashMap<>(function.getMetadata())
+                                       : new HashMap<>();
+        metadata.put("description", annotation.description());
+        function.setMetadata(metadata);
     }
 
     private Map<String, Method> mcpMethods(Class<?> serviceInterface) {

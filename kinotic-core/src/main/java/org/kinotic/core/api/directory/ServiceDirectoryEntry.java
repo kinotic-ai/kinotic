@@ -16,7 +16,7 @@ import java.util.List;
  * {@link #applicationId} is never set without an {@link #organizationId}.
  * <p>
  * Contract fields are written by the capture/sync path; {@link #online} and {@link #lastStatusChange} are maintained
- * separately by the liveness owner and must be left untouched by contract upserts.
+ * separately by the liveness owner and must be left untouched by entry upserts.
  */
 @Getter
 @Setter
