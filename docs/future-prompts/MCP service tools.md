@@ -361,7 +361,8 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   outside it. Updater lifecycle (architecture decision #5): subscribe to
   `monitorServiceListenerEvents()` FIRST, then reconcile (`activeServiceAddresses()`
   snapshot) so no change falls between snapshot and subscription; on each
-  `ServiceListenerChange`, re-verify via `isAnybodyListening` (debounced per address)
+  `ServiceListenerChange`, re-verify via `isAnybodyListening` (coalesced per address —
+  at most one verify per window, bounded staleness even under continuous churn)
   and write the VERIFIED state; on `ServiceListenerContinuityLost`, reconcile. All
   liveness layers are uniform: signal → verify → write; no path writes an unverified
   value. Periodic re-reconcile (~10 min). Addresses matching no entry are ignored.

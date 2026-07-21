@@ -20,14 +20,14 @@ import java.util.concurrent.ConcurrentMap;
  *   <li>on start, on a periodic timer, and on a {@link org.kinotic.core.api.event.ServiceListenerContinuityLost},
  *       reconcile against the full snapshot of active service addresses;</li>
  *   <li>on each {@link org.kinotic.core.api.event.ServiceListenerChange}, re-verify the address's current
- *       registrations (debounced per address) and write the verified state — a change is an invalidation trigger,
- *       never a value.</li>
+ *       registrations (coalesced per address: at most one verify per window) and write the verified state — a
+ *       change is an invalidation trigger, never a value.</li>
  * </ul>
  */
 @Slf4j
 public class ServiceLivenessUpdater implements Service {
 
-    private static final long DEBOUNCE_MS = 2_000;
+    private static final long VERIFY_WINDOW_MS = 2_000;
     private static final long RECONCILE_INTERVAL_MS = 600_000;
 
     // Injected by Ignite on the node elected to host the singleton
@@ -77,8 +77,10 @@ public class ServiceLivenessUpdater implements Service {
                                       .subscribe(event -> {
                                           switch (event) {
                                               case ServiceListenerChange change -> onChange(change.address());
-                                              // a gap invalidates every delta since the last baseline; only a
-                                              // full reconcile can restore correctness
+                                              // changes may have been missed while continuity was lost, and a
+                                              // service that went offline during the gap will never emit another
+                                              // change — so waiting for per-address changes cannot catch up;
+                                              // reconcile() corrects every entry against a fresh snapshot
                                               case ServiceListenerContinuityLost ignored -> reconcile();
                                           }
                                       },
@@ -88,15 +90,12 @@ public class ServiceLivenessUpdater implements Service {
     }
 
     private void onChange(String address) {
-        pendingVerifications.compute(address, (addr, existingTimer) -> {
-            if (existingTimer != null) {
-                vertx.cancelTimer(existingTimer);
-            }
-            return vertx.setTimer(DEBOUNCE_MS, id -> {
-                pendingVerifications.remove(addr);
-                verify(addr);
-            });
-        });
+        // one verify per window: verify(addr) reads the CURRENT registration state at fire time, so
+        // every change arriving while the timer is pending is covered by the single fire
+        pendingVerifications.computeIfAbsent(address, addr -> vertx.setTimer(VERIFY_WINDOW_MS, id -> {
+            pendingVerifications.remove(addr);
+            verify(addr);
+        }));
     }
 
     private void verify(String address) {
