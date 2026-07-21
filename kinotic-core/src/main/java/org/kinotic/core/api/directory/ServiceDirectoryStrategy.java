@@ -10,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Strategy encapsulating how directory entries are persisted and queried for a particular backend. A concrete
  * strategy owns its backend's data access; all directory behavior (capture, verification, liveness maintenance) is
- * provided by the {@link ServiceDirectory} built over it via {@link ServiceDirectory#create}.
+ * provided by the {@link ServiceDirectory} built over it, whose bean exists only when a strategy bean does.
  */
 public interface ServiceDirectoryStrategy {
 
