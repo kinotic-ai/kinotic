@@ -17,13 +17,16 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
-        // Compose the authority as scope@resourceName and pass it to the authority-form URI
-        // constructor, which stores it verbatim.
+        // The scheme and authority (scope@resourceName) are case-insensitive URI parts, so they are
+        // folded to lower case here — construction is the one choke point every address passes
+        // through, which keeps both sides of a rendezvous in agreement regardless of the case a
+        // caller supplied. The path is case-significant (it carries the function name) and the
+        // version is stored verbatim.
         String authority = resourceName != null
-                ? (scope != null ? scope + "@" : "") + resourceName
+                ? (scope != null ? scope.toLowerCase() + "@" : "") + resourceName.toLowerCase()
                 : null;
         try {
-            uri = new URI(scheme, authority, path, null, version);
+            uri = new URI(scheme.toLowerCase(), authority, path, null, version);
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
@@ -35,7 +38,19 @@ class DefaultCRI implements CRI {
      * @param rawCRI the raw string to create from an {@link CRI}
      */
     public DefaultCRI(String rawCRI) {
-        uri = URI.create(rawCRI);
+        // Rebuilt rather than stored verbatim so a raw string folds identically to the
+        // component constructor
+        URI parsed = URI.create(rawCRI);
+        String authority = parsed.getRawAuthority();
+        try {
+            uri = new URI(parsed.getScheme() != null ? parsed.getScheme().toLowerCase() : null,
+                          authority != null ? authority.toLowerCase() : null,
+                          parsed.getPath(),
+                          parsed.getQuery(),
+                          parsed.getFragment());
+        } catch (URISyntaxException x) {
+            throw new IllegalArgumentException(x.getMessage(), x);
+        }
     }
 
     @Override

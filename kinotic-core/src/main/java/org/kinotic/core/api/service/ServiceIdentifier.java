@@ -99,12 +99,12 @@ public class ServiceIdentifier {
 
     /**
      * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
-     * This is the zone.namespace.name, omitting any part that is not set
+     * This is the lowercased zone.namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
     public String qualifiedName(){
         String name = (namespace != null && !namespace.isEmpty() ? namespace + "." : "") + this.name;
-        return zone != null ? zone + "." + name : name;
+        return (zone != null ? zone + "." + name : name).toLowerCase();
     }
 
     /**

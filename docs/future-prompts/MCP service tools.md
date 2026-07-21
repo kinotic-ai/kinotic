@@ -244,8 +244,12 @@ exposes the `api` configuration).
     `@McpTool.name` overrides when given (validated verbatim against
     `^[a-zA-Z0-9_-]{1,128}$`, rejected when invalid — never silently sanitized);
     otherwise minted from the qualified name — many MCP hosts enforce that pattern, so
-    dots/slashes are encoded (e.g. `srv://com.acme.CatalogService/search` →
-    `com_acme_CatalogService-search`). Deterministic, collision-checked within one
+    dots/slashes are encoded (e.g. `srv://com.acme.catalogservice/search` →
+    `com_acme_catalogservice-search` — service identity is lowercased at the source:
+    `ServiceIdentifier.qualifiedName` folds, and `DefaultCRI` folds scheme + authority
+    on EVERY construction, so raw client strings normalize at parse time; the CRI path
+    keeps its case because it carries the function name). Deterministic,
+    collision-checked within one
     service at capture (fail loudly). No parsing names back apart — resolution uses the
     stored `cri`/`functionName`. Capture cannot see other services, so names are NOT
     globally unique — custom names especially may collide across services; the call
