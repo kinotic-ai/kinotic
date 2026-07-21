@@ -16,7 +16,6 @@ import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
-import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -166,7 +165,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                               .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
                               .setCri(serviceIdentifier.cri().raw())
                               .setFunctionName(function.getName())
-                              .setParameterNames(parameterNames(function))
                               .setReadOnlyHint(annotation.readOnlyHint())
                               .setDestructiveHint(annotation.destructiveHint())
                               .setIdempotentHint(annotation.idempotentHint()));
@@ -235,14 +233,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         return resolver;
-    }
-
-    private List<String> parameterNames(FunctionDefinition function) {
-        List<String> names = new ArrayList<>();
-        for (ParameterDefinition parameter : function.getParameters()) {
-            names.add(parameter.getName());
-        }
-        return names;
     }
 
     /**

@@ -241,8 +241,9 @@ exposes the `api` configuration).
     ```
 
   - `McpToolDefinition` — dumb DTO: `toolName`, `description`, `inputSchema` (JSON
-    string from `McpJsonSchemaGenerator`), `cri` (string), `functionName`,
-    `List<String> parameterNames` (declared order), the three hints.
+    string from `McpJsonSchemaGenerator`), `cri` (string), `functionName`, the three
+    hints. No parameter metadata: argument binding happens on the service node via the
+    named-arguments content type (Phase 4), never from stored state.
   - Tool naming lives HERE (core, where names are minted at capture — not the gateway):
     many MCP hosts enforce `^[a-zA-Z0-9_-]{1,128}$`, so dots/slashes must be encoded
     (e.g. `srv://com.acme.CatalogService/search` → `com_acme_CatalogService-search`).
@@ -376,9 +377,9 @@ minting/validation, ~lines 55–150 and 335),
 `kinotic-core/.../api/security/SecurityService.java:22`
 (`authenticate(Map<String,String>)`), `kinotic-core`
 `internal/api/service/invoker/` `ArgumentResolver`/`ReturnValueConverter` composites
-(**match the wire encoding of arguments and return values exactly — read these before
-writing the invoker; expect JSON with args in declared order, content-type
-`application/json`**), `EventConstants`, and the MCP specification's stateless
+(**read these before writing the named-arguments resolver — it joins the existing
+composite dispatch; the established `application/json` encoding is a positional array
+and stays untouched, return values are unchanged**), `EventConstants`, and the MCP specification's stateless
 streamable-HTTP + tools pages (lifecycle, `tools/list`, `tools/call`, JSON-RPC error
 codes).
 
@@ -408,17 +409,26 @@ block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`
   at write time and pre-filtered to online + caller-visible: the gateway does NO
   conversion, NO naming, NO liveness work, holds NO catalog state. No cache in v1 —
   `tools/list` frequency is low; add one later only if profiling demands (YAGNI).
+- Named-arguments wire contract (in `kinotic-core`, beside `JacksonArgumentResolver`):
+  a new `EventConstants` content type (e.g. `application/x-kinotic-named-json`) whose
+  body is a single JSON object keyed by parameter name, and a
+  `NamedJsonArgumentResolver` in the `ArgumentResolverComposite` that binds it to the
+  invoked method's parameters by name — names discovered from the live `Method` (the
+  same source `SchemaFactory` builds the C3 schema from, so schema and binding cannot
+  drift). Missing name → null; unknown name → invocation error. This content type is a
+  cross-runtime RPC contract: document its exact semantics (the TS service runtime
+  implements the same binding from its CLI-generated C3 contract when TS contract sync
+  lands — see out of scope).
 - `McpToolInvoker` — `tools/call`: resolve the `McpToolDefinition` by `toolName` from
   the caller-visible tools query (names were minted and collision-checked at capture —
   Phase 2; never parse a tool name apart, use the stored `cri`/`functionName`; verify
   the caller may send to that CRI — same zone rules as STOMP); unknown tool → JSON-RPC
-  error per spec; map MCP named arguments to declared positional
-  order via `parameterNames` (missing optional → null; unknown name → tool error);
-  encode the body exactly as `ArgumentResolver` expects; mint a unique `reply://` CRI
-  (mirror `EndpointConnectionHandler`'s replyToId approach), `listen` on it, build the
-  `Event` with sender participant + reply-to + content-type headers, send to the
-  `srv://` CRI, await the single reply with a timeout constant (~30s), dispose the
-  listener. Outcomes: reply event → MCP text content (JSON payload as-is);
+  error per spec; forward the MCP `arguments` object VERBATIM as the body with the
+  named-arguments content type — the gateway does no argument mapping; mint a unique
+  `reply://` CRI (mirror `EndpointConnectionHandler`'s replyToId approach), `listen` on
+  it, build the `Event` with sender participant + reply-to + content-type headers, send
+  to the `srv://` CRI, await the single reply with a timeout constant (~30s), dispose
+  the listener. Outcomes: reply event → MCP text content (JSON payload as-is);
   `NO_HANDLERS` → tool error "service offline" + notify `ServiceUnreachableReporter`;
   error headers per `EventConstants` → tool error with the service's message; timeout →
   tool error. No streaming concerns — multi-response functions were rejected at capture
@@ -487,7 +497,11 @@ review.
 ## Explicitly out of scope (do not build)
 
 - **Customer TS service contracts** — arrive via CLI codegen + sync pipeline (in-flight
-  kinotic-github work). No runtime contract hand-off from customer VMs, ever.
+  kinotic-github work). No runtime contract hand-off from customer VMs, ever. That work
+  also carries the TS side of the named-arguments content type: the TS service runtime
+  binds the named-JSON body to parameters using its CLI-generated C3 contract (runtime
+  reflection is unavailable under minification). Until then only Java services are
+  MCP-callable, so nothing blocks.
 - **Prompts / resources** — later (`McpPromptDefinition` as an application-scoped
   entity).
 - **Entity data tools with projection** — later, when `JsonEntitiesRepository` methods

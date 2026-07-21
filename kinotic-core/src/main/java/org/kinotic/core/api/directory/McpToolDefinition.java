@@ -5,8 +5,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
-import java.util.List;
-
 /**
  * A ready-to-serve MCP tool: the JSON Schema and sanitized tool name are built once at capture time and stored, so
  * serving a tool listing or dispatching a call is a pure lookup. Resolution back to the invocable function uses the
@@ -42,11 +40,6 @@ public class McpToolDefinition {
      * The name of the function to invoke on the service.
      */
     private String functionName;
-
-    /**
-     * The function's parameter names in declared order, used to map MCP named arguments to positional order.
-     */
-    private List<String> parameterNames;
 
     private boolean readOnlyHint;
 
