@@ -22,14 +22,15 @@ public class ArrayC3TypeToJsonSchema implements C3TypeConverter<ObjectNode, Arra
     public ObjectNode convert(ArrayC3Type c3Type,
                               C3ConversionContext<ObjectNode, JsonSchemaConversionState> context) {
 
+        ObjectNode ret;
         if (c3Type.getContains() instanceof ByteC3Type) {
-            return FACTORY.objectNode().put("type", "string").put("contentEncoding", "base64");
+            ret = FACTORY.objectNode().put("type", "string").put("contentEncoding", "base64");
+        } else {
+            ret = FACTORY.objectNode();
+            ret.put("type", "array");
+            ret.set("items", context.convert(c3Type.getContains()));
         }
-
-        ObjectNode schema = FACTORY.objectNode();
-        schema.put("type", "array");
-        schema.set("items", context.convert(c3Type.getContains()));
-        return schema;
+        return ret;
     }
 
     @Override

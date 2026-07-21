@@ -80,12 +80,14 @@ public class DefaultC3ConversionContext<R, S> implements C3ConversionContext<R, 
     }
 
     private C3TypeConverter<R, ? extends C3Type, S> findConverter(C3Type c3Type) {
+        C3TypeConverter<R, ? extends C3Type, S> ret = null;
         for (C3TypeConverter<R, ? extends C3Type, S> converter : strategy.converters()) {
             if (converter.supports(c3Type)) {
-                return converter;
+                ret = converter;
+                break;
             }
         }
-        return null;
+        return ret;
     }
 
     private String conversionChain() {

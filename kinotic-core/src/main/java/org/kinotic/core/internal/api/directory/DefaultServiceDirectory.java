@@ -98,22 +98,25 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        boolean queued;
         synchronized (registrationLock) {
-            if (!startupComplete) {
+            queued = !startupComplete;
+            if (queued) {
                 pendingRegistrations.put(serviceIdentifier, serviceInterface);
-                return;
             }
         }
-        // a late registration (lazily created bean) cannot join a batch — capture it immediately.
-        // The entry starts with online unset and its ACTIVE registration event fired before the entry
-        // existed, so refresh from the verified cluster state after the upsert
-        captureAll(Map.of(serviceIdentifier, serviceInterface))
-                .thenCompose(v -> refreshOnline(serviceIdentifier))
-                .whenComplete((v, throwable) -> {
-                    if (throwable != null) {
-                        log.error("Failed to register service {} in the directory", serviceIdentifier, throwable);
-                    }
-                });
+        if (!queued) {
+            // a late registration (lazily created bean) cannot join a batch — capture it immediately.
+            // The entry starts with online unset and its ACTIVE registration event fired before the
+            // entry existed, so refresh from the verified cluster state after the upsert
+            captureAll(Map.of(serviceIdentifier, serviceInterface))
+                    .thenCompose(v -> refreshOnline(serviceIdentifier))
+                    .whenComplete((v, throwable) -> {
+                        if (throwable != null) {
+                            log.error("Failed to register service {} in the directory", serviceIdentifier, throwable);
+                        }
+                    });
+        }
     }
 
     @Override
@@ -135,20 +138,19 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             batch = new HashMap<>(pendingRegistrations);
             pendingRegistrations.clear();
         }
-        if (batch.isEmpty()) {
-            return;
-        }
-        try {
-            // one reconcile corrects the liveness of every entry from a single cluster snapshot,
-            // instead of one registration query per service
-            captureAll(batch).thenCompose(v -> reconcileLiveness())
-                             .whenComplete((v, throwable) -> {
-                                 if (throwable != null) {
-                                     log.error("Startup service capture failed", throwable);
-                                 }
-                             });
-        } catch (Exception e) {
-            log.error("Startup service capture failed", e);
+        if (!batch.isEmpty()) {
+            try {
+                // one reconcile corrects the liveness of every entry from a single cluster snapshot,
+                // instead of one registration query per service
+                captureAll(batch).thenCompose(v -> reconcileLiveness())
+                                 .whenComplete((v, throwable) -> {
+                                     if (throwable != null) {
+                                         log.error("Startup service capture failed", throwable);
+                                     }
+                                 });
+            } catch (Exception e) {
+                log.error("Startup service capture failed", e);
+            }
         }
     }
 
@@ -206,12 +208,15 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> reportUnreachable(String cri) {
+        CompletableFuture<Void> ret;
         if (reportDebounce.getIfPresent(cri) != null) {
-            return CompletableFuture.completedFuture(null);
+            ret = CompletableFuture.completedFuture(null);
+        } else {
+            reportDebounce.put(cri, Boolean.TRUE);
+            // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
+            ret = verifyLiveness(CRI.create(cri).baseResource());
         }
-        reportDebounce.put(cri, Boolean.TRUE);
-        // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
-        return verifyLiveness(CRI.create(cri).baseResource());
+        return ret;
     }
 
     @Override

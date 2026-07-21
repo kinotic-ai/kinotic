@@ -139,32 +139,37 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     private Query scopeFilter(String organizationId, String applicationId) {
+        Query ret;
         if (organizationId == null) {
-            return null;
+            ret = null;
+        } else if (applicationId == null) {
+            ret = termFilter("organizationId", organizationId);
+        } else {
+            ret = composeFilter(termFilter("organizationId", organizationId),
+                                termFilter("applicationId", applicationId));
         }
-        if (applicationId == null) {
-            return termFilter("organizationId", organizationId);
-        }
-        return composeFilter(termFilter("organizationId", organizationId),
-                             termFilter("applicationId", applicationId));
+        return ret;
     }
 
     // The listing view of the zone send rules enforced at call time by StompAuthorizerFactory: system sees all zones,
     // an organization sees os-api + app-api, an application sees its own app.<org>.<app> zone + app-api.
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
+        Query ret;
         if (organizationId == null) {
-            return null;
+            ret = null;
+        } else {
+            List<String> zones = applicationId == null
+                                 ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
+                                 : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                                           DomainUtil.APP_API_ZONE);
+            ret = Query.of(q -> q.bool(b -> {
+                for (String zone : zones) {
+                    b.should(termFilter("zone", zone));
+                }
+                return b.minimumShouldMatch("1");
+            }));
         }
-        List<String> zones = applicationId == null
-                             ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
-                             : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
-                                       DomainUtil.APP_API_ZONE);
-        return Query.of(q -> q.bool(b -> {
-            for (String zone : zones) {
-                b.should(termFilter("zone", zone));
-            }
-            return b.minimumShouldMatch("1");
-        }));
+        return ret;
     }
 
 }

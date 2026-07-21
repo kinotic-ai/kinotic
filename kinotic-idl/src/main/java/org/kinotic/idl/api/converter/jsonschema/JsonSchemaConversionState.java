@@ -57,16 +57,19 @@ public class JsonSchemaConversionState {
      */
     public boolean beginDefinition(String definitionName, ObjectC3Type source) {
         ObjectC3Type existing = definitionSources.get(definitionName);
+        boolean ret;
         if (existing != null) {
             if (!existing.equals(source)) {
                 throw new IllegalStateException("Duplicate JSON Schema $defs name '" + definitionName
                         + "' for distinct types '" + existing.getQualifiedName()
                         + "' and '" + source.getQualifiedName() + "'");
             }
-            return false;
+            ret = false;
+        } else {
+            definitionSources.put(definitionName, source);
+            ret = true;
         }
-        definitionSources.put(definitionName, source);
-        return true;
+        return ret;
     }
 
     /**
