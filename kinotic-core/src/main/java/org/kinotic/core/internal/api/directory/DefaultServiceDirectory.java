@@ -16,9 +16,9 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
-import org.kinotic.idl.api.directory.ServiceSchema;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
@@ -66,6 +66,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
+    // Registrations arriving during startup are held here and captured in ONE conversion session on
+    // ApplicationReadyEvent, so model types shared between services are converted once per node
+    private final Map<ServiceIdentifier, Class<?>> pendingRegistrations = new HashMap<>();
+    private final Object registrationLock = new Object();
+    private boolean startupComplete; // guarded by registrationLock
+
     // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
     private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
@@ -84,9 +90,70 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         this.ignite = igniteProvider.getIfAvailable();
     }
 
-    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
     @EventListener(ApplicationReadyEvent.class)
-    public void deployLivenessSingleton() {
+    public void onApplicationReady() {
+        drainStartupRegistrations();
+        deployLivenessSingleton();
+    }
+
+    @Override
+    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        synchronized (registrationLock) {
+            if (!startupComplete) {
+                pendingRegistrations.put(serviceIdentifier, serviceInterface);
+                return;
+            }
+        }
+        // a late registration (lazily created bean) cannot join a batch — capture it immediately.
+        // The entry starts with online unset and its ACTIVE registration event fired before the entry
+        // existed, so refresh from the verified cluster state after the upsert
+        captureAll(Map.of(serviceIdentifier, serviceInterface))
+                .thenCompose(v -> refreshOnline(serviceIdentifier))
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        log.error("Failed to register service {} in the directory", serviceIdentifier, throwable);
+                    }
+                });
+    }
+
+    @Override
+    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        // this node leaving says nothing about other instances of the service — verify, never
+        // write offline blindly
+        refreshOnline(serviceIdentifier)
+                .whenComplete((v, throwable) -> {
+                    if (throwable != null) {
+                        log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable);
+                    }
+                });
+    }
+
+    private void drainStartupRegistrations() {
+        Map<ServiceIdentifier, Class<?>> batch;
+        synchronized (registrationLock) {
+            startupComplete = true;
+            batch = new HashMap<>(pendingRegistrations);
+            pendingRegistrations.clear();
+        }
+        if (batch.isEmpty()) {
+            return;
+        }
+        try {
+            // one reconcile corrects the liveness of every entry from a single cluster snapshot,
+            // instead of one registration query per service
+            captureAll(batch).thenCompose(v -> reconcileLiveness())
+                             .whenComplete((v, throwable) -> {
+                                 if (throwable != null) {
+                                     log.error("Startup service capture failed", throwable);
+                                 }
+                             });
+        } catch (Exception e) {
+            log.error("Startup service capture failed", e);
+        }
+    }
+
+    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    private void deployLivenessSingleton() {
         if (ignite == null) {
             log.error("Ignite is not available; the service liveness updater singleton will not be deployed! This means the service directory will never be updated.");
             return;
@@ -95,19 +162,32 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
     }
 
-    @Override
-    public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        // a new entry starts with online unset, and the ACTIVE registration event fired before the
-        // entry existed — refresh from the verified cluster state after the upsert
-        return strategy.upsertEntry(buildEntry(serviceIdentifier, serviceInterface))
-                       .thenCompose(v -> refreshOnline(serviceIdentifier));
-    }
+    /**
+     * Captures and upserts entries for all given registrations in one conversion session, so model types shared
+     * between services are converted once.
+     */
+    private CompletableFuture<Void> captureAll(Map<ServiceIdentifier, Class<?>> registrations) {
+        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+        Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
+        Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
+        for (ServiceDefinition definition : namespace.getServices()) {
+            definitionsByQualifiedName.put(definition.getQualifiedName(), definition);
+        }
 
-    @Override
-    public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        // this node leaving says nothing about other instances of the service — verify, never
-        // write offline blindly
-        return refreshOnline(serviceIdentifier);
+        List<CompletableFuture<Void>> writes = new ArrayList<>();
+        for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
+            try {
+                ServiceDefinition definition = definitionsByQualifiedName.get(registration.getValue().getName());
+                writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
+                                                           registration.getValue(),
+                                                           definition,
+                                                           referenceResolver)));
+            } catch (Exception e) {
+                // one bad service (e.g. an invalid @McpTool name) must not block the rest of the directory
+                log.error("Failed to capture service {}", registration.getKey(), e);
+            }
+        }
+        return CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
     }
 
     @Override
@@ -164,10 +244,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                           Instant.now()));
     }
 
-    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        ServiceSchema schema = schemaFactory.createForService(serviceInterface);
-        ServiceDefinition serviceDefinition = schema.serviceDefinition();
-        Map<String, ObjectC3Type> referenceResolver = referenceResolver(schema.referencedTypes());
+    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
+                                             Class<?> serviceInterface,
+                                             ServiceDefinition serviceDefinition,
+                                             Map<String, ObjectC3Type> referenceResolver) {
         Map<String, Method> methodsByName = methodsByName(serviceInterface);
 
         List<McpToolDefinition> tools = new ArrayList<>();
@@ -235,7 +315,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return ret;
     }
 
-    private Map<String, ObjectC3Type> referenceResolver(List<ComplexC3Type> referencedTypes) {
+    private Map<String, ObjectC3Type> referenceResolver(Set<ComplexC3Type> referencedTypes) {
         Map<String, ObjectC3Type> resolver = new HashMap<>();
         for (ComplexC3Type type : referencedTypes) {
             if (type instanceof ObjectC3Type objectType) {

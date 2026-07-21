@@ -18,13 +18,13 @@ import java.util.concurrent.CompletableFuture;
 public interface ServiceDirectory {
 
     /**
-     * Registers a published service with the directory. What is captured and stored — and whether any work happens
-     * at all — is the implementation's decision.
+     * Registers a published service with the directory. What is captured and stored, when the work happens (it may
+     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
+     * reported by the directory.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
-     * @return a {@link CompletableFuture} completing when registration is handled
      */
-    CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
+    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
      * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
@@ -32,9 +32,8 @@ public interface ServiceDirectory {
      * known-but-offline service is a feature.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being unregistered
-     * @return a {@link CompletableFuture} completing when the notification is handled
      */
-    CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
+    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so

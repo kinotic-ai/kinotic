@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 public class ServiceLivenessUpdater implements Service {
 
-    private static final long VERIFY_WINDOW_MS = 2_000;
+    private static final long VERIFY_WINDOW_MS = 10_000;
     private static final long RECONCILE_INTERVAL_MS = 600_000;
 
     // Injected by Ignite on the node elected to host the singleton

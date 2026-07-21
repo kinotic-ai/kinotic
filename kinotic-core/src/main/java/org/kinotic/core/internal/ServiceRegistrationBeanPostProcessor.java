@@ -62,13 +62,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.register(serviceIdentifier, clazz)
-                                    .whenComplete((ignored, throwable) -> {
-                                        if (throwable != null) {
-                                            log.error("Failed to register service {} in the ServiceDirectory",
-                                                      serviceIdentifier, throwable);
-                                        }
-                                    });
+                    serviceDirectory.register(serviceIdentifier, clazz);
                 } catch (Exception e) {
                     log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
                 }
@@ -97,13 +91,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.unregister(serviceIdentifier, clazz)
-                                    .whenComplete((ignored, throwable) -> {
-                                        if (throwable != null) {
-                                            log.error("Failed to mark service {} offline in the ServiceDirectory",
-                                                      serviceIdentifier, throwable);
-                                        }
-                                    });
+                    serviceDirectory.unregister(serviceIdentifier, clazz);
                 } catch (Exception e) {
                     log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
                 }

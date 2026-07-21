@@ -5,9 +5,9 @@ package org.kinotic.idl.internal.directory;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.directory.SchemaFactory;
-import org.kinotic.idl.api.directory.ServiceSchema;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.core.MethodParameter;
@@ -16,6 +16,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
@@ -56,15 +58,21 @@ public class DefaultSchemaFactory implements SchemaFactory {
     }
 
     @Override
-    public ServiceSchema createForService(Class<?> clazz) {
+    public NamespaceDefinition createForServices(Collection<Class<?>> serviceInterfaces) {
+        Assert.notNull(serviceInterfaces, "serviceInterfaces cannot be null");
+        // one conversion context for the whole batch, so complex types shared between services convert once
         DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
-        return this.createForService(clazz, conversionContext);
+
+        NamespaceDefinition ret = new NamespaceDefinition();
+        for (Class<?> clazz : new LinkedHashSet<>(serviceInterfaces)) {
+            ret.addServiceDefinition(createForService(clazz, conversionContext));
+        }
+        ret.setComplexC3Types(conversionContext.getComplexC3Types());
+        return ret;
     }
 
-    private ServiceSchema createForService(Class<?> clazz, ConversionContext conversionContext) {
+    private ServiceDefinition createForService(Class<?> clazz, ConversionContext conversionContext) {
         Assert.notNull(clazz, "Class cannot be null");
-        Assert.notNull(conversionContext, "ConversionContext cannot be null");
-
 
         ServiceDefinition serviceDefinition = new ServiceDefinition();
         serviceDefinition.setNamespace(clazz.getPackage().getName());
@@ -101,7 +109,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
         }, ReflectionUtils.USER_DECLARED_METHODS);
 
-        return new ServiceSchema(serviceDefinition, List.copyOf(conversionContext.getComplexC3Types()));
+        return serviceDefinition;
     }
 
     private String getName(MethodParameter methodParameter){

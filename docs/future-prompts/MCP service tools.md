@@ -146,7 +146,9 @@ legacy kept for reference and slated for deletion):**
   `boolean idempotentHint`.
 - `api/annotations/McpTool.java` — lives in idl beside `Name`, because
   `DefaultSchemaFactory` translates it to `McpToolC3Decorator` DURING conversion
-  (`createForService`), the same way `Name` is read at conversion time. The C3 contract
+  (`createForServices` — the multi-service method converts every given service in one
+  context so shared complex types convert once), the same way `Name` is read at
+  conversion time. The C3 contract
   is the single carrier of tool-ness: the capture path reads only the decorator, so a
   synced contract arriving with the decorator already attached (future TS path) flows
   through identically with no Java annotation involved.
@@ -248,13 +250,15 @@ exposes the `api` configuration).
     stored `cri`/`functionName`. Capture cannot see other services, so names are NOT
     globally unique — custom names especially may collide across services; the call
     path handles that (Phase 4).
-  - `ServiceDirectory` reshaped: `register(ServiceIdentifier, Class<?>)` /
-    `unregister(ServiceIdentifier, Class<?>)` (what is captured, stored, and when is
-    the IMPLEMENTATION's decision; entries are never deleted — known-but-offline is a
-    feature), scope listing, a tools query for MCP (`mcpExposed` + `online` + zone
-    visibility per decision #7), `reportUnreachable(String cri)`. Exact signatures
-    follow existing core async style (`CompletableFuture`, `Page`/`Pageable` from
-    `api/crud`).
+  - `ServiceDirectory` reshaped: `void register(ServiceIdentifier, Class<?>)` /
+    `void unregister(ServiceIdentifier, Class<?>)` — void because capture is batched
+    and failures are handled by the directory, and the calling
+    `ServiceRegistrationBeanPostProcessor` is synchronous anyway (what is captured,
+    stored, and when is the IMPLEMENTATION's decision; entries are never deleted —
+    known-but-offline is a feature); scope listing, a tools query for MCP
+    (`mcpExposed` + `online` + zone visibility per decision #7),
+    `reportUnreachable(String cri)`. Queries follow existing core async style
+    (`CompletableFuture`, `Page`/`Pageable` from `api/crud`).
   - `AbstractServiceDirectory` (same package) — the common capture logic for ALL
     implementations, NOT a bean: `register`/`unregister` delegate to abstract
     `registerService`/`unregisterService`; protected `buildEntry` performs the
@@ -268,7 +272,13 @@ exposes the `api` configuration).
     via the naming rule above.
     `mcpExposed` = whether any tool exists, derived, never input. SYSTEM scope:
     org/app null. Capture always rebuilds and upserts — the upsert is idempotent, so a
-    boot-time re-registration can never leave a stale contract.
+    boot-time re-registration can never leave a stale contract. Startup capture is
+    BATCHED: `register` calls arriving before `ApplicationReadyEvent` are queued and
+    drained in ONE `SchemaFactory.createForServices` conversion session (shared model
+    types convert once per node), followed by ONE `reconcileLiveness()` correcting
+    every entry from a single cluster snapshot; a late registration (lazily created
+    bean) captures immediately via the same path with `List.of` semantics plus a
+    per-service liveness refresh.
 - The registration path (`ServiceRegistrationBeanPostProcessor`) resolves
   `ServiceDirectory` OPTIONALLY (`ObjectProvider`) and calls
   `register(serviceIdentifier, interface)` / `unregister(...)` directly — **with no
