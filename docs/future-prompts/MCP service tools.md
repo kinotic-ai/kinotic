@@ -141,8 +141,15 @@ legacy kept for reference and slated for deletion):**
 
 - `api/schema/decorators/McpToolC3Decorator.java` — follows `NotNullC3Decorator`
   (`type = "McpTool"`, targets `FUNCTION`; add the enum constant to `DecoratorTarget`
-  if absent). Fields: `String description`, `boolean readOnlyHint`,
-  `boolean destructiveHint`, `boolean idempotentHint`.
+  if absent). Fields: `String name` (explicit tool-name override, or null),
+  `String description`, `boolean readOnlyHint`, `boolean destructiveHint`,
+  `boolean idempotentHint`.
+- `api/annotations/McpTool.java` — lives in idl beside `Name`, because
+  `DefaultSchemaFactory` translates it to `McpToolC3Decorator` DURING conversion
+  (`createForService`), the same way `Name` is read at conversion time. The C3 contract
+  is the single carrier of tool-ness: the capture path reads only the decorator, so a
+  synced contract arriving with the decorator already attached (future TS path) flows
+  through identically with no Java annotation involved.
 - A JSON Schema converter strategy under `api/converter/jsonschema/` implementing
   `IdlConverterStrategy<ObjectNode, JsonSchemaConversionState>` where `ObjectNode` is
   **`tools.jackson.databind.node.ObjectNode`** (what idl already uses — NO swagger
@@ -203,22 +210,10 @@ exposes the `api` configuration).
 
 **Create / edit:**
 
-- `api/annotations/McpTool.java`:
-
-  ```java
-  @Target(ElementType.METHOD)
-  @Retention(RetentionPolicy.RUNTIME)
-  @Documented
-  public @interface McpTool {
-      String description();                    // LLM-facing contract — required
-      boolean readOnlyHint() default false;
-      boolean destructiveHint() default false;
-      boolean idempotentHint() default false;
-  }
-  ```
-
-  Method-level only, on the `@Publish` interface's methods. A service is MCP-exposed
-  iff at least one method is annotated.
+- `@McpTool` (in kinotic-idl `api/annotations` — see Phase 1): method-level only, on
+  the `@Publish` interface's methods; `description()` required, `name()` optional
+  override, the three hints. A service is MCP-exposed iff at least one method is
+  annotated.
 - Directory model, own files in `api/directory/` (move `ServiceDirectory` there if a
   second/third file justifies the package per CLAUDE.md — it will):
   - `ServiceDirectoryEntry` — structural scope, plain strings (core does not depend on
@@ -266,10 +261,11 @@ exposes the `api` configuration).
     expensive work and is invoked ONLY when the implementation decides the entry must
     be stored — never eagerly. **EVERY published service gets an entry** (the complete
     directory serves health, project views, and introspection — not only MCP):
-    contract via idl's `SchemaFactory` for all functions; for functions carrying
-    `@McpTool` additionally `McpToolC3Decorator` + function `metadata` descriptions,
-    streaming-return REJECTION per decision #10, and `McpToolDefinition`s with
-    inputSchema via `McpJsonSchemaGenerator` and toolName via the naming rule above.
+    contract via idl's `SchemaFactory` for all functions (the `McpToolC3Decorator`
+    arrives already attached by conversion — Phase 1); for functions carrying the
+    decorator: streaming-return REJECTION per decision #10, and `McpToolDefinition`s
+    built from the decorator with inputSchema via `McpJsonSchemaGenerator` and toolName
+    via the naming rule above.
     `mcpExposed` = whether any tool exists, derived, never input. SYSTEM scope:
     org/app null. Capture always rebuilds and upserts — the upsert is idempotent, so a
     boot-time re-registration can never leave a stale contract.

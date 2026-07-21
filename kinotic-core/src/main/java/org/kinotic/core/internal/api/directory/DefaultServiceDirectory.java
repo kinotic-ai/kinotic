@@ -4,7 +4,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.kinotic.core.api.annotations.McpTool;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -22,7 +21,6 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
-import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -168,25 +166,23 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        Map<String, Method> mcpMethods = mcpMethods(serviceInterface);
         NamespaceDefinition namespace = schemaFactory.createForService(serviceInterface);
         ServiceDefinition serviceDefinition = namespace.getServices().iterator().next();
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace);
+        Map<String, Method> methodsByName = methodsByName(serviceInterface);
 
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
+        // tool-ness is carried by the C3 contract: SchemaFactory attached the decorator during conversion
         for (FunctionDefinition function : serviceDefinition.getFunctions()) {
-            Method method = mcpMethods.get(function.getName());
-            if (method == null) {
+            McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
+            if (decorator == null) {
                 continue;
             }
-            rejectStreaming(serviceIdentifier, function.getName(), method);
+            rejectStreaming(serviceIdentifier, function.getName(), methodsByName.get(function.getName()));
 
-            McpTool annotation = method.getAnnotation(McpTool.class);
-            attachDecorator(function, annotation);
-
-            String toolName = toolName(serviceIdentifier, function.getName(), annotation);
+            String toolName = toolName(serviceIdentifier, function.getName(), decorator);
             if (!toolNames.add(toolName)) {
                 throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
                                                 + serviceIdentifier);
@@ -194,13 +190,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
             tools.add(new McpToolDefinition()
                               .setToolName(toolName)
-                              .setDescription(annotation.description())
+                              .setDescription(decorator.getDescription())
                               .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
                               .setCri(serviceIdentifier.cri().raw())
                               .setFunctionName(function.getName())
-                              .setReadOnlyHint(annotation.readOnlyHint())
-                              .setDestructiveHint(annotation.destructiveHint())
-                              .setIdempotentHint(annotation.idempotentHint()));
+                              .setReadOnlyHint(decorator.isReadOnlyHint())
+                              .setDestructiveHint(decorator.isDestructiveHint())
+                              .setIdempotentHint(decorator.isIdempotentHint()));
         }
 
         return new ServiceDirectoryEntry()
@@ -232,32 +228,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
     }
 
-    private void attachDecorator(FunctionDefinition function, McpTool annotation) {
-        McpToolC3Decorator decorator = new McpToolC3Decorator()
-                .setDescription(annotation.description())
-                .setReadOnlyHint(annotation.readOnlyHint())
-                .setDestructiveHint(annotation.destructiveHint())
-                .setIdempotentHint(annotation.idempotentHint());
-
-        List<C3Decorator> decorators = function.getDecorators() != null
-                                       ? new ArrayList<>(function.getDecorators())
-                                       : new ArrayList<>();
-        decorators.add(decorator);
-        function.setDecorators(decorators);
-
-        Map<String, Object> metadata = function.getMetadata() != null
-                                       ? new HashMap<>(function.getMetadata())
-                                       : new HashMap<>();
-        metadata.put("description", annotation.description());
-        function.setMetadata(metadata);
-    }
-
-    private Map<String, Method> mcpMethods(Class<?> serviceInterface) {
+    private Map<String, Method> methodsByName(Class<?> serviceInterface) {
         Map<String, Method> ret = new HashMap<>();
         for (Method method : serviceInterface.getMethods()) {
-            if (method.isAnnotationPresent(McpTool.class)) {
-                ret.put(method.getName(), method);
-            }
+            ret.put(method.getName(), method);
         }
         return ret;
     }
@@ -273,16 +247,16 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Returns the tool name for the function: {@link McpTool#name()} when given, otherwise the service's qualified
-     * name and the function name encoded to fit {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _}, the function
-     * is separated by {@code -}). Names are minted here, never parsed back apart.
+     * Returns the tool name for the function: the decorator's explicit name when given, otherwise the service's
+     * qualified name and the function name encoded to fit {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _},
+     * the function is separated by {@code -}). Names are minted here, never parsed back apart.
      */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName, McpTool annotation) {
+    private String toolName(ServiceIdentifier serviceIdentifier, String functionName, McpToolC3Decorator decorator) {
         // an explicit name is used verbatim and rejected when invalid, never silently sanitized
-        String toolName = annotation.name().isEmpty()
+        String toolName = decorator.getName() == null || decorator.getName().isEmpty()
                           ? (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
                                   .replaceAll("[^a-zA-Z0-9_-]", "_")
-                          : annotation.name();
+                          : decorator.getName();
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
                                             + "' on service " + serviceIdentifier
