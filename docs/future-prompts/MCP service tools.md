@@ -322,14 +322,16 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 - Storage is a classic GoF Strategy with the three data-access layers intact: core owns
   the one concrete `DefaultServiceDirectory` context (capture with `sourceVersion` skip,
   verified liveness refresh on register/unregister, `reportUnreachable` debounce+verify,
-  query delegation), a `@Component` in `core/internal/api/directory` that resolves its
-  `ServiceDirectoryStrategy` (`core/api/directory`) via `ObjectProvider` — with no
-  strategy bean the directory is inert (mutations complete immediately, queries return
-  empty pages, nothing is deployed), preserving the standalone-core invariant. This
-  module contributes ONLY `internal/api/ElasticServiceDirectoryStrategy` (a `@Component`
-  implementing the strategy) which delegates to its own module-private
-  `ServiceDirectoryEntryRepository` DAO — the repository implements nothing from core,
-  and no config class is needed: the strategy bean's presence activates everything.
+  query delegation), a `@Component` in `core/internal/api/directory` gated by
+  `@ConditionalOnBean(ServiceDirectoryStrategy.class)` — with no strategy bean there is
+  no directory bean at all, preserving the standalone-core invariant. The condition
+  evaluates at scan time, so `KinoticDomainAutoConfiguration` declares
+  `@AutoConfiguration(before = KinoticCoreAutoConfiguration.class)` to register the
+  strategy definition first. This module contributes ONLY
+  `internal/api/ElasticServiceDirectoryStrategy` (a `@Component` implementing the
+  strategy) which delegates to its own module-private `ServiceDirectoryEntryRepository`
+  DAO — the repository implements nothing from core, and no config class is needed: the
+  strategy bean's presence activates everything.
   Contract upserts never touch `online`/`lastStatusChange` (single-writer: the liveness
   machinery owns those).
 - `internal/api/repositories/ServiceDirectoryEntryRepository` — ES index

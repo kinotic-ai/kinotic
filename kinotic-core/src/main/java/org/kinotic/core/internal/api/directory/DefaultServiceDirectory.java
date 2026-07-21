@@ -25,6 +25,7 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ReactiveAdapter;
@@ -46,16 +47,18 @@ import java.util.concurrent.CompletableFuture;
 /**
  * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
  * registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA cluster
- * singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; without a strategy bean the
- * directory is inert — mutations complete immediately, queries return empty pages, and nothing is deployed.
+ * singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only
+ * when a strategy bean does, so a deployment without one has no directory at all.
  */
 @Slf4j
 @Component
+// Evaluated at scan time: a module contributing a strategy must register its definitions before core's
+// scan runs — KinoticDomainAutoConfiguration declares before = KinoticCoreAutoConfiguration for this
+@ConditionalOnBean(ServiceDirectoryStrategy.class)
 public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
 
-    // Null on deployments with no directory backend module, which leaves the directory inert
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
@@ -72,12 +75,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                                   .expireAfterWrite(Duration.ofSeconds(5))
                                                                   .build();
 
-    public DefaultServiceDirectory(ObjectProvider<ServiceDirectoryStrategy> strategyProvider,
+    public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
                                    EventBusService eventBusService,
                                    SchemaFactory schemaFactory,
                                    IdlConverterFactory idlConverterFactory,
                                    ObjectProvider<Ignite> igniteProvider) {
-        this.strategy = strategyProvider.getIfAvailable();
+        this.strategy = strategy;
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
         this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
@@ -89,9 +92,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
     @EventListener(ApplicationReadyEvent.class)
     public void deployLivenessSingleton() {
-        if (strategy == null) {
-            return;
-        }
         if (ignite == null) {
             log.warn("Ignite is not available; the service liveness updater singleton will not be deployed");
             return;
@@ -103,9 +103,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(null);
-        }
         // buildEntry reflects the interface and generates schemas — skipped when the stored entry
         // was already built by this kinotic version
         return strategy.findById(entryId(serviceIdentifier))
@@ -122,9 +119,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(null);
-        }
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         return refreshOnline(serviceIdentifier);
@@ -134,9 +128,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                               String applicationId,
                                                                               Pageable pageable) {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(new Page<>(List.of(), 0L));
-        }
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
@@ -144,15 +135,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                              String applicationId,
                                                                              Pageable pageable) {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(new Page<>(List.of(), 0L));
-        }
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
     public CompletableFuture<Void> reportUnreachable(String cri) {
-        if (strategy == null || reportDebounce.getIfPresent(cri) != null) {
+        if (reportDebounce.getIfPresent(cri) != null) {
             return CompletableFuture.completedFuture(null);
         }
         reportDebounce.put(cri, Boolean.TRUE);
@@ -162,9 +150,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(null);
-        }
         return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
                               .toCompletionStage()
                               .toCompletableFuture()
@@ -175,9 +160,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public CompletableFuture<Void> reconcileLiveness() {
-        if (strategy == null) {
-            return CompletableFuture.completedFuture(null);
-        }
         return eventBusService.activeServiceAddresses()
                               .toCompletionStage()
                               .toCompletableFuture()
