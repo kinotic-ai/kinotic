@@ -25,4 +25,9 @@ public class DefaultTestService implements TestService{
     public TestObject test() {
         return new TestObject("Bob", 42, true);
     }
+
+    @Override
+    public TestAddress address(String who) {
+        return new TestAddress("42 Wallaby Way", "Sydney");
+    }
 }

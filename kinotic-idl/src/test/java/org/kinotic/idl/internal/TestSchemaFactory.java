@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,18 +33,31 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
+                                                                                          OtherTestService.class));
 
-        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
-        ServiceDefinition serviceDefinition = namespaceDefinition.getServices().iterator().next();
+        ServiceDefinition testService = findService(namespaceDefinition, TestService.class);
+        Assertions.assertEquals(4, testService.getFunctions().size());
 
-        Assertions.assertEquals(TestService.class.getName(), serviceDefinition.getQualifiedName());
+        ServiceDefinition otherTestService = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertEquals(2, otherTestService.getFunctions().size());
 
-        Assertions.assertEquals(3, serviceDefinition.getFunctions().size());
+        // TestObject and TestAddress are referenced by BOTH services but converted in one session,
+        // so each appears exactly once in the namespace
+        Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
 
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(namespaceDefinition);
         log.info("Namespace Definition\n"+json);
+    }
+
+    private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {
+        return namespaceDefinition.getServices()
+                                  .stream()
+                                  .filter(service -> service.getQualifiedName().equals(serviceInterface.getName()))
+                                  .findFirst()
+                                  .orElseThrow();
     }
 
 }
