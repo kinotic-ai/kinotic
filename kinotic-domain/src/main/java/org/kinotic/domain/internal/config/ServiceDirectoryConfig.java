@@ -17,11 +17,13 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ServiceDirectoryConfig {
 
+    // Declared as the concrete type so ServiceLivenessUpdater's
+    // @SpringResource(resourceClass = DefaultServiceDirectory.class) can resolve the bean by class
     @Bean
-    public ServiceDirectory serviceDirectory(ServiceDirectoryStrategy serviceDirectoryStrategy,
-                                             EventBusService eventBusService,
-                                             SchemaFactory schemaFactory,
-                                             IdlConverterFactory idlConverterFactory) {
+    public DefaultServiceDirectory serviceDirectory(ServiceDirectoryStrategy serviceDirectoryStrategy,
+                                                    EventBusService eventBusService,
+                                                    SchemaFactory schemaFactory,
+                                                    IdlConverterFactory idlConverterFactory) {
         return new DefaultServiceDirectory(serviceDirectoryStrategy,
                                            eventBusService,
                                            schemaFactory,

@@ -4,14 +4,11 @@ import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.resources.SpringResource;
 import org.apache.ignite.services.Service;
-import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.ServiceListenerChange;
 import org.kinotic.core.api.event.ServiceListenerContinuityLost;
-import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
+import org.kinotic.core.api.directory.DefaultServiceDirectory;
 import reactor.core.Disposable;
-
-import java.time.Instant;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -36,8 +33,8 @@ public class ServiceLivenessUpdater implements Service {
     // Injected by Ignite on the node elected to host the singleton
     @SpringResource(resourceClass = EventBusService.class)
     private transient EventBusService eventBusService;
-    @SpringResource(resourceClass = ServiceDirectoryStrategy.class)
-    private transient ServiceDirectoryStrategy strategy;
+    @SpringResource(resourceClass = DefaultServiceDirectory.class)
+    private transient DefaultServiceDirectory serviceDirectory;
     @SpringResource(resourceClass = Vertx.class)
     private transient Vertx vertx;
 
@@ -103,31 +100,19 @@ public class ServiceLivenessUpdater implements Service {
     }
 
     private void verify(String address) {
-        eventBusService.isAnybodyListening(CRI.create(address)).onComplete(result -> {
-            if (result.succeeded()) {
-                strategy.setOnlineByAddress(address, result.result(), Instant.now())
-                          .exceptionally(throwable -> {
-                              log.error("Failed to write verified liveness for {}", address, throwable);
-                              return null;
-                          });
-            } else {
-                log.error("Failed to verify listeners for {}", address, result.cause());
-            }
-        });
+        serviceDirectory.verifyLiveness(address)
+                        .exceptionally(throwable -> {
+                            log.error("Failed to write verified liveness for {}", address, throwable);
+                            return null;
+                        });
     }
 
     private void reconcile() {
-        eventBusService.activeServiceAddresses().onComplete(result -> {
-            if (result.succeeded()) {
-                strategy.reconcileLiveness(result.result(), Instant.now())
-                          .exceptionally(throwable -> {
-                              log.error("Liveness reconciliation failed", throwable);
-                              return null;
-                          });
-            } else {
-                log.error("Liveness reconciliation failed to snapshot active addresses", result.cause());
-            }
-        });
+        serviceDirectory.reconcileLiveness()
+                        .exceptionally(throwable -> {
+                            log.error("Liveness reconciliation failed", throwable);
+                            return null;
+                        });
     }
 
 }

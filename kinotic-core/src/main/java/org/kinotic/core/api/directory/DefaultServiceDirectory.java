@@ -112,14 +112,33 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             return CompletableFuture.completedFuture(null);
         }
         reportDebounce.put(cri, Boolean.TRUE);
-        CRI parsed = CRI.create(cri);
-        // verify against current registrations before writing; a report is an invalidation trigger, not a value
-        return eventBusService.isAnybodyListening(parsed)
+        // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
+        return verifyLiveness(CRI.create(cri).baseResource());
+    }
+
+    /**
+     * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
+     * @param serviceAddress the service address to verify
+     * @return a {@link CompletableFuture} completing when the verified state is stored
+     */
+    public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
+        return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
                               .toCompletionStage()
                               .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnlineByAddress(parsed.baseResource(),
-                                                                                   online,
-                                                                                   Instant.now()));
+                              .thenCompose(online -> strategy.setOnlineByAddress(serviceAddress,
+                                                                                online,
+                                                                                Instant.now()));
+    }
+
+    /**
+     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
+     * @return a {@link CompletableFuture} completing when all entries are corrected
+     */
+    public CompletableFuture<Void> reconcileLiveness() {
+        return eventBusService.activeServiceAddresses()
+                              .toCompletionStage()
+                              .toCompletableFuture()
+                              .thenCompose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
     }
 
     /**

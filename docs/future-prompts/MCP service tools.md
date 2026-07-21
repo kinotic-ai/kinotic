@@ -351,9 +351,10 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 - Liveness maintenance lives in CORE (`core/internal/api/directory/` —
   `ServiceLivenessUpdater`, an Ignite `Service` deployed as the HA cluster singleton by
   `ServiceLivenessSingletonDeployer`, which deploys NOTHING when no
-  `ServiceDirectoryStrategy` bean is present). It writes through the
-  `ServiceDirectoryStrategy` liveness methods (`setOnlineByAddress`,
-  `reconcileLiveness`). Updater lifecycle (architecture decision #5): subscribe to
+  `DefaultServiceDirectory` bean is present). It writes through the context's liveness
+  methods (`DefaultServiceDirectory.verifyLiveness`/`reconcileLiveness`) — the
+  `ServiceDirectoryStrategy` stays a hidden detail of the context, with no consumer
+  outside it. Updater lifecycle (architecture decision #5): subscribe to
   `monitorServiceListenerEvents()` FIRST, then reconcile (`activeServiceAddresses()`
   snapshot) so no change falls between snapshot and subscription; on each
   `ServiceListenerChange`, re-verify via `isAnybodyListening` (debounced per address)
