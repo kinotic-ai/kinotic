@@ -17,7 +17,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.ServiceListenerEvent;
-import org.kinotic.core.internal.api.ignite.KinoticIgniteClusterManager;
+import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
