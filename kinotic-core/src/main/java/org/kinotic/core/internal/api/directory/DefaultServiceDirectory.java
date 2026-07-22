@@ -186,8 +186,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         List<CompletableFuture<Void>> writes = new ArrayList<>();
         for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
             try {
+                // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
+                // contract — never Class.getName(), which uses '$' for nested types
                 Class<?> serviceInterface = registration.getValue();
-                ServiceDefinition definition = definitionsByQualifiedName.get(SchemaFactory.qualifiedNameFor(serviceInterface));
+                ServiceDefinition definition = definitionsByQualifiedName.get(
+                        serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
                 if (definition == null) {
                     // conversion failed, SchemaFactory omitted the service and logged the cause
                     continue;

@@ -82,7 +82,7 @@ public class TestSchemaFactory {
     private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {
         return namespaceDefinition.getServices()
                                   .stream()
-                                  .filter(service -> service.getQualifiedName().equals(SchemaFactory.qualifiedNameFor(serviceInterface)))
+                                  .filter(service -> service.getQualifiedName().equals(serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName()))
                                   .findFirst()
                                   .orElseThrow();
     }
