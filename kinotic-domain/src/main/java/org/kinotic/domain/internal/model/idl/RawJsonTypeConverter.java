@@ -1,22 +1,22 @@
-package org.kinotic.persistence.internal.converters;
+package org.kinotic.domain.internal.model.idl;
 
+import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.persistence.api.model.FastestType;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
 /**
- * Converts a {@link FastestType} to an {@link AnyC3Type}: FastestTypeSerializer writes its wrapped data
- * directly, so on the wire it is whatever JSON that data serializes to.
+ * Converts a {@link RawJson} to an {@link AnyC3Type}: RawJsonSerializer writes its data as a raw JSON value,
+ * so on the wire it is whatever JSON it holds.
  * Created by Navíd Mitchell 🤪 on 7/22/26
  */
 @Component
-public class FastestTypeConverter implements SpecificTypeConverter {
+public class RawJsonTypeConverter implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {FastestType.class};
+    private static final Class<?>[] supports = {RawJson.class};
 
     @Override
     public Class<?>[] supports() {
