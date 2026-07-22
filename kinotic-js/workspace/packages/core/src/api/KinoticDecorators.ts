@@ -12,6 +12,7 @@ import { validateZone } from '@/api/ZoneUtil'
 const scopeFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
+const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
@@ -86,6 +87,22 @@ export function Zone(zone: string) {
     return function (value: Function, _context: ClassDecoratorContext<any>): void {
         zonesRegistry.set(value, zone)
     }
+}
+
+/**
+ * Advertises the service in the platform ServiceDirectory, so it appears in directory listings.
+ * A published service without this decorator is callable over RPC but not listed.
+ */
+export function Advertise(value: Function, _context: ClassDecoratorContext<any>): void {
+    advertisedRegistry.set(value, true)
+}
+
+/**
+ * Returns whether the given service instance's class is marked with {@link Advertise}.
+ * @param serviceInstance the service instance to inspect
+ */
+export function isAdvertised(serviceInstance: object): boolean {
+    return findInConstructorChain(advertisedRegistry, serviceInstance.constructor) === true
 }
 
 /**
