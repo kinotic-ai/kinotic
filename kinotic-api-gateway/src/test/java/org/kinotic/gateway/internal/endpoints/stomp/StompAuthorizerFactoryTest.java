@@ -176,7 +176,9 @@ public class StompAuthorizerFactoryTest {
         // the raw string with its own allowed zone and target another app after the '@'. Zone
         // authorization must run against the resource the message actually routes to, not the scope.
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService/create#1.0.0")));
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~x@app.acme-org.other-app~OrderService/create#1.0.0")));
+        // a scope carrying the zone delimiter cannot even be constructed (see CRITests)
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create("srv://app.acme-org.orders-app~x@app.acme-org.other-app~OrderService/create#1.0.0"));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app@os-api~org.kinotic.os.api.services.iam.MemberService/inviteMember#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app~OrderEvents")));

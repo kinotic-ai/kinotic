@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest"
 import { ServiceIdentifier } from "../src/api/ServiceIdentifier"
+import { createCRI } from "../src/api/event/CRI"
 
 // Pure construction guards, no gateway needed, so this runs regardless of USE_GATEWAY_DOCKER.
 describe('Kinotic JS', () => {
@@ -18,6 +19,11 @@ describe('Kinotic JS', () => {
         it('rejects a name or namespace containing the zone delimiter', () => {
             expect(() => new ServiceIdentifier('com.example', 'Sv~c', 'api')).toThrow()
             expect(() => new ServiceIdentifier('com.exa~mple', 'Svc', 'api')).toThrow()
+        })
+
+        it('rejects a scope containing the zone delimiter', () => {
+            expect(() => createCRI('srv://evil~x@api~com.example.svc/save#1.0.0')).toThrow()
+            expect(() => createCRI('srv', 'evil~x', 'api~com.example.svc', 'save', '1.0.0')).toThrow()
         })
 
         it('rejects a name containing a dot', () => {

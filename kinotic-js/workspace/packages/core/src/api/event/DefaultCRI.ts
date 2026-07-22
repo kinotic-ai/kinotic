@@ -52,6 +52,11 @@ export class DefaultCRI implements CRI {
         if (!this._scheme || !this._resourceName) {
             throw new Error(`Invalid CRI: scheme and resourceName are required. Got: ${this._raw}`)
         }
+        // '~' delimits the zone from the resourceName, so a scope carrying one could only be an
+        // attempt to confuse zone parsing — rejected outright
+        if (this._scope !== null && this._scope.includes(ZONE_DELIMITER)) {
+            throw new Error(`The scope must not contain '~' but was '${this._scope}'`)
+        }
     }
 
     public scheme(): string {

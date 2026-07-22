@@ -31,6 +31,7 @@ class DefaultCRI implements CRI {
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
+        validateScope();
     }
 
     /**
@@ -40,6 +41,16 @@ class DefaultCRI implements CRI {
      */
     public DefaultCRI(String rawCRI) {
         uri = URI.create(foldIdentity(rawCRI));
+        validateScope();
+    }
+
+    // '~' delimits the zone from the resourceName, so a scope carrying one could only be an
+    // attempt to confuse zone parsing — rejected outright
+    private void validateScope() {
+        String scope = scope();
+        if (scope != null && scope.indexOf(ZONE_DELIMITER) >= 0) {
+            throw new IllegalArgumentException("The scope must not contain '~' but was '" + scope + "'");
+        }
     }
 
     // Folds the scheme and authority of a raw CRI to lowercase, leaving the path and everything

@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * CRIs are backed by {@link java.net.URI}, whose server-based authority parsing rejects
@@ -93,6 +94,15 @@ public class CRITests {
         assertEquals(ZONE, cri.zone());
         assertEquals(RESOURCE_NAME, cri.resourceName());
         assertEquals("srv://node1@" + ZONED_NAME, cri.baseResource());
+    }
+
+    @Test
+    public void scopesCarryingTheZoneDelimiterAreRejected(){
+        // '~' delimits the zone, so a scope containing one could only be crafted to confuse parsing
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create("srv://evil~x@" + ZONED_NAME + "/save#1.0.0"));
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, "evil~x", ZONED_NAME, "/save", "1.0.0"));
     }
 
     @Test
