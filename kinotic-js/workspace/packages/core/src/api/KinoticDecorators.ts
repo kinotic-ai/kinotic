@@ -90,15 +90,7 @@ export function Zone(zone: string) {
 }
 
 /**
- * Advertises the service in the platform ServiceDirectory, so it appears in directory listings.
- * A published service without this decorator is callable over RPC but not listed.
- */
-export function Advertise(value: Function, _context: ClassDecoratorContext<any>): void {
-    advertisedRegistry.set(value, true)
-}
-
-/**
- * Returns whether the given service instance's class is marked with {@link Advertise}.
+ * Returns whether the given service instance's class was published with {@code advertise} set.
  * @param serviceInstance the service instance to inspect
  */
 export function isAdvertised(serviceInstance: object): boolean {
@@ -153,9 +145,12 @@ function resolveEffectiveZone(constructor: Function): string | null {
  * on the same class refine the registration.
  * @param namespace the optional namespace the service is published under
  * @param name the service name, defaults to the class name
+ * @param advertise when true the service advertises itself in the platform ServiceDirectory,
+ *        so it appears in directory listings
  */
-export function Publish(namespace?: string | null, name?: string) {
+export function Publish(namespace?: string | null, name?: string, advertise: boolean = false) {
     return function <T extends new (...args: any[]) => object>(value: T, _context: ClassDecoratorContext<any>): T {
+        advertisedRegistry.set(value, advertise)
         return class extends value {
             constructor(...args: any[]) {
                 super(...args)
