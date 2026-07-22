@@ -28,4 +28,7 @@
 * We may want the multi tenancy to be org.app.tenant , so metrics can be displayed to our customers’ users. 
 
 # KinoticIgniteClusterManager
-* revisit the statusFlux and changesFlux AI thinks they are good, I feel like the are redundant.
+* revisit the statusFlux and changesFlux AI thinks they are good, I feel like they are redundant.|
+
+# Docs
+Make sure the ServiceDirectory logic is documented for TS code, once we finish implementing it.
