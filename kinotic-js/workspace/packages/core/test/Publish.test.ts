@@ -41,7 +41,7 @@ describe('Kinotic JS', () => {
 
         // The services register in ZONE, so target their zoned address
         const createTestEvent = (cri: string, replyTo: string, args?: any[] | null): IEvent => {
-            const event = new Event(cri.replace('com.example.', `${ZONE}.com.example.`), new Map([
+            const event = new Event(cri.replace('com.example.', `${ZONE}~com.example.`), new Map([
                                                      [EventConstants.REPLY_TO_HEADER, replyTo],
                                                      [EventConstants.CONTENT_TYPE_HEADER, "application/json"],
                                                  ]))

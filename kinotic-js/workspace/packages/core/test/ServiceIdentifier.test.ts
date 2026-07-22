@@ -9,8 +9,15 @@ describe('Kinotic JS', () => {
         it('builds a zone prefixed cri', () => {
             const identifier = new ServiceIdentifier('org.kinotic.os.api.services.iam', 'MemberService', 'os-api')
             identifier.version = '1.0.0'
-            expect(identifier.qualifiedName()).toBe('os-api.org.kinotic.os.api.services.iam.MemberService')
-            expect(identifier.cri().raw()).toBe('srv://os-api.org.kinotic.os.api.services.iam.MemberService#1.0.0')
+            expect(identifier.qualifiedName()).toBe('os-api~org.kinotic.os.api.services.iam.memberservice')
+            expect(identifier.cri().raw()).toBe('srv://os-api~org.kinotic.os.api.services.iam.memberservice#1.0.0')
+            expect(identifier.cri().zone()).toBe('os-api')
+            expect(identifier.cri().resourceName()).toBe('org.kinotic.os.api.services.iam.memberservice')
+        })
+
+        it('rejects a name or namespace containing the zone delimiter', () => {
+            expect(() => new ServiceIdentifier('com.example', 'Sv~c', 'api')).toThrow()
+            expect(() => new ServiceIdentifier('com.exa~mple', 'Svc', 'api')).toThrow()
         })
 
         it('rejects a name containing a dot', () => {

@@ -4,91 +4,97 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.springframework.http.server.PathContainer;
-import org.springframework.web.util.pattern.PathPattern;
 
 import java.util.LinkedList;
-import java.util.List;
-import java.util.function.Function;
+import java.util.Set;
 
 /**
- * Authorizes STOMP sends and subscriptions for a connected participant.
+ * Authorizes STOMP sends and subscriptions for a connected participant against the zones the
+ * participant may address. Zones come from the CRI itself, so an un-zoned address is only ever
+ * reachable by a participant that may send to any zone.
  */
 @Slf4j
 public class StompAuthorizer {
 
-    private static final int MAX_TEMPORARY_PATTERNS = 1000;
+    private static final int MAX_TEMPORARY_GRANTS = 1000;
 
-    private final PathContainer.Options parseOptions;
-    private final List<PathPattern> sendPathPatterns;
-    private final List<PathPattern> subscribePathPatterns;
-    private final Function<String, PathPattern> pathPatternResolver;
-    private final LinkedList<PathPattern> temporarySendPathPatterns = new LinkedList<>();
+    private final boolean sendAnyZone;
+    private final Set<String> sendZones;
+    private final Set<String> hostZones;
+    private final String replyToId;
+    private final LinkedList<String> temporarySendGrants = new LinkedList<>();
 
-    public StompAuthorizer(PathContainer.Options parseOptions,
-                           List<PathPattern> sendPathPatterns,
-                           List<PathPattern> subscribePathPatterns,
-                           Function<String, PathPattern> pathPatternResolver) {
-        this.parseOptions = parseOptions;
-        this.sendPathPatterns = sendPathPatterns;
-        this.subscribePathPatterns = subscribePathPatterns;
-        this.pathPatternResolver = pathPatternResolver;
+    public StompAuthorizer(boolean sendAnyZone,
+                           Set<String> sendZones,
+                           Set<String> hostZones,
+                           String replyToId) {
+        this.sendAnyZone = sendAnyZone;
+        this.sendZones = sendZones;
+        this.hostZones = hostZones;
+        this.replyToId = replyToId;
     }
 
-    public void addTemporarySendAllowed(String criPattern) {
-        if (temporarySendPathPatterns.size() == MAX_TEMPORARY_PATTERNS) {
-            temporarySendPathPatterns.removeFirst();
-            log.warn("Reached Max Temporary patterns some messages may be dropped");
+    /**
+     * Grants one send to the given destination, consumed by the next matching {@link #sendAllowed(CRI)}.
+     * @param rawCri the destination to allow, matched exactly after normalization
+     */
+    public void addTemporarySendAllowed(String rawCri) {
+        if (temporarySendGrants.size() == MAX_TEMPORARY_GRANTS) {
+            temporarySendGrants.removeFirst();
+            log.warn("Reached max temporary grants some messages may be dropped");
         }
-        temporarySendPathPatterns.add(pathPatternResolver.apply(criPattern));
+        // normalizing through CRI folds the identity, so the grant compares equal to the folded
+        // raw() of the send it authorizes
+        temporarySendGrants.add(CRI.create(rawCri).raw());
     }
 
     public boolean sendAllowed(CRI cri) {
         Validate.notNull(cri, "The CRI must not be null");
-        int result = -1;
-
-        if (!temporarySendPathPatterns.isEmpty()) {
-            result = checkMatches(cri, temporarySendPathPatterns);
-            if (result != -1) {
-                temporarySendPathPatterns.remove(result);
-            }
-        }
-
-        if (result == -1) {
-            result = checkMatches(cri, sendPathPatterns);
-        }
-        return result != -1;
-    }
-
-    public boolean subscribeAllowed(CRI cri) {
-        Validate.notNull(cri, "The CRI must not be null");
-        return checkMatches(cri, subscribePathPatterns) != -1;
-    }
-
-    private int checkMatches(CRI cri, List<PathPattern> patterns) {
-        // A srv/stream scope is a node-targeting id (possibly a dotted FQDN a MESSAGE_ROUTE '*'
-        // cannot span), so it is stripped and the message is authorized on the zone it routes to.
-        // Matching the raw form for these would let a crafted scope prefix the string with an
-        // allowed zone and target another zone after the '@'. Reply CRIs are the exception: their
-        // scope carries the replyToId the reply pattern authorizes against, so they match raw.
-        boolean deScope = cri.hasScope()
-                && !EventConstants.REPLY_DESTINATION_SCHEME.equals(cri.scheme());
-        PathContainer target = PathContainer.parsePath(deScope ? deScope(cri) : cri.raw(), parseOptions);
-        int ret = -1;
-        for (int i = 0; i < patterns.size(); i++) {
-            if (patterns.get(i).matches(target)) {
-                ret = i;
-                break;
-            }
+        boolean ret;
+        if (temporarySendGrants.remove(cri.raw())) {
+            ret = true;
+        } else if (isRoutableScheme(cri.scheme())) {
+            ret = sendAnyZone || zoneAllowed(cri.zone(), sendZones);
+        } else {
+            ret = false;
         }
         return ret;
     }
 
-    // Removes the leading "scope@" from a scoped CRI without a per-call regex compile
-    private static String deScope(CRI cri) {
-        String raw = cri.raw();
-        String prefix = cri.scheme() + "://" + cri.scope() + "@";
-        return raw.startsWith(prefix) ? cri.scheme() + "://" + raw.substring(prefix.length()) : raw;
+    public boolean subscribeAllowed(CRI cri) {
+        Validate.notNull(cri, "The CRI must not be null");
+        boolean ret;
+        if (EventConstants.REPLY_DESTINATION_SCHEME.equals(cri.scheme())) {
+            // a reply destination is scoped to the connection: the scope carries the replyToId
+            // followed by ':' and the subscription discriminator
+            String scope = cri.scope();
+            ret = scope != null && scope.startsWith(replyToId + ":");
+        } else if (isRoutableScheme(cri.scheme())) {
+            ret = zoneAllowed(cri.zone(), hostZones);
+        } else {
+            ret = false;
+        }
+        return ret;
+    }
+
+    private static boolean isRoutableScheme(String scheme) {
+        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(scheme)
+                || EventConstants.STREAM_DESTINATION_SCHEME.equals(scheme);
+    }
+
+    // A zone is allowed when it is an allowed zone or a sub-zone of one; the dot boundary keeps
+    // 'app.acme-org.orders-app-2' from matching 'app.acme-org.orders-app'
+    private static boolean zoneAllowed(String zone, Set<String> allowedZones) {
+        boolean ret = false;
+        if (zone != null) {
+            for (String allowed : allowedZones) {
+                if (zone.equals(allowed) || zone.startsWith(allowed + ".")) {
+                    ret = true;
+                    break;
+                }
+            }
+        }
+        return ret;
     }
 
 }

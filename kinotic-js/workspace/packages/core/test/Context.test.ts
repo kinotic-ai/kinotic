@@ -58,7 +58,7 @@ describe('Kinotic JS', () => {
             const eventHeaders = headers ? new Map(headers) : new Map()
             eventHeaders.set(EventConstants.REPLY_TO_HEADER, replyTo)
             eventHeaders.set(EventConstants.CONTENT_TYPE_HEADER, "application/json")
-            const event = new Event(cri.replace('com.example.', `${ZONE}.com.example.`), eventHeaders)
+            const event = new Event(cri.replace('com.example.', `${ZONE}~com.example.`), eventHeaders)
             if (args != null) {
                 event.setDataString(JSON.stringify(args))
             }
