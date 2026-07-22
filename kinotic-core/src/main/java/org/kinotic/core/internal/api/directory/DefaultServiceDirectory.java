@@ -192,6 +192,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                     continue;
                 }
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
+                                                           registration.getValue(),
                                                            definition,
                                                            referenceResolver)));
             } catch (Exception e) {
@@ -260,6 +261,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
+                                             Class<?> serviceInterface,
                                              ServiceDefinition serviceDefinition,
                                              Map<String, ObjectC3Type> referenceResolver) {
         List<McpToolDefinition> tools = new ArrayList<>();
@@ -302,7 +304,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
                 .setServiceDefinition(serviceDefinition)
-                .setPublished(true)
+                .setAddToDirectory(isAddToDirectory(serviceInterface))
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
@@ -310,14 +312,20 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     // Directory inclusion is opt-in via @Publish(addToDirectory = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
     private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
+        return isAddToDirectory(serviceInterface) || hasMcpToolFunction(serviceInterface);
+    }
+
+    private boolean isAddToDirectory(Class<?> serviceInterface) {
         Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
-        boolean ret = publish != null && publish.addToDirectory();
-        if (!ret) {
-            for (Method method : serviceInterface.getMethods()) {
-                if (method.isAnnotationPresent(McpTool.class)) {
-                    ret = true;
-                    break;
-                }
+        return publish != null && publish.addToDirectory();
+    }
+
+    private boolean hasMcpToolFunction(Class<?> serviceInterface) {
+        boolean ret = false;
+        for (Method method : serviceInterface.getMethods()) {
+            if (method.isAnnotationPresent(McpTool.class)) {
+                ret = true;
+                break;
             }
         }
         return ret;

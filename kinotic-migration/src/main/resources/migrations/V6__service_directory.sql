@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     zone KEYWORD,
     description TEXT,
     serviceDefinition JSON NOT INDEXED,
-    published BOOLEAN,
+    addToDirectory BOOLEAN,
     mcpExposed BOOLEAN,
     mcpTools JSON NOT INDEXED,
     online BOOLEAN,
