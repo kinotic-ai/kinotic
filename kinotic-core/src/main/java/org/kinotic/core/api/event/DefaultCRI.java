@@ -31,7 +31,7 @@ class DefaultCRI implements CRI {
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
-        validateScope();
+        validateIdentity();
     }
 
     /**
@@ -41,15 +41,19 @@ class DefaultCRI implements CRI {
      */
     public DefaultCRI(String rawCRI) {
         uri = URI.create(lowercaseIdentity(rawCRI));
-        validateScope();
+        validateIdentity();
     }
 
-    // '~' delimits the zone from the resourceName, so a scope carrying one could only be an
-    // attempt to confuse zone parsing — rejected outright
-    private void validateScope() {
+    // '~' delimits the zone from the resourceName, so any other occurrence could only confuse
+    // zone parsing — a scope carrying one, or a second '~' in the host part, is rejected outright
+    private void validateIdentity() {
         String scope = scope();
         if (scope != null && scope.indexOf(ZONE_DELIMITER) >= 0) {
             throw new IllegalArgumentException("The scope must not contain '~' but was '" + scope + "'");
+        }
+        String resourceName = resourceName();
+        if (resourceName != null && resourceName.indexOf(ZONE_DELIMITER) >= 0) {
+            throw new IllegalArgumentException("The resourceName must not contain '~' but was '" + resourceName + "'");
         }
     }
 

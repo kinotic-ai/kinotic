@@ -106,6 +106,15 @@ public class CRITests {
     }
 
     @Test
+    public void secondZoneDelimiterInTheHostPartIsRejected(){
+        // only the first '~' is the delimiter; a resourceName carrying another is always a mistake
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create("srv://" + ZONED_NAME + "~extra/save#1.0.0"));
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, ZONED_NAME + "~extra", "/save", "1.0.0"));
+    }
+
+    @Test
     public void unZonedCRIHasNoZone(){
         CRI cri = CRI.create(SERVICE_LITERAL1);
 
