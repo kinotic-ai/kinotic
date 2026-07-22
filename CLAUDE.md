@@ -39,6 +39,7 @@ The maintainers of this repo read code faster than English. When explaining anyt
 - Present options and trade-offs as side-by-side code blocks the reader can compare directly, with a short comment marking the line where they differ. Let the code carry the comparison; one sentence per option for what the code can't show.
 - Never describe code indirectly when you can show it. A sentence about what a change does to an API is opaque; the call site that now compiles (or no longer compiles), with a one-line comment, is immediately legible.
 - Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
+- Review findings follow the same law: every finding leads with the offending snippet (`path:line`), then the input or call site that misbehaves, then the corrected code. A finding delivered as a prose summary is unfinished work — restate it with the code before presenting it.
 - Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
 
 This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments.
