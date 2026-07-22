@@ -3,6 +3,7 @@
     <option name="ACTIVE_PROFILES" value="development" />
     <option name="ALTERNATIVE_JRE_PATH" value="graalvm-ce-25" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
+    <option name="ENABLE_JMX_AGENT" value="false" />
     <module name="kinotic.kinotic-migration.main" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.migration.KinoticMigrationApplication" />
     <extension name="net.ashald.envfile">

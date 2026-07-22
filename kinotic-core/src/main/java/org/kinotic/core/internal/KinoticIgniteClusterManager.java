@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.ignite;
+package org.kinotic.core.internal;
 
 import io.vertx.core.Context;
 import io.vertx.core.Promise;

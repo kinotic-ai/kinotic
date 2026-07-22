@@ -12,7 +12,7 @@ import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
-import org.kinotic.core.internal.api.ignite.KinoticIgniteClusterManager;
+import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
