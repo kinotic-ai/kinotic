@@ -47,7 +47,7 @@ public class TestSchemaFactory {
         Assertions.assertEquals(4, testService.getFunctions().size());
 
         ServiceDefinition otherTestService = findService(namespaceDefinition, OtherTestService.class);
-        Assertions.assertEquals(4, otherTestService.getFunctions().size());
+        Assertions.assertEquals(5, otherTestService.getFunctions().size());
 
         // async and streaming returns wrap the same value type the synchronous variant resolves to
         C3Type personType = findFunction(otherTestService, "findPerson").getReturnType();
@@ -55,6 +55,8 @@ public class TestSchemaFactory {
                                 findFunction(otherTestService, "findPersonAsync").getReturnType());
         Assertions.assertEquals(new StreamC3Type(personType),
                                 findFunction(otherTestService, "streamPeople").getReturnType());
+        Assertions.assertEquals(new AsyncC3Type(findFunction(otherTestService, "findAddress").getReturnType()),
+                                findFunction(otherTestService, "findAddressAsync").getReturnType());
 
         // TestObject and TestAddress are referenced by BOTH services but converted in one session,
         // so each appears exactly once in the namespace

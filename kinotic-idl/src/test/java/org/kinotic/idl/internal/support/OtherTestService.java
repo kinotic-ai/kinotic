@@ -1,6 +1,7 @@
 package org.kinotic.idl.internal.support;
 
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -16,5 +17,7 @@ public interface OtherTestService {
     Flux<TestObject> streamPeople();
 
     TestAddress findAddress(TestObject person);
+
+    Mono<TestAddress> findAddressAsync(TestObject person);
 
 }
