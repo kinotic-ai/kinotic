@@ -27,10 +27,11 @@ public interface SchemaFactory {
     /**
      * Creates a {@link NamespaceDefinition} containing a {@link ServiceDefinition} for each given {@link Class},
      * treating each class as a java "service". All services are converted in one session, so complex types shared
-     * between services are converted once and appear once in the returned namespace.
+     * between services are converted once and appear once in the returned namespace. A service that fails to
+     * convert is omitted from the result rather than failing the batch.
      *
      * @param serviceInterfaces the classes to create service definitions for, duplicates ignored
-     * @return the newly created {@link NamespaceDefinition} with every service and every referenced complex type
+     * @return the newly created {@link NamespaceDefinition} with every converted service and every referenced complex type
      */
     NamespaceDefinition createForServices(Collection<Class<?>> serviceInterfaces);
 

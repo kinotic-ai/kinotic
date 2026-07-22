@@ -38,7 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class KinoticIgniteClusterManager extends IgniteClusterManager {
 
-    // The cache vertx-ignite keeps event bus subscriptions in, keyed by (address, node) registration
+    // The cache vertx-ignite keeps event bus subscriptions in, keyed by address with the set of
+    // registrations as the value (see SubsMapHelper)
     private static final String VERTX_SUBSCRIPTION_CACHE = "__vertx.subs";
 
     private static final String SERVICE_ADDRESS_PREFIX = EventConstants.SERVICE_DESTINATION_SCHEME + "://";
@@ -165,13 +166,15 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
      * @return the set of registered service addresses
      */
     public Set<String> registeredServiceAddresses() {
-        IgniteCache<IgniteRegistrationInfo, Boolean> cache = ignite.cache(VERTX_SUBSCRIPTION_CACHE);
+        IgniteCache<String, Set<IgniteRegistrationInfo>> cache = ignite.cache(VERTX_SUBSCRIPTION_CACHE);
         if(cache == null){
             throw new IllegalStateException("The vertx subscription cache is not available");
         }
         Set<String> addresses = new HashSet<>();
-        for(Cache.Entry<IgniteRegistrationInfo, Boolean> entry : cache){
-            String address = entry.getKey().address();
+        // an entry's existence implies at least one registration: SubsMapHelper's entry processors
+        // remove the key atomically when its registration set empties
+        for(Cache.Entry<String, Set<IgniteRegistrationInfo>> entry : cache){
+            String address = entry.getKey();
             if(address.startsWith(SERVICE_ADDRESS_PREFIX)){
                 addresses.add(address);
             }

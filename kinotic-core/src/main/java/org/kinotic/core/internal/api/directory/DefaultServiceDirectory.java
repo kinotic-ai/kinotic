@@ -180,6 +180,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
             try {
                 ServiceDefinition definition = definitionsByQualifiedName.get(registration.getValue().getName());
+                if (definition == null) {
+                    // conversion failed, SchemaFactory omitted the service and logged the cause
+                    continue;
+                }
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
                                                            registration.getValue(),
                                                            definition,

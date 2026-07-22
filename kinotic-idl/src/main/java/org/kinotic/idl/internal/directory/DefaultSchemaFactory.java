@@ -2,6 +2,7 @@
 
 package org.kinotic.idl.internal.directory;
 
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.directory.SchemaFactory;
@@ -26,6 +27,7 @@ import java.util.List;
  *
  * Created by navid on 2019-06-13.
  */
+@Slf4j
 @Component
 public class DefaultSchemaFactory implements SchemaFactory {
 
@@ -65,7 +67,13 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
         NamespaceDefinition ret = new NamespaceDefinition();
         for (Class<?> clazz : new LinkedHashSet<>(serviceInterfaces)) {
-            ret.addServiceDefinition(createForService(clazz, conversionContext));
+            // a service with an unconvertible type is omitted so the rest of the batch still converts;
+            // ObjectC3Types are cached only after converting completely, so a failure leaves no partial types
+            try {
+                ret.addServiceDefinition(createForService(clazz, conversionContext));
+            } catch (Exception e) {
+                log.error("Failed to create ServiceDefinition for {}", clazz.getName(), e);
+            }
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
         return ret;
