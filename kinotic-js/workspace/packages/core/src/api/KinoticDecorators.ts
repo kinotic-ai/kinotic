@@ -12,6 +12,7 @@ import { validateZone } from '@/api/ZoneUtil'
 const scopeFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
+const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
@@ -89,6 +90,14 @@ export function Zone(zone: string) {
 }
 
 /**
+ * Returns whether the given service instance's class was published with `advertise` set.
+ * @param serviceInstance the service instance to inspect
+ */
+export function isAdvertised(serviceInstance: object): boolean {
+    return findInConstructorChain(advertisedRegistry, serviceInstance.constructor) === true
+}
+
+/**
  * Marks a service method that receives the {@link ServiceContext} produced by the registered
  * {@link ContextInterceptor}. The context parameter MUST be the method's final parameter:
  * callers do not pass it, and the platform appends it after the caller-supplied arguments.
@@ -136,9 +145,12 @@ function resolveEffectiveZone(constructor: Function): string | null {
  * on the same class refine the registration.
  * @param namespace the optional namespace the service is published under
  * @param name the service name, defaults to the class name
+ * @param advertise when true the service advertises itself in the platform ServiceDirectory,
+ *        so it appears in directory listings
  */
-export function Publish(namespace?: string | null, name?: string) {
+export function Publish(namespace?: string | null, name?: string, advertise: boolean = false) {
     return function <T extends new (...args: any[]) => object>(value: T, _context: ClassDecoratorContext<any>): T {
+        advertisedRegistry.set(value, advertise)
         return class extends value {
             constructor(...args: any[]) {
                 super(...args)

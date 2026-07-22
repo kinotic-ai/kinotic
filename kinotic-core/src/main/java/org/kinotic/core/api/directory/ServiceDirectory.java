@@ -18,7 +18,7 @@ import java.util.concurrent.CompletableFuture;
 public interface ServiceDirectory {
 
     /**
-     * Registers a published service with the directory. What is captured and stored, when the work happens (it may
+     * Registers a published service with the directory. What is stored, when the work happens (it may
      * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
      * reported by the directory.
      * @param serviceIdentifier the identifier the service registered under

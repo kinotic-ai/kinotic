@@ -2,6 +2,8 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 

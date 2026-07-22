@@ -2,6 +2,11 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
+import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.idl.api.directory.SpecificTypeConverter;
+
 import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.schema.C3Type;
 import org.springframework.core.ResolvableType;

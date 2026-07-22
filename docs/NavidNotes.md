@@ -28,4 +28,20 @@
 * We may want the multi tenancy to be org.app.tenant , so metrics can be displayed to our customers’ users. 
 
 # KinoticIgniteClusterManager
-* revisit the statusFlux and changesFlux AI thinks they are good, I feel like the are redundant.
+* revisit the statusFlux and changesFlux AI thinks they are good, I feel like they are redundant.|
+
+# ServiceDirectory review leftovers
+* ServiceRegistrationBeanPostProcessor still publishes to the directory when the RPC
+  registration just failed (the catch logs and falls through) — a `return` in the catch would
+  make directory publishing conditional on the service actually serving.
+* A streaming return hidden inside an async wrapper escapes the @McpTool rejection:
+  `CompletableFuture<Flux<T>>` converts to AsyncC3Type(StreamC3Type) and the
+  `instanceof StreamC3Type` check in DefaultServiceDirectory.buildEntry only sees the top level.
+  Unwrap AsyncC3Type.valueType before checking. (Parity with the old reflection — not a regression.)
+
+# Docs
+Make sure the ServiceDirectory logic is documented for TS code, once we finish implementing it.
+
+
+# Kinotic TS
+We store a bunch of maps during decorator processing that will not be used. We need to formalize this into the TS-Morph stuf we are going to do. Left here in case I forgot.

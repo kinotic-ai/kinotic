@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
 
-    // v1 reconciliation reads the whole directory in one page. The directory only holds self-captured system
+    // v1 reconciliation reads the whole directory in one page. The directory only holds self-published system
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
 
@@ -119,8 +119,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                             String applicationId,
                                                                             Pageable pageable) {
+        // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
+        // appears in directory listings
         Query filter = composeFilter(termFilter("mcpExposed", true),
-                                     termFilter("published", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));
         return findAll(pageable, b -> {

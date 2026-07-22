@@ -1,6 +1,6 @@
 
 
-package org.kinotic.idl.internal.directory;
+package org.kinotic.idl.api.directory;
 
 /**
  * Provides a {@link ResolvableTypeConverter} that supports specific {@link Class} types.

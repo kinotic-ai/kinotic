@@ -19,7 +19,9 @@ import lombok.ToString;
         use = JsonTypeInfo.Id.NAME,
         property = "type")
 @JsonSubTypes({
+        @JsonSubTypes.Type(value = AnyC3Type.class, name = "any"),
         @JsonSubTypes.Type(value = ArrayC3Type.class, name = "array"),
+        @JsonSubTypes.Type(value = AsyncC3Type.class, name = "async"),
         @JsonSubTypes.Type(value = BooleanC3Type.class, name = "boolean"),
         @JsonSubTypes.Type(value = ByteC3Type.class, name = "byte"),
         @JsonSubTypes.Type(value = CharC3Type.class, name = "char"),
@@ -33,6 +35,7 @@ import lombok.ToString;
         @JsonSubTypes.Type(value = ObjectC3Type.class, name = "object"),
         @JsonSubTypes.Type(value = ReferenceC3Type.class, name = "ref"),
         @JsonSubTypes.Type(value = ShortC3Type.class, name = "short"),
+        @JsonSubTypes.Type(value = StreamC3Type.class, name = "stream"),
         @JsonSubTypes.Type(value = StringC3Type.class, name = "string"),
         @JsonSubTypes.Type(value = UnionC3Type.class, name = "union"),
         @JsonSubTypes.Type(value = VoidC3Type.class, name = "void")

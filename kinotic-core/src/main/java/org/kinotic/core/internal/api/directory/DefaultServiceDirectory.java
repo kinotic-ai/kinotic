@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
+import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -13,6 +14,7 @@ import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
@@ -21,13 +23,13 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.ReactiveAdapter;
-import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -43,10 +45,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
- * registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA cluster
- * singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only
- * when a strategy bean does, so a deployment without one has no directory at all.
+ * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
+ * {@code @Publish(advertise = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
+ * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
+ * exists only when a strategy bean does, so a deployment without one has no directory at all.
  */
 @Slf4j
 @Component
@@ -62,11 +65,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
-    private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
-    // Registrations arriving during startup are held here and captured in ONE conversion session on
+    // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
     private final Map<ServiceIdentifier, Class<?>> pendingRegistrations = new HashMap<>();
     private final Object registrationLock = new Object();
@@ -85,7 +87,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
-        this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = igniteProvider.getIfAvailable();
     }
@@ -98,6 +99,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (!shouldPublishToDirectory(serviceInterface)) {
+            return;
+        }
         boolean queued;
         synchronized (registrationLock) {
             queued = !startupComplete;
@@ -106,10 +110,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         if (!queued) {
-            // a late registration (lazily created bean) cannot join a batch, capture it immediately.
+            // a late registration (lazily created bean) cannot join a batch, publish it immediately.
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
-            captureAll(Map.of(serviceIdentifier, serviceInterface))
+            publishAllToDirectory(Map.of(serviceIdentifier, serviceInterface))
                     .thenCompose(v -> refreshOnline(serviceIdentifier))
                     .whenComplete((v, throwable) -> {
                         if (throwable != null) {
@@ -121,6 +125,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (!shouldPublishToDirectory(serviceInterface)) {
+            return;
+        }
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         refreshOnline(serviceIdentifier)
@@ -142,14 +149,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                captureAll(batch).thenCompose(v -> reconcileLiveness())
+                publishAllToDirectory(batch).thenCompose(v -> reconcileLiveness())
                                  .whenComplete((v, throwable) -> {
                                      if (throwable != null) {
-                                         log.error("Startup service capture failed", throwable);
+                                         log.error("Startup directory publish failed", throwable);
                                      }
                                  });
             } catch (Exception e) {
-                log.error("Startup service capture failed", e);
+                log.error("Startup directory publish failed", e);
             }
         }
     }
@@ -165,10 +172,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Captures and upserts entries for all given registrations in one conversion session, so model types shared
+     * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private CompletableFuture<Void> captureAll(Map<ServiceIdentifier, Class<?>> registrations) {
+    private CompletableFuture<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
         NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
@@ -179,14 +186,22 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         List<CompletableFuture<Void>> writes = new ArrayList<>();
         for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
             try {
-                ServiceDefinition definition = definitionsByQualifiedName.get(registration.getValue().getName());
+                // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
+                // contract — never Class.getName(), which uses '$' for nested types
+                Class<?> serviceInterface = registration.getValue();
+                ServiceDefinition definition = definitionsByQualifiedName.get(
+                        serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
+                if (definition == null) {
+                    // conversion failed, SchemaFactory omitted the service and logged the cause
+                    continue;
+                }
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
-                                                           registration.getValue(),
+                                                           serviceInterface,
                                                            definition,
                                                            referenceResolver)));
             } catch (Exception e) {
                 // one bad service (e.g. an invalid @McpTool name) must not block the rest of the directory
-                log.error("Failed to capture service {}", registration.getKey(), e);
+                log.error("Failed to publish service {} to the directory", registration.getKey(), e);
             }
         }
         return CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
@@ -253,8 +268,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                              Class<?> serviceInterface,
                                              ServiceDefinition serviceDefinition,
                                              Map<String, ObjectC3Type> referenceResolver) {
-        Map<String, Method> methodsByName = methodsByName(serviceInterface);
-
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
@@ -264,9 +277,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
             if (decorator != null) {
 
-                ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(methodsByName.get(function.getName())
-                                                                                          .getReturnType());
-                if (adapter != null && adapter.isMultiValue()) {
+                if (function.getReturnType() instanceof StreamC3Type) {
                     throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
@@ -297,15 +308,29 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
                 .setServiceDefinition(serviceDefinition)
-                .setPublished(true)
+                .setAdvertised(isAdvertised(serviceInterface))
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
-    private Map<String, Method> methodsByName(Class<?> serviceInterface) {
-        Map<String, Method> ret = new HashMap<>();
+    // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
+    // explicit intent to expose the service, so it implies inclusion
+    private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
+        return isAdvertised(serviceInterface) || hasMcpToolFunction(serviceInterface);
+    }
+
+    private boolean isAdvertised(Class<?> serviceInterface) {
+        Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
+        return publish != null && publish.advertise();
+    }
+
+    private boolean hasMcpToolFunction(Class<?> serviceInterface) {
+        boolean ret = false;
         for (Method method : serviceInterface.getMethods()) {
-            ret.put(method.getName(), method);
+            if (method.isAnnotationPresent(McpTool.class)) {
+                ret = true;
+                break;
+            }
         }
         return ret;
     }
