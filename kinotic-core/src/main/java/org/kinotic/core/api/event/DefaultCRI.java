@@ -20,6 +20,13 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
+        // '@' delimits the scope in the composed authority, so neither part may carry one
+        if (scope != null && scope.indexOf('@') >= 0) {
+            throw new IllegalArgumentException("The scope must not contain '@' but was '" + scope + "'");
+        }
+        if (resourceName != null && resourceName.indexOf('@') >= 0) {
+            throw new IllegalArgumentException("The resourceName must not contain '@' but was '" + resourceName + "'");
+        }
         // Compose the authority as scope@resourceName and pass it to the authority-form URI
         // constructor, which stores it verbatim. The scheme and authority are the CRI's identity,
         // so they are lowercased; the path and version are payload details and keep their case.
@@ -44,8 +51,8 @@ class DefaultCRI implements CRI {
         validateIdentity();
     }
 
-    // '~' delimits the zone from the resourceName, so any other occurrence could only confuse
-    // zone parsing — a scope carrying one, or a second '~' in the host part, is rejected outright
+    // '~' delimits the zone and '@' delimits the scope, so any other occurrence of either could
+    // only confuse parsing — a delimiter inside a part is rejected outright
     private void validateIdentity() {
         String scope = scope();
         if (scope != null && scope.indexOf(ZONE_DELIMITER) >= 0) {
@@ -54,6 +61,10 @@ class DefaultCRI implements CRI {
         String resourceName = resourceName();
         if (resourceName != null && resourceName.indexOf(ZONE_DELIMITER) >= 0) {
             throw new IllegalArgumentException("The resourceName must not contain '~' but was '" + resourceName + "'");
+        }
+        String authority = uri.getRawAuthority();
+        if (authority != null && authority.indexOf('@') != authority.lastIndexOf('@')) {
+            throw new IllegalArgumentException("The authority must contain at most one '@' but was '" + authority + "'");
         }
     }
 

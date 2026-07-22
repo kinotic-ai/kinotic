@@ -31,6 +31,12 @@ describe('Kinotic JS', () => {
             expect(() => createCRI('srv', null, 'api~com.example.svc~extra', 'save', '1.0.0')).toThrow()
         })
 
+        it('rejects stray scope delimiters', () => {
+            expect(() => createCRI('srv', 'a@b', 'api~com.example.svc', 'save', '1.0.0')).toThrow()
+            expect(() => createCRI('srv', null, 'x@api~com.example.svc', 'save', '1.0.0')).toThrow()
+            expect(() => createCRI('srv://a@b@api~com.example.svc/save#1.0.0')).toThrow()
+        })
+
         it('rejects a name containing a dot', () => {
             expect(() => new ServiceIdentifier('com.example', 'Svc.Extra', 'api')).toThrow()
         })

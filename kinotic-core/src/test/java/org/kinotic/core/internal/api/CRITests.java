@@ -106,6 +106,18 @@ public class CRITests {
     }
 
     @Test
+    public void strayScopeDelimitersAreRejected(){
+        // '@' delimits the scope: component parts may never carry one, and a raw form
+        // may have at most one
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, "a@b", ZONED_NAME, "/save", "1.0.0"));
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, "x@" + ZONED_NAME, "/save", "1.0.0"));
+        assertThrows(IllegalArgumentException.class,
+                     () -> CRI.create("srv://a@b@" + ZONED_NAME + "/save#1.0.0"));
+    }
+
+    @Test
     public void secondZoneDelimiterInTheHostPartIsRejected(){
         // only the first '~' is the delimiter; a resourceName carrying another is always a mistake
         assertThrows(IllegalArgumentException.class,

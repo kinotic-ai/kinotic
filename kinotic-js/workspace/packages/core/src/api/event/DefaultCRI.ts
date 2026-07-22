@@ -37,6 +37,13 @@ export class DefaultCRI implements CRI {
             this._version = parsed.version
         } else if (args.length === 5) {
             const [scheme, scope, resourceName, path, version] = args
+            // '@' delimits the scope in the composed authority, so neither part may carry one
+            if (scope && (scope as string).includes('@')) {
+                throw new Error(`The scope must not contain '@' but was '${scope}'`)
+            }
+            if ((resourceName as string).includes('@')) {
+                throw new Error(`The resourceName must not contain '@' but was '${resourceName}'`)
+            }
             this._scheme = scheme.toLowerCase()
             this._scope = scope ? scope.toLowerCase() : null
             const [zone, name] = DefaultCRI.splitZone((resourceName as string).toLowerCase())
@@ -52,13 +59,16 @@ export class DefaultCRI implements CRI {
         if (!this._scheme || !this._resourceName) {
             throw new Error(`Invalid CRI: scheme and resourceName are required. Got: ${this._raw}`)
         }
-        // '~' delimits the zone from the resourceName, so any other occurrence could only confuse
-        // zone parsing — a scope carrying one, or a second '~' in the host part, is rejected outright
+        // '~' delimits the zone and '@' delimits the scope, so any other occurrence of either
+        // could only confuse parsing — a delimiter inside a part is rejected outright
         if (this._scope !== null && this._scope.includes(ZONE_DELIMITER)) {
             throw new Error(`The scope must not contain '~' but was '${this._scope}'`)
         }
         if (this._resourceName.includes(ZONE_DELIMITER)) {
             throw new Error(`The resourceName must not contain '~' but was '${this._resourceName}'`)
+        }
+        if (this._resourceName.includes('@') || (this._zone !== null && this._zone.includes('@'))) {
+            throw new Error(`The authority must contain at most one '@' but was '${this._raw}'`)
         }
     }
 
