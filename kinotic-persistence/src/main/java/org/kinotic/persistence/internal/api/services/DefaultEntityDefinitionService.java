@@ -64,7 +64,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
     }
 
     private CompletableFuture<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
-                                                                  Function<EntityDefinition, CompletableFuture<EntityDefinition>> createOp) {
+                                                                  Function<EntityDefinition,
+                                                                          CompletableFuture<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -76,8 +77,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                                                                entityDefinition.getApplicationId(),
                                                                                entityDefinition.getName());
 
-            if(logicalIndexName.length() > 255){
-                throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
+            if (logicalIndexName.length() > 255) {
+                return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        "EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters"));
             }
 
             // TODO: how to ensure EntityDefinition application name match the C3Type name
@@ -98,18 +100,18 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
             entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
 
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
+            // never throw synchronously from a CompletableFuture-returning method: it strands callers.
             return CompletableFuture.failedFuture(e);
         }
 
         // The base create uses the ES create op-type, so the uniqueness check is atomic at
-        // the shard — a concurrent duplicate fails instead of overwriting the way the
-        // previous findById-then-save did.
+        // the shard — a concurrent duplicate fails instead of overwriting.
         return createOp.apply(entityDefinition)
-                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
-                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                        : CompletableFuture.failedFuture(ex));
+                       .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                               ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                               "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                               : CompletableFuture.failedFuture(ex));
     }
 
     @WithSpan
@@ -128,11 +130,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
         return findById(entityDefinitionId)
                 .thenCompose(entityDefinition -> {
 
-                    if(entityDefinition == null){
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition cannot be found for id: " + entityDefinitionId));
+                    if (entityDefinition == null) {
+                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition cannot be found for id: " + entityDefinitionId));
                     }
 
-                    if(entityDefinition.isPublished()){
+                    if (entityDefinition.isPublished()) {
                         return CompletableFuture
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
@@ -141,16 +144,20 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     // eviction fires, and the eviction must fire last — either way around,
                     // a concurrent read could re-cache the old row with no eviction behind it.
                     return super.deleteByIdSync(entityDefinitionId)
-                            .thenApply(v -> {
-                                this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
-                                return null;
-                            });
+                                .thenApply(v -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(
+                                            entityDefinition.getOrganizationId(),
+                                            entityDefinition.getApplicationId(),
+                                            entityDefinition.getId()));
+                                    return null;
+                                });
                 });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId,
+                                                                                    Pageable pageable) {
         return entityDefinitionRepository.findAllPublishedForApplication(applicationId, requireOrganizationId(), pageable);
     }
 
@@ -175,13 +182,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
                     CompletableFuture<Void> creationFuture = entityDefinition.isStream()
                             ? crudServiceTemplate
-                            .createIndexTemplate(templateName,
-                                                 entityDefinition.getItemIndex() + "*",
-                                                 DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
-                                                 mappings)
-                            .thenCompose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
+                              .createIndexTemplate(templateName,
+                                                   entityDefinition.getItemIndex() + "*",
+                                                   DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
+                                                   mappings)
+                              .thenCompose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
                             : crudServiceTemplate
-                            .createIndex(entityDefinition.getItemIndex(), true, mappings);
+                              .createIndex(entityDefinition.getItemIndex(), true, mappings);
 
                     return creationFuture.thenCompose(v -> {
                         entityDefinition.setPublished(true);
@@ -189,11 +196,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
                         // saveSync so the published state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
-                                                                                                                     entityDefinition1.getId()));
-                                    return null;
-                                });
+                                    .thenApply(entityDefinition1 -> {
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                entityDefinition1.getOrganizationId(),
+                                                entityDefinition1.getApplicationId(),
+                                                entityDefinition1.getId()));
+                                        return null;
+                                    });
                     });
                 });
     }
@@ -248,14 +257,17 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     if (entityDefinition.isPublished()) {
                         if (!existingEntityDefinition.isMultiTenantSelectionEnabled()
                                 && entityDefinition.isMultiTenantSelectionEnabled()
-                                && !persistenceProperties.getTenantIdFieldName().equals(entityDefinition.getTenantIdFieldName())) {
+                                && !persistenceProperties.getTenantIdFieldName()
+                                                         .equals(entityDefinition.getTenantIdFieldName())) {
                             return CompletableFuture.failedFuture(
-                                    new IllegalArgumentException("When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
+                                    new IllegalArgumentException(
+                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
                         }
 
                         if (!existingEntityDefinition.isStream() && entityDefinition.isStream()) {
                             return CompletableFuture.failedFuture(
-                                    new IllegalArgumentException("Cannot change an existing published EntityDefinition from a non-stream to a stream"));
+                                    new IllegalArgumentException(
+                                            "Cannot change an existing published EntityDefinition from a non-stream to a stream"));
                         }
 
                         // FIXME: how to best handle an operation where the mapping completes but the save fails.
@@ -280,11 +292,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         // saveSync so the new definition is searchable before the eviction
                         // fires — a reload racing the index refresh would re-cache the old
                         // row with no eviction left to clear it.
-                        return updateFuture.thenCompose(v -> super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                    return entityDefinition1;
-                                }));
+                        return updateFuture.thenCompose(
+                                v -> super.saveSync(entityDefinition)
+                                          .thenApply(entityDefinition1 -> {
+                                              this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                      entityDefinition1.getOrganizationId(),
+                                                      entityDefinition1.getApplicationId(),
+                                                      entityDefinition1.getId()));
+                                              return entityDefinition1;
+                                          }));
                     } else {
                         return super.saveSync(entityDefinition);
                     }
@@ -311,7 +327,8 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         String templateName = entityDefinition.getItemIndex() + "_tpl";
                         // Delete the data stream and its template
                         deleteStorageFuture = crudServiceTemplate.deleteDataStream(entityDefinition.getItemIndex())
-                                                                 .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(templateName));
+                                                                 .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(
+                                                                         templateName));
                     } else {
                         // Delete the regular index
                         deleteStorageFuture = crudServiceTemplate.deleteIndex(entityDefinition.getItemIndex());
@@ -323,10 +340,13 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         entityDefinition.setUpdated(new Date());
                         // saveSync so the unpublished state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                    return null;
-                                });
+                                    .thenApply(entityDefinition1 -> {
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                entityDefinition1.getOrganizationId(),
+                                                entityDefinition1.getApplicationId(),
+                                                entityDefinition1.getId()));
+                                        return null;
+                                    });
                     });
                 });
     }

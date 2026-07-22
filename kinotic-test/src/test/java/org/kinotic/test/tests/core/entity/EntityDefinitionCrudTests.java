@@ -4,6 +4,7 @@ package org.kinotic.test.tests.core.entity;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.converter.C3ConversionException;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
@@ -117,7 +118,7 @@ public class EntityDefinitionCrudTests extends KinoticTestBase {
 						.setSchema(testDataService.createPersonSchema(MultiTenancyType.NONE, true));
 
 		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> entityDefinitionService.create(entityDefinition))))
-					.expectError(IllegalArgumentException.class)
+					.expectError(C3ConversionException.class)
 					.verify();
 	}
 
