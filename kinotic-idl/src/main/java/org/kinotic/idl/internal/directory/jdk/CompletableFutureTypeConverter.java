@@ -1,5 +1,6 @@
 package org.kinotic.idl.internal.directory.jdk;
 
+import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.internal.directory.ConversionContext;
 import org.kinotic.idl.internal.directory.SpecificTypeConverter;
@@ -9,8 +10,7 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Converts a {@link CompletableFuture} to the {@link C3Type} of its value: the future is the invocation
- * mechanics, the value is the contract.
+ * Converts a {@link CompletableFuture} to an {@link AsyncC3Type} of its value type.
  * Created by Navíd Mitchell 🤪 on 7/22/26
  */
 @Component
@@ -32,6 +32,6 @@ public class CompletableFutureTypeConverter implements SpecificTypeConverter {
             throw new IllegalStateException("CompletableFuture found but no generic type defined");
         }
 
-        return conversionContext.convert(genericType);
+        return new AsyncC3Type(conversionContext.convert(genericType));
     }
 }

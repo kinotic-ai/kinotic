@@ -58,7 +58,9 @@ public class JsonSchemaConverterStrategy implements IdlConverterStrategy<ObjectN
 
     private static C3TypeConverterContainer<ObjectNode, JsonSchemaConversionState> primitiveContainer() {
         C3TypeConverterContainer<ObjectNode, JsonSchemaConversionState> container = new C3TypeConverterContainer<>();
-        container.addConverter(BooleanC3Type.class, (c3Type, context) -> FACTORY.objectNode().put("type", "boolean"))
+        // the empty schema {} is the JSON Schema that accepts any value
+        container.addConverter(AnyC3Type.class, (c3Type, context) -> FACTORY.objectNode())
+                 .addConverter(BooleanC3Type.class, (c3Type, context) -> FACTORY.objectNode().put("type", "boolean"))
                  .addConverter(ByteC3Type.class, (c3Type, context) -> FACTORY.objectNode()
                                                                              .put("type", "integer")
                                                                              .put("minimum", (int) Byte.MIN_VALUE)

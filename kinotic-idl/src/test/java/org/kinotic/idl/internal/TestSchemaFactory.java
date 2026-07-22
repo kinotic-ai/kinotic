@@ -3,9 +3,12 @@ package org.kinotic.idl.internal;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestService;
@@ -44,11 +47,14 @@ public class TestSchemaFactory {
         Assertions.assertEquals(4, testService.getFunctions().size());
 
         ServiceDefinition otherTestService = findService(namespaceDefinition, OtherTestService.class);
-        Assertions.assertEquals(3, otherTestService.getFunctions().size());
+        Assertions.assertEquals(4, otherTestService.getFunctions().size());
 
-        // a CompletableFuture return converts to its value type, identical to the synchronous variant
-        Assertions.assertEquals(findFunction(otherTestService, "findPerson").getReturnType(),
+        // async and streaming returns wrap the same value type the synchronous variant resolves to
+        C3Type personType = findFunction(otherTestService, "findPerson").getReturnType();
+        Assertions.assertEquals(new AsyncC3Type(personType),
                                 findFunction(otherTestService, "findPersonAsync").getReturnType());
+        Assertions.assertEquals(new StreamC3Type(personType),
+                                findFunction(otherTestService, "streamPeople").getReturnType());
 
         // TestObject and TestAddress are referenced by BOTH services but converted in one session,
         // so each appears exactly once in the namespace

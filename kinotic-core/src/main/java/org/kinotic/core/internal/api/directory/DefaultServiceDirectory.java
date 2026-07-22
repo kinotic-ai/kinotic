@@ -21,16 +21,14 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.core.ReactiveAdapter;
-import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 
-import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -62,7 +60,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
-    private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
@@ -85,7 +82,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
-        this.reactiveAdapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
         this.ignite = igniteProvider.getIfAvailable();
     }
@@ -185,7 +181,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                     continue;
                 }
                 writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
-                                                           registration.getValue(),
                                                            definition,
                                                            referenceResolver)));
             } catch (Exception e) {
@@ -254,11 +249,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
-                                             Class<?> serviceInterface,
                                              ServiceDefinition serviceDefinition,
                                              Map<String, ObjectC3Type> referenceResolver) {
-        Map<String, Method> methodsByName = methodsByName(serviceInterface);
-
         List<McpToolDefinition> tools = new ArrayList<>();
         Set<String> toolNames = new HashSet<>();
 
@@ -268,9 +260,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
             if (decorator != null) {
 
-                ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(methodsByName.get(function.getName())
-                                                                                          .getReturnType());
-                if (adapter != null && adapter.isMultiValue()) {
+                if (function.getReturnType() instanceof StreamC3Type) {
                     throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
@@ -304,14 +294,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setPublished(true)
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
-    }
-
-    private Map<String, Method> methodsByName(Class<?> serviceInterface) {
-        Map<String, Method> ret = new HashMap<>();
-        for (Method method : serviceInterface.getMethods()) {
-            ret.put(method.getName(), method);
-        }
-        return ret;
     }
 
     private Map<String, ObjectC3Type> referenceResolver(Set<ComplexC3Type> referencedTypes) {

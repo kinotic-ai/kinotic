@@ -1,6 +1,7 @@
 package org.kinotic.idl.api.converter.jsonschema;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.ByteC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -64,6 +65,18 @@ public class McpJsonSchemaGeneratorTest {
         assertEquals("name", required.get(0).asString());
 
         assertFalse(schema.has("$defs"), "no complex types means no $defs");
+    }
+
+    @Test
+    public void anyEmitsUnconstrainedSchema() {
+        FunctionDefinition function = new FunctionDefinition().setName("store")
+                                                              .addParameter(new ParameterDefinition("value", new AnyC3Type()));
+
+        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, Map.of()));
+
+        JsonNode value = schema.path("properties").path("value");
+        assertTrue(value.isObject());
+        assertTrue(value.isEmpty(), "the empty schema {} accepts any value");
     }
 
     @Test
