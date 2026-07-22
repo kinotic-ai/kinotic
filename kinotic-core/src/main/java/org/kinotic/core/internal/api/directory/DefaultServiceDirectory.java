@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
+import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -13,6 +14,7 @@ import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
@@ -27,8 +29,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
 
+import java.lang.reflect.Method;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -41,10 +45,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * The {@link ServiceDirectory}: captures published service contracts, keeps liveness verified against cluster
- * registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA cluster
- * singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean exists only
- * when a strategy bean does, so a deployment without one has no directory at all.
+ * The {@link ServiceDirectory}: captures the contracts of services that opt in with
+ * {@code @Publish(directory = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
+ * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
+ * exists only when a strategy bean does, so a deployment without one has no directory at all.
  */
 @Slf4j
 @Component
@@ -94,6 +99,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (!shouldCapture(serviceInterface)) {
+            return;
+        }
         boolean queued;
         synchronized (registrationLock) {
             queued = !startupComplete;
@@ -117,6 +125,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
+        if (!shouldCapture(serviceInterface)) {
+            return;
+        }
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         refreshOnline(serviceIdentifier)
@@ -294,6 +305,22 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setPublished(true)
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
+    }
+
+    // Directory inclusion is opt-in via @Publish(directory = true); an @McpTool function is already
+    // explicit intent to expose the service, so it implies inclusion
+    private boolean shouldCapture(Class<?> serviceInterface) {
+        Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
+        boolean ret = publish != null && publish.directory();
+        if (!ret) {
+            for (Method method : serviceInterface.getMethods()) {
+                if (method.isAnnotationPresent(McpTool.class)) {
+                    ret = true;
+                    break;
+                }
+            }
+        }
+        return ret;
     }
 
     private Map<String, ObjectC3Type> referenceResolver(Set<ComplexC3Type> referencedTypes) {
