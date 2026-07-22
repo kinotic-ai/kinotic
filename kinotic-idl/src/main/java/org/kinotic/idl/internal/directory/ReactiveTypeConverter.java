@@ -3,6 +3,7 @@ package org.kinotic.idl.internal.directory;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.StreamC3Type;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.ResolvableType;
@@ -17,7 +18,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class ReactiveTypeConverter implements GenericTypeConverter {
 
-    private final ReactiveAdapterRegistry adapterRegistry = ReactiveAdapterRegistry.getSharedInstance();
+    private final ReactiveAdapterRegistry adapterRegistry;
+
+    public ReactiveTypeConverter(ObjectProvider<ReactiveAdapterRegistry> adapterRegistryProvider) {
+        // The Spring-managed registry carries adapters registered at runtime beyond the shared
+        // instance's defaults (DefaultKinotic registers the Vert.x Future adapter on it); the shared
+        // instance is the fallback for contexts without the bean
+        this.adapterRegistry = adapterRegistryProvider.getIfAvailable(ReactiveAdapterRegistry::getSharedInstance);
+    }
 
     @Override
     public boolean supports(ResolvableType resolvableType) {
