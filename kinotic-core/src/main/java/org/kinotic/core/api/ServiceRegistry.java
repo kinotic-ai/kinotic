@@ -6,8 +6,8 @@ package org.kinotic.core.api;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.service.ServiceDescriptor;
-import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
-import org.kinotic.core.api.service.ServiceFunction;
+import org.kinotic.core.api.service.FunctionInstanceProvider;
+import org.kinotic.core.api.service.FunctionDescriptor;
 import org.kinotic.core.api.service.ServiceIdentifier;
 
 /**
@@ -34,11 +34,11 @@ public interface ServiceRegistry {
      * This will allow the service to be accessed remotely.
      *
      * @param serviceDescriptor describes the service to be registered
-     * @param instanceProvider to use when determining which object instance each {@link ServiceFunction} will be invoked on
+     * @param instanceProvider to use when determining which object instance each {@link FunctionDescriptor} will be invoked on
      * @return {@link Future} that will be completed on success or failed on an error
      *         NOTE: {@link Future} will fail with an IllegalArgumentException if the service identifier is already registered with the registry
      */
-    Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider);
+    Future<Void> register(ServiceDescriptor serviceDescriptor, FunctionInstanceProvider instanceProvider);
 
     /**
      * Remove a service from the service registry.

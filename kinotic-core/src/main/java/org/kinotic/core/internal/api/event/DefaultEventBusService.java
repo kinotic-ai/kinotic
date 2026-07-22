@@ -16,6 +16,7 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.event.ServiceListenerEvent;
 import org.kinotic.core.internal.api.ignite.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,7 @@ import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -75,6 +77,23 @@ public class DefaultEventBusService implements EventBusService {
         // Every registration change on the address emits its resulting status, dedupe to transitions
         return clusterManager.statusFlux(cri.baseResource())
                              .distinctUntilChanged();
+    }
+
+    @Override
+    public Flux<ServiceListenerEvent> monitorServiceListenerEvents() {
+        if(clusterManager == null){
+            throw new IllegalStateException("This method is not available when clustering is disabled");
+        }
+        return clusterManager.serviceListenerEventsFlux();
+    }
+
+    @Override
+    public Future<Set<String>> activeServiceAddresses() {
+        if(clusterManager == null){
+            throw new IllegalStateException("This method is not available when clustering is disabled");
+        }
+        // scanning the cluster registrations is blocking work
+        return vertx.executeBlocking(clusterManager::registeredServiceAddresses);
     }
 
     @Override

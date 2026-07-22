@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Optional;
+import java.util.List;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/14/23.
@@ -32,20 +33,31 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForService(TestService.class);
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
+                                                                                          OtherTestService.class));
 
-        Optional<ServiceDefinition> serviceOptional = namespaceDefinition.getServices().stream().findFirst();
+        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
-        Assertions.assertTrue(serviceOptional.isPresent());
+        ServiceDefinition testService = findService(namespaceDefinition, TestService.class);
+        Assertions.assertEquals(4, testService.getFunctions().size());
 
-        Assertions.assertEquals(TestService.class.getName(), serviceOptional.get().getQualifiedName());
+        ServiceDefinition otherTestService = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertEquals(2, otherTestService.getFunctions().size());
 
-        ServiceDefinition serviceDefinition = serviceOptional.get();
-
-        Assertions.assertEquals(3, serviceDefinition.getFunctions().size());
+        // TestObject and TestAddress are referenced by BOTH services but converted in one session,
+        // so each appears exactly once in the namespace
+        Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
 
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(namespaceDefinition);
         log.info("Namespace Definition\n"+json);
+    }
+
+    private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {
+        return namespaceDefinition.getServices()
+                                  .stream()
+                                  .filter(service -> service.getQualifiedName().equals(serviceInterface.getName()))
+                                  .findFirst()
+                                  .orElseThrow();
     }
 
 }

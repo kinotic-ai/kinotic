@@ -3,6 +3,9 @@ plugins {
 }
 
 dependencies {
+    // api scope: idl types (ServiceDefinition, C3Type) appear in core's public directory API
+    api project(':kinotic-idl')
+
     implementation "com.github.ben-manes.caffeine:caffeine"
     implementation 'commons-io:commons-io'
 

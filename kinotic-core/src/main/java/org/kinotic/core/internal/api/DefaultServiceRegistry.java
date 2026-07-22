@@ -11,7 +11,7 @@ import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
-import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
+import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
@@ -64,14 +64,14 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
         try {
-            return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), ServiceFunctionInstanceProvider.create(instance));
+            return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), FunctionInstanceProvider.create(instance));
         } catch (Exception e) {
             return Future.failedFuture(e);
         }
     }
 
     @Override
-    public Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider) {
+    public Future<Void> register(ServiceDescriptor serviceDescriptor, FunctionInstanceProvider instanceProvider) {
         Promise<Void> promise = Promise.promise();
         supervisors.compute(serviceDescriptor.serviceIdentifier(),
                             (_, serviceInvocationSupervisor) -> {

@@ -6,6 +6,8 @@ package org.kinotic.core.api.event;
 import io.vertx.core.Future;
 import reactor.core.publisher.Flux;
 
+import java.util.Set;
+
 /**
  * Provides functionality for non-persistent {@link Event}'s
  *
@@ -51,5 +53,21 @@ public interface EventBusService {
      * @return a {@link Flux} that emits the current status on subscribe and every status transition after that
      */
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
+
+    /**
+     * Monitors listener registration events across all service ({@code srv://}) addresses. A
+     * {@link ServiceListenerChange} carries one address and its resulting status; a
+     * {@link ServiceListenerContinuityLost} signals that changes may have been missed. The stream carries only
+     * events; take a snapshot with {@link #activeServiceAddresses()} to establish a baseline, and rebuild it
+     * whenever continuity is lost.
+     * @return a {@link Flux} of {@link ServiceListenerEvent}s
+     */
+    Flux<ServiceListenerEvent> monitorServiceListenerEvents();
+
+    /**
+     * Snapshots every service ({@code srv://}) address that currently has a registered listener.
+     * @return a {@link Future} containing the set of active service addresses
+     */
+    Future<Set<String>> activeServiceAddresses();
 
 }
