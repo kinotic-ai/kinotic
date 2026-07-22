@@ -32,3 +32,7 @@
 
 # Docs
 Make sure the ServiceDirectory logic is documented for TS code, once we finish implementing it.
+
+
+# Kinotic TS
+We store a bunch of maps during decorator processing that will not be used. We need to formalize this into the TS-Morph stuf we are going to do. Left here in case I forgot.
