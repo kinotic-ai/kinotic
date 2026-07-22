@@ -90,7 +90,7 @@ export function Zone(zone: string) {
 }
 
 /**
- * Returns whether the given service instance's class was published with {@code advertise} set.
+ * Returns whether the given service instance's class was published with `advertise` set.
  * @param serviceInstance the service instance to inspect
  */
 export function isAdvertised(serviceInstance: object): boolean {
