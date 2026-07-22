@@ -31,8 +31,9 @@ public @interface Publish {
     String name() default "";
 
     /**
-     * When true the service's contract is published to the {@link org.kinotic.core.api.directory.ServiceDirectory}
+     * When true the service advertises itself in the {@link org.kinotic.core.api.directory.ServiceDirectory},
+     * so it appears in directory listings
      */
-    boolean addToDirectory() default false;
+    boolean advertise() default false;
 
 }

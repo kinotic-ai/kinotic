@@ -256,7 +256,7 @@ exposes the `api` configuration).
     `ServiceRegistrationBeanPostProcessor` is synchronous anyway (what is published,
     stored, and when is the IMPLEMENTATION's decision; entries are never deleted —
     known-but-offline is a feature). Directory inclusion is OPT-IN: a service is
-    published to the directory only when it declares `@Publish(addToDirectory = true)` or
+    published to the directory only when it declares `@Publish(advertise = true)` or
     has at least one `@McpTool` function (which is already explicit intent to expose)
     — a plain `@Publish` service produces no entry at all; scope listing, a tools
     query for MCP

@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
 
 /**
  * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
- * {@code @Publish(addToDirectory = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * {@code @Publish(advertise = true)} or expose an {@code @McpTool} function, keeps liveness verified against
  * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
  * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
  * exists only when a strategy bean does, so a deployment without one has no directory at all.
@@ -304,20 +304,20 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setVersion(serviceIdentifier.version())
                 .setZone(serviceIdentifier.zone())
                 .setServiceDefinition(serviceDefinition)
-                .setAddToDirectory(isAddToDirectory(serviceInterface))
+                .setAdvertised(isAdvertised(serviceInterface))
                 .setMcpExposed(!tools.isEmpty())
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
-    // Directory inclusion is opt-in via @Publish(addToDirectory = true); an @McpTool function is already
+    // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
     private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
-        return isAddToDirectory(serviceInterface) || hasMcpToolFunction(serviceInterface);
+        return isAdvertised(serviceInterface) || hasMcpToolFunction(serviceInterface);
     }
 
-    private boolean isAddToDirectory(Class<?> serviceInterface) {
+    private boolean isAdvertised(Class<?> serviceInterface) {
         Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
-        return publish != null && publish.addToDirectory();
+        return publish != null && publish.advertise();
     }
 
     private boolean hasMcpToolFunction(Class<?> serviceInterface) {

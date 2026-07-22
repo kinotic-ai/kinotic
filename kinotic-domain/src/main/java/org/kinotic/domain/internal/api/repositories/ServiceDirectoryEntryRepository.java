@@ -119,8 +119,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                             String applicationId,
                                                                             Pageable pageable) {
-        // addToDirectory is NOT filtered on: a service exposing MCP tools is callable whether or not it also
-        // opted into the directory listing
+        // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
+        // appears in directory listings
         Query filter = composeFilter(termFilter("mcpExposed", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));

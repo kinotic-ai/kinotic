@@ -69,10 +69,10 @@ public class ServiceDirectoryEntry implements Identifiable<String> {
     private ServiceDefinition serviceDefinition;
 
     /**
-     * True when the service declared {@code @Publish(addToDirectory = true)}; false when the entry exists only
-     * because the service exposes MCP tools.
+     * True when the service advertised itself with {@code @Publish(advertise = true)} and appears in directory
+     * listings; false when the entry exists only to carry the service's MCP tools.
      */
-    private boolean addToDirectory;
+    private boolean advertised;
 
     /**
      * True when any function carries the MCP tool decorator.
