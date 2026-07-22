@@ -35,4 +35,15 @@ public interface SchemaFactory {
      */
     NamespaceDefinition createForServices(Collection<Class<?>> serviceInterfaces);
 
+    /**
+     * Returns the qualified name the {@link ServiceDefinition} created for the given class carries: the class's
+     * package name and simple name joined with {@code '.'}. Use this to look a class's definition up in a
+     * {@link NamespaceDefinition} returned by {@link #createForServices(Collection)}.
+     * @param serviceInterface the service interface to name
+     * @return the definition's qualified name
+     */
+    static String qualifiedNameFor(Class<?> serviceInterface) {
+        return serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName();
+    }
+
 }
