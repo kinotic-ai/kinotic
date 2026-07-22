@@ -45,7 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
- * The {@link ServiceDirectory}: captures the contracts of services that opt in with
+ * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
  * {@code @Publish(directory = true)} or expose an {@code @McpTool} function, keeps liveness verified against
  * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
  * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
@@ -68,7 +68,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private final McpJsonSchemaGenerator schemaGenerator;
     private final Ignite ignite;
 
-    // Registrations arriving during startup are held here and captured in ONE conversion session on
+    // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
     private final Map<ServiceIdentifier, Class<?>> pendingRegistrations = new HashMap<>();
     private final Object registrationLock = new Object();
@@ -99,7 +99,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (!shouldCapture(serviceInterface)) {
+        if (!shouldPublishToDirectory(serviceInterface)) {
             return;
         }
         boolean queued;
@@ -110,10 +110,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         if (!queued) {
-            // a late registration (lazily created bean) cannot join a batch, capture it immediately.
+            // a late registration (lazily created bean) cannot join a batch, publish it immediately.
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
-            captureAll(Map.of(serviceIdentifier, serviceInterface))
+            publishAllToDirectory(Map.of(serviceIdentifier, serviceInterface))
                     .thenCompose(v -> refreshOnline(serviceIdentifier))
                     .whenComplete((v, throwable) -> {
                         if (throwable != null) {
@@ -125,7 +125,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (!shouldCapture(serviceInterface)) {
+        if (!shouldPublishToDirectory(serviceInterface)) {
             return;
         }
         // this node leaving says nothing about other instances of the service — verify, never
@@ -149,14 +149,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                captureAll(batch).thenCompose(v -> reconcileLiveness())
+                publishAllToDirectory(batch).thenCompose(v -> reconcileLiveness())
                                  .whenComplete((v, throwable) -> {
                                      if (throwable != null) {
-                                         log.error("Startup service capture failed", throwable);
+                                         log.error("Startup directory publish failed", throwable);
                                      }
                                  });
             } catch (Exception e) {
-                log.error("Startup service capture failed", e);
+                log.error("Startup directory publish failed", e);
             }
         }
     }
@@ -172,10 +172,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Captures and upserts entries for all given registrations in one conversion session, so model types shared
+     * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private CompletableFuture<Void> captureAll(Map<ServiceIdentifier, Class<?>> registrations) {
+    private CompletableFuture<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
         NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
@@ -196,7 +196,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                            referenceResolver)));
             } catch (Exception e) {
                 // one bad service (e.g. an invalid @McpTool name) must not block the rest of the directory
-                log.error("Failed to capture service {}", registration.getKey(), e);
+                log.error("Failed to publish service {} to the directory", registration.getKey(), e);
             }
         }
         return CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
@@ -309,7 +309,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Directory inclusion is opt-in via @Publish(directory = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
-    private boolean shouldCapture(Class<?> serviceInterface) {
+    private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
         Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
         boolean ret = publish != null && publish.directory();
         if (!ret) {

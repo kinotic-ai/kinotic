@@ -31,7 +31,7 @@ public @interface Publish {
     String name() default "";
 
     /**
-     * When true the service's contract is captured in the {@link org.kinotic.core.api.directory.ServiceDirectory}
+     * When true the service's contract is published to the {@link org.kinotic.core.api.directory.ServiceDirectory}
      */
     boolean directory() default false;
 

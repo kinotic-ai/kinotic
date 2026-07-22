@@ -16,7 +16,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.util.List;
 
 /**
- * Verifies contract capture against the full kinotic context, where adapters registered at runtime
+ * Verifies contract conversion against the full kinotic context, where adapters registered at runtime
  * (the Vert.x Future adapter DefaultKinotic adds) must be visible to the {@link SchemaFactory}.
  * Created by Navíd Mitchell 🤪 on 7/22/26.
  */

@@ -26,7 +26,7 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
 
-    // v1 reconciliation reads the whole directory in one page. The directory only holds self-captured system
+    // v1 reconciliation reads the whole directory in one page. The directory only holds self-published system
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
 

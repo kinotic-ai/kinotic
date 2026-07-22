@@ -6,7 +6,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * A ready-to-serve MCP tool: the JSON Schema and sanitized tool name are built once at capture time and stored, so
+ * A ready-to-serve MCP tool: the JSON Schema and sanitized tool name are built once when the service is published to the directory and stored, so
  * serving a tool listing or dispatching a call is a pure lookup. Resolution back to the invocable function uses the
  * stored {@link #cri} and {@link #functionName}; the {@link #toolName} is never parsed apart.
  */

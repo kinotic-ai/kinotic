@@ -256,9 +256,10 @@ exposes the `api` configuration).
     `ServiceRegistrationBeanPostProcessor` is synchronous anyway (what is captured,
     stored, and when is the IMPLEMENTATION's decision; entries are never deleted —
     known-but-offline is a feature). Directory inclusion is OPT-IN: a service is
-    captured only when it declares `@Publish(directory = true)` or has at least one
-    `@McpTool` function (which is already explicit intent to expose) — a plain
-    `@Publish` service produces no entry at all; scope listing, a tools query for MCP
+    published to the directory only when it declares `@Publish(directory = true)` or
+    has at least one `@McpTool` function (which is already explicit intent to expose)
+    — a plain `@Publish` service produces no entry at all; scope listing, a tools
+    query for MCP
     (`mcpExposed` + `online` + zone visibility per decision #7),
     `reportUnreachable(String cri)`. Queries follow existing core async style
     (`CompletableFuture`, `Page`/`Pageable` from `api/crud`).
