@@ -22,7 +22,7 @@ class DefaultCRI implements CRI {
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
         // Compose the authority as scope@resourceName and pass it to the authority-form URI
         // constructor, which stores it verbatim. The scheme and authority are the CRI's identity,
-        // so they fold to lowercase; the path and version are payload details and keep their case.
+        // so they are lowercased; the path and version are payload details and keep their case.
         String authority = resourceName != null
                 ? ((scope != null ? scope + "@" : "") + resourceName).toLowerCase(Locale.ROOT)
                 : null;
@@ -40,7 +40,7 @@ class DefaultCRI implements CRI {
      * @param rawCRI the raw string to create from an {@link CRI}
      */
     public DefaultCRI(String rawCRI) {
-        uri = URI.create(foldIdentity(rawCRI));
+        uri = URI.create(lowercaseIdentity(rawCRI));
         validateScope();
     }
 
@@ -53,9 +53,9 @@ class DefaultCRI implements CRI {
         }
     }
 
-    // Folds the scheme and authority of a raw CRI to lowercase, leaving the path and everything
-    // after it untouched. The authority ends at the first '/', '?', or '#' after "://".
-    private static String foldIdentity(String rawCRI) {
+    // Lowercases the scheme and authority of a raw CRI, leaving the path and everything after it
+    // untouched. The authority ends at the first '/', '?', or '#' after "://".
+    private static String lowercaseIdentity(String rawCRI) {
         String ret = rawCRI;
         int schemeEnd = rawCRI.indexOf("://");
         if (schemeEnd >= 0) {

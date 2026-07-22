@@ -20,8 +20,8 @@ export class DefaultCRI implements CRI {
     constructor(rawCRI: string)
     constructor(scheme: string, scope: string | null, resourceName: string, path: string | null, version: string | null)
     constructor(...args: any[]) {
-        // The scheme, scope, zone, and resourceName are the CRI's identity, so they fold to
-        // lowercase; the path and version are payload details and keep their case.
+        // The scheme, scope, zone, and resourceName are the CRI's identity, so they are
+        // lowercased; the path and version are payload details and keep their case.
         if (args.length === 1) {
             const rawURC = args[0]
             if (typeof rawURC !== "string") {
@@ -39,9 +39,9 @@ export class DefaultCRI implements CRI {
             const [scheme, scope, resourceName, path, version] = args
             this._scheme = scheme.toLowerCase()
             this._scope = scope ? scope.toLowerCase() : null
-            const [zone, foldedName] = DefaultCRI.splitZone((resourceName as string).toLowerCase())
+            const [zone, name] = DefaultCRI.splitZone((resourceName as string).toLowerCase())
             this._zone = zone
-            this._resourceName = foldedName
+            this._resourceName = name
             this._path = path
             this._version = version
         } else {
