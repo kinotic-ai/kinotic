@@ -1,4 +1,4 @@
-package org.kinotic.domain.internal.model.idl;
+package org.kinotic.domain.internal.api.model.idl;
 
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.idl.api.directory.ConversionContext;

@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.model.idl;
+package org.kinotic.persistence.internal.api.model.idl;
 
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;

@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.model.idl;
+package org.kinotic.core.internal.api.model.idl;
 
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.idl.api.directory.ConversionContext;
