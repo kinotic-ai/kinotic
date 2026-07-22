@@ -5,8 +5,8 @@ package org.kinotic.idl.internal.directory.jdk;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.schema.MapC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.internal.directory.ConversionContext;
-import org.kinotic.idl.internal.directory.GenericTypeConverter;
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 

@@ -4,7 +4,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.internal.api.support.RpcTestService;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.AnyC3Type;
+import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.ByteC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -29,21 +32,36 @@ public class SchemaFactoryTests {
 
     @Test
     public void vertxFutureConvertsToAsyncC3Type() {
+        Assertions.assertEquals(new AsyncC3Type(new StringC3Type()),
+                                findFunction("getVertxFutureNullString").getReturnType());
+    }
+
+    @Test
+    public void bufferConvertsToByteArray() {
+        Assertions.assertEquals(new ArrayC3Type(new ByteC3Type()),
+                                findFunction("getBuffer").getReturnType());
+    }
+
+    @Test
+    public void tokenBufferConvertsToAny() {
+        Assertions.assertEquals(new AnyC3Type(),
+                                findFunction("echoTokenBuffer").getParameters().getFirst().getType());
+    }
+
+    private FunctionDefinition findFunction(String name) {
         NamespaceDefinition namespace = schemaFactory.createForServices(List.of(RpcTestService.class));
 
-        // every return type the RPC layer supports must convert, or the whole service is omitted
+        // every type the RPC layer supports must convert, or the whole service is omitted
         ServiceDefinition service = namespace.getServices()
                                              .stream()
                                              .findFirst()
                                              .orElseThrow(() -> new AssertionError("RpcTestService failed to convert"));
 
-        FunctionDefinition function = service.getFunctions()
-                                             .stream()
-                                             .filter(f -> f.getName().equals("getVertxFutureNullString"))
-                                             .findFirst()
-                                             .orElseThrow();
-
-        Assertions.assertEquals(new AsyncC3Type(new StringC3Type()), function.getReturnType());
+        return service.getFunctions()
+                      .stream()
+                      .filter(f -> f.getName().equals(name))
+                      .findFirst()
+                      .orElseThrow();
     }
 
 }

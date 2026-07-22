@@ -2,6 +2,9 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
+
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.Name;

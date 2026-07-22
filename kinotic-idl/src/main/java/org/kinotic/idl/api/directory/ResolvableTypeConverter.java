@@ -1,6 +1,6 @@
 
 
-package org.kinotic.idl.internal.directory;
+package org.kinotic.idl.api.directory;
 
 import org.kinotic.idl.api.schema.C3Type;
 import org.springframework.core.ResolvableType;
