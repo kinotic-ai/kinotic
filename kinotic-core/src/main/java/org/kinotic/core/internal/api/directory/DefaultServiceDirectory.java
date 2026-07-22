@@ -46,7 +46,7 @@ import java.util.regex.Pattern;
 
 /**
  * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
- * {@code @Publish(directory = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * {@code @Publish(addToDirectory = true)} or expose an {@code @McpTool} function, keeps liveness verified against
  * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
  * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
  * exists only when a strategy bean does, so a deployment without one has no directory at all.
@@ -307,11 +307,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
-    // Directory inclusion is opt-in via @Publish(directory = true); an @McpTool function is already
+    // Directory inclusion is opt-in via @Publish(addToDirectory = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
     private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
         Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
-        boolean ret = publish != null && publish.directory();
+        boolean ret = publish != null && publish.addToDirectory();
         if (!ret) {
             for (Method method : serviceInterface.getMethods()) {
                 if (method.isAnnotationPresent(McpTool.class)) {

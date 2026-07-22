@@ -33,6 +33,6 @@ public @interface Publish {
     /**
      * When true the service's contract is published to the {@link org.kinotic.core.api.directory.ServiceDirectory}
      */
-    boolean directory() default false;
+    boolean addToDirectory() default false;
 
 }

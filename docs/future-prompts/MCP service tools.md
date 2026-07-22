@@ -24,15 +24,15 @@ disagree, the code wins: read the referenced source before implementing against 
    `@McpTool` annotation becomes an MCP tool. Entity data is NOT special-cased; entities
    are reachable through already-published services like `JsonEntitiesRepository`.
 2. **The gateway never reflects on service classes.** Services live on other nodes.
-   Tool contracts are **data**: C3 `ServiceDefinition`s captured where the service
+   Tool contracts are **data**: C3 `ServiceDefinition`s recorded where the service
    registers (reflection is possible there) and stored in a **ServiceDirectory**.
 3. **The ServiceDirectory API lives in `kinotic-core`; the Elasticsearch impl lives in
    `kinotic-domain`; core ships NO implementation.** `kinotic-core` is used completely
    standalone by at least one customer (no other kinotic modules), so the directory
    must add zero runtime weight there: core defines the API, the entry/definition
-   model, and the capture logic — and capture resolves `ServiceDirectory` OPTIONALLY
-   (`ObjectProvider`/optional injection); when no impl bean exists, capture is skipped
-   entirely (no beans, no schema work, no state). No in-memory default impl — YAGNI.
+   model, and the publish-to-directory logic — and the registration path resolves `ServiceDirectory` OPTIONALLY
+   (`ObjectProvider`/optional injection); when no impl bean exists, nothing is published
+   at all (no beans, no schema work, no state). No in-memory default impl — YAGNI.
    `kinotic-domain` (which already has the ES client, Ignite, Caffeine, and the
    `AbstractRepository` family) ships the OS-grade impl. This requires a new module
    dependency `kinotic-core → kinotic-idl`, declared **`api` scope** (idl types like
@@ -98,7 +98,7 @@ disagree, the code wins: read the referenced source before implementing against 
    SDK IS used as a **test-only** dependency: the e2e drives the server with the
    reference client — that is the interop guarantee.
 9. **Transform once, store, serve.** `McpToolDefinition`s (including JSON Schemas AND
-   the sanitized tool names) are built at WRITE time by the capture path and stored on
+   the sanitized tool names) are built at WRITE time when the service is published to the directory and stored on
    the entry; `tools/list` is a pure query with zero conversion on the read path.
    Regenerated on every upsert.
    Naming note (Definition vs Descriptor): `*Definition` types (`ServiceDefinition`,
@@ -106,7 +106,7 @@ disagree, the code wins: read the referenced source before implementing against 
    data; `*Descriptor` types (`ServiceDescriptor`, `FunctionDescriptor` — the latter
    already renamed from `ServiceFunction` on this branch) are the node-local invocable
    view holding live `Method` handles. Keep new types on the correct side of that line.
-10. **Streaming rejection at "compile time".** Capture REJECTS `@McpTool` on any
+10. **Streaming rejection at "compile time".** Publishing to the directory REJECTS `@McpTool` on any
     function whose return type is multi-response/streaming (inspect how `SchemaFactory`
     models `Flux`/`Publisher` vs single-value `Mono`/`CompletableFuture`), failing the
     registration with an error naming the function. Never checked at call time.
@@ -114,7 +114,7 @@ disagree, the code wins: read the referenced source before implementing against 
     the sender participant, send to the `srv://` CRI over the event bus — never a
     reflective side-door. Mirrors `EndpointConnectionHandler.send()`
     (`kinotic-api-gateway/.../stomp/EndpointConnectionHandler.java:127`).
-12. **Two contract writers, both trusted:** Java services self-capture at registration
+12. **Two contract writers, both trusted:** Java services self-publish at registration
     (this plan); customer TS services arrive later via the CLI codegen → sync pipeline
     (out of scope — do NOT build a runtime contract hand-off from customer VMs).
 
@@ -149,7 +149,7 @@ legacy kept for reference and slated for deletion):**
   (`createForServices` — the multi-service method converts every given service in one
   context so shared complex types convert once), the same way `Name` is read at
   conversion time. The C3 contract
-  is the single carrier of tool-ness: the capture path reads only the decorator, so a
+  is the single carrier of tool-ness: the directory reads only the decorator, so a
   synced contract arriving with the decorator already attached (future TS path) flows
   through identically with no Java annotation involved.
 - A JSON Schema converter strategy under `api/converter/jsonschema/` implementing
@@ -194,7 +194,7 @@ Commit. **STOP for approval.**
 
 ---
 
-## Phase 2 — kinotic-core: directory API, @McpTool, capture, liveness primitives
+## Phase 2 — kinotic-core: directory API, @McpTool, publish-to-directory, liveness primitives
 
 **Read first:** `kinotic-core/.../api/ServiceDirectory.java` (the dormant 2019
 interface being reshaped — preserve its `Created by navid on 2019-06-11` attribution),
@@ -231,7 +231,7 @@ exposes the `api` configuration).
     private ServiceDefinition serviceDefinition; // the C3 contract, decorators included
     private boolean published;
     private boolean mcpExposed;      // denormalized: any function carries McpToolC3Decorator
-    private List<McpToolDefinition> mcpTools;  // ready-to-serve, built at capture (decision #9)
+    private List<McpToolDefinition> mcpTools;  // ready-to-serve, built when published (decision #9)
     private boolean online;
     private Instant lastStatusChange;
     ```
@@ -240,30 +240,30 @@ exposes the `api` configuration).
     string from `McpJsonSchemaGenerator`), `cri` (string), `functionName`, the three
     hints. No parameter metadata: argument binding happens on the service node via the
     named-arguments content type (Phase 4), never from stored state.
-  - Tool naming lives HERE (core, where names are minted at capture — not the gateway):
+  - Tool naming lives HERE (core, where names are minted when the service is published — not the gateway):
     `@McpTool.name` overrides when given (validated verbatim against
     `^[a-zA-Z0-9_-]{1,128}$`, rejected when invalid — never silently sanitized);
     otherwise minted from the qualified name — many MCP hosts enforce that pattern, so
     dots/slashes are encoded (e.g. `srv://com.acme.CatalogService/search` →
     `com_acme_CatalogService-search`). Deterministic, collision-checked within one
-    service at capture (fail loudly). No parsing names back apart — resolution uses the
-    stored `cri`/`functionName`. Capture cannot see other services, so names are NOT
+    service when published (fail loudly). No parsing names back apart — resolution uses the
+    stored `cri`/`functionName`. A service is published without seeing other services, so names are NOT
     globally unique — custom names especially may collide across services; the call
     path handles that (Phase 4).
   - `ServiceDirectory` reshaped: `void register(ServiceIdentifier, Class<?>)` /
-    `void unregister(ServiceIdentifier, Class<?>)` — void because capture is batched
+    `void unregister(ServiceIdentifier, Class<?>)` — void because publishing is batched
     and failures are handled by the directory, and the calling
-    `ServiceRegistrationBeanPostProcessor` is synchronous anyway (what is captured,
+    `ServiceRegistrationBeanPostProcessor` is synchronous anyway (what is published,
     stored, and when is the IMPLEMENTATION's decision; entries are never deleted —
     known-but-offline is a feature). Directory inclusion is OPT-IN: a service is
-    published to the directory only when it declares `@Publish(directory = true)` or
+    published to the directory only when it declares `@Publish(addToDirectory = true)` or
     has at least one `@McpTool` function (which is already explicit intent to expose)
     — a plain `@Publish` service produces no entry at all; scope listing, a tools
     query for MCP
     (`mcpExposed` + `online` + zone visibility per decision #7),
     `reportUnreachable(String cri)`. Queries follow existing core async style
     (`CompletableFuture`, `Page`/`Pageable` from `api/crud`).
-  - `AbstractServiceDirectory` (same package) — the common capture logic for ALL
+  - `AbstractServiceDirectory` (same package) — the common publish-to-directory logic for ALL
     implementations, NOT a bean: `register`/`unregister` delegate to abstract
     `registerService`/`unregisterService`; protected `buildEntry` performs the
     expensive work and is invoked ONLY when the implementation decides the entry must
@@ -275,13 +275,13 @@ exposes the `api` configuration).
     built from the decorator with inputSchema via `McpJsonSchemaGenerator` and toolName
     via the naming rule above.
     `mcpExposed` = whether any tool exists, derived, never input. SYSTEM scope:
-    org/app null. Capture always rebuilds and upserts — the upsert is idempotent, so a
-    boot-time re-registration can never leave a stale contract. Startup capture is
+    org/app null. Publishing always rebuilds and upserts — the upsert is idempotent, so a
+    boot-time re-registration can never leave a stale contract. Startup publishing is
     BATCHED: `register` calls arriving before `ApplicationReadyEvent` are queued and
     drained in ONE `SchemaFactory.createForServices` conversion session (shared model
     types convert once per node), followed by ONE `reconcileLiveness()` correcting
     every entry from a single cluster snapshot; a late registration (lazily created
-    bean) captures immediately via the same path with `List.of` semantics plus a
+    bean) publishes immediately via the same path with `List.of` semantics plus a
     per-service liveness refresh.
 - The registration path (`ServiceRegistrationBeanPostProcessor`) resolves
   `ServiceDirectory` OPTIONALLY (`ObjectProvider`) and calls
@@ -335,7 +335,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
 **Create (in `kinotic-domain`, implementing core's `ServiceDirectory`):**
 
 - Storage is a classic GoF Strategy with the three data-access layers intact: core owns
-  the one concrete `DefaultServiceDirectory` context (capture on every registration,
+  the one concrete `DefaultServiceDirectory` context (publish on every registration,
   verified liveness refresh on register/unregister, `reportUnreachable` debounce+verify,
   query delegation), a `@Component` in `core/internal/api/directory` gated by
   `@ConditionalOnBean(ServiceDirectoryStrategy.class)` — with no strategy bean there is
@@ -381,7 +381,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   liveness layers are uniform: signal → verify → write; no path writes an unverified
   value. Periodic re-reconcile (~10 min). Addresses matching no entry are ignored.
 
-**Tests:** none (policy above) — the capture path, scope invariants, and liveness are
+**Tests:** none (policy above) — the publish-to-directory path, scope invariants, and liveness are
 asserted in the Phase 4 e2e.
 
 ~8–10 files. Verify: `:kinotic-domain:compileJava`. Commit. **STOP for approval.**
@@ -453,7 +453,7 @@ block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`
   the listener. Outcomes: reply event → MCP text content (JSON payload as-is);
   `NO_HANDLERS` → tool error "service offline" + notify `ServiceUnreachableReporter`;
   error headers per `EventConstants` → tool error with the service's message; timeout →
-  tool error. No streaming concerns — multi-response functions were rejected at capture
+  tool error. No streaming concerns — multi-response functions were rejected before entering the directory
   (decision #10).
 - `ServiceUnreachableReporter` — small shared component: fire-and-forget
   `serviceDirectory.reportUnreachable(cri)` (never blocks or fails the caller's request
@@ -476,7 +476,7 @@ Boot the server harness (see kinotic-test), register a test service with two `@M
 methods, connect the MCP SDK **client** over HTTP to `/mcp`, and assert, authenticating
 as each participant type where relevant:
 - `initialize` → `tools/list`: names, schemas (typed properties/required — proving the
-  Phase 1 emitter and Phase 2 capture), hints; a registered-then-unregistered service's
+  Phase 1 emitter and Phase 2 directory publishing), hints; a registered-then-unregistered service's
   tool absent from the listing (proving the liveness flag).
 - `tools/call`: happy path, unknown-argument error, offline-service error.
 - Scope matrix (the security invariants, per decision #7): app participant sees own-app
