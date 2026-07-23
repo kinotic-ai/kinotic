@@ -1,5 +1,7 @@
 import type {CRI} from "./CRI"
 
+const ZONE_DELIMITER = '~'
+
 /**
  * Default implementation of the `CRI` interface.
  *
@@ -9,6 +11,7 @@ import type {CRI} from "./CRI"
 export class DefaultCRI implements CRI {
     private readonly _scheme: string
     private readonly _scope: string | null
+    private readonly _zone: string | null
     private readonly _resourceName: string
     private readonly _path: string | null
     private readonly _version: string | null
@@ -17,32 +20,55 @@ export class DefaultCRI implements CRI {
     constructor(rawCRI: string)
     constructor(scheme: string, scope: string | null, resourceName: string, path: string | null, version: string | null)
     constructor(...args: any[]) {
+        // The scheme, scope, zone, and resourceName are the CRI's identity, so they are
+        // lowercased; the path and version are payload details and keep their case.
         if (args.length === 1) {
             const rawURC = args[0]
             if (typeof rawURC !== "string") {
                 throw new Error("Raw URI must be a string")
             }
             const parsed = DefaultCRI.parseRaw(rawURC)
-            this._scheme = parsed.scheme
-            this._scope = parsed.scope
-            this._resourceName = parsed.resourceName
+            this._scheme = parsed.scheme.toLowerCase()
+            this._scope = parsed.scope ? parsed.scope.toLowerCase() : null
+            const [zone, resourceName] = DefaultCRI.splitZone(parsed.resourceName.toLowerCase())
+            this._zone = zone
+            this._resourceName = resourceName
             this._path = parsed.path
             this._version = parsed.version
-            this._raw = rawURC
         } else if (args.length === 5) {
             const [scheme, scope, resourceName, path, version] = args
-            this._scheme = scheme
-            this._scope = scope
-            this._resourceName = resourceName
+            // '@' delimits the scope in the composed authority, so neither part may carry one
+            if (scope && (scope as string).includes('@')) {
+                throw new Error(`The scope must not contain '@' but was '${scope}'`)
+            }
+            if ((resourceName as string).includes('@')) {
+                throw new Error(`The resourceName must not contain '@' but was '${resourceName}'`)
+            }
+            this._scheme = scheme.toLowerCase()
+            this._scope = scope ? scope.toLowerCase() : null
+            const [zone, name] = DefaultCRI.splitZone((resourceName as string).toLowerCase())
+            this._zone = zone
+            this._resourceName = name
             this._path = path
             this._version = version
-            this._raw = DefaultCRI.buildRaw(scheme, scope, resourceName, path, version)
         } else {
             throw new Error("Invalid constructor arguments for DefaultCRI")
         }
+        this._raw = DefaultCRI.buildRaw(this._scheme, this._scope, this._zone, this._resourceName, this._path, this._version)
 
         if (!this._scheme || !this._resourceName) {
             throw new Error(`Invalid CRI: scheme and resourceName are required. Got: ${this._raw}`)
+        }
+        // '~' delimits the zone and '@' delimits the scope, so any other occurrence of either
+        // could only confuse parsing — a delimiter inside a part is rejected outright
+        if (this._scope !== null && this._scope.includes(ZONE_DELIMITER)) {
+            throw new Error(`The scope must not contain '~' but was '${this._scope}'`)
+        }
+        if (this._resourceName.includes(ZONE_DELIMITER)) {
+            throw new Error(`The resourceName must not contain '~' but was '${this._resourceName}'`)
+        }
+        if (this._resourceName.includes('@') || (this._zone !== null && this._zone.includes('@'))) {
+            throw new Error(`The authority must contain at most one '@' but was '${this._raw}'`)
         }
     }
 
@@ -56,6 +82,14 @@ export class DefaultCRI implements CRI {
 
     public hasScope(): boolean {
         return this._scope !== null
+    }
+
+    public zone(): string | null {
+        return this._zone
+    }
+
+    public hasZone(): boolean {
+        return this._zone !== null
     }
 
     public resourceName(): string {
@@ -83,6 +117,9 @@ export class DefaultCRI implements CRI {
         if (this.hasScope()) {
             result += `${this._scope}@`
         }
+        if (this.hasZone()) {
+            result += `${this._zone}${ZONE_DELIMITER}`
+        }
         result += this._resourceName
         return result
     }
@@ -105,6 +142,14 @@ export class DefaultCRI implements CRI {
 
     public toString(): string {
         return this._raw
+    }
+
+    // Splits [zone~]resourceName into its zone (or null) and resourceName
+    private static splitZone(hostPart: string): [string | null, string] {
+        const delimiter = hostPart.indexOf(ZONE_DELIMITER)
+        return delimiter >= 0
+            ? [hostPart.substring(0, delimiter), hostPart.substring(delimiter + 1)]
+            : [null, hostPart]
     }
 
     // Helper to parse a raw CRI string
@@ -135,6 +180,7 @@ export class DefaultCRI implements CRI {
     private static buildRaw(
         scheme: string,
         scope: string | null,
+        zone: string | null,
         resourceName: string,
         path: string | null,
         version: string | null
@@ -142,6 +188,9 @@ export class DefaultCRI implements CRI {
         let result = `${scheme}://`
         if (scope) {
             result += `${scope}@`
+        }
+        if (zone) {
+            result += `${zone}${ZONE_DELIMITER}`
         }
         result += resourceName
         if (path) {

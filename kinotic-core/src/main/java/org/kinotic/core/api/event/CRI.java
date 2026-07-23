@@ -9,9 +9,12 @@ package org.kinotic.core.api.event;
  *
  * Will be in a format as follows where anything surrounded with [] is optional
  *
- *      scheme://[scope@]resourceName[/path][#version]
+ *      scheme://[scope@][zone~]resourceName[/path][#version]
  *
  * NOTE: If scope needs to be used to identify a sub-scope it will follow the form scope = scope:sub-scope
+ *
+ * The scheme, scope, zone, and resourceName are the CRI's identity and are always lowercase; the
+ * path and version keep the case they were written with.
  *
  * This format can have varied meanings based upon the scheme used.
  *
@@ -43,14 +46,33 @@ public interface CRI {
     boolean hasScope();
 
     /**
-     * The name of the resource represented by this {@link CRI}
+     * The zone this {@link CRI} is addressed in, or null if un-zoned
+     *
+     * The zone is the isolation boundary routing is validated against, such as
+     * {@code app.acme-org.orders-app} or {@code os-api}.
+     *
+     * For the following CRI zone would be the portion specified by zone
+     *
+     * scheme://[scope@][zone~]resourceName/path
+     *
+     * @return the string containing the zone if provided or null if not set
+     */
+    String zone();
+
+    /**
+     * @return true if the {@link CRI#zone()} is set
+     */
+    boolean hasZone();
+
+    /**
+     * The name of the resource represented by this {@link CRI}, excluding any zone
      *
      * In the case of a srv {@link CRI} this will be the service name.
      * In the case of a stream {@link CRI} this will be the name of the event type that the stream expects
      *
      * For the following CRI resourceName would be the portion specified by resourceName
      *
-     * scheme://[scope@]resourceName/path
+     * scheme://[scope@][zone~]resourceName/path
      *
      * @return the string containing the name of this resource
      */
@@ -87,7 +109,7 @@ public interface CRI {
     /**
      * Base Resource is a portion of the fully qualified {@link CRI} containing the following
      *
-     * scheme://[scope@]resourceName
+     * scheme://[scope@][zone~]resourceName
      *
      * @return string containing the baseResource
      */
