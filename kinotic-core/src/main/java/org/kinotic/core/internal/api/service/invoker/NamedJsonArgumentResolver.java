@@ -6,7 +6,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.service.json.AbstractJacksonSupport;
-import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.utils.IdlUtil;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.codec.DecodingException;
@@ -56,9 +56,9 @@ public class NamedJsonArgumentResolver extends AbstractJacksonSupport implements
                 }
                 ret.add(participant);
             } else {
-                // SchemaFactory.parameterName is the shared naming rule, so the name bound here is
+                // IdlUtil.parameterName is the shared naming rule, so the name bound here is
                 // the name the emitted schema declared
-                String parameterName = SchemaFactory.parameterName(methodParameter);
+                String parameterName = IdlUtil.parameterName(methodParameter);
                 parameterNames.add(parameterName);
                 JsonNode value = body.get(parameterName);
                 ret.add(value == null || value.isNull() ? null : convert(value, methodParameter));

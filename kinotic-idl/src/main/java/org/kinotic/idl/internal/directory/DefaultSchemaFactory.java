@@ -8,6 +8,7 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
@@ -100,7 +101,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                functionDefinition.addParameter(SchemaFactory.parameterName(methodParameter), c3Type);
+                functionDefinition.addParameter(IdlUtil.parameterName(methodParameter), c3Type);
             }
 
             functionDefinition.setName(method.getName());
