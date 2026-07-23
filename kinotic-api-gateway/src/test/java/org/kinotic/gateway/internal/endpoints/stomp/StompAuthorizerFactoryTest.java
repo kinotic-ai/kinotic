@@ -136,16 +136,18 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void organizationParticipantReachesTheOsApiAndAppApiZones() {
+    public void organizationParticipantSendRules() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
-        // the management surface and the data plane
+        // the management surface, the data plane, and its own applications' zones
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
 
-        // sends stay off an application's own services and the platform internals
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
+        // never another organization's applications or the platform internals
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://system~org.kinotic.os.api.services.LogManager/query#1.0.0")));
     }
 

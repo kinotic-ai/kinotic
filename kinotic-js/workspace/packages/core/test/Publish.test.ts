@@ -6,8 +6,9 @@ import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestH
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
-// The client hosts these services, so it connects as an application participant and registers
-// them in its own app zone (app.<org>.<app>); the org id is DEFAULT_AUTH_HEADERS.organizationId.
+// The client hosts these services, so it connects as an organization participant (the app
+// runtime's identity) and registers them in an app zone under its org; the org id is
+// DEFAULT_AUTH_HEADERS.organizationId.
 const APP_ID = 'test-app'
 const ZONE = `app.kinotic-test.${APP_ID}`
 
@@ -21,7 +22,7 @@ describe('Kinotic JS', () => {
         beforeAll(async () => {
             // Registers this client's services under ZONE; must be set before they are instantiated
             Kinotic.zonePrefix = ZONE
-            const connectionInfo = createConnectionInfo({ authHeaders: { applicationId: APP_ID } })
+            const connectionInfo = createConnectionInfo()
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"

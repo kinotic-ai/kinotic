@@ -18,9 +18,10 @@ import java.util.Set;
  * A participant may only address zones its type allows. Application participants send to the
  * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
  * subscribe only to reply destinations. Organization participants send to the {@code os-api}
- * management surface and {@code app-api}, and subscribe within their own {@code app.<organizationId>}
- * zones — an application's runtime authenticates as an organization participant to host its
- * services. System participants send everywhere and subscribe in the {@code system} zone.
+ * management surface, {@code app-api}, and their own {@code app.<organizationId>} zones, and
+ * subscribe within those same app zones — an application's runtime authenticates as an
+ * organization participant to host and call its services. System participants send everywhere
+ * and subscribe in the {@code system} zone.
  */
 @Component
 public class StompAuthorizerFactory {
@@ -51,7 +52,7 @@ public class StompAuthorizerFactory {
             // the organization id becomes a zone label, so it is validated the same way
             ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
             String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
-            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE),
+            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
                                                  Set.of(orgAppsZone),
                                                  connectedInfo.getReplyToId());
 
