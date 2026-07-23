@@ -26,7 +26,7 @@ export class DataInsightsService implements IDataInsightsService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.persistence.api.services.insights.DataInsightsService`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.persistence.api.services.insights.DataInsightsService`)
     }
 
     public processRequest(request: InsightRequest): Observable<InsightProgress> {

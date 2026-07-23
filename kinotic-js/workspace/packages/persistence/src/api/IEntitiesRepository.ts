@@ -180,7 +180,7 @@ export class EntitiesRepository implements IEntitiesRepository {
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}.org.kinotic.persistence.api.services.JsonEntitiesRepository`)
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.persistence.api.services.JsonEntitiesRepository`)
     }
 
     public bulkSave<T>(entityDefinitionId: string, entities: T[]): Promise<void> {

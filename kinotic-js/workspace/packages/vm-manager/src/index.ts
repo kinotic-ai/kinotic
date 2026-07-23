@@ -78,7 +78,7 @@ async function start() {
     console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
-        Kinotic.serviceProxy('system.org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
+        Kinotic.serviceProxy('system~org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService')
     )
 
     // Reattach to workloads a previous vm-manager process left running before the

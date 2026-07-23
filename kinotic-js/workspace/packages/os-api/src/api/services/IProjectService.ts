@@ -45,7 +45,7 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
 export class ProjectService extends CrudServiceProxy<Project> implements IProjectService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.ProjectService`))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.ProjectService`))
     }
 
     public countForApplication(applicationId: string): Promise<number> {
