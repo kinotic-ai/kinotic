@@ -20,9 +20,16 @@ class DefaultCRI implements CRI {
     private final URI uri;
 
     public DefaultCRI(String scheme, String scope, String resourceName, String path, String version) {
+        // '@' delimits the scope in the composed authority, so neither part may carry one
+        if (scope != null && scope.indexOf('@') >= 0) {
+            throw new IllegalArgumentException("The scope must not contain '@' but was '" + scope + "'");
+        }
+        if (resourceName != null && resourceName.indexOf('@') >= 0) {
+            throw new IllegalArgumentException("The resourceName must not contain '@' but was '" + resourceName + "'");
+        }
         // Compose the authority as scope@resourceName and pass it to the authority-form URI
         // constructor, which stores it verbatim. The scheme and authority are the CRI's identity,
-        // so they fold to lowercase; the path and version are payload details and keep their case.
+        // so they are lowercased; the path and version are payload details and keep their case.
         String authority = resourceName != null
                 ? ((scope != null ? scope + "@" : "") + resourceName).toLowerCase(Locale.ROOT)
                 : null;
@@ -31,7 +38,7 @@ class DefaultCRI implements CRI {
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
-        validateScope();
+        validateIdentity();
     }
 
     /**
@@ -40,22 +47,30 @@ class DefaultCRI implements CRI {
      * @param rawCRI the raw string to create from an {@link CRI}
      */
     public DefaultCRI(String rawCRI) {
-        uri = URI.create(foldIdentity(rawCRI));
-        validateScope();
+        uri = URI.create(lowercaseIdentity(rawCRI));
+        validateIdentity();
     }
 
-    // '~' delimits the zone from the resourceName, so a scope carrying one could only be an
-    // attempt to confuse zone parsing — rejected outright
-    private void validateScope() {
+    // '~' delimits the zone and '@' delimits the scope, so any other occurrence of either could
+    // only confuse parsing — a delimiter inside a part is rejected outright
+    private void validateIdentity() {
         String scope = scope();
         if (scope != null && scope.indexOf(ZONE_DELIMITER) >= 0) {
             throw new IllegalArgumentException("The scope must not contain '~' but was '" + scope + "'");
         }
+        String resourceName = resourceName();
+        if (resourceName != null && resourceName.indexOf(ZONE_DELIMITER) >= 0) {
+            throw new IllegalArgumentException("The resourceName must not contain '~' but was '" + resourceName + "'");
+        }
+        String authority = uri.getRawAuthority();
+        if (authority != null && authority.indexOf('@') != authority.lastIndexOf('@')) {
+            throw new IllegalArgumentException("The authority must contain at most one '@' but was '" + authority + "'");
+        }
     }
 
-    // Folds the scheme and authority of a raw CRI to lowercase, leaving the path and everything
-    // after it untouched. The authority ends at the first '/', '?', or '#' after "://".
-    private static String foldIdentity(String rawCRI) {
+    // Lowercases the scheme and authority of a raw CRI, leaving the path and everything after it
+    // untouched. The authority ends at the first '/', '?', or '#' after "://".
+    private static String lowercaseIdentity(String rawCRI) {
         String ret = rawCRI;
         int schemeEnd = rawCRI.indexOf("://");
         if (schemeEnd >= 0) {

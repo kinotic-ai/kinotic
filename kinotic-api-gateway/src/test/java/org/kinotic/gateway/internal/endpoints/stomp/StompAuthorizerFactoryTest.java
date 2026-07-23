@@ -200,7 +200,7 @@ public class StompAuthorizerFactoryTest {
 
         assertFalse(authorizer.sendAllowed(CRI.create(replyDestination)));
 
-        // the grant and the send normalize to the same folded identity regardless of input case
+        // the grant and the send normalize to the same lowercase identity regardless of input case
         authorizer.addTemporarySendAllowed(replyDestination);
         assertTrue(authorizer.sendAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler")));
 

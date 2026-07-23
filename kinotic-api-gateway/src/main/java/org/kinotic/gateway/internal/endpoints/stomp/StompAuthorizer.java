@@ -43,8 +43,8 @@ public class StompAuthorizer {
             temporarySendGrants.removeFirst();
             log.warn("Reached max temporary grants some messages may be dropped");
         }
-        // normalizing through CRI folds the identity, so the grant compares equal to the folded
-        // raw() of the send it authorizes
+        // normalizing through CRI lowercases the identity, so the grant compares equal to the
+        // normalized raw() of the send it authorizes
         temporarySendGrants.add(CRI.create(rawCri).raw());
     }
 
