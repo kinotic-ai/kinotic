@@ -7,7 +7,7 @@ allowBuilds:
 # First-party packages are trusted; exclude them from the minimumReleaseAge
 # supply-chain policy so a freshly-published release doesn't block the build.
 minimumReleaseAgeExclude:
-  - '@kinotic-ai/core@3.1.0'
+  - '@kinotic-ai/core@4.0.0'
   - '@kinotic-ai/idl@1.0.10'
-  - '@kinotic-ai/os-api@3.1.0'
-  - '@kinotic-ai/persistence@3.1.0'
+  - '@kinotic-ai/os-api@4.0.0'
+  - '@kinotic-ai/persistence@4.0.0'
