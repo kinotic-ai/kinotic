@@ -61,7 +61,7 @@ export interface CRI {
     hasZone(): boolean
 
     /**
-     * The name of the resource represented by this `CRI`, excluding any zone.
+     * The name of the resource represented by this `CRI`.
      *
      * In the case of a `srv` `CRI`, this will be the service name.
      * In the case of a `stream` `CRI`, this will be the name of the event type that the stream expects.
@@ -91,7 +91,7 @@ export interface CRI {
      *
      * For the following CRI, `path` would be the portion specified by `path`:
      *
-     * `scheme://[scope@]resourceName/path`
+     * `scheme://[scope@][zone~]resourceName/path`
      *
      * @returns the path string if provided or `null` if not set
      */
