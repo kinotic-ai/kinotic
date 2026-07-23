@@ -1,8 +1,8 @@
 allowBuilds:
   esbuild: false
 minimumReleaseAgeExclude:
-  - '@kinotic-ai/core@3.1.0'
-  - '@kinotic-ai/os-api@3.1.0'
-  - '@kinotic-ai/persistence@3.1.0'
+  - '@kinotic-ai/core@4.0.0'
+  - '@kinotic-ai/os-api@4.0.0'
+  - '@kinotic-ai/persistence@4.0.0'
   - '@kinotic-ai/spawn@0.3.0'
   - '@kinotic-ai/spawn@0.4.0'

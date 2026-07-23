@@ -16,20 +16,20 @@ importers:
         specifier: ^10.2.0
         version: 10.2.0
       '@kinotic-ai/core':
-        specifier: ^3.1.0
-        version: 3.1.0(typescript@5.9.3)
+        specifier: ^4.0.0
+        version: 4.0.0(typescript@5.9.3)
       '@kinotic-ai/idl':
         specifier: ^1.0.9
         version: 1.0.9(typescript@5.9.3)
       '@kinotic-ai/kinotic-cli':
-        specifier: ^3.1.0
-        version: 3.1.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
+        specifier: ^4.0.0
+        version: 4.0.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)
       '@kinotic-ai/os-api':
-        specifier: ^3.1.0
-        version: 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^4.0.0
+        version: 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/persistence':
-        specifier: ^3.1.0
-        version: 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
+        specifier: ^4.0.0
+        version: 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)
       '@types/node':
         specifier: ^25.0.6
         version: 25.0.6
@@ -447,8 +447,8 @@ packages:
   '@js-sdsl/ordered-map@4.4.2':
     resolution: {integrity: sha512-iUKgm52T8HOE/makSxjqoWhe95ZJA1/G1sYsGev2JDKUSS14KAgg1LHb+Ba+IPow0xflbnSkOsZcO08C7w1gYw==}
 
-  '@kinotic-ai/core@3.1.0':
-    resolution: {integrity: sha512-EGmQ3HlOiZpPAl8udICk8iHqTMCzmtVrRA7gMMgfC7u6GQUDPCQnuiVWrOkDfrg7VrAmuwN95HbnrrFcqpTZuA==}
+  '@kinotic-ai/core@4.0.0':
+    resolution: {integrity: sha512-XkCmwxV2RIBIZpUb/bqT/9tRWYinrD0mLUeGO65oJMdGbTQfJCJjJTBDx/dGvrpk5oSNha8WDSmlAAVR5Y9nfQ==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -471,24 +471,24 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/kinotic-cli@3.1.0':
-    resolution: {integrity: sha512-CYwDw1yDBsKLGsLiBuBiHvl1hvhe/HyWS05DOFR54a/ZsOwVybEJdZFRfR1guXCIG8/7bW72PpiVKDiVmQ9RnQ==}
+  '@kinotic-ai/kinotic-cli@4.0.0':
+    resolution: {integrity: sha512-wHHqLWfS85Y74J0cfsKfbSxkEpPNqRuucGfBUzcxFAfEbO0NNmYlK+T6yCJCxwhn1IY5QpP5InFtABieJ3aTuw==}
     engines: {node: '>=18.0.0'}
     hasBin: true
 
-  '@kinotic-ai/os-api@3.1.0':
-    resolution: {integrity: sha512-al2PJCHtSSySwqIuYCrwrf1uXKxLxDc1idV6GPbxzAkjJiDTODP3GyeTB2kwLNHwcCi9dCktvhoQNBCN6+P1/w==}
+  '@kinotic-ai/os-api@4.0.0':
+    resolution: {integrity: sha512-Qp6/QZW9nt7YUs9LTI0F62sMVfJso/e12UJFHAJDtJmWn0Zdlz7Hy48pUOp6A+59LiNqsvHZHou9WwbCZabssg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=3.1.0'
+      '@kinotic-ai/core': '>=4.0.0'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/persistence@3.1.0':
-    resolution: {integrity: sha512-QXIVOATahEkFMZh4CFQVeUotajpXP9VFYrXrOf7tav7BT8r1vi/BmCPUNQnVH4L+Wan3ifSSER/yk3KrmLksNQ==}
+  '@kinotic-ai/persistence@4.0.0':
+    resolution: {integrity: sha512-EgewbOPn9/90rHqcEwq4jtgrhDAmv+TGbG4CcUnCFVdkgNUyvhY5PbQPYig0/CQfMmAz6KPc0xdeej1BdbKshA==}
     peerDependencies:
-      '@kinotic-ai/core': '>=3.1.0'
+      '@kinotic-ai/core': '>=4.0.0'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -2185,11 +2185,6 @@ packages:
     resolution: {integrity: sha512-0pfFzegeDWJHJIAmTLRP2DwHjdF5s7jo9tuztdQxAhINCdvS+3nGINqPd00AphqJR/0LhANUS6/+7SCb98YOfA==}
     engines: {node: '>=10'}
 
-  yaml@2.8.2:
-    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
-    engines: {node: '>= 14.6'}
-    hasBin: true
-
   yaml@2.8.3:
     resolution: {integrity: sha512-AvbaCLOO2Otw/lW5bmh9d/WEdcDFdQp2Z2ZUH3pX9U2ihyUY0nvLv7J6TrWowklRGPYbB/IuIMfYgxaCPg5Bpg==}
     engines: {node: '>= 14.6'}
@@ -2482,7 +2477,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@kinotic-ai/core@3.1.0(typescript@5.9.3)':
+  '@kinotic-ai/core@4.0.0(typescript@5.9.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -2509,13 +2504,13 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/kinotic-cli@3.1.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)':
+  '@kinotic-ai/kinotic-cli@4.0.0(@types/node@25.0.6)(magicast@0.5.1)(typescript@5.9.3)':
     dependencies:
       '@inquirer/prompts': 8.3.2(@types/node@25.0.6)
-      '@kinotic-ai/core': 3.1.0(typescript@5.9.3)
+      '@kinotic-ai/core': 4.0.0(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.10(typescript@5.9.3)
-      '@kinotic-ai/os-api': 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
-      '@kinotic-ai/persistence': 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/os-api': 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/persistence': 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)
       '@kinotic-ai/spawn': 0.5.0(typescript@5.9.3)
       '@oclif/core': 4.9.0
       c12: 3.3.3(magicast@0.5.1)
@@ -2542,18 +2537,18 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@kinotic-ai/os-api@3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/os-api@4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 3.1.0(typescript@5.9.3)
+      '@kinotic-ai/core': 4.0.0(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.10(typescript@5.9.3)
-      '@kinotic-ai/persistence': 3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)
+      '@kinotic-ai/persistence': 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.9.3
 
-  '@kinotic-ai/persistence@3.1.0(@kinotic-ai/core@3.1.0(typescript@5.9.3))(typescript@5.9.3)':
+  '@kinotic-ai/persistence@4.0.0(@kinotic-ai/core@4.0.0(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
-      '@kinotic-ai/core': 3.1.0(typescript@5.9.3)
+      '@kinotic-ai/core': 4.0.0(typescript@5.9.3)
       '@kinotic-ai/idl': 1.0.10(typescript@5.9.3)
       rxjs: 7.8.2
     optionalDependencies:
@@ -3236,7 +3231,7 @@ snapshots:
 
   docker-compose@1.3.2:
     dependencies:
-      yaml: 2.8.2
+      yaml: 2.8.3
 
   docker-modem@5.0.6:
     dependencies:
@@ -4235,8 +4230,6 @@ snapshots:
       powershell-utils: 0.1.0
 
   y18n@5.0.8: {}
-
-  yaml@2.8.2: {}
 
   yaml@2.8.3: {}
 

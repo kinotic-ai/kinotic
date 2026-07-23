@@ -218,15 +218,16 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void temporaryGrantsAllowOneNormalizedSend() {
+    public void temporaryGrantsAllowOneExactMatchSend() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
-        String replyDestination = "reply://" + REPLY_TO_ID + ":sub-1@Kinoitc.js.EventBus/replyHandler";
+        String replyDestination = "reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler";
 
         assertFalse(authorizer.sendAllowed(CRI.create(replyDestination)));
 
-        // the grant and the send normalize to the same lowercase identity regardless of input case
+        // grants match by exact string, so a case variant of the granted destination stays denied
         authorizer.addTemporarySendAllowed(replyDestination);
-        assertTrue(authorizer.sendAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler")));
+        assertFalse(authorizer.sendAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@Kinoitc.js.EventBus/replyHandler")));
+        assertTrue(authorizer.sendAllowed(CRI.create(replyDestination)));
 
         // a grant authorizes exactly one send
         assertFalse(authorizer.sendAllowed(CRI.create(replyDestination)));

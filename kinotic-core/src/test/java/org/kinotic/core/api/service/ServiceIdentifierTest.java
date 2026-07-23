@@ -15,31 +15,31 @@ public class ServiceIdentifierTest {
     @Test
     public void qualifiedNameIsZonePrefixed() {
         ServiceIdentifier identifier = new ServiceIdentifier("api", "org.kinotic.os.api.services.iam", "MemberService", null, "1.0.0");
-        assertEquals("api~org.kinotic.os.api.services.iam.memberservice", identifier.qualifiedName());
-        assertEquals("srv://api~org.kinotic.os.api.services.iam.memberservice#1.0.0", identifier.cri().raw());
+        assertEquals("api~org.kinotic.os.api.services.iam.MemberService", identifier.qualifiedName());
+        assertEquals("srv://api~org.kinotic.os.api.services.iam.MemberService#1.0.0", identifier.cri().raw());
         assertEquals("api", identifier.cri().zone());
-        assertEquals("org.kinotic.os.api.services.iam.memberservice", identifier.cri().resourceName());
+        assertEquals("org.kinotic.os.api.services.iam.MemberService", identifier.cri().resourceName());
     }
 
     @Test
     public void platformZoneAddresses() {
         ServiceIdentifier identifier = new ServiceIdentifier("os-api", "com.example", "LogManager", null, "1.0.0");
-        assertEquals("os-api~com.example.logmanager", identifier.qualifiedName());
-        assertEquals("srv://os-api~com.example.logmanager#1.0.0", identifier.cri().raw());
+        assertEquals("os-api~com.example.LogManager", identifier.qualifiedName());
+        assertEquals("srv://os-api~com.example.LogManager#1.0.0", identifier.cri().raw());
     }
 
     @Test
     public void scopeAndMissingNamespaceRoundTrip() {
         ServiceIdentifier identifier = new ServiceIdentifier("system", null, "VmManager", "node1", "0.1.0");
-        assertEquals("system~vmmanager", identifier.qualifiedName());
-        assertEquals("srv://node1@system~vmmanager#0.1.0", identifier.cri().raw());
+        assertEquals("system~VmManager", identifier.qualifiedName());
+        assertEquals("srv://node1@system~VmManager#0.1.0", identifier.cri().raw());
     }
 
     @Test
     public void noZoneMeansTheUnZonedAddress() {
         ServiceIdentifier identifier = new ServiceIdentifier(null, "com.example", "LegacyService", null, "1.0.0");
-        assertEquals("com.example.legacyservice", identifier.qualifiedName());
-        assertEquals("srv://com.example.legacyservice#1.0.0", identifier.cri().raw());
+        assertEquals("com.example.LegacyService", identifier.qualifiedName());
+        assertEquals("srv://com.example.LegacyService#1.0.0", identifier.cri().raw());
         assertNull(identifier.cri().zone());
     }
 

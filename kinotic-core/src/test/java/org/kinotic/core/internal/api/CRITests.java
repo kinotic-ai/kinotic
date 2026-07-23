@@ -135,28 +135,27 @@ public class CRITests {
     }
 
     @Test
-    public void rawFormLowercasesIdentityAndPreservesThePath(){
-        CRI cri = CRI.create("SRV://Node1@OS-API~Org.Kinotic.Tests.TestService/testMethodWithString#1.0.0");
+    public void rawFormPreservesCaseInEveryPart(){
+        CRI cri = CRI.create("srv://Node1@os-api~org.kinotic.tests.TestService/testMethodWithString#1.0.0");
 
         assertEquals("srv", cri.scheme());
-        assertEquals("node1", cri.scope());
+        assertEquals("Node1", cri.scope());
         assertEquals("os-api", cri.zone());
-        assertEquals("org.kinotic.tests.testservice", cri.resourceName());
-        // the path is a Java method name, so its case is significant and never lowercased
+        assertEquals("org.kinotic.tests.TestService", cri.resourceName());
         assertEquals("/testMethodWithString", cri.path());
-        assertEquals("srv://node1@os-api~org.kinotic.tests.testservice/testMethodWithString#1.0.0", cri.raw());
+        assertEquals("srv://Node1@os-api~org.kinotic.tests.TestService/testMethodWithString#1.0.0", cri.raw());
     }
 
     @Test
-    public void componentFormLowercasesIdentityAndPreservesThePath(){
-        CRI cri = CRI.create("SRV", "Node1", "OS-API~Org.Kinotic.Tests.TestService", "/testMethodWithString", "1.0.0");
+    public void componentFormPreservesCaseInEveryPart(){
+        CRI cri = CRI.create("srv", "Node1", "os-api~org.kinotic.tests.TestService", "/testMethodWithString", "1.0.0");
 
         assertEquals("srv", cri.scheme());
-        assertEquals("node1", cri.scope());
+        assertEquals("Node1", cri.scope());
         assertEquals("os-api", cri.zone());
-        assertEquals("org.kinotic.tests.testservice", cri.resourceName());
+        assertEquals("org.kinotic.tests.TestService", cri.resourceName());
         assertEquals("/testMethodWithString", cri.path());
-        // both construction paths normalize to the same raw form
+        // both construction paths produce the same raw form
         assertEquals(CRI.create(cri.raw()), cri);
     }
 

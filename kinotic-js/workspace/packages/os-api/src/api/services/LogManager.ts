@@ -12,7 +12,7 @@ export class LogManager implements ILogManager {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.LogManager`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.LogManager`)
     }
 
     loggers(nodeId: string): Promise<LoggersDescriptor> {

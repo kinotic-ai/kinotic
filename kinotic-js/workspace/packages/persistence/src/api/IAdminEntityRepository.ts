@@ -170,7 +170,7 @@ export class AdminEntityRepository<T> implements IAdminEntityRepository<T> {
         return this.adminEntitiesRepository.findAll(this.entityId, tenantSelection, pageable)
     }
 
-    public findById(id: TenantSpecificId): Promise<T> {
+    public findById(id: TenantSpecificId): Promise<T | null> {
         return this.adminEntitiesRepository.findById(this.entityId, id)
     }
 

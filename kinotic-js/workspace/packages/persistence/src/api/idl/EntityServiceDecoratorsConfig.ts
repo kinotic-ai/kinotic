@@ -1,5 +1,5 @@
 import type { EntityServiceDecorator } from './EntityServiceDecorator'
-import type { IEntityService } from '@/api/IEntityService'
+import type { IEntityRepository } from '@/api/IEntityRepository'
 
 // Helper type to determine if a type is a function
 type IfFunction<T, U> = T extends (...args: any[]) => any ? U : never;
@@ -12,11 +12,11 @@ type MethodsOf<T> = {
 // List of methods to exclude
 type ExcludedMethods = 'namedQuery' | 'namedQueryPage';
 
-// Filtered methods from IEntityService
+// Filtered methods from IEntityRepository
 type FilteredMethods<T> = Exclude<MethodsOf<T>, ExcludedMethods>;
 
-// Defining the DecoratedFunction type based on IEntityService methods, excluding some, and adding a few more
-export type DecoratedFunction = FilteredMethods<IEntityService<any>> | 'allCreate' | 'allRead' | 'allUpdate' | 'allDelete';
+// Defining the DecoratedFunction type based on IEntityRepository methods, excluding some, and adding a few more
+export type DecoratedFunction = FilteredMethods<IEntityRepository<any>> | 'allCreate' | 'allRead' | 'allUpdate' | 'allDelete';
 
 /**
  * Configuration for the {@link EntityServiceDecoratorsDecorator}
