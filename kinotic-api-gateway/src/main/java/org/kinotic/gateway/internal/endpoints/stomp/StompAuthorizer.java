@@ -24,14 +24,30 @@ public class StompAuthorizer {
     private final String replyToId;
     private final LinkedList<String> temporarySendGrants = new LinkedList<>();
 
-    public StompAuthorizer(boolean sendAnyZone,
-                           Set<String> sendZones,
-                           Set<String> hostZones,
-                           String replyToId) {
+    private StompAuthorizer(boolean sendAnyZone,
+                            Set<String> sendZones,
+                            Set<String> hostZones,
+                            String replyToId) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
         this.hostZones = hostZones;
         this.replyToId = replyToId;
+    }
+
+    /**
+     * An authorizer that may send to every zone, including un-zoned addresses, and host in the
+     * given zones.
+     */
+    public static StompAuthorizer allZoneSender(Set<String> hostZones, String replyToId) {
+        return new StompAuthorizer(true, Set.of(), hostZones, replyToId);
+    }
+
+    /**
+     * An authorizer restricted to the given zones: sends require a zone in {@code sendZones} and
+     * hosting requires one in {@code hostZones}, each matching exactly or as a sub-zone.
+     */
+    public static StompAuthorizer zoneRestricted(Set<String> sendZones, Set<String> hostZones, String replyToId) {
+        return new StompAuthorizer(false, sendZones, hostZones, replyToId);
     }
 
     /**

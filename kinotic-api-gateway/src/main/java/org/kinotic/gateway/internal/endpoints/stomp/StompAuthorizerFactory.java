@@ -33,27 +33,23 @@ public class StompAuthorizerFactory {
         StompAuthorizer ret;
         if (participant instanceof SystemParticipant) {
 
-            ret = new StompAuthorizer(true,
-                                      Set.of(),
-                                      Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, DomainUtil.SYSTEM_ZONE),
-                                      connectedInfo.getReplyToId());
+            ret = StompAuthorizer.allZoneSender(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, DomainUtil.SYSTEM_ZONE),
+                                                connectedInfo.getReplyToId());
 
         } else if (participant instanceof ApplicationParticipant applicationParticipant) {
             // appZone validates the ids, so an id that could shift the zone's label structure
             // fails the connection instead of widening access
             String appZone = appZone(applicationParticipant.getOrganizationId(),
                                      applicationParticipant.getApplicationId());
-            ret = new StompAuthorizer(false,
-                                      Set.of(DomainUtil.APP_API_ZONE, appZone),
-                                      Set.of(appZone),
-                                      connectedInfo.getReplyToId());
+            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.APP_API_ZONE, appZone),
+                                                 Set.of(appZone),
+                                                 connectedInfo.getReplyToId());
 
         } else if (participant instanceof OrganizationParticipant) {
 
-            ret = new StompAuthorizer(false,
-                                      Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE),
-                                      Set.of(),
-                                      connectedInfo.getReplyToId());
+            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE),
+                                                 Set.of(),
+                                                 connectedInfo.getReplyToId());
 
         } else {
             throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
