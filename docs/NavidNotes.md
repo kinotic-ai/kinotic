@@ -30,15 +30,6 @@
 # KinoticIgniteClusterManager
 * revisit the statusFlux and changesFlux AI thinks they are good, I feel like they are redundant.|
 
-# ServiceDirectory review leftovers
-* ServiceRegistrationBeanPostProcessor still publishes to the directory when the RPC
-  registration just failed (the catch logs and falls through) — a `return` in the catch would
-  make directory publishing conditional on the service actually serving.
-* A streaming return hidden inside an async wrapper escapes the @McpTool rejection:
-  `CompletableFuture<Flux<T>>` converts to AsyncC3Type(StreamC3Type) and the
-  `instanceof StreamC3Type` check in DefaultServiceDirectory.buildEntry only sees the top level.
-  Unwrap AsyncC3Type.valueType before checking. (Parity with the old reflection — not a regression.)
-
 # Docs
 Make sure the ServiceDirectory logic is documented for TS code, once we finish implementing it.
 

@@ -18,6 +18,8 @@ import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
@@ -277,7 +279,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
             if (decorator != null) {
 
-                if (function.getReturnType() instanceof StreamC3Type) {
+                // A CompletableFuture<Flux<T>> converts to AsyncC3Type(StreamC3Type), so the stream
+                // check must look through the async wrapper at the resolved value type
+                C3Type returnType = function.getReturnType();
+                if (returnType instanceof AsyncC3Type asyncC3Type) {
+                    returnType = asyncC3Type.getValueType();
+                }
+                if (returnType instanceof StreamC3Type) {
                     throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
