@@ -52,15 +52,15 @@ public class StompAuthorizer {
 
     /**
      * Grants one send to the given destination, consumed by the next matching {@link #sendAllowed(CRI)}.
-     * @param rawCri the destination to allow, matched exactly after normalization
+     * @param rawCri the destination to allow, matched exactly
      */
     public void addTemporarySendAllowed(String rawCri) {
         if (temporarySendGrants.size() == MAX_TEMPORARY_GRANTS) {
             temporarySendGrants.removeFirst();
             log.warn("Reached max temporary grants some messages may be dropped");
         }
-        // normalizing through CRI lowercases the identity, so the grant compares equal to the
-        // normalized raw() of the send it authorizes
+        // round-tripping through CRI validates the grant and stores the same raw() form the
+        // incoming send's CRI produces, so the two compare as exact strings
         temporarySendGrants.add(CRI.create(rawCri).raw());
     }
 

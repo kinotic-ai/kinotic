@@ -11,8 +11,7 @@ import {DefaultCRI} from './DefaultCRI'
  *
  * NOTE: If scope needs to be used to identify a sub-scope, it will follow the form `scope = scope:sub-scope`.
  *
- * The scheme, scope, zone, and resourceName are the CRI's identity and are always lowercase; the
- * path and version keep the case they were written with.
+ * Every part keeps the case it was written with; addresses match by exact string comparison.
  *
  * This format can have varied meanings based upon the scheme used.
  *

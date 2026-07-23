@@ -36,13 +36,12 @@ export class ServiceIdentifier {
 
     /**
      * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
-     * This is the zone~namespace.name, omitting any part that is not set, always lowercase
+     * This is the zone~namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
     public qualifiedName(): string {
         const name = this.namespace ? this.namespace + "." + this.name : this.name
-        const qualified = this.zone ? this.zone + "~" + name : name
-        return qualified.toLowerCase()
+        return this.zone ? this.zone + "~" + name : name
     }
 
     /**

@@ -7,7 +7,6 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Locale;
 
 /**
  *
@@ -28,13 +27,12 @@ class DefaultCRI implements CRI {
             throw new IllegalArgumentException("The resourceName must not contain '@' but was '" + resourceName + "'");
         }
         // Compose the authority as scope@resourceName and pass it to the authority-form URI
-        // constructor, which stores it verbatim. The scheme and authority are the CRI's identity,
-        // so they are lowercased; the path and version are payload details and keep their case.
+        // constructor, which stores it verbatim
         String authority = resourceName != null
-                ? ((scope != null ? scope + "@" : "") + resourceName).toLowerCase(Locale.ROOT)
+                ? (scope != null ? scope + "@" : "") + resourceName
                 : null;
         try {
-            uri = new URI(scheme.toLowerCase(Locale.ROOT), authority, path, null, version);
+            uri = new URI(scheme, authority, path, null, version);
         } catch (URISyntaxException x) {
             throw new IllegalArgumentException(x.getMessage(), x);
         }
@@ -47,7 +45,7 @@ class DefaultCRI implements CRI {
      * @param rawCRI the raw string to create from an {@link CRI}
      */
     public DefaultCRI(String rawCRI) {
-        uri = URI.create(lowercaseIdentity(rawCRI));
+        uri = URI.create(rawCRI);
         validateIdentity();
     }
 
@@ -66,25 +64,6 @@ class DefaultCRI implements CRI {
         if (authority != null && authority.indexOf('@') != authority.lastIndexOf('@')) {
             throw new IllegalArgumentException("The authority must contain at most one '@' but was '" + authority + "'");
         }
-    }
-
-    // Lowercases the scheme and authority of a raw CRI, leaving the path and everything after it
-    // untouched. The authority ends at the first '/', '?', or '#' after "://".
-    private static String lowercaseIdentity(String rawCRI) {
-        String ret = rawCRI;
-        int schemeEnd = rawCRI.indexOf("://");
-        if (schemeEnd >= 0) {
-            int authorityEnd = rawCRI.length();
-            for (int i = schemeEnd + 3; i < rawCRI.length(); i++) {
-                char c = rawCRI.charAt(i);
-                if (c == '/' || c == '?' || c == '#') {
-                    authorityEnd = i;
-                    break;
-                }
-            }
-            ret = rawCRI.substring(0, authorityEnd).toLowerCase(Locale.ROOT) + rawCRI.substring(authorityEnd);
-        }
-        return ret;
     }
 
     @Override
