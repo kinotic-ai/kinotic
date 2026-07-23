@@ -93,9 +93,9 @@ public class StompAuthorizer {
         return ret;
     }
 
+    // only srv addresses route through the gateway; stream routing is not yet supported
     private static boolean isRoutableScheme(String scheme) {
-        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(scheme)
-                || EventConstants.STREAM_DESTINATION_SCHEME.equals(scheme);
+        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(scheme);
     }
 
     // A zone is allowed when it is an allowed zone or a sub-zone of one; the dot boundary keeps

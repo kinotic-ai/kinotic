@@ -62,7 +62,6 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app.billing~InvoiceService/pay#1.0.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
 
         // the organization management surface, other applications, other organizations, the
         // platform internals, and un-zoned addresses
@@ -127,7 +126,6 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@app.acme-org.orders-app~OrderService#1.0.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.billing~InvoiceService#1.0.0")));
-        assertTrue(authorizer.subscribeAllowed(CRI.create("stream://app.acme-org.other-app~OrderEvents")));
 
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.other-org.orders-app~OrderService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
@@ -144,7 +142,6 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
 
         // never another organization's applications or the platform internals
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
@@ -200,6 +197,15 @@ public class StompAuthorizerFactoryTest {
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app@os-api~org.kinotic.os.api.services.iam.MemberService/inviteMember#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app~OrderEvents")));
+    }
+
+    @Test
+    public void streamSchemeIsNotRoutable() {
+        // stream routing is not yet supported by the gateway, so every participant is denied
+        assertFalse(systemAuthorizer().sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
+        assertFalse(organizationAuthorizer("acme-org").sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
+        assertFalse(organizationAuthorizer("acme-org").subscribeAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
+        assertFalse(applicationAuthorizer("acme-org", "orders-app").sendAllowed(CRI.create("stream://app.acme-org.orders-app~OrderEvents")));
     }
 
     @Test
