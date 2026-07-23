@@ -20,7 +20,7 @@ export interface IOrganizationService extends ICrudServiceProxy<Organization> {
 export class OrganizationService extends CrudServiceProxy<Organization> implements IOrganizationService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.OrganizationService`))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.OrganizationService`))
     }
 
     public getOidcConfigurations(organizationId: string): Promise<any[]> {
