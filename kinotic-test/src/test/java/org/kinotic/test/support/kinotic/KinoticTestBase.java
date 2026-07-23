@@ -97,13 +97,18 @@ public abstract class KinoticTestBase {
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
             securityContext.setParticipant(context, TEST_ORGANIZATION_PARTICIPANT);
-            supplier.get().whenComplete((value, error) -> {
-                if (error != null) {
-                    result.completeExceptionally(error);
-                } else {
-                    result.complete(value);
-                }
-            });
+            try {
+                supplier.get().whenComplete((value, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(error);
+                    } else {
+                        result.complete(value);
+                    }
+                });
+            } catch (Throwable t) {
+                // a service that throws synchronously would otherwise leave result uncompleted, hanging the test
+                result.completeExceptionally(t);
+            }
         });
         return result;
     }

@@ -7,9 +7,11 @@ import {DefaultCRI} from './DefaultCRI'
  *
  * Will be in a format as follows where anything surrounded with `[]` is optional:
  *
- *      scheme://[scope@]resourceName[/path][#version]
+ *      scheme://[scope@][zone~]resourceName[/path][#version]
  *
  * NOTE: If scope needs to be used to identify a sub-scope, it will follow the form `scope = scope:sub-scope`.
+ *
+ * Every part keeps the case it was written with; addresses match by exact string comparison.
  *
  * This format can have varied meanings based upon the scheme used.
  *
@@ -39,6 +41,25 @@ export interface CRI {
     hasScope(): boolean
 
     /**
+     * The zone this `CRI` is addressed in, or `null` if un-zoned.
+     *
+     * The zone is the isolation boundary routing is validated against, such as
+     * `app.acme-org.orders-app` or `os-api`.
+     *
+     * For the following CRI, `zone` would be the portion specified by `zone`:
+     *
+     * `scheme://[scope@][zone~]resourceName/path`
+     *
+     * @returns a string containing the zone if provided or `null` if not set
+     */
+    zone(): string | null
+
+    /**
+     * @returns `true` if the `zone` is set
+     */
+    hasZone(): boolean
+
+    /**
      * The name of the resource represented by this `CRI`.
      *
      * In the case of a `srv` `CRI`, this will be the service name.
@@ -46,7 +67,7 @@ export interface CRI {
      *
      * For the following CRI, `resourceName` would be the portion specified by `resourceName`:
      *
-     * `scheme://[scope@]resourceName/path`
+     * `scheme://[scope@][zone~]resourceName/path`
      *
      * @returns the string containing the name of this resource
      */
@@ -69,7 +90,7 @@ export interface CRI {
      *
      * For the following CRI, `path` would be the portion specified by `path`:
      *
-     * `scheme://[scope@]resourceName/path`
+     * `scheme://[scope@][zone~]resourceName/path`
      *
      * @returns the path string if provided or `null` if not set
      */
@@ -83,7 +104,7 @@ export interface CRI {
     /**
      * Base Resource is a portion of the fully qualified `CRI` containing the following:
      *
-     * `scheme://[scope@]resourceName`
+     * `scheme://[scope@][zone~]resourceName`
      *
      * @returns string containing the baseResource
      */

@@ -5,8 +5,9 @@ import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestH
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
-// The client hosts this service, so it connects as an application participant and registers it
-// in its own app zone (app.<org>.<app>); the org id is DEFAULT_AUTH_HEADERS.organizationId.
+// The client hosts this service, so it connects as an organization participant (the app
+// runtime's identity) and registers it in an app zone under its org; the org id is
+// DEFAULT_AUTH_HEADERS.organizationId.
 const APP_ID = 'test-app'
 const ZONE = `app.kinotic-test.${APP_ID}`
 
@@ -20,7 +21,7 @@ describe('Kinotic JS', () => {
         beforeAll(async () => {
             // Registers this client's service under ZONE; must be set before it is instantiated
             Kinotic.zonePrefix = ZONE
-            const connectionInfo = createConnectionInfo({ authHeaders: { applicationId: APP_ID } })
+            const connectionInfo = createConnectionInfo()
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"
@@ -58,7 +59,7 @@ describe('Kinotic JS', () => {
             const eventHeaders = headers ? new Map(headers) : new Map()
             eventHeaders.set(EventConstants.REPLY_TO_HEADER, replyTo)
             eventHeaders.set(EventConstants.CONTENT_TYPE_HEADER, "application/json")
-            const event = new Event(cri.replace('com.example.', `${ZONE}.com.example.`), eventHeaders)
+            const event = new Event(cri.replace('com.example.', `${ZONE}~com.example.`), eventHeaders)
             if (args != null) {
                 event.setDataString(JSON.stringify(args))
             }

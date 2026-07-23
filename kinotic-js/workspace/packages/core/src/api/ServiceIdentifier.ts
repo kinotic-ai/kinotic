@@ -13,7 +13,7 @@ export class ServiceIdentifier {
 
     constructor(namespace: string | null, name: string, zone?: string) {
         // The name is the final dot separated label of the address, so a dot inside it would
-        // change where the zone and namespace end when the address is parsed or pattern matched
+        // change where the namespace ends when the address is parsed
         if (name.includes('.')) {
             throw new Error(`The name must not contain '.' but was '${name}'`)
         }
@@ -22,6 +22,13 @@ export class ServiceIdentifier {
         if (namespace != null && namespace.includes('_')) {
             throw new Error(`The namespace must not contain '_' but was '${namespace}'`)
         }
+        // '~' delimits the zone from the resourceName in a CRI, so it can never appear inside either part
+        if (name.includes('~')) {
+            throw new Error(`The name must not contain '~' but was '${name}'`)
+        }
+        if (namespace != null && namespace.includes('~')) {
+            throw new Error(`The namespace must not contain '~' but was '${namespace}'`)
+        }
         this.namespace = namespace
         this.name = name
         this.zone = zone
@@ -29,12 +36,12 @@ export class ServiceIdentifier {
 
     /**
      * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
-     * This is the zone.namespace.name, omitting any part that is not set
+     * This is the zone~namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
     public qualifiedName(): string {
         const name = this.namespace ? this.namespace + "." + this.name : this.name
-        return this.zone ? this.zone + "." + name : name
+        return this.zone ? this.zone + "~" + name : name
     }
 
     /**

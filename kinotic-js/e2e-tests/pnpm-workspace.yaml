@@ -4,8 +4,8 @@ allowBuilds:
   protobufjs: false
   ssh2: false
 minimumReleaseAgeExclude:
-  - '@kinotic-ai/core@3.1.0'
-  - '@kinotic-ai/os-api@3.1.0'
-  - '@kinotic-ai/persistence@3.1.0'
-  - '@kinotic-ai/kinotic-cli@3.1.0'
+  - '@kinotic-ai/core@4.0.0'
+  - '@kinotic-ai/os-api@4.0.0'
+  - '@kinotic-ai/persistence@4.0.0'
+  - '@kinotic-ai/kinotic-cli@4.0.0'
   - '@kinotic-ai/idl@1.0.10'

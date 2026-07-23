@@ -2,6 +2,9 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;

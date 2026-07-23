@@ -31,7 +31,7 @@ export interface IWorkloadService extends ICrudServiceProxy<Workload> {
 export class WorkloadServiceProxy extends CrudServiceProxy<Workload> implements IWorkloadService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.os.api.services.WorkloadService`))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.WorkloadService`))
     }
 
     public async findAllForNode(nodeId: string, pageable: Pageable): Promise<IterablePage<Workload>> {

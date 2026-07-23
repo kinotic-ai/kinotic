@@ -14,4 +14,6 @@ public interface TestService {
 
     TestObject test();
 
+    TestAddress address(String who);
+
 }

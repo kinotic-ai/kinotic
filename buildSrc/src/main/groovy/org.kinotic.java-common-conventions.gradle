@@ -170,6 +170,11 @@ if (!fileTree('src/test/java').matching { include '**/*.java' }.isEmpty()) {
 
 test {
     useJUnitPlatform()
+    // Fail a hung test with a stack trace at the offending line instead of stalling the whole test task
+    // until its timeout. SEPARATE_THREAD is required: the default SAME_THREAD mode only checks after the
+    // method returns, so a test blocked in CompletableFuture.join()/StepVerifier.verify() is never preempted.
+    systemProperty 'junit.jupiter.execution.timeout.default', '120 s'
+    systemProperty 'junit.jupiter.execution.timeout.thread.mode.default', 'SEPARATE_THREAD'
     // Keep the Allure report correct under org.gradle.caching.
     // The Allure JUnit listener writes results to allure.results.directory as a side effect of running the tests:
     //  - point every module at build/allure-results (replaces the per-module allure.properties)

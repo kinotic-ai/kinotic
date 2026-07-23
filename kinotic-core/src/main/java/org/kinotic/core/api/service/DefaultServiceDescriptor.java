@@ -11,17 +11,17 @@ import java.util.Collection;
 class DefaultServiceDescriptor implements ServiceDescriptor{
 
     private final ServiceIdentifier serviceIdentifier;
-    private final Collection<ServiceFunction> serviceFunctions;
+    private final Collection<FunctionDescriptor> functionDescriptors;
 
     public DefaultServiceDescriptor(ServiceIdentifier serviceIdentifier) {
         this.serviceIdentifier = serviceIdentifier;
-        this.serviceFunctions = new ArrayList<>();
+        this.functionDescriptors = new ArrayList<>();
     }
 
     public DefaultServiceDescriptor(ServiceIdentifier serviceIdentifier,
-                                    Collection<ServiceFunction> serviceFunctions) {
+                                    Collection<FunctionDescriptor> functionDescriptors) {
         this.serviceIdentifier = serviceIdentifier;
-        this.serviceFunctions = serviceFunctions;
+        this.functionDescriptors = functionDescriptors;
     }
 
     @Override
@@ -30,7 +30,7 @@ class DefaultServiceDescriptor implements ServiceDescriptor{
     }
 
     @Override
-    public Collection<ServiceFunction> functions() {
-        return serviceFunctions;
+    public Collection<FunctionDescriptor> functions() {
+        return functionDescriptors;
     }
 }

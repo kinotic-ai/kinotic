@@ -68,7 +68,7 @@ export interface IEntityDefinitionService extends ICrudServiceProxy<EntityDefini
 export class EntityDefinitionService extends CrudServiceProxy<EntityDefinition> implements IEntityDefinitionService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${OS_API_ZONE}.org.kinotic.persistence.api.services.EntityDefinitionService`))
+        super(kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.persistence.api.services.EntityDefinitionService`))
     }
 
     public countForApplication(applicationId: string): Promise<number> {
