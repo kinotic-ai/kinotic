@@ -15,11 +15,12 @@ import java.util.Set;
 /**
  * Creates STOMP authorizers using the gateway's current participant routing rules.
  *
- * A participant may only address zones its type allows: application participants reach the
+ * A participant may only address zones its type allows. Application participants send to the
  * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
- * may subscribe only inside their own zone, organization participants reach the {@code os-api}
- * management surface and subscribe to nothing, and system participants reach everything and
- * subscribe in the platform zones.
+ * subscribe only to reply destinations. Organization participants send to the {@code os-api}
+ * management surface and {@code app-api}, and subscribe within their own {@code app.<organizationId>}
+ * zones — an application's runtime authenticates as an organization participant to host its
+ * services. System participants send everywhere and subscribe in the {@code system} zone.
  */
 @Component
 public class StompAuthorizerFactory {
@@ -32,8 +33,9 @@ public class StompAuthorizerFactory {
         Participant participant = connectedInfo.getParticipant();
         StompAuthorizer ret;
         if (participant instanceof SystemParticipant) {
-
-            ret = StompAuthorizer.allZoneSender(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, DomainUtil.SYSTEM_ZONE),
+            // os-api and app-api are hosted in-process only, so no connection may ever subscribe
+            // to them; the system zone stays subscribable for the vm-manager nodes that host there
+            ret = StompAuthorizer.allZoneSender(Set.of(DomainUtil.SYSTEM_ZONE),
                                                 connectedInfo.getReplyToId());
 
         } else if (participant instanceof ApplicationParticipant applicationParticipant) {
@@ -42,13 +44,15 @@ public class StompAuthorizerFactory {
             String appZone = appZone(applicationParticipant.getOrganizationId(),
                                      applicationParticipant.getApplicationId());
             ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.APP_API_ZONE, appZone),
-                                                 Set.of(appZone),
+                                                 Set.of(),
                                                  connectedInfo.getReplyToId());
 
-        } else if (participant instanceof OrganizationParticipant) {
-
+        } else if (participant instanceof OrganizationParticipant organizationParticipant) {
+            // the organization id becomes a zone label, so it is validated the same way
+            ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
+            String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
             ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE),
-                                                 Set.of(),
+                                                 Set.of(orgAppsZone),
                                                  connectedInfo.getReplyToId());
 
         } else {
