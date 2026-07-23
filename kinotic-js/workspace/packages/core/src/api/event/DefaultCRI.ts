@@ -20,17 +20,15 @@ export class DefaultCRI implements CRI {
     constructor(rawCRI: string)
     constructor(scheme: string, scope: string | null, resourceName: string, path: string | null, version: string | null)
     constructor(...args: any[]) {
-        // The scheme, scope, zone, and resourceName are the CRI's identity, so they are
-        // lowercased; the path and version are payload details and keep their case.
         if (args.length === 1) {
             const rawURC = args[0]
             if (typeof rawURC !== "string") {
                 throw new Error("Raw URI must be a string")
             }
             const parsed = DefaultCRI.parseRaw(rawURC)
-            this._scheme = parsed.scheme.toLowerCase()
-            this._scope = parsed.scope ? parsed.scope.toLowerCase() : null
-            const [zone, resourceName] = DefaultCRI.splitZone(parsed.resourceName.toLowerCase())
+            this._scheme = parsed.scheme
+            this._scope = parsed.scope
+            const [zone, resourceName] = DefaultCRI.splitZone(parsed.resourceName)
             this._zone = zone
             this._resourceName = resourceName
             this._path = parsed.path
@@ -44,9 +42,9 @@ export class DefaultCRI implements CRI {
             if ((resourceName as string).includes('@')) {
                 throw new Error(`The resourceName must not contain '@' but was '${resourceName}'`)
             }
-            this._scheme = scheme.toLowerCase()
-            this._scope = scope ? scope.toLowerCase() : null
-            const [zone, name] = DefaultCRI.splitZone((resourceName as string).toLowerCase())
+            this._scheme = scheme
+            this._scope = scope ?? null
+            const [zone, name] = DefaultCRI.splitZone(resourceName as string)
             this._zone = zone
             this._resourceName = name
             this._path = path

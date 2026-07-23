@@ -9,7 +9,6 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.builder.HashCodeBuilder;
 
-import java.util.Locale;
 
 /**
  * The {@link ServiceIdentifier} identifies a {@link ServiceDescriptor}
@@ -105,13 +104,12 @@ public class ServiceIdentifier {
 
     /**
      * Returns the fully qualified name this {@link ServiceIdentifier} is addressed by
-     * This is the zone~namespace.name, omitting any part that is not set, always lowercase
+     * This is the zone~namespace.name, omitting any part that is not set
      * @return string containing the qualified name
      */
     public String qualifiedName(){
         String name = (namespace != null && !namespace.isEmpty() ? namespace + "." : "") + this.name;
-        String qualified = zone != null ? zone + "~" + name : name;
-        return qualified.toLowerCase(Locale.ROOT);
+        return zone != null ? zone + "~" + name : name;
     }
 
     /**
