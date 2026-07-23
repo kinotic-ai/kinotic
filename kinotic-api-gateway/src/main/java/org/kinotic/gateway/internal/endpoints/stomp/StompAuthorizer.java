@@ -20,34 +20,34 @@ public class StompAuthorizer {
 
     private final boolean sendAnyZone;
     private final Set<String> sendZones;
-    private final Set<String> hostZones;
+    private final Set<String> subscribableZones;
     private final String replyToId;
     private final LinkedList<String> temporarySendGrants = new LinkedList<>();
 
     private StompAuthorizer(boolean sendAnyZone,
                             Set<String> sendZones,
-                            Set<String> hostZones,
+                            Set<String> subscribableZones,
                             String replyToId) {
         this.sendAnyZone = sendAnyZone;
         this.sendZones = sendZones;
-        this.hostZones = hostZones;
+        this.subscribableZones = subscribableZones;
         this.replyToId = replyToId;
     }
 
     /**
-     * An authorizer that may send to every zone, including un-zoned addresses, and host in the
-     * given zones.
+     * An authorizer that may send to every zone, including un-zoned addresses, and subscribe in
+     * the given zones.
      */
-    public static StompAuthorizer allZoneSender(Set<String> hostZones, String replyToId) {
-        return new StompAuthorizer(true, Set.of(), hostZones, replyToId);
+    public static StompAuthorizer allZoneSender(Set<String> subscribableZones, String replyToId) {
+        return new StompAuthorizer(true, Set.of(), subscribableZones, replyToId);
     }
 
     /**
      * An authorizer restricted to the given zones: sends require a zone in {@code sendZones} and
-     * hosting requires one in {@code hostZones}, each matching exactly or as a sub-zone.
+     * subscriptions one in {@code subscribableZones}, each matching exactly or as a sub-zone.
      */
-    public static StompAuthorizer zoneRestricted(Set<String> sendZones, Set<String> hostZones, String replyToId) {
-        return new StompAuthorizer(false, sendZones, hostZones, replyToId);
+    public static StompAuthorizer zoneRestricted(Set<String> sendZones, Set<String> subscribableZones, String replyToId) {
+        return new StompAuthorizer(false, sendZones, subscribableZones, replyToId);
     }
 
     /**
@@ -86,7 +86,7 @@ public class StompAuthorizer {
             String scope = cri.scope();
             ret = scope != null && scope.startsWith(replyToId + ":");
         } else if (isRoutableScheme(cri.scheme())) {
-            ret = zoneAllowed(cri.zone(), hostZones);
+            ret = zoneAllowed(cri.zone(), subscribableZones);
         } else {
             ret = false;
         }

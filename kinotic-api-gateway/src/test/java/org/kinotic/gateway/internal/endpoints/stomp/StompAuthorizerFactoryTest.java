@@ -103,7 +103,7 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void applicationParticipantHostsOnlyItsOwnZone() {
+    public void applicationParticipantSubscribesOnlyToItsOwnZone() {
         StompAuthorizer authorizer = applicationAuthorizer("acme-org", "orders-app");
 
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
@@ -126,7 +126,7 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
 
-        // not an application's own services, the platform internals, and hosts nothing
+        // not an application's own services, the platform internals, and subscribes to nothing
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("srv://system~org.kinotic.os.api.services.LogManager/query#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService#1.0.0")));
@@ -135,7 +135,7 @@ public class StompAuthorizerFactoryTest {
     }
 
     @Test
-    public void systemParticipantSendsAnywhereAndHostsPlatformZones() {
+    public void systemParticipantSendsAnywhereAndSubscribesToPlatformZones() {
         StompAuthorizer authorizer = systemAuthorizer();
 
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
@@ -151,7 +151,7 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")));
 
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
-        // hosting requires a zone: an un-zoned address is never subscribable, even for system
+        // subscribing requires a zone: an un-zoned address is never subscribable, even for system
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://org.kinotic.server.clienttest.SomeLegacyService#1.0.0")));
     }
 

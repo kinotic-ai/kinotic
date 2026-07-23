@@ -17,9 +17,9 @@ import java.util.Set;
  *
  * A participant may only address zones its type allows: application participants reach the
  * {@code app-api} data plane and their own {@code app.<organizationId>.<applicationId>} zone and
- * may host services only inside their own zone, organization participants reach the {@code os-api}
- * management surface and host nothing, and system participants reach everything and host in the
- * platform zones.
+ * may subscribe only inside their own zone, organization participants reach the {@code os-api}
+ * management surface and subscribe to nothing, and system participants reach everything and
+ * subscribe in the platform zones.
  */
 @Component
 public class StompAuthorizerFactory {
