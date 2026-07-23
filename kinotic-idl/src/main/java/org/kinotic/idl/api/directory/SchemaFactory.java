@@ -2,9 +2,11 @@
 
 package org.kinotic.idl.api.directory;
 
+import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.springframework.core.MethodParameter;
 
 import java.util.Collection;
 
@@ -13,6 +15,19 @@ import java.util.Collection;
  * Created by navid on 2019-06-13.
  */
 public interface SchemaFactory {
+
+    /**
+     * Returns the name a method parameter carries in contracts built by this factory: the {@link Name} annotation's
+     * value when present, otherwise the compiled parameter name. Argument binders for named wire formats must use
+     * the same rule, so the emitted schema and the runtime binding cannot drift.
+     *
+     * @param methodParameter the parameter to name
+     * @return the parameter's contract name
+     */
+    static String parameterName(MethodParameter methodParameter) {
+        Name nameAnnotation = methodParameter.getParameterAnnotation(Name.class);
+        return nameAnnotation != null ? nameAnnotation.value() : methodParameter.getParameter().getName();
+    }
 
     /**
      * Creates a {@link C3Type} for the given {@link Class}

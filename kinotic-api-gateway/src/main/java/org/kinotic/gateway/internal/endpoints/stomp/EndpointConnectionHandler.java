@@ -146,6 +146,9 @@ public class EndpointConnectionHandler {
                             // map errors that occurred because no Service invoker was listening
                             if (throwable instanceof ReplyException replyException) {
                                 if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                                    // every gateway RPC doubles as a liveness probe, so the directory
+                                    // self-heals from ordinary traffic
+                                    services.serviceUnreachableReporter.report(incomingEvent.cri().raw());
                                     throwable = new RpcMissingServiceException(throwable);
                                 }
                             }

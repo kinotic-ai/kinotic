@@ -176,7 +176,7 @@ public abstract class AbstractJacksonSupport {
         return ret;
     }
 
-    JavaType getJavaType(MethodParameter methodParameter){
+    protected JavaType getJavaType(MethodParameter methodParameter){
         Type targetType = methodParameter.getNestedGenericParameterType();
         Class<?> contextClass = methodParameter.getContainingClass();
         TypeFactory typeFactory = this.jsonMapper.getTypeFactory();

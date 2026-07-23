@@ -16,6 +16,14 @@ public class EventConstants {
 
     public static final String CONTENT_TYPE_HEADER = "content-type";
 
+    /**
+     * Content type whose body is a single JSON object keyed by parameter name, bound to the invoked
+     * method's parameters by name. Missing names bind null; a name matching no parameter fails the
+     * invocation. Cross-runtime contract: every service runtime binds it from its C3 contract's
+     * parameter names.
+     */
+    public static final String CONTENT_TYPE_NAMED_JSON = "application/x-kinotic-named-json";
+
     public static final String CONTENT_LENGTH_HEADER = "content-length";
 
     public static final String REPLY_TO_HEADER = "reply-to";

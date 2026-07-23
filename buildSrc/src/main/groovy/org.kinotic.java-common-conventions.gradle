@@ -70,6 +70,7 @@ dependencyManagement {
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }
     dependencies {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
@@ -81,6 +82,7 @@ dependencyManagement {
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
+        dependency "io.modelcontextprotocol.sdk:mcp:${mcpSdkVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"

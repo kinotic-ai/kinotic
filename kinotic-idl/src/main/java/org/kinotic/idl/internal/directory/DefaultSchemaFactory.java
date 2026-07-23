@@ -7,7 +7,6 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
-import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -101,7 +100,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                functionDefinition.addParameter(getName(methodParameter), c3Type);
+                functionDefinition.addParameter(SchemaFactory.parameterName(methodParameter), c3Type);
             }
 
             functionDefinition.setName(method.getName());
@@ -121,17 +120,6 @@ public class DefaultSchemaFactory implements SchemaFactory {
         }, ReflectionUtils.USER_DECLARED_METHODS);
 
         return serviceDefinition;
-    }
-
-    private String getName(MethodParameter methodParameter){
-        String ret;
-        Name nameAnnotation = methodParameter.getParameterAnnotation(Name.class);
-        if(nameAnnotation != null){
-            ret = nameAnnotation.value();
-        }else{
-            ret = methodParameter.getParameter().getName();
-        }
-        return ret;
     }
 
 }
