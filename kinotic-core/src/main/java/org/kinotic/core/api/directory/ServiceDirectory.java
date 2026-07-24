@@ -63,9 +63,9 @@ public interface ServiceDirectory {
                                                                       Pageable pageable);
 
     /**
-     * Reports that a caller could not reach the service at the given CRI. Implementations re-check current
-     * registrations and correct the liveness state to the verified truth; this is an invalidation trigger, never a
-     * blind offline write.
+     * Reports that a caller could not reach the service at the given CRI.
+     * Implementations re-check current registrations and correct the liveness state to the verified truth;
+     * this is an invalidation trigger, never a blind offline write.
      * @param cri the CRI that could not be reached
      * @return a {@link CompletableFuture} completing when the report has been accepted
      */

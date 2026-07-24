@@ -64,6 +64,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,128}$");
 
+    // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;

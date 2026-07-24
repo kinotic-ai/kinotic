@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.workload.VmNode;
@@ -13,9 +12,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class VmNodeRepository extends AbstractRepository<VmNode> {
 
-    public VmNodeRepository(ElasticsearchAsyncClient esAsyncClient,
-                            CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_vm_node", VmNode.class, esAsyncClient, crudServiceTemplate);
+    public VmNodeRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_vm_node", VmNode.class, crudServiceTemplate);
     }
 
     /**

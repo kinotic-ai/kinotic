@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.IdsQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
@@ -16,9 +15,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class OidcConfigurationRepository extends AbstractOrganizationScopedRepository<OidcConfiguration> {
 
-    public OidcConfigurationRepository(ElasticsearchAsyncClient esAsyncClient,
-                                       CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_oidc_configuration", OidcConfiguration.class, esAsyncClient, crudServiceTemplate);
+    public OidcConfigurationRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_oidc_configuration", OidcConfiguration.class, crudServiceTemplate);
     }
 
     /**

@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.CountRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -22,9 +21,7 @@ import java.util.function.Consumer;
  * mutated, or counted.
  * <p>
  * Documents are stored with a composite Elasticsearch {@code _id} of {@code orgId + "-" + id},
- * mirroring the {@code SHARED} multi-tenancy pattern used by
- * {@link org.kinotic.persistence.internal.api.services.EntityHolder}. The composite id makes
- * the stored document globally unique across orgs, so a get-by-id under one org cannot
+ * The composite id makes the stored document globally unique across orgs, so a get-by-id under one org cannot
  * return another org's document when the two routing values hash to the same shard. The
  * entity's own {@code id} is not modified — the namespacing only happens at the persistence
  * layer, and the raw id round-trips through the source.
@@ -43,7 +40,6 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     protected final String indexName;
     @Getter
     protected final Class<T> type;
-    protected final ElasticsearchAsyncClient esAsyncClient;
     protected final CrudServiceTemplate crudServiceTemplate;
 
     @PostConstruct
@@ -165,9 +161,7 @@ public abstract class AbstractOrganizationScopedRepository<T extends Organizatio
     }
 
     public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(unused -> null);
+        return crudServiceTemplate.syncIndex(indexName);
     }
 
     protected CompletableFuture<Long> count(Consumer<CountRequest.Builder> builderConsumer) {

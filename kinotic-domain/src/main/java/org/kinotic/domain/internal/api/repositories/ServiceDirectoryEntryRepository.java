@@ -32,10 +32,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
 
     private final ObjectMapper objectMapper;
 
-    public ServiceDirectoryEntryRepository(ElasticsearchAsyncClient esAsyncClient,
-                                           CrudServiceTemplate crudServiceTemplate,
+    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
                                            ObjectMapper objectMapper) {
-        super("kinotic_service_directory", ServiceDirectoryEntry.class, esAsyncClient, crudServiceTemplate);
+        super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
         this.objectMapper = objectMapper;
     }
 

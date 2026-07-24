@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
@@ -19,9 +18,8 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
 
     public AbstractProjectScopedRepository(String indexName,
                                            Class<T> type,
-                                           ElasticsearchAsyncClient esAsyncClient,
                                            CrudServiceTemplate crudServiceTemplate) {
-        super(indexName, type, esAsyncClient, crudServiceTemplate);
+        super(indexName, type, crudServiceTemplate);
     }
 
     public CompletableFuture<Long> countForProject(String projectId, String orgId) {
