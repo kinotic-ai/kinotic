@@ -298,7 +298,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
 
-                String toolName = toolName(serviceIdentifier, function.getName(), decorator);
+                String toolName = toolName(serviceIdentifier, function.getName());
                 if (!toolNames.add(toolName)) {
                     throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
                                                             + serviceIdentifier);
@@ -306,6 +306,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
                 tools.add(new McpToolDefinition()
                                   .setToolName(toolName)
+                                  .setTitle(decorator.getTitle())
                                   .setDescription(decorator.getDescription())
                                   .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
                                   .setCri(serviceIdentifier.cri().raw())
@@ -362,16 +363,15 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Returns the tool name for the function: the decorator's explicit name when given, otherwise the service's
-     * qualified name and the function name encoded to fit {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _},
-     * the function is separated by {@code -}). Names are minted here, never parsed back apart.
+     * Returns the tool name for the function: the service's qualified name and the function name encoded to fit
+     * {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _}, the function is separated by {@code -}). The
+     * qualified name makes the tool name unique system wide, and its zone prefix carries the organization and
+     * application ids for every customer service. Names are minted here, never parsed back apart.
      */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName, McpToolC3Decorator decorator) {
-        // an explicit name is used verbatim and rejected when invalid, never silently sanitized
-        String toolName = decorator.getName() == null || decorator.getName().isEmpty()
-                          ? (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
-                                  .replaceAll("[^a-zA-Z0-9_-]", "_")
-                          : decorator.getName();
+    private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
+        String toolName = (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
+                .replaceAll("[^a-zA-Z0-9_-]", "_");
+        // a qualified name deep enough to overflow the 128-char limit must fail loudly, never truncate
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
                                             + "' on service " + serviceIdentifier

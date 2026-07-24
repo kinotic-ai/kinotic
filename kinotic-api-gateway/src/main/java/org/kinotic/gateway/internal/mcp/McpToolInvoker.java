@@ -56,8 +56,8 @@ public class McpToolInvoker {
                                        ret = CompletableFuture.failedFuture(
                                                new IllegalArgumentException("Unknown tool: " + toolName));
                                    } else if (matches.size() > 1) {
-                                       // names are only unique within a service, so a cross-service collision is
-                                       // reported instead of picking a winner
+                                       // minted names are unique system wide, so more than one match means the
+                                       // stored directory data is corrupted — report it, never pick a winner
                                        ret = CompletableFuture.completedFuture(toolError(
                                                "Tool name '" + toolName + "' is ambiguous, it is provided by: "
                                                        + matches.stream().map(McpToolDefinition::getCri).toList()));

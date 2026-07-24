@@ -158,6 +158,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             for (McpToolDefinition tool : page.getContent()) {
                 tools.add(new McpToolListing()
                                   .setName(tool.getToolName())
+                                  .setTitle(tool.getTitle())
                                   .setDescription(tool.getDescription())
                                   // stored at write time as a JSON string, embedded here as the schema object
                                   .setInputSchema(jsonMapper.readTree(tool.getInputSchema()))

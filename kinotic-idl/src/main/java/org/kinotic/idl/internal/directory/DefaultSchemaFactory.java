@@ -109,7 +109,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
             McpTool mcpTool = method.getAnnotation(McpTool.class);
             if(mcpTool != null){
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setName(mcpTool.name().isEmpty() ? null : mcpTool.name())
+                        .setTitle(mcpTool.title().isEmpty() ? null : mcpTool.title())
                         .setDescription(mcpTool.description())
                         .setReadOnlyHint(mcpTool.readOnlyHint())
                         .setDestructiveHint(mcpTool.destructiveHint())

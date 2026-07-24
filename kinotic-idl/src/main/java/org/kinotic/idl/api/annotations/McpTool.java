@@ -22,10 +22,10 @@ public @interface McpTool {
     String description();
 
     /**
-     * The tool name, which must match {@code ^[a-zA-Z0-9_-]{1,128}$}. When empty the name is derived from the
-     * service's qualified name and the method name.
+     * The human-readable display title for the tool. The tool name itself is always derived from the service's
+     * qualified name and the method name, so it is unique system wide.
      */
-    String name() default "";
+    String title() default "";
 
     /**
      * Indicates the tool does not modify its environment.
