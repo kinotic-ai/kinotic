@@ -46,7 +46,6 @@ public class McpToolInvoker {
     private final ServiceDirectory serviceDirectory;
     private final EventBusService eventBusService;
     private final JsonMapper jsonMapper;
-    private final ServiceUnreachableReporter serviceUnreachableReporter;
 
     /**
      * Invokes the named tool for the given participant and completes with the MCP {@code tools/call} result node.
@@ -121,7 +120,12 @@ public class McpToolInvoker {
                                         .onFailure(throwable -> {
                                             if (throwable instanceof ReplyException replyException
                                                     && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                                serviceUnreachableReporter.report(tool.getCri());
+                                                // fire-and-forget: reportUnreachable debounces and only writes verified state
+                                                serviceDirectory.reportUnreachable(tool.getCri())
+                                                                .exceptionally(reportFailure -> {
+                                                                    log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
+                                                                    return null;
+                                                                });
                                                 ret.complete(toolError("Service is offline: " + tool.getCri()));
                                             } else {
                                                 ret.complete(toolError(throwable.getMessage()));
