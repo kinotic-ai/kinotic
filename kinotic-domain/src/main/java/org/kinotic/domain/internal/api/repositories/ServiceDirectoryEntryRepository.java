@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
@@ -48,12 +47,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
         partial.remove("online");
         partial.remove("lastStatusChange");
-        return esAsyncClient.update(u -> u.index(indexName)
-                                          .id(entry.getId())
-                                          .doc(partial)
-                                          .docAsUpsert(true),
-                                    ServiceDirectoryEntry.class)
-                            .thenApply(response -> null);
+        return crudServiceTemplate.partialUpdate(indexName, entry.getId(), partial, true);
     }
 
     /**
@@ -61,9 +55,10 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * {@code lastStatusChange}.
      */
     public CompletableFuture<Void> setOnline(String entryId, boolean online, Instant when) {
-        Map<String, Object> partial = Map.of("online", online, "lastStatusChange", when);
-        return esAsyncClient.update(u -> u.index(indexName).id(entryId).doc(partial), ServiceDirectoryEntry.class)
-                            .thenApply(response -> null);
+        return crudServiceTemplate.partialUpdate(indexName,
+                                                 entryId,
+                                                 Map.of("online", online, "lastStatusChange", when),
+                                                 false);
     }
 
     /**

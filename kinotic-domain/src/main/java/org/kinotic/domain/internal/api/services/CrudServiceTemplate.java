@@ -561,6 +561,29 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Applies a partial update to a document, merging only the given fields into the stored source and leaving
+     * every other field untouched. With {@code upsert} true a missing document is created from the partial
+     * instead of failing.
+     *
+     * @param indexName name of the index containing the document
+     * @param id        of the document to update
+     * @param partial   the fields to merge into the document
+     * @param upsert    true to create the document from {@code partial} when it does not exist
+     * @return a {@link CompletableFuture} that will complete when the update is applied
+     */
+    public CompletableFuture<Void> partialUpdate(String indexName,
+                                                 String id,
+                                                 Map<String, Object> partial,
+                                                 boolean upsert) {
+        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+                                                        .id(id)
+                                                        .doc(partial)
+                                                        .docAsUpsert(upsert),
+                                                  Map.class)
+                                          .thenApply(response -> null));
+    }
+
+    /**
      * Indexes a document. Also allows for customization of the {@link IndexRequest}.
      *
      * @param indexName       name of the index

@@ -1,6 +1,5 @@
 package org.kinotic.github.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -12,9 +11,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class GitHubAppInstallationRepository extends AbstractOrganizationScopedRepository<GitHubAppInstallation> {
 
-    public GitHubAppInstallationRepository(ElasticsearchAsyncClient esAsyncClient,
-                                           CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_github_app_installation", GitHubAppInstallation.class, esAsyncClient, crudServiceTemplate);
+    public GitHubAppInstallationRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_github_app_installation", GitHubAppInstallation.class, crudServiceTemplate);
     }
 
     public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
