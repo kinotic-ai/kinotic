@@ -10,7 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.iam.InviteEmailMismatchException;
+import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;

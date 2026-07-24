@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.services.iam;
+package org.kinotic.domain.api.exceptions;
 
 /**
  * Thrown when an invitation is accepted with an OIDC identity whose IdP-verified email does
