@@ -1,5 +1,9 @@
 package org.kinotic.gateway.internal.mcp;
 
+import io.vertx.core.Future;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.CursorPage;
@@ -9,6 +13,8 @@ import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.gateway.internal.mcp.model.JsonRpcRequest;
 import org.kinotic.gateway.internal.mcp.model.JsonRpcResponse;
 import org.kinotic.gateway.internal.mcp.model.McpInitializeResult;
@@ -23,21 +29,25 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The stateless MCP server core: dispatches a single JSON-RPC 2.0 request to the MCP methods the gateway supports
- * and renders the response. Every request is handled independently; there are no sessions and no server-initiated
- * messages.
+ * The stateless MCP server: mounts {@code POST /mcp} on the gateway router, authenticates every request
+ * independently from its headers, and dispatches the JSON-RPC 2.0 request to the MCP methods the gateway
+ * supports. There are no sessions and no server-initiated messages, so all other verbs are rejected.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.disableMcp", havingValue = "false", matchIfMissing = true)
-public class McpJsonRpcHandler {
+public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
+
+    private static final String MCP_ROUTE = "/mcp";
+    private static final int MAX_BODY_SIZE = 262144;
 
     private static final String LATEST_PROTOCOL_VERSION = "2025-11-25";
     private static final Set<String> SUPPORTED_PROTOCOL_VERSIONS = Set.of("2025-03-26", "2025-06-18", LATEST_PROTOCOL_VERSION);
@@ -49,18 +59,43 @@ public class McpJsonRpcHandler {
     private static final int INVALID_PARAMS = -32602;
     private static final int INTERNAL_ERROR = -32603;
 
+    private final SecurityService securityService;
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;
 
-    /**
-     * Handles one JSON-RPC request body for the given authenticated participant.
-     * @param body the raw request body
-     * @param participant the authenticated caller
-     * @return a future completing with the JSON-RPC response, or with null when the request was a
-     *         notification and no response body must be sent
-     */
-    public CompletableFuture<JsonRpcResponse> handle(String body, Participant participant) {
+    @Override
+    public void mountRoutes(Router router) {
+        router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
+        router.post(MCP_ROUTE).handler(this::handlePost);
+        router.route(MCP_ROUTE).handler(ctx -> ctx.response().setStatusCode(405).end());
+    }
+
+    private void handlePost(RoutingContext ctx) {
+        Map<String, String> authenticationInfo = new HashMap<>();
+        ctx.request().headers().forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
+
+        Future.fromCompletionStage(securityService.authenticate(authenticationInfo))
+              .onSuccess(participant -> Future.fromCompletionStage(handle(ctx.body().asString(), participant))
+                                              .onSuccess(response -> {
+                                                  if (response == null) {
+                                                      // a notification gets no response body
+                                                      ctx.response().setStatusCode(202).end();
+                                                  } else {
+                                                      ctx.response()
+                                                         .putHeader("Content-Type", "application/json")
+                                                         .end(jsonMapper.writeValueAsString(response));
+                                                  }
+                                              })
+                                              .onFailure(throwable -> {
+                                                  log.error("MCP request handling failed", throwable);
+                                                  ctx.response().setStatusCode(500).end();
+                                              }))
+              .onFailure(throwable -> ctx.response().setStatusCode(401).end());
+    }
+
+    // completes with null when the request was a notification and no response body must be sent
+    private CompletableFuture<JsonRpcResponse> handle(String body, Participant participant) {
         JsonNode parsed;
         try {
             parsed = jsonMapper.readTree(body);
