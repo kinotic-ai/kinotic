@@ -168,6 +168,7 @@ public class McpE2eTests {
                                          .findFirst()
                                          .orElseThrow();
         assertEquals("Adds two numbers", add.description());
+        assertEquals("Add Numbers", add.title());
         assertNotNull(add.annotations());
         assertEquals(Boolean.TRUE, add.annotations().readOnlyHint());
 

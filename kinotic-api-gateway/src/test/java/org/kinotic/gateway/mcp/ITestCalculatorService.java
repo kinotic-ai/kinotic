@@ -16,7 +16,7 @@ import java.util.concurrent.CompletableFuture;
 @Zone(DomainUtil.OS_API_ZONE)
 public interface ITestCalculatorService {
 
-    @McpTool(description = "Adds two numbers", readOnlyHint = true, idempotentHint = true)
+    @McpTool(title = "Add Numbers", description = "Adds two numbers", readOnlyHint = true, idempotentHint = true)
     CompletableFuture<Integer> add(int left, int right);
 
     @McpTool(description = "Joins two strings with a space")

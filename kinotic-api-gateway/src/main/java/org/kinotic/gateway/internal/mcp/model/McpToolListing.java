@@ -1,5 +1,6 @@
 package org.kinotic.gateway.internal.mcp.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -16,6 +17,9 @@ import tools.jackson.databind.JsonNode;
 public class McpToolListing {
 
     private String name;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String title;
 
     private String description;
 

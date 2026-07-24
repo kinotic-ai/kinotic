@@ -17,9 +17,15 @@ import lombok.experimental.Accessors;
 public class McpToolDefinition {
 
     /**
-     * The MCP tool name, sanitized to {@code ^[a-zA-Z0-9_-]{1,128}$}.
+     * The MCP tool name, unique system wide: derived from the service's qualified name and the function, so a
+     * customer service's tool name always carries its organization and application ids via the zone.
      */
     private String toolName;
+
+    /**
+     * The human-readable display title, or null when the tool has none.
+     */
+    private String title;
 
     /**
      * The LLM-facing description of what the tool does.

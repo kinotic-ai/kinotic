@@ -21,9 +21,9 @@ public final class McpToolC3Decorator extends C3Decorator {
     public static final String type = "McpTool";
 
     /**
-     * The explicit tool name, or null when the name is derived from the service and function names.
+     * The human-readable display title, or null when the tool has none.
      */
-    private String name;
+    private String title;
 
     /**
      * The LLM-facing description of what the tool does.
