@@ -4,8 +4,6 @@ import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.CRI;
@@ -40,8 +38,6 @@ import java.util.concurrent.TimeoutException;
 public class McpToolInvoker {
 
     private static final long CALL_TIMEOUT_SECONDS = 30;
-    // Tools are resolved from the caller-visible listing, so the resolution page must cover it entirely
-    private static final int TOOL_RESOLUTION_PAGE_SIZE = 1000;
 
     private final ServiceDirectory serviceDirectory;
     private final EventBusService eventBusService;
@@ -58,14 +54,9 @@ public class McpToolInvoker {
      */
     public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
-        return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(),
-                                                       scope.applicationId(),
-                                                       Pageable.create(0, TOOL_RESOLUTION_PAGE_SIZE, Sort.unsorted()))
-                               .thenCompose(page -> {
-                                   List<McpToolDefinition> matches = page.getContent()
-                                                                         .stream()
-                                                                         .filter(tool -> tool.getToolName().equals(toolName))
-                                                                         .toList();
+        // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
+        return serviceDirectory.findMcpToolsByName(toolName, scope.organizationId(), scope.applicationId())
+                               .thenCompose(matches -> {
                                    CompletableFuture<McpCallToolResult> ret;
                                    if (matches.isEmpty()) {
                                        ret = CompletableFuture.failedFuture(

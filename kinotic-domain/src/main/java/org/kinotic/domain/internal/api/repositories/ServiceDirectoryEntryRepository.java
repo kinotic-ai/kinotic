@@ -30,6 +30,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
 
+    // a name resolution matches at most a handful of entries; more than this only under pathological collision
+    private static final int RESOLUTION_PAGE_SIZE = 25;
+
     private final ObjectMapper objectMapper;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
@@ -139,6 +142,36 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                 ret = new Page<>(tools, page.getTotalElements());
             }
             return ret;
+        });
+    }
+
+    /**
+     * Resolves the online MCP tools with the given name callable by the given scope. The term on
+     * {@code mcpTools.toolName} narrows to entries carrying the name; the entry may hold other tools, so the
+     * flattening keeps only the matching ones.
+     */
+    public CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
+                                                                         String organizationId,
+                                                                         String applicationId) {
+        Query filter = composeFilter(termFilter("mcpTools.toolName", toolName),
+                                     termFilter("mcpExposed", true),
+                                     termFilter("online", true),
+                                     zoneVisibilityFilter(organizationId, applicationId));
+        return findAll(Pageable.ofSize(RESOLUTION_PAGE_SIZE), b -> {
+            b.query(filter);
+            b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
+        }).thenApply(page -> {
+            List<McpToolDefinition> tools = new ArrayList<>();
+            for (ServiceDirectoryEntry entry : page.getContent()) {
+                if (entry.getMcpTools() != null) {
+                    for (McpToolDefinition tool : entry.getMcpTools()) {
+                        if (tool.getToolName().equals(toolName)) {
+                            tools.add(tool);
+                        }
+                    }
+                }
+            }
+            return tools;
         });
     }
 

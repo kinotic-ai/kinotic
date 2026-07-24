@@ -4,6 +4,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -61,6 +62,19 @@ public interface ServiceDirectory {
     CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                       String applicationId,
                                                                       Pageable pageable);
+
+    /**
+     * Resolves the online MCP tools with the given name that the given scope may call, using the same visibility
+     * rules as {@link #findMcpToolsCallableBy}. Tool names are only unique within a service, so more than one
+     * match means the name is ambiguous across services.
+     * @param toolName the MCP tool name to resolve
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
+     * @return a {@link CompletableFuture} completing with every callable tool carrying the name
+     */
+    CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
+                                                                  String organizationId,
+                                                                  String applicationId);
 
     /**
      * Reports that a caller could not reach the service at the given CRI.

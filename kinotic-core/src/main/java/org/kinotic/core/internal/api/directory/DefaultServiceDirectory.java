@@ -225,6 +225,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
+    public CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
+                                                                         String organizationId,
+                                                                         String applicationId) {
+        return strategy.findMcpToolsByName(toolName, organizationId, applicationId);
+    }
+
+    @Override
     public CompletableFuture<Void> reportUnreachable(String cri) {
         CompletableFuture<Void> ret;
         if (reportDebounce.getIfPresent(cri) != null) {
