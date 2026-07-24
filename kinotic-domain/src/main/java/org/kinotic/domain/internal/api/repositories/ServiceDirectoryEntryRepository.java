@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -134,8 +135,16 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     tools.addAll(entry.getMcpTools());
                 }
             }
-            // total is the matching-entry count; tool-level totals would require a second aggregation (YAGNI for v1)
-            return new Page<>(tools, page.getTotalElements());
+            Page<McpToolDefinition> ret;
+            if (page instanceof CursorPage<ServiceDirectoryEntry> cursorPage) {
+                // the cursor tracks ENTRIES, so a short entry page is the last page and returns no cursor
+                String cursor = page.getContent().size() < pageable.getPageSize() ? null : cursorPage.getCursor();
+                ret = new CursorPage<>(tools, cursor, null);
+            } else {
+                // total is the matching-entry count; tool-level totals would require a second aggregation (YAGNI for v1)
+                ret = new Page<>(tools, page.getTotalElements());
+            }
+            return ret;
         });
     }
 

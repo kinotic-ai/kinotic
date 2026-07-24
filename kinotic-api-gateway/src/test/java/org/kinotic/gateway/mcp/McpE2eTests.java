@@ -11,9 +11,12 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.condition.EnabledIf;
+import io.modelcontextprotocol.spec.McpError;
+import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
+import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -33,7 +36,10 @@ import java.util.Map;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -200,6 +206,30 @@ public class McpE2eTests {
                                                                                    Pageable.create(0, 1000, Sort.unsorted()))
                                                               .join();
         assertTrue(entries.getContent().stream().noneMatch(entry -> entry.getName().equals("ITestStreamingService")));
+    }
+
+    @Test
+    @Order(4)
+    public void toolListingsPaginateWithCursors() {
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertTrue(toolNames(systemClient).contains(APP_ECHO)));
+
+        // everything fits one page, so the listing carries no cursor; a garbage cursor is rejected per spec
+        assertNull(systemClient.listTools().nextCursor());
+        assertThrows(McpError.class, () -> systemClient.listTools("not-a-cursor"));
+
+        // one entry per page: the echo entry sorts first by id, the calculator entry follows via the cursor
+        Pageable firstPage = Pageable.create(null, 1, Sort.by("id"));
+        CursorPage<McpToolDefinition> pageOne = assertInstanceOf(CursorPage.class,
+                serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).join());
+        assertEquals(List.of(APP_ECHO), pageOne.getContent().stream().map(McpToolDefinition::getToolName).toList());
+        assertNotNull(pageOne.getCursor());
+
+        Pageable secondPage = Pageable.create(pageOne.getCursor(), 1, Sort.by("id"));
+        CursorPage<McpToolDefinition> pageTwo = assertInstanceOf(CursorPage.class,
+                serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).join());
+        assertEquals(List.of(CALCULATOR_ADD, CALCULATOR_JOIN),
+                     pageTwo.getContent().stream().map(McpToolDefinition::getToolName).toList());
     }
 
     @Test

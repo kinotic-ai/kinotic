@@ -2,6 +2,8 @@ package org.kinotic.gateway.internal.mcp;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.crud.CursorPage;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -74,7 +76,7 @@ public class McpJsonRpcHandler {
                 case "initialize" -> CompletableFuture.completedFuture(result(id, initialize(params)));
                 case "notifications/initialized" -> CompletableFuture.completedFuture(null);
                 case "ping" -> CompletableFuture.completedFuture(result(id, jsonMapper.createObjectNode()));
-                case "tools/list" -> toolsList(id, participant);
+                case "tools/list" -> toolsList(id, params, participant);
                 case "tools/call" -> toolsCall(id, params, participant);
                 default -> CompletableFuture.completedFuture(error(id, METHOD_NOT_FOUND, "Method not found: " + method));
             };
@@ -97,12 +99,19 @@ public class McpJsonRpcHandler {
         return ret;
     }
 
-    private CompletableFuture<ObjectNode> toolsList(JsonNode id, Participant participant) {
+    private CompletableFuture<ObjectNode> toolsList(JsonNode id, ObjectNode params, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
-        return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(),
-                                                       scope.applicationId(),
-                                                       Pageable.create(0, TOOL_LIST_PAGE_SIZE, Sort.unsorted()))
-                               .thenApply(page -> {
+        String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
+        // cursor paging per the MCP pagination spec; the id sort keys the search_after the cursor encodes
+        Pageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
+        CompletableFuture<Page<McpToolDefinition>> query;
+        try {
+            query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable);
+        } catch (Exception e) {
+            // an unreadable cursor fails before the search runs; the spec maps invalid cursors to -32602
+            return CompletableFuture.completedFuture(error(id, INVALID_PARAMS, "Invalid cursor"));
+        }
+        return query.thenApply(page -> {
                                    ObjectNode listResult = jsonMapper.createObjectNode();
                                    ArrayNode tools = listResult.putArray("tools");
                                    for (McpToolDefinition tool : page.getContent()) {
@@ -115,6 +124,10 @@ public class McpJsonRpcHandler {
                                        annotations.put("readOnlyHint", tool.isReadOnlyHint());
                                        annotations.put("destructiveHint", tool.isDestructiveHint());
                                        annotations.put("idempotentHint", tool.isIdempotentHint());
+                                   }
+                                   if (page instanceof CursorPage<McpToolDefinition> cursorPage
+                                           && cursorPage.getCursor() != null) {
+                                       listResult.put("nextCursor", cursorPage.getCursor());
                                    }
                                    return result(id, listResult);
                                });
