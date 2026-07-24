@@ -18,8 +18,8 @@ import org.kinotic.core.api.security.Participant;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
+import org.kinotic.gateway.internal.mcp.model.McpCallToolResult;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -56,7 +56,7 @@ public class McpToolInvoker {
      * @param participant the authenticated caller, propagated as the event sender
      * @return a future completing with the {@code tools/call} result node
      */
-    public CompletableFuture<ObjectNode> invoke(String toolName, ObjectNode arguments, Participant participant) {
+    public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
         return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(),
                                                        scope.applicationId(),
@@ -66,7 +66,7 @@ public class McpToolInvoker {
                                                                          .stream()
                                                                          .filter(tool -> tool.getToolName().equals(toolName))
                                                                          .toList();
-                                   CompletableFuture<ObjectNode> ret;
+                                   CompletableFuture<McpCallToolResult> ret;
                                    if (matches.isEmpty()) {
                                        ret = CompletableFuture.failedFuture(
                                                new IllegalArgumentException("Unknown tool: " + toolName));
@@ -83,7 +83,7 @@ public class McpToolInvoker {
                                });
     }
 
-    private CompletableFuture<ObjectNode> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
+    private CompletableFuture<McpCallToolResult> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
         CRI serviceCri = CRI.create(tool.getCri());
         CRI requestCri = CRI.create(serviceCri.scheme(),
                                     serviceCri.scope(),
@@ -96,7 +96,7 @@ public class McpToolInvoker {
                                   UUID.randomUUID().toString(),
                                   "org.kinotic.gateway.McpToolInvoker");
 
-        CompletableFuture<ObjectNode> ret = new CompletableFuture<>();
+        CompletableFuture<McpCallToolResult> ret = new CompletableFuture<>();
         EventConsumer replyConsumer = eventBusService.listen(replyCri);
         replyConsumer.handler(replyEvent -> {
             if (replyEvent.metadata().contains(EventConstants.ERROR_HEADER)) {
@@ -146,19 +146,11 @@ public class McpToolInvoker {
                   .whenComplete((result, throwable) -> replyConsumer.unregister());
     }
 
-    private ObjectNode toolResult(String text) {
-        ObjectNode ret = jsonMapper.createObjectNode();
-        ArrayNode content = ret.putArray("content");
-        content.addObject().put("type", "text").put("text", text);
-        ret.put("isError", false);
-        return ret;
+    private McpCallToolResult toolResult(String text) {
+        return McpCallToolResult.text(text, false);
     }
 
-    private ObjectNode toolError(String message) {
-        ObjectNode ret = jsonMapper.createObjectNode();
-        ArrayNode content = ret.putArray("content");
-        content.addObject().put("type", "text").put("text", message);
-        ret.put("isError", true);
-        return ret;
+    private McpCallToolResult toolError(String message) {
+        return McpCallToolResult.text(message, true);
     }
 }

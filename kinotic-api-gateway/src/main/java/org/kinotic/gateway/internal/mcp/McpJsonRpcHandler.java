@@ -9,14 +9,22 @@ import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.gateway.internal.mcp.model.JsonRpcRequest;
+import org.kinotic.gateway.internal.mcp.model.JsonRpcResponse;
+import org.kinotic.gateway.internal.mcp.model.McpInitializeResult;
+import org.kinotic.gateway.internal.mcp.model.McpServerInfo;
+import org.kinotic.gateway.internal.mcp.model.McpToolAnnotations;
+import org.kinotic.gateway.internal.mcp.model.McpToolListing;
+import org.kinotic.gateway.internal.mcp.model.McpToolsListResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
-import tools.jackson.databind.node.ArrayNode;
-import tools.jackson.databind.node.NullNode;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -49,57 +57,56 @@ public class McpJsonRpcHandler {
      * Handles one JSON-RPC request body for the given authenticated participant.
      * @param body the raw request body
      * @param participant the authenticated caller
-     * @return a future completing with the JSON-RPC response node, or with null when the request was a
+     * @return a future completing with the JSON-RPC response, or with null when the request was a
      *         notification and no response body must be sent
      */
-    public CompletableFuture<ObjectNode> handle(String body, Participant participant) {
-        JsonNode request;
+    public CompletableFuture<JsonRpcResponse> handle(String body, Participant participant) {
+        JsonNode parsed;
         try {
-            request = jsonMapper.readTree(body);
+            parsed = jsonMapper.readTree(body);
         } catch (Exception e) {
-            return CompletableFuture.completedFuture(error(NullNode.getInstance(), PARSE_ERROR, "Parse error"));
+            return CompletableFuture.completedFuture(JsonRpcResponse.error(null, PARSE_ERROR, "Parse error"));
         }
 
-        CompletableFuture<ObjectNode> ret;
-        if (request.isArray()) {
+        CompletableFuture<JsonRpcResponse> ret;
+        if (parsed.isArray()) {
             // JSON-RPC batching was removed from the MCP spec
-            ret = CompletableFuture.completedFuture(error(NullNode.getInstance(), INVALID_REQUEST, "Batch requests are not supported"));
-        } else if (!request.isObject() || !request.path("method").isString()) {
-            ret = CompletableFuture.completedFuture(error(NullNode.getInstance(), INVALID_REQUEST, "Invalid Request"));
+            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Batch requests are not supported"));
+        } else if (!parsed.isObject()) {
+            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
         } else {
-            JsonNode id = request.has("id") ? request.get("id") : null;
-            String method = request.path("method").asString();
-            ObjectNode params = request.get("params") instanceof ObjectNode paramsNode
-                    ? paramsNode
-                    : jsonMapper.createObjectNode();
-            ret = switch (method) {
-                case "initialize" -> CompletableFuture.completedFuture(result(id, initialize(params)));
-                case "notifications/initialized" -> CompletableFuture.completedFuture(null);
-                case "ping" -> CompletableFuture.completedFuture(result(id, jsonMapper.createObjectNode()));
-                case "tools/list" -> toolsList(id, params, participant);
-                case "tools/call" -> toolsCall(id, params, participant);
-                default -> CompletableFuture.completedFuture(error(id, METHOD_NOT_FOUND, "Method not found: " + method));
-            };
+            JsonRpcRequest request = jsonMapper.treeToValue(parsed, JsonRpcRequest.class);
+            if (request.getMethod() == null) {
+                ret = CompletableFuture.completedFuture(JsonRpcResponse.error(request.getId(), INVALID_REQUEST, "Invalid Request"));
+            } else {
+                JsonNode id = request.getId();
+                ObjectNode params = request.getParams() != null ? request.getParams() : jsonMapper.createObjectNode();
+                ret = switch (request.getMethod()) {
+                    case "initialize" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, initialize(params)));
+                    case "notifications/initialized" -> CompletableFuture.completedFuture(null);
+                    case "ping" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, Map.of()));
+                    case "tools/list" -> toolsList(id, params, participant);
+                    case "tools/call" -> toolsCall(id, params, participant);
+                    default -> CompletableFuture.completedFuture(
+                            JsonRpcResponse.error(id, METHOD_NOT_FOUND, "Method not found: " + request.getMethod()));
+                };
+            }
         }
         return ret;
     }
 
-    private ObjectNode initialize(ObjectNode params) {
+    private McpInitializeResult initialize(ObjectNode params) {
         String requested = params.path("protocolVersion").asString(null);
-        ObjectNode ret = jsonMapper.createObjectNode();
-        // a supported requested version is echoed; anything else negotiates down to our latest
-        ret.put("protocolVersion", SUPPORTED_PROTOCOL_VERSIONS.contains(requested) ? requested : LATEST_PROTOCOL_VERSION);
-        ret.putObject("capabilities")
-           .putObject("tools")
-           .put("listChanged", false);
-        ObjectNode serverInfo = ret.putObject("serverInfo");
-        serverInfo.put("name", "kinotic-api-gateway");
         String version = McpJsonRpcHandler.class.getPackage().getImplementationVersion();
-        serverInfo.put("version", version != null ? version : "unknown");
-        return ret;
+        // a supported requested version is echoed; anything else negotiates down to our latest
+        return new McpInitializeResult()
+                .setProtocolVersion(SUPPORTED_PROTOCOL_VERSIONS.contains(requested) ? requested : LATEST_PROTOCOL_VERSION)
+                .setCapabilities(Map.of("tools", Map.of("listChanged", false)))
+                .setServerInfo(new McpServerInfo().setName("kinotic-api-gateway")
+                                                  .setVersion(version != null ? version : "unknown"));
     }
 
-    private CompletableFuture<ObjectNode> toolsList(JsonNode id, ObjectNode params, Participant participant) {
+    private CompletableFuture<JsonRpcResponse> toolsList(JsonNode id, ObjectNode params, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         // cursor paging per the MCP pagination spec; the id sort keys the search_after the cursor encodes
@@ -109,70 +116,51 @@ public class McpJsonRpcHandler {
             query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable);
         } catch (Exception e) {
             // an unreadable cursor fails before the search runs; the spec maps invalid cursors to -32602
-            return CompletableFuture.completedFuture(error(id, INVALID_PARAMS, "Invalid cursor"));
+            return CompletableFuture.completedFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "Invalid cursor"));
         }
         return query.thenApply(page -> {
-                                   ObjectNode listResult = jsonMapper.createObjectNode();
-                                   ArrayNode tools = listResult.putArray("tools");
-                                   for (McpToolDefinition tool : page.getContent()) {
-                                       ObjectNode toolNode = tools.addObject();
-                                       toolNode.put("name", tool.getToolName());
-                                       toolNode.put("description", tool.getDescription());
-                                       // stored at write time as a JSON string, embedded here as the schema object
-                                       toolNode.set("inputSchema", jsonMapper.readTree(tool.getInputSchema()));
-                                       ObjectNode annotations = toolNode.putObject("annotations");
-                                       annotations.put("readOnlyHint", tool.isReadOnlyHint());
-                                       annotations.put("destructiveHint", tool.isDestructiveHint());
-                                       annotations.put("idempotentHint", tool.isIdempotentHint());
-                                   }
-                                   if (page instanceof CursorPage<McpToolDefinition> cursorPage
-                                           && cursorPage.getCursor() != null) {
-                                       listResult.put("nextCursor", cursorPage.getCursor());
-                                   }
-                                   return result(id, listResult);
-                               });
+            List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
+            for (McpToolDefinition tool : page.getContent()) {
+                tools.add(new McpToolListing()
+                                  .setName(tool.getToolName())
+                                  .setDescription(tool.getDescription())
+                                  // stored at write time as a JSON string, embedded here as the schema object
+                                  .setInputSchema(jsonMapper.readTree(tool.getInputSchema()))
+                                  .setAnnotations(new McpToolAnnotations()
+                                                          .setReadOnlyHint(tool.isReadOnlyHint())
+                                                          .setDestructiveHint(tool.isDestructiveHint())
+                                                          .setIdempotentHint(tool.isIdempotentHint())));
+            }
+            McpToolsListResult listResult = new McpToolsListResult().setTools(tools);
+            if (page instanceof CursorPage<McpToolDefinition> cursorPage) {
+                listResult.setNextCursor(cursorPage.getCursor());
+            }
+            return JsonRpcResponse.result(id, listResult);
+        });
     }
 
-    private CompletableFuture<ObjectNode> toolsCall(JsonNode id, ObjectNode params, Participant participant) {
-        CompletableFuture<ObjectNode> ret;
+    private CompletableFuture<JsonRpcResponse> toolsCall(JsonNode id, ObjectNode params, Participant participant) {
+        CompletableFuture<JsonRpcResponse> ret;
         if (!params.path("name").isString()) {
-            ret = CompletableFuture.completedFuture(error(id, INVALID_PARAMS, "tools/call requires a tool name"));
+            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
         } else {
             ObjectNode arguments = params.get("arguments") instanceof ObjectNode argumentsNode
                     ? argumentsNode
                     : jsonMapper.createObjectNode();
             ret = mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant)
-                                .thenApply(toolResult -> result(id, toolResult))
+                                .thenApply(toolResult -> JsonRpcResponse.result(id, toolResult))
                                 .exceptionally(throwable -> {
                                     Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
-                                    ObjectNode response;
+                                    JsonRpcResponse response;
                                     if (cause instanceof IllegalArgumentException) {
-                                        response = error(id, INVALID_PARAMS, cause.getMessage());
+                                        response = JsonRpcResponse.error(id, INVALID_PARAMS, cause.getMessage());
                                     } else {
                                         log.error("tools/call failed", cause);
-                                        response = error(id, INTERNAL_ERROR, "Internal error");
+                                        response = JsonRpcResponse.error(id, INTERNAL_ERROR, "Internal error");
                                     }
                                     return response;
                                 });
         }
-        return ret;
-    }
-
-    private ObjectNode result(JsonNode id, ObjectNode result) {
-        ObjectNode ret = jsonMapper.createObjectNode();
-        ret.put("jsonrpc", "2.0");
-        ret.set("id", id == null ? NullNode.getInstance() : id);
-        ret.set("result", result);
-        return ret;
-    }
-
-    private ObjectNode error(JsonNode id, int code, String message) {
-        ObjectNode ret = jsonMapper.createObjectNode();
-        ret.put("jsonrpc", "2.0");
-        ret.set("id", id == null ? NullNode.getInstance() : id);
-        ObjectNode error = ret.putObject("error");
-        error.put("code", code);
-        error.put("message", message);
         return ret;
     }
 }
