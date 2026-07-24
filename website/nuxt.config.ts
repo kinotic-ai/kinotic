@@ -13,6 +13,28 @@ export default defineNuxtConfig({
   robots: {
     disallow: ['/test-results/'],
   },
+  // The reference pages now live under the Kinotic Apps and Kinotic OS sections. These keep the
+  // original /reference/* URLs working for anything already linking to them.
+  routeRules: {
+    '/reference/decorators': { redirect: { to: '/apps/reference/decorators', statusCode: 301 } },
+    '/reference/migration-sql-grammar': { redirect: { to: '/apps/reference/migration-sql-grammar', statusCode: 301 } },
+    '/reference/abac-expression-language': { redirect: { to: '/apps/reference/abac-expression-language', statusCode: 301 } },
+    '/reference/cri-format': { redirect: { to: '/platform/reference/cri-format', statusCode: 301 } },
+    '/reference/sdk-packages': { redirect: { to: '/platform/reference/sdk-packages', statusCode: 301 } },
+  },
+  nitro: {
+    prerender: {
+      // No page links to the old paths anymore, so the crawler never reaches them. Listing them
+      // explicitly makes the static build emit the redirect documents.
+      routes: [
+        '/reference/decorators',
+        '/reference/migration-sql-grammar',
+        '/reference/abac-expression-language',
+        '/reference/cri-format',
+        '/reference/sdk-packages',
+      ],
+    },
+  },
   runtimeConfig: {
     public: {
       clarityProjectId: 'waw4oqkd0y',
