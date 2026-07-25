@@ -1,5 +1,6 @@
 package org.kinotic.core.api.directory;
 
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -48,12 +49,12 @@ public interface ServiceDirectory {
      * {@code app-api}-zone tools.
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
-     * @param pageable the page settings to use
+     * @param pageable the {@link CursorPageable} to use, because the MCP spec only supports cursor.
      * @return the page of callable {@link McpToolDefinition}s, carrying a {@code nextCursor} when more exist
      */
     Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                          String applicationId,
-                                                         Pageable pageable);
+                                                         CursorPageable pageable);
 
     /**
      * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.

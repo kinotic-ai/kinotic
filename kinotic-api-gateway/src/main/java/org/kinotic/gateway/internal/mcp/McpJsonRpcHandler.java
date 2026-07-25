@@ -8,6 +8,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -142,7 +143,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
         McpCallerScope scope = McpCallerScope.from(participant);
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
-        Pageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
+        CursorPageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
 
         try {
             // the directory result IS the tools/list wire shape; the query already excluded the internal cri

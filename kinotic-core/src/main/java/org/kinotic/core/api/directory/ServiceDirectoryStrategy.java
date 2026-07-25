@@ -1,6 +1,7 @@
 package org.kinotic.core.api.directory;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 
@@ -24,8 +25,8 @@ public interface ServiceDirectoryStrategy {
      * @return a page of entries in the given scope
      */
     Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
-                                                                       String applicationId,
-                                                                       Pageable pageable);
+                                                            String applicationId,
+                                                            Pageable pageable);
 
     /**
      * Resolves the online MCP tool with the given name callable by the given scope.
@@ -35,8 +36,8 @@ public interface ServiceDirectoryStrategy {
      * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
      */
     Future<McpToolDefinition> findMcpToolByName(String toolName,
-                                                           String organizationId,
-                                                           String applicationId);
+                                                String organizationId,
+                                                String applicationId);
 
     /**
      * Returns the online MCP tools callable by the given scope per the zone send rules.
@@ -47,7 +48,7 @@ public interface ServiceDirectoryStrategy {
      */
     Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                          String applicationId,
-                                                         Pageable pageable);
+                                                         CursorPageable pageable);
 
     /**
      * Corrects the liveness of every entry against the full set of currently active service addresses: entries

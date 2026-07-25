@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.CursorPage;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -119,15 +120,15 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      */
     public CompletableFuture<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                                            String applicationId,
-                                                                           Pageable pageable) {
-        // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
-        // appears in directory listings
+                                                                           CursorPageable pageable) {
+        // a service exposing MCP tools is callable whether or not it also is "advertised" see @Publish
         Query filter = composeFilter(termFilter("mcpExposed", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));
+
         return findAll(pageable, b -> {
             b.query(filter);
-            // cri is dispatch state, never served in a listing, so it stays inside Elasticsearch
+            // cri is used for service invocation, must never be served in a listing, so we filter it
             b.source(sc -> sc.filter(f -> f.includes("mcpTools").excludes("mcpTools.cri")));
         }).thenApply(page -> {
             List<McpToolDefinition> tools = new ArrayList<>();

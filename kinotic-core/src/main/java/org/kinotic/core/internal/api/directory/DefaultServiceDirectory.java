@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolAnnotations;
@@ -148,7 +149,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
                 publishAllToDirectory(batch).compose(v -> reconcileLiveness())
-                                 .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+                                            .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
@@ -203,22 +204,22 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
-                                                                              String applicationId,
-                                                                              Pageable pageable) {
+                                                                   String applicationId,
+                                                                   Pageable pageable) {
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
     @Override
     public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
-                                                                             String applicationId,
-                                                                             Pageable pageable) {
+                                                                String applicationId,
+                                                                CursorPageable pageable) {
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
     public Future<McpToolDefinition> findMcpToolByName(String toolName,
-                                                                  String organizationId,
-                                                                  String applicationId) {
+                                                       String organizationId,
+                                                       String applicationId) {
         return strategy.findMcpToolByName(toolName, organizationId, applicationId);
     }
 
@@ -363,8 +364,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         // a qualified name deep enough to overflow the 128-char limit must fail loudly, never truncate
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
-                                            + "' on service " + serviceIdentifier
-                                            + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
+                                                    + "' on service " + serviceIdentifier
+                                                    + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
         }
         return toolName;
     }
