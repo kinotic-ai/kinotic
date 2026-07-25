@@ -21,8 +21,6 @@ import org.kinotic.gateway.internal.mcp.model.JsonRpcRequest;
 import org.kinotic.gateway.internal.mcp.model.JsonRpcResponse;
 import org.kinotic.gateway.internal.mcp.model.McpInitializeResult;
 import org.kinotic.gateway.internal.mcp.model.McpServerInfo;
-import org.kinotic.gateway.internal.mcp.model.McpToolAnnotations;
-import org.kinotic.gateway.internal.mcp.model.McpToolListing;
 import org.kinotic.gateway.internal.mcp.model.McpToolsListResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -30,7 +28,6 @@ import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -159,20 +156,8 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
             return query.map(page -> {
 
-                List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
-                for (McpToolDefinition tool : page.getContent()) {
-                    tools.add(new McpToolListing()
-                                      .setName(tool.getName())
-                                      .setTitle(tool.getTitle())
-                                      .setDescription(tool.getDescription())
-                                      .setInputSchema(tool.getInputSchema())
-                                      .setAnnotations(new McpToolAnnotations()
-                                                              .setReadOnlyHint(tool.isReadOnlyHint())
-                                                              .setDestructiveHint(tool.isDestructiveHint())
-                                                              .setIdempotentHint(tool.isIdempotentHint())));
-                }
-
-                McpToolsListResult listResult = new McpToolsListResult().setTools(tools);
+                // McpToolDefinition IS the wire shape; the query already excluded the internal cri
+                McpToolsListResult listResult = new McpToolsListResult().setTools(page.getContent());
                 if (page instanceof CursorPage<McpToolDefinition> cursorPage) {
                     listResult.setNextCursor(cursorPage.getCursor());
                 }

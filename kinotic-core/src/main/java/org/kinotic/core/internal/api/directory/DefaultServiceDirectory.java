@@ -7,6 +7,7 @@ import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.McpToolAnnotations;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
@@ -297,9 +298,10 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                      serviceIdentifier.qualifiedName(),
                                                      "/" + function.getName(),
                                                      null).raw())
-                                  .setReadOnlyHint(decorator.isReadOnlyHint())
-                                  .setDestructiveHint(decorator.isDestructiveHint())
-                                  .setIdempotentHint(decorator.isIdempotentHint()));
+                                  .setAnnotations(new McpToolAnnotations()
+                                                          .setReadOnlyHint(decorator.isReadOnlyHint())
+                                                          .setDestructiveHint(decorator.isDestructiveHint())
+                                                          .setIdempotentHint(decorator.isIdempotentHint())));
             }
         }
 

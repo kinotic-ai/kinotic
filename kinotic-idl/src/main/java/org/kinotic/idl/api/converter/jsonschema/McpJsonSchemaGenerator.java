@@ -17,7 +17,7 @@ import java.util.TreeMap;
 /**
  * Builds the MCP {@code inputSchema} for a {@link FunctionDefinition}: a self-contained JSON Schema object whose
  * {@code properties} are the function's parameters, with {@code required} and {@code $defs} filled in as needed.
- * The result is a JSON string ready to store on an MCP tool definition.
+ * The result is ready to store on an MCP tool definition.
  */
 @RequiredArgsConstructor
 public class McpJsonSchemaGenerator {
@@ -32,9 +32,9 @@ public class McpJsonSchemaGenerator {
      * @param referenceResolver maps a {@code ReferenceC3Type}'s qualified name to the {@link ObjectC3Type} it points
      *                          at; supply the complex types collected alongside the function's service (may be empty
      *                          when the function references no complex types)
-     * @return the {@code inputSchema} serialized as a JSON string
+     * @return the {@code inputSchema} object
      */
-    public String generateInputSchema(FunctionDefinition function, Map<String, ObjectC3Type> referenceResolver) {
+    public ObjectNode generateInputSchema(FunctionDefinition function, Map<String, ObjectC3Type> referenceResolver) {
 
         JsonSchemaConverterStrategy strategy = new JsonSchemaConverterStrategy(referenceResolver);
         IdlConverter<ObjectNode, JsonSchemaConversionState> converter = converterFactory.createConverter(strategy);
@@ -68,7 +68,7 @@ public class McpJsonSchemaGenerator {
             inputSchema.set("$defs", defs);
         }
 
-        return inputSchema.toString();
+        return inputSchema;
     }
 
 }

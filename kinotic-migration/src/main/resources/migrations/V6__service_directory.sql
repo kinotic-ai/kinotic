@@ -17,11 +17,13 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
         name KEYWORD,
         title TEXT NOT INDEXED,
         description TEXT NOT INDEXED,
-        inputSchema KEYWORD NOT INDEXED,
+        inputSchema JSON NOT INDEXED,
         cri KEYWORD NOT INDEXED,
-        readOnlyHint BOOLEAN NOT INDEXED,
-        destructiveHint BOOLEAN NOT INDEXED,
-        idempotentHint BOOLEAN NOT INDEXED
+        annotations OBJECT (
+            readOnlyHint BOOLEAN,
+            destructiveHint BOOLEAN,
+            idempotentHint BOOLEAN
+        ) NOT INDEXED
     ),
     online BOOLEAN,
     lastStatusChange DATE

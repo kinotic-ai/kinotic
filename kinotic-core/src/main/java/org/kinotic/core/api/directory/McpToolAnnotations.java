@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.mcp.model;
+package org.kinotic.core.api.directory;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -6,7 +6,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * The MCP tool annotations served with a listing: behavior hints declared by the tool's {@code @McpTool}.
+ * The MCP tool annotations: behavior hints declared by the tool's {@code @McpTool}.
  */
 @Getter
 @Setter

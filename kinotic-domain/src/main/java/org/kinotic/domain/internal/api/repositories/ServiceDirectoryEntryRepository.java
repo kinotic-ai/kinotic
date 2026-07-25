@@ -126,7 +126,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                                      zoneVisibilityFilter(organizationId, applicationId));
         return findAll(pageable, b -> {
             b.query(filter);
-            b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
+            // cri is dispatch state, never served in a listing, so it stays inside Elasticsearch
+            b.source(sc -> sc.filter(f -> f.includes("mcpTools").excludes("mcpTools.cri")));
         }).thenApply(page -> {
             List<McpToolDefinition> tools = new ArrayList<>();
             for (ServiceDirectoryEntry entry : page.getContent()) {

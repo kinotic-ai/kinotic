@@ -1,14 +1,16 @@
 package org.kinotic.core.api.directory;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import tools.jackson.databind.JsonNode;
 
 /**
- * A ready-to-serve MCP tool: the JSON Schema and sanitized tool name are built once when the service is published to the directory and stored, so
- * serving a tool listing or dispatching a call is a pure lookup. Resolution back to the invocable function uses the
- * stored {@link #cri}; the {@link #toolName} is never parsed apart.
+ * A ready-to-serve MCP tool, built once when the service is published to the directory and stored, so it is
+ * served in a {@code tools/list} verbatim and dispatching a call is a pure lookup. The {@link #name} is never
+ * parsed apart.
  */
 @Getter
 @Setter
@@ -25,6 +27,7 @@ public class McpToolDefinition {
     /**
      * The human-readable display title, or null when the tool has none.
      */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String title;
 
     /**
@@ -33,19 +36,20 @@ public class McpToolDefinition {
     private String description;
 
     /**
-     * The tool's input schema as a JSON Schema string.
+     * The tool's input schema as a JSON Schema object.
      */
-    private String inputSchema;
+    private JsonNode inputSchema;
 
     /**
-     * The full CRI of the tool's function, sent as-is to dispatch a call.
+     * The full CRI of the tool's function, sent as-is to dispatch a call. Null when the tool was loaded for a
+     * listing, which never exposes the CRI to callers.
      */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private String cri;
 
-    private boolean readOnlyHint;
-
-    private boolean destructiveHint;
-
-    private boolean idempotentHint;
+    /**
+     * The behavior hints served as the MCP tool annotations.
+     */
+    private McpToolAnnotations annotations;
 
 }

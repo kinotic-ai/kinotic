@@ -2,6 +2,7 @@ package org.kinotic.gateway.internal.mcp.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
+import org.kinotic.core.api.directory.McpToolDefinition;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -17,7 +18,7 @@ import java.util.List;
 @NoArgsConstructor
 public class McpToolsListResult {
 
-    private List<McpToolListing> tools;
+    private List<McpToolDefinition> tools;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String nextCursor;
