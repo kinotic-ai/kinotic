@@ -13,6 +13,7 @@ import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
@@ -309,8 +310,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                   .setTitle(decorator.getTitle())
                                   .setDescription(decorator.getDescription())
                                   .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
-                                  .setCri(serviceIdentifier.cri().raw())
-                                  .setFunctionName(function.getName())
+                                  // the full invocation CRI, so dispatching a call needs no reconstruction
+                                  .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                                     serviceIdentifier.scope(),
+                                                     serviceIdentifier.qualifiedName(),
+                                                     "/" + function.getName(),
+                                                     serviceIdentifier.version()).raw())
                                   .setReadOnlyHint(decorator.isReadOnlyHint())
                                   .setDestructiveHint(decorator.isDestructiveHint())
                                   .setIdempotentHint(decorator.isIdempotentHint()));

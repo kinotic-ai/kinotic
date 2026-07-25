@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 /**
  * A ready-to-serve MCP tool: the JSON Schema and sanitized tool name are built once when the service is published to the directory and stored, so
  * serving a tool listing or dispatching a call is a pure lookup. Resolution back to the invocable function uses the
- * stored {@link #cri} and {@link #functionName}; the {@link #toolName} is never parsed apart.
+ * stored {@link #cri}; the {@link #toolName} is never parsed apart.
  */
 @Getter
 @Setter
@@ -38,14 +38,9 @@ public class McpToolDefinition {
     private String inputSchema;
 
     /**
-     * The CRI of the service that provides the function, used to dispatch a call.
+     * The full CRI of the tool's function, sent as-is to dispatch a call.
      */
     private String cri;
-
-    /**
-     * The name of the function to invoke on the service.
-     */
-    private String functionName;
 
     private boolean readOnlyHint;
 
