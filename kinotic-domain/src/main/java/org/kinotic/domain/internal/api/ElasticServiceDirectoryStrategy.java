@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
 import org.kinotic.domain.internal.api.repositories.ServiceDirectoryEntryRepository;
@@ -57,9 +58,9 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     @Override
-    public Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                             String applicationId,
-                                                                             Pageable pageable) {
+    public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                                String applicationId,
+                                                                Pageable pageable) {
         return Future.fromCompletionStage(repository.findMcpToolsCallableBy(organizationId, applicationId, pageable));
     }
 

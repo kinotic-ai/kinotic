@@ -76,10 +76,10 @@ public interface ServiceDirectoryStrategy {
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
      * @param pageable the page settings to use
-     * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
+     * @return the page of callable {@link McpToolDefinition}s, carrying a {@code nextCursor} when more exist
      */
-    Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                      String applicationId,
-                                                                      Pageable pageable);
+    Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                         String applicationId,
+                                                         Pageable pageable);
 
 }

@@ -1,8 +1,7 @@
-package org.kinotic.gateway.internal.mcp.model;
+package org.kinotic.core.api.directory;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
-import org.kinotic.core.api.directory.McpToolDefinition;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -10,13 +9,14 @@ import lombok.experimental.Accessors;
 import java.util.List;
 
 /**
- * The {@code tools/list} result: the caller's page of tools, with a cursor when more results exist.
+ * One page of callable MCP tools, shaped as a {@code tools/list} result: the tools plus a cursor when more
+ * results exist.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class McpToolsListResult {
+public class McpToolDefinitionList {
 
     private List<McpToolDefinition> tools;
 

@@ -8,11 +8,8 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.crud.CursorPage;
-import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
-import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
@@ -21,7 +18,6 @@ import org.kinotic.gateway.internal.mcp.model.JsonRpcRequest;
 import org.kinotic.gateway.internal.mcp.model.JsonRpcResponse;
 import org.kinotic.gateway.internal.mcp.model.McpInitializeResult;
 import org.kinotic.gateway.internal.mcp.model.McpServerInfo;
-import org.kinotic.gateway.internal.mcp.model.McpToolsListResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
@@ -29,7 +25,6 @@ import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -150,20 +145,9 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         Pageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
 
         try {
-            Future<Page<McpToolDefinition>> query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(),
-                                                                                            scope.applicationId(),
-                                                                                            pageable);
-
-            return query.map(page -> {
-
-                // McpToolDefinition IS the wire shape; the query already excluded the internal cri
-                McpToolsListResult listResult = new McpToolsListResult().setTools(page.getContent());
-                if (page instanceof CursorPage<McpToolDefinition> cursorPage) {
-                    listResult.setNextCursor(cursorPage.getCursor());
-                }
-
-                return JsonRpcResponse.result(id, listResult);
-            });
+            // the directory result IS the tools/list wire shape; the query already excluded the internal cri
+            return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable)
+                                   .map(tools -> JsonRpcResponse.result(id, tools));
 
         } catch (Exception e) {
             // an unreadable cursor fails before the search runs; the spec maps invalid cursors to -32602

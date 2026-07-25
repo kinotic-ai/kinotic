@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -116,9 +117,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * Returns the online MCP tools a caller in the given scope may call, flattened from the matching entries. The
      * search {@code _source}-filters to the {@code mcpTools} field so contracts never leave Elasticsearch.
      */
-    public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                             String applicationId,
-                                                                             Pageable pageable) {
+    public CompletableFuture<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                                           String applicationId,
+                                                                           Pageable pageable) {
         // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
         // appears in directory listings
         Query filter = composeFilter(termFilter("mcpExposed", true),
@@ -135,16 +136,12 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     tools.addAll(entry.getMcpTools());
                 }
             }
-            Page<McpToolDefinition> ret;
-            if (page instanceof CursorPage<ServiceDirectoryEntry> cursorPage) {
-                // the cursor tracks ENTRIES, so a short entry page is the last page and returns no cursor
-                String cursor = page.getContent().size() < pageable.getPageSize() ? null : cursorPage.getCursor();
-                ret = new CursorPage<>(tools, cursor, null);
-            } else {
-                // total is the matching-entry count; tool-level totals would require a second aggregation (YAGNI for v1)
-                ret = new Page<>(tools, page.getTotalElements());
-            }
-            return ret;
+            // the cursor tracks ENTRIES, so a short entry page is the last page and returns no cursor
+            String nextCursor = page instanceof CursorPage<ServiceDirectoryEntry> cursorPage
+                    && page.getContent().size() == pageable.getPageSize()
+                    ? cursorPage.getCursor()
+                    : null;
+            return new McpToolDefinitionList().setTools(tools).setNextCursor(nextCursor);
         });
     }
 

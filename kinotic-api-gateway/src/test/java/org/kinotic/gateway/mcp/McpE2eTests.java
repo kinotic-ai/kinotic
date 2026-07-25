@@ -17,6 +17,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -221,16 +222,14 @@ public class McpE2eTests {
 
         // one entry per page: the echo entry sorts first by id, the calculator entry follows via the cursor
         Pageable firstPage = Pageable.create(null, 1, Sort.by("id"));
-        CursorPage<McpToolDefinition> pageOne = assertInstanceOf(CursorPage.class,
-                serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).await());
-        assertEquals(List.of(APP_ECHO), pageOne.getContent().stream().map(McpToolDefinition::getName).toList());
-        assertNotNull(pageOne.getCursor());
+        McpToolDefinitionList pageOne = serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).await();
+        assertEquals(List.of(APP_ECHO), pageOne.getTools().stream().map(McpToolDefinition::getName).toList());
+        assertNotNull(pageOne.getNextCursor());
 
-        Pageable secondPage = Pageable.create(pageOne.getCursor(), 1, Sort.by("id"));
-        CursorPage<McpToolDefinition> pageTwo = assertInstanceOf(CursorPage.class,
-                serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).await());
+        Pageable secondPage = Pageable.create(pageOne.getNextCursor(), 1, Sort.by("id"));
+        McpToolDefinitionList pageTwo = serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).await();
         assertEquals(List.of(CALCULATOR_ADD, CALCULATOR_JOIN),
-                     pageTwo.getContent().stream().map(McpToolDefinition::getName).toList());
+                     pageTwo.getTools().stream().map(McpToolDefinition::getName).toList());
     }
 
     @Test

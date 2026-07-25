@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolAnnotations;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
@@ -208,7 +209,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+    public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                                              String applicationId,
                                                                              Pageable pageable) {
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
