@@ -17,8 +17,8 @@ import java.io.File;
  * via Docker Compose using compose.kinotic-test.yml.
  */
 @Component
-public class KinoticTestConfiguration {
-    private static final Logger log = LoggerFactory.getLogger(KinoticTestConfiguration.class);
+public class KinoticTestComposeBoostrap {
+    private static final Logger log = LoggerFactory.getLogger(KinoticTestComposeBoostrap.class);
 
     private static final int ELASTICSEARCH_PORT = 9200;
 
@@ -66,8 +66,8 @@ public class KinoticTestConfiguration {
 
     private static void waitForContainersToBeReady() {
         try {
-            String esHost = KinoticTestConfiguration.getElasticsearchHost();
-            int esPort = KinoticTestConfiguration.getElasticsearchPort();
+            String esHost = KinoticTestComposeBoostrap.getElasticsearchHost();
+            int esPort = KinoticTestComposeBoostrap.getElasticsearchPort();
             boolean esReady = ContainerHealthChecker.waitForContainerHealth(
                 "kinotic-elasticsearch",
                 () -> ContainerHealthChecker.isElasticsearchHealthy(esHost, esPort),

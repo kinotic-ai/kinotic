@@ -20,18 +20,18 @@ public class KinoticTestContextInitializer implements ApplicationContextInitiali
         log.info("KinoticTestContextInitializer: Ensuring Kinotic Compose stack is ready...");
 
         try {
-            if (!KinoticTestConfiguration.areContainersRunning()) {
+            if (!KinoticTestComposeBoostrap.areContainersRunning()) {
                 log.info("KinoticTestContextInitializer: Starting Docker Compose...");
-                KinoticTestConfiguration.startContainersSynchronously();
-            } else if (!KinoticTestConfiguration.areContainersReady()) {
+                KinoticTestComposeBoostrap.startContainersSynchronously();
+            } else if (!KinoticTestComposeBoostrap.areContainersReady()) {
                 log.info("KinoticTestContextInitializer: Waiting for containers...");
-                KinoticTestConfiguration.waitForContainersReady();
+                KinoticTestComposeBoostrap.waitForContainersReady();
             }
 
-            KinoticTestConfiguration.ensureContainersReady();
+            KinoticTestComposeBoostrap.ensureContainersReady();
 
-            String esHost = KinoticTestConfiguration.getElasticsearchHost();
-            int esPort = KinoticTestConfiguration.getElasticsearchPort();
+            String esHost = KinoticTestComposeBoostrap.getElasticsearchHost();
+            int esPort = KinoticTestComposeBoostrap.getElasticsearchPort();
 
             TestPropertyValues.of("kinotic.domain.elastic-connections[0].host=" + esHost)
                 .applyTo(applicationContext);
