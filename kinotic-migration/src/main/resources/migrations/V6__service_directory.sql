@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     advertised BOOLEAN,
     mcpExposed BOOLEAN,
     mcpTools OBJECT (
-        toolName KEYWORD,
+        name KEYWORD,
         title TEXT NOT INDEXED,
         description TEXT NOT INDEXED,
         inputSchema KEYWORD NOT INDEXED,

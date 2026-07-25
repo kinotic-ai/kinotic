@@ -162,10 +162,10 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                 List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
                 for (McpToolDefinition tool : page.getContent()) {
                     tools.add(new McpToolListing()
-                                      .setName(tool.getToolName())
+                                      .setName(tool.getName())
                                       .setTitle(tool.getTitle())
                                       .setDescription(tool.getDescription())
-                                      .setInputSchema(jsonMapper.readTree(tool.getInputSchema()))
+                                      .setInputSchema(tool.getInputSchema())
                                       .setAnnotations(new McpToolAnnotations()
                                                               .setReadOnlyHint(tool.isReadOnlyHint())
                                                               .setDestructiveHint(tool.isDestructiveHint())

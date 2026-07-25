@@ -286,7 +286,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 }
 
                 tools.add(new McpToolDefinition()
-                                  .setToolName(toolName)
+                                  .setName(toolName)
                                   .setTitle(decorator.getTitle())
                                   .setDescription(decorator.getDescription())
                                   .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))

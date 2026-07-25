@@ -223,14 +223,14 @@ public class McpE2eTests {
         Pageable firstPage = Pageable.create(null, 1, Sort.by("id"));
         CursorPage<McpToolDefinition> pageOne = assertInstanceOf(CursorPage.class,
                 serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).await());
-        assertEquals(List.of(APP_ECHO), pageOne.getContent().stream().map(McpToolDefinition::getToolName).toList());
+        assertEquals(List.of(APP_ECHO), pageOne.getContent().stream().map(McpToolDefinition::getName).toList());
         assertNotNull(pageOne.getCursor());
 
         Pageable secondPage = Pageable.create(pageOne.getCursor(), 1, Sort.by("id"));
         CursorPage<McpToolDefinition> pageTwo = assertInstanceOf(CursorPage.class,
                 serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).await());
         assertEquals(List.of(CALCULATOR_ADD, CALCULATOR_JOIN),
-                     pageTwo.getContent().stream().map(McpToolDefinition::getToolName).toList());
+                     pageTwo.getContent().stream().map(McpToolDefinition::getName).toList());
     }
 
     @Test

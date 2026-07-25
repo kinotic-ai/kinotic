@@ -149,13 +149,13 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
 
     /**
      * Resolves the online MCP tool with the given name callable by the given scope, completing with {@code null}
-     * when no callable tool carries the name. The term on {@code mcpTools.toolName} narrows to entries carrying
+     * when no callable tool carries the name. The term on {@code mcpTools.name} narrows to entries carrying
      * the name; the entry may hold other tools, so the flattening keeps only the matching ones.
      */
     public CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
                                                                   String organizationId,
                                                                   String applicationId) {
-        Query filter = composeFilter(termFilter("mcpTools.toolName", toolName),
+        Query filter = composeFilter(termFilter("mcpTools.name", toolName),
                                      termFilter("mcpExposed", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));
@@ -167,7 +167,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             for (ServiceDirectoryEntry entry : page.getContent()) {
                 if (entry.getMcpTools() != null) {
                     for (McpToolDefinition tool : entry.getMcpTools()) {
-                        if (tool.getToolName().equals(toolName)) {
+                        if (tool.getName().equals(toolName)) {
                             tools.add(tool);
                         }
                     }

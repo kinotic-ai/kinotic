@@ -20,7 +20,7 @@ public class McpToolDefinition {
      * The MCP tool name, unique system wide: derived from the service's qualified name and the function, so a
      * customer service's tool name always carries its organization and application ids via the zone.
      */
-    private String toolName;
+    private String name;
 
     /**
      * The human-readable display title, or null when the tool has none.
