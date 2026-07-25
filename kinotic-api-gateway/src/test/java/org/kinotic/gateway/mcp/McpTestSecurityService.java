@@ -1,5 +1,6 @@
 package org.kinotic.gateway.mcp;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Header-driven authentication for the MCP e2e, mirroring the kinotic-server clienttest convention: scope is
@@ -24,7 +24,7 @@ import java.util.concurrent.CompletableFuture;
 public class McpTestSecurityService implements SecurityService {
 
     @Override
-    public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
         Map<String, String> authInfo = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         if (authenticationInfo != null) {
             authInfo.putAll(authenticationInfo);
@@ -60,6 +60,6 @@ public class McpTestSecurityService implements SecurityService {
                                                        .roles(List.of("USER"))
                                                        .build();
         }
-        return CompletableFuture.completedFuture(participant);
+        return Future.succeededFuture(participant);
     }
 }

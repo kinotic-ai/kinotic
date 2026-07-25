@@ -76,7 +76,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         Map<String, String> authenticationInfo = new HashMap<>();
         ctx.request().headers().forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
 
-        Future.fromCompletionStage(securityService.authenticate(authenticationInfo))
+        securityService.authenticate(authenticationInfo)
               .onSuccess(participant -> handle(ctx.body(), participant)
                       .onSuccess(response -> {
                           if (response == null) {
