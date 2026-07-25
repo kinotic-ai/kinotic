@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.mcp;
+package org.kinotic.domain.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.DecodeException;
@@ -15,11 +15,7 @@ import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.gateway.internal.mcp.model.JsonRpcRequest;
-import org.kinotic.gateway.internal.mcp.model.JsonRpcResponse;
-import org.kinotic.gateway.internal.mcp.model.McpInitializeResult;
-import org.kinotic.gateway.internal.mcp.model.McpServerInfo;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.kinotic.domain.internal.api.rest.mcp.model.*;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
@@ -37,7 +33,6 @@ import java.util.Set;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.disableMcp", havingValue = "false", matchIfMissing = true)
 public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private static final String MCP_ROUTE = "/mcp";

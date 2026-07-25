@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.mcp.model;
+package org.kinotic.domain.internal.api.rest.mcp.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;

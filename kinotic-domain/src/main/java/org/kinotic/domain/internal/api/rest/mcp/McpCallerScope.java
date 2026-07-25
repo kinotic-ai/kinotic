@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.mcp;
+package org.kinotic.domain.internal.api.rest.mcp;
 
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.security.ApplicationParticipant;

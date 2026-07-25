@@ -1,4 +1,4 @@
-package org.kinotic.gateway.internal.mcp;
+package org.kinotic.domain.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -12,8 +12,8 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.gateway.internal.endpoints.ZoneSendRules;
-import org.kinotic.gateway.internal.mcp.model.McpCallToolResult;
+import org.kinotic.domain.api.security.ZoneSendRules;
+import org.kinotic.domain.internal.api.rest.mcp.model.McpCallToolResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;

@@ -1,12 +1,9 @@
-package org.kinotic.gateway.internal.endpoints;
+package org.kinotic.domain.api.security;
 
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.security.ApplicationParticipant;
-import org.kinotic.domain.api.security.OrganizationParticipant;
-import org.kinotic.domain.api.security.SystemParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.Set;

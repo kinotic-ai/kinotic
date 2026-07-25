@@ -4,7 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.gateway.internal.endpoints.ZoneSendRules;
+import org.kinotic.domain.api.security.ZoneSendRules;
 
 import java.util.LinkedList;
 import java.util.Set;

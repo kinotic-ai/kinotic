@@ -7,7 +7,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
-import org.kinotic.gateway.internal.endpoints.ZoneSendRules;
+import org.kinotic.domain.api.security.ZoneSendRules;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
