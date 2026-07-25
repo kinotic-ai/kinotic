@@ -14,6 +14,7 @@ import org.junit.jupiter.api.condition.EnabledIf;
 import io.modelcontextprotocol.spec.McpError;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
@@ -221,12 +222,12 @@ public class McpE2eTests {
         assertThrows(McpError.class, () -> systemClient.listTools("not-a-cursor"));
 
         // one entry per page: the echo entry sorts first by id, the calculator entry follows via the cursor
-        Pageable firstPage = Pageable.create(null, 1, Sort.by("id"));
+        CursorPageable firstPage = Pageable.create(null, 1, Sort.by("id"));
         McpToolDefinitionList pageOne = serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).await();
         assertEquals(List.of(APP_ECHO), pageOne.getTools().stream().map(McpToolDefinition::getName).toList());
         assertNotNull(pageOne.getNextCursor());
 
-        Pageable secondPage = Pageable.create(pageOne.getNextCursor(), 1, Sort.by("id"));
+        CursorPageable secondPage = Pageable.create(pageOne.getNextCursor(), 1, Sort.by("id"));
         McpToolDefinitionList pageTwo = serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).await();
         assertEquals(List.of(CALCULATOR_ADD, CALCULATOR_JOIN),
                      pageTwo.getTools().stream().map(McpToolDefinition::getName).toList());

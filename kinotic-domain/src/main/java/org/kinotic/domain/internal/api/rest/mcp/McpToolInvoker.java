@@ -14,7 +14,6 @@ import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.security.ZoneSendRules;
 import org.kinotic.domain.internal.api.rest.mcp.model.McpCallToolResult;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -31,7 +30,6 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.disableMcp", havingValue = "false", matchIfMissing = true)
 public class McpToolInvoker {
 
     private final EventBusService eventBusService;

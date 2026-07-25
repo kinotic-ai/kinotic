@@ -2,7 +2,6 @@ kinotic:
   # A lightweight gateway for the @kinotic-ai/core RPC tests — domain/persistence/os-api/github
   # are all off, so TestSecurityService handles STOMP auth and no Elasticsearch is required.
   disableDomain: true
-  disableMcp: true
   disableOsApi: true
   disablePersistence: true
   disableGithub: true
