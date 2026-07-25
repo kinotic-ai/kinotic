@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * A ready-to-serve MCP tool, built once when the service is published to the directory and stored, so it is
@@ -38,7 +38,7 @@ public class McpToolDefinition {
     /**
      * The tool's input schema as a JSON Schema object.
      */
-    private JsonNode inputSchema;
+    private ObjectNode inputSchema;
 
     /**
      * The full CRI of the tool's function, sent as-is to dispatch a call. Null when the tool was loaded for a
