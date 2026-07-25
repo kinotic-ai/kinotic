@@ -57,10 +57,10 @@ public class McpToolInvoker {
                 // a reply landing after its call timed out has no caller left to complete
                 log.debug("Discarding MCP reply with correlation id {}", correlationId);
             } else if (replyEvent.metadata().contains(EventConstants.ERROR_HEADER)) {
-                pending.complete(toolError(replyEvent.metadata().get(EventConstants.ERROR_HEADER)));
+                pending.complete(McpCallToolResult.text(replyEvent.metadata().get(EventConstants.ERROR_HEADER), true));
             } else {
                 byte[] data = replyEvent.data();
-                pending.complete(toolResult(data != null ? new String(data, StandardCharsets.UTF_8) : "null"));
+                pending.complete(McpCallToolResult.text(data != null ? new String(data, StandardCharsets.UTF_8) : "null", false));
             }
         });
         replyConsumer.completion()
@@ -84,7 +84,7 @@ public class McpToolInvoker {
      */
     public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         if (!ready) {
-            return CompletableFuture.completedFuture(toolError("The MCP endpoint is not ready"));
+            return CompletableFuture.completedFuture(McpCallToolResult.text("The MCP endpoint is not ready", true));
         }
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
@@ -126,20 +126,13 @@ public class McpToolInvoker {
                                                    log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
                                                    return null;
                                                });
-                               ret.complete(toolError("Service is offline: " + tool.getCri()));
+                               ret.complete(McpCallToolResult.text("Service is offline: " + tool.getCri(), true));
                            } else {
-                               ret.complete(toolError(throwable.getMessage()));
+                               ret.complete(McpCallToolResult.text(throwable.getMessage(), true));
                            }
                        });
 
         return ret;
     }
 
-    private McpCallToolResult toolResult(String text) {
-        return McpCallToolResult.text(text, false);
-    }
-
-    private McpCallToolResult toolError(String message) {
-        return McpCallToolResult.text(message, true);
-    }
 }
