@@ -5,7 +5,6 @@ import org.kinotic.core.api.crud.Pageable;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,6 +49,17 @@ public interface ServiceDirectoryStrategy {
     CompletableFuture<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
 
     /**
+     * Resolves the online MCP tool with the given name callable by the given scope.
+     * @param toolName the MCP tool name to resolve
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
+     * @return a {@link CompletableFuture} completing with the callable tool carrying the name, or null when none does
+     */
+    CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+                                                           String organizationId,
+                                                           String applicationId);
+
+    /**
      * Returns the entries scoped to the given organization/application. A system scope (both ids null) returns all
      * entries.
      * @param organizationId the organization scope to filter by, or null for the system scope
@@ -57,17 +67,6 @@ public interface ServiceDirectoryStrategy {
      * @param pageable the page settings to use
      * @return a page of entries in the given scope
      */
-    /**
-     * Resolves the online MCP tools with the given name callable by the given scope.
-     * @param toolName the MCP tool name to resolve
-     * @param organizationId the calling scope's organization, or null for a system scope
-     * @param applicationId the calling scope's application, or null
-     * @return a {@link CompletableFuture} completing with every callable tool carrying the name
-     */
-    CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
-                                                                  String organizationId,
-                                                                  String applicationId);
-
     CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                        String applicationId,
                                                                        Pageable pageable);
