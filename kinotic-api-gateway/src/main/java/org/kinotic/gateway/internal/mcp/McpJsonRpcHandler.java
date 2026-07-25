@@ -74,43 +74,46 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private void handlePost(RoutingContext ctx) {
         Map<String, String> authenticationInfo = new HashMap<>();
-        ctx.request().headers().forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
+        ctx.request()
+           .headers()
+           .forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
 
         securityService.authenticate(authenticationInfo)
-              .onSuccess(participant -> handle(ctx.body(), participant)
-                      .onSuccess(response -> {
-                          if (response == null) {
-                              // a notification gets no response body
-                              ctx.response().setStatusCode(202).end();
-                          } else {
-                              ctx.json(response);
-                          }
-                      })
-                      .onFailure(throwable -> {
-                          log.error("MCP request handling failed", throwable);
-                          ctx.response().setStatusCode(500).end();
-                      }))
-              .onFailure(_ -> ctx.response().setStatusCode(401).end());
+                       .onSuccess(participant -> handle(ctx.body(), participant)
+                               .onSuccess(response -> {
+                                   if (response == null) {
+                                       // a notification gets no response body
+                                       ctx.response().setStatusCode(202).end();
+                                   } else {
+                                       ctx.json(response);
+                                   }
+                               })
+                               .onFailure(throwable -> {
+                                   log.error("MCP request handling failed", throwable);
+                                   ctx.response().setStatusCode(500).end();
+                               }))
+                       .onFailure(_ -> ctx.response().setStatusCode(401).end());
     }
 
     // succeeds with null when the request was a notification and no response body must be sent
     private Future<JsonRpcResponse> handle(RequestBody body, Participant participant) {
         JsonRpcRequest request;
         try {
+
             request = body.asPojo(JsonRpcRequest.class);
+
         } catch (DecodeException e) {
             // a StreamReadException cause is malformed JSON; anything else is valid JSON of the
             // wrong shape, including the batch form the MCP spec removed
             return Future.succeededFuture(e.getCause() instanceof StreamReadException
-                    ? JsonRpcResponse.error(null, PARSE_ERROR, "Parse error")
-                    : JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
+                                                  ? JsonRpcResponse.error(null, PARSE_ERROR, "Parse error")
+                                                  : JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
         }
 
         Future<JsonRpcResponse> ret;
-        if (request == null || request.getMethod() == null) {
-            ret = Future.succeededFuture(
-                    JsonRpcResponse.error(request != null ? request.getId() : null, INVALID_REQUEST, "Invalid Request"));
-        } else {
+
+        if (request != null && request.getMethod() != null) {
+
             Object id = request.getId();
             ObjectNode params = request.getParams() != null ? request.getParams() : jsonMapper.createObjectNode();
             ret = switch (request.getMethod()) {
@@ -122,8 +125,14 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                 default -> Future.succeededFuture(
                         JsonRpcResponse.error(id, METHOD_NOT_FOUND, "Method not found: " + request.getMethod()));
             };
+
+        } else {
+            ret = Future.succeededFuture(JsonRpcResponse.error(request != null ? request.getId() : null, INVALID_REQUEST,
+                                                               "Invalid Request"));
         }
+
         return ret;
+
     }
 
     private McpInitializeResult initialize(ObjectNode params) {
@@ -138,61 +147,70 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     }
 
     private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
+
         McpCallerScope scope = McpCallerScope.from(participant);
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
-        // cursor paging per the MCP pagination spec; the id sort keys the search_after the cursor encodes
         Pageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
-        Future<Page<McpToolDefinition>> query;
+
         try {
-            query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable);
+            Future<Page<McpToolDefinition>> query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(),
+                                                                                            scope.applicationId(),
+                                                                                            pageable);
+
+            return query.map(page -> {
+
+                List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
+                for (McpToolDefinition tool : page.getContent()) {
+                    tools.add(new McpToolListing()
+                                      .setName(tool.getToolName())
+                                      .setTitle(tool.getTitle())
+                                      .setDescription(tool.getDescription())
+                                      .setInputSchema(jsonMapper.readTree(tool.getInputSchema()))
+                                      .setAnnotations(new McpToolAnnotations()
+                                                              .setReadOnlyHint(tool.isReadOnlyHint())
+                                                              .setDestructiveHint(tool.isDestructiveHint())
+                                                              .setIdempotentHint(tool.isIdempotentHint())));
+                }
+
+                McpToolsListResult listResult = new McpToolsListResult().setTools(tools);
+                if (page instanceof CursorPage<McpToolDefinition> cursorPage) {
+                    listResult.setNextCursor(cursorPage.getCursor());
+                }
+
+                return JsonRpcResponse.result(id, listResult);
+            });
+
         } catch (Exception e) {
             // an unreadable cursor fails before the search runs; the spec maps invalid cursors to -32602
             return Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "Invalid cursor"));
         }
-        return query.map(page -> {
-            List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
-            for (McpToolDefinition tool : page.getContent()) {
-                tools.add(new McpToolListing()
-                                  .setName(tool.getToolName())
-                                  .setTitle(tool.getTitle())
-                                  .setDescription(tool.getDescription())
-                                  // stored at write time as a JSON string, embedded here as the schema object
-                                  .setInputSchema(jsonMapper.readTree(tool.getInputSchema()))
-                                  .setAnnotations(new McpToolAnnotations()
-                                                          .setReadOnlyHint(tool.isReadOnlyHint())
-                                                          .setDestructiveHint(tool.isDestructiveHint())
-                                                          .setIdempotentHint(tool.isIdempotentHint())));
-            }
-            McpToolsListResult listResult = new McpToolsListResult().setTools(tools);
-            if (page instanceof CursorPage<McpToolDefinition> cursorPage) {
-                listResult.setNextCursor(cursorPage.getCursor());
-            }
-            return JsonRpcResponse.result(id, listResult);
-        });
     }
 
     private Future<JsonRpcResponse> toolsCall(Object id, ObjectNode params, Participant participant) {
+
         Future<JsonRpcResponse> ret;
-        if (!params.path("name").isString()) {
-            ret = Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
-        } else {
+        if (params.path("name").isString()) {
+
             ObjectNode arguments = params.get("arguments") instanceof ObjectNode argumentsNode
                     ? argumentsNode
                     : jsonMapper.createObjectNode();
+
             ret = mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant)
-                        .map(toolResult -> JsonRpcResponse.result(id, toolResult))
-                        .otherwise(throwable -> {
-                            // a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
-                            Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
-                            JsonRpcResponse response;
-                            if (cause instanceof IllegalArgumentException) {
-                                response = JsonRpcResponse.error(id, INVALID_PARAMS, cause.getMessage());
-                            } else {
-                                log.error("tools/call failed", cause);
-                                response = JsonRpcResponse.error(id, INTERNAL_ERROR, "Internal error");
-                            }
-                            return response;
-                        });
+                                .map(toolResult -> JsonRpcResponse.result(id, toolResult))
+                                .otherwise(throwable -> {
+                                    // a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
+                                    Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
+                                    JsonRpcResponse response;
+                                    if (cause instanceof IllegalArgumentException) {
+                                        response = JsonRpcResponse.error(id, INVALID_PARAMS, cause.getMessage());
+                                    } else {
+                                        log.error("tools/call failed", cause);
+                                        response = JsonRpcResponse.error(id, INTERNAL_ERROR, "Internal error");
+                                    }
+                                    return response;
+                                });
+        } else {
+            ret = Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
         }
         return ret;
     }

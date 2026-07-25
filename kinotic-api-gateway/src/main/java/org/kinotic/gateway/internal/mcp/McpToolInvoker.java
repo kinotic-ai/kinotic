@@ -33,25 +33,21 @@ import java.util.concurrent.ConcurrentHashMap;
 @ConditionalOnProperty(value = "kinotic.disableMcp", havingValue = "false", matchIfMissing = true)
 public class McpToolInvoker {
 
-    private final ServiceDirectory serviceDirectory;
     private final EventBusService eventBusService;
     private final JsonMapper jsonMapper;
-
-    // one reply consumer serves every call, with replies matched to callers by correlation id — the same
-    // pattern DefaultRpcServiceProxyHandle uses, since registering a consumer cluster wide is slow
+    private final ConcurrentHashMap<String, Promise<McpCallToolResult>> pendingCalls = new ConcurrentHashMap<>();
     private final CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
                                             UUID.randomUUID().toString(),
                                             "org.kinotic.gateway.McpToolInvoker");
-    private final ConcurrentHashMap<String, Promise<McpCallToolResult>> pendingCalls = new ConcurrentHashMap<>();
-    private EventConsumer replyConsumer;
-    // false until the cluster-wide registration completes, and left false forever if it fails,
-    // which keeps tools/call disabled rather than dropping replies
+    private final ServiceDirectory serviceDirectory;
     private volatile boolean ready = false;
+    private EventConsumer replyConsumer;
 
     @PostConstruct
-    void listenForReplies() {
+    void init() {
         replyConsumer = eventBusService.listen(replyCri);
         replyConsumer.handler(replyEvent -> {
+
             String correlationId = replyEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
             Promise<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
             if (pending == null) {
@@ -70,7 +66,7 @@ public class McpToolInvoker {
     }
 
     @PreDestroy
-    void stopListening() {
+    void shutdown() {
         replyConsumer.unregister();
     }
 
@@ -91,14 +87,14 @@ public class McpToolInvoker {
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
         return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
                                .compose(tool -> {
-                         Future<McpCallToolResult> ret;
-                         if (tool == null) {
-                             ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + toolName));
-                         } else {
-                             ret = dispatch(tool, arguments, participant);
-                         }
-                         return ret;
-                     });
+                                   Future<McpCallToolResult> ret;
+                                   if (tool == null) {
+                                       ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + toolName));
+                                   } else {
+                                       ret = dispatch(tool, arguments, participant);
+                                   }
+                                   return ret;
+                               });
     }
 
     private Future<McpCallToolResult> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
@@ -131,4 +127,6 @@ public class McpToolInvoker {
 
         return ret.future();
     }
+
+
 }
