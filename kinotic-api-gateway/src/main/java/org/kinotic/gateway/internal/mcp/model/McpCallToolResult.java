@@ -23,8 +23,16 @@ public class McpCallToolResult {
     @JsonProperty("isError")
     private boolean error;
 
-    public static McpCallToolResult text(String text, boolean isError) {
-        return new McpCallToolResult().setContent(List.of(new McpContent().setType("text").setText(text)))
-                                      .setError(isError);
+    public static McpCallToolResult text(String text) {
+        return result(text, false);
+    }
+
+    public static McpCallToolResult error(String message) {
+        return result(message, true);
+    }
+
+    private static McpCallToolResult result(String text, boolean error) {
+        return new McpCallToolResult().setContent(List.of(new McpContent().setType(McpContentType.TEXT).setText(text)))
+                                      .setError(error);
     }
 }

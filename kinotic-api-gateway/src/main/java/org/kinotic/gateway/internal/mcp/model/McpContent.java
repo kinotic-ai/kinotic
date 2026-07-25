@@ -14,7 +14,7 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public class McpContent {
 
-    private String type;
+    private McpContentType type;
 
     private String text;
 }

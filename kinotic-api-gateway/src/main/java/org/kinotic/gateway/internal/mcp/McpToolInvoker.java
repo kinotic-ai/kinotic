@@ -54,13 +54,13 @@ public class McpToolInvoker {
             String correlationId = replyEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
             CompletableFuture<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
             if (pending == null) {
-                // a reply landing after its call timed out has no caller left to complete
+                // a reply whose pending entry is gone (its send already failed) has no caller to complete
                 log.debug("Discarding MCP reply with correlation id {}", correlationId);
             } else if (replyEvent.metadata().contains(EventConstants.ERROR_HEADER)) {
-                pending.complete(McpCallToolResult.text(replyEvent.metadata().get(EventConstants.ERROR_HEADER), true));
+                pending.complete(McpCallToolResult.error(replyEvent.metadata().get(EventConstants.ERROR_HEADER)));
             } else {
                 byte[] data = replyEvent.data();
-                pending.complete(McpCallToolResult.text(data != null ? new String(data, StandardCharsets.UTF_8) : "null", false));
+                pending.complete(McpCallToolResult.text(data != null ? new String(data, StandardCharsets.UTF_8) : "null"));
             }
         });
         replyConsumer.completion()
@@ -84,7 +84,7 @@ public class McpToolInvoker {
      */
     public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         if (!ready) {
-            return CompletableFuture.completedFuture(McpCallToolResult.text("The MCP endpoint is not ready", true));
+            return CompletableFuture.completedFuture(McpCallToolResult.error("The MCP endpoint is not ready"));
         }
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
@@ -126,13 +126,12 @@ public class McpToolInvoker {
                                                    log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
                                                    return null;
                                                });
-                               ret.complete(McpCallToolResult.text("Service is offline: " + tool.getCri(), true));
+                               ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
                            } else {
-                               ret.complete(McpCallToolResult.text(throwable.getMessage(), true));
+                               ret.complete(McpCallToolResult.error(throwable.getMessage()));
                            }
                        });
 
         return ret;
     }
-
 }
