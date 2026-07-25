@@ -52,27 +52,25 @@ public class EndpointConnectionHandler {
         this.securityService = services.securityService;
     }
 
-    public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
+    public Future<MultiMap> handshake(RoutingContext routingContext) {
         session = routingContext.session();
         this.connectedInfo = connectedInfoFromSession();
 
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
-            return CompletableFuture.completedFuture(MultiMap.caseInsensitiveMultiMap());
+            return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
         return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
-                              .handle((participant, throwable) -> {
-                                  if(throwable != null){
-                                      if(!(throwable instanceof AuthenticationException)) {
-                                          throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
-                                      }else{
-                                          throw (AuthenticationException) throwable;
-                                      }
-                                  }else {
-                                      return participant;
+                              .recover(throwable -> {
+                                  Throwable cause;
+                                  if(throwable instanceof AuthenticationException){
+                                      cause = throwable;
+                                  }else{
+                                      cause = new AuthenticationException("Could not authenticate with the given credentials", throwable);
                                   }
+                                  return Future.failedFuture(cause);
                               })
-                              .thenApply(participant -> {
+                              .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
                                   if (session != null) {

@@ -41,8 +41,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     @Override
     public Future<MultiMap> handshake(RoutingContext routingContext) {
-        return Future.fromCompletionStage(endpointConnectionHandler.handshake(routingContext),
-                                                                       vertx.getOrCreateContext());
+        return endpointConnectionHandler.handshake(routingContext);
     }
 
     @Override
