@@ -11,9 +11,7 @@ import java.util.concurrent.CompletableFuture;
  * Keeps track of registered service contracts and the MCP tools they expose.
  * <p>
  * {@code kinotic-core} defines this API but ships no implementation: the registration path resolves it optionally,
- * so a standalone core deployment with no implementation bean does nothing at all. The Elasticsearch implementation
- * lives in {@code kinotic-domain}.
- *
+ * so a standalone core deployment with no implementation bean does nothing at all.
  * Created by navid on 2019-06-11.
  */
 public interface ServiceDirectory {
@@ -64,9 +62,9 @@ public interface ServiceDirectory {
                                                                       Pageable pageable);
 
     /**
-     * Resolves the online MCP tools with the given name that the given scope may call, using the same visibility
-     * rules as {@link #findMcpToolsCallableBy}. Tool names are only unique within a service, so more than one
-     * match means the name is ambiguous across services.
+     * Resolves the online MCP tools with the given name that the given scope may call,
+     * using the same visibility ules as {@link #findMcpToolsCallableBy}.
+     * Tool names are only unique within a service, so more than one match means the name is ambiguous across services.
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null

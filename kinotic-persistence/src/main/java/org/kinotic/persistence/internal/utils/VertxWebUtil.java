@@ -68,8 +68,8 @@ public class VertxWebUtil {
      * @return a {@link Pageable} or null if neither a cursor nor page number is present
      */
     public static Pageable getPageableIfExits(RoutingContext ctx,
-                                                                                    boolean createIfOnlySortPresent,
-                                                                                    Class<? extends Pageable> defaultPageableClass){
+                                              boolean createIfOnlySortPresent,
+                                              Class<? extends Pageable> defaultPageableClass){
         Pageable ret = null;
         String sizeString = ctx.request().getParam("size");
         int size = (sizeString != null && !sizeString.isEmpty()) ? Integer.parseInt(sizeString) : 25;
