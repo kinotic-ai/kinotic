@@ -12,6 +12,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.gateway.internal.endpoints.ZoneSendRules;
 import org.kinotic.gateway.internal.mcp.model.McpCallToolResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -98,6 +99,16 @@ public class McpToolInvoker {
     }
 
     private Future<McpCallToolResult> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
+        CRI requestCri = CRI.create(tool.getCri());
+        // defense in depth over the zone visibility filter in findMcpToolByName: the resolved CRI must pass
+        // the same zone send rules StompAuthorizer enforces, so a directory or query defect can never
+        // dispatch across zones — logged as a server fault, answered as an unknown tool
+        if (!ZoneSendRules.from(participant).sendAllowed(requestCri)) {
+            log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
+                      tool.getName(), tool.getCri(), participant.getId());
+            return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));
+        }
+
         String correlationId = UUID.randomUUID().toString();
         Promise<McpCallToolResult> ret = Promise.promise();
         pendingCalls.put(correlationId, ret);
@@ -106,7 +117,7 @@ public class McpToolInvoker {
         metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
         metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
         metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_NAMED_JSON);
-        Event<byte[]> event = Event.create(CRI.create(tool.getCri()),
+        Event<byte[]> event = Event.create(requestCri,
                                            metadata,
                                            jsonMapper.writeValueAsBytes(arguments),
                                            participant);
