@@ -20,8 +20,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Dispatches an MCP {@code tools/call} through the existing RPC path: the tool resolves to its stored CRI, the
@@ -33,8 +31,6 @@ import java.util.concurrent.TimeoutException;
 @RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.disableMcp", havingValue = "false", matchIfMissing = true)
 public class McpToolInvoker {
-
-    private static final long CALL_TIMEOUT_SECONDS = 30;
 
     private final ServiceDirectory serviceDirectory;
     private final EventBusService eventBusService;
@@ -79,7 +75,7 @@ public class McpToolInvoker {
 
     /**
      * Invokes the named tool for the given participant and completes with the MCP {@code tools/call} result node.
-     * Service failures (offline, invocation error, timeout) complete normally with an {@code isError} result; an
+     * Service failures (offline, invocation error) complete normally with an {@code isError} result; an
      * unknown tool completes exceptionally with {@link IllegalArgumentException}.
      * @param toolName the MCP tool name to invoke
      * @param arguments the MCP arguments object, forwarded verbatim to the service
@@ -120,6 +116,8 @@ public class McpToolInvoker {
                                            participant);
         eventBusService.sendWithAck(event)
                        .onFailure(throwable -> {
+                           // a failed send never gets a reply, so its pending entry is removed here
+                           pendingCalls.remove(correlationId);
                            if (throwable instanceof ReplyException replyException
                                    && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
                                // fire-and-forget: reportUnreachable debounces and only writes verified state
@@ -134,17 +132,7 @@ public class McpToolInvoker {
                            }
                        });
 
-        return ret.orTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                  .exceptionally(throwable -> {
-                      if (throwable instanceof TimeoutException) {
-                          return toolError("The tool call timed out after " + CALL_TIMEOUT_SECONDS + " seconds");
-                      }
-                      throw throwable instanceof RuntimeException runtimeException
-                              ? runtimeException
-                              : new IllegalStateException(throwable);
-                  })
-                  // a timed-out or failed call must not leak its pending entry; the remove is idempotent
-                  .whenComplete((result, throwable) -> pendingCalls.remove(correlationId));
+        return ret;
     }
 
     private McpCallToolResult toolResult(String text) {
