@@ -66,7 +66,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
 
-    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,128}$");
+    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]{1,128}$");
 
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
@@ -353,15 +353,14 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Returns the tool name for the function: the service's qualified name and the function name encoded to fit
-     * {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _}, the function is separated by {@code -}). The
-     * qualified name makes the tool name unique system wide, and its zone prefix carries the organization and
-     * application ids for every customer service. Names are minted here, never parsed back apart.
+     * Returns the tool name for the function: {@code <serviceName>.<functionName>} encoded to fit
+     * {@code ^[a-zA-Z0-9_.-]{1,128}$}. Names are minted here, never parsed back apart; a name shared by
+     * services visible to the same caller is answered as ambiguous at resolution time.
      */
     private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
-        String toolName = (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
-                .replaceAll("[^a-zA-Z0-9_-]", "_");
-        // a qualified name deep enough to overflow the 128-char limit must fail loudly, never truncate
+        String toolName = (serviceIdentifier.name() + "." + functionName)
+                .replaceAll("[^a-zA-Z0-9_.-]", "_");
+        // a name long enough to overflow the 128-char limit must fail loudly, never truncate
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
                                                     + "' on service " + serviceIdentifier

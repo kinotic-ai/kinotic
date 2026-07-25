@@ -32,7 +32,8 @@ public interface ServiceDirectory {
 
     /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
-     * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
+     * rules as {@link #findMcpToolsCallableBy}. A name provided by more than one visible service fails the
+     * future rather than resolving to either.
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
