@@ -1,5 +1,7 @@
 package org.kinotic.domain.internal.api.services.iam;
 
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +19,6 @@ import org.springframework.stereotype.Component;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
@@ -54,9 +55,10 @@ public class KinoticSecurityService implements SecurityService {
     private final IamUserService userService;
     private final IamCredentialRepository credentialRepository;
     private final KinoticJwtIssuer jwtIssuer;
+    private final Vertx vertx;
 
     @Override
-    public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
@@ -65,17 +67,19 @@ public class KinoticSecurityService implements SecurityService {
         String applicationId = authInfo.get("applicationId");
 
         if (applicationId != null && organizationId == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException(
+            return Future.failedFuture(new AuthenticationException(
                     "organizationId header is required when applicationId is supplied"));
         }
 
         String authHeader = authInfo.get("Authorization");
 
+        Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            return authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7));
+            ret = authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7));
         } else {
-            return authenticateEmailPassword(organizationId, applicationId, authInfo);
+            ret = authenticateEmailPassword(organizationId, applicationId, authInfo);
         }
+        return ret;
     }
 
     private static Map<String, String> caseInsensitive(Map<String, String> source) {
@@ -89,42 +93,47 @@ public class KinoticSecurityService implements SecurityService {
     /**
      * Authenticates a user via email and password within the target scope.
      */
-    private CompletableFuture<Participant> authenticateEmailPassword(String organizationId,
-                                                                     String applicationId,
-                                                                     Map<String, String> authInfo) {
+    private Future<Participant> authenticateEmailPassword(String organizationId,
+                                                          String applicationId,
+                                                          Map<String, String> authInfo) {
         String email = authInfo.get("clientId");
         String password = authInfo.get("clientSecret");
 
         if (email == null || password == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
+            return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
-        return userService.findByEmail(email, organizationId, applicationId)
-                          .thenCompose(user -> {
-                              if (user == null) {
-                                  return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
-                              }
-                              if (!user.isEnabled()) {
-                                  return CompletableFuture.failedFuture(new AuthenticationException("User account is disabled"));
-                              }
-                              if (user.getAuthType() != AuthType.LOCAL) {
-                                  return CompletableFuture.failedFuture(new AuthenticationException("User is not a local account"));
-                              }
-                              return credentialRepository.findById(user.getId())
-                                                      .thenCompose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
-                          });
+        return Future.fromCompletionStage(userService.findByEmail(email, organizationId, applicationId),
+                                          vertx.getOrCreateContext())
+                     .compose(user -> {
+                         Future<Participant> ret;
+                         if (user == null) {
+                             ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+                         } else if (!user.isEnabled()) {
+                             ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
+                         } else if (user.getAuthType() != AuthType.LOCAL) {
+                             ret = Future.failedFuture(new AuthenticationException("User is not a local account"));
+                         } else {
+                             ret = Future.fromCompletionStage(credentialRepository.findById(user.getId()),
+                                                              vertx.getOrCreateContext())
+                                         .compose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
+                         }
+                         return ret;
+                     });
     }
 
-    private CompletableFuture<Participant> verifyPasswordAndCreateParticipant(IamUser user,
-                                                                              IamCredential credential,
-                                                                              String password) {
+    private Future<Participant> verifyPasswordAndCreateParticipant(IamUser user,
+                                                                   IamCredential credential,
+                                                                   String password) {
+        Future<Participant> ret;
         if (credential == null) {
-            return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
+            ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+        } else if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
+            ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+        } else {
+            ret = Future.succeededFuture(DomainUtil.createParticipant(user));
         }
-        if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
-            return CompletableFuture.failedFuture(new AuthenticationException("Invalid credentials"));
-        }
-        return CompletableFuture.completedFuture(DomainUtil.createParticipant(user));
+        return ret;
     }
 
     /**
@@ -134,42 +143,47 @@ public class KinoticSecurityService implements SecurityService {
      * {@code organizationId} / {@code applicationId} claims that match the auth headers
      * (defense in depth against a JWT for org A being replayed against org B).
      */
-    private CompletableFuture<Participant> authenticateKinoticJwt(String organizationId,
-                                                                  String applicationId,
-                                                                  String token) {
-        CompletableFuture<Participant> result = new CompletableFuture<>();
-        jwtIssuer.authenticate(token)
-                 .onSuccess(user -> {
-                     JsonObject p = user.principal();
-                     String sub = p.getString("sub");
-                     String jwtOrgId = p.getString("organizationId");
-                     String jwtAppId = p.getString("applicationId");
+    private Future<Participant> authenticateKinoticJwt(String organizationId,
+                                                       String applicationId,
+                                                       String token) {
+        return jwtIssuer.authenticate(token)
+                        .recover(err -> Future.failedFuture(
+                                new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
+                        .compose(user -> {
+                            JsonObject p = user.principal();
+                            String sub = p.getString("sub");
+                            String jwtOrgId = p.getString("organizationId");
+                            String jwtAppId = p.getString("applicationId");
 
-                     if (sub == null) {
-                         result.completeExceptionally(new AuthenticationException("JWT missing sub claim"));
-                         return;
-                     }
-                     if (!Objects.equals(organizationId, jwtOrgId) || !Objects.equals(applicationId, jwtAppId)) {
-                         result.completeExceptionally(new AuthenticationException(
-                                 "JWT scope " + describeScope(jwtOrgId, jwtAppId)
-                                         + " does not match auth headers " + describeScope(organizationId, applicationId)));
-                         return;
-                     }
-                     userService.findById(sub).whenComplete((iamUser, err) -> {
-                         if (err != null) {
-                             result.completeExceptionally(new AuthenticationException("User lookup failed", err));
-                         } else if (iamUser == null) {
-                             result.completeExceptionally(new AuthenticationException("No user for sub " + sub));
+                            Future<Participant> ret;
+                            if (sub == null) {
+                                ret = Future.failedFuture(new AuthenticationException("JWT missing sub claim"));
+                            } else if (!Objects.equals(organizationId, jwtOrgId)
+                                    || !Objects.equals(applicationId, jwtAppId)) {
+                                ret = Future.failedFuture(new AuthenticationException(
+                                        "JWT scope " + describeScope(jwtOrgId, jwtAppId)
+                                                + " does not match auth headers " + describeScope(organizationId, applicationId)));
+                            } else {
+                                ret = findEnabledUser(sub);
+                            }
+                            return ret;
+                        });
+    }
+
+    private Future<Participant> findEnabledUser(String sub) {
+        return Future.fromCompletionStage(userService.findById(sub), vertx.getOrCreateContext())
+                     .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
+                     .compose(iamUser -> {
+                         Future<Participant> ret;
+                         if (iamUser == null) {
+                             ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
                          } else if (!iamUser.isEnabled()) {
-                             result.completeExceptionally(new AuthenticationException("User account is disabled"));
+                             ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
                          } else {
-                             result.complete(DomainUtil.createParticipant(iamUser));
+                             ret = Future.succeededFuture(DomainUtil.createParticipant(iamUser));
                          }
+                         return ret;
                      });
-                 })
-                 .onFailure(err -> result.completeExceptionally(
-                         new AuthenticationException("JWT validation failed: " + err.getMessage(), err)));
-        return result;
     }
 
     private static String describeScope(String organizationId, String applicationId) {

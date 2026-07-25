@@ -44,7 +44,7 @@ public class GqlVerticle extends VerticleBase {
         Router router = ApiGatewayUtil.createRouterWithCors(vertx, corsProperties);
 
         if(securityService !=null){
-            router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, securityContext));
         }
 
         router.post(properties.getGraphqlPath() + ":" + ORGANIZATION_PATH_PARAMETER + "/:" + APPLICATION_PATH_PARAMETER)
