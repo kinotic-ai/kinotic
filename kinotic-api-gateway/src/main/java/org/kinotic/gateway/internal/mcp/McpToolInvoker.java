@@ -47,7 +47,9 @@ public class McpToolInvoker {
                                             "org.kinotic.gateway.McpToolInvoker");
     private final ConcurrentHashMap<String, CompletableFuture<McpCallToolResult>> pendingCalls = new ConcurrentHashMap<>();
     private EventConsumer replyConsumer;
-    private CompletableFuture<Void> replyConsumerReady;
+    // false until the cluster-wide registration completes, and left false forever if it fails,
+    // which keeps tools/call disabled rather than dropping replies
+    private volatile boolean ready = false;
 
     @PostConstruct
     void listenForReplies() {
@@ -65,7 +67,9 @@ public class McpToolInvoker {
                 pending.complete(toolResult(data != null ? new String(data, StandardCharsets.UTF_8) : "null"));
             }
         });
-        replyConsumerReady = replyConsumer.completion().toCompletionStage().toCompletableFuture();
+        replyConsumer.completion()
+                     .onSuccess(v -> ready = true)
+                     .onFailure(throwable -> log.error("MCP reply consumer registration failed, tools/call is disabled", throwable));
     }
 
     @PreDestroy
@@ -83,6 +87,9 @@ public class McpToolInvoker {
      * @return a future completing with the {@code tools/call} result node
      */
     public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
+        if (!ready) {
+            return CompletableFuture.completedFuture(toolError("The MCP endpoint is not ready"));
+        }
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
         return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
@@ -103,36 +110,29 @@ public class McpToolInvoker {
         CompletableFuture<McpCallToolResult> ret = new CompletableFuture<>();
         pendingCalls.put(correlationId, ret);
 
-        // already complete after startup; awaiting it only matters for calls racing the initial registration
-        replyConsumerReady.whenComplete((v, registrationFailure) -> {
-            if (registrationFailure != null) {
-                ret.completeExceptionally(registrationFailure);
-            } else {
-                Metadata metadata = Metadata.create();
-                metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
-                metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
-                metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_NAMED_JSON);
-                Event<byte[]> event = Event.create(CRI.create(tool.getCri()),
-                                                   metadata,
-                                                   jsonMapper.writeValueAsBytes(arguments),
-                                                   participant);
-                eventBusService.sendWithAck(event)
-                               .onFailure(throwable -> {
-                                   if (throwable instanceof ReplyException replyException
-                                           && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                       // fire-and-forget: reportUnreachable debounces and only writes verified state
-                                       serviceDirectory.reportUnreachable(tool.getCri())
-                                                       .exceptionally(reportFailure -> {
-                                                           log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
-                                                           return null;
-                                                       });
-                                       ret.complete(toolError("Service is offline: " + tool.getCri()));
-                                   } else {
-                                       ret.complete(toolError(throwable.getMessage()));
-                                   }
-                               });
-            }
-        });
+        Metadata metadata = Metadata.create();
+        metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
+        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+        metadata.put(EventConstants.CONTENT_TYPE_HEADER, EventConstants.CONTENT_TYPE_NAMED_JSON);
+        Event<byte[]> event = Event.create(CRI.create(tool.getCri()),
+                                           metadata,
+                                           jsonMapper.writeValueAsBytes(arguments),
+                                           participant);
+        eventBusService.sendWithAck(event)
+                       .onFailure(throwable -> {
+                           if (throwable instanceof ReplyException replyException
+                                   && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                               // fire-and-forget: reportUnreachable debounces and only writes verified state
+                               serviceDirectory.reportUnreachable(tool.getCri())
+                                               .exceptionally(reportFailure -> {
+                                                   log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
+                                                   return null;
+                                               });
+                               ret.complete(toolError("Service is offline: " + tool.getCri()));
+                           } else {
+                               ret.complete(toolError(throwable.getMessage()));
+                           }
+                       });
 
         return ret.orTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                   .exceptionally(throwable -> {
