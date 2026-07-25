@@ -74,8 +74,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             b.query(termFilter("serviceAddress", serviceAddress));
             b.source(sc -> sc.filter(f -> f.includes("id")));
         }).thenCompose(entry -> entry == null
-                                ? CompletableFuture.completedFuture(null)
-                                : setOnline(entry.getId(), online, when));
+                ? CompletableFuture.completedFuture(null)
+                : setOnline(entry.getId(), online, when));
     }
 
     /**
@@ -88,7 +88,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     List<CompletableFuture<Void>> updates = new ArrayList<>();
                     for (ServiceDirectoryEntry entry : page.getContent()) {
                         boolean desired = entry.getServiceAddress() != null
-                                          && activeAddresses.contains(entry.getServiceAddress());
+                                && activeAddresses.contains(entry.getServiceAddress());
                         if (entry.isOnline() != desired) {
                             updates.add(setOnline(entry.getId(), desired, when));
                         }
@@ -117,8 +117,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * search {@code _source}-filters to the {@code mcpTools} field so contracts never leave Elasticsearch.
      */
     public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                            String applicationId,
-                                                                            Pageable pageable) {
+                                                                             String applicationId,
+                                                                             Pageable pageable) {
         // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
         // appears in directory listings
         Query filter = composeFilter(termFilter("mcpExposed", true),
@@ -177,9 +177,11 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             if (tools.size() > 1) {
                 // minted names are unique system wide, so duplicates mean this index holds corrupted data
                 // needing manual repair; the detail stays in this log and the caller gets a generic failure
-                log.error("MCP tool name '{}' resolved to {} services, the service directory index is corrupted. Provided by: {}",
+                log.error("MCP tool name '{}' resolved to {} services, OrgId {}, AppId {}, the service directory index is corrupted. Provided by: {}",
                           toolName,
                           tools.size(),
+                          organizationId,
+                          applicationId,
                           tools.stream().map(McpToolDefinition::getCri).toList());
                 ret = CompletableFuture.failedFuture(new IllegalStateException("MCP tool resolution failed for '" + toolName + "'"));
             } else {
@@ -210,9 +212,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             ret = null;
         } else {
             List<String> zones = applicationId == null
-                                 ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
-                                 : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
-                                           DomainUtil.APP_API_ZONE);
+                    ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
+                    : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                              DomainUtil.APP_API_ZONE);
             ret = Query.of(q -> q.bool(b -> {
                 for (String zone : zones) {
                     b.should(termFilter("zone", zone));
