@@ -91,7 +91,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                                                   log.error("MCP request handling failed", throwable);
                                                   ctx.response().setStatusCode(500).end();
                                               }))
-              .onFailure(throwable -> ctx.response().setStatusCode(401).end());
+              .onFailure(_ -> ctx.response().setStatusCode(401).end());
     }
 
     // completes with null when the request was a notification and no response body must be sent
