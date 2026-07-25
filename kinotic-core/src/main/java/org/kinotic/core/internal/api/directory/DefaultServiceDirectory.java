@@ -310,12 +310,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                   .setTitle(decorator.getTitle())
                                   .setDescription(decorator.getDescription())
                                   .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
-                                  // the full invocation CRI, so dispatching a call needs no reconstruction
+                                  // the full invocation CRI, so dispatching a call needs no reconstruction;
+                                  // no version: the invoker does not support version-specific routing
                                   .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
                                                      serviceIdentifier.scope(),
                                                      serviceIdentifier.qualifiedName(),
                                                      "/" + function.getName(),
-                                                     serviceIdentifier.version()).raw())
+                                                     null).raw())
                                   .setReadOnlyHint(decorator.isReadOnlyHint())
                                   .setDestructiveHint(decorator.isDestructiveHint())
                                   .setIdempotentHint(decorator.isIdempotentHint()));
