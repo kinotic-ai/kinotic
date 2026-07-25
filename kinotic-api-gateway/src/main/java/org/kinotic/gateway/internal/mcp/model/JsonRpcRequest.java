@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * A single JSON-RPC 2.0 request. The id keeps its wire value (string, number, or null) so responses echo it
- * verbatim.
+ * A single JSON-RPC 2.0 request.
+ *
  */
 @Getter
 @Setter
@@ -18,6 +18,9 @@ public class JsonRpcRequest {
 
     private String jsonrpc;
 
+    /**
+     * The id keeps its wire value (string, number, or null) so responses echo it verbatim.
+     */
     private Object id;
 
     private String method;
