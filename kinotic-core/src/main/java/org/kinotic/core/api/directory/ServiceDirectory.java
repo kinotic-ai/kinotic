@@ -7,7 +7,8 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import io.vertx.core.Future;
 
 /**
- * Keeps track of registered service contracts and the MCP tools they expose.
+ * Keeps track of registered service contracts and the MCP tools they expose. Every returned {@link Future} is
+ * completed on the Vert.x context of the caller.
  * <p>
  * {@code kinotic-core} defines this API but ships no implementation: the registration path resolves it optionally,
  * so a standalone core deployment with no implementation bean does nothing at all.

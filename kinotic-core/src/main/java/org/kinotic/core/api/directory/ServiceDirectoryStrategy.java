@@ -9,8 +9,9 @@ import io.vertx.core.Future;
 
 /**
  * Strategy encapsulating how directory entries are persisted and queried for a particular backend. A concrete
- * strategy owns its backend's data access; all directory behavior (contract conversion, verification, liveness maintenance) is
- * provided by the {@link ServiceDirectory} built over it, whose bean exists only when a strategy bean does.
+ * strategy owns its backend's data access and must complete every returned {@link Future} on the Vert.x context
+ * of the caller; all directory behavior (contract conversion, verification, liveness maintenance) is provided by
+ * the {@link ServiceDirectory} built over it, whose bean exists only when a strategy bean does.
  */
 public interface ServiceDirectoryStrategy {
 
