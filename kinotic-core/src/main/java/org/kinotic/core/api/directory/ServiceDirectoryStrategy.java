@@ -5,7 +5,7 @@ import org.kinotic.core.api.crud.Pageable;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.Future;
 
 /**
  * Strategy encapsulating how directory entries are persisted and queried for a particular backend. A concrete
@@ -17,45 +17,45 @@ public interface ServiceDirectoryStrategy {
     /**
      * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
      * @param entry the entry to upsert
-     * @return a {@link CompletableFuture} completing when the entry is stored
+     * @return a {@link Future} completing when the entry is stored
      */
-    CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry);
+    Future<Void> upsertEntry(ServiceDirectoryEntry entry);
 
     /**
      * Sets the liveness fields of the entry with the given id.
      * @param entryId the entry id
      * @param online the liveness state
      * @param when the time of the state change
-     * @return a {@link CompletableFuture} completing when the entry is updated
+     * @return a {@link Future} completing when the entry is updated
      */
-    CompletableFuture<Void> setOnline(String entryId, boolean online, Instant when);
+    Future<Void> setOnline(String entryId, boolean online, Instant when);
 
     /**
      * Sets the liveness fields of the entry with the given service address.
      * @param serviceAddress the service address of the entry
      * @param online the liveness state
      * @param when the time of the state change
-     * @return a {@link CompletableFuture} completing when the entry is updated
+     * @return a {@link Future} completing when the entry is updated
      */
-    CompletableFuture<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
+    Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
 
     /**
      * Corrects the liveness of every entry against the full set of currently active service addresses: entries
      * whose address is present become online, all others become offline.
      * @param activeAddresses the complete snapshot of service addresses with registered listeners
      * @param when the time of the correction
-     * @return a {@link CompletableFuture} completing when all entries are corrected
+     * @return a {@link Future} completing when all entries are corrected
      */
-    CompletableFuture<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
+    Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
 
     /**
      * Resolves the online MCP tool with the given name callable by the given scope.
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
-     * @return a {@link CompletableFuture} completing with the callable tool carrying the name, or null when none does
+     * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
      */
-    CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+    Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                            String organizationId,
                                                            String applicationId);
 
@@ -67,7 +67,7 @@ public interface ServiceDirectoryStrategy {
      * @param pageable the page settings to use
      * @return a page of entries in the given scope
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+    Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                        String applicationId,
                                                                        Pageable pageable);
 
@@ -78,7 +78,7 @@ public interface ServiceDirectoryStrategy {
      * @param pageable the page settings to use
      * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
      */
-    CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+    Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                       String applicationId,
                                                                       Pageable pageable);
 

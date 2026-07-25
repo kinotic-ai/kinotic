@@ -35,7 +35,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * The stateless MCP server: mounts {@code POST /mcp} on the gateway router, authenticates every request
@@ -143,14 +142,14 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         // cursor paging per the MCP pagination spec; the id sort keys the search_after the cursor encodes
         Pageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
-        CompletableFuture<Page<McpToolDefinition>> query;
+        Future<Page<McpToolDefinition>> query;
         try {
             query = serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable);
         } catch (Exception e) {
             // an unreadable cursor fails before the search runs; the spec maps invalid cursors to -32602
             return Future.succeededFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "Invalid cursor"));
         }
-        return Future.fromCompletionStage(query).map(page -> {
+        return query.map(page -> {
             List<McpToolListing> tools = new ArrayList<>(page.getContent().size());
             for (McpToolDefinition tool : page.getContent()) {
                 tools.add(new McpToolListing()
@@ -183,7 +182,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             ret = mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant)
                         .map(toolResult -> JsonRpcResponse.result(id, toolResult))
                         .otherwise(throwable -> {
-                            // a directory failure crosses fromCompletionStage wrapped in CompletionException; unwrap to the real cause
+                            // a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
                             Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
                             JsonRpcResponse response;
                             if (cause instanceof IllegalArgumentException) {

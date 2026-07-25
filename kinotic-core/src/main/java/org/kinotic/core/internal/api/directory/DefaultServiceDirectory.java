@@ -11,6 +11,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
+import io.vertx.core.Future;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
@@ -44,7 +45,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
@@ -118,12 +118,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
             publishAllToDirectory(Map.of(serviceIdentifier, serviceInterface))
-                    .thenCompose(v -> refreshOnline(serviceIdentifier))
-                    .whenComplete((v, throwable) -> {
-                        if (throwable != null) {
-                            log.error("Failed to register service {} in the directory", serviceIdentifier, throwable);
-                        }
-                    });
+                    .compose(v -> refreshOnline(serviceIdentifier))
+                    .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
 
@@ -135,11 +131,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         refreshOnline(serviceIdentifier)
-                .whenComplete((v, throwable) -> {
-                    if (throwable != null) {
-                        log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable);
-                    }
-                });
+                .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
     }
 
     private void drainStartupRegistrations() {
@@ -153,12 +145,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                publishAllToDirectory(batch).thenCompose(v -> reconcileLiveness())
-                                 .whenComplete((v, throwable) -> {
-                                     if (throwable != null) {
-                                         log.error("Startup directory publish failed", throwable);
-                                     }
-                                 });
+                publishAllToDirectory(batch).compose(v -> reconcileLiveness())
+                                 .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
@@ -179,7 +167,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private CompletableFuture<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
+    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
         NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
@@ -187,7 +175,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             definitionsByQualifiedName.put(definition.getQualifiedName(), definition);
         }
 
-        List<CompletableFuture<Void>> writes = new ArrayList<>();
+        List<Future<Void>> writes = new ArrayList<>();
         for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
             try {
                 // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
@@ -208,35 +196,35 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 log.error("Failed to publish service {} to the directory", registration.getKey(), e);
             }
         }
-        return CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
+        return Future.all(writes).mapEmpty();
     }
 
     @Override
-    public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+    public Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                               String applicationId,
                                                                               Pageable pageable) {
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+    public Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                              String applicationId,
                                                                              Pageable pageable) {
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+    public Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                                   String organizationId,
                                                                   String applicationId) {
         return strategy.findMcpToolByName(toolName, organizationId, applicationId);
     }
 
     @Override
-    public CompletableFuture<Void> reportUnreachable(String cri) {
-        CompletableFuture<Void> ret;
+    public Future<Void> reportUnreachable(String cri) {
+        Future<Void> ret;
         if (reportDebounce.getIfPresent(cri) != null) {
-            ret = CompletableFuture.completedFuture(null);
+            ret = Future.succeededFuture();
         } else {
             reportDebounce.put(cri, Boolean.TRUE);
             // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
@@ -246,33 +234,25 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
+    public Future<Void> verifyLiveness(String serviceAddress) {
         return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnlineByAddress(serviceAddress,
-                                                                                online,
-                                                                                Instant.now()));
+                              .compose(online -> strategy.setOnlineByAddress(serviceAddress, online, Instant.now()));
     }
 
     @Override
-    public CompletableFuture<Void> reconcileLiveness() {
+    public Future<Void> reconcileLiveness() {
         return eventBusService.activeServiceAddresses()
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
+                              .compose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
     }
 
     /**
      * Sets the entry's liveness to the verified cluster-wide registration state.
      */
-    private CompletableFuture<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+    private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
         return eventBusService.isAnybodyListening(serviceIdentifier.cri())
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
-                                                                          online,
-                                                                          Instant.now()));
+                              .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
+                                                                    online,
+                                                                    Instant.now()));
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,

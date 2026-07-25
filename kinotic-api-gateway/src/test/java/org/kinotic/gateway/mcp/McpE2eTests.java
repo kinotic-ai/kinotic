@@ -205,7 +205,7 @@ public class McpE2eTests {
         assertFalse(toolNames(systemClient).stream().anyMatch(name -> name.contains("ITestStreamingService")));
         Page<ServiceDirectoryEntry> entries = serviceDirectory.findEntriesScopedTo(null, null,
                                                                                    Pageable.create(0, 1000, Sort.unsorted()))
-                                                              .join();
+                                                              .await();
         assertTrue(entries.getContent().stream().noneMatch(entry -> entry.getName().equals("ITestStreamingService")));
     }
 
@@ -222,13 +222,13 @@ public class McpE2eTests {
         // one entry per page: the echo entry sorts first by id, the calculator entry follows via the cursor
         Pageable firstPage = Pageable.create(null, 1, Sort.by("id"));
         CursorPage<McpToolDefinition> pageOne = assertInstanceOf(CursorPage.class,
-                serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).join());
+                serviceDirectory.findMcpToolsCallableBy(null, null, firstPage).await());
         assertEquals(List.of(APP_ECHO), pageOne.getContent().stream().map(McpToolDefinition::getToolName).toList());
         assertNotNull(pageOne.getCursor());
 
         Pageable secondPage = Pageable.create(pageOne.getCursor(), 1, Sort.by("id"));
         CursorPage<McpToolDefinition> pageTwo = assertInstanceOf(CursorPage.class,
-                serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).join());
+                serviceDirectory.findMcpToolsCallableBy(null, null, secondPage).await());
         assertEquals(List.of(CALCULATOR_ADD, CALCULATOR_JOIN),
                      pageTwo.getContent().stream().map(McpToolDefinition::getToolName).toList());
     }
@@ -244,9 +244,7 @@ public class McpE2eTests {
                                                          "ITestAppEchoService",
                                                          null,
                                                          "1.0.0"))
-                       .toCompletionStage()
-                       .toCompletableFuture()
-                       .join();
+                       .await();
 
         // the liveness updater verifies the change and flips the entry offline
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->

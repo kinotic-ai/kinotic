@@ -4,7 +4,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
 
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.Future;
 
 /**
  * Keeps track of registered service contracts and the MCP tools they expose.
@@ -42,7 +42,7 @@ public interface ServiceDirectory {
      * @param pageable the page settings to use
      * @return a page of entries in the given scope
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+    Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                        String applicationId,
                                                                        Pageable pageable);
 
@@ -56,7 +56,7 @@ public interface ServiceDirectory {
      * @param pageable the page settings to use
      * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
      */
-    CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
+    Future<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
                                                                       String applicationId,
                                                                       Pageable pageable);
 
@@ -66,9 +66,9 @@ public interface ServiceDirectory {
      * @param toolName the MCP tool name to resolve
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
-     * @return a {@link CompletableFuture} completing with the callable tool carrying the name, or null when none does
+     * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
      */
-    CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+    Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                            String organizationId,
                                                            String applicationId);
 
@@ -77,21 +77,21 @@ public interface ServiceDirectory {
      * Implementations re-check current registrations and correct the liveness state to the verified truth;
      * this is an invalidation trigger, never a blind offline write.
      * @param cri the CRI that could not be reached
-     * @return a {@link CompletableFuture} completing when the report has been accepted
+     * @return a {@link Future} completing when the report has been accepted
      */
-    CompletableFuture<Void> reportUnreachable(String cri);
+    Future<Void> reportUnreachable(String cri);
 
     /**
      * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
      * @param serviceAddress the service address to verify
-     * @return a {@link CompletableFuture} completing when the verified state is stored
+     * @return a {@link Future} completing when the verified state is stored
      */
-    CompletableFuture<Void> verifyLiveness(String serviceAddress);
+    Future<Void> verifyLiveness(String serviceAddress);
 
     /**
      * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
-     * @return a {@link CompletableFuture} completing when all entries are corrected
+     * @return a {@link Future} completing when all entries are corrected
      */
-    CompletableFuture<Void> reconcileLiveness();
+    Future<Void> reconcileLiveness();
 
 }

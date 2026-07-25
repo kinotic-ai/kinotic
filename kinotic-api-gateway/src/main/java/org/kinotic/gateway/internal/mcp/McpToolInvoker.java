@@ -89,8 +89,8 @@ public class McpToolInvoker {
         }
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
-        return Future.fromCompletionStage(serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId()))
-                     .compose(tool -> {
+        return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
+                               .compose(tool -> {
                          Future<McpCallToolResult> ret;
                          if (tool == null) {
                              ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + toolName));
@@ -122,10 +122,7 @@ public class McpToolInvoker {
                                    && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
                                // fire-and-forget: reportUnreachable debounces and only writes verified state
                                serviceDirectory.reportUnreachable(tool.getCri())
-                                               .exceptionally(reportFailure -> {
-                                                   log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure);
-                                                   return null;
-                                               });
+                                               .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure));
                                ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
                            } else {
                                ret.complete(McpCallToolResult.error(throwable.getMessage()));

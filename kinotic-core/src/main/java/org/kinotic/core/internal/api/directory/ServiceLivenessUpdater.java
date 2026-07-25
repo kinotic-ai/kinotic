@@ -100,18 +100,12 @@ public class ServiceLivenessUpdater implements Service {
 
     private void verify(String address) {
         serviceDirectory.verifyLiveness(address)
-                        .exceptionally(throwable -> {
-                            log.error("Failed to write verified liveness for {}", address, throwable);
-                            return null;
-                        });
+                        .onFailure(throwable -> log.error("Failed to write verified liveness for {}", address, throwable));
     }
 
     private void reconcile() {
         serviceDirectory.reconcileLiveness()
-                        .exceptionally(throwable -> {
-                            log.error("Liveness reconciliation failed", throwable);
-                            return null;
-                        });
+                        .onFailure(throwable -> log.error("Liveness reconciliation failed", throwable));
     }
 
 }
