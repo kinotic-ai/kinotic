@@ -54,7 +54,9 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
                 log.trace("Successfully Registered service {}", serviceIdentifier);
             } catch (Exception e) {
+                // A service that is not actually serving must not advertise itself in the directory
                 log.error("Error Registering service {}", serviceIdentifier, e);
+                return;
             }
 
             // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.

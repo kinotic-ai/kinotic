@@ -4,50 +4,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.domain.api.security.ZoneSendRules;
 
 import java.util.LinkedList;
 import java.util.Set;
 
 /**
  * Authorizes STOMP sends and subscriptions for a connected participant against the zones the
- * participant may address. Zones come from the CRI itself, so an un-zoned address is only ever
- * reachable by a participant that may send to any zone.
+ * participant may address.
  */
 @Slf4j
 public class StompAuthorizer {
 
     private static final int MAX_TEMPORARY_GRANTS = 1000;
 
-    private final boolean sendAnyZone;
-    private final Set<String> sendZones;
+    private final ZoneSendRules sendRules;
     private final Set<String> subscribableZones;
     private final String replyToId;
     private final LinkedList<String> temporarySendGrants = new LinkedList<>();
 
-    private StompAuthorizer(boolean sendAnyZone,
-                            Set<String> sendZones,
-                            Set<String> subscribableZones,
-                            String replyToId) {
-        this.sendAnyZone = sendAnyZone;
-        this.sendZones = sendZones;
+    public StompAuthorizer(ZoneSendRules sendRules, Set<String> subscribableZones, String replyToId) {
+        this.sendRules = sendRules;
         this.subscribableZones = subscribableZones;
         this.replyToId = replyToId;
-    }
-
-    /**
-     * An authorizer that may send to every zone, including un-zoned addresses, and subscribe in
-     * the given zones.
-     */
-    public static StompAuthorizer allZoneSender(Set<String> subscribableZones, String replyToId) {
-        return new StompAuthorizer(true, Set.of(), subscribableZones, replyToId);
-    }
-
-    /**
-     * An authorizer restricted to the given zones: sends require a zone in {@code sendZones} and
-     * subscriptions one in {@code subscribableZones}, each matching exactly or as a sub-zone.
-     */
-    public static StompAuthorizer zoneRestricted(Set<String> sendZones, Set<String> subscribableZones, String replyToId) {
-        return new StompAuthorizer(false, sendZones, subscribableZones, replyToId);
     }
 
     /**
@@ -66,15 +45,7 @@ public class StompAuthorizer {
 
     public boolean sendAllowed(CRI cri) {
         Validate.notNull(cri, "The CRI must not be null");
-        boolean ret;
-        if (temporarySendGrants.remove(cri.raw())) {
-            ret = true;
-        } else if (isRoutableScheme(cri.scheme())) {
-            ret = sendAnyZone || zoneAllowed(cri.zone(), sendZones);
-        } else {
-            ret = false;
-        }
-        return ret;
+        return temporarySendGrants.remove(cri.raw()) || sendRules.sendAllowed(cri);
     }
 
     public boolean subscribeAllowed(CRI cri) {
@@ -85,30 +56,10 @@ public class StompAuthorizer {
             // followed by ':' and the subscription discriminator
             String scope = cri.scope();
             ret = scope != null && scope.startsWith(replyToId + ":");
-        } else if (isRoutableScheme(cri.scheme())) {
-            ret = zoneAllowed(cri.zone(), subscribableZones);
+        } else if (ZoneSendRules.isRoutableScheme(cri.scheme())) {
+            ret = ZoneSendRules.zoneAllowed(cri.zone(), subscribableZones);
         } else {
             ret = false;
-        }
-        return ret;
-    }
-
-    // only srv addresses route through the gateway; stream routing is not yet supported
-    private static boolean isRoutableScheme(String scheme) {
-        return EventConstants.SERVICE_DESTINATION_SCHEME.equals(scheme);
-    }
-
-    // A zone is allowed when it is an allowed zone or a sub-zone of one; the dot boundary keeps
-    // 'app.acme-org.orders-app-2' from matching 'app.acme-org.orders-app'
-    private static boolean zoneAllowed(String zone, Set<String> allowedZones) {
-        boolean ret = false;
-        if (zone != null) {
-            for (String allowed : allowedZones) {
-                if (zone.equals(allowed) || zone.startsWith(allowed + ".")) {
-                    ret = true;
-                    break;
-                }
-            }
         }
         return ret;
     }

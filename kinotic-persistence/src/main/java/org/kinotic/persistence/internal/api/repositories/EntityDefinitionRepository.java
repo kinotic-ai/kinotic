@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -14,9 +13,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class EntityDefinitionRepository extends AbstractProjectScopedRepository<EntityDefinition> {
 
-    public EntityDefinitionRepository(ElasticsearchAsyncClient esAsyncClient,
-                                      CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_entity_definition", EntityDefinition.class, esAsyncClient, crudServiceTemplate);
+    public EntityDefinitionRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_entity_definition", EntityDefinition.class, crudServiceTemplate);
     }
 
     public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(String applicationId,

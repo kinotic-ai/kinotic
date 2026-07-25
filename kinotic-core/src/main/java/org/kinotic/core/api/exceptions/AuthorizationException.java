@@ -4,7 +4,7 @@ package org.kinotic.core.api.exceptions;
  * Represents an error during authorization.
  * Created by Navíd Mitchell 🤪on 7/11/23.
  */
-public class AuthorizationException extends ContinuumException{
+public class AuthorizationException extends KinoticException {
 
     public AuthorizationException() {
     }

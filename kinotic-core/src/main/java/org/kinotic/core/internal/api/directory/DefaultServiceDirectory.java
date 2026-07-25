@@ -5,19 +5,26 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.McpToolAnnotations;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
+import io.vertx.core.Future;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
@@ -41,7 +48,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 
 /**
@@ -60,8 +66,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
 
-    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,128}$");
+    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]{1,128}$");
 
+    // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
     private final EventBusService eventBusService;
     private final SchemaFactory schemaFactory;
@@ -114,12 +121,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
             publishAllToDirectory(Map.of(serviceIdentifier, serviceInterface))
-                    .thenCompose(v -> refreshOnline(serviceIdentifier))
-                    .whenComplete((v, throwable) -> {
-                        if (throwable != null) {
-                            log.error("Failed to register service {} in the directory", serviceIdentifier, throwable);
-                        }
-                    });
+                    .compose(v -> refreshOnline(serviceIdentifier))
+                    .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
 
@@ -131,11 +134,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         // this node leaving says nothing about other instances of the service — verify, never
         // write offline blindly
         refreshOnline(serviceIdentifier)
-                .whenComplete((v, throwable) -> {
-                    if (throwable != null) {
-                        log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable);
-                    }
-                });
+                .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
     }
 
     private void drainStartupRegistrations() {
@@ -149,12 +148,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                publishAllToDirectory(batch).thenCompose(v -> reconcileLiveness())
-                                 .whenComplete((v, throwable) -> {
-                                     if (throwable != null) {
-                                         log.error("Startup directory publish failed", throwable);
-                                     }
-                                 });
+                publishAllToDirectory(batch).compose(v -> reconcileLiveness())
+                                            .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
             }
@@ -175,7 +170,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private CompletableFuture<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
+    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
         NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
@@ -183,7 +178,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             definitionsByQualifiedName.put(definition.getQualifiedName(), definition);
         }
 
-        List<CompletableFuture<Void>> writes = new ArrayList<>();
+        List<Future<Void>> writes = new ArrayList<>();
         for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
             try {
                 // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
@@ -204,28 +199,35 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 log.error("Failed to publish service {} to the directory", registration.getKey(), e);
             }
         }
-        return CompletableFuture.allOf(writes.toArray(new CompletableFuture[0]));
+        return Future.all(writes).mapEmpty();
     }
 
     @Override
-    public CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
-                                                                              String applicationId,
-                                                                              Pageable pageable) {
+    public Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+                                                                   String applicationId,
+                                                                   Pageable pageable) {
         return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                             String applicationId,
-                                                                             Pageable pageable) {
+    public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                                String applicationId,
+                                                                CursorPageable pageable) {
         return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Void> reportUnreachable(String cri) {
-        CompletableFuture<Void> ret;
+    public Future<McpToolDefinition> findMcpToolByName(String toolName,
+                                                       String organizationId,
+                                                       String applicationId) {
+        return strategy.findMcpToolByName(toolName, organizationId, applicationId);
+    }
+
+    @Override
+    public Future<Void> reportUnreachable(String cri) {
+        Future<Void> ret;
         if (reportDebounce.getIfPresent(cri) != null) {
-            ret = CompletableFuture.completedFuture(null);
+            ret = Future.succeededFuture();
         } else {
             reportDebounce.put(cri, Boolean.TRUE);
             // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
@@ -235,33 +237,25 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
+    public Future<Void> verifyLiveness(String serviceAddress) {
         return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnlineByAddress(serviceAddress,
-                                                                                online,
-                                                                                Instant.now()));
+                              .compose(online -> strategy.setOnlineByAddress(serviceAddress, online, Instant.now()));
     }
 
     @Override
-    public CompletableFuture<Void> reconcileLiveness() {
+    public Future<Void> reconcileLiveness() {
         return eventBusService.activeServiceAddresses()
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
+                              .compose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
     }
 
     /**
      * Sets the entry's liveness to the verified cluster-wide registration state.
      */
-    private CompletableFuture<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+    private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
         return eventBusService.isAnybodyListening(serviceIdentifier.cri())
-                              .toCompletionStage()
-                              .toCompletableFuture()
-                              .thenCompose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
-                                                                          online,
-                                                                          Instant.now()));
+                              .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
+                                                                    online,
+                                                                    Instant.now()));
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
@@ -277,26 +271,39 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
             if (decorator != null) {
 
-                if (function.getReturnType() instanceof StreamC3Type) {
+                // A CompletableFuture<Flux<T>> converts to AsyncC3Type(StreamC3Type), so the stream
+                // check must look through the async wrapper at the resolved value type
+                C3Type returnType = function.getReturnType();
+                if (returnType instanceof AsyncC3Type asyncC3Type) {
+                    returnType = asyncC3Type.getValueType();
+                }
+                if (returnType instanceof StreamC3Type) {
                     throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
 
-                String toolName = toolName(serviceIdentifier, function.getName(), decorator);
+                String toolName = toolName(serviceIdentifier, function.getName());
                 if (!toolNames.add(toolName)) {
                     throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
                                                             + serviceIdentifier);
                 }
 
                 tools.add(new McpToolDefinition()
-                                  .setToolName(toolName)
+                                  .setName(toolName)
+                                  .setTitle(decorator.getTitle())
                                   .setDescription(decorator.getDescription())
                                   .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
-                                  .setCri(serviceIdentifier.cri().raw())
-                                  .setFunctionName(function.getName())
-                                  .setReadOnlyHint(decorator.isReadOnlyHint())
-                                  .setDestructiveHint(decorator.isDestructiveHint())
-                                  .setIdempotentHint(decorator.isIdempotentHint()));
+                                  // the full invocation CRI, so dispatching a call needs no reconstruction;
+                                  // no version: the invoker does not support version-specific routing
+                                  .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                                     serviceIdentifier.scope(),
+                                                     serviceIdentifier.qualifiedName(),
+                                                     "/" + function.getName(),
+                                                     null).raw())
+                                  .setAnnotations(new McpToolAnnotations()
+                                                          .setReadOnlyHint(decorator.isReadOnlyHint())
+                                                          .setDestructiveHint(decorator.isDestructiveHint())
+                                                          .setIdempotentHint(decorator.isIdempotentHint())));
             }
         }
 
@@ -346,20 +353,19 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Returns the tool name for the function: the decorator's explicit name when given, otherwise the service's
-     * qualified name and the function name encoded to fit {@code ^[a-zA-Z0-9_-]{1,128}$} (dots become {@code _},
-     * the function is separated by {@code -}). Names are minted here, never parsed back apart.
+     * Returns the tool name for the function: the service's qualified name (with {@code ~} as {@code .}) plus
+     * the function, encoded to fit {@code ^[a-zA-Z0-9_.-]{1,128}$}. The qualified name makes the tool name
+     * unique system wide; {@code title} carries the human-readable display name. Names are minted here, never
+     * parsed back apart.
      */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName, McpToolC3Decorator decorator) {
-        // an explicit name is used verbatim and rejected when invalid, never silently sanitized
-        String toolName = decorator.getName() == null || decorator.getName().isEmpty()
-                          ? (serviceIdentifier.qualifiedName().replace('.', '_') + "-" + functionName)
-                                  .replaceAll("[^a-zA-Z0-9_-]", "_")
-                          : decorator.getName();
+    private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
+        String toolName = (serviceIdentifier.qualifiedName().replace('~', '.') + "." + functionName)
+                .replaceAll("[^a-zA-Z0-9_.-]", "_");
+        // a name long enough to overflow the 128-char limit must fail loudly, never truncate
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
-                                            + "' on service " + serviceIdentifier
-                                            + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
+                                                    + "' on service " + serviceIdentifier
+                                                    + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
         }
         return toolName;
     }

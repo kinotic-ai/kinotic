@@ -1,13 +1,12 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,9 +14,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class IamUserRepository extends AbstractRepository<IamUser> {
 
-    public IamUserRepository(ElasticsearchAsyncClient esAsyncClient,
-                             CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_iam_user", IamUser.class, esAsyncClient, crudServiceTemplate);
+    public IamUserRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_iam_user", IamUser.class, crudServiceTemplate);
     }
 
     public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {

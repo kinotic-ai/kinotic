@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.workload.Workload;
@@ -12,9 +11,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class WorkloadRepository extends AbstractRepository<Workload> {
 
-    public WorkloadRepository(ElasticsearchAsyncClient esAsyncClient,
-                              CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_workload", Workload.class, esAsyncClient, crudServiceTemplate);
+    public WorkloadRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_workload", Workload.class, crudServiceTemplate);
     }
 
     public CompletableFuture<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {

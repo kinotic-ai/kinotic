@@ -1,10 +1,13 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.crud.CursorPage;
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
 import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -23,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
  * Built on the unscoped {@link AbstractRepository} because system entries have no organization to route by; scope is
  * applied explicitly in the queries here.
  */
+@Slf4j
 @Component
 public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
 
@@ -30,12 +34,14 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // services today; page through it once customer contracts (which could reach 100k) start landing.
     private static final int RECONCILE_PAGE_SIZE = 10_000;
 
+    // a name resolution matches at most a handful of entries; more than this only under pathological collision
+    private static final int RESOLUTION_PAGE_SIZE = 25;
+
     private final ObjectMapper objectMapper;
 
-    public ServiceDirectoryEntryRepository(ElasticsearchAsyncClient esAsyncClient,
-                                           CrudServiceTemplate crudServiceTemplate,
+    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
                                            ObjectMapper objectMapper) {
-        super("kinotic_service_directory", ServiceDirectoryEntry.class, esAsyncClient, crudServiceTemplate);
+        super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
         this.objectMapper = objectMapper;
     }
 
@@ -48,12 +54,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
         partial.remove("online");
         partial.remove("lastStatusChange");
-        return esAsyncClient.update(u -> u.index(indexName)
-                                          .id(entry.getId())
-                                          .doc(partial)
-                                          .docAsUpsert(true),
-                                    ServiceDirectoryEntry.class)
-                            .thenApply(response -> null);
+        return crudServiceTemplate.partialUpdate(indexName, entry.getId(), partial, true);
     }
 
     /**
@@ -61,9 +62,10 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * {@code lastStatusChange}.
      */
     public CompletableFuture<Void> setOnline(String entryId, boolean online, Instant when) {
-        Map<String, Object> partial = Map.of("online", online, "lastStatusChange", when);
-        return esAsyncClient.update(u -> u.index(indexName).id(entryId).doc(partial), ServiceDirectoryEntry.class)
-                            .thenApply(response -> null);
+        return crudServiceTemplate.partialUpdate(indexName,
+                                                 entryId,
+                                                 Map.of("online", online, "lastStatusChange", when),
+                                                 false);
     }
 
     /**
@@ -74,8 +76,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             b.query(termFilter("serviceAddress", serviceAddress));
             b.source(sc -> sc.filter(f -> f.includes("id")));
         }).thenCompose(entry -> entry == null
-                                ? CompletableFuture.completedFuture(null)
-                                : setOnline(entry.getId(), online, when));
+                ? CompletableFuture.completedFuture(null)
+                : setOnline(entry.getId(), online, when));
     }
 
     /**
@@ -88,7 +90,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     List<CompletableFuture<Void>> updates = new ArrayList<>();
                     for (ServiceDirectoryEntry entry : page.getContent()) {
                         boolean desired = entry.getServiceAddress() != null
-                                          && activeAddresses.contains(entry.getServiceAddress());
+                                && activeAddresses.contains(entry.getServiceAddress());
                         if (entry.isOnline() != desired) {
                             updates.add(setOnline(entry.getId(), desired, when));
                         }
@@ -116,17 +118,18 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * Returns the online MCP tools a caller in the given scope may call, flattened from the matching entries. The
      * search {@code _source}-filters to the {@code mcpTools} field so contracts never leave Elasticsearch.
      */
-    public CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                            String applicationId,
-                                                                            Pageable pageable) {
-        // advertised is NOT filtered on: a service exposing MCP tools is callable whether or not it also
-        // appears in directory listings
+    public CompletableFuture<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                                           String applicationId,
+                                                                           CursorPageable pageable) {
+        // a service exposing MCP tools is callable whether or not it also is "advertised" see @Publish
         Query filter = composeFilter(termFilter("mcpExposed", true),
                                      termFilter("online", true),
                                      zoneVisibilityFilter(organizationId, applicationId));
+
         return findAll(pageable, b -> {
             b.query(filter);
-            b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
+            // cri is used for service invocation, must never be served in a listing, so we filter it
+            b.source(sc -> sc.filter(f -> f.includes("mcpTools").excludes("mcpTools.cri")));
         }).thenApply(page -> {
             List<McpToolDefinition> tools = new ArrayList<>();
             for (ServiceDirectoryEntry entry : page.getContent()) {
@@ -134,8 +137,56 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     tools.addAll(entry.getMcpTools());
                 }
             }
-            // total is the matching-entry count; tool-level totals would require a second aggregation (YAGNI for v1)
-            return new Page<>(tools, page.getTotalElements());
+            // the cursor tracks ENTRIES, so a short entry page is the last page and returns no cursor
+            String nextCursor = page instanceof CursorPage<ServiceDirectoryEntry> cursorPage
+                    && page.getContent().size() == pageable.getPageSize()
+                    ? cursorPage.getCursor()
+                    : null;
+            return new McpToolDefinitionList().setTools(tools).setNextCursor(nextCursor);
+        });
+    }
+
+    /**
+     * Resolves the online MCP tool with the given name callable by the given scope, completing with {@code null}
+     * when no callable tool carries the name. The term on {@code mcpTools.name} narrows to entries carrying
+     * the name; the entry may hold other tools, so the flattening keeps only the matching ones.
+     */
+    public CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+                                                                  String organizationId,
+                                                                  String applicationId) {
+        Query filter = composeFilter(termFilter("mcpTools.name", toolName),
+                                     termFilter("mcpExposed", true),
+                                     termFilter("online", true),
+                                     zoneVisibilityFilter(organizationId, applicationId));
+        return findAll(Pageable.ofSize(RESOLUTION_PAGE_SIZE), b -> {
+            b.query(filter);
+            b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
+        }).thenCompose(page -> {
+            List<McpToolDefinition> tools = new ArrayList<>();
+            for (ServiceDirectoryEntry entry : page.getContent()) {
+                if (entry.getMcpTools() != null) {
+                    for (McpToolDefinition tool : entry.getMcpTools()) {
+                        if (tool.getName().equals(toolName)) {
+                            tools.add(tool);
+                        }
+                    }
+                }
+            }
+            CompletableFuture<McpToolDefinition> ret;
+            if (tools.size() > 1) {
+                // minted names are unique system wide, so duplicates mean this index holds corrupted data
+                // needing manual repair; the detail stays in this log and the caller gets a generic failure
+                log.error("MCP tool name '{}' resolved to {} services, OrgId {}, AppId {}, the service directory index is corrupted. Provided by: {}",
+                          toolName,
+                          tools.size(),
+                          organizationId,
+                          applicationId,
+                          tools.stream().map(McpToolDefinition::getCri).toList());
+                ret = CompletableFuture.failedFuture(new IllegalStateException("MCP tool resolution failed for '" + toolName + "'"));
+            } else {
+                ret = CompletableFuture.completedFuture(tools.isEmpty() ? null : tools.getFirst());
+            }
+            return ret;
         });
     }
 
@@ -160,9 +211,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             ret = null;
         } else {
             List<String> zones = applicationId == null
-                                 ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
-                                 : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
-                                           DomainUtil.APP_API_ZONE);
+                    ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
+                    : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
+                              DomainUtil.APP_API_ZONE);
             ret = Query.of(q -> q.bool(b -> {
                 for (String zone : zones) {
                     b.should(termFilter("zone", zone));

@@ -1,6 +1,5 @@
 package org.kinotic.persistence.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.repositories.AbstractProjectScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -12,11 +11,9 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class NamedQueriesDefinitionRepository extends AbstractProjectScopedRepository<NamedQueriesDefinition> {
 
-    public NamedQueriesDefinitionRepository(ElasticsearchAsyncClient esAsyncClient,
-                                            CrudServiceTemplate crudServiceTemplate) {
+    public NamedQueriesDefinitionRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_named_query_service_definition",
               NamedQueriesDefinition.class,
-              esAsyncClient,
               crudServiceTemplate);
     }
 

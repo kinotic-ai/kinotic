@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.model.RefreshToken;
@@ -13,9 +12,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
 
-    public RefreshTokenRepository(ElasticsearchAsyncClient esAsyncClient,
-                                  CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_refresh_token", RefreshToken.class, esAsyncClient, crudServiceTemplate);
+    public RefreshTokenRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_refresh_token", RefreshToken.class, crudServiceTemplate);
     }
 
     /** Finds the token whose plaintext hashes to {@code tokenHash}, or {@code null} if none matches. */

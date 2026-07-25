@@ -7,8 +7,8 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
-import org.kinotic.idl.api.annotations.Name;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
@@ -101,7 +101,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                functionDefinition.addParameter(getName(methodParameter), c3Type);
+                functionDefinition.addParameter(IdlUtil.parameterName(methodParameter), c3Type);
             }
 
             functionDefinition.setName(method.getName());
@@ -109,7 +109,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
             McpTool mcpTool = method.getAnnotation(McpTool.class);
             if(mcpTool != null){
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setName(mcpTool.name().isEmpty() ? null : mcpTool.name())
+                        .setTitle(mcpTool.title().isEmpty() ? null : mcpTool.title())
                         .setDescription(mcpTool.description())
                         .setReadOnlyHint(mcpTool.readOnlyHint())
                         .setDestructiveHint(mcpTool.destructiveHint())
@@ -121,17 +121,6 @@ public class DefaultSchemaFactory implements SchemaFactory {
         }, ReflectionUtils.USER_DECLARED_METHODS);
 
         return serviceDefinition;
-    }
-
-    private String getName(MethodParameter methodParameter){
-        String ret;
-        Name nameAnnotation = methodParameter.getParameterAnnotation(Name.class);
-        if(nameAnnotation != null){
-            ret = nameAnnotation.value();
-        }else{
-            ret = methodParameter.getParameter().getName();
-        }
-        return ret;
     }
 
 }

@@ -3,11 +3,11 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
+import org.kinotic.domain.api.security.ZoneSendRules;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -32,51 +32,21 @@ public class StompAuthorizerFactory {
         Validate.notEmpty(connectedInfo.getReplyToId(), "replyToId must not be empty");
 
         Participant participant = connectedInfo.getParticipant();
-        StompAuthorizer ret;
+        ZoneSendRules sendRules = ZoneSendRules.from(participant);
+
+        Set<String> subscribableZones;
         if (participant instanceof SystemParticipant) {
             // os-api and app-api are hosted in-process only, so no connection may ever subscribe
             // to them; the system zone stays subscribable for the vm-manager nodes that host there
-            ret = StompAuthorizer.allZoneSender(Set.of(DomainUtil.SYSTEM_ZONE),
-                                                connectedInfo.getReplyToId());
-
-        } else if (participant instanceof ApplicationParticipant applicationParticipant) {
-            // appZone validates the ids, so an id that could shift the zone's label structure
-            // fails the connection instead of widening access
-            String appZone = appZone(applicationParticipant.getOrganizationId(),
-                                     applicationParticipant.getApplicationId());
-            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.APP_API_ZONE, appZone),
-                                                 Set.of(),
-                                                 connectedInfo.getReplyToId());
-
-        } else if (participant instanceof OrganizationParticipant organizationParticipant) {
-            // the organization id becomes a zone label, so it is validated the same way
-            ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
-            String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
-            ret = StompAuthorizer.zoneRestricted(Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
-                                                 Set.of(orgAppsZone),
-                                                 connectedInfo.getReplyToId());
-
+            subscribableZones = Set.of(DomainUtil.SYSTEM_ZONE);
+        } else if (participant instanceof ApplicationParticipant) {
+            subscribableZones = Set.of();
         } else {
-            throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
-                                                       + ", no zone routing rules exist for it");
+            // ZoneSendRules.from rejected every other type, so this is an OrganizationParticipant
+            subscribableZones = Set.of(DomainUtil.APP_ZONE_PREFIX + "."
+                                               + ((OrganizationParticipant) participant).getOrganizationId());
         }
-        return ret;
-    }
-
-    /**
-     * Builds the zone that all of an application's services live in
-     *
-     * @param organizationId the id of the organization that owns the application
-     * @param applicationId the id of the application
-     * @return the application zone, app.&lt;organizationId&gt;.&lt;applicationId&gt;
-     */
-    private String appZone(String organizationId, String applicationId) {
-        // Each id must be a single dot-free label: a dot inside an id would shift the
-        // app.<organizationId>.<applicationId> label structure, letting one (org, app) pair
-        // produce the same zone as a different pair plus a sub zone
-        ZoneUtil.validateLabel(organizationId);
-        ZoneUtil.validateLabel(applicationId);
-        return DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId;
+        return new StompAuthorizer(sendRules, subscribableZones, connectedInfo.getReplyToId());
     }
 
 }
