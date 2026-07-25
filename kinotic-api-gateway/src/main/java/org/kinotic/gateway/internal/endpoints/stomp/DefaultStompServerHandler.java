@@ -4,7 +4,6 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Vertx;
 import io.vertx.ext.stomp.lite.AbstractStompServerHandler;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
@@ -27,14 +26,11 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultStompServerHandler.class);
 
-    private final Vertx vertx;
     private final EndpointConnectionHandler endpointConnectionHandler;
     private final JsonMapper jsonMapper;
 
 
-    public DefaultStompServerHandler(Vertx vertx,
-                                     Services services) {
-        this.vertx = vertx;
+    public DefaultStompServerHandler(Services services) {
         this.endpointConnectionHandler = new EndpointConnectionHandler(services);
         this.jsonMapper = services.jsonMapper;
     }
@@ -46,8 +42,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     @Override
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {
-        return Future.fromCompletionStage(endpointConnectionHandler.connect(connectHeaders),
-                                          vertx.getOrCreateContext());
+        return endpointConnectionHandler.connect(connectHeaders);
     }
 
     @Override
