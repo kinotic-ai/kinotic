@@ -180,10 +180,10 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             ObjectNode arguments = params.get("arguments") instanceof ObjectNode argumentsNode
                     ? argumentsNode
                     : jsonMapper.createObjectNode();
-            ret = Future.fromCompletionStage(mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant))
+            ret = mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant)
                         .map(toolResult -> JsonRpcResponse.result(id, toolResult))
                         .otherwise(throwable -> {
-                            // a CompletionException from the invoker's composed stages carries the real failure as its cause
+                            // a directory failure crosses fromCompletionStage wrapped in CompletionException; unwrap to the real cause
                             Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
                             JsonRpcResponse response;
                             if (cause instanceof IllegalArgumentException) {

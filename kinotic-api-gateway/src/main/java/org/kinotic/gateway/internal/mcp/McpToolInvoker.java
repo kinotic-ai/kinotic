@@ -1,5 +1,7 @@
 package org.kinotic.gateway.internal.mcp;
 
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.eventbus.ReplyException;
 import io.vertx.core.eventbus.ReplyFailure;
 import jakarta.annotation.PostConstruct;
@@ -18,7 +20,6 @@ import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -41,7 +42,7 @@ public class McpToolInvoker {
     private final CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
                                             UUID.randomUUID().toString(),
                                             "org.kinotic.gateway.McpToolInvoker");
-    private final ConcurrentHashMap<String, CompletableFuture<McpCallToolResult>> pendingCalls = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Promise<McpCallToolResult>> pendingCalls = new ConcurrentHashMap<>();
     private EventConsumer replyConsumer;
     // false until the cluster-wide registration completes, and left false forever if it fails,
     // which keeps tools/call disabled rather than dropping replies
@@ -52,7 +53,7 @@ public class McpToolInvoker {
         replyConsumer = eventBusService.listen(replyCri);
         replyConsumer.handler(replyEvent -> {
             String correlationId = replyEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-            CompletableFuture<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
+            Promise<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
             if (pending == null) {
                 // a reply whose pending entry is gone (its send already failed) has no caller to complete
                 log.debug("Discarding MCP reply with correlation id {}", correlationId);
@@ -76,34 +77,33 @@ public class McpToolInvoker {
     /**
      * Invokes the named tool for the given participant and completes with the MCP {@code tools/call} result node.
      * Service failures (offline, invocation error) complete normally with an {@code isError} result; an
-     * unknown tool completes exceptionally with {@link IllegalArgumentException}.
+     * unknown tool fails the future with {@link IllegalArgumentException}.
      * @param toolName the MCP tool name to invoke
      * @param arguments the MCP arguments object, forwarded verbatim to the service
      * @param participant the authenticated caller, propagated as the event sender
      * @return a future completing with the {@code tools/call} result node
      */
-    public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
+    public Future<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         if (!ready) {
-            return CompletableFuture.completedFuture(McpCallToolResult.error("The MCP endpoint is not ready"));
+            return Future.succeededFuture(McpCallToolResult.error("The MCP endpoint is not ready"));
         }
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
-        return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
-                               .thenCompose(tool -> {
-                                   CompletableFuture<McpCallToolResult> ret;
-                                   if (tool == null) {
-                                       ret = CompletableFuture.failedFuture(
-                                               new IllegalArgumentException("Unknown tool: " + toolName));
-                                   } else {
-                                       ret = dispatch(tool, arguments, participant);
-                                   }
-                                   return ret;
-                               });
+        return Future.fromCompletionStage(serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId()))
+                     .compose(tool -> {
+                         Future<McpCallToolResult> ret;
+                         if (tool == null) {
+                             ret = Future.failedFuture(new IllegalArgumentException("Unknown tool: " + toolName));
+                         } else {
+                             ret = dispatch(tool, arguments, participant);
+                         }
+                         return ret;
+                     });
     }
 
-    private CompletableFuture<McpCallToolResult> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
+    private Future<McpCallToolResult> dispatch(McpToolDefinition tool, ObjectNode arguments, Participant participant) {
         String correlationId = UUID.randomUUID().toString();
-        CompletableFuture<McpCallToolResult> ret = new CompletableFuture<>();
+        Promise<McpCallToolResult> ret = Promise.promise();
         pendingCalls.put(correlationId, ret);
 
         Metadata metadata = Metadata.create();
@@ -132,6 +132,6 @@ public class McpToolInvoker {
                            }
                        });
 
-        return ret;
+        return ret.future();
     }
 }
