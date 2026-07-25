@@ -4,11 +4,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ObjectNode;
 
 /**
- * A single JSON-RPC 2.0 request. The id keeps its wire type so responses echo it verbatim.
+ * A single JSON-RPC 2.0 request. The id keeps its wire value (string, number, or null) so responses echo it
+ * verbatim.
  */
 @Getter
 @Setter
@@ -18,7 +18,7 @@ public class JsonRpcRequest {
 
     private String jsonrpc;
 
-    private JsonNode id;
+    private Object id;
 
     private String method;
 

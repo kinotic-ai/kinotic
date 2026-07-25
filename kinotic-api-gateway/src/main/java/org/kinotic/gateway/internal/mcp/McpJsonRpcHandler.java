@@ -1,6 +1,8 @@
 package org.kinotic.gateway.internal.mcp;
 
 import io.vertx.core.Future;
+import io.vertx.core.json.DecodeException;
+import io.vertx.ext.web.RequestBody;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -24,9 +26,7 @@ import org.kinotic.gateway.internal.mcp.model.McpToolListing;
 import org.kinotic.gateway.internal.mcp.model.McpToolsListResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
-import tools.jackson.core.JacksonException;
 import tools.jackson.core.exc.StreamReadException;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
@@ -78,15 +78,13 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         ctx.request().headers().forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
 
         Future.fromCompletionStage(securityService.authenticate(authenticationInfo))
-              .onSuccess(participant -> Future.fromCompletionStage(handle(ctx.body().asString(), participant))
+              .onSuccess(participant -> Future.fromCompletionStage(handle(ctx.body(), participant))
                                               .onSuccess(response -> {
                                                   if (response == null) {
                                                       // a notification gets no response body
                                                       ctx.response().setStatusCode(202).end();
                                                   } else {
-                                                      ctx.response()
-                                                         .putHeader("Content-Type", "application/json")
-                                                         .end(jsonMapper.writeValueAsString(response));
+                                                      ctx.json(response);
                                                   }
                                               })
                                               .onFailure(throwable -> {
@@ -97,22 +95,24 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     }
 
     // completes with null when the request was a notification and no response body must be sent
-    private CompletableFuture<JsonRpcResponse> handle(String body, Participant participant) {
+    private CompletableFuture<JsonRpcResponse> handle(RequestBody body, Participant participant) {
         JsonRpcRequest request;
         try {
-            request = jsonMapper.readValue(body, JsonRpcRequest.class);
-        } catch (StreamReadException e) {
-            return CompletableFuture.completedFuture(JsonRpcResponse.error(null, PARSE_ERROR, "Parse error"));
-        } catch (JacksonException e) {
-            // valid JSON of the wrong shape, including the batch form the MCP spec removed
-            return CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
+            request = body.asPojo(JsonRpcRequest.class);
+        } catch (DecodeException e) {
+            // a StreamReadException cause is malformed JSON; anything else is valid JSON of the
+            // wrong shape, including the batch form the MCP spec removed
+            return CompletableFuture.completedFuture(e.getCause() instanceof StreamReadException
+                    ? JsonRpcResponse.error(null, PARSE_ERROR, "Parse error")
+                    : JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
         }
 
         CompletableFuture<JsonRpcResponse> ret;
-        if (request.getMethod() == null) {
-            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(request.getId(), INVALID_REQUEST, "Invalid Request"));
+        if (request == null || request.getMethod() == null) {
+            ret = CompletableFuture.completedFuture(
+                    JsonRpcResponse.error(request != null ? request.getId() : null, INVALID_REQUEST, "Invalid Request"));
         } else {
-            JsonNode id = request.getId();
+            Object id = request.getId();
             ObjectNode params = request.getParams() != null ? request.getParams() : jsonMapper.createObjectNode();
             ret = switch (request.getMethod()) {
                 case "initialize" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, initialize(params)));
@@ -138,7 +138,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                                                   .setVersion(version != null ? version : "unknown"));
     }
 
-    private CompletableFuture<JsonRpcResponse> toolsList(JsonNode id, ObjectNode params, Participant participant) {
+    private CompletableFuture<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         // cursor paging per the MCP pagination spec; the id sort keys the search_after the cursor encodes
@@ -172,7 +172,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         });
     }
 
-    private CompletableFuture<JsonRpcResponse> toolsCall(JsonNode id, ObjectNode params, Participant participant) {
+    private CompletableFuture<JsonRpcResponse> toolsCall(Object id, ObjectNode params, Participant participant) {
         CompletableFuture<JsonRpcResponse> ret;
         if (!params.path("name").isString()) {
             ret = CompletableFuture.completedFuture(JsonRpcResponse.error(id, INVALID_PARAMS, "tools/call requires a tool name"));
