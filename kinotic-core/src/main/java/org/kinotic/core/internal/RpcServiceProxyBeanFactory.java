@@ -23,7 +23,6 @@ public class RpcServiceProxyBeanFactory extends AbstractFactoryBean<Object> {
 
     private RpcServiceProxyHandle<?> serviceHandle;
 
-    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     @Autowired
     private ServiceRegistry serviceRegistry;
 
