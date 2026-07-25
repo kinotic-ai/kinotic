@@ -24,6 +24,8 @@ import org.kinotic.gateway.internal.mcp.model.McpToolListing;
 import org.kinotic.gateway.internal.mcp.model.McpToolsListResult;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
@@ -96,36 +98,31 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     // completes with null when the request was a notification and no response body must be sent
     private CompletableFuture<JsonRpcResponse> handle(String body, Participant participant) {
-        JsonNode parsed;
+        JsonRpcRequest request;
         try {
-            parsed = jsonMapper.readTree(body);
-        } catch (Exception e) {
+            request = jsonMapper.readValue(body, JsonRpcRequest.class);
+        } catch (StreamReadException e) {
             return CompletableFuture.completedFuture(JsonRpcResponse.error(null, PARSE_ERROR, "Parse error"));
+        } catch (JacksonException e) {
+            // valid JSON of the wrong shape, including the batch form the MCP spec removed
+            return CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
         }
 
         CompletableFuture<JsonRpcResponse> ret;
-        if (parsed.isArray()) {
-            // JSON-RPC batching was removed from the MCP spec
-            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Batch requests are not supported"));
-        } else if (!parsed.isObject()) {
-            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(null, INVALID_REQUEST, "Invalid Request"));
+        if (request.getMethod() == null) {
+            ret = CompletableFuture.completedFuture(JsonRpcResponse.error(request.getId(), INVALID_REQUEST, "Invalid Request"));
         } else {
-            JsonRpcRequest request = jsonMapper.treeToValue(parsed, JsonRpcRequest.class);
-            if (request.getMethod() == null) {
-                ret = CompletableFuture.completedFuture(JsonRpcResponse.error(request.getId(), INVALID_REQUEST, "Invalid Request"));
-            } else {
-                JsonNode id = request.getId();
-                ObjectNode params = request.getParams() != null ? request.getParams() : jsonMapper.createObjectNode();
-                ret = switch (request.getMethod()) {
-                    case "initialize" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, initialize(params)));
-                    case "notifications/initialized" -> CompletableFuture.completedFuture(null);
-                    case "ping" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, Map.of()));
-                    case "tools/list" -> toolsList(id, params, participant);
-                    case "tools/call" -> toolsCall(id, params, participant);
-                    default -> CompletableFuture.completedFuture(
-                            JsonRpcResponse.error(id, METHOD_NOT_FOUND, "Method not found: " + request.getMethod()));
-                };
-            }
+            JsonNode id = request.getId();
+            ObjectNode params = request.getParams() != null ? request.getParams() : jsonMapper.createObjectNode();
+            ret = switch (request.getMethod()) {
+                case "initialize" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, initialize(params)));
+                case "notifications/initialized" -> CompletableFuture.completedFuture(null);
+                case "ping" -> CompletableFuture.completedFuture(JsonRpcResponse.result(id, Map.of()));
+                case "tools/list" -> toolsList(id, params, participant);
+                case "tools/call" -> toolsCall(id, params, participant);
+                default -> CompletableFuture.completedFuture(
+                        JsonRpcResponse.error(id, METHOD_NOT_FOUND, "Method not found: " + request.getMethod()));
+            };
         }
         return ret;
     }
