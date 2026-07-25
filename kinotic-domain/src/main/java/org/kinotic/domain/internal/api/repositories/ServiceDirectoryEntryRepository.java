@@ -174,10 +174,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             }
             CompletableFuture<McpToolDefinition> ret;
             if (tools.size() > 1) {
-                // names are minted from the service simple name and function, so services visible to the
-                // same caller may collide; never pick a winner — the detail stays in this log and the
-                // caller gets a generic failure
-                log.error("MCP tool name '{}' is provided by {} services, OrgId {}, AppId {}. Provided by: {}",
+                // minted names are unique system wide, so duplicates mean this index holds corrupted data
+                // needing manual repair; the detail stays in this log and the caller gets a generic failure
+                log.error("MCP tool name '{}' resolved to {} services, OrgId {}, AppId {}, the service directory index is corrupted. Provided by: {}",
                           toolName,
                           tools.size(),
                           organizationId,

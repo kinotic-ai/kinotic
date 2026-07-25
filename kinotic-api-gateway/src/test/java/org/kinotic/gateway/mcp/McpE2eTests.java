@@ -66,10 +66,10 @@ public class McpE2eTests {
     static final String TEST_APP_ID = "mcp-test-app";
 
     private static final String MCP_URL = "http://localhost:58513";
-    // minted names: the service's simple name, '.', then the function name
-    private static final String CALCULATOR_ADD = "ITestCalculatorService.add";
-    private static final String CALCULATOR_JOIN = "ITestCalculatorService.join";
-    private static final String APP_ECHO = "ITestAppEchoService.echo";
+    // minted names: the qualified name with '~' as '.', then '.' and the function name
+    private static final String CALCULATOR_ADD = "os-api.org.kinotic.gateway.mcp.ITestCalculatorService.add";
+    private static final String CALCULATOR_JOIN = "os-api.org.kinotic.gateway.mcp.ITestCalculatorService.join";
+    private static final String APP_ECHO = "app." + TEST_ORG_ID + "." + TEST_APP_ID + ".org.kinotic.gateway.mcp.ITestAppEchoService.echo";
 
     private static ElasticsearchContainer elasticsearch;
 

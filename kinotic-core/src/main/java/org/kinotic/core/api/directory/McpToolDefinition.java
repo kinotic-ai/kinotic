@@ -19,9 +19,8 @@ import tools.jackson.databind.node.ObjectNode;
 public class McpToolDefinition {
 
     /**
-     * The MCP tool name, {@code <serviceName>.<functionName>}. Resolution is always scoped to a caller's
-     * organization/application, so a name only has to be unique among the tools that scope can see; an
-     * ambiguous name within one scope fails resolution rather than picking a winner.
+     * The MCP tool name: the service's qualified name (with {@code ~} as {@code .}) plus the function, unique
+     * system wide. The {@link #title} carries the human-readable display name.
      */
     private String name;
 
