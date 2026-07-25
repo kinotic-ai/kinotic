@@ -1,6 +1,7 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -23,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
  * Built on the unscoped {@link AbstractRepository} because system entries have no organization to route by; scope is
  * applied explicitly in the queries here.
  */
+@Slf4j
 @Component
 public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceDirectoryEntry> {
 
@@ -146,13 +148,13 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     /**
-     * Resolves the online MCP tools with the given name callable by the given scope. The term on
-     * {@code mcpTools.toolName} narrows to entries carrying the name; the entry may hold other tools, so the
-     * flattening keeps only the matching ones.
+     * Resolves the online MCP tool with the given name callable by the given scope, completing with {@code null}
+     * when no callable tool carries the name. The term on {@code mcpTools.toolName} narrows to entries carrying
+     * the name; the entry may hold other tools, so the flattening keeps only the matching ones.
      */
-    public CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
-                                                                         String organizationId,
-                                                                         String applicationId) {
+    public CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+                                                                  String organizationId,
+                                                                  String applicationId) {
         Query filter = composeFilter(termFilter("mcpTools.toolName", toolName),
                                      termFilter("mcpExposed", true),
                                      termFilter("online", true),
@@ -160,7 +162,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return findAll(Pageable.ofSize(RESOLUTION_PAGE_SIZE), b -> {
             b.query(filter);
             b.source(sc -> sc.filter(f -> f.includes("mcpTools")));
-        }).thenApply(page -> {
+        }).thenCompose(page -> {
             List<McpToolDefinition> tools = new ArrayList<>();
             for (ServiceDirectoryEntry entry : page.getContent()) {
                 if (entry.getMcpTools() != null) {
@@ -171,7 +173,19 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
                     }
                 }
             }
-            return tools;
+            CompletableFuture<McpToolDefinition> ret;
+            if (tools.size() > 1) {
+                // minted names are unique system wide, so duplicates mean this index holds corrupted data
+                // needing manual repair; the detail stays in this log and the caller gets a generic failure
+                log.error("MCP tool name '{}' resolved to {} services, the service directory index is corrupted. Provided by: {}",
+                          toolName,
+                          tools.size(),
+                          tools.stream().map(McpToolDefinition::getCri).toList());
+                ret = CompletableFuture.failedFuture(new IllegalStateException("MCP tool resolution failed for '" + toolName + "'"));
+            } else {
+                ret = CompletableFuture.completedFuture(tools.isEmpty() ? null : tools.getFirst());
+            }
+            return ret;
         });
     }
 

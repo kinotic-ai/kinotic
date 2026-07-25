@@ -11,7 +11,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -51,10 +50,10 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     @Override
-    public CompletableFuture<List<McpToolDefinition>> findMcpToolsByName(String toolName,
-                                                                         String organizationId,
-                                                                         String applicationId) {
-        return repository.findMcpToolsByName(toolName, organizationId, applicationId);
+    public CompletableFuture<McpToolDefinition> findMcpToolByName(String toolName,
+                                                                  String organizationId,
+                                                                  String applicationId) {
+        return repository.findMcpToolByName(toolName, organizationId, applicationId);
     }
 
     @Override

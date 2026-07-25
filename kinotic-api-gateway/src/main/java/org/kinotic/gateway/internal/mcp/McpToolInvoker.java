@@ -49,20 +49,14 @@ public class McpToolInvoker {
     public CompletableFuture<McpCallToolResult> invoke(String toolName, ObjectNode arguments, Participant participant) {
         McpCallerScope scope = McpCallerScope.from(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
-        return serviceDirectory.findMcpToolsByName(toolName, scope.organizationId(), scope.applicationId())
-                               .thenCompose(matches -> {
+        return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
+                               .thenCompose(tool -> {
                                    CompletableFuture<McpCallToolResult> ret;
-                                   if (matches.isEmpty()) {
+                                   if (tool == null) {
                                        ret = CompletableFuture.failedFuture(
                                                new IllegalArgumentException("Unknown tool: " + toolName));
-                                   } else if (matches.size() > 1) {
-                                       // minted names are unique system wide, so more than one match means the
-                                       // stored directory data is corrupted — report it, never pick a winner
-                                       ret = CompletableFuture.completedFuture(toolError(
-                                               "Tool name '" + toolName + "' is ambiguous, it is provided by: "
-                                                       + matches.stream().map(McpToolDefinition::getCri).toList()));
                                    } else {
-                                       ret = dispatch(matches.getFirst(), arguments, participant);
+                                       ret = dispatch(tool, arguments, participant);
                                    }
                                    return ret;
                                });
