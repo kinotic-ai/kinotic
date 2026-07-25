@@ -17,24 +17,6 @@ import io.vertx.core.Future;
 public interface ServiceDirectory {
 
     /**
-     * Registers a published service with the directory. What is stored, when the work happens (it may
-     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
-     * reported by the directory.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being registered
-     */
-    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
-
-    /**
-     * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
-     * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
-     * known-but-offline service is a feature.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being unregistered
-     */
-    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
-
-    /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
      * they never match a non-null scope — an organization or application only ever sees what it provides. A system
      * scope (both ids null) returns all entries.
@@ -46,6 +28,18 @@ public interface ServiceDirectory {
     Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                        String applicationId,
                                                                        Pageable pageable);
+
+    /**
+     * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
+     * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
+     * @param toolName the MCP tool name to resolve
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
+     * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
+     */
+    Future<McpToolDefinition> findMcpToolByName(String toolName,
+                                                           String organizationId,
+                                                           String applicationId);
 
     /**
      * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
@@ -62,16 +56,19 @@ public interface ServiceDirectory {
                                                          Pageable pageable);
 
     /**
-     * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
-     * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
-     * @param toolName the MCP tool name to resolve
-     * @param organizationId the calling scope's organization, or null for a system scope
-     * @param applicationId the calling scope's application, or null
-     * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
+     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
+     * @return a {@link Future} completing when all entries are corrected
      */
-    Future<McpToolDefinition> findMcpToolByName(String toolName,
-                                                           String organizationId,
-                                                           String applicationId);
+    Future<Void> reconcileLiveness();
+
+    /**
+     * Registers a published service with the directory. What is stored, when the work happens (it may
+     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
+     * reported by the directory.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being registered
+     */
+    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
      * Reports that a caller could not reach the service at the given CRI.
@@ -83,16 +80,19 @@ public interface ServiceDirectory {
     Future<Void> reportUnreachable(String cri);
 
     /**
+     * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
+     * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
+     * known-but-offline service is a feature.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being unregistered
+     */
+    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
+
+    /**
      * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
      * @param serviceAddress the service address to verify
      * @return a {@link Future} completing when the verified state is stored
      */
     Future<Void> verifyLiveness(String serviceAddress);
-
-    /**
-     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
-     * @return a {@link Future} completing when all entries are corrected
-     */
-    Future<Void> reconcileLiveness();
 
 }
