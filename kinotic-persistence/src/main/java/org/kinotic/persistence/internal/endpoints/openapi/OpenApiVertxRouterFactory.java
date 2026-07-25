@@ -133,7 +133,7 @@ public class OpenApiVertxRouterFactory {
               });
 
         if (securityService != null) {
-            router.route().handler(new AuthenticationHandler(securityService, securityContext, vertx));
+            router.route().handler(new AuthenticationHandler(securityService, securityContext));
         }
 
         addDeleteRoutes(router, bodyHandler, true);
