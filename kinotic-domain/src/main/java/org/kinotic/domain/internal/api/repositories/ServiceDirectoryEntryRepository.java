@@ -203,7 +203,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return ret;
     }
 
-    // The listing view of the zone send rules enforced at call time by StompAuthorizerFactory: system sees all zones,
+    // The listing view of the zone send rules enforced at dispatch time by ZoneRules: system sees all zones,
     // an organization sees os-api + app-api, an application sees its own app.<org>.<app> zone + app-api.
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
         Query ret;

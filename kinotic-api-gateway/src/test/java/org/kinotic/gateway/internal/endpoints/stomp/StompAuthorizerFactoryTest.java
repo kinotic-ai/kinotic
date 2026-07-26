@@ -2,7 +2,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.domain.api.security.ZoneRules;
+import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
@@ -18,9 +18,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Verifies the zone routing rules enforced per participant type: the verb x participant x zone
  * matrix, dot-boundary prefix safety, and rejection of ids that cannot form a valid zone.
  */
-public class StompAuthorizerTest {
+public class StompAuthorizerFactoryTest {
 
     private static final String REPLY_TO_ID = "reply-to-1";
+
+    private final StompAuthorizerFactory factory = new StompAuthorizerFactory();
 
     private StompAuthorizer applicationAuthorizer(String organizationId, String applicationId) {
         DefaultApplicationParticipant participant = DefaultApplicationParticipant.builder()
@@ -30,7 +32,7 @@ public class StompAuthorizerTest {
                                                                                  .metadata(Map.of())
                                                                                  .roles(List.of())
                                                                                  .build();
-        return new StompAuthorizer(ZoneRules.from(participant), REPLY_TO_ID);
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
     }
 
     private StompAuthorizer organizationAuthorizer(String organizationId) {
@@ -40,7 +42,7 @@ public class StompAuthorizerTest {
                                                                                    .metadata(Map.of())
                                                                                    .roles(List.of())
                                                                                    .build();
-        return new StompAuthorizer(ZoneRules.from(participant), REPLY_TO_ID);
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
     }
 
     private StompAuthorizer systemAuthorizer() {
@@ -49,7 +51,7 @@ public class StompAuthorizerTest {
                                                                        .metadata(Map.of())
                                                                        .roles(List.of())
                                                                        .build();
-        return new StompAuthorizer(ZoneRules.from(participant), REPLY_TO_ID);
+        return factory.create(new ConnectedInfo(participant, REPLY_TO_ID));
     }
 
     @Test
