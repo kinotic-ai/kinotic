@@ -1,16 +1,17 @@
 package org.kinotic.os.api.services;
 
-// import org.kinotic.rpc.api.annotations.Publish;
-// import org.kinotic.rpc.api.annotations.Version;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.model.cluster.KinoticClusterInfo;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides information about the ignite Kinotic cluster.
  */
-// @Publish
-// @Version("1.0.0")
+@Publish
+@Zone(DomainUtil.SYSTEM_ZONE)
 public interface KinoticClusterInfoService {
     
     /**

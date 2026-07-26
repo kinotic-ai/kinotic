@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     mcpExposed BOOLEAN,
     mcpTools OBJECT (
         name KEYWORD,
-        title TEXT NOT INDEXED,
-        description TEXT NOT INDEXED,
+        title KEYWORD,
+        description TEXT,
         inputSchema JSON NOT INDEXED,
         cri KEYWORD NOT INDEXED,
         annotations OBJECT (

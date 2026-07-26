@@ -1,17 +1,20 @@
 package org.kinotic.os.api.services;
 
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Scope;
+import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.model.log.LogLevel;
 import org.kinotic.domain.api.model.log.LoggerLevelsDescriptor;
 import org.kinotic.domain.api.model.log.LoggersDescriptor;
-import org.kinotic.core.api.annotations.Scope;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 /**
  * Interface providing the ability to work with runtime logging configuration per node
  *
  * Created by Navid Mitchell 🤪 on 7/9/20
  */
-//@Publish FIXME: add RBAC for this
-//@Version("0.1.0")
+@Publish
+@Zone(DomainUtil.SYSTEM_ZONE)
 public interface LogManager {
 
     @Scope

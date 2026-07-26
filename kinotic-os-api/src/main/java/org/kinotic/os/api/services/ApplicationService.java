@@ -4,6 +4,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -17,13 +18,14 @@ import java.util.concurrent.CompletableFuture;
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
     /**
-     * Creates a new application if it does not already exist, deriving its id from the
-     * slugified name. The organization id is derived from the authenticated participant.
+     * Creates a new application if it does not already exist, deriving its id from the slugified name.
+     * The organization id is derived from the authenticated participant.
      * @param name the name of the application to create
      * @param description the description of the application to create
      * @return {@link CompletableFuture} emitting the created application, or the existing
      *         application whose id matches the slugified name
      */
+    @McpTool(description = "Creates a new application if it does not already exist")
     CompletableFuture<Application> createApplicationIfNotExist(String name, String description);
 
     /**
@@ -33,6 +35,7 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @return the enabled configurations, or an empty list if the application is not
      *         found or has no configurations attached
      */
+    @McpTool(description = "Returns the enabled OIDC configurations registered on the given application")
     CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
 
 }

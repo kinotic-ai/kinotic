@@ -101,6 +101,8 @@ public class KinoticTestComposeBoostrap {
         long deadline = System.currentTimeMillis() + timeoutMs;
 
         while (System.currentTimeMillis() < deadline) {
+            boolean stopped = false;
+            Long exitCode = null;
             try {
                 InspectContainerResponse inspect =
                     dockerClient.inspectContainerCmd(containerName).exec();
@@ -111,19 +113,24 @@ public class KinoticTestComposeBoostrap {
                 } else if (Boolean.TRUE.equals(state.getRunning())) {
                     log.debug("Container '{}' is still running...", containerName);
                 } else {
-                    Long exitCode = state.getExitCodeLong();
-                    if (exitCode != null && exitCode == 0) {
-                        log.info("Container '{}' completed successfully", containerName);
-                        return;
-                    } else {
-                        throw new RuntimeException(
-                            "kinotic-migration container exited with code " + exitCode);
-                    }
+                    stopped = true;
+                    exitCode = state.getExitCodeLong();
                 }
             } catch (NotFoundException e) {
                 log.debug("Container '{}' not found yet, retrying...", containerName);
             } catch (Exception e) {
                 log.warn("Error while inspecting '{}' container: {}", containerName, e.getMessage());
+            }
+
+            // Decided outside the try: throwing inside it is caught by the catch-all above, which
+            // turns a failed migration into a poll that runs until the deadline
+            if (stopped) {
+                if (exitCode != null && exitCode == 0) {
+                    log.info("Container '{}' completed successfully", containerName);
+                    return;
+                }
+                throw new RuntimeException(
+                    "kinotic-migration container exited with code " + exitCode);
             }
 
             try {

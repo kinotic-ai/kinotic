@@ -33,21 +33,25 @@ public class ZoneSendRules {
     public static ZoneSendRules from(Participant participant) {
         ZoneSendRules ret;
         if (participant instanceof SystemParticipant) {
+
             ret = new ZoneSendRules(true, Set.of());
 
-        } else if (participant instanceof ApplicationParticipant applicationParticipant) {
-            // appZone validates the ids, so an id that could shift the zone's label structure
-            // fails instead of widening access
-            ret = new ZoneSendRules(false, Set.of(DomainUtil.APP_API_ZONE,
-                                                  appZone(applicationParticipant.getOrganizationId(),
-                                                          applicationParticipant.getApplicationId())));
-
         } else if (participant instanceof OrganizationParticipant organizationParticipant) {
+
             // the organization id becomes a zone label, so it is validated the same way
             ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
             ret = new ZoneSendRules(false, Set.of(DomainUtil.OS_API_ZONE,
                                                   DomainUtil.APP_API_ZONE,
                                                   DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId()));
+
+
+        } else if (participant instanceof ApplicationParticipant applicationParticipant) {
+
+            // appZone validates the ids, so an id that could shift the zone's label structure
+            // fails instead of widening access
+            ret = new ZoneSendRules(false, Set.of(DomainUtil.APP_API_ZONE,
+                                                  appZone(applicationParticipant.getOrganizationId(),
+                                                          applicationParticipant.getApplicationId())));
 
         } else {
             throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()

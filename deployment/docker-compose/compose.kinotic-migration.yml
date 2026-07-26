@@ -1,7 +1,7 @@
 services:
   kinotic-migration:
     container_name: kinotic-migration
-    pull_policy: always
+    pull_policy: missing
     image: kinoticai/kinotic-migration:${kinoticVersion:-4.2.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:

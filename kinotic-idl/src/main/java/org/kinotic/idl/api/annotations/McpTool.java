@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
  * A service is MCP-exposed when at least one of its methods carries this annotation, and each annotated method
  * becomes a callable tool whose {@link #description} and hints are surfaced to LLM callers.
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD,})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface McpTool {
