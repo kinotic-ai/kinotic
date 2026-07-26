@@ -103,19 +103,8 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew build :kinotic-test:testClasses -x :kinotic-test:test
 
-      # Staged here rather than in the publish job so that job needs only the artifacts, not a
-      # second compile of the whole tree. jreleaserDeploy has no task dependency on publish.
-      - name: Stage Maven artifacts
-        run: ./gradlew publish
-
-      - name: Upload staged Maven artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: staging-deploy
-          path: '*/build/staging-deploy/**'
-          if-no-files-found: error
-          retention-days: 1
-
+      # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
+      # so anything they do not need belongs after the image they do.
       - name: Check for already-published server image
         id: server_image
         uses: actions/cache@v4
@@ -129,6 +118,22 @@ jobs:
         env:
           DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      # Staged here rather than in the publish job so that job needs only the artifacts, not a
+      # second compile of the whole tree. jreleaserDeploy has no task dependency on publish.
+      # Guarded by the same expression as the publish job below — keep the two in step.
+      - name: Stage Maven artifacts
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: ./gradlew publish
+
+      - name: Upload staged Maven artifacts
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-deploy
+          path: '*/build/staging-deploy/**'
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Collect Allure results
         if: ${{ !cancelled() }}
@@ -292,7 +297,8 @@ jobs:
 
   # All library jars publish here in one pass (apps publish images, not jars). Gated to main and the
   # nightly schedule: the ~3.5 min of per-file uploads to Sonatype gates nothing else in this
-  # pipeline, and no develop push consumes the snapshot it produces.
+  # pipeline, and no develop push consumes the snapshot it produces. The same expression guards the
+  # staging steps in the build job that produce this job's input — keep the two in step.
   publish:
     name: Publish to Maven Central
     needs: build
