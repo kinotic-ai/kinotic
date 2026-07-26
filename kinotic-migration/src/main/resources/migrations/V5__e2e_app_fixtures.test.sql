@@ -11,6 +11,7 @@ INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-n
 INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-versioned', 'kinotic-test', 'e2e fixture application for the Versioned suite') WITH REFRESH;
 INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-entity-service', 'kinotic-test', 'e2e fixture application for the EntityService suite') WITH REFRESH;
 INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-admin-named-query', 'kinotic-test', 'e2e fixture application for the AdminNamedQuery suite') WITH REFRESH;
+INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-mcp', 'kinotic-test', 'e2e fixture application for the Mcp suite') WITH REFRESH;
 
 INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000003', 'app-e2e-datastream-kinotic@test.local', 'e2e DataStream App User', 'LOCAL', 'kinotic-test', 'e2e-datastream', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000004', 'app-e2e-admin-entity-kinotic@test.local', 'e2e AdminEntityService App User', 'LOCAL', 'kinotic-test', 'e2e-admin-entity', 'kinotic', true) WITH REFRESH;
@@ -18,6 +19,7 @@ INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, 
 INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000006', 'app-e2e-versioned-kinotic@test.local', 'e2e Versioned App User', 'LOCAL', 'kinotic-test', 'e2e-versioned', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000007', 'app-e2e-entity-service-kinotic@test.local', 'e2e EntityService App User', 'LOCAL', 'kinotic-test', 'e2e-entity-service', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000008', 'app-e2e-admin-named-query-kinotic@test.local', 'e2e AdminNamedQuery App User', 'LOCAL', 'kinotic-test', 'e2e-admin-named-query', 'kinotic', true) WITH REFRESH;
+INSERT INTO kinotic_iam_user (id, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000009', 'app-e2e-mcp-kinotic@test.local', 'e2e Mcp App User', 'LOCAL', 'kinotic-test', 'e2e-mcp', 'kinotic', true) WITH REFRESH;
 
 INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000003', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000004', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
@@ -25,3 +27,4 @@ INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-000
 INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000006', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000007', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000008', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+INSERT INTO kinotic_iam_credential (id, passwordHash) VALUES ('00000000-0000-0000-0000-000000000009', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
