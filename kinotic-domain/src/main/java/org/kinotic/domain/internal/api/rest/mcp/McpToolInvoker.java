@@ -12,7 +12,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.security.ZoneSendRules;
+import org.kinotic.domain.api.security.ZoneRules;
 import org.kinotic.domain.internal.api.rest.mcp.model.McpCallToolResult;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -101,7 +101,7 @@ public class McpToolInvoker {
         // defense in depth over the zone visibility filter in findMcpToolByName: the resolved CRI must pass
         // the same zone send rules StompAuthorizer enforces, so a directory or query defect can never
         // dispatch across zones — logged as a server fault, answered as an unknown tool
-        if (!ZoneSendRules.from(participant).sendAllowed(requestCri)) {
+        if (!ZoneRules.from(participant).sendAllowed(requestCri)) {
             log.error("MCP tool '{}' resolved to CRI {} which participant {} may not address",
                       tool.getName(), tool.getCri(), participant.getId());
             return Future.failedFuture(new IllegalArgumentException("Unknown tool: " + tool.getName()));

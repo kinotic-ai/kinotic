@@ -11,6 +11,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.domain.api.security.ZoneRules;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.CRI;
@@ -101,7 +102,7 @@ public class EndpointConnectionHandler {
                 if (session != null) {
                     session.put(ConnectedInfo.SESSION_KEY, connectedInfo);
                 }
-                stompAuthorizer = services.stompAuthorizerFactory.create(connectedInfo);
+                stompAuthorizer = new StompAuthorizer(ZoneRules.from(connectedInfo.getParticipant()), connectedInfo.getReplyToId());
 
                 signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {

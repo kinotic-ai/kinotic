@@ -10,7 +10,6 @@ import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
-import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -37,8 +36,6 @@ public class Services {
     public SecurityService securityService;
     @Autowired
     public ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
-    @Autowired
-    public StompAuthorizerFactory stompAuthorizerFactory;
     @Autowired
     public Vertx vertx;
 }

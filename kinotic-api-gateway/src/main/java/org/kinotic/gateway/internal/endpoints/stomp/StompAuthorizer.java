@@ -4,28 +4,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.domain.api.security.ZoneSendRules;
+import org.kinotic.domain.api.security.ZoneRules;
 
 import java.util.LinkedList;
-import java.util.Set;
 
 /**
- * Authorizes STOMP sends and subscriptions for a connected participant against the zones the
- * participant may address.
+ * Authorizes STOMP sends and subscriptions for a connected participant: zone checks delegate to the
+ * participant's {@link ZoneRules}, with temporary send grants and reply-destination scoping layered on top.
  */
 @Slf4j
 public class StompAuthorizer {
 
     private static final int MAX_TEMPORARY_GRANTS = 1000;
 
-    private final ZoneSendRules sendRules;
-    private final Set<String> subscribableZones;
+    private final ZoneRules zoneRules;
     private final String replyToId;
     private final LinkedList<String> temporarySendGrants = new LinkedList<>();
 
-    public StompAuthorizer(ZoneSendRules sendRules, Set<String> subscribableZones, String replyToId) {
-        this.sendRules = sendRules;
-        this.subscribableZones = subscribableZones;
+    public StompAuthorizer(ZoneRules zoneRules, String replyToId) {
+        Validate.notNull(zoneRules, "zoneRules must not be null");
+        Validate.notEmpty(replyToId, "replyToId must not be empty");
+        this.zoneRules = zoneRules;
         this.replyToId = replyToId;
     }
 
@@ -45,7 +44,7 @@ public class StompAuthorizer {
 
     public boolean sendAllowed(CRI cri) {
         Validate.notNull(cri, "The CRI must not be null");
-        return temporarySendGrants.remove(cri.raw()) || sendRules.sendAllowed(cri);
+        return temporarySendGrants.remove(cri.raw()) || zoneRules.sendAllowed(cri);
     }
 
     public boolean subscribeAllowed(CRI cri) {
@@ -56,10 +55,8 @@ public class StompAuthorizer {
             // followed by ':' and the subscription discriminator
             String scope = cri.scope();
             ret = scope != null && scope.startsWith(replyToId + ":");
-        } else if (ZoneSendRules.isRoutableScheme(cri.scheme())) {
-            ret = ZoneSendRules.zoneAllowed(cri.zone(), subscribableZones);
         } else {
-            ret = false;
+            ret = zoneRules.subscribeAllowed(cri);
         }
         return ret;
     }
