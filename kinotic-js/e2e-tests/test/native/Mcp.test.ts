@@ -46,8 +46,13 @@ describe('Kinotic JS', () => {
                                                     applicationId: APP_ID})
 
         // the directory publishes on server startup; wait for the listing to settle
-        await expect.poll(() => toolNames(systemClient), {timeout: 30000, interval: 1000})
-                    .toContain(FIND_PROJECTS_BY_REPO)
+        const deadline = Date.now() + 30000
+        while (!(await toolNames(systemClient)).includes(FIND_PROJECTS_BY_REPO)) {
+            if (Date.now() > deadline) {
+                throw new Error(`Timed out waiting for ${FIND_PROJECTS_BY_REPO} to appear in the tool listing`)
+            }
+            await new Promise(resolve => setTimeout(resolve, 1000))
+        }
     }, 120000)
 
     afterAll(async () => {
