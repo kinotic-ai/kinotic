@@ -35,7 +35,8 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @return the enabled configurations, or an empty list if the application is not
      *         found or has no configurations attached
      */
-    @McpTool(description = "Returns the enabled OIDC configurations registered on the given application")
+    @McpTool(description = "Returns the enabled OIDC configurations registered on the given application",
+             readOnlyHint = true)
     CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
 
 }

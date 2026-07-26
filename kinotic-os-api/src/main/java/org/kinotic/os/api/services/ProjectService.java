@@ -31,7 +31,9 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * has the given {@code owner/repo} full name. Returns the empty list when no project in
      * that organization is backed by the repo.
      */
-    @McpTool(description = "Looks up projects in the current participant's organization whose backing GitHub repo has the given owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.")
+    @McpTool(title = "Find Projects by GitHub Repo",
+             description = "Looks up projects in the current participant's organization whose backing GitHub repo has the given owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.",
+             readOnlyHint = true)
     CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
 
     /**
