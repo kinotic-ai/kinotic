@@ -13,9 +13,8 @@ on:
       - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
       - 'website/**'
-  # Nightly full run. This is what refreshes the 4.2.0-SNAPSHOT artifacts on Sonatype: the publish
-  # job below is deliberately off the per-push path because its ~3.5 min of uploads gate nothing
-  # else in the pipeline.
+  # Nightly full run. This is what refreshes the 4.2.0-SNAPSHOT jars on Sonatype: the publish job
+  # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
   schedule:
     - cron: '0 7 * * *'
   workflow_dispatch:
@@ -29,13 +28,19 @@ concurrency:
 env:
   JAVA_VERSION: '25'
 
+# Application images are staged on ghcr.io under sha-<commit> and promoted to Docker Hub by the
+# results job only after every suite passes, so the tags outside CI consume are never advanced to an
+# unvalidated build. Nothing reads the staged tags except this workflow.
 jobs:
   # Only the jar and the image — kinotic-migration's tests run in the `build` job with every other
   # module's. Kept separate from `build` because nothing here depends on the main build, so this
-  # runs concurrently with it and the image is ready by the time the test jobs need it.
+  # runs concurrently with it and the staged image is ready when the test jobs need it.
   migration_image:
     name: Migration Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -49,37 +54,25 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # The ISO week in the image cache key forces a weekly republish, so images keep picking up
-      # buildpack base-image updates even while their jar is unchanged.
-      - name: Compute image cache week
-        id: image_week
-        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
+      - name: Build migration image
+        run: ./gradlew :kinotic-migration:bootBuildImage
 
-      - name: Build migration jar
-        run: ./gradlew :kinotic-migration:bootJar
+      - name: Stage migration image on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          staged="ghcr.io/${{ github.repository_owner }}/kinotic-migration:sha-${{ github.sha }}"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag "kinoticai/kinotic-migration:${version}" "$staged"
+          docker push "$staged"
 
-      # An exact key hit means an image built from a byte-identical jar was already published
-      # (archives are reproducible), so the publish below is skipped and the remote image
-      # already matches this build.
-      - name: Check for already-published migration image
-        id: migration_image
-        uses: actions/cache@v4
-        with:
-          path: .published-migration-image
-          key: migration-image-${{ hashFiles('kinotic-migration/build/libs/*.jar') }}-${{ steps.image_week.outputs.week }}
-
-      - name: Publish migration image to Docker Hub
-        if: ${{ steps.migration_image.outputs.cache-hit != 'true' }}
-        run: ./gradlew :kinotic-migration:bootBuildImage --publishImage && touch .published-migration-image
-        env:
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-  # Compiles everything, runs every module's unit tests, and publishes the server image. Excludes
+  # Compiles everything, runs every module's unit tests, and stages the server image. Excludes
   # :kinotic-test:test, which needs Elasticsearch + the migration image and runs in its own job.
   build:
     name: Build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -92,10 +85,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
-
-      - name: Compute image cache week
-        id: image_week
-        run: echo "week=$(date +%G-%V)" >> "$GITHUB_OUTPUT"
 
       # :kinotic-test:testClasses is requested explicitly: excluding :kinotic-test:test also drops
       # its compilation, and building it here puts the result in the Gradle build cache that the
@@ -105,19 +94,16 @@ jobs:
 
       # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
       # so anything they do not need belongs after the image they do.
-      - name: Check for already-published server image
-        id: server_image
-        uses: actions/cache@v4
-        with:
-          path: .published-server-image
-          key: server-image-${{ hashFiles('kinotic-server/build/libs/*.jar') }}-${{ steps.image_week.outputs.week }}
+      - name: Build server image
+        run: ./gradlew :kinotic-server:bootBuildImage
 
-      - name: Publish kinotic-server image to Docker Hub
-        if: ${{ steps.server_image.outputs.cache-hit != 'true' }}
-        run: ./gradlew :kinotic-server:bootBuildImage --publishImage && touch .published-server-image
-        env:
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+      - name: Stage server image on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          staged="ghcr.io/${{ github.repository_owner }}/kinotic-server:sha-${{ github.sha }}"
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          docker tag "kinoticai/kinotic-server:${version}" "$staged"
+          docker push "$staged"
 
       # Staged here rather than in the publish job so that job needs only the artifacts, not a
       # second compile of the whole tree. jreleaserDeploy has no task dependency on publish.
@@ -147,6 +133,9 @@ jobs:
     name: Kinotic Integration Tests
     needs: [build, migration_image]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -167,13 +156,19 @@ jobs:
         with:
           version: v5.1.4
 
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-migration
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       # The elasticsearch image is ~1GB and the pull is otherwise paid inside the test task, after
       # Gradle has finished. Backgrounding it here overlaps the pull with Gradle's configuration and
       # compile phases; ComposeContainer.start() then finds the image already local. Concurrent
       # pulls of the same ref are deduplicated by the daemon, so a still-running pull is safe.
       - name: Run kinotic-test integration tests
         run: |
-          docker compose -f deployment/docker-compose/compose.kinotic-test.yml pull --quiet &
+          docker compose -f deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
           ./gradlew :kinotic-test:test
 
       - name: Collect Allure results
@@ -188,6 +183,9 @@ jobs:
     name: JS Workspace Tests
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -206,6 +204,12 @@ jobs:
         uses: docker/setup-compose-action@v2
         with:
           version: v5.1.4
+
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-server
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # After this step the runner user can open /dev/kvm and create unprivileged user namespaces —
       # everything boxlite needs to boot micro VMs — so the VM test suites run for real instead of
@@ -239,6 +243,9 @@ jobs:
     name: E2E Tests
     needs: [build, migration_image]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -275,6 +282,12 @@ jobs:
         with:
           version: v5.1.4
 
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-migration kinotic-server
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Enable KVM and user namespaces for boxlite
         run: |
           ls -l /dev/kvm
@@ -285,7 +298,7 @@ jobs:
       - name: Run E2E tests
         run: |
           cd kinotic-js/e2e-tests
-          docker compose -f ../../deployment/docker-compose/compose.kinotic-e2e-test.yml pull --quiet &
+          docker compose -f ../../deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
           gradle pnpmInstall
           gradle pnpmTest
 
@@ -334,14 +347,36 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
-  # Single required check for branch protection. Deliberately does no artifact work: it is the last
-  # job on the critical path, and allure-report.yml merges the per-job results itself.
+  # Promotes the staged images and is the single required check for branch protection. Both live
+  # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
   results:
     name: Build Result
     needs: [migration_image, build, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      # Deliberately independent of the publish job: a Sonatype outage should not hold back an image
+      # every suite has already validated. The ref guard keeps a workflow_dispatch run on some other
+      # branch from advancing the published tag to a build off that branch.
+      - name: Promote validated images to Docker Hub
+        if: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+          for image in kinotic-migration kinotic-server; do
+            staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
+            docker pull "$staged"
+            docker tag "$staged" "kinoticai/${image}:${version}"
+            docker push "kinoticai/${image}:${version}"
+          done
+
       # `skipped` is a pass: the publish job is skipped on every develop push by design.
       - name: Fail if any job failed
         run: |
