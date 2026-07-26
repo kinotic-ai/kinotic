@@ -9,10 +9,14 @@ import org.kinotic.idl.api.schema.EnumC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.OtherTestService;
+import org.kinotic.idl.internal.support.TestObject;
+import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
 import org.slf4j.Logger;
@@ -86,6 +90,25 @@ public class TestSchemaFactory {
 
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(namespaceDefinition);
         log.info("Namespace Definition\n"+json);
+    }
+
+    @Test
+    public void testInheritedGenericSignaturesResolve() {
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestObjectCrudService.class));
+
+        ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
+        Assertions.assertEquals(2, crudService.getFunctions().size());
+
+        // T and ID bind against TestObjectCrudService, so the inherited signatures convert concretely
+        // instead of failing as unresolved type variables
+        C3Type testObjectReference = new ReferenceC3Type(TestObject.class.getName());
+        FunctionDefinition save = findFunction(crudService, "save");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), save.getReturnType());
+        Assertions.assertEquals(testObjectReference, save.getParameters().getFirst().getType());
+
+        FunctionDefinition findById = findFunction(crudService, "findById");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
+        Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
     }
 
     @Test

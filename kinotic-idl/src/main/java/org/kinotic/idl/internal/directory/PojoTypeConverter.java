@@ -10,6 +10,7 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import groovy.lang.GroovyObject;
 import groovy.lang.MetaClass;
 import org.springframework.beans.BeanUtils;
+import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
 import org.springframework.util.Assert;
 
@@ -53,7 +54,11 @@ public class PojoTypeConverter implements GenericTypeConverter {
 
             if(!ignorePropertyDescriptor(descriptor)) {
 
-                ResolvableType returnTypeResolvableType = ResolvableType.forMethodReturnType(descriptor.getReadMethod());
+                // resolving against the owner type binds type variables the property declares,
+                // so List<T> getContent() on a Page<Project> converts with T bound to Project
+                ResolvableType returnTypeResolvableType =
+                        ResolvableType.forMethodParameter(new MethodParameter(descriptor.getReadMethod(), -1),
+                                                          resolvableType);
 
                 C3Type fieldC3Type = conversionContext.convert(returnTypeResolvableType);
 
