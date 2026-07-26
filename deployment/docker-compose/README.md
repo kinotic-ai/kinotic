@@ -16,6 +16,11 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 
 `docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data).
 
+`kinotic-migration` and `kinotic-server` use `pull_policy: missing`, so a locally present image
+wins and the stack keeps using it until you ask for a newer one. Run `docker compose pull` to
+refresh them from Docker Hub. This is also what lets CI point the stack at the image built from
+the commit under test rather than whatever the published tag currently holds.
+
 ## What each file does
 
 | File | Purpose | Brings up |
