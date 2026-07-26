@@ -5,6 +5,8 @@ on:
     branches:
       - develop
       - main
+      # TEMPORARY: measures this restructure on a real runner before merge. Remove before merging.
+      - claude/cicd-pipeline-performance-ynz1tn
     paths-ignore:
       - 'helm/**'
       - 'docker-compose/**'
