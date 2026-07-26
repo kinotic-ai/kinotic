@@ -8,7 +8,7 @@ dependencies {
 
     // supplies the configurable Jackson 3 codec for Vert.x JSON; KinoticVertxConfig installs the
     // Spring-managed mapper into it
-    implementation project(':vertx-jackson3-codec')
+    implementation 'org.kinotic:vertx-jackson3-codec'
 
     implementation "com.github.ben-manes.caffeine:caffeine"
     implementation 'commons-io:commons-io'
