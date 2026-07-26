@@ -4,6 +4,8 @@ allowBuilds:
   es5-ext: false
   vue-demi: false
 
+minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
+
 # First-party packages are trusted; exclude them from the minimumReleaseAge
 # supply-chain policy so a freshly-published release doesn't block the build.
 minimumReleaseAgeExclude:
