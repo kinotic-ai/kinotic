@@ -14,7 +14,6 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.kinotic.vertx.jackson3.VertxJackson3Codec;
-import org.kinotic.vertx.jackson3.VertxJackson3Module;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -43,15 +42,6 @@ public class KinoticVertxConfig {
         System.setProperty("vertx.clustered","true");
 
         return new KinoticIgniteClusterManager(ignite);
-    }
-
-    /**
-     * Boot folds every {@code JacksonModule} bean into its managed {@link JsonMapper}, so this bean makes the
-     * Spring mapper handle the Vert.x types with their Vert.x wire format.
-     */
-    @Bean
-    public VertxJackson3Module vertxJackson3Module() {
-        return new VertxJackson3Module();
     }
 
     @Bean

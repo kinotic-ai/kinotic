@@ -105,10 +105,13 @@ public class TestSchemaFactory {
         FunctionDefinition save = findFunction(crudService, "save");
         Assertions.assertEquals(new AsyncC3Type(testObjectReference), save.getReturnType());
         Assertions.assertEquals(testObjectReference, save.getParameters().getFirst().getType());
+        // -parameters retains the source names, so the contract carries "entity", not arg0
+        Assertions.assertEquals("entity", save.getParameters().getFirst().getName());
 
         FunctionDefinition findById = findFunction(crudService, "findById");
         Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
         Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
+        Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
     }
 
     @Test
