@@ -5,13 +5,20 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.EnumC3Type;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.OtherTestService;
+import org.kinotic.idl.internal.support.TestObject;
+import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestService;
+import org.kinotic.idl.internal.support.TestStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,11 +66,49 @@ public class TestSchemaFactory {
                                 findFunction(otherTestService, "findAddressAsync").getReturnType());
 
         // TestObject and TestAddress are referenced by BOTH services but converted in one session,
-        // so each appears exactly once in the namespace
+        // so each appears exactly once in the namespace; the enum property converts inline so it
+        // adds no complex type of its own
         Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+
+        // an enum property converts as an EnumC3Type with the constant names, not through the
+        // PojoTypeConverter catch-all (which would introspect Enum internals and fail on Class<E>)
+        ObjectC3Type testObject = (ObjectC3Type) namespaceDefinition.getComplexC3Types()
+                                                                    .stream()
+                                                                    .filter(type -> type.getName().equals("TestObject"))
+                                                                    .findFirst()
+                                                                    .orElseThrow();
+        C3Type statusType = testObject.getProperties()
+                                      .stream()
+                                      .filter(property -> property.getName().equals("status"))
+                                      .findFirst()
+                                      .orElseThrow()
+                                      .getType();
+        Assertions.assertEquals(new EnumC3Type().setNamespace(TestStatus.class.getPackageName())
+                                                .setName(TestStatus.class.getSimpleName())
+                                                .setValues(List.of("ACTIVE", "RETIRED")),
+                                statusType);
 
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(namespaceDefinition);
         log.info("Namespace Definition\n"+json);
+    }
+
+    @Test
+    public void testInheritedGenericSignaturesResolve() {
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestObjectCrudService.class));
+
+        ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
+        Assertions.assertEquals(2, crudService.getFunctions().size());
+
+        // T and ID bind against TestObjectCrudService, so the inherited signatures convert concretely
+        // instead of failing as unresolved type variables
+        C3Type testObjectReference = new ReferenceC3Type(TestObject.class.getName());
+        FunctionDefinition save = findFunction(crudService, "save");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), save.getReturnType());
+        Assertions.assertEquals(testObjectReference, save.getParameters().getFirst().getType());
+
+        FunctionDefinition findById = findFunction(crudService, "findById");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
+        Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
     }
 
     @Test

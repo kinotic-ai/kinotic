@@ -4,7 +4,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.schema.EnumC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
-import org.kinotic.idl.api.directory.SpecificTypeConverter;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
@@ -13,11 +13,14 @@ import org.springframework.util.Assert;
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @Component
-public class EnumTypeConverter implements SpecificTypeConverter {
+public class EnumTypeConverter implements GenericTypeConverter {
 
     @Override
-    public Class<?>[] supports() {
-        return new Class<?>[] {Enum.class};
+    public boolean supports(ResolvableType resolvableType) {
+        // a predicate, not an exact-class match: a concrete enum's raw class is never java.lang.Enum,
+        // and this must claim enums before the PojoTypeConverter catch-all introspects them as beans
+        Class<?> rawClass = resolvableType.getRawClass();
+        return rawClass != null && rawClass.isEnum();
     }
 
     @Override
