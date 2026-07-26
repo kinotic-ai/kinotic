@@ -1,0 +1,19 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+description = 'A configurable Vert.x JSON codec backed by a Jackson 3 ObjectMapper'
+
+// Jackson 3 requires 17 and Vert.x only selects its own Jackson 3 codec on a 21+ runtime, so 21 is
+// the floor consumers of this module realistically run. Overrides the repo-wide 25 so the published
+// jar is usable outside this repo.
+java {
+    sourceCompatibility = '21'
+    targetCompatibility = '21'
+}
+
+dependencies {
+    // both appear in the public API: JsonCodec/Buffer/JsonObject from vertx, JsonMapper.Builder from jackson
+    api 'io.vertx:vertx-core'
+    api 'tools.jackson.core:jackson-databind'
+}

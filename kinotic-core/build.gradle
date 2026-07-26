@@ -6,6 +6,9 @@ dependencies {
     // api scope: idl types (ServiceDefinition, C3Type) appear in core's public directory API
     api project(':kinotic-idl')
 
+    // registers the configurable Jackson 3 codec for Vert.x JSON via META-INF/services
+    runtimeOnly project(':vertx-jackson3-codec')
+
     implementation "com.github.ben-manes.caffeine:caffeine"
     implementation 'commons-io:commons-io'
 
