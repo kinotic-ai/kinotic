@@ -18,9 +18,12 @@ some source-processing tools (javadoc, delombok) cannot resolve. This module's c
 
 ## Requirements
 
-- Java 21+
+- Java 17+ (the Jackson 3 baseline; Vert.x 5 itself runs on 11)
 - Vert.x 5.x
 - Jackson 3 (`tools.jackson.core:jackson-databind`)
+
+On Java 17-20 this module is the only way to use Jackson 3 with Vert.x JSON at all: the built-in Jackson 3
+codec lives in `META-INF/versions/21` of `vertx-core`, so Vert.x never activates it on those runtimes.
 
 ## Usage
 

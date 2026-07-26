@@ -4,12 +4,13 @@ plugins {
 
 description = 'A configurable Vert.x JSON codec backed by a Jackson 3 ObjectMapper'
 
-// Jackson 3 requires 17 and Vert.x only selects its own Jackson 3 codec on a 21+ runtime, so 21 is
-// the floor consumers of this module realistically run. Overrides the repo-wide 25 so the published
-// jar is usable outside this repo.
+// Jackson 3 requires Java 17 and vertx-core's baseline is 11, so 17 is the module's true floor.
+// Overrides the repo-wide 25 so the published jar is usable outside this repo — including on
+// 17-20 runtimes, where Vert.x never activates its own Jackson 3 codec (it lives in the jar's
+// META-INF/versions/21 section) and this module is the only way to get one.
 java {
-    sourceCompatibility = '21'
-    targetCompatibility = '21'
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
 }
 
 dependencies {
