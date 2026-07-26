@@ -1,5 +1,5 @@
 import { spawnSync } from 'child_process'
-import { readdirSync, readFileSync, rmSync, existsSync } from 'fs'
+import { readdirSync, readFileSync } from 'fs'
 import { resolve } from 'path'
 import { runInThisContext } from 'vm'
 
@@ -49,14 +49,7 @@ async function verifyGraalBundle(): Promise<void> {
     console.log('Graal bundle OK')
 }
 
-// Delete bun.lock to ensure a fresh install
-const lockFile = resolve(root, 'bun.lock')
-if (existsSync(lockFile)) {
-    console.log('Deleting bun.lock...')
-    rmSync(lockFile)
-}
-
-// Fresh install
+// Install from the lockfile so the publish builds against the same resolution as development
 console.log('Running bun install...')
 const installResult = spawnSync('bun', ['install'], { cwd: root, stdio: 'inherit' })
 if (installResult.status !== 0) {
