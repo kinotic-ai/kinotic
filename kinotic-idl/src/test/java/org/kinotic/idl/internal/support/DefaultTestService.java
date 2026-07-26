@@ -23,7 +23,7 @@ public class DefaultTestService implements TestService{
 
     @Override
     public TestObject test() {
-        return new TestObject("Bob", 42, true);
+        return new TestObject("Bob", 42, true, TestStatus.ACTIVE);
     }
 
     @Override
