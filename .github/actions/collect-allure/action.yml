@@ -1,0 +1,34 @@
+name: Collect Allure results
+description: >-
+  Merges every allure-results directory produced by a job into one directory and uploads it as
+  allure-results-<name>, ready for allure-report.yml to download with a single pattern.
+
+inputs:
+  name:
+    description: Suffix for the uploaded artifact name, unique per job.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Modules write to build/allure-results (see org.kinotic.java-common-conventions.gradle); the JS
+    # suites write allure-results next to each package. node_modules is skipped because bundled
+    # fixtures inside dependencies can carry the same directory name.
+    - name: Merge Allure results
+      shell: bash
+      run: |
+        mkdir -p allure-results
+        find . -type d -name allure-results \
+             -not -path './allure-results' \
+             -not -path '*/node_modules/*' -print0 \
+        | while IFS= read -r -d '' dir; do
+            cp -a "$dir/." allure-results/ 2>/dev/null || true
+          done
+
+    - name: Upload Allure results
+      uses: actions/upload-artifact@v7
+      with:
+        name: allure-results-${{ inputs.name }}
+        path: allure-results
+        if-no-files-found: ignore
+        retention-days: 7
