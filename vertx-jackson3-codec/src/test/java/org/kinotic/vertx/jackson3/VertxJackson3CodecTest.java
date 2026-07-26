@@ -81,4 +81,21 @@ public class VertxJackson3CodecTest {
         Assertions.assertEquals("\"customized\"", Json.encode(new TestCustomType()));
     }
 
+    @Test
+    public void acceptsACompleteMapper() {
+        var original = VertxJackson3Codec.mapper();
+        try {
+            var provided = tools.jackson.databind.json.JsonMapper.builder()
+                                                                 .addModule(new VertxJackson3Module())
+                                                                 .addModule(TestMapperCustomizer.markerModule("provided"))
+                                                                 .build();
+            VertxJackson3Codec.setMapper(provided);
+            Assertions.assertSame(provided, VertxJackson3Codec.mapper());
+            Assertions.assertEquals("\"provided\"", Json.encode(new TestCustomType()));
+        } finally {
+            VertxJackson3Codec.setMapper(original);
+        }
+        Assertions.assertEquals("\"customized\"", Json.encode(new TestCustomType()));
+    }
+
 }

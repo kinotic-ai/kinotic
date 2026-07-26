@@ -10,13 +10,17 @@ public class TestMapperCustomizer implements Jackson3MapperCustomizer {
 
     @Override
     public void customize(JsonMapper.Builder builder) {
-        SimpleModule module = new SimpleModule("test-customizer");
+        builder.addModule(markerModule("customized"));
+    }
+
+    static SimpleModule markerModule(String marker) {
+        SimpleModule module = new SimpleModule("marker-" + marker);
         module.addSerializer(TestCustomType.class, new StdSerializer<>(TestCustomType.class) {
             @Override
             public void serialize(TestCustomType value, JsonGenerator jgen, SerializationContext provider) {
-                jgen.writeString("customized");
+                jgen.writeString(marker);
             }
         });
-        builder.addModule(module);
+        return module;
     }
 }

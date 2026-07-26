@@ -16,20 +16,36 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 /**
- * A Vert.x {@link JsonCodec} backed by a Jackson 3 {@link ObjectMapper} built from the
- * {@link VertxJackson3Module} plus every registered {@link Jackson3MapperCustomizer}. Decoding and encoding
- * follow the Vert.x data-binding conventions: decoding to {@link Object} yields {@link JsonObject} /
- * {@link JsonArray} for JSON objects and arrays, and trailing input after a decoded value is rejected.
+ * A Vert.x {@link JsonCodec} backed by a Jackson 3 {@link ObjectMapper}. By default the mapper is built from
+ * the {@link VertxJackson3Module} plus every registered {@link Jackson3MapperCustomizer}; a complete mapper
+ * can also be supplied with {@link #setMapper(ObjectMapper)}. Decoding and encoding follow the Vert.x
+ * data-binding conventions: decoding to {@link Object} yields {@link JsonObject} / {@link JsonArray} for
+ * JSON objects and arrays, and trailing input after a decoded value is rejected.
  */
 public class VertxJackson3Codec implements JsonCodec {
 
-    private static final ObjectMapper MAPPER = buildMapper();
+    private static volatile ObjectMapper mapper = buildMapper();
 
     /**
      * @return the {@link ObjectMapper} used for data binding
      */
     public static ObjectMapper mapper() {
-        return MAPPER;
+        return mapper;
+    }
+
+    /**
+     * Replaces the {@link ObjectMapper} used by all subsequent codec operations. For the Vert.x types to keep
+     * their wire format the mapper must carry a {@link VertxJackson3Module}. Install the mapper during
+     * application startup, before JSON traffic flows; operations already in flight keep the mapper they
+     * started with.
+     *
+     * @param mapper the mapper to data bind with
+     */
+    public static void setMapper(ObjectMapper mapper) {
+        if (mapper == null) {
+            throw new IllegalArgumentException("mapper must not be null");
+        }
+        VertxJackson3Codec.mapper = mapper;
     }
 
     private static ObjectMapper buildMapper() {
@@ -43,7 +59,7 @@ public class VertxJackson3Codec implements JsonCodec {
     @Override
     @SuppressWarnings("unchecked")
     public <T> T fromValue(Object json, Class<T> clazz) {
-        T value = MAPPER.convertValue(json, clazz);
+        T value = mapper.convertValue(json, clazz);
         if (clazz == Object.class) {
             value = (T) adapt(value);
         }
@@ -52,12 +68,15 @@ public class VertxJackson3Codec implements JsonCodec {
 
     @Override
     public <T> T fromString(String json, Class<T> clazz) throws DecodeException {
-        return fromParser(MAPPER.createParser(json), clazz);
+        // one snapshot per operation, so the parser and the read use the same mapper across a setMapper swap
+        ObjectMapper current = mapper;
+        return fromParser(current, current.createParser(json), clazz);
     }
 
     @Override
     public <T> T fromBuffer(Buffer json, Class<T> clazz) throws DecodeException {
-        return fromParser(MAPPER.createParser(json.getBytes()), clazz);
+        ObjectMapper current = mapper;
+        return fromParser(current, current.createParser(json.getBytes()), clazz);
     }
 
     @Override
@@ -65,9 +84,9 @@ public class VertxJackson3Codec implements JsonCodec {
         String ret;
         try {
             if (pretty) {
-                ret = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(object);
+                ret = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(object);
             } else {
-                ret = MAPPER.writeValueAsString(object);
+                ret = mapper.writeValueAsString(object);
             }
         } catch (Exception e) {
             throw new EncodeException("Failed to encode as JSON: " + e.getMessage());
@@ -80,9 +99,9 @@ public class VertxJackson3Codec implements JsonCodec {
         byte[] encoded;
         try {
             if (pretty) {
-                encoded = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsBytes(object);
+                encoded = mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(object);
             } else {
-                encoded = MAPPER.writeValueAsBytes(object);
+                encoded = mapper.writeValueAsBytes(object);
             }
         } catch (Exception e) {
             throw new EncodeException("Failed to encode as JSON: " + e.getMessage());
@@ -91,11 +110,11 @@ public class VertxJackson3Codec implements JsonCodec {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> T fromParser(JsonParser parser, Class<T> type) throws DecodeException {
+    private static <T> T fromParser(ObjectMapper mapper, JsonParser parser, Class<T> type) throws DecodeException {
         T value;
         JsonToken remaining;
         try {
-            value = MAPPER.readValue(parser, type);
+            value = mapper.readValue(parser, type);
             remaining = parser.nextToken();
         } catch (Exception e) {
             throw new DecodeException("Failed to decode:" + e.getMessage(), e);

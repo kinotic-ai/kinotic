@@ -83,6 +83,28 @@ detection, visibility, stream read constraints, and so on.
 The mapper in use is readable via `VertxJackson3Codec.mapper()`, mirroring the accessor the Jackson 2 codec
 offered.
 
+## Providing the complete mapper
+
+When a framework already manages a fully configured mapper, install it wholesale instead of customizing the
+default one. A Spring Boot application, for example, can hand Vert.x the Boot-managed mapper — which already
+carries every `JacksonModule` bean in the context:
+
+```java
+@Bean
+public VertxJackson3Module vertxJackson3Module() {
+    // Boot folds JacksonModule beans into its mapper, keeping the Vert.x types on their wire format
+    return new VertxJackson3Module();
+}
+```
+
+```java
+// during startup, before JSON traffic flows:
+VertxJackson3Codec.setMapper(springManagedJsonMapper);
+```
+
+The supplied mapper replaces the default for all subsequent codec operations and must carry a
+`VertxJackson3Module` for the Vert.x types to keep their wire format.
+
 ## Building custom mappers that stay Vert.x-compatible
 
 `VertxJackson3Module` is public and reusable. If you build separate mappers (for HTTP clients, storage, etc.)
