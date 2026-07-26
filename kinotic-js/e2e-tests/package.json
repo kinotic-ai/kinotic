@@ -18,6 +18,7 @@
     "@kinotic-ai/kinotic-cli": "^4.0.0",
     "@kinotic-ai/os-api": "^4.0.0",
     "@kinotic-ai/persistence": "^4.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^25.0.6",
     "@types/ws": "^8.18.1",
     "@vitejs/plugin-vue": "^6.0.3",

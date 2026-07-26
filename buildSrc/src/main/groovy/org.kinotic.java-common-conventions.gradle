@@ -82,7 +82,6 @@ dependencyManagement {
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
-        dependency "io.modelcontextprotocol.sdk:mcp:${mcpSdkVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"

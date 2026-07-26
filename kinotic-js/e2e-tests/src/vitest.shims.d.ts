@@ -1,7 +1,8 @@
 declare module 'vitest' {
     export interface ProvidedContext {
-        STRUCTURES_HOST: string
-        STRUCTURES_PORT: number
+        KINOTIC_HOST: string
+        KINOTIC_PORT: number
+        KINOTIC_OPENAPI_PORT: number
     }
 }
 
