@@ -54,7 +54,9 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
         partial.remove("online");
         partial.remove("lastStatusChange");
-        return crudServiceTemplate.partialUpdate(indexName, entry.getId(), partial, true);
+        // the caller reconciles liveness with a search right after this completes, so the write
+        // must be visible to search before the future does
+        return crudServiceTemplate.partialUpdateSync(indexName, entry.getId(), partial, true);
     }
 
     /**

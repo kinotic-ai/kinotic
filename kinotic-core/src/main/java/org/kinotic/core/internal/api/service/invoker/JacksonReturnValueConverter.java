@@ -44,7 +44,11 @@ public class JacksonReturnValueConverter extends AbstractJacksonSupport implemen
 
     @Override
     public boolean supports(Metadata incomingMetadata, MethodParameter returnType) {
-        return containsJsonContent(incomingMetadata);
+        // the named-json content type describes how the request encoded its arguments; the reply
+        // written by convert() is plain JSON either way
+        return containsJsonContent(incomingMetadata)
+                || EventConstants.CONTENT_TYPE_NAMED_JSON.equals(
+                        incomingMetadata.get(EventConstants.CONTENT_TYPE_HEADER));
     }
 
 }

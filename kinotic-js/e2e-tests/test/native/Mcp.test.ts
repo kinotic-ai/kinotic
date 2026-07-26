@@ -82,13 +82,14 @@ describe('Kinotic JS', () => {
             + 'owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.')
         expect(findProjects!.title).toBe('Find Projects by GitHub Repo')
         expect(findProjects!.annotations?.readOnlyHint).toBe(true)
-        // schema property names come from the compiled parameter names
-        expect(Object.keys(findProjects!.inputSchema.properties ?? {})).toContain('repoFullName')
+        // parameter names are not retained in the class file, so a parameter is argN unless the
+        // service annotates it with @Name
+        expect(Object.keys(findProjects!.inputSchema.properties ?? {})).toContain('arg0')
     })
 
     it('dispatches tools/call through the rpc path', async () => {
         const result = await organizationClient.callTool({name: FIND_PROJECTS_BY_REPO,
-                                                          arguments: {repoFullName: 'kinotic-ai/no-such-repo'}})
+                                                          arguments: {arg0: 'kinotic-ai/no-such-repo'}})
         expect(result.isError).toBeFalsy()
         const content = result.content as Array<{ type: string, text?: string }>
         expect(content[0].type).toBe('text')
@@ -97,14 +98,14 @@ describe('Kinotic JS', () => {
 
     it('rejects arguments matching no parameter as a tool error', async () => {
         const result = await organizationClient.callTool({name: FIND_PROJECTS_BY_REPO,
-                                                          arguments: {repoFullName: 'a/b', bogus: 'x'}})
+                                                          arguments: {arg0: 'a/b', bogus: 'x'}})
         expect(result.isError).toBe(true)
     })
 
     it('refuses a call to a tool outside the caller zones', async () => {
         // resolution is scoped to the caller's zones, so the os-api tool does not exist for an app participant
         await expect(applicationClient.callTool({name: FIND_PROJECTS_BY_REPO,
-                                                 arguments: {repoFullName: 'a/b'}}))
+                                                 arguments: {arg0: 'a/b'}}))
             .rejects.toThrowError(McpError)
     })
 
