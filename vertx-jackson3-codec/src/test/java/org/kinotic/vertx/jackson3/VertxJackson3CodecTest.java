@@ -50,6 +50,58 @@ public class VertxJackson3CodecTest {
     }
 
     @Test
+    public void rejectsMalformedJson() {
+        Assertions.assertThrows(DecodeException.class, () -> Json.decodeValue("{\"a\":"));
+        Assertions.assertThrows(DecodeException.class, () -> Json.decodeValue("not json", JsonObject.class));
+    }
+
+    @Test
+    public void roundTripsThroughBuffers() {
+        JsonObject jsonObject = new JsonObject().put("k", "v").put("n", 1);
+        Buffer buffer = Json.encodeToBuffer(jsonObject);
+        Assertions.assertEquals(jsonObject, Json.decodeValue(buffer, JsonObject.class));
+        Assertions.assertInstanceOf(JsonObject.class, Json.decodeValue(buffer));
+    }
+
+    @Test
+    public void prettyPrints() {
+        JsonObject jsonObject = new JsonObject().put("a", 1).put("b", 2);
+        String pretty = Json.encodePrettily(jsonObject);
+        Assertions.assertTrue(pretty.contains("\n"), "expected pretty output, got: " + pretty);
+        Assertions.assertEquals(jsonObject, Json.decodeValue(pretty, JsonObject.class));
+    }
+
+    @Test
+    public void bindsVertxTypesInsidePojos() {
+        TestEnvelope envelope = new TestEnvelope();
+        envelope.setPayload(new JsonObject().put("k", "v"));
+        envelope.setRaw(new byte[]{1, 2, 3});
+        envelope.setBuffer(Buffer.buffer(new byte[]{4, 5}));
+        envelope.setWhen(Instant.parse("2026-07-26T12:00:00Z"));
+
+        TestEnvelope decoded = Json.decodeValue(Json.encode(envelope), TestEnvelope.class);
+        Assertions.assertEquals(envelope.getPayload(), decoded.getPayload());
+        Assertions.assertArrayEquals(envelope.getRaw(), decoded.getRaw());
+        Assertions.assertEquals(envelope.getBuffer(), decoded.getBuffer());
+        Assertions.assertEquals(envelope.getWhen(), decoded.getWhen());
+    }
+
+    @Test
+    public void preservesNumericTypes() {
+        JsonObject decoded = (JsonObject) Json.decodeValue("{\"small\":1,\"big\":9007199254740993,\"decimal\":1.5}");
+        Assertions.assertEquals(1, decoded.getInteger("small"));
+        // past 2^53, a codec that routes numbers through double corrupts the value
+        Assertions.assertEquals(9007199254740993L, decoded.getLong("big"));
+        Assertions.assertEquals(1.5d, decoded.getDouble("decimal"));
+    }
+
+    @Test
+    public void handlesNullValues() {
+        Assertions.assertEquals("null", Json.encode(null));
+        Assertions.assertNull(Json.decodeValue("null"));
+    }
+
+    @Test
     public void encodesVertxTypesPerRfc7493() {
         Instant instant = Instant.parse("2026-07-26T12:00:00Z");
         byte[] bytes = new byte[]{1, 2, 3};

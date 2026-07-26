@@ -22,8 +22,9 @@ some source-processing tools (javadoc, delombok) cannot resolve. This module's c
 - Vert.x 5.x
 - Jackson 3 (`tools.jackson.core:jackson-databind`)
 
-On Java 17-20 this module is the only way to use Jackson 3 with Vert.x JSON at all: the built-in Jackson 3
-codec lives in `META-INF/versions/21` of `vertx-core`, so Vert.x never activates it on those runtimes.
+Vert.x ships its built-in Jackson 3 codec in the `META-INF/versions/21` section of `vertx-core`, so it only
+activates on Java 21+ runtimes. On Java 17-20 this module also provides Vert.x Jackson 3 support that would
+otherwise be unavailable.
 
 ## Usage
 
