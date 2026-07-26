@@ -7,10 +7,11 @@ description = 'A configurable Vert.x JSON codec backed by a Jackson 3 ObjectMapp
 // Jackson 3 requires Java 17 and vertx-core's baseline is 11, so 17 is the module's true floor.
 // Overrides the repo-wide 25 so the published jar is usable outside this repo — including on
 // 17-20 runtimes, where Vert.x never activates its own Jackson 3 codec (it lives in the jar's
-// META-INF/versions/21 section) and this module is the only way to get one.
-java {
-    sourceCompatibility = '17'
-    targetCompatibility = '17'
+// META-INF/versions/21 section) and this module is the only way to get one. release (not
+// source/target) makes javac verify API usage against the 17 API, so a method added after 17
+// fails this build instead of throwing NoSuchMethodError on a consumer's 17 runtime.
+compileJava {
+    options.release = 17
 }
 
 dependencies {

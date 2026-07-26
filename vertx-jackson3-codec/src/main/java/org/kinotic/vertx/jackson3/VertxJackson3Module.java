@@ -20,16 +20,16 @@ import java.time.Instant;
 public class VertxJackson3Module extends SimpleModule {
 
     public VertxJackson3Module() {
-        addSerializer(JsonObject.class, new JsonObjectSerializer());
-        addSerializer(JsonArray.class, new JsonArraySerializer());
-        addDeserializer(JsonObject.class, new JsonObjectDeserializer());
-        addDeserializer(JsonArray.class, new JsonArrayDeserializer());
-        addSerializer(Instant.class, new InstantSerializer());
-        addDeserializer(Instant.class, new InstantDeserializer());
-        addSerializer(byte[].class, new ByteArraySerializer());
-        addDeserializer(byte[].class, new ByteArrayDeserializer());
-        addSerializer(Buffer.class, new BufferSerializer());
-        addDeserializer(Buffer.class, new BufferDeserializer());
+        addSerializer(JsonObject.class, new JsonObjectCodec.Serializer());
+        addDeserializer(JsonObject.class, new JsonObjectCodec.Deserializer());
+        addSerializer(JsonArray.class, new JsonArrayCodec.Serializer());
+        addDeserializer(JsonArray.class, new JsonArrayCodec.Deserializer());
+        addSerializer(Instant.class, new InstantCodec.Serializer());
+        addDeserializer(Instant.class, new InstantCodec.Deserializer());
+        addSerializer(byte[].class, new ByteArrayCodec.Serializer());
+        addDeserializer(byte[].class, new ByteArrayCodec.Deserializer());
+        addSerializer(Buffer.class, new BufferCodec.Serializer());
+        addDeserializer(Buffer.class, new BufferCodec.Deserializer());
     }
 
 }
