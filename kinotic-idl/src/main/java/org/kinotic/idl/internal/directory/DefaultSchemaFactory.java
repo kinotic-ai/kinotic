@@ -90,14 +90,15 @@ public class DefaultSchemaFactory implements SchemaFactory {
         serviceDefinition.setName(clazz.getSimpleName());
 
         ReflectionUtils.doWithMethods(clazz, method -> {
-            // TODO: make this work properly when an interface defines generics that the implementor will define in implementation, This would require an interface class and a target class above to work correctly
 
             FunctionDefinition functionDefinition = new FunctionDefinition();
-            functionDefinition.setReturnType(conversionContext.convert(ResolvableType.forMethodReturnType(method)));
+            // resolving against clazz binds type variables a generic parent declares, so an inherited
+            // CompletableFuture<T> save(T entity) converts with T bound instead of failing as ?
+            functionDefinition.setReturnType(conversionContext.convert(ResolvableType.forMethodReturnType(method, clazz)));
 
             for (int i = 0; i < method.getParameterCount(); i++) {
 
-                MethodParameter methodParameter = new MethodParameter(method, i);
+                MethodParameter methodParameter = new MethodParameter(method, i).withContainingClass(clazz);
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
