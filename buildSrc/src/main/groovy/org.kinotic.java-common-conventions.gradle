@@ -33,6 +33,14 @@ tasks.withType(AbstractArchiveTask).configureEach {
     reproducibleFileOrder = true
 }
 
+// Retain method parameter names in class files: the IDL converter reads them for service schemas
+// and MCP tool input schemas (IdlUtil.parameterName). KinoticJacksonConfig pins Jackson's
+// ConstructorDetector to EXPLICIT_ONLY so the now-visible constructor names cannot change how
+// value types deserialize.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-parameters'
+}
+
 
 repositories {
     // Use Maven Central for resolving dependencies.
