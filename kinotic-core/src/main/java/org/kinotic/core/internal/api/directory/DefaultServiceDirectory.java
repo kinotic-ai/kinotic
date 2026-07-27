@@ -107,9 +107,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
+    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
         // the user class, so an AOP proxy never becomes the naming source
-        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(instance));
+        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
         if (!shouldPublishToDirectory(registration)) {
             return;
         }
@@ -131,8 +131,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
-        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(instance)))) {
+    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
+        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(serviceImplementation)))) {
             return;
         }
         // this node leaving says nothing about other instances of the service — verify, never
