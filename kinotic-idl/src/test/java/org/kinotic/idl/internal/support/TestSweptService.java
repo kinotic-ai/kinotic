@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Created by Navíd Mitchell 🤪 on 7/27/26.
  */
-@McpTool(description = "Looks up test objects", readOnlyHint = true)
+@McpTool(readOnlyHint = true)
 public interface TestSweptService {
 
     CompletableFuture<TestObject> findByName(String name);

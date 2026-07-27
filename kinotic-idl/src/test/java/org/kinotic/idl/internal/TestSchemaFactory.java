@@ -134,6 +134,8 @@ public class TestSchemaFactory {
         McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(decorator);
         Assertions.assertEquals("Greets the recipient", decorator.getDescription());
+        // an explicit description with no title still gets a derived title
+        Assertions.assertEquals("Greet", decorator.getTitle());
     }
 
     @Test
@@ -143,10 +145,12 @@ public class TestSchemaFactory {
 
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
-        // an unannotated method inherits the type-level description and hints
+        // an unannotated method inherits the type-level hints, and with no description declared
+        // anywhere the description and title derive from the function name
         McpToolC3Decorator swept = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(swept);
-        Assertions.assertEquals("Looks up test objects", swept.getDescription());
+        Assertions.assertEquals("Find by name", swept.getDescription());
+        Assertions.assertEquals("Find By Name", swept.getTitle());
         Assertions.assertTrue(swept.isReadOnlyHint());
 
         // a method-level @McpTool overrides the type-level defaults for that method

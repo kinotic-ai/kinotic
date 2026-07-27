@@ -6,6 +6,7 @@ import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
@@ -131,9 +132,11 @@ public class DefaultSchemaFactory implements SchemaFactory {
                 mcpTool = typeLevelMcpTool;
             }
             if(mcpTool != null){
+                // an LLM caller decides which tool to invoke by its description, so an empty description
+                // or title falls back to one derived from the function name rather than staying blank
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setTitle(mcpTool.title().isEmpty() ? null : mcpTool.title())
-                        .setDescription(mcpTool.description())
+                        .setTitle(mcpTool.title().isEmpty() ? deriveTitle(function.getKey()) : mcpTool.title())
+                        .setDescription(mcpTool.description().isEmpty() ? deriveDescription(function.getKey()) : mcpTool.description())
                         .setReadOnlyHint(mcpTool.readOnlyHint())
                         .setDestructiveHint(mcpTool.destructiveHint())
                         .setIdempotentHint(mcpTool.idempotentHint())));
@@ -143,6 +146,33 @@ public class DefaultSchemaFactory implements SchemaFactory {
         }
 
         return serviceDefinition;
+    }
+
+    // createApplicationIfNotExist -> "Create Application If Not Exist"
+    private static String deriveTitle(String functionName) {
+        StringBuilder ret = new StringBuilder();
+        for (String word : StringUtils.splitByCharacterTypeCamelCase(functionName)) {
+            if (!ret.isEmpty()) {
+                ret.append(' ');
+            }
+            ret.append(StringUtils.capitalize(word));
+        }
+        return ret.toString();
+    }
+
+    // createApplicationIfNotExist -> "Create application if not exist"
+    private static String deriveDescription(String functionName) {
+        StringBuilder ret = new StringBuilder();
+        for (String word : StringUtils.splitByCharacterTypeCamelCase(functionName)) {
+            if (ret.isEmpty()) {
+                ret.append(StringUtils.capitalize(word));
+            } else {
+                ret.append(' ');
+                // an all-caps word is an acronym (CRI, OIDC) and keeps its case
+                ret.append(StringUtils.isAllUpperCase(word) ? word : StringUtils.uncapitalize(word));
+            }
+        }
+        return ret.toString();
     }
 
 }

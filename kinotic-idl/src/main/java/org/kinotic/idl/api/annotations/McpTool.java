@@ -11,7 +11,8 @@ import java.lang.annotation.Target;
  * declared on the service interface or on the implementation's override — that method becomes a callable
  * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
  * every function becomes a tool carrying the type-level description and hints, and a method-level
- * {@code @McpTool} overrides them for that method.
+ * {@code @McpTool} overrides them for that method. An empty {@link #description} or {@link #title} is
+ * derived from the function name, so each tool stays individually recognizable to an LLM caller.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -19,13 +20,16 @@ import java.lang.annotation.Target;
 public @interface McpTool {
 
     /**
-     * The LLM-facing description of what the tool does.
+     * The LLM-facing description of what the tool does. When empty, the function name is split into a
+     * sentence and used instead ({@code findByRepoFullName} becomes {@code "Find by repo full name"}).
      */
-    String description();
+    String description() default "";
 
     /**
-     * The human-readable display title for the tool. The tool name itself is always derived from the service's
-     * qualified name and the method name, so it is unique system wide.
+     * The human-readable display title for the tool. When empty, the function name is split into a
+     * capitalized phrase ({@code findByRepoFullName} becomes {@code "Find By Repo Full Name"}). The tool
+     * name itself is always derived from the service's qualified name and the method name, so it is
+     * unique system wide.
      */
     String title() default "";
 
