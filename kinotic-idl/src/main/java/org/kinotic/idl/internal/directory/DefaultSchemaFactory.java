@@ -23,10 +23,21 @@ import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-
-import java.lang.reflect.Method;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -39,6 +50,8 @@ import java.lang.reflect.Method;
 public class DefaultSchemaFactory implements SchemaFactory {
 
     private final GenericTypeConverter typeConverter;
+    // extracted Javadoc resources by type; a type without a resource caches an empty map
+    private final Map<Class<?>, Map<String, String>> javadocCache = new ConcurrentHashMap<>();
 
     public DefaultSchemaFactory(GenericTypeConverter typeConverter) {
         this.typeConverter = typeConverter;
@@ -133,10 +146,10 @@ public class DefaultSchemaFactory implements SchemaFactory {
             }
             if(mcpTool != null){
                 // an LLM caller decides which tool to invoke by its description, so an empty description
-                // or title falls back to one derived from the function name rather than staying blank
+                // falls back to the compile-time extracted Javadoc, then to the function name
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
                         .setTitle(mcpTool.title().isEmpty() ? deriveTitle(function.getKey()) : mcpTool.title())
-                        .setDescription(mcpTool.description().isEmpty() ? deriveDescription(function.getKey()) : mcpTool.description())
+                        .setDescription(resolveDescription(mcpTool, function.getValue(), specificMethod, function.getKey()))
                         .setReadOnlyHint(mcpTool.readOnlyHint())
                         .setDestructiveHint(mcpTool.destructiveHint())
                         .setIdempotentHint(mcpTool.idempotentHint())));
@@ -146,6 +159,61 @@ public class DefaultSchemaFactory implements SchemaFactory {
         }
 
         return serviceDefinition;
+    }
+
+    private String resolveDescription(McpTool mcpTool, Method contractMethod, Method specificMethod, String functionName) {
+        String ret = mcpTool.description();
+        if (ret.isEmpty()) {
+            ret = javadocDescription(specificMethod, contractMethod);
+        }
+        if (ret == null || ret.isEmpty()) {
+            ret = deriveDescription(functionName);
+        }
+        return ret;
+    }
+
+    /**
+     * Looks up the compile-time extracted Javadoc description for a function, walking the most specific
+     * declaration first: the implementation's override, the contract's declaration, then the contract's
+     * ancestors — so an inherited CRUD function finds the doc written on the generic base.
+     */
+    private String javadocDescription(Method specificMethod, Method contractMethod) {
+        String ret = null;
+        String functionName = contractMethod.getName();
+        Deque<Class<?>> queue = new ArrayDeque<>(List.of(specificMethod.getDeclaringClass(),
+                                                         contractMethod.getDeclaringClass()));
+        Set<Class<?>> visited = new HashSet<>();
+        while (ret == null && !queue.isEmpty()) {
+            Class<?> type = queue.poll();
+            if (visited.add(type)) {
+                ret = javadocFor(type).get(functionName);
+                if (type.getSuperclass() != null && type.getSuperclass() != Object.class) {
+                    queue.add(type.getSuperclass());
+                }
+                queue.addAll(Arrays.asList(type.getInterfaces()));
+            }
+        }
+        return ret;
+    }
+
+    private Map<String, String> javadocFor(Class<?> type) {
+        return javadocCache.computeIfAbsent(type, clazz -> {
+            Map<String, String> ret = Map.of();
+            try (InputStream in = clazz.getResourceAsStream(
+                    "/" + McpToolDocProcessor.DOCS_RESOURCE_DIRECTORY + clazz.getName() + ".properties")) {
+                if (in != null) {
+                    Properties properties = new Properties();
+                    // load(Reader), the InputStream overload assumes ISO-8859-1 and mangles UTF-8 docs
+                    properties.load(new InputStreamReader(in, StandardCharsets.UTF_8));
+                    Map<String, String> docs = new HashMap<>();
+                    properties.forEach((key, value) -> docs.put((String) key, (String) value));
+                    ret = docs;
+                }
+            } catch (IOException e) {
+                log.warn("Failed to read the Javadoc description resource for {}", clazz.getName(), e);
+            }
+            return ret;
+        });
     }
 
     // createApplicationIfNotExist -> "Create Application If Not Exist"

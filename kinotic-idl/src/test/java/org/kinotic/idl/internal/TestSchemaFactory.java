@@ -118,6 +118,12 @@ public class TestSchemaFactory {
         Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
         Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
         Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
+
+        // an inherited function's description comes from the Javadoc on the generic base declaring it,
+        // even though GenericCrudService itself carries no annotations
+        McpToolC3Decorator inherited = findById.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(inherited);
+        Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
     }
 
     @Test
@@ -145,13 +151,19 @@ public class TestSchemaFactory {
 
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
-        // an unannotated method inherits the type-level hints, and with no description declared
-        // anywhere the description and title derive from the function name
-        McpToolC3Decorator swept = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
-        Assertions.assertNotNull(swept);
-        Assertions.assertEquals("Find by name", swept.getDescription());
-        Assertions.assertEquals("Find By Name", swept.getTitle());
-        Assertions.assertTrue(swept.isReadOnlyHint());
+        // a documented method's description is the Javadoc main description extracted at compile time,
+        // with inline tags resolved; the title still derives from the function name
+        McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(documented);
+        Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
+        Assertions.assertEquals("Find By Name", documented.getTitle());
+        Assertions.assertTrue(documented.isReadOnlyHint());
+
+        // no annotation description and no Javadoc: description and title derive from the function name
+        McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(derived);
+        Assertions.assertEquals("Count by name", derived.getDescription());
+        Assertions.assertEquals("Count By Name", derived.getTitle());
 
         // a method-level @McpTool overrides the type-level defaults for that method
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);

@@ -145,6 +145,16 @@ dependencyManagement {
     }
 }
 
+// McpToolDocProcessor (shipped in kinotic-idl) extracts method Javadoc into jar resources that
+// DefaultSchemaFactory serves as MCP tool descriptions; kinotic-idl cannot be its own processor,
+// it wires the processor over its test fixtures in its own build.gradle
+if (project.name != 'kinotic-idl') {
+    dependencies {
+        annotationProcessor project(':kinotic-idl')
+        testAnnotationProcessor project(':kinotic-idl')
+    }
+}
+
 dependencies {
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 

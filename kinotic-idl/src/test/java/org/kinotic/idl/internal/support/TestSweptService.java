@@ -10,7 +10,12 @@ import java.util.concurrent.CompletableFuture;
 @McpTool(readOnlyHint = true)
 public interface TestSweptService {
 
+    /**
+     * Finds the test object with the given {@code name}.
+     */
     CompletableFuture<TestObject> findByName(String name);
+
+    CompletableFuture<Long> countByName(String name);
 
     @McpTool(description = "Counts every test object", title = "Count Objects")
     CompletableFuture<Long> countAll();
