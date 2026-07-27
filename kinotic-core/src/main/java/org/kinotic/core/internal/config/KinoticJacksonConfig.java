@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ReactiveAdapterRegistry;
 import tools.jackson.core.Version;
-import tools.jackson.databind.cfg.ConstructorDetector;
+import tools.jackson.databind.MapperFeature;
 import tools.jackson.databind.module.SimpleModule;
 
 /**
@@ -35,11 +35,12 @@ public class KinoticJacksonConfig {
 
     @Bean
     public JsonMapperBuilderCustomizer kinoticJsonMapperCustomizer() {
-        // -parameters makes constructor parameter names visible to Jackson, which would otherwise promote
-        // plain constructors to implicit creators and change how value types deserialize. EXPLICIT_ONLY
-        // limits creator detection to @JsonCreator constructors, so the compiler flag cannot shift wire
-        // behavior.
-        return builder -> builder.constructorDetector(ConstructorDetector.EXPLICIT_ONLY);
+        // -parameters makes constructor parameter names visible to Jackson, which promotes plain
+        // constructors (@AllArgsConstructor) to properties-based creators even under
+        // ConstructorDetector.EXPLICIT_ONLY: a creator invocation passes null for absent properties,
+        // bypassing field initializers (TestFunctionDefinitionSerialization documents the failure).
+        // Disabling detection makes Jackson ignore reflected parameter names entirely.
+        return builder -> builder.disable(MapperFeature.DETECT_PARAMETER_NAMES);
     }
 
     @Bean
