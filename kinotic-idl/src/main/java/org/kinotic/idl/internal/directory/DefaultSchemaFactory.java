@@ -3,7 +3,7 @@
 package org.kinotic.idl.internal.directory;
 
 import org.kinotic.idl.api.directory.ConversionContext;
-import org.kinotic.idl.api.directory.DirectoryRegistration;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
@@ -83,22 +83,22 @@ public class DefaultSchemaFactory implements SchemaFactory {
     }
 
     @Override
-    public NamespaceDefinition createForServices(Collection<DirectoryRegistration> services) {
+    public NamespaceDefinition createForServices(Collection<ServiceDeclaration> services) {
         Assert.notNull(services, "services cannot be null");
         // one conversion context for the whole batch, so complex types shared between services convert once
         DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
 
         NamespaceDefinition ret = new NamespaceDefinition();
-        // record equality collapses duplicates, so a service registered twice converts once
-        for (DirectoryRegistration registration : new LinkedHashSet<>(services)) {
+        // record equality collapses duplicates, so a service declared twice converts once
+        for (ServiceDeclaration declaration : new LinkedHashSet<>(services)) {
             // a service with an unconvertible type is omitted so the rest of the batch still converts;
             // ObjectC3Types are cached only after converting completely, so a failure leaves no partial types
             try {
-                ret.addServiceDefinition(createForService(registration.serviceInterface(),
-                                                          registration.serviceImplementation(),
+                ret.addServiceDefinition(createForService(declaration.serviceInterface(),
+                                                          declaration.serviceImplementation(),
                                                           conversionContext));
             } catch (Exception e) {
-                log.error("Failed to create ServiceDefinition for {}", registration.serviceInterface().getName(), e);
+                log.error("Failed to create ServiceDefinition for {}", declaration.serviceInterface().getName(), e);
             }
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());

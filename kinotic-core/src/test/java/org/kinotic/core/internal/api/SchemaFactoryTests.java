@@ -3,7 +3,7 @@ package org.kinotic.core.internal.api;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.internal.api.support.RpcTestService;
-import org.kinotic.idl.api.directory.DirectoryRegistration;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.AnyC3Type;
 import org.kinotic.idl.api.schema.ArrayC3Type;
@@ -50,7 +50,7 @@ public class SchemaFactoryTests {
     }
 
     private FunctionDefinition findFunction(String name) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(List.of(new DirectoryRegistration(RpcTestService.class, RpcTestService.class)));
+        NamespaceDefinition namespace = schemaFactory.createForServices(List.of(new ServiceDeclaration(RpcTestService.class, RpcTestService.class)));
 
         // every type the RPC layer supports must convert, or the whole service is omitted
         ServiceDefinition service = namespace.getServices()

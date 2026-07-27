@@ -26,18 +26,18 @@ public interface SchemaFactory {
 
     /**
      * Creates a {@link NamespaceDefinition} containing a {@link ServiceDefinition} for each given
-     * {@link DirectoryRegistration}. The interface decides which functions the definition carries — one function
+     * {@link ServiceDeclaration}. The interface decides which functions the definition carries — one function
      * per method name, overloading is not supported — while each function's parameter names, generic
      * bindings, and annotations resolve against the implementation's most specific method — the same method
      * invoked at runtime.
      * All services are converted in one session, so complex types shared between services are converted once and
-     * appear once in the returned namespace. Equal registrations convert once, and a service that fails to
+     * appear once in the returned namespace. Equal declarations convert once, and a service that fails to
      * convert is omitted from the result rather than failing the batch. Each definition's qualified name is the
      * interface's package name and simple name joined with {@code '.'}.
      *
      * @param services the services to create definitions for
      * @return the newly created {@link NamespaceDefinition} with every converted service and every referenced complex type
      */
-    NamespaceDefinition createForServices(Collection<DirectoryRegistration> services);
+    NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
 
 }

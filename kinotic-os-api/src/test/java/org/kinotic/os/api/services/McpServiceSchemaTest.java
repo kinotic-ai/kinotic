@@ -2,7 +2,7 @@ package org.kinotic.os.api.services;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.kinotic.idl.api.directory.DirectoryRegistration;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
 import org.kinotic.os.internal.api.services.DefaultApplicationService;
 import org.kinotic.os.internal.api.services.DefaultProjectService;
@@ -46,8 +46,8 @@ public class McpServiceSchemaTest {
     @Test
     public void mcpExposedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory().createForServices(List.of(new DirectoryRegistration(ProjectService.class, DefaultProjectService.class),
-                                                           new DirectoryRegistration(ApplicationService.class, DefaultApplicationService.class)));
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
+                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class)));
 
         // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
@@ -56,7 +56,7 @@ public class McpServiceSchemaTest {
     @Test
     public void inheritedJavadocDescriptionsResolveAcrossModules() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory().createForServices(List.of(new DirectoryRegistration(TestCrudSweptService.class, TestCrudSweptService.class)));
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(TestCrudSweptService.class, TestCrudSweptService.class)));
 
         ServiceDefinition service = namespaceDefinition.getServices()
                                                        .stream()

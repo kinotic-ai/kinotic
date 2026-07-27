@@ -22,7 +22,7 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
-import org.kinotic.idl.api.directory.DirectoryRegistration;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
@@ -80,7 +80,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
-    private final Map<ServiceIdentifier, DirectoryRegistration> pendingRegistrations = new HashMap<>();
+    private final Map<ServiceIdentifier, ServiceDeclaration> pendingRegistrations = new HashMap<>();
     // Identifiers this node has published or queued, so unregister(ServiceIdentifier) knows whether
     // liveness needs a refresh without the caller re-supplying the registration classes
     private final Set<ServiceIdentifier> registered = new HashSet<>(); // guarded by registrationLock
@@ -113,7 +113,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     @Override
     public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
         // the user class, so an AOP proxy never becomes the naming source
-        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
+        ServiceDeclaration registration = new ServiceDeclaration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
         if (!shouldPublishToDirectory(registration)) {
             return;
         }
@@ -151,7 +151,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private void drainStartupRegistrations() {
-        Map<ServiceIdentifier, DirectoryRegistration> batch;
+        Map<ServiceIdentifier, ServiceDeclaration> batch;
         synchronized (registrationLock) {
             startupComplete = true;
             batch = new HashMap<>(pendingRegistrations);
@@ -183,7 +183,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, DirectoryRegistration> registrations) {
+    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
         NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
@@ -192,7 +192,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
 
         List<Future<Void>> writes = new ArrayList<>();
-        for (Map.Entry<ServiceIdentifier, DirectoryRegistration> registration : registrations.entrySet()) {
+        for (Map.Entry<ServiceIdentifier, ServiceDeclaration> registration : registrations.entrySet()) {
             try {
                 // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
                 // contract — never Class.getName(), which uses '$' for nested types
@@ -335,7 +335,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
-    private boolean shouldPublishToDirectory(DirectoryRegistration registration) {
+    private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
         return isAdvertised(registration.serviceInterface()) || hasMcpToolFunction(registration);
     }
 
@@ -344,7 +344,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return publish != null && publish.advertise();
     }
 
-    private boolean hasMcpToolFunction(DirectoryRegistration registration) {
+    private boolean hasMcpToolFunction(ServiceDeclaration registration) {
         // a type-level @McpTool marks every function a tool, so the contract alone decides
         boolean ret = AnnotationUtils.findAnnotation(registration.serviceInterface(), McpTool.class) != null;
         if (!ret) {
