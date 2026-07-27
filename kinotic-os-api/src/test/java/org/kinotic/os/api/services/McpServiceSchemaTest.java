@@ -3,6 +3,8 @@ package org.kinotic.os.api.services;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.os.internal.api.services.DefaultApplicationService;
+import org.kinotic.os.internal.api.services.DefaultProjectService;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
@@ -29,6 +31,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Verifies every MCP-exposed os-api service converts to a ServiceDefinition with the same converter set
@@ -61,7 +64,8 @@ public class McpServiceSchemaTest {
         DefaultSchemaFactory schemaFactory = new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
 
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(ProjectService.class, ApplicationService.class));
+                schemaFactory.createForServices(Map.of(ProjectService.class, DefaultProjectService.class,
+                                                       ApplicationService.class, DefaultApplicationService.class));
 
         // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());

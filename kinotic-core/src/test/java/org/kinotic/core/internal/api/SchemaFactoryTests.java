@@ -17,6 +17,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Verifies contract conversion against the full kinotic context, where adapters registered at runtime
@@ -49,7 +50,7 @@ public class SchemaFactoryTests {
     }
 
     private FunctionDefinition findFunction(String name) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(List.of(RpcTestService.class));
+        NamespaceDefinition namespace = schemaFactory.createForServices(Map.of(RpcTestService.class, RpcTestService.class));
 
         // every type the RPC layer supports must convert, or the whole service is omitted
         ServiceDefinition service = namespace.getServices()

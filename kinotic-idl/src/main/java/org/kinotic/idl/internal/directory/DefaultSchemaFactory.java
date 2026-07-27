@@ -14,15 +14,19 @@ import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+
+import java.lang.reflect.Method;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -63,42 +67,50 @@ public class DefaultSchemaFactory implements SchemaFactory {
     }
 
     @Override
-    public NamespaceDefinition createForServices(Collection<Class<?>> serviceInterfaces) {
-        Assert.notNull(serviceInterfaces, "serviceInterfaces cannot be null");
+    public NamespaceDefinition createForServices(Map<Class<?>, Class<?>> services) {
+        Assert.notNull(services, "services cannot be null");
         // one conversion context for the whole batch, so complex types shared between services convert once
         DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
 
         NamespaceDefinition ret = new NamespaceDefinition();
-        for (Class<?> clazz : new LinkedHashSet<>(serviceInterfaces)) {
+        for (Map.Entry<Class<?>, Class<?>> service : services.entrySet()) {
             // a service with an unconvertible type is omitted so the rest of the batch still converts;
             // ObjectC3Types are cached only after converting completely, so a failure leaves no partial types
             try {
-                ret.addServiceDefinition(createForService(clazz, conversionContext));
+                ret.addServiceDefinition(createForService(service.getKey(), service.getValue(), conversionContext));
             } catch (Exception e) {
-                log.error("Failed to create ServiceDefinition for {}", clazz.getName(), e);
+                log.error("Failed to create ServiceDefinition for {}", service.getKey().getName(), e);
             }
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
         return ret;
     }
 
-    private ServiceDefinition createForService(Class<?> clazz, ConversionContext conversionContext) {
-        Assert.notNull(clazz, "Class cannot be null");
+    private ServiceDefinition createForService(Class<?> contract,
+                                               Class<?> implementation,
+                                               ConversionContext conversionContext) {
+        Assert.notNull(contract, "contract cannot be null");
+        Assert.notNull(implementation, "implementation cannot be null");
 
         ServiceDefinition serviceDefinition = new ServiceDefinition();
-        serviceDefinition.setNamespace(clazz.getPackage().getName());
-        serviceDefinition.setName(clazz.getSimpleName());
+        serviceDefinition.setNamespace(contract.getPackage().getName());
+        serviceDefinition.setName(contract.getSimpleName());
 
-        ReflectionUtils.doWithMethods(clazz, method -> {
+        ReflectionUtils.doWithMethods(contract, method -> {
+
+            // the contract decides WHICH functions exist; the implementation's override decides parameter
+            // names, generic bindings, and annotations — the same method the invocation-side named-argument
+            // binding resolves, so the published schema and the runtime binding cannot drift
+            Method specificMethod = BridgeMethodResolver.findBridgedMethod(
+                    ClassUtils.getMostSpecificMethod(method, implementation));
 
             FunctionDefinition functionDefinition = new FunctionDefinition();
-            // resolving against clazz binds type variables a generic parent declares, so an inherited
-            // CompletableFuture<T> save(T entity) converts with T bound instead of failing as ?
-            functionDefinition.setReturnType(conversionContext.convert(ResolvableType.forMethodReturnType(method, clazz)));
+            functionDefinition.setReturnType(conversionContext.convert(
+                    ResolvableType.forMethodReturnType(specificMethod, implementation)));
 
-            for (int i = 0; i < method.getParameterCount(); i++) {
+            for (int i = 0; i < specificMethod.getParameterCount(); i++) {
 
-                MethodParameter methodParameter = new MethodParameter(method, i).withContainingClass(clazz);
+                MethodParameter methodParameter = new MethodParameter(specificMethod, i).withContainingClass(implementation);
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
@@ -107,7 +119,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
             functionDefinition.setName(method.getName());
 
-            McpTool mcpTool = method.getAnnotation(McpTool.class);
+            // findAnnotation walks super methods, so @McpTool applies whether declared on the contract
+            // method or only on the implementation's override (e.g. an inherited CRUD method)
+            McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
             if(mcpTool != null){
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
                         .setTitle(mcpTool.title().isEmpty() ? null : mcpTool.title())

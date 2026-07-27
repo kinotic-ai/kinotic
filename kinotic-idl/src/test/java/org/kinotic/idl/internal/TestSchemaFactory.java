@@ -13,7 +13,10 @@ import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.support.BrokenTestService;
+import org.kinotic.idl.internal.support.DefaultTestRenamedService;
+import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
@@ -27,6 +30,7 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/14/23.
@@ -45,8 +49,8 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
-                                                                                          OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestService.class, TestService.class,
+                                                                                         OtherTestService.class, OtherTestService.class));
 
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
@@ -94,7 +98,7 @@ public class TestSchemaFactory {
 
     @Test
     public void testInheritedGenericSignaturesResolve() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestObjectCrudService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestObjectCrudService.class, TestObjectCrudService.class));
 
         ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
         Assertions.assertEquals(2, crudService.getFunctions().size());
@@ -115,10 +119,26 @@ public class TestSchemaFactory {
     }
 
     @Test
+    public void testImplementationDecidesNamesAndAnnotations() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(Map.of(TestRenamedService.class, DefaultTestRenamedService.class));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
+        FunctionDefinition greet = findFunction(service, "greet");
+        // the implementation's parameter name is what the named-argument binding resolves at invocation,
+        // so it is the name the schema publishes — not the interface's "recipientName"
+        Assertions.assertEquals("name", greet.getParameters().getFirst().getName());
+        // @McpTool declared only on the implementation's override still marks the function
+        McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(decorator);
+        Assertions.assertEquals("Greets the recipient", decorator.getDescription());
+    }
+
+    @Test
     public void testUnconvertibleServiceOmitted() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
-                                                                                          BrokenTestService.class,
-                                                                                          OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestService.class, TestService.class,
+                                                                                         BrokenTestService.class, BrokenTestService.class,
+                                                                                         OtherTestService.class, OtherTestService.class));
 
         // BrokenTestService fails to convert and is omitted; the rest of the batch is unaffected
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());

@@ -68,8 +68,10 @@ public interface ServiceDirectory {
      * reported by the directory.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
+     * @param serviceImplementation the class implementing the interface; parameter names and annotations
+     *                              resolve against its methods, matching the runtime invocation
      */
-    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
+    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
 
     /**
      * Reports that a caller could not reach the service at the given CRI.
@@ -86,8 +88,9 @@ public interface ServiceDirectory {
      * known-but-offline service is a feature.
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being unregistered
+     * @param serviceImplementation the class implementing the interface
      */
-    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
+    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
 
     /**
      * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.

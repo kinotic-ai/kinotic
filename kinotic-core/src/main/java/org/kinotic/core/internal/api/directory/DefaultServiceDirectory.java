@@ -37,6 +37,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -77,7 +78,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
-    private final Map<ServiceIdentifier, Class<?>> pendingRegistrations = new HashMap<>();
+    private final Map<ServiceIdentifier, DirectoryRegistration> pendingRegistrations = new HashMap<>();
     private final Object registrationLock = new Object();
     private boolean startupComplete; // guarded by registrationLock
 
@@ -105,30 +106,31 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (!shouldPublishToDirectory(serviceInterface)) {
+    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
+        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, serviceImplementation);
+        if (!shouldPublishToDirectory(registration)) {
             return;
         }
         boolean queued;
         synchronized (registrationLock) {
             queued = !startupComplete;
             if (queued) {
-                pendingRegistrations.put(serviceIdentifier, serviceInterface);
+                pendingRegistrations.put(serviceIdentifier, registration);
             }
         }
         if (!queued) {
             // a late registration (lazily created bean) cannot join a batch, publish it immediately.
             // The entry starts with online unset and its ACTIVE registration event may have fired before the
             // entry existed, so refresh from the verified cluster state after the upsert
-            publishAllToDirectory(Map.of(serviceIdentifier, serviceInterface))
+            publishAllToDirectory(Map.of(serviceIdentifier, registration))
                     .compose(v -> refreshOnline(serviceIdentifier))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
 
     @Override
-    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface) {
-        if (!shouldPublishToDirectory(serviceInterface)) {
+    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
+        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, serviceImplementation))) {
             return;
         }
         // this node leaving says nothing about other instances of the service — verify, never
@@ -138,7 +140,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private void drainStartupRegistrations() {
-        Map<ServiceIdentifier, Class<?>> batch;
+        Map<ServiceIdentifier, DirectoryRegistration> batch;
         synchronized (registrationLock) {
             startupComplete = true;
             batch = new HashMap<>(pendingRegistrations);
@@ -170,8 +172,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * Converts and upserts entries for all given registrations in one conversion session, so model types shared
      * between services are converted once.
      */
-    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, Class<?>> registrations) {
-        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, DirectoryRegistration> registrations) {
+        Map<Class<?>, Class<?>> services = new HashMap<>();
+        for (DirectoryRegistration registration : registrations.values()) {
+            services.put(registration.contract(), registration.implementation());
+        }
+        NamespaceDefinition namespace = schemaFactory.createForServices(services);
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
         for (ServiceDefinition definition : namespace.getServices()) {
@@ -179,11 +185,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
 
         List<Future<Void>> writes = new ArrayList<>();
-        for (Map.Entry<ServiceIdentifier, Class<?>> registration : registrations.entrySet()) {
+        for (Map.Entry<ServiceIdentifier, DirectoryRegistration> registration : registrations.entrySet()) {
             try {
                 // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
                 // contract — never Class.getName(), which uses '$' for nested types
-                Class<?> serviceInterface = registration.getValue();
+                Class<?> serviceInterface = registration.getValue().contract();
                 ServiceDefinition definition = definitionsByQualifiedName.get(
                         serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
                 if (definition == null) {
@@ -322,8 +328,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
-    private boolean shouldPublishToDirectory(Class<?> serviceInterface) {
-        return isAdvertised(serviceInterface) || hasMcpToolFunction(serviceInterface);
+    private boolean shouldPublishToDirectory(DirectoryRegistration registration) {
+        return isAdvertised(registration.contract()) || hasMcpToolFunction(registration);
     }
 
     private boolean isAdvertised(Class<?> serviceInterface) {
@@ -331,10 +337,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         return publish != null && publish.advertise();
     }
 
-    private boolean hasMcpToolFunction(Class<?> serviceInterface) {
+    private boolean hasMcpToolFunction(DirectoryRegistration registration) {
         boolean ret = false;
-        for (Method method : serviceInterface.getMethods()) {
-            if (method.isAnnotationPresent(McpTool.class)) {
+        for (Method method : registration.contract().getMethods()) {
+            // findAnnotation on the most specific method honors @McpTool declared on the contract method
+            // or only on the implementation's override, matching DefaultSchemaFactory's discovery
+            Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.implementation());
+            if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
                 ret = true;
                 break;
             }
