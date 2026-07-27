@@ -185,7 +185,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, DirectoryRegistration> registrations) {
         Map<Class<?>, Class<?>> services = new HashMap<>();
         for (DirectoryRegistration registration : registrations.values()) {
-            services.put(registration.contract(), registration.implementation());
+            services.put(registration.serviceInterface(), registration.serviceImplementation());
         }
         NamespaceDefinition namespace = schemaFactory.createForServices(services);
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
@@ -199,7 +199,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             try {
                 // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
                 // contract — never Class.getName(), which uses '$' for nested types
-                Class<?> serviceInterface = registration.getValue().contract();
+                Class<?> serviceInterface = registration.getValue().serviceInterface();
                 ServiceDefinition definition = definitionsByQualifiedName.get(
                         serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
                 if (definition == null) {
@@ -339,7 +339,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
     // explicit intent to expose the service, so it implies inclusion
     private boolean shouldPublishToDirectory(DirectoryRegistration registration) {
-        return isAdvertised(registration.contract()) || hasMcpToolFunction(registration);
+        return isAdvertised(registration.serviceInterface()) || hasMcpToolFunction(registration);
     }
 
     private boolean isAdvertised(Class<?> serviceInterface) {
@@ -349,12 +349,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     private boolean hasMcpToolFunction(DirectoryRegistration registration) {
         // a type-level @McpTool marks every function a tool, so the contract alone decides
-        boolean ret = AnnotationUtils.findAnnotation(registration.contract(), McpTool.class) != null;
+        boolean ret = AnnotationUtils.findAnnotation(registration.serviceInterface(), McpTool.class) != null;
         if (!ret) {
-            for (Method method : IdlUtil.serviceFunctions(registration.contract()).values()) {
+            for (Method method : IdlUtil.serviceFunctions(registration.serviceInterface()).values()) {
                 // findAnnotation on the most specific method honors @McpTool declared on the contract method
                 // or only on the implementation's override, matching DefaultSchemaFactory's discovery
-                Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.implementation());
+                Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.serviceImplementation());
                 if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
                     ret = true;
                     break;
