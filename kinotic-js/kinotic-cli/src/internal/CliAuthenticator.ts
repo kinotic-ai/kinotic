@@ -116,10 +116,10 @@ export class CliAuthenticator {
         if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
             return this.accessToken
         }
-        const res = await fetch(restBaseUrl + '/api/auth/device/refresh', {
+        const res = await fetch(restBaseUrl + '/api/auth/oauth/token', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({refresh_token: this.refreshToken}),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: this.refreshToken}),
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
         if (!res.ok) {
@@ -161,7 +161,7 @@ export class CliAuthenticator {
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
     private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/auth/device/start', {
+        const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
             method: 'POST',
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
@@ -190,10 +190,11 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/auth/device/token', {
+            const tokenRes = await fetch(restBaseUrl + '/api/auth/oauth/token', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({device_code: start.device_code}),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+                                           device_code: start.device_code}),
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             })
             if (tokenRes.ok) {

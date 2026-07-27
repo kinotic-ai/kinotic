@@ -7,7 +7,9 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
@@ -21,9 +23,10 @@ import java.util.List;
 /**
  * The OAuth 2.1 authorization-server surface MCP hosts discover and drive to reach
  * {@code POST /mcp}: RFC 8414 / RFC 9728 metadata documents, RFC 7591 dynamic client
- * registration, and the PKCE authorization-code flow whose consent step is the SPA's
- * {@code /oauth/consent} page. Token responses carry a Kinotic access token plus a rotating
- * refresh token, so hosts advertising {@code offline_access} refresh without re-consent.
+ * registration, the PKCE authorization-code flow whose consent step is the SPA's
+ * {@code /oauth/consent} page, and the RFC 8628 device grant the CLI logs in with. Token
+ * responses carry a Kinotic access token plus a rotating refresh token, so clients requesting
+ * {@code offline_access} refresh without re-consent.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
@@ -32,12 +35,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
-    /** Access-token TTL for OAuth-issued tokens; hosts refresh via the rotating refresh token. */
+    /** Access-token TTL for OAuth-issued tokens; clients refresh via the rotating refresh token. */
     private static final int ACCESS_TOKEN_TTL_SECONDS = 3600;
+
+    private static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
     private final AuthEndpointSupport authEndpointSupport;
     private final OAuthAuthorizationService oauthAuthorizationService;
+    private final DeviceCodeGrantService deviceCodeGrantService;
     private final RefreshTokenService refreshTokenService;
+    private final KinoticDomainProperties domainProperties;
 
     @Override
     public void mountRoutes(Router router) {
@@ -46,6 +53,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         // RFC 9728 path-inserted form for the /mcp resource
         router.get("/.well-known/oauth-protected-resource/mcp").handler(this::handleProtectedResourceMetadata);
         router.get("/api/auth/oauth/authorize").handler(this::handleAuthorize);
+        router.post("/api/auth/oauth/device_authorization").handler(this::handleDeviceAuthorization);
         router.post("/api/auth/oauth/token").handler(this::handleToken);
         router.post("/api/auth/oauth/register").handler(this::handleRegister);
     }
@@ -58,8 +66,11 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
                 .put("token_endpoint", issuer + "/api/auth/oauth/token")
                 .put("registration_endpoint", issuer + "/api/auth/oauth/register")
+                .put("device_authorization_endpoint", issuer + "/api/auth/oauth/device_authorization")
                 .put("response_types_supported", new JsonArray().add("code"))
-                .put("grant_types_supported", new JsonArray().add("authorization_code").add("refresh_token"))
+                .put("grant_types_supported", new JsonArray().add("authorization_code")
+                                                             .add("refresh_token")
+                                                             .add(DEVICE_CODE_GRANT_TYPE))
                 .put("code_challenge_methods_supported", new JsonArray().add("S256"))
                 .put("token_endpoint_auth_methods_supported", new JsonArray().add("none"))
                 .put("scopes_supported", new JsonArray().add("offline_access")));
@@ -115,8 +126,37 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     }
 
     /**
+     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Device clients
+     * are anonymous public clients ({@code client_id} is accepted but not required): a device
+     * grant has no redirect URI to protect, its authority is the browser approval on the
+     * {@code /device} page.
+     */
+    private void handleDeviceAuthorization(RoutingContext ctx) {
+        Future.fromCompletionStage(deviceCodeGrantService.start())
+              .onSuccess(start -> {
+                  // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
+                  // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
+                  // approves there via DeviceApprovalService over STOMP; this gateway only emits the URL.
+                  String verificationUri = domainProperties.getDomain().getAppBaseUrl() + "/device";
+                  respondJson(ctx, 200, new JsonObject()
+                          .put("device_code", start.deviceCode())
+                          .put("user_code", start.userCode())
+                          .put("verification_uri", verificationUri)
+                          .put("verification_uri_complete",
+                               verificationUri + "?user_code="
+                                       + URLEncoder.encode(start.userCode(), StandardCharsets.UTF_8))
+                          .put("expires_in", Math.max((start.expiresAt().getTime() - System.currentTimeMillis()) / 1000L, 0))
+                          .put("interval", start.intervalSeconds()));
+              })
+              .onFailure(err -> {
+                  log.warn("Device authorization start failed: {}", err.getMessage());
+                  authEndpointSupport.respondError(ctx, 500, "Could not start device authorization");
+              });
+    }
+
+    /**
      * {@code POST /api/auth/oauth/token} — form-encoded per RFC 6749. Supports the
-     * {@code authorization_code} (PKCE) and {@code refresh_token} grants.
+     * {@code authorization_code} (PKCE), {@code refresh_token}, and RFC 8628 device-code grants.
      */
     private void handleToken(RoutingContext ctx) {
         String grantType = ctx.request().getFormAttribute("grant_type");
@@ -124,9 +164,39 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             handleAuthorizationCodeGrant(ctx);
         } else if ("refresh_token".equals(grantType)) {
             handleRefreshTokenGrant(ctx);
+        } else if (DEVICE_CODE_GRANT_TYPE.equals(grantType)) {
+            handleDeviceCodeGrant(ctx);
         } else {
             authEndpointSupport.respondError(ctx, 400, "unsupported_grant_type");
         }
+    }
+
+    private void handleDeviceCodeGrant(RoutingContext ctx) {
+        String deviceCode = ctx.request().getFormAttribute("device_code");
+        if (deviceCode == null || deviceCode.isBlank()) {
+            authEndpointSupport.respondError(ctx, 400, "invalid_request");
+            return;
+        }
+        Future.fromCompletionStage(deviceCodeGrantService.poll(deviceCode))
+              .onSuccess(result -> {
+                  switch (result.status()) {
+                      case AUTHORIZATION_PENDING -> authEndpointSupport.respondError(ctx, 400, "authorization_pending");
+                      case SLOW_DOWN -> authEndpointSupport.respondError(ctx, 400, "slow_down");
+                      case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
+                      case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
+                      case APPROVED -> Future.fromCompletionStage(refreshTokenService.issue(result.user().getId()))
+                              .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
+                                      ctx, result.user(), refreshToken, ACCESS_TOKEN_TTL_SECONDS))
+                              .onFailure(err -> {
+                                  log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
+                                  authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
+                              });
+                  }
+              })
+              .onFailure(err -> {
+                  log.warn("Device token poll failed: {}", err.getMessage());
+                  authEndpointSupport.respondError(ctx, 400, "invalid_grant");
+              });
     }
 
     private void handleAuthorizationCodeGrant(RoutingContext ctx) {
