@@ -20,12 +20,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Extracts method Javadoc at compile time into a jar resource per type, so MCP tool descriptions can come
- * from the comments a service already carries. Every documented interface is captured — a generic CRUD base
- * only becomes tool-relevant when a subtype is swept, long after the base compiled — while classes are
- * captured only when a method carries {@link McpTool} (an implementation override). The resource holds one
- * {@code methodName=description} line per documented method, where the description is the Javadoc main
- * description with inline tags resolved and HTML stripped.
+ * Annotation processor that extracts method Javadoc at compile time into a resource under
+ * {@link #DOCS_RESOURCE_DIRECTORY}, one {@code methodName=description} line per documented method.
+ * The description is the Javadoc main description with inline tags resolved and HTML stripped.
+ * {@code DefaultSchemaFactory} reads these resources to describe MCP tools whose {@link McpTool}
+ * declares no description.
  * Created by Navíd Mitchell 🤪 on 7/27/26.
  */
 public class McpToolDocProcessor extends AbstractProcessor {
@@ -65,6 +64,8 @@ public class McpToolDocProcessor extends AbstractProcessor {
     }
 
     private void processType(TypeElement typeElement) throws IOException {
+        // every documented interface is captured, because a generic base (e.g. CrudService) cannot know at
+        // its own compile time that a subtype will later be swept; classes matter only as @McpTool overrides
         boolean isInterface = typeElement.getKind() == ElementKind.INTERFACE;
         Map<String, String> docs = new TreeMap<>();
         for (Element enclosed : typeElement.getEnclosedElements()) {
