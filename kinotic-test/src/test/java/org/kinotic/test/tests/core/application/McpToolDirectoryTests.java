@@ -31,26 +31,26 @@ public class McpToolDirectoryTests extends KinoticTestBase {
 
     @Test
     public void mcpExposedServicesArePublishedAndListed() throws Exception {
-        // the directory publishes on ApplicationReadyEvent and liveness flips entries online; poll until settled
+        // the directory publishes on ApplicationReadyEvent and liveness flips entries online one at a
+        // time, so the poll must wait for every expected tool before asserting anything
+        List<String> expected = List.of(FIND_PROJECTS_BY_REPO, GET_OIDC_CONFIGURATIONS);
         CursorPageable pageable = Pageable.create(null, 1000, Sort.by("id"));
         List<String> names = List.of();
         long deadline = System.currentTimeMillis() + 30_000;
-        while (System.currentTimeMillis() < deadline && !names.contains(FIND_PROJECTS_BY_REPO)) {
+        while (System.currentTimeMillis() < deadline && !names.containsAll(expected)) {
             names = serviceDirectory.findMcpToolsCallableBy(null, null, pageable)
                                     .await()
                                     .getTools()
                                     .stream()
                                     .map(McpToolDefinition::getName)
                                     .toList();
-            if (!names.contains(FIND_PROJECTS_BY_REPO)) {
+            if (!names.containsAll(expected)) {
                 Thread.sleep(1000);
             }
         }
 
-        Assertions.assertTrue(names.contains(FIND_PROJECTS_BY_REPO),
-                              "ProjectService tool missing from the directory listing, got: " + names);
-        Assertions.assertTrue(names.contains(GET_OIDC_CONFIGURATIONS),
-                              "ApplicationService tool missing from the directory listing, got: " + names);
+        Assertions.assertTrue(names.containsAll(expected),
+                              "expected tools missing from the directory listing, got: " + names);
     }
 
 }
