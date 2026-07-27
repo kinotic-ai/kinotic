@@ -16,6 +16,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
+import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
@@ -52,6 +53,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;
+    private final AuthEndpointSupport authEndpointSupport;
 
     @Override
     public void mountRoutes(Router router) {
@@ -80,7 +82,14 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                                    log.error("MCP request handling failed", throwable);
                                    ctx.response().setStatusCode(500).end();
                                }))
-                       .onFailure(_ -> ctx.response().setStatusCode(401).end());
+                       // the challenge points MCP hosts at the RFC 9728 document that starts
+                       // the OAuth discovery flow served by OAuthServerHandler
+                       .onFailure(_ -> ctx.response()
+                                          .setStatusCode(401)
+                                          .putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
+                                                  + authEndpointSupport.absoluteUrl("/.well-known/oauth-protected-resource/mcp")
+                                                  + "\"")
+                                          .end());
     }
 
     // succeeds with null when the request was a notification and no response body must be sent

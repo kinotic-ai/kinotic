@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.rest;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.web.Router;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
@@ -10,11 +9,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
-import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
-import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
@@ -42,7 +39,6 @@ public class CliDeviceLoginHandler implements SuppliesGatewayRoutes {
     private final DeviceCodeGrantService deviceCodeGrantService;
     private final RefreshTokenService refreshTokenService;
     private final KinoticDomainProperties domainProperties;
-    private final KinoticJwtIssuer jwtIssuer;
 
     @Override
     public void mountRoutes(Router router) {
@@ -107,7 +103,7 @@ public class CliDeviceLoginHandler implements SuppliesGatewayRoutes {
 
     private void issueTokensForApprovedGrant(RoutingContext ctx, DeviceCodePollResult result) {
         Future.fromCompletionStage(refreshTokenService.issue(result.user().getId()))
-              .onSuccess(refreshToken -> respondTokenPair(ctx, result.user(), refreshToken))
+              .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(ctx, result.user(), refreshToken, JWT_TTL_SECONDS))
               .onFailure(err -> {
                   log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
@@ -125,7 +121,7 @@ public class CliDeviceLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
         Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
-              .onSuccess(rotation -> respondTokenPair(ctx, rotation.user(), rotation.refreshToken()))
+              .onSuccess(rotation -> authEndpointSupport.respondTokenPair(ctx, rotation.user(), rotation.refreshToken(), JWT_TTL_SECONDS))
               .onFailure(err -> {
                   log.warn("Refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
@@ -149,33 +145,5 @@ public class CliDeviceLoginHandler implements SuppliesGatewayRoutes {
 
     private long secondsUntil(Date when) {
         return Math.max((when.getTime() - System.currentTimeMillis()) / 1000L, 0);
-    }
-
-    /** Mints the short-TTL Kinotic JWT carrying {@code sub/email/organizationId/applicationId}. */
-    private String mintJwt(IamUser user) {
-        JsonObject claims = new JsonObject()
-                .put("sub", user.getId())
-                .put("email", user.getEmail());
-        if (user.getOrganizationId() != null) {
-            claims.put("organizationId", user.getOrganizationId());
-        }
-        if (user.getApplicationId() != null) {
-            claims.put("applicationId", user.getApplicationId());
-        }
-        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(JWT_TTL_SECONDS));
-    }
-
-    /**
-     * {@code 200 application/json} with the OAuth token-pair the CLI consumes: a short-TTL
-     * {@code access_token} plus the {@code refresh_token} the client persists to mint future
-     * access tokens.
-     */
-    private void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken) {
-        JsonObject body = new JsonObject()
-                .put("access_token", mintJwt(user))
-                .put("token_type", "Bearer")
-                .put("expires_in", JWT_TTL_SECONDS)
-                .put("refresh_token", refreshToken);
-        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
 }

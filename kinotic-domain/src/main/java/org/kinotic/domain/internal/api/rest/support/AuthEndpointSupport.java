@@ -15,9 +15,11 @@ import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.Future;
+import io.vertx.ext.auth.JWTOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -38,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AuthEndpointSupport {
 
     private final KinoticDomainProperties domainProperties;
+    private final KinoticJwtIssuer jwtIssuer;
 
 
     /**
@@ -123,6 +126,36 @@ public class AuthEndpointSupport {
     public void respondError(RoutingContext ctx, int status, String message) {
         ctx.response().setStatusCode(status).putHeader("Content-Type", "application/json")
            .end(new JsonObject().put("error", message).encode());
+    }
+
+    // ── Token issuance ────────────────────────────────────────────────────────
+
+    /** Mints a Kinotic access-token JWT carrying {@code sub/email/organizationId/applicationId}. */
+    public String mintAccessToken(IamUser user, int ttlSeconds) {
+        JsonObject claims = new JsonObject()
+                .put("sub", user.getId())
+                .put("email", user.getEmail());
+        if (user.getOrganizationId() != null) {
+            claims.put("organizationId", user.getOrganizationId());
+        }
+        if (user.getApplicationId() != null) {
+            claims.put("applicationId", user.getApplicationId());
+        }
+        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ttlSeconds));
+    }
+
+    /**
+     * {@code 200 application/json} with an OAuth token pair: an {@code access_token} living
+     * {@code ttlSeconds} plus the {@code refresh_token} the client persists to mint future
+     * access tokens.
+     */
+    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, int ttlSeconds) {
+        JsonObject body = new JsonObject()
+                .put("access_token", mintAccessToken(user, ttlSeconds))
+                .put("token_type", "Bearer")
+                .put("expires_in", ttlSeconds)
+                .put("refresh_token", refreshToken);
+        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
     }
 
     /** Login-lookup path-fork response indicating the frontend should reveal the password field. */

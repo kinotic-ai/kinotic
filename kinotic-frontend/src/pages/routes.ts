@@ -236,6 +236,13 @@ const pageRoutes: RouteRecordRaw[] = [
     component: () => import('@/pages/login/DeviceVerification.vue'),
   },
   {
+    path: '/oauth/consent',
+    meta: {
+      authenticationRequired: true
+    },
+    component: () => import('@/pages/login/OAuthConsent.vue'),
+  },
+  {
     path: '/graphql',
     component: () => import('@/layouts/MainLayout.vue'),
     meta: {

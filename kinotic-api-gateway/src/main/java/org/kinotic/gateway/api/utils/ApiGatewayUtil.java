@@ -51,7 +51,8 @@ public final class ApiGatewayUtil {
         CorsHandler corsHandler = CorsHandler.create()
                                              .addOriginWithRegex(pattern)
                                              .allowedMethods(ALLOWED_METHODS)
-                                             .allowedHeaders(properties.getAllowedHeaders());
+                                             .allowedHeaders(properties.getAllowedHeaders())
+                                             .exposedHeaders(properties.getExposedHeaders());
         if (properties.getAllowCredentials() != null) {
             corsHandler.allowCredentials(properties.getAllowCredentials());
         }
