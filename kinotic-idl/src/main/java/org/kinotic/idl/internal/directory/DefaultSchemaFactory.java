@@ -21,7 +21,6 @@ import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.Assert;
-import org.springframework.util.ReflectionUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -99,13 +98,15 @@ public class DefaultSchemaFactory implements SchemaFactory {
         // a type-level @McpTool marks every function a tool with these defaults
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(contract, McpTool.class);
 
-        ReflectionUtils.doWithMethods(contract, method -> {
+        // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
+        // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
+        for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(contract).entrySet()) {
 
-            // the contract decides WHICH functions exist; the implementation's override decides parameter
-            // names, generic bindings, and annotations — the same method the invocation-side named-argument
-            // binding resolves, so the published schema and the runtime binding cannot drift
+            // the implementation's override decides parameter names, generic bindings, and annotations —
+            // the same method the invocation-side named-argument binding resolves, so the published schema
+            // and the runtime binding cannot drift
             Method specificMethod = BridgeMethodResolver.findBridgedMethod(
-                    ClassUtils.getMostSpecificMethod(method, implementation));
+                    ClassUtils.getMostSpecificMethod(function.getValue(), implementation));
 
             FunctionDefinition functionDefinition = new FunctionDefinition();
             functionDefinition.setReturnType(conversionContext.convert(
@@ -120,7 +121,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
                 functionDefinition.addParameter(IdlUtil.parameterName(methodParameter), c3Type);
             }
 
-            functionDefinition.setName(method.getName());
+            functionDefinition.setName(function.getKey());
 
             // findAnnotation walks super methods, so @McpTool applies whether declared on the contract
             // method or only on the implementation's override (e.g. an inherited CRUD method); a
@@ -139,8 +140,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
             }
 
             serviceDefinition.addFunction(functionDefinition);
-
-        }, ReflectionUtils.USER_DECLARED_METHODS);
+        }
 
         return serviceDefinition;
     }

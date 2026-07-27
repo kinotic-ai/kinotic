@@ -19,7 +19,6 @@ import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
-import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -65,8 +64,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    // the user class, so an AOP proxy never becomes the naming source
-                    serviceDirectory.register(serviceIdentifier, clazz, ClassUtils.getUserClass(bean));
+                    serviceDirectory.register(serviceIdentifier, clazz, bean);
                 } catch (Exception e) {
                     log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
                 }
@@ -95,7 +93,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.unregister(serviceIdentifier, clazz, ClassUtils.getUserClass(bean));
+                    serviceDirectory.unregister(serviceIdentifier, clazz, bean);
                 } catch (Exception e) {
                     log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
                 }

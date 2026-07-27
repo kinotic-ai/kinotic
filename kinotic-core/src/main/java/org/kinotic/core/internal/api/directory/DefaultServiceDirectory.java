@@ -23,6 +23,7 @@ import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
@@ -106,8 +107,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
-        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, serviceImplementation);
+    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
+        // the user class, so an AOP proxy never becomes the naming source
+        DirectoryRegistration registration = new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(instance));
         if (!shouldPublishToDirectory(registration)) {
             return;
         }
@@ -129,8 +131,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
-        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, serviceImplementation))) {
+    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
+        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(instance)))) {
             return;
         }
         // this node leaving says nothing about other instances of the service — verify, never
@@ -341,7 +343,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         // a type-level @McpTool marks every function a tool, so the contract alone decides
         boolean ret = AnnotationUtils.findAnnotation(registration.contract(), McpTool.class) != null;
         if (!ret) {
-            for (Method method : registration.contract().getMethods()) {
+            for (Method method : IdlUtil.serviceFunctions(registration.contract()).values()) {
                 // findAnnotation on the most specific method honors @McpTool declared on the contract method
                 // or only on the implementation's override, matching DefaultSchemaFactory's discovery
                 Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.implementation());

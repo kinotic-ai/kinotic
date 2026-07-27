@@ -20,6 +20,7 @@ import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
+import org.kinotic.idl.internal.support.TestOverloadedService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
 import org.kinotic.idl.internal.support.TestSweptService;
@@ -154,6 +155,18 @@ public class TestSchemaFactory {
         Assertions.assertEquals("Counts every test object", specific.getDescription());
         Assertions.assertEquals("Count Objects", specific.getTitle());
         Assertions.assertFalse(specific.isReadOnlyHint());
+    }
+
+    @Test
+    public void testOverloadedFunctionPublishesOnce() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(Map.of(TestOverloadedService.class, TestOverloadedService.class));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestOverloadedService.class);
+        // IdlUtil.serviceFunctions keeps one method per name, the same rule ReflectiveServiceDescriptor
+        // registers with, so the schema never advertises an overload the registry does not serve
+        Assertions.assertEquals(1, service.getFunctions().size());
+        findFunction(service, "find");
     }
 
     @Test
