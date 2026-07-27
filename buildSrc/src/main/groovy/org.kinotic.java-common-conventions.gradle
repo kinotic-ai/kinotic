@@ -34,9 +34,9 @@ tasks.withType(AbstractArchiveTask).configureEach {
 }
 
 // Retain method parameter names in class files: the IDL converter reads them for service schemas
-// and MCP tool input schemas (IdlUtil.parameterName). KinoticJacksonConfig pins Jackson's
-// ConstructorDetector to EXPLICIT_ONLY so the now-visible constructor names cannot change how
-// value types deserialize.
+// and MCP tool input schemas (IdlUtil.parameterName). KinoticJacksonConfig disables Jackson's
+// DETECT_PARAMETER_NAMES so the now-visible constructor names cannot change how value types
+// deserialize.
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << '-parameters'
 }
@@ -142,6 +142,16 @@ dependencyManagement {
         dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
 
         dependency "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
+    }
+}
+
+// McpToolDocProcessor (shipped in kinotic-idl) extracts method Javadoc into jar resources that
+// DefaultSchemaFactory serves as MCP tool descriptions; kinotic-idl cannot be its own processor,
+// it wires the processor over its test fixtures in its own build.gradle
+if (project.name != 'kinotic-idl') {
+    dependencies {
+        annotationProcessor project(':kinotic-idl')
+        testAnnotationProcessor project(':kinotic-idl')
     }
 }
 
