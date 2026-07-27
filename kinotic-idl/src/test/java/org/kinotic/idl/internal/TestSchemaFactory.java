@@ -22,6 +22,7 @@ import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
+import org.kinotic.idl.internal.support.TestSweptService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -132,6 +133,27 @@ public class TestSchemaFactory {
         McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(decorator);
         Assertions.assertEquals("Greets the recipient", decorator.getDescription());
+    }
+
+    @Test
+    public void testTypeLevelMcpToolMarksEveryFunction() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(Map.of(TestSweptService.class, TestSweptService.class));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
+
+        // an unannotated method inherits the type-level description and hints
+        McpToolC3Decorator swept = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(swept);
+        Assertions.assertEquals("Looks up test objects", swept.getDescription());
+        Assertions.assertTrue(swept.isReadOnlyHint());
+
+        // a method-level @McpTool overrides the type-level defaults for that method
+        McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(specific);
+        Assertions.assertEquals("Counts every test object", specific.getDescription());
+        Assertions.assertEquals("Count Objects", specific.getTitle());
+        Assertions.assertFalse(specific.isReadOnlyHint());
     }
 
     @Test

@@ -7,11 +7,13 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method on a published ({@code @Publish}) service interface as a Model Context Protocol tool.
- * A service is MCP-exposed when at least one of its methods carries this annotation, and each annotated method
- * becomes a callable tool whose {@link #description} and hints are surfaced to LLM callers.
+ * Marks a published ({@code @Publish}) service's functions as Model Context Protocol tools. On a method —
+ * declared on the service interface or on the implementation's override — that method becomes a callable
+ * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
+ * every function becomes a tool carrying the type-level description and hints, and a method-level
+ * {@code @McpTool} overrides them for that method.
  */
-@Target({ElementType.METHOD,})
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface McpTool {

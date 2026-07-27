@@ -96,6 +96,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
         serviceDefinition.setNamespace(contract.getPackage().getName());
         serviceDefinition.setName(contract.getSimpleName());
 
+        // a type-level @McpTool marks every function a tool with these defaults
+        McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(contract, McpTool.class);
+
         ReflectionUtils.doWithMethods(contract, method -> {
 
             // the contract decides WHICH functions exist; the implementation's override decides parameter
@@ -120,8 +123,12 @@ public class DefaultSchemaFactory implements SchemaFactory {
             functionDefinition.setName(method.getName());
 
             // findAnnotation walks super methods, so @McpTool applies whether declared on the contract
-            // method or only on the implementation's override (e.g. an inherited CRUD method)
+            // method or only on the implementation's override (e.g. an inherited CRUD method); a
+            // method-level annotation overrides the type-level defaults for that method
             McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
+            if (mcpTool == null) {
+                mcpTool = typeLevelMcpTool;
+            }
             if(mcpTool != null){
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
                         .setTitle(mcpTool.title().isEmpty() ? null : mcpTool.title())
