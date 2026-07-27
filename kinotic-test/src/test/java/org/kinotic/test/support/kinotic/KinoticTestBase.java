@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
- * Test base for tests that need the full Kinotic stack (Elasticsearch + kinotic-server)
+ * Test base for tests that need the Kinotic stack (Elasticsearch + kinotic-migration)
  * via Docker Compose (compose.kinotic-test.yml).
  * Uses Testcontainers Docker Compose support.
  */
