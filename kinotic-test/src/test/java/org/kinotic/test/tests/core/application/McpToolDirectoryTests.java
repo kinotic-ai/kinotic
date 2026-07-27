@@ -50,7 +50,7 @@ public class McpToolDirectoryTests extends KinoticTestBase {
         }
 
         Assertions.assertTrue(names.containsAll(expected),
-                              "expected tools missing from the directory listing, got: " + names);
+                              "timed out waiting for " + expected + " in the directory listing, got: " + names);
     }
 
 }
