@@ -80,6 +80,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
     private final Map<ServiceIdentifier, DirectoryRegistration> pendingRegistrations = new HashMap<>();
+    // Identifiers this node has published or queued, so unregister(ServiceIdentifier) knows whether
+    // liveness needs a refresh without the caller re-supplying the registration classes
+    private final Set<ServiceIdentifier> registered = new HashSet<>(); // guarded by registrationLock
     private final Object registrationLock = new Object();
     private boolean startupComplete; // guarded by registrationLock
 
@@ -115,6 +118,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
         boolean queued;
         synchronized (registrationLock) {
+            registered.add(serviceIdentifier);
             queued = !startupComplete;
             if (queued) {
                 pendingRegistrations.put(serviceIdentifier, registration);
@@ -131,14 +135,18 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
-        if (!shouldPublishToDirectory(new DirectoryRegistration(serviceInterface, ClassUtils.getUserClass(serviceImplementation)))) {
-            return;
+    public void unregister(ServiceIdentifier serviceIdentifier) {
+        boolean published;
+        synchronized (registrationLock) {
+            // a registration still pending never reached the directory, removing it from the batch is enough
+            published = registered.remove(serviceIdentifier) && pendingRegistrations.remove(serviceIdentifier) == null;
         }
-        // this node leaving says nothing about other instances of the service — verify, never
-        // write offline blindly
-        refreshOnline(serviceIdentifier)
-                .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
+        if (published) {
+            // this node leaving says nothing about other instances of the service — verify, never
+            // write offline blindly
+            refreshOnline(serviceIdentifier)
+                    .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
+        }
     }
 
     private void drainStartupRegistrations() {

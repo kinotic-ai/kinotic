@@ -93,7 +93,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.unregister(serviceIdentifier, clazz, bean.getClass());
+                    serviceDirectory.unregister(serviceIdentifier);
                 } catch (Exception e) {
                     log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
                 }

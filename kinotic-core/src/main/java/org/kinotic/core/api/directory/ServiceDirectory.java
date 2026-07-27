@@ -86,12 +86,10 @@ public interface ServiceDirectory {
     /**
      * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
      * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
-     * known-but-offline service is a feature.
+     * known-but-offline service is a feature. An identifier this node never registered is ignored.
      * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being unregistered
-     * @param serviceImplementation the class implementing the interface, an AOP proxy class is unwrapped
      */
-    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
+    void unregister(ServiceIdentifier serviceIdentifier);
 
     /**
      * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
