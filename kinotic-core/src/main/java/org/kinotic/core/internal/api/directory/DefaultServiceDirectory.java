@@ -22,6 +22,7 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
+import org.kinotic.idl.api.directory.DirectoryRegistration;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.AsyncC3Type;
@@ -183,11 +184,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
      * between services are converted once.
      */
     private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, DirectoryRegistration> registrations) {
-        Map<Class<?>, Class<?>> services = new HashMap<>();
-        for (DirectoryRegistration registration : registrations.values()) {
-            services.put(registration.serviceInterface(), registration.serviceImplementation());
-        }
-        NamespaceDefinition namespace = schemaFactory.createForServices(services);
+        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
         Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
         Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
         for (ServiceDefinition definition : namespace.getServices()) {

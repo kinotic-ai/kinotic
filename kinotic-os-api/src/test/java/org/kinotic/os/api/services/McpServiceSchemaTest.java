@@ -2,6 +2,7 @@ package org.kinotic.os.api.services;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.directory.DirectoryRegistration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
 import org.kinotic.os.internal.api.services.DefaultApplicationService;
 import org.kinotic.os.internal.api.services.DefaultProjectService;
@@ -34,7 +35,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Verifies every MCP-exposed os-api service converts to a ServiceDefinition with the same converter set
@@ -46,8 +46,8 @@ public class McpServiceSchemaTest {
     @Test
     public void mcpExposedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory().createForServices(Map.of(ProjectService.class, DefaultProjectService.class,
-                                                         ApplicationService.class, DefaultApplicationService.class));
+                schemaFactory().createForServices(List.of(new DirectoryRegistration(ProjectService.class, DefaultProjectService.class),
+                                                           new DirectoryRegistration(ApplicationService.class, DefaultApplicationService.class)));
 
         // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
@@ -56,7 +56,7 @@ public class McpServiceSchemaTest {
     @Test
     public void inheritedJavadocDescriptionsResolveAcrossModules() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory().createForServices(Map.of(TestCrudSweptService.class, TestCrudSweptService.class));
+                schemaFactory().createForServices(List.of(new DirectoryRegistration(TestCrudSweptService.class, TestCrudSweptService.class)));
 
         ServiceDefinition service = namespaceDefinition.getServices()
                                                        .stream()

@@ -2,6 +2,7 @@ package org.kinotic.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.directory.DirectoryRegistration;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -32,7 +33,6 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/14/23.
@@ -51,8 +51,8 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestService.class, TestService.class,
-                                                                                         OtherTestService.class, OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new DirectoryRegistration(TestService.class, TestService.class),
+                                                                                          new DirectoryRegistration(OtherTestService.class, OtherTestService.class)));
 
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
@@ -100,7 +100,7 @@ public class TestSchemaFactory {
 
     @Test
     public void testInheritedGenericSignaturesResolve() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestObjectCrudService.class, TestObjectCrudService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new DirectoryRegistration(TestObjectCrudService.class, TestObjectCrudService.class)));
 
         ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
         Assertions.assertEquals(2, crudService.getFunctions().size());
@@ -129,7 +129,7 @@ public class TestSchemaFactory {
     @Test
     public void testImplementationDecidesNamesAndAnnotations() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(Map.of(TestRenamedService.class, DefaultTestRenamedService.class));
+                schemaFactory.createForServices(List.of(new DirectoryRegistration(TestRenamedService.class, DefaultTestRenamedService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
         FunctionDefinition greet = findFunction(service, "greet");
@@ -147,7 +147,7 @@ public class TestSchemaFactory {
     @Test
     public void testTypeLevelMcpToolMarksEveryFunction() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(Map.of(TestSweptService.class, TestSweptService.class));
+                schemaFactory.createForServices(List.of(new DirectoryRegistration(TestSweptService.class, TestSweptService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
@@ -176,7 +176,7 @@ public class TestSchemaFactory {
     @Test
     public void testOverloadedFunctionPublishesOnce() {
         NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(Map.of(TestOverloadedService.class, TestOverloadedService.class));
+                schemaFactory.createForServices(List.of(new DirectoryRegistration(TestOverloadedService.class, TestOverloadedService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestOverloadedService.class);
         // IdlUtil.serviceFunctions keeps one method per name, the same rule ReflectiveServiceDescriptor
@@ -187,9 +187,9 @@ public class TestSchemaFactory {
 
     @Test
     public void testUnconvertibleServiceOmitted() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(Map.of(TestService.class, TestService.class,
-                                                                                         BrokenTestService.class, BrokenTestService.class,
-                                                                                         OtherTestService.class, OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new DirectoryRegistration(TestService.class, TestService.class),
+                                                                                          new DirectoryRegistration(BrokenTestService.class, BrokenTestService.class),
+                                                                                          new DirectoryRegistration(OtherTestService.class, OtherTestService.class)));
 
         // BrokenTestService fails to convert and is omitted; the rest of the batch is unaffected
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());

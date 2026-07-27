@@ -3,6 +3,7 @@
 package org.kinotic.idl.internal.directory;
 
 import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.DirectoryRegistration;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
@@ -30,9 +31,11 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -80,41 +83,44 @@ public class DefaultSchemaFactory implements SchemaFactory {
     }
 
     @Override
-    public NamespaceDefinition createForServices(Map<Class<?>, Class<?>> services) {
+    public NamespaceDefinition createForServices(Collection<DirectoryRegistration> services) {
         Assert.notNull(services, "services cannot be null");
         // one conversion context for the whole batch, so complex types shared between services convert once
         DefaultConversionContext conversionContext = new DefaultConversionContext(typeConverter, true);
 
         NamespaceDefinition ret = new NamespaceDefinition();
-        for (Map.Entry<Class<?>, Class<?>> service : services.entrySet()) {
+        // record equality collapses duplicates, so a service registered twice converts once
+        for (DirectoryRegistration registration : new LinkedHashSet<>(services)) {
             // a service with an unconvertible type is omitted so the rest of the batch still converts;
             // ObjectC3Types are cached only after converting completely, so a failure leaves no partial types
             try {
-                ret.addServiceDefinition(createForService(service.getKey(), service.getValue(), conversionContext));
+                ret.addServiceDefinition(createForService(registration.serviceInterface(),
+                                                          registration.serviceImplementation(),
+                                                          conversionContext));
             } catch (Exception e) {
-                log.error("Failed to create ServiceDefinition for {}", service.getKey().getName(), e);
+                log.error("Failed to create ServiceDefinition for {}", registration.serviceInterface().getName(), e);
             }
         }
         ret.setComplexC3Types(conversionContext.getComplexC3Types());
         return ret;
     }
 
-    private ServiceDefinition createForService(Class<?> contract,
+    private ServiceDefinition createForService(Class<?> serviceInterface,
                                                Class<?> implementation,
                                                ConversionContext conversionContext) {
-        Assert.notNull(contract, "contract cannot be null");
+        Assert.notNull(serviceInterface, "serviceInterface cannot be null");
         Assert.notNull(implementation, "implementation cannot be null");
 
         ServiceDefinition serviceDefinition = new ServiceDefinition();
-        serviceDefinition.setNamespace(contract.getPackage().getName());
-        serviceDefinition.setName(contract.getSimpleName());
+        serviceDefinition.setNamespace(serviceInterface.getPackage().getName());
+        serviceDefinition.setName(serviceInterface.getSimpleName());
 
         // a type-level @McpTool marks every function a tool with these defaults
-        McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(contract, McpTool.class);
+        McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
 
         // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
         // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
-        for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(contract).entrySet()) {
+        for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
 
             // the implementation's override decides parameter names, generic bindings, and annotations —
             // the same method the invocation-side named-argument binding resolves, so the published schema
