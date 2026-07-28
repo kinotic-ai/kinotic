@@ -1,7 +1,6 @@
 package org.kinotic.server.clienttest;
 
 import io.vertx.core.Future;
-import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
@@ -31,7 +30,7 @@ public class TestSecurityService implements SecurityService {
     private static final String CLI_PARTICIPANT_ID = "-42-Kinotic-CLI-42-";
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
         // STOMP preserves header case while HTTP callers lowercase; a case-insensitive view
         // lets both work with the same camelCase names.
         Map<String, String> authInfo = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);

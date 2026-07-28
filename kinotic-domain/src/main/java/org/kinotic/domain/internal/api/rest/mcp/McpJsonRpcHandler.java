@@ -12,12 +12,12 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
+import org.kinotic.domain.internal.api.services.iam.KinoticSecurityService;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
@@ -26,6 +26,7 @@ import tools.jackson.databind.node.ObjectNode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 
 /**
  * The stateless MCP server: mounts {@code POST /mcp} on the gateway router, authenticates every request
@@ -50,7 +51,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     private static final int INVALID_PARAMS = -32602;
     private static final int INTERNAL_ERROR = -32603;
 
-    private final SecurityService securityService;
+    private final KinoticSecurityService securityService;
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;

@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.core.api.security.KinoticAudience;
 
 import java.util.Date;
 

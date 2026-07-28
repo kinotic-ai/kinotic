@@ -1,4 +1,4 @@
-package org.kinotic.core.api.security;
+package org.kinotic.domain.api.model.iam;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

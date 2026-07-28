@@ -1,7 +1,5 @@
 package org.kinotic.domain.api.model.iam;
 
-import org.kinotic.core.api.security.KinoticAudience;
-
 /**
  * Result of rotating a refresh token: the owning user, the plaintext replacement token
  * (available only here — the server stores only its hash), and the audience the lineage was

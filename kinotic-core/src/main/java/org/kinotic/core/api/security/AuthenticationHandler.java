@@ -41,7 +41,7 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
             authInfo.put(entry.getKey().toLowerCase(), entry.getValue());
         }
 
-        securityService.authenticate(authInfo, KinoticAudience.PUBLISHED_SERVICES)
+        securityService.authenticate(authInfo)
                        .onComplete(event -> {
                            if(event.succeeded()){
                                ctx.put(EventConstants.SENDER_HEADER, event.result());

@@ -6,11 +6,11 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
-import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
@@ -39,7 +39,9 @@ import java.util.TreeMap;
  *       Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
- *       signature, then that its audience is the one the calling entry point serves, then
+ *       signature, then that its audience is the one the calling entry point serves
+ *       ({@link #authenticate(Map, KinoticAudience)}; the {@link SecurityService} contract
+ *       serves {@link KinoticAudience#PUBLISHED_SERVICES}), then
  *       look up the {@link IamUser} by id from the JWT
  *       {@code sub} claim. When scope headers accompany the token they must match the JWT's
  *       {@code organizationId} / {@code applicationId} claims; a bearer-only request takes
@@ -60,6 +62,24 @@ public class KinoticSecurityService implements SecurityService {
     private final Vertx vertx;
 
     @Override
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
+        return authenticate(authenticationInfo, KinoticAudience.PUBLISHED_SERVICES);
+    }
+
+    /**
+     * Authenticates for one surface: a Kinotic JWT is accepted only when it was minted for
+     * {@code audience}, so a token issued to an MCP host cannot open a STOMP connection and the
+     * CLI's token cannot call MCP tools. The credential path presents no token and so no audience.
+     * <p>
+     * Entry points serving a surface other than {@link KinoticAudience#PUBLISHED_SERVICES} call
+     * this directly. Callers pass the audience of the endpoint they serve — never a value read
+     * from the request.
+     *
+     * @param authenticationInfo the request's authentication headers
+     * @param audience the surface being authenticated for
+     * @return a {@link Future} completing with the {@link Participant}, or failing when
+     *         authentication fails or the token was minted for a different surface
+     */
     public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.

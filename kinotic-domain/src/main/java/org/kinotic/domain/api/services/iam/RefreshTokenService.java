@@ -1,7 +1,7 @@
 package org.kinotic.domain.api.services.iam;
 
-import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 
 import java.util.concurrent.CompletableFuture;

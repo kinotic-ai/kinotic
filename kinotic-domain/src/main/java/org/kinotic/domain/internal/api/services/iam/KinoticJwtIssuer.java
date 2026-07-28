@@ -12,7 +12,7 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.VersionedKeySet;
-import org.kinotic.core.api.security.KinoticAudience;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.internal.platform.PlatformSecretsService;
 import org.springframework.stereotype.Component;
 
