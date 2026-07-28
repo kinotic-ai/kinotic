@@ -2,34 +2,23 @@ package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
-import org.kinotic.domain.api.model.iam.RegisteredOAuthClient;
-
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * The OAuth 2.1 authorization-server logic behind the gateway's authorize/token/register
- * endpoints and the browser consent page. Clients are public and every grant is a PKCE S256
- * authorization code: single-use, short-lived, stored hashed, and bound to the client,
- * redirect URI, and code challenge presented when the flow began.
+ * The OAuth 2.1 authorization-server logic behind the gateway's authorize and token endpoints and
+ * the browser consent page. Clients are public and identify themselves with a Client ID Metadata
+ * Document URL (draft-ietf-oauth-client-id-metadata-document), so none is stored here. Every grant
+ * is a PKCE S256 authorization code: single-use, short-lived, stored hashed, and bound to the
+ * client, redirect URI, and code challenge presented when the flow began.
  */
 public interface OAuthAuthorizationService {
 
     /**
-     * Registers a public client (RFC 7591 dynamic client registration).
+     * Begins an authorization-code flow: resolves the client's metadata document, validates the
+     * redirect URI against it, and stores the request for the consent page to act on.
      *
-     * @param clientName   human-readable name shown on the consent page
-     * @param redirectUris exact-match allowlist for authorize requests; must not be empty
-     * @return a {@link CompletableFuture} emitting the minted client
-     */
-    CompletableFuture<RegisteredOAuthClient> registerClient(String clientName, List<String> redirectUris);
-
-    /**
-     * Begins an authorization-code flow: validates the client and redirect URI, and stores the
-     * request for the consent page to act on.
-     *
-     * @param clientId      the requesting client
-     * @param redirectUri   must exactly match one of the client's registered redirect URIs
+     * @param clientId      the requesting client's Client ID Metadata Document URL
+     * @param redirectUri   must exactly match a redirect URI the client's metadata document registers
      * @param codeChallenge the PKCE S256 challenge the eventual code exchange must prove
      * @param scope         the requested scope, or {@code null}
      * @param resource      the RFC 8707 resource the request is bound to, or {@code null}

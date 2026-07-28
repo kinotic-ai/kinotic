@@ -18,16 +18,15 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
  * The OAuth 2.1 authorization-server surface MCP hosts discover and drive to reach
- * {@code POST /mcp}: RFC 8414 / RFC 9728 metadata documents, RFC 7591 dynamic client
- * registration, the PKCE authorization-code flow whose consent step is the SPA's
- * {@code /oauth/consent} page, and the RFC 8628 device grant the CLI logs in with. Token
- * responses carry a Kinotic access token plus a rotating refresh token, so clients requesting
- * {@code offline_access} refresh without re-consent.
+ * {@code POST /mcp}: RFC 8414 / RFC 9728 metadata documents, the PKCE authorization-code flow
+ * whose consent step is the SPA's {@code /oauth/consent} page, and the RFC 8628 device grant the
+ * CLI logs in with. Clients identify themselves with a Client ID Metadata Document URL
+ * (draft-ietf-oauth-client-id-metadata-document) rather than registering; there is no registration
+ * endpoint. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
+ * requesting {@code offline_access} refresh without re-consent.
  *
  * <p>Each grant hands out one surface and only that surface: the authorization-code grant issues
  * {@link KinoticAudience#MCP_TOOLS} tokens, the device grant {@link KinoticAudience#PUBLISHED_SERVICES}
@@ -58,7 +57,6 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         router.get("/api/auth/oauth/authorize").handler(this::handleAuthorize);
         router.post("/api/auth/oauth/device_authorization").handler(this::handleDeviceAuthorization);
         router.post("/api/auth/oauth/token").handler(this::handleToken);
-        router.post("/api/auth/oauth/register").handler(this::handleRegister);
     }
 
     /** {@code GET /.well-known/oauth-authorization-server} — RFC 8414 metadata. */
@@ -68,8 +66,10 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                 .put("issuer", issuer)
                 .put("authorization_endpoint", issuer + "/api/auth/oauth/authorize")
                 .put("token_endpoint", issuer + "/api/auth/oauth/token")
-                .put("registration_endpoint", issuer + "/api/auth/oauth/register")
                 .put("device_authorization_endpoint", issuer + "/api/auth/oauth/device_authorization")
+                // draft-ietf-oauth-client-id-metadata-document Section 5 — lets a host check for
+                // support before sending the user somewhere that would reject its client_id
+                .put("client_id_metadata_document_supported", true)
                 .put("response_types_supported", new JsonArray().add("code"))
                 .put("grant_types_supported", new JsonArray().add("authorization_code")
                                                              .add("refresh_token")
@@ -234,39 +234,6 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
               });
     }
 
-    /** {@code POST /api/auth/oauth/register} — RFC 7591 dynamic registration of a public client. */
-    private void handleRegister(RoutingContext ctx) {
-        JsonObject body;
-        try {
-            body = ctx.body().asJsonObject();
-        } catch (Exception e) {
-            body = null;
-        }
-        if (body == null || !(body.getValue("redirect_uris") instanceof JsonArray redirectUrisJson)) {
-            respondJson(ctx, 400, new JsonObject().put("error", "invalid_client_metadata"));
-            return;
-        }
-        List<String> redirectUris = new ArrayList<>();
-        for (Object uri : redirectUrisJson) {
-            if (uri instanceof String s) {
-                redirectUris.add(s);
-            }
-        }
-        Future.fromCompletionStage(oauthAuthorizationService.registerClient(body.getString("client_name"), redirectUris))
-              .onSuccess(client -> respondJson(ctx, 201, new JsonObject()
-                      .put("client_id", client.clientId())
-                      .put("client_name", client.clientName())
-                      .put("redirect_uris", new JsonArray(client.redirectUris()))
-                      .put("client_id_issued_at", client.clientIdIssuedAt())
-                      .put("grant_types", new JsonArray().add("authorization_code").add("refresh_token"))
-                      .put("response_types", new JsonArray().add("code"))
-                      .put("token_endpoint_auth_method", "none")))
-              .onFailure(err -> {
-                  log.warn("OAuth client registration rejected: {}", err.getMessage());
-                  respondJson(ctx, 400, new JsonObject().put("error", "invalid_client_metadata"));
-              });
-    }
-
     private String issuer() {
         return authEndpointSupport.absoluteUrl("");
     }
@@ -274,4 +241,5 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     private static void respondJson(RoutingContext ctx, int status, JsonObject body) {
         ctx.response().setStatusCode(status).putHeader("Content-Type", "application/json").end(body.encode());
     }
+
 }

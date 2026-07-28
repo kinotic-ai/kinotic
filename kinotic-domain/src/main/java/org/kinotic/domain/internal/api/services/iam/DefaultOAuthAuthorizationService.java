@@ -5,22 +5,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
-import org.kinotic.domain.api.model.iam.RegisteredOAuthClient;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
-import org.kinotic.domain.internal.api.model.OAuthClient;
 import org.kinotic.domain.internal.api.repositories.IamUserRepository;
 import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
-import org.kinotic.domain.internal.api.repositories.OAuthClientRepository;
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -35,31 +30,12 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     /** How long a minted authorization code remains exchangeable. */
     private static final long CODE_TTL_MS = 60 * 1000L;
 
-    /** Bytes of entropy for client ids and authorization codes. */
+    /** Bytes of entropy for authorization codes. */
     private static final int TOKEN_BYTES = 32;
 
-    private final OAuthClientRepository clientRepository;
+    private final OAuthClientResolver clientResolver;
     private final OAuthAuthorizationGrantRepository grantRepository;
     private final IamUserRepository iamUserRepository;
-
-    @Override
-    public CompletableFuture<RegisteredOAuthClient> registerClient(String clientName, List<String> redirectUris) {
-        Validate.notEmpty(redirectUris, "redirect_uris is required");
-        for (String redirectUri : redirectUris) {
-            validateRedirectUri(redirectUri);
-        }
-        Date now = new Date();
-        OAuthClient client = new OAuthClient()
-                .setId(DomainUtil.generateUrlSafeToken(TOKEN_BYTES))
-                .setClientName(clientName == null || clientName.isBlank() ? "MCP Client" : clientName.trim())
-                .setRedirectUris(List.copyOf(redirectUris))
-                .setCreated(now);
-        return clientRepository.saveSync(client)
-                               .thenApply(saved -> new RegisteredOAuthClient(saved.getId(),
-                                                                             saved.getClientName(),
-                                                                             saved.getRedirectUris(),
-                                                                             now.getTime() / 1000L));
-    }
 
     @Override
     public CompletableFuture<String> createAuthorizationRequest(String clientId,
@@ -71,13 +47,10 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(clientId, "client_id is required");
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeChallenge, "code_challenge is required");
-        return clientRepository.findById(clientId)
+        return clientResolver.resolve(clientId)
                 .thenCompose(client -> {
-                    if (client == null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown client_id"));
-                    }
                     // exact match only: a partial or prefix match would let a look-alike URI capture codes
-                    if (client.getRedirectUris() == null || !client.getRedirectUris().contains(redirectUri)) {
+                    if (!client.redirectUris().contains(redirectUri)) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("redirect_uri is not registered for this client"));
                     }
@@ -85,6 +58,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                     OAuthAuthorizationGrant grant = new OAuthAuthorizationGrant()
                             .setId(UUID.randomUUID().toString())
                             .setClientId(clientId)
+                            .setClientName(client.clientName())
                             .setRedirectUri(redirectUri)
                             .setCodeChallenge(codeChallenge)
                             .setScope(scope)
@@ -99,10 +73,9 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     @Override
     public CompletableFuture<PendingOAuthAuthorization> findPending(String requestId) {
         return loadPendingGrant(requestId)
-                .thenCompose(grant -> clientRepository.findById(grant.getClientId())
-                        .thenApply(client -> new PendingOAuthAuthorization(
-                                client == null ? grant.getClientId() : client.getClientName(),
-                                grant.getScope())));
+                .thenApply(grant -> new PendingOAuthAuthorization(grant.getClientName(),
+                                                                  grant.getClientId(),
+                                                                  grant.getScope()));
     }
 
     @Override
@@ -197,25 +170,4 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         return url.toString();
     }
 
-    /**
-     * A redirect URI must be absolute with an https scheme; plain http is allowed only for
-     * loopback hosts (RFC 8252 native clients such as Claude Code's localhost callback).
-     */
-    private static void validateRedirectUri(String redirectUri) {
-        URI uri;
-        try {
-            uri = URI.create(redirectUri);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("redirect_uri is not a valid URI: " + redirectUri);
-        }
-        String scheme = uri.getScheme();
-        String host = uri.getHost();
-        boolean loopback = "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
-        if (!"https".equals(scheme) && !("http".equals(scheme) && loopback)) {
-            throw new IllegalArgumentException("redirect_uri must be https, or http on a loopback host: " + redirectUri);
-        }
-        if (uri.getFragment() != null) {
-            throw new IllegalArgumentException("redirect_uri must not contain a fragment: " + redirectUri);
-        }
-    }
 }

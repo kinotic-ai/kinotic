@@ -1,14 +1,10 @@
-import {Client} from '@modelcontextprotocol/sdk/client/index.js'
-import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import {Kinotic} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
-import {createHash, randomBytes} from 'node:crypto'
+import {randomBytes, createHash} from 'node:crypto'
 import {WebSocket} from 'ws'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
-const FIND_PROJECTS_BY_REPO = 'os-api.org.kinotic.os.api.services.ProjectService.findByRepoFullName'
-const REDIRECT_URI = 'http://localhost:33418/callback'
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
 /**
@@ -32,19 +28,26 @@ function stompHandshake(url: string, token: string): Promise<number | 'open'> {
 }
 
 /**
- * Drives the full MCP authorization flow the way a Claude host does: discovery from the 401
- * challenge, dynamic client registration, the PKCE authorization-code flow (with the consent
- * step approved over STOMP as the signed-in org user), the token exchange, and finally a
- * bearer-only MCP connection that must land in the approving user's organization scope.
+ * Covers the MCP authorization surface: the 401 discovery challenge, the metadata documents a host
+ * reads to find the authorization server, the Client ID Metadata Document rules the authorize
+ * endpoint enforces on a client_id, and the device grant the CLI logs in with — including that the
+ * audience keeps each grant's token to its own entry point.
+ *
+ * The authorization-code happy path is not covered here: a client_id must be an https URL whose
+ * host does not resolve to a special-use address, which no host reachable from this suite
+ * satisfies. Covering it needs a public HTTPS fixture serving a metadata document, or the Client ID
+ * Metadata Document Service that draft-ietf-oauth-client-id-metadata-document Section 4.2
+ * recommends authorization servers offer for exactly this reason.
  */
 describe('Kinotic JS', () => {
 
     const base = () => `http://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}`
+    const stompUrl = () => `ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`
 
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('OAuthMcp')
-        // the org user (kinotic@kinotic.local / kinotic-test) that will approve the consent step
+        // the org user (kinotic@kinotic.local / kinotic-test) that approves the device grant
         await initKinoticClient()
     }, 120000)
 
@@ -69,111 +72,39 @@ describe('Kinotic JS', () => {
         const asMetadata = await (await fetch(`${base()}/.well-known/oauth-authorization-server`)).json()
         expect(asMetadata.authorization_endpoint).toMatch(/\/api\/auth\/oauth\/authorize$/)
         expect(asMetadata.token_endpoint).toMatch(/\/api\/auth\/oauth\/token$/)
-        expect(asMetadata.registration_endpoint).toMatch(/\/api\/auth\/oauth\/register$/)
         expect(asMetadata.code_challenge_methods_supported).toEqual(['S256'])
+        // clients identify themselves by metadata document; there is nothing to register with
+        expect(asMetadata.client_id_metadata_document_supported).toBe(true)
+        expect(asMetadata.registration_endpoint).toBeUndefined()
     })
 
-    it('completes the PKCE authorization-code flow and calls MCP bearer-only', async () => {
-        // dynamic client registration (RFC 7591)
-        const registration = await (await fetch(`${base()}/api/auth/oauth/register`, {
+    it('refuses dynamic client registration', async () => {
+        const response = await fetch(`${base()}/api/auth/oauth/register`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({client_name: 'OAuth e2e', redirect_uris: [REDIRECT_URI]})
-        })).json()
-        expect(registration.client_id).toBeTruthy()
-        expect(registration.token_endpoint_auth_method).toBe('none')
-
-        // authorize: the gateway stores the request and sends the browser to the SPA consent page
-        const verifier = randomBytes(48).toString('base64url')
-        const challenge = createHash('sha256').update(verifier).digest('base64url')
-        const state = randomBytes(16).toString('base64url')
-        const authorizeUrl = `${base()}/api/auth/oauth/authorize`
-            + `?client_id=${encodeURIComponent(registration.client_id)}`
-            + `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}`
-            + `&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`
-            + `&state=${state}&resource=${encodeURIComponent(`${base()}/mcp`)}`
-        const authorizeResponse = await fetch(authorizeUrl, {redirect: 'manual'})
-        expect(authorizeResponse.status).toBe(302)
-        const consentUrl = new URL(authorizeResponse.headers.get('Location')!)
-        const requestId = consentUrl.searchParams.get('request_id')!
-        expect(consentUrl.pathname).toBe('/oauth/consent')
-        expect(requestId).toBeTruthy()
-
-        // the consent step, exactly as the SPA page performs it over STOMP
-        const oauthApproval = (Kinotic as any).oauthApproval
-        const pending = await oauthApproval.describe(requestId)
-        expect(pending.clientName).toBe('OAuth e2e')
-        const redirect = new URL(await oauthApproval.approve(requestId))
-        expect(redirect.origin + redirect.pathname).toBe(REDIRECT_URI)
-        expect(redirect.searchParams.get('state')).toBe(state)
-        const code = redirect.searchParams.get('code')!
-        expect(code).toBeTruthy()
-
-        // token exchange (form-encoded per RFC 6749)
-        const tokenResponse = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                code,
-                client_id: registration.client_id,
-                redirect_uri: REDIRECT_URI,
-                code_verifier: verifier
-            })
+            body: JSON.stringify({client_name: 'OAuth e2e', redirect_uris: ['https://example.com/cb']})
         })
-        expect(tokenResponse.status).toBe(200)
-        const tokens = await tokenResponse.json()
-        expect(tokens.token_type).toBe('Bearer')
-        expect(tokens.refresh_token).toBeTruthy()
+        expect(response.status).toBe(404)
+    })
 
-        // a code is single-use: replaying it must fail
-        const replay = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({
-                grant_type: 'authorization_code',
-                code,
-                client_id: registration.client_id,
-                redirect_uri: REDIRECT_URI,
-                code_verifier: verifier
-            })
-        })
-        expect(replay.status).toBe(400)
+    it('rejects a client_id that is not a usable metadata document URL', async () => {
+        const challenge = createHash('sha256').update(randomBytes(48).toString('base64url')).digest('base64url')
+        const authorize = (clientId: string) =>
+            fetch(`${base()}/api/auth/oauth/authorize`
+                      + `?client_id=${encodeURIComponent(clientId)}`
+                      + `&redirect_uri=${encodeURIComponent('http://localhost:33418/callback')}`
+                      + `&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
+                  {redirect: 'manual'})
 
-        // bearer-only MCP: no scope headers — the token's own claims decide the scope, so the
-        // approving org user sees os-api tools
-        const mcpClient = new Client({name: 'kinotic-oauth-e2e', version: '1.0.0'})
-        await mcpClient.connect(new StreamableHTTPClientTransport(new URL(`${base()}/mcp`),
-                {requestInit: {headers: {Authorization: `Bearer ${tokens.access_token}`}}}))
-        try {
-            const toolNames = (await mcpClient.listTools()).tools.map(tool => tool.name)
-            expect(toolNames).toContain(FIND_PROJECTS_BY_REPO)
-        } finally {
-            await mcpClient.close()
-        }
-
-        // the audience binds the token to /mcp: the same token must not open a STOMP connection
-        const handshake = await stompHandshake(`ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`,
-                                               tokens.access_token)
-        expect(handshake).toBe(401)
-
-        // refresh rotation: the new pair works, and reusing the rotated-out token is rejected
-        const refreshResponse = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
-        })
-        expect(refreshResponse.status).toBe(200)
-        expect((await refreshResponse.json()).access_token).toBeTruthy()
-
-        const reuse = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
-        })
-        expect(reuse.status).toBe(400)
-        expect((await reuse.json()).error).toBe('invalid_grant')
-    }, 60000)
+        // not a URL at all — the shape dynamic registration used to mint
+        expect((await authorize('s6BhdRkqt3')).status).toBe(400)
+        // http, so the host is not one the client provably controls
+        expect((await authorize('http://example.com/client.json')).status).toBe(400)
+        // https but no path component
+        expect((await authorize('https://example.com')).status).toBe(400)
+        // a private address the gateway must not be steered into fetching
+        expect((await authorize('https://192.168.1.1/client.json')).status).toBe(400)
+    })
 
     it('issues the CLI a published-services token that cannot call MCP', async () => {
         const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`,
@@ -189,12 +120,11 @@ describe('Kinotic JS', () => {
             body: new URLSearchParams({grant_type: DEVICE_CODE_GRANT_TYPE, device_code: start.device_code})
         })
         expect(tokenResponse.status).toBe(200)
+        expect(tokenResponse.headers.get('Cache-Control')).toBe('no-store')
         const tokens = await tokenResponse.json()
 
         // the device grant's audience is the STOMP surface, so the handshake accepts it...
-        const handshake = await stompHandshake(`ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`,
-                                               tokens.access_token)
-        expect(handshake).toBe('open')
+        expect(await stompHandshake(stompUrl(), tokens.access_token)).toBe('open')
 
         // ...and /mcp rejects it, challenging for a token of its own audience
         const mcpResponse = await fetch(`${base()}/mcp`, {
@@ -204,5 +134,24 @@ describe('Kinotic JS', () => {
         })
         expect(mcpResponse.status).toBe(401)
         expect(mcpResponse.headers.get('WWW-Authenticate')).toContain('resource_metadata="')
+
+        // rotation stays on the audience the lineage was issued for
+        const refreshed = await fetch(`${base()}/api/auth/oauth/token`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
+        })
+        expect(refreshed.status).toBe(200)
+        const rotated = await refreshed.json()
+        expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe('open')
+
+        // reusing the rotated-out token revokes the family
+        const reuse = await fetch(`${base()}/api/auth/oauth/token`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
+        })
+        expect(reuse.status).toBe(400)
+        expect((await reuse.json()).error).toBe('invalid_grant')
     }, 60000)
 })

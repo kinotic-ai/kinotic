@@ -25,7 +25,11 @@ public class OAuthAuthorizationGrant implements Identifiable<String> {
     /** Request id carried to the SPA consent page; not a secret, grants nothing by itself. */
     private String id;
 
+    /** The client's Client ID Metadata Document URL, which is also its identifier. */
     private String clientId;
+
+    /** Name from the client's metadata document, captured when the request was validated. */
+    private String clientName;
 
     /** The exact {@code redirect_uri} from the authorize request; re-verified at code exchange. */
     private String redirectUri;

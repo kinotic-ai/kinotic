@@ -12,8 +12,11 @@
       <div v-else-if="pending" class="login-form__step">
         <h2 class="signup-title">Authorize {{ pending.clientName }}</h2>
         <p class="login-form__subtitle">
+          Verified as <strong class="consent-host">{{ clientHost }}</strong>
+        </p>
+        <p class="login-form__subtitle">
           {{ pending.clientName }} is requesting access to Kinotic OS as your account.
-          It will be able to call the tools your account can call.
+          It will be able to call the MCP tools your account can call.
         </p>
         <Button
           label="Approve"
@@ -44,6 +47,7 @@ import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
 interface PendingOAuthAuthorization {
   clientName: string
+  clientId: string
   scope: string | null
 }
 
@@ -71,6 +75,16 @@ const route = useRoute()
 const requestId = computed<string | null>(() => {
   const id = route.query.request_id
   return typeof id === 'string' && id.length > 0 ? id : null
+})
+
+// the client had to serve its metadata document from this host, so unlike clientName it is a
+// claim the client could not simply assert
+const clientHost = computed<string>(() => {
+  try {
+    return new URL(pending.value!.clientId).host
+  } catch {
+    return pending.value?.clientId ?? ''
+  }
 })
 
 onMounted(async () => {
@@ -108,6 +122,10 @@ async function decide(approve: boolean) {
   font-size: 3rem;
   color: var(--p-primary-500);
   margin-bottom: 1rem;
+}
+
+.consent-host {
+  font-family: monospace;
 }
 
 .consent-deny {
