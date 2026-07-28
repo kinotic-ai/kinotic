@@ -7,9 +7,6 @@ import lombok.RequiredArgsConstructor;
  * The surface a Kinotic-minted JWT was issued for, carried as the token's {@code aud} claim.
  * Each OAuth grant stamps the audience of the surface it serves, so a token records where it was
  * meant to be used and a refresh lineage re-mints the same one.
- * <p>
- * No entry point verifies the claim today, so a token reaches every Kinotic surface whatever its
- * audience says — see docs/NavidNotes.md.
  */
 @Getter
 @RequiredArgsConstructor

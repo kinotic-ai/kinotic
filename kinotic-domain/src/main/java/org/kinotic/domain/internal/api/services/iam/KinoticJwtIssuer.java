@@ -72,9 +72,8 @@ public class KinoticJwtIssuer {
     }
 
     /**
-     * Validates a token signed by any key currently in the active set. The {@code aud} claim
-     * {@link #sign} stamps is not verified, so a token is accepted at any entry point regardless
-     * of the surface its grant minted it for — see docs/NavidNotes.md.
+     * Validates a token's signature against any key currently in the active set, dispatching on
+     * the {@code kid} header to the key that signed it.
      */
     public Future<User> authenticate(String token) {
         State current = requireState();
