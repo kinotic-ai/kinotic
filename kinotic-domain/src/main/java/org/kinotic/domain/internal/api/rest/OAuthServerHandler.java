@@ -42,6 +42,12 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     private static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
+    /**
+     * The {@code client_id} of the Kinotic CLI, the only client the device grant serves. Constant
+     * rather than configuration: it identifies the CLI itself, not a deployment of it.
+     */
+    private static final String CLI_CLIENT_ID = "kinotic-cli";
+
     private final AuthEndpointSupport authEndpointSupport;
     private final OAuthAuthorizationService oauthAuthorizationService;
     private final DeviceCodeGrantService deviceCodeGrantService;
@@ -129,12 +135,16 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Device clients
-     * are anonymous public clients ({@code client_id} is accepted but not required): a device
-     * grant has no redirect URI to protect, its authority is the browser approval on the
+     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Serves the Kinotic
+     * CLI, a pre-registered public client, so {@code client_id} is required and must name it. A
+     * device grant has no redirect URI to protect; its authority is the browser approval on the
      * {@code /device} page.
      */
     private void handleDeviceAuthorization(RoutingContext ctx) {
+        if (!CLI_CLIENT_ID.equals(ctx.request().getFormAttribute("client_id"))) {
+            authEndpointSupport.respondError(ctx, 400, "invalid_client");
+            return;
+        }
         Future.fromCompletionStage(deviceCodeGrantService.start())
               .onSuccess(start -> {
                   // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway

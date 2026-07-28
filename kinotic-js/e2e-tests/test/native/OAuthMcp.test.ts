@@ -105,9 +105,25 @@ describe('Kinotic JS', () => {
         expect((await authorize('https://192.168.1.1/client.json')).status).toBe(400)
     })
 
-    it('issues the CLI a published-services token that cannot call MCP', async () => {
-        const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`,
-                                         {method: 'POST'})).json()
+    it('rejects a device grant that does not name the pre-registered CLI client', async () => {
+        const anonymous = await fetch(`${base()}/api/auth/oauth/device_authorization`, {method: 'POST'})
+        expect(anonymous.status).toBe(400)
+        expect((await anonymous.json()).error).toBe('invalid_client')
+
+        const unknown = await fetch(`${base()}/api/auth/oauth/device_authorization`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({client_id: 'some-other-client'})
+        })
+        expect(unknown.status).toBe(400)
+    })
+
+    it('logs the CLI in through the device grant', async () => {
+        const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({client_id: 'kinotic-cli'})
+        })).json()
         expect(start.user_code).toBeTruthy()
 
         // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP
