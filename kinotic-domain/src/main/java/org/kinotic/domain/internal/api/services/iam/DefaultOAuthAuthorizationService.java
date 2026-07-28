@@ -13,9 +13,12 @@ import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepos
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -49,8 +52,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(codeChallenge, "code_challenge is required");
         return clientResolver.resolve(clientId)
                 .thenCompose(client -> {
-                    // exact match only: a partial or prefix match would let a look-alike URI capture codes
-                    if (!client.redirectUris().contains(redirectUri)) {
+                    if (!matchesRegisteredRedirectUri(client.redirectUris(), redirectUri)) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("redirect_uri is not registered for this client"));
                     }
@@ -131,6 +133,48 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                         return loadEnabledUser(grant.getUserId());
                     });
                 });
+    }
+
+    /**
+     * Whether {@code requested} is one of the client's registered redirect URIs. Exact match, with
+     * the one exception RFC 8252 Section 7.3 requires: a loopback URI matches regardless of port,
+     * because a native client binds its callback to an ephemeral port chosen at runtime and cannot
+     * register it ahead of time. Claude Code registers {@code http://localhost/callback} and calls
+     * back on whatever port it obtained.
+     * <p>
+     * Everything else still has to match exactly — a partial or prefix match would let a look-alike
+     * URI capture codes — and the grant stores the requested URI, so the code exchange compares
+     * against the port the flow actually began with.
+     */
+    private static boolean matchesRegisteredRedirectUri(List<String> registered, String requested) {
+        boolean ret = registered.contains(requested);
+        if (!ret) {
+            URI requestedUri = toUri(requested);
+            if (requestedUri != null && OAuth2Util.isLoopbackHost(requestedUri.getHost())) {
+                for (String candidate : registered) {
+                    URI candidateUri = toUri(candidate);
+                    if (candidateUri != null
+                            && Objects.equals(requestedUri.getScheme(), candidateUri.getScheme())
+                            && Objects.equals(requestedUri.getHost(), candidateUri.getHost())
+                            && Objects.equals(requestedUri.getPath(), candidateUri.getPath())
+                            && Objects.equals(requestedUri.getQuery(), candidateUri.getQuery())) {
+                        ret = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return ret;
+    }
+
+    private static URI toUri(String value) {
+        URI ret;
+        try {
+            ret = new URI(value);
+        } catch (Exception e) {
+            ret = null;
+        }
+        return ret;
     }
 
     private CompletableFuture<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {

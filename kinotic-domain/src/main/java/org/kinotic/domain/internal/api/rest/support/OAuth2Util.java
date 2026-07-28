@@ -165,6 +165,17 @@ public class OAuth2Util {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
     }
 
+    /**
+     * Whether {@code host} is a loopback host, which RFC 8252 gives native clients special
+     * treatment for: they bind their callback to an ephemeral port chosen at runtime.
+     *
+     * @param host the host component of a URI, or {@code null}
+     * @return {@code true} for {@code localhost}, {@code 127.0.0.1}, and {@code [::1]}
+     */
+    public static boolean isLoopbackHost(String host) {
+        return "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
+    }
+
     /** Computes the PKCE S256 code-challenge for the given verifier. */
     public static String s256Challenge(String verifier) {
         try {

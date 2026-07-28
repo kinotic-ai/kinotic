@@ -12,6 +12,7 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.OAuthProperties;
 import org.kinotic.domain.internal.api.model.ClientIdMetadataDocument;
 import org.kinotic.domain.internal.api.model.OAuthClientMetadata;
+import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -207,9 +208,8 @@ public class OAuthClientResolver {
         } catch (Exception e) {
             throw new IllegalArgumentException("redirect_uri is not a valid URI: " + redirectUri);
         }
-        String host = uri.getHost();
-        boolean loopback = "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
-        if (!"https".equals(uri.getScheme()) && !("http".equals(uri.getScheme()) && loopback)) {
+        if (!"https".equals(uri.getScheme())
+                && !("http".equals(uri.getScheme()) && OAuth2Util.isLoopbackHost(uri.getHost()))) {
             throw new IllegalArgumentException("redirect_uri must be https, or http on a loopback host: " + redirectUri);
         }
         if (uri.getFragment() != null) {

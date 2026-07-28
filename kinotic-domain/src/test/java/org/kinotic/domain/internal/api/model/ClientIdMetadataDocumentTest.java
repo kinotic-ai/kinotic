@@ -18,27 +18,27 @@ class ClientIdMetadataDocumentTest {
 
     @Test
     void mapsSnakeCasePropertiesAndIgnoresTheRest() {
-        // the shape an MCP host publishes, including the properties this server does not read
+        // served verbatim at https://claude.ai/oauth/claude-code-client-metadata, including the
+        // properties this server does not read
         String json = """
                 {
-                  "client_id": "https://claude.ai/oauth/client-metadata.json",
-                  "client_name": "Claude",
+                  "client_id": "https://claude.ai/oauth/claude-code-client-metadata",
+                  "client_name": "Claude Code",
                   "client_uri": "https://claude.ai",
-                  "logo_uri": "https://claude.ai/logo.png",
-                  "redirect_uris": ["https://claude.ai/api/mcp/auth_callback",
-                                    "http://localhost:33418/callback"],
-                  "token_endpoint_auth_method": "none",
+                  "redirect_uris": ["http://localhost/callback", "http://127.0.0.1/callback"],
                   "grant_types": ["authorization_code", "refresh_token"],
                   "response_types": ["code"],
-                  "scope": "offline_access"
+                  "token_endpoint_auth_method": "none"
                 }
                 """;
 
         ClientIdMetadataDocument document = jsonMapper.readValue(json, ClientIdMetadataDocument.class);
 
-        assertEquals("https://claude.ai/oauth/client-metadata.json", document.getClientId());
-        assertEquals("Claude", document.getClientName());
-        assertEquals(List.of("https://claude.ai/api/mcp/auth_callback", "http://localhost:33418/callback"),
+        assertEquals("https://claude.ai/oauth/claude-code-client-metadata", document.getClientId());
+        assertEquals("Claude Code", document.getClientName());
+        // portless by design: the callback binds an ephemeral port, which RFC 8252 Section 7.3
+        // requires the authorization server to ignore when matching
+        assertEquals(List.of("http://localhost/callback", "http://127.0.0.1/callback"),
                      document.getRedirectUris());
         assertEquals("none", document.getTokenEndpointAuthMethod());
         assertNull(document.getClientSecret());
