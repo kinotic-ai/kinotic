@@ -174,6 +174,7 @@ public class OAuthClientResolver {
         if (document.getValue("redirect_uris") instanceof JsonArray uris) {
             for (Object uri : uris) {
                 if (uri instanceof String s) {
+                    validateRedirectUri(s);
                     redirectUris.add(s);
                 }
             }
@@ -185,6 +186,31 @@ public class OAuthClientResolver {
         return new OAuthClientMetadata(clientId,
                                        clientName == null || clientName.isBlank() ? clientId : clientName.trim(),
                                        List.copyOf(redirectUris));
+    }
+
+    /**
+     * A redirect URI must be absolute with an https scheme; plain http is allowed only for
+     * loopback hosts (RFC 8252 native clients such as Claude Code's localhost callback).
+     * <p>
+     * The scheme restriction is load-bearing beyond transport: the consent page navigates to this
+     * URI with {@code window.location.href}, so a {@code javascript:} or {@code data:} entry would
+     * execute on the SPA's origin when the user approves.
+     */
+    private static void validateRedirectUri(String redirectUri) {
+        URI uri;
+        try {
+            uri = new URI(redirectUri);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("redirect_uri is not a valid URI: " + redirectUri);
+        }
+        String host = uri.getHost();
+        boolean loopback = "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
+        if (!"https".equals(uri.getScheme()) && !("http".equals(uri.getScheme()) && loopback)) {
+            throw new IllegalArgumentException("redirect_uri must be https, or http on a loopback host: " + redirectUri);
+        }
+        if (uri.getFragment() != null) {
+            throw new IllegalArgumentException("redirect_uri must not contain a fragment: " + redirectUri);
+        }
     }
 
     private Date cacheExpiry() {
