@@ -136,7 +136,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
               .onSuccess(start -> {
                   // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
                   // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
-                  // approves there via DeviceApprovalService over STOMP; this gateway only emits the URL.
+                  // approves there via OAuthApprovalService.approveDevice over STOMP; this gateway only emits the URL.
                   String verificationUri = domainProperties.getDomain().getAppBaseUrl() + "/device";
                   respondJson(ctx, 200, new JsonObject()
                           .put("device_code", start.deviceCode())

@@ -39,4 +39,12 @@ public interface OAuthApprovalService {
      * @return a {@link CompletableFuture} emitting the redirect URL carrying {@code error=access_denied}
      */
     CompletableFuture<String> deny(String requestId);
+
+    /**
+     * Approves the pending RFC 8628 device grant identified by {@code userCode} as the calling
+     * participant's user. Fails if the code is unknown, already approved, or expired.
+     *
+     * @param userCode the code the user confirmed on the device page
+     */
+    CompletableFuture<Void> approveDevice(String userCode, Participant participant);
 }

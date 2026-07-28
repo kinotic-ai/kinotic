@@ -34,6 +34,12 @@ export interface IOAuthApprovalService {
      */
     deny(requestId: string): Promise<string>
 
+    /**
+     * Approves the pending RFC 8628 device grant identified by {@code userCode} as the calling
+     * user. Rejects when the code is unknown, already approved, or expired.
+     */
+    approveDevice(userCode: string): Promise<void>
+
 }
 
 export class OAuthApprovalService implements IOAuthApprovalService {
@@ -54,5 +60,9 @@ export class OAuthApprovalService implements IOAuthApprovalService {
 
     public deny(requestId: string): Promise<string> {
         return this.serviceProxy.invoke('deny', [requestId])
+    }
+
+    public approveDevice(userCode: string): Promise<void> {
+        return this.serviceProxy.invoke('approveDevice', [userCode])
     }
 }
