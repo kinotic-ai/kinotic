@@ -6,8 +6,9 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * The OAuth 2.1 authorization-server logic behind the gateway's authorize and token endpoints and
- * the browser consent page. Clients are public and identify themselves with a Client ID Metadata
- * Document URL (draft-ietf-oauth-client-id-metadata-document), so none is stored here. Every grant
+ * the browser consent page. Authorization-code clients are public and identify themselves with a
+ * Client ID Metadata Document URL (draft-ietf-oauth-client-id-metadata-document), so none is
+ * stored here. Every grant
  * is a PKCE S256 authorization code: single-use, short-lived, stored hashed, and bound to the
  * client, redirect URI, and code challenge presented when the flow began.
  */

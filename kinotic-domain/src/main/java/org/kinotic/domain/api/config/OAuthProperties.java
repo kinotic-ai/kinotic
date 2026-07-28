@@ -8,7 +8,7 @@ import java.util.Set;
 
 /**
  * Settings for the OAuth 2.1 authorization server that MCP hosts drive to reach {@code /mcp}.
- * Clients identify themselves with a Client ID Metadata Document URL
+ * Those hosts identify themselves with a Client ID Metadata Document URL
  * (draft-ietf-oauth-client-id-metadata-document).
  */
 @Getter

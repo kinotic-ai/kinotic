@@ -23,9 +23,10 @@ import java.nio.charset.StandardCharsets;
  * The OAuth 2.1 authorization-server surface MCP hosts discover and drive to reach
  * {@code POST /mcp}: RFC 8414 / RFC 9728 metadata documents, the PKCE authorization-code flow
  * whose consent step is the SPA's {@code /oauth/consent} page, and the RFC 8628 device grant the
- * CLI logs in with. Clients identify themselves with a Client ID Metadata Document URL
- * (draft-ietf-oauth-client-id-metadata-document) rather than registering; there is no registration
- * endpoint. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
+ * CLI logs in with. There is no registration endpoint: an MCP host identifies itself with a Client
+ * ID Metadata Document URL (draft-ietf-oauth-client-id-metadata-document) the authorize endpoint
+ * fetches, and the CLI is pre-registered under a constant {@code client_id} the device grant
+ * requires. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
  * requesting {@code offline_access} refresh without re-consent.
  *
  * <p>Each grant stamps the audience of the surface it serves: the authorization-code grant issues
