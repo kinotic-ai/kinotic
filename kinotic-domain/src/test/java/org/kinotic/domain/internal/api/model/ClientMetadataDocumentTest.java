@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
  * Covers the wire mapping of a Client ID Metadata Document: the snake_case property names a real
  * document uses, and the additional properties Section 4.1 permits it to carry.
  */
-class ClientIdMetadataDocumentTest {
+class ClientMetadataDocumentTest {
 
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
@@ -32,7 +32,7 @@ class ClientIdMetadataDocumentTest {
                 }
                 """;
 
-        ClientIdMetadataDocument document = jsonMapper.readValue(json, ClientIdMetadataDocument.class);
+        ClientMetadataDocument document = jsonMapper.readValue(json, ClientMetadataDocument.class);
 
         assertEquals("https://claude.ai/oauth/claude-code-client-metadata", document.getClientId());
         assertEquals("Claude Code", document.getClientName());
@@ -57,7 +57,7 @@ class ClientIdMetadataDocumentTest {
                 }
                 """;
 
-        ClientIdMetadataDocument document = jsonMapper.readValue(json, ClientIdMetadataDocument.class);
+        ClientMetadataDocument document = jsonMapper.readValue(json, ClientMetadataDocument.class);
 
         assertEquals("client_secret_basic", document.getTokenEndpointAuthMethod());
         assertEquals("s3cret", document.getClientSecret());

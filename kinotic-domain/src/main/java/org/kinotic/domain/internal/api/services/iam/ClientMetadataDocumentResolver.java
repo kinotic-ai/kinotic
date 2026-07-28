@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.OAuthProperties;
-import org.kinotic.domain.internal.api.model.ClientIdMetadataDocument;
+import org.kinotic.domain.internal.api.model.ClientMetadataDocument;
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -25,10 +25,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Resolves the {@code client_id} of an authorization request into the client's metadata by
- * fetching the Client ID Metadata Document it names
- * (draft-ietf-oauth-client-id-metadata-document). The client_id URL is the client's identity: it
- * had to control that host to serve the document there, so the name the consent page shows is
- * attributable to a domain rather than self-asserted.
+ * fetching the client metadata document served at the Client ID Metadata Document URL it names
+ * (draft-ietf-oauth-client-id-metadata-document). That URL is the client's identity: it had to
+ * control the host to serve a document there, so the name the consent page shows is attributable
+ * to a domain rather than self-asserted.
  * <p>
  * Resolution fails — and with it the authorization request — unless the URL is a well-formed
  * client identifier, its host resolves to a routable address, the fetch answers {@code 200} within
@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class OAuthClientResolver {
+public class ClientMetadataDocumentResolver {
 
     private final KinoticDomainProperties domainProperties;
     private final JsonMapper jsonMapper;
@@ -54,7 +54,7 @@ public class OAuthClientResolver {
     }
 
     /**
-     * Resolves {@code clientId} into the client's metadata document, fetching and validating it
+     * Resolves {@code clientId} into the client metadata document it names, fetching and validating it
      * unless a still-valid cached copy is held. The returned document has passed every rule in
      * Section 4.1, so its {@code redirectUris} are non-empty and usable and its {@code clientName}
      * is set to something displayable.
@@ -63,8 +63,8 @@ public class OAuthClientResolver {
      * @return a {@link CompletableFuture} emitting the validated document, failing when the
      *         client_id is not permitted or the document is unreachable or invalid
      */
-    public CompletableFuture<ClientIdMetadataDocument> resolve(String clientId) {
-        Future<ClientIdMetadataDocument> ret;
+    public CompletableFuture<ClientMetadataDocument> resolve(String clientId) {
+        Future<ClientMetadataDocument> ret;
         try {
             URI uri = validateClientIdUrl(clientId);
             CachedClient cached = cache.get(clientId);
@@ -139,7 +139,7 @@ public class OAuthClientResolver {
         });
     }
 
-    private Future<ClientIdMetadataDocument> fetchMetadata(String clientId) {
+    private Future<ClientMetadataDocument> fetchMetadata(String clientId) {
         OAuthProperties oauth = domainProperties.getDomain().getOauth();
         return webClient.getAbs(clientId)
                         .putHeader("Accept", "application/json")
@@ -158,16 +158,16 @@ public class OAuthClientResolver {
                         });
     }
 
-    private ClientIdMetadataDocument readDocument(Buffer body) {
+    private ClientMetadataDocument readDocument(Buffer body) {
         try {
-            return jsonMapper.readValue(body.getBytes(), ClientIdMetadataDocument.class);
+            return jsonMapper.readValue(body.getBytes(), ClientMetadataDocument.class);
         } catch (Exception e) {
             throw new IllegalArgumentException("client metadata document is not valid JSON");
         }
     }
 
     /** Applies the document rules from Section 4.1, returning the document it validated. */
-    private static ClientIdMetadataDocument validateDocument(String clientId, ClientIdMetadataDocument document) {
+    private static ClientMetadataDocument validateDocument(String clientId, ClientMetadataDocument document) {
         // simple string comparison per RFC 3986 6.2.1 — the document must name the URL it was
         // served from, so a document cannot claim an identity its host does not own
         if (!clientId.equals(document.getClientId())) {
@@ -224,5 +224,5 @@ public class OAuthClientResolver {
     }
 
     /** A validated document held until {@code expiresAt}; errors and invalid documents are never cached. */
-    private record CachedClient(ClientIdMetadataDocument document, Date expiresAt) {}
+    private record CachedClient(ClientMetadataDocument document, Date expiresAt) {}
 }

@@ -10,10 +10,11 @@ import lombok.experimental.Accessors;
 import java.util.List;
 
 /**
- * The wire form of a Client ID Metadata Document
- * (draft-ietf-oauth-client-id-metadata-document Section 4.1), as fetched from the client's
- * {@code client_id} URL. Every value here is what the client claims about itself;
- * {@code OAuthClientResolver} validates the document before any of it is acted on.
+ * The wire form of a client metadata document
+ * (draft-ietf-oauth-client-id-metadata-document Section 4.1), as fetched from the Client ID
+ * Metadata Document URL the client presented as its {@code client_id}. Every value here is what
+ * the client claims about itself; {@code ClientMetadataDocumentResolver} validates the document
+ * before any of it is acted on.
  * <p>
  * Section 4.1 permits a document to carry additional properties, so unknown fields are ignored
  * rather than treated as an error.
@@ -23,7 +24,7 @@ import java.util.List;
 @Accessors(chain = true)
 @NoArgsConstructor
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ClientIdMetadataDocument {
+public class ClientMetadataDocument {
 
     /** Must equal the URL the document was served from. */
     @JsonProperty("client_id")

@@ -36,7 +36,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     /** Bytes of entropy for authorization codes. */
     private static final int TOKEN_BYTES = 32;
 
-    private final OAuthClientResolver clientResolver;
+    private final ClientMetadataDocumentResolver clientMetadataDocumentResolver;
     private final OAuthAuthorizationGrantRepository grantRepository;
     private final IamUserRepository iamUserRepository;
 
@@ -50,7 +50,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(clientId, "client_id is required");
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeChallenge, "code_challenge is required");
-        return clientResolver.resolve(clientId)
+        return clientMetadataDocumentResolver.resolve(clientId)
                 .thenCompose(client -> {
                     if (!matchesRegisteredRedirectUri(client.getRedirectUris(), redirectUri)) {
                         return CompletableFuture.failedFuture(
