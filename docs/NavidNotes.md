@@ -22,6 +22,16 @@ records the surface it serves and rotation re-stamps the same one. What was drop
 verification: `KinoticJwtIssuer.authenticate` no longer compares the claim, so no entry point cares
 what a token says it was issued for.
 
+| `aud` | `KinoticAudience` | Issued by | Intended for |
+|---|---|---|---|
+| `kinotic` | `PUBLISHED_SERVICES` | the device-code grant (the CLI) | the STOMP WebSocket handshake |
+| `kinotic-mcp` | `MCP_TOOLS` | the authorization-code grant (MCP hosts) | `POST /mcp` |
+
+This table and the scheme around it are deliberately not on the website. Publishing which surface a
+token names, while nothing verifies the name, describes the gap precisely enough to be worth using.
+It belongs back in `website/content/02.platform/05.system-security.md` once the check is enforced,
+where it reads as a security property rather than an inventory.
+
 Only the check was dropped because enforcing it requires the entry point to tell
 `KinoticSecurityService` which surface it serves, and the only channel for that was the
 `SecurityService` contract — a change worth designing properly rather than rushing. The contract
