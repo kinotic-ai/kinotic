@@ -1,23 +1,27 @@
 package org.kinotic.domain.api.services.iam;
 
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Issues and rotates refresh tokens for CLI sessions. Tokens are stored only as hashes; each
- * redemption rotates the token and detects reuse of an already-rotated token.
+ * Issues and rotates refresh tokens for OAuth client sessions. Tokens are stored only as hashes;
+ * each redemption rotates the token and detects reuse of an already-rotated token. A lineage is
+ * pinned to the audience it was issued for, so rotation can only ever mint access tokens for that
+ * one surface.
  */
 public interface RefreshTokenService {
 
     /**
      * Issues a new refresh token in a new family for the given user.
      *
-     * @param userId id of the {@link IamUser} the token will authenticate
+     * @param userId   id of the {@link IamUser} the token will authenticate
+     * @param audience the surface access tokens minted from this lineage are valid for
      * @return the plaintext refresh token — available only here, the server stores only its hash
      */
-    CompletableFuture<String> issue(String userId);
+    CompletableFuture<String> issue(String userId, KinoticAudience audience);
 
     /**
      * Validates and rotates a refresh token: the presented token is revoked and a fresh one

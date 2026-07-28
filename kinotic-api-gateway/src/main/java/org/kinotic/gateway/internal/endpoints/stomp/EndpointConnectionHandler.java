@@ -20,6 +20,7 @@ import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
@@ -60,7 +61,8 @@ public class EndpointConnectionHandler {
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
+        return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()),
+                                            KinoticAudience.PUBLISHED_SERVICES)
                               .recover(throwable -> {
                                   Throwable cause;
                                   if(throwable instanceof AuthenticationException){

@@ -3,11 +3,33 @@ import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/st
 import {Kinotic} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
 import {createHash, randomBytes} from 'node:crypto'
+import {WebSocket} from 'ws'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
 const FIND_PROJECTS_BY_REPO = 'os-api.org.kinotic.os.api.services.ProjectService.findByRepoFullName'
 const REDIRECT_URI = 'http://localhost:33418/callback'
+const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
+
+/**
+ * Attempts the STOMP WebSocket upgrade with the given bearer token. Resolves with the HTTP status
+ * the gateway answered the upgrade with, or 'open' when the handshake succeeded — a failed
+ * handshake ends the response before the upgrade, so the socket never opens.
+ */
+function stompHandshake(url: string, token: string): Promise<number | 'open'> {
+    return new Promise(resolve => {
+        const socket = new WebSocket(url, ['v12.stomp'], {headers: {Authorization: `Bearer ${token}`}})
+        socket.on('open', () => {
+            socket.close()
+            resolve('open')
+        })
+        socket.on('unexpected-response', (_request, response) => {
+            socket.terminate()
+            resolve(response.statusCode ?? -1)
+        })
+        socket.on('error', () => resolve(-1))
+    })
+}
 
 /**
  * Drives the full MCP authorization flow the way a Claude host does: discovery from the 401
@@ -130,6 +152,11 @@ describe('Kinotic JS', () => {
             await mcpClient.close()
         }
 
+        // the audience binds the token to /mcp: the same token must not open a STOMP connection
+        const handshake = await stompHandshake(`ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`,
+                                               tokens.access_token)
+        expect(handshake).toBe(401)
+
         // refresh rotation: the new pair works, and reusing the rotated-out token is rejected
         const refreshResponse = await fetch(`${base()}/api/auth/oauth/token`, {
             method: 'POST',
@@ -146,5 +173,36 @@ describe('Kinotic JS', () => {
         })
         expect(reuse.status).toBe(400)
         expect((await reuse.json()).error).toBe('invalid_grant')
+    }, 60000)
+
+    it('issues the CLI a published-services token that cannot call MCP', async () => {
+        const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`,
+                                         {method: 'POST'})).json()
+        expect(start.user_code).toBeTruthy()
+
+        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP
+        await (Kinotic as any).oauthApproval.approveDevice(start.user_code)
+
+        const tokenResponse = await fetch(`${base()}/api/auth/oauth/token`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({grant_type: DEVICE_CODE_GRANT_TYPE, device_code: start.device_code})
+        })
+        expect(tokenResponse.status).toBe(200)
+        const tokens = await tokenResponse.json()
+
+        // the device grant's audience is the STOMP surface, so the handshake accepts it...
+        const handshake = await stompHandshake(`ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`,
+                                               tokens.access_token)
+        expect(handshake).toBe('open')
+
+        // ...and /mcp rejects it, challenging for a token of its own audience
+        const mcpResponse = await fetch(`${base()}/mcp`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Authorization: `Bearer ${tokens.access_token}`},
+            body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'})
+        })
+        expect(mcpResponse.status).toBe(401)
+        expect(mcpResponse.headers.get('WWW-Authenticate')).toContain('resource_metadata="')
     }, 60000)
 })

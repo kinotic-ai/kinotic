@@ -12,6 +12,7 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
@@ -68,7 +69,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
            .headers()
            .forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
 
-        securityService.authenticate(authenticationInfo)
+        securityService.authenticate(authenticationInfo, KinoticAudience.MCP_TOOLS)
                        .onSuccess(participant -> handle(ctx.body(), participant)
                                .onSuccess(response -> {
                                    if (response == null) {

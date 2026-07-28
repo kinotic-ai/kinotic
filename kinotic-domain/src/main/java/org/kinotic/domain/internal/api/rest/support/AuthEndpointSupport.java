@@ -9,6 +9,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.kinotic.core.api.security.ConnectedInfo;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
@@ -38,6 +39,9 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class AuthEndpointSupport {
+
+    /** Access-token TTL for OAuth-issued tokens; clients refresh via the rotating refresh token. */
+    private static final int ACCESS_TOKEN_TTL_SECONDS = 3600;
 
     private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
@@ -130,8 +134,13 @@ public class AuthEndpointSupport {
 
     // ── Token issuance ────────────────────────────────────────────────────────
 
-    /** Mints a Kinotic access-token JWT carrying {@code sub/email/organizationId/applicationId}. */
-    public String mintAccessToken(IamUser user, int ttlSeconds) {
+    /**
+     * Mints a Kinotic access-token JWT for {@code audience}, carrying {@code user}'s
+     * {@code sub/email/organizationId/applicationId}. The {@code sub} is what every entry point
+     * resolves the caller's {@link org.kinotic.core.api.security.Participant} from, so the
+     * bearer acts as this user and no other.
+     */
+    private String mintAccessToken(IamUser user, KinoticAudience audience) {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail());
@@ -141,21 +150,26 @@ public class AuthEndpointSupport {
         if (user.getApplicationId() != null) {
             claims.put("applicationId", user.getApplicationId());
         }
-        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ttlSeconds));
+        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ACCESS_TOKEN_TTL_SECONDS), audience);
     }
 
     /**
-     * {@code 200 application/json} with an OAuth token pair: an {@code access_token} living
-     * {@code ttlSeconds} plus the {@code refresh_token} the client persists to mint future
-     * access tokens.
+     * {@code 200 application/json} with an OAuth token pair for {@code audience}: an
+     * {@code access_token} valid only at the entry point that audience serves, plus the
+     * {@code refresh_token} the client persists to mint future access tokens. Both act as
+     * {@code user}.
      */
-    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, int ttlSeconds) {
+    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, KinoticAudience audience) {
         JsonObject body = new JsonObject()
-                .put("access_token", mintAccessToken(user, ttlSeconds))
+                .put("access_token", mintAccessToken(user, audience))
                 .put("token_type", "Bearer")
-                .put("expires_in", ttlSeconds)
+                .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
                 .put("refresh_token", refreshToken);
-        ctx.response().putHeader("Content-Type", "application/json").end(body.encode());
+        ctx.response().putHeader("Content-Type", "application/json")
+           // RFC 6749 §5.1 — a token response must never be cached by an intermediary
+           .putHeader("Cache-Control", "no-store")
+           .putHeader("Pragma", "no-cache")
+           .end(body.encode());
     }
 
     /** Login-lookup path-fork response indicating the frontend should reveal the password field. */

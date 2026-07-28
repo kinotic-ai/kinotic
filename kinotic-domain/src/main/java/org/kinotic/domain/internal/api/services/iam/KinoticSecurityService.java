@@ -6,6 +6,7 @@ import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
+import org.kinotic.core.api.security.KinoticAudience;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.iam.AuthType;
@@ -37,8 +38,9 @@ import java.util.TreeMap;
  *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers.
  *       Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
- *       by {@link KinoticJwtIssuer} after a successful OIDC callback. We validate the JWT
- *       signature + audience, then look up the {@link IamUser} by id from the JWT
+ *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
+ *       signature, then that its audience is the one the calling entry point serves, then
+ *       look up the {@link IamUser} by id from the JWT
  *       {@code sub} claim. When scope headers accompany the token they must match the JWT's
  *       {@code organizationId} / {@code applicationId} claims; a bearer-only request takes
  *       its scope from the signed claims alone.</li>
@@ -58,7 +60,7 @@ public class KinoticSecurityService implements SecurityService {
     private final Vertx vertx;
 
     @Override
-    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo, KinoticAudience audience) {
         // HTTP callers (AuthenticationHandler) lowercase all header names; STOMP preserves case.
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
@@ -75,7 +77,7 @@ public class KinoticSecurityService implements SecurityService {
 
         Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            ret = authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7));
+            ret = authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7), audience);
         } else {
             ret = authenticateEmailPassword(organizationId, applicationId, authInfo);
         }
@@ -137,18 +139,21 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must:
-     * carry {@code aud=kinotic} (enforced by {@link KinoticJwtIssuer#authenticate}); have
-     * a {@code sub} claim referencing an existing, enabled {@link IamUser}; and, when the
-     * caller supplied {@code organizationId} / {@code applicationId} headers, carry matching
-     * claims (defense in depth against a JWT for org A being replayed against org B). A
-     * bearer-only request carries no scope headers and authenticates as the scope the JWT's
-     * own signed claims declare — the shape MCP hosts and other plain OAuth clients send.
+     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must: carry the
+     * {@code aud} claim for the entry point being called (enforced by
+     * {@link KinoticJwtIssuer#authenticate}), so a token minted for MCP tools cannot open a
+     * STOMP connection and vice versa; have a {@code sub} claim referencing an existing,
+     * enabled {@link IamUser}; and, when the caller supplied {@code organizationId} /
+     * {@code applicationId} headers, carry matching claims (defense in depth against a JWT for
+     * org A being replayed against org B). A bearer-only request carries no scope headers and
+     * authenticates as the scope the JWT's own signed claims declare — the shape MCP hosts and
+     * other plain OAuth clients send.
      */
     private Future<Participant> authenticateKinoticJwt(String organizationId,
                                                        String applicationId,
-                                                       String token) {
-        return jwtIssuer.authenticate(token)
+                                                       String token,
+                                                       KinoticAudience audience) {
+        return jwtIssuer.authenticate(token, audience)
                         .recover(err -> Future.failedFuture(
                                 new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
                         .compose(user -> {
