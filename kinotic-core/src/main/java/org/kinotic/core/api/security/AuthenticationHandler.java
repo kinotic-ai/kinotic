@@ -29,7 +29,6 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
-
         if (handlePreflight(ctx)) {
             return;
         }
