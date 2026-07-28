@@ -2,8 +2,7 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import jakarta.annotation.PostConstruct;
@@ -11,12 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.OAuthProperties;
+import org.kinotic.domain.internal.api.model.ClientIdMetadataDocument;
 import org.kinotic.domain.internal.api.model.OAuthClientMetadata;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.net.InetAddress;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +40,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class OAuthClientResolver {
 
     private final KinoticDomainProperties domainProperties;
+    private final JsonMapper jsonMapper;
     private final Vertx vertx;
 
     private WebClient webClient;
@@ -147,42 +148,45 @@ public class OAuthClientResolver {
                                 throw new IllegalArgumentException(
                                         "client metadata document returned HTTP " + response.statusCode());
                             }
-                            io.vertx.core.buffer.Buffer body = response.body();
+                            Buffer body = response.body();
                             if (body == null || body.length() > oauth.getClientMetadataMaxBytes()) {
                                 throw new IllegalArgumentException("client metadata document exceeds the size limit");
                             }
-                            return parseMetadata(clientId, body.toJsonObject());
+                            return parseMetadata(clientId, readDocument(body));
                         });
     }
 
+    private ClientIdMetadataDocument readDocument(Buffer body) {
+        try {
+            return jsonMapper.readValue(body.getBytes(), ClientIdMetadataDocument.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("client metadata document is not valid JSON");
+        }
+    }
+
     /** Document rules from Section 4.1. */
-    private static OAuthClientMetadata parseMetadata(String clientId, JsonObject document) {
+    private static OAuthClientMetadata parseMetadata(String clientId, ClientIdMetadataDocument document) {
         // simple string comparison per RFC 3986 6.2.1 — the document must name the URL it was
         // served from, so a document cannot claim an identity its host does not own
-        if (!clientId.equals(document.getString("client_id"))) {
+        if (!clientId.equals(document.getClientId())) {
             throw new IllegalArgumentException("client metadata document does not match its client_id");
         }
         // no shared secret can exist for a document-identified client
-        String authMethod = document.getString("token_endpoint_auth_method");
+        String authMethod = document.getTokenEndpointAuthMethod();
         if (authMethod != null && !"none".equals(authMethod)) {
             throw new IllegalArgumentException("client metadata document must use token_endpoint_auth_method none");
         }
-        if (document.containsKey("client_secret") || document.containsKey("client_secret_expires_at")) {
+        if (document.getClientSecret() != null || document.getClientSecretExpiresAt() != null) {
             throw new IllegalArgumentException("client metadata document must not carry a client secret");
         }
-        List<String> redirectUris = new ArrayList<>();
-        if (document.getValue("redirect_uris") instanceof JsonArray uris) {
-            for (Object uri : uris) {
-                if (uri instanceof String s) {
-                    validateRedirectUri(s);
-                    redirectUris.add(s);
-                }
-            }
-        }
-        if (redirectUris.isEmpty()) {
+        List<String> redirectUris = document.getRedirectUris();
+        if (redirectUris == null || redirectUris.isEmpty()) {
             throw new IllegalArgumentException("client metadata document must register at least one redirect_uri");
         }
-        String clientName = document.getString("client_name");
+        for (String redirectUri : redirectUris) {
+            validateRedirectUri(redirectUri);
+        }
+        String clientName = document.getClientName();
         return new OAuthClientMetadata(clientId,
                                        clientName == null || clientName.isBlank() ? clientId : clientName.trim(),
                                        List.copyOf(redirectUris));
