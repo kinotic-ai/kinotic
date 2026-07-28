@@ -59,25 +59,28 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         if (current.getExpiresAt().before(new Date())) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Refresh token has expired"));
         }
+        if (current.getAudience() == null) {
+            // mint() stamps every lineage, so this is a corrupted record; failing beats guessing an
+            // audience, which would hand the replacement a surface the lineage never covered
+            log.error("Refresh token {} in family {} has no audience", current.getId(), current.getFamilyId());
+            return CompletableFuture.failedFuture(new IllegalStateException("Refresh token has no audience"));
+        }
         return iamUserRepository.findById(current.getUserId())
                 .thenCompose(user -> {
                     if (user == null || !user.isEnabled()) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Refresh token user is missing or disabled"));
                     }
-                    // Lineages minted before the audience split are all CLI device-grant tokens.
-                    KinoticAudience audience = current.getAudience() != null
-                            ? current.getAudience()
-                            : KinoticAudience.PUBLISHED_SERVICES;
                     // Mint the replacement before revoking the current token so a failure mid-rotation
                     // never leaves the client without a usable token.
-                    return mint(current.getUserId(), current.getFamilyId(), audience)
+                    return mint(current.getUserId(), current.getFamilyId(), current.getAudience())
                             .thenCompose(minted -> {
                                 current.setRevoked(true)
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
                                 return refreshTokenRepository.saveSync(current)
-                                        .thenApply(v -> new RefreshTokenRotation(user, minted.plaintext(), audience));
+                                        .thenApply(v -> new RefreshTokenRotation(user, minted.plaintext(),
+                                                                                 current.getAudience()));
                             });
                 });
     }
