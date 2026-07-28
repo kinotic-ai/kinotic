@@ -38,33 +38,34 @@ public class ZoneRules {
      */
     public static ZoneRules from(Participant participant) {
         Validate.notNull(participant, "participant must not be null");
-        ZoneRules ret;
-        if (participant instanceof SystemParticipant) {
-            // os-api and app-api are hosted in-process only, so no connection may ever subscribe
-            // to them; the system zone stays subscribable for the vm-manager nodes that host there
-            ret = new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_ZONE));
-
-        } else if (participant instanceof ApplicationParticipant applicationParticipant) {
-            // appZone validates the ids, so an id that could shift the zone's label structure
-            // fails instead of widening access
-            ret = new ZoneRules(false,
-                                Set.of(DomainUtil.APP_API_ZONE,
-                                       appZone(applicationParticipant.getOrganizationId(),
-                                               applicationParticipant.getApplicationId())),
-                                Set.of());
-
-        } else if (participant instanceof OrganizationParticipant organizationParticipant) {
-            // the organization id becomes a zone label, so it is validated the same way
-            ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
-            String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
-            ret = new ZoneRules(false,
-                                Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
-                                Set.of(orgAppsZone));
-
-        } else {
+        if (!(participant instanceof ScopedParticipant scopedParticipant)) {
             throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
                                                        + ", no zone routing rules exist for it");
         }
+        ZoneRules ret = switch (scopedParticipant) {
+
+            // os-api and app-api are hosted in-process only, so no connection may ever subscribe
+            // to them; the system zone stays subscribable for the vm-manager nodes that host there
+            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_ZONE));
+
+            // appZone validates the ids, so an id that could shift the zone's label structure
+            // fails instead of widening access
+            case ApplicationParticipant applicationParticipant ->
+                    new ZoneRules(false,
+                                  Set.of(DomainUtil.APP_API_ZONE,
+                                         appZone(applicationParticipant.getOrganizationId(),
+                                                 applicationParticipant.getApplicationId())),
+                                  Set.of());
+
+            case OrganizationParticipant organizationParticipant -> {
+                // the organization id becomes a zone label, so it is validated the same way
+                ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
+                String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
+                yield new ZoneRules(false,
+                                    Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
+                                    Set.of(orgAppsZone));
+            }
+        };
         return ret;
     }
 

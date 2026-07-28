@@ -19,10 +19,6 @@ import java.util.Date;
  *   <li>both set → APPLICATION (a user of an Application owned by an Organization)</li>
  * </ul>
  * Users must be pre-created by an administrator before they can authenticate.
- * <p>
- * Auth-flow callers continue to use {@code authScopeType} + {@code authScopeId} as the
- * wire-level scope parameters (STOMP CONNECT headers, JWT claims, URL routing); those
- * values are matched against the typed fields here at authentication time.
  */
 @Getter
 @Setter
