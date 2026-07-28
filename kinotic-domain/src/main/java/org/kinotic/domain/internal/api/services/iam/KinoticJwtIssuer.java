@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
@@ -12,7 +11,6 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.VersionedKeySet;
-import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.internal.platform.PlatformSecretsService;
 import org.springframework.stereotype.Component;
 
@@ -59,40 +57,23 @@ public class KinoticJwtIssuer {
     }
 
     /**
-     * Mints a JWT containing the given claims, signed with the currently active key. Sets
-     * {@code aud} to {@code audience}'s claim value (overwriting any caller-supplied value),
-     * binding the token to that surface alone, and stamps the active {@code kid} into the
-     * header so validators can dispatch to the right key.
+     * Mints a JWT containing the given claims, signed with the currently active key. Stamps the
+     * active {@code kid} into the header so validators can dispatch to the right key.
      */
-    public String sign(JsonObject claims, JWTOptions options, KinoticAudience audience) {
+    public String sign(JsonObject claims, JWTOptions options) {
         State current = requireState();
         JWTOptions withDefaults = options
                 .setAlgorithm(ALGORITHM)
-                .setAudience(List.of(audience.getClaim()))
                 .setHeader(new JsonObject().put("kid", current.activeKeyId));
         return current.jwtAuth.generateToken(claims, withDefaults);
     }
 
     /**
-     * Validates a token signed by any key currently in the active set and confirms it was
-     * minted for {@code audience}. A token minted for a different Kinotic surface — or by an
-     * IdP or any other party — fails the audience check even if it shares signing material.
+     * Validates a token signed by any key currently in the active set.
      */
-    public Future<User> authenticate(String token, KinoticAudience audience) {
+    public Future<User> authenticate(String token) {
         State current = requireState();
-        return current.jwtAuth.authenticate(new TokenCredentials(token))
-                              .compose(user -> requireAudience(user, audience));
-    }
-
-    private static Future<User> requireAudience(User user, KinoticAudience audience) {
-        Object aud = user.principal().getValue("aud");
-        boolean ok = switch (aud) {
-            case String s -> audience.getClaim().equals(s);
-            case JsonArray arr -> arr.contains(audience.getClaim());
-            case null, default -> false;
-        };
-        return ok ? Future.succeededFuture(user)
-                  : Future.failedFuture(new SecurityException("JWT audience is not '" + audience.getClaim() + "'"));
+        return current.jwtAuth.authenticate(new TokenCredentials(token));
     }
 
     private State requireState() {
