@@ -14,13 +14,22 @@
   `/invite/accept` page, which is the intended fallback).
 
   
-### JWT audience support (removed, needs to come back)
+### JWT audience check (dropped, needs to come back)
 
-Kinotic-minted JWTs no longer carry an `aud` claim and no entry point checks one. `KinoticAudience`,
-the `aud` stamping in `KinoticJwtIssuer.sign`, the check in `KinoticJwtIssuer.authenticate`, and the
-`RefreshToken.audience` pinning were all removed because threading the audience to the entry point
-required a `SecurityService` contract change we want to design properly rather than rush. The
-authentication contract is back to `authenticate(Map<String, String>)`.
+Tokens are still minted with the correct audience — `KinoticAudience`, the `aud` stamping in
+`KinoticJwtIssuer.sign`, and the `RefreshToken.audience` lineage pinning all remain, so each grant
+records the surface it serves and rotation re-stamps the same one. What was dropped is the
+verification: `KinoticJwtIssuer.authenticate` no longer compares the claim, so no entry point cares
+what a token says it was issued for.
+
+Only the check was dropped because enforcing it requires the entry point to tell
+`KinoticSecurityService` which surface it serves, and the only channel for that was the
+`SecurityService` contract — a change worth designing properly rather than rushing. The contract
+stays `authenticate(Map<String, String>)`.
+
+Keeping the minting side intact means restoring the check needs no data migration: refresh lineages
+issued in the meantime already carry the right audience, and access tokens already carry the right
+claim. Turning the comparison back on is the whole change.
 
 **What this costs us right now.** Every Kinotic-minted token is accepted at every Kinotic entry
 point. The CLI's device-grant token calls MCP tools. An MCP host's authorization-code token opens a
@@ -43,7 +52,7 @@ used to be rejected because it carried neither of our audience values. That is n
 the signature check. Signature verification is the right guard, but the audience was a second,
 cheaper one that did not depend on key hygiene being perfect.
 
-**What restoring it needs.** The blocker is getting the audience from the entry point to
+**What restoring the check needs.** The blocker is getting the audience from the entry point to
 `KinoticSecurityService` without putting a JWT concern in `kinotic-core`, since core is used without
 the OS and authenticates for one reason only. The direction we converged on:
 
@@ -66,8 +75,8 @@ back to accepting CLI tokens while looking like it enforces something. Entry poi
 the label need to not silently accept an implementation that drops it.
 
 `kinotic-js/e2e-tests/test/native/OAuthMcp.test.ts` currently asserts a device-grant token gets
-`200` from `POST /mcp`. That assertion is the marker: restoring the audience should turn it back
-into a `401` with a `WWW-Authenticate` challenge.
+`200` from `POST /mcp`. That assertion is the marker: restoring the check should turn it back into a
+`401` with a `WWW-Authenticate` challenge.
 
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core

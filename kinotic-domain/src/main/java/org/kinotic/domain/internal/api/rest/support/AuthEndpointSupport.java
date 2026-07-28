@@ -14,6 +14,7 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
@@ -134,12 +135,12 @@ public class AuthEndpointSupport {
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
-     * Mints a Kinotic access-token JWT carrying {@code user}'s
+     * Mints a Kinotic access-token JWT stamped for {@code audience}, carrying {@code user}'s
      * {@code sub/email/organizationId/applicationId}. The {@code sub} is what every entry point
      * resolves the caller's {@link org.kinotic.core.api.security.Participant} from, so the
      * bearer acts as this user and no other.
      */
-    private String mintAccessToken(IamUser user) {
+    private String mintAccessToken(IamUser user, KinoticAudience audience) {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail());
@@ -149,17 +150,17 @@ public class AuthEndpointSupport {
         if (user.getApplicationId() != null) {
             claims.put("applicationId", user.getApplicationId());
         }
-        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ACCESS_TOKEN_TTL_SECONDS));
+        return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ACCESS_TOKEN_TTL_SECONDS), audience);
     }
 
     /**
-     * {@code 200 application/json} with an OAuth token pair: an {@code access_token}, plus the
-     * {@code refresh_token} the client persists to mint future access tokens. Both act as
-     * {@code user}.
+     * {@code 200 application/json} with an OAuth token pair stamped for {@code audience}: an
+     * {@code access_token}, plus the {@code refresh_token} the client persists to mint future
+     * access tokens. Both act as {@code user}.
      */
-    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken) {
+    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, KinoticAudience audience) {
         JsonObject body = new JsonObject()
-                .put("access_token", mintAccessToken(user))
+                .put("access_token", mintAccessToken(user, audience))
                 .put("token_type", "Bearer")
                 .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
                 .put("refresh_token", refreshToken);

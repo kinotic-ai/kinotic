@@ -124,8 +124,8 @@ describe('Kinotic JS', () => {
 
         expect(await stompHandshake(stompUrl(), tokens.access_token)).toBe('open')
 
-        // A Kinotic-minted JWT names no surface, so the device grant's token also calls MCP tools.
-        // Restoring audience separation (see docs/NavidNotes.md) makes this a 401 and should.
+        // The device grant's token carries aud=kinotic, but no entry point verifies the claim, so
+        // it also calls MCP tools. Restoring the check (see docs/NavidNotes.md) makes this a 401.
         const mcpResponse = await fetch(`${base()}/mcp`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: `Bearer ${tokens.access_token}`},

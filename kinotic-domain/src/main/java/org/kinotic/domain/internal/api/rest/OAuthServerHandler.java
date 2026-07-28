@@ -7,6 +7,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
@@ -27,8 +28,9 @@ import java.nio.charset.StandardCharsets;
  * endpoint. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
  * requesting {@code offline_access} refresh without re-consent.
  *
- * <p>Each grant hands out one surface and only that surface: the authorization-code grant issues
- * tokens, as does the device grant, and the refresh grant re-mints from its lineage. Every token
+ * <p>Each grant stamps the audience of the surface it serves: the authorization-code grant issues
+ * {@link KinoticAudience#MCP_TOOLS} tokens, the device grant {@link KinoticAudience#PUBLISHED_SERVICES}
+ * tokens, and the refresh grant re-mints whichever audience its lineage was issued for. Every token
  * acts as the user who approved the grant.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
@@ -186,9 +188,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                       case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
                       case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
                       case APPROVED -> Future.fromCompletionStage(
-                              refreshTokenService.issue(result.user().getId()))
+                              refreshTokenService.issue(result.user().getId(), KinoticAudience.PUBLISHED_SERVICES))
                               .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                      ctx, result.user(), refreshToken))
+                                      ctx, result.user(), refreshToken, KinoticAudience.PUBLISHED_SERVICES))
                               .onFailure(err -> {
                                   log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
                                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
@@ -208,9 +210,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
         Future.fromCompletionStage(oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier))
               .compose(user -> Future.fromCompletionStage(
-                                             refreshTokenService.issue(user.getId()))
+                                             refreshTokenService.issue(user.getId(), KinoticAudience.MCP_TOOLS))
                                      .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                             ctx, user, refreshToken)))
+                                             ctx, user, refreshToken, KinoticAudience.MCP_TOOLS)))
               .onFailure(err -> {
                   log.warn("OAuth code exchange failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
@@ -225,7 +227,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         }
         Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
               .onSuccess(rotation -> authEndpointSupport.respondTokenPair(
-                      ctx, rotation.user(), rotation.refreshToken()))
+                      ctx, rotation.user(), rotation.refreshToken(), rotation.audience()))
               .onFailure(err -> {
                   log.warn("OAuth refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");

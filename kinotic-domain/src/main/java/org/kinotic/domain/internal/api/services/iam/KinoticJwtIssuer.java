@@ -11,6 +11,7 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.VersionedKeySet;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.internal.platform.PlatformSecretsService;
 import org.springframework.stereotype.Component;
 
@@ -57,19 +58,23 @@ public class KinoticJwtIssuer {
     }
 
     /**
-     * Mints a JWT containing the given claims, signed with the currently active key. Stamps the
-     * active {@code kid} into the header so validators can dispatch to the right key.
+     * Mints a JWT containing the given claims, signed with the currently active key. Sets
+     * {@code aud} to {@code audience}'s claim value, overwriting any caller-supplied value, and
+     * stamps the active {@code kid} into the header so validators can dispatch to the right key.
      */
-    public String sign(JsonObject claims, JWTOptions options) {
+    public String sign(JsonObject claims, JWTOptions options, KinoticAudience audience) {
         State current = requireState();
         JWTOptions withDefaults = options
                 .setAlgorithm(ALGORITHM)
+                .setAudience(List.of(audience.getClaim()))
                 .setHeader(new JsonObject().put("kid", current.activeKeyId));
         return current.jwtAuth.generateToken(claims, withDefaults);
     }
 
     /**
-     * Validates a token signed by any key currently in the active set.
+     * Validates a token signed by any key currently in the active set. The {@code aud} claim
+     * {@link #sign} stamps is not verified, so a token is accepted at any entry point regardless
+     * of the surface its grant minted it for — see docs/NavidNotes.md.
      */
     public Future<User> authenticate(String token) {
         State current = requireState();
