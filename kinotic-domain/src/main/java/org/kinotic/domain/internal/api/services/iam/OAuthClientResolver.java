@@ -11,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.config.OAuthProperties;
 import org.kinotic.domain.internal.api.model.ClientIdMetadataDocument;
-import org.kinotic.domain.internal.api.model.OAuthClientMetadata;
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -55,25 +54,27 @@ public class OAuthClientResolver {
     }
 
     /**
-     * Resolves {@code clientId} into the client's metadata, fetching and validating its Client ID
-     * Metadata Document unless a still-valid cached copy is held.
+     * Resolves {@code clientId} into the client's metadata document, fetching and validating it
+     * unless a still-valid cached copy is held. The returned document has passed every rule in
+     * Section 4.1, so its {@code redirectUris} are non-empty and usable and its {@code clientName}
+     * is set to something displayable.
      *
      * @param clientId the {@code client_id} from the authorization request
-     * @return a {@link CompletableFuture} emitting the validated metadata, failing when the
+     * @return a {@link CompletableFuture} emitting the validated document, failing when the
      *         client_id is not permitted or the document is unreachable or invalid
      */
-    public CompletableFuture<OAuthClientMetadata> resolve(String clientId) {
-        Future<OAuthClientMetadata> ret;
+    public CompletableFuture<ClientIdMetadataDocument> resolve(String clientId) {
+        Future<ClientIdMetadataDocument> ret;
         try {
             URI uri = validateClientIdUrl(clientId);
             CachedClient cached = cache.get(clientId);
             if (cached != null && cached.expiresAt().after(new Date())) {
-                ret = Future.succeededFuture(cached.metadata());
+                ret = Future.succeededFuture(cached.document());
             } else {
                 ret = requireRoutableHost(uri.getHost())
                         .compose(v -> fetchMetadata(clientId))
-                        .onSuccess(metadata -> cache.put(clientId,
-                                                         new CachedClient(metadata, cacheExpiry())));
+                        .onSuccess(document -> cache.put(clientId,
+                                                         new CachedClient(document, cacheExpiry())));
             }
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(e);
@@ -138,7 +139,7 @@ public class OAuthClientResolver {
         });
     }
 
-    private Future<OAuthClientMetadata> fetchMetadata(String clientId) {
+    private Future<ClientIdMetadataDocument> fetchMetadata(String clientId) {
         OAuthProperties oauth = domainProperties.getDomain().getOauth();
         return webClient.getAbs(clientId)
                         .putHeader("Accept", "application/json")
@@ -153,7 +154,7 @@ public class OAuthClientResolver {
                             if (body == null || body.length() > oauth.getClientMetadataMaxBytes()) {
                                 throw new IllegalArgumentException("client metadata document exceeds the size limit");
                             }
-                            return parseMetadata(clientId, readDocument(body));
+                            return validateDocument(clientId, readDocument(body));
                         });
     }
 
@@ -165,8 +166,8 @@ public class OAuthClientResolver {
         }
     }
 
-    /** Document rules from Section 4.1. */
-    private static OAuthClientMetadata parseMetadata(String clientId, ClientIdMetadataDocument document) {
+    /** Applies the document rules from Section 4.1, returning the document it validated. */
+    private static ClientIdMetadataDocument validateDocument(String clientId, ClientIdMetadataDocument document) {
         // simple string comparison per RFC 3986 6.2.1 — the document must name the URL it was
         // served from, so a document cannot claim an identity its host does not own
         if (!clientId.equals(document.getClientId())) {
@@ -187,10 +188,10 @@ public class OAuthClientResolver {
         for (String redirectUri : redirectUris) {
             validateRedirectUri(redirectUri);
         }
+        // the consent page always has something to show, even for a document that omitted the name
         String clientName = document.getClientName();
-        return new OAuthClientMetadata(clientId,
-                                       clientName == null || clientName.isBlank() ? clientId : clientName.trim(),
-                                       List.copyOf(redirectUris));
+        document.setClientName(clientName == null || clientName.isBlank() ? clientId : clientName.trim());
+        return document;
     }
 
     /**
@@ -223,5 +224,5 @@ public class OAuthClientResolver {
     }
 
     /** A validated document held until {@code expiresAt}; errors and invalid documents are never cached. */
-    private record CachedClient(OAuthClientMetadata metadata, Date expiresAt) {}
+    private record CachedClient(ClientIdMetadataDocument document, Date expiresAt) {}
 }

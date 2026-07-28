@@ -52,7 +52,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(codeChallenge, "code_challenge is required");
         return clientResolver.resolve(clientId)
                 .thenCompose(client -> {
-                    if (!matchesRegisteredRedirectUri(client.redirectUris(), redirectUri)) {
+                    if (!matchesRegisteredRedirectUri(client.getRedirectUris(), redirectUri)) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("redirect_uri is not registered for this client"));
                     }
@@ -60,7 +60,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                     OAuthAuthorizationGrant grant = new OAuthAuthorizationGrant()
                             .setId(UUID.randomUUID().toString())
                             .setClientId(clientId)
-                            .setClientName(client.clientName())
+                            .setClientName(client.getClientName())
                             .setRedirectUri(redirectUri)
                             .setCodeChallenge(codeChallenge)
                             .setScope(scope)
