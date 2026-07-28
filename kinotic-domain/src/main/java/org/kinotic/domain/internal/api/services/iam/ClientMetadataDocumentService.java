@@ -37,7 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ClientMetadataDocumentResolver {
+public class ClientMetadataDocumentService {
 
     private final KinoticDomainProperties domainProperties;
     private final JsonMapper jsonMapper;

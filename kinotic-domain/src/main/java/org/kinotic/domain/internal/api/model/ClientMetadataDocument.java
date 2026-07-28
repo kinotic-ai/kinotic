@@ -13,7 +13,7 @@ import java.util.List;
  * The wire form of a client metadata document
  * (draft-ietf-oauth-client-id-metadata-document Section 4.1), as fetched from the Client ID
  * Metadata Document URL the client presented as its {@code client_id}. Every value here is what
- * the client claims about itself; {@code ClientMetadataDocumentResolver} validates the document
+ * the client claims about itself; {@code ClientMetadataDocumentService} validates the document
  * before any of it is acted on.
  * <p>
  * Section 4.1 permits a document to carry additional properties, so unknown fields are ignored
