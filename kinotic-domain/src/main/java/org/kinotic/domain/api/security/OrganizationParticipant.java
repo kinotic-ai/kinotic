@@ -1,7 +1,5 @@
 package org.kinotic.domain.api.security;
 
-import org.kinotic.core.api.security.Participant;
-
 /**
  * A participant authenticated against an Organization, carrying ORGANIZATION-scope authority
  * over that Organization's resources. {@link #getOrganizationId()} is the id of the owning
@@ -11,7 +9,7 @@ import org.kinotic.core.api.security.Participant;
  * Use {@code securityContext.requireParticipant(OrganizationParticipant.class)} to obtain
  * the current participant narrowed to this type.
  */
-public interface OrganizationParticipant extends Participant {
+public non-sealed interface OrganizationParticipant extends ScopedParticipant {
 
     /**
      * @return the id of the Organization this participant is authenticated under; never null
