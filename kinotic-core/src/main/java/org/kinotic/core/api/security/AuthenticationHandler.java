@@ -3,9 +3,6 @@ package org.kinotic.core.api.security;
 import io.vertx.core.Context;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpHeaders;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.event.EventConstants;
 
@@ -29,9 +26,6 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
 
     @Override
     public void handle(RoutingContext ctx) {
-        if (handlePreflight(ctx)) {
-            return;
-        }
         // must pause receiving of content during auth, otherwise the body handler must be before auth which seems baaad!
         ctx.request().pause();
 
@@ -59,27 +53,4 @@ public class AuthenticationHandler implements Handler<RoutingContext> {
                            }
                        });
     }
-
-    private boolean handlePreflight(RoutingContext ctx) {
-        final HttpServerRequest request = ctx.request();
-        // See: https://www.w3.org/TR/cors/#cross-origin-request-with-preflight-0
-        // Preflight requests should not be subject to security due to the reason UAs will remove the Authorization header
-        if (request.method() == HttpMethod.OPTIONS) {
-            // check if there is a access control request header
-            final String accessControlRequestHeader = ctx.request().getHeader(HttpHeaders.ACCESS_CONTROL_REQUEST_HEADERS);
-            if (accessControlRequestHeader != null) {
-                // lookup for the Authorization header
-                for (String ctrlReq : accessControlRequestHeader.split(",")) {
-                    if (ctrlReq.equalsIgnoreCase("Authorization")) {
-                        // this request has auth in access control, so we can allow preflighs without authentication
-                        ctx.next();
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
-    }
-
 }
