@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.config.OAuthProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
@@ -25,7 +26,8 @@ import java.nio.charset.StandardCharsets;
  * whose consent step is the SPA's {@code /oauth/consent} page, and the RFC 8628 device grant the
  * CLI logs in with. There is no registration endpoint: an MCP host identifies itself with a Client
  * ID Metadata Document URL (draft-ietf-oauth-client-id-metadata-document) the authorize endpoint
- * fetches, and the CLI is pre-registered under a constant {@code client_id} the device grant
+ * fetches, and a device client is pre-registered in
+ * {@link OAuthProperties#getAllowedDeviceClientIds()} under the {@code client_id} the device grant
  * requires. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
  * requesting {@code offline_access} refresh without re-consent.
  *
@@ -42,12 +44,6 @@ import java.nio.charset.StandardCharsets;
 public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     private static final String DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
-
-    /**
-     * The {@code client_id} of the Kinotic CLI, the only client the device grant serves. Constant
-     * rather than configuration: it identifies the CLI itself, not a deployment of it.
-     */
-    private static final String CLI_CLIENT_ID = "kinotic-cli";
 
     private final AuthEndpointSupport authEndpointSupport;
     private final OAuthAuthorizationService oauthAuthorizationService;
@@ -136,13 +132,16 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Serves the Kinotic
-     * CLI, a pre-registered public client, so {@code client_id} is required and must name it. A
-     * device grant has no redirect URI to protect; its authority is the browser approval on the
-     * {@code /device} page.
+     * {@code POST /api/auth/oauth/device_authorization} — RFC 8628 §3.1/§3.2. Serves pre-registered
+     * public clients, so {@code client_id} is required and must be one of
+     * {@link OAuthProperties#getAllowedDeviceClientIds()}. A device grant has no redirect URI to
+     * protect; its authority is the browser approval on the {@code /device} page.
      */
     private void handleDeviceAuthorization(RoutingContext ctx) {
-        if (!CLI_CLIENT_ID.equals(ctx.request().getFormAttribute("client_id"))) {
+        String clientId = ctx.request().getFormAttribute("client_id");
+        // null-checked before contains: the configured set may be a Set.of(), which NPEs on a null
+        if (clientId == null
+                || !domainProperties.getDomain().getOauth().getAllowedDeviceClientIds().contains(clientId)) {
             authEndpointSupport.respondError(ctx, 400, "invalid_client");
             return;
         }
