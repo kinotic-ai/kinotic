@@ -237,15 +237,20 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * The {@link OAuth2Auth} for {@code config}, discovered against its authority on first use and
-     * cached until an hour passes with no flow using it. A discovery that fails is not cached, so
-     * the next flow retries it.
+     * The {@link OAuth2Auth} for {@code config} as it is currently persisted, discovered against its
+     * authority on first use and cached until an hour passes with no flow using it. Saving the
+     * configuration takes effect on the next flow. A discovery that fails is not cached, so the next
+     * flow retries it.
      */
     private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
+        // Keying on updated as well as id is what picks up an edited clientId/authority/secretNameRef:
+        // both call sites pass a row read for this request, so a save misses the cache on every node
+        // without an invalidation message, and the superseded entry ages out on its own.
+        String key = config.getId() + ':' + (config.getUpdated() != null ? config.getUpdated().getTime() : 0);
         // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
         // transient discovery failure from being cached — the loader must not touch the cache itself
         CompletableFuture<OAuth2Auth> cached =
-                oauth2AuthCache.get(config.getId(),
+                oauth2AuthCache.get(key,
                                     (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
                                                                              .thenCompose(secret -> createOAuth2Auth(config, secret)
                                                                                      .toCompletionStage()));
