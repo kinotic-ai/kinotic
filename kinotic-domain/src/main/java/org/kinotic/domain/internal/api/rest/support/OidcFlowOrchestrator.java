@@ -1,5 +1,8 @@
 package org.kinotic.domain.internal.api.rest.support;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -19,8 +22,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 /**
@@ -37,7 +38,16 @@ public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
 
-    private final ConcurrentMap<String, Future<OAuth2Auth>> oauth2AuthCache = new ConcurrentHashMap<>();
+    /** Bounds the providers held live; the key space is OIDC configuration ids across every organization. */
+    private static final int MAX_CACHED_PROVIDERS = 1_000;
+
+    private final AsyncCache<String, OAuth2Auth> oauth2AuthCache =
+            Caffeine.newBuilder()
+                    // OpenIDConnectAuth.discover leaves each provider holding a periodic JWKS refresh timer;
+                    // close() cancels it, so an evicted entry does not leak one for the life of the process
+                    .removalListener((String id, OAuth2Auth oauth2Auth, RemovalCause cause) -> oauth2Auth.close())
+                    .maximumSize(MAX_CACHED_PROVIDERS)
+                    .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
     private final Vertx vertx;
 
@@ -227,14 +237,20 @@ public class OidcFlowOrchestrator {
         return map;
     }
 
+    /**
+     * The {@link OAuth2Auth} for {@code config}, discovered against its authority on first use and
+     * cached thereafter. A discovery that fails is not cached, so the next flow retries it.
+     */
     private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
-        return oauth2AuthCache.computeIfAbsent(config.getId(), id ->
-                Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()))
-                      .compose(secret -> createOAuth2Auth(config, secret))
-                      .onFailure(err -> {
-                          log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err);
-                          oauth2AuthCache.remove(config.getId());
-                      }));
+        // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
+        // transient discovery failure from being cached — the loader must not touch the cache itself
+        CompletableFuture<OAuth2Auth> cached =
+                oauth2AuthCache.get(config.getId(),
+                                    (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
+                                                                             .thenCompose(secret -> createOAuth2Auth(config, secret)
+                                                                                     .toCompletionStage()));
+        return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
+                     .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
     }
 
 }
