@@ -18,9 +18,9 @@ public class OAuthProperties {
 
     /**
      * Client ID Metadata Document URLs permitted to start an authorization-code flow, matched
-     * exactly. A client_id that is not listed is rejected, and an empty set permits none — clients
-     * are onboarded explicitly, the deployment pattern of
-     * draft-ietf-oauth-client-id-metadata-document Section 6.10.
+     * exactly. A client_id that is not listed is rejected, so clients are onboarded explicitly —
+     * the deployment pattern of draft-ietf-oauth-client-id-metadata-document Section 6.10.
+     * Required: a deployment names the clients it accepts, or fails to start.
      * <p>
      * The consent page names the client_id host, and that host is one the client had to control to
      * serve its document.
