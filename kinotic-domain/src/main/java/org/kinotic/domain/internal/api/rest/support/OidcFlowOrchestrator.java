@@ -18,6 +18,7 @@ import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,15 +39,13 @@ public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
 
-    /** Bounds the providers held live; the key space is OIDC configuration ids across every organization. */
-    private static final int MAX_CACHED_PROVIDERS = 1_000;
-
     private final AsyncCache<String, OAuth2Auth> oauth2AuthCache =
             Caffeine.newBuilder()
                     // OpenIDConnectAuth.discover leaves each provider holding a periodic JWKS refresh timer;
-                    // close() cancels it, so an evicted entry does not leak one for the life of the process
+                    // close() cancels it, so an entry dropped by either policy does not leak one
                     .removalListener((String id, OAuth2Auth oauth2Auth, RemovalCause cause) -> oauth2Auth.close())
-                    .maximumSize(MAX_CACHED_PROVIDERS)
+                    .expireAfterAccess(Duration.ofHours(1))
+                    .maximumSize(1_000)
                     .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
     private final Vertx vertx;
@@ -239,7 +238,8 @@ public class OidcFlowOrchestrator {
 
     /**
      * The {@link OAuth2Auth} for {@code config}, discovered against its authority on first use and
-     * cached thereafter. A discovery that fails is not cached, so the next flow retries it.
+     * cached until an hour passes with no flow using it. A discovery that fails is not cached, so
+     * the next flow retries it.
      */
     private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
         // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
