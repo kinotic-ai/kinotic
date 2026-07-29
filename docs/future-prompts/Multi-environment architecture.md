@@ -420,7 +420,7 @@ Work items in this phase:
 
 1. **Zone authorization = the hardcoded rules ∩ `kinotic.zones`.** `StompAuthorizerFactory`'s
    per-participant-type patterns stay hardcoded exactly as they are — they are temporary until
-   the Gateway ABAC work (`docs/future-prompts/Gateway ABAC.md`) replaces them with real
+   the Gateway ABAC work (`archive/abac/Gateway ABAC.md`) replaces them with real
    RBAC-defined path patterns — but every allowed pattern is additionally filtered by the
    deployment's `kinotic.zones` list. The intersection lands every case where it should with
    zero per-deployment policy code:
@@ -753,6 +753,6 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   layout, one top-level type per file, no version literals in module `build.gradle`, docs synced
   in the same change, and the smells catalog (in particular: no speculative config beyond the
   per-profile flags and allowlist specified here, no test-only seams).
-- `docs/future-prompts/Gateway ABAC.md` describes a planned authorization overhaul that will land
+- `archive/abac/Gateway ABAC.md` describes a planned authorization overhaul that will land
   in this same gateway — keep the authorizer seam (Phase 4 item 1) small and policy-shaped so
   ABAC can replace it without another restructuring.
