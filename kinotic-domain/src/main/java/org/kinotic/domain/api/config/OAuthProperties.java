@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.config;
 
+import jakarta.validation.constraints.NotEmpty;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,16 +25,9 @@ public class OAuthProperties {
      * The consent page names the client_id host, and that host is one the client had to control to
      * serve its document.
      */
+    @NotEmpty
     private Set<String> allowedClientIds = Set.of();
 
-    /**
-     * {@code client_id} values permitted to start an RFC 8628 device grant, matched exactly.
-     * Device clients are pre-registered rather than identified by a Client ID Metadata Document,
-     * so these are opaque identifiers rather than URLs, and an empty set permits none — unlike
-     * {@link #allowedClientIds}, there is no self-onboarding case for a client that serves no
-     * document.
-     */
-    private Set<String> allowedDeviceClientIds = Set.of("kinotic-cli");
 
     /**
      * How long a validated client metadata document is reused before it is fetched again. Bounds

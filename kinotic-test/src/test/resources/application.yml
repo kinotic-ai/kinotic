@@ -16,6 +16,11 @@ kinotic:
   debug: true
   maxNumberOfCoresToUse: 4
   domain:
+    oauth:
+      # Placeholder for tests only; nothing here drives the authorization-code flow, but the list
+      # is validated non-empty so the context starts.
+      allowedClientIds:
+        - https://example.com/test-client-metadata
     secretStorage:
       # Dummy Base64-encoded key for tests only; lets SecretNameDeriver start in the test context.
       masterKey: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=

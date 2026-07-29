@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -48,6 +49,7 @@ public class DomainProperties {
     /**
      * OAuth 2.1 authorization-server configuration.
      */
+    @Valid
     private OAuthProperties oauth = new OAuthProperties();
 
     /**

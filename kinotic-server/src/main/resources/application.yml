@@ -6,9 +6,6 @@ kinotic:
       # Listing any client closes the endpoint to every client not listed.
       allowedClientIds:
         - https://claude.ai/oauth/claude-code-client-metadata
-      # Clients permitted to start a device grant, by pre-registered client_id.
-      allowedDeviceClientIds:
-        - kinotic-cli
   github:
     appId: 3584018
     appSlug: kinotic-ai
