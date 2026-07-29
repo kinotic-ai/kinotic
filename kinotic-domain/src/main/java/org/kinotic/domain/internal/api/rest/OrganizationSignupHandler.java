@@ -219,10 +219,13 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      * sign-up identified by the token.
      */
     private void handleSocialCompleteOrg(RoutingContext ctx) {
-        JsonObject body = ctx.body().asJsonObject();
-        String token = body == null ? null : body.getString("token");
-        String orgName = body == null ? null : body.getString("orgName");
-        String orgDescription = body == null ? null : body.getString("orgDescription");
+        JsonObject body = authEndpointSupport.readJsonBody(ctx);
+        if (body == null) {
+            return;
+        }
+        String token = body.getString("token");
+        String orgName = body.getString("orgName");
+        String orgDescription = body.getString("orgDescription");
 
         if (token == null || token.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "token is required");
