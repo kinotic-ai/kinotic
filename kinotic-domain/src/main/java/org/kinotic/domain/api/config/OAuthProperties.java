@@ -17,12 +17,12 @@ public class OAuthProperties {
 
     /**
      * Client ID Metadata Document URLs permitted to start an authorization-code flow, matched
-     * exactly. Empty accepts any URL that validates, which is what lets an MCP host onboard with
-     * no prior arrangement; populating it onboards named clients only, the enterprise deployment
-     * pattern of draft-ietf-oauth-client-id-metadata-document Section 6.10.
+     * exactly. A client_id that is not listed is rejected, and an empty set permits none — clients
+     * are onboarded explicitly, the deployment pattern of
+     * draft-ietf-oauth-client-id-metadata-document Section 6.10.
      * <p>
-     * The consent page names the client_id host either way, and that host is one the client had to
-     * control to serve its document.
+     * The consent page names the client_id host, and that host is one the client had to control to
+     * serve its document.
      */
     private Set<String> allowedClientIds = Set.of();
 

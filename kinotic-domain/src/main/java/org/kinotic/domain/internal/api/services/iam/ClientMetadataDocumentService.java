@@ -89,7 +89,8 @@ public class ClientMetadataDocumentService {
      */
     private URI validateClientIdUrl(String clientId) {
         OAuthProperties oauth = domainProperties.getDomain().getOauth();
-        if (!oauth.getAllowedClientIds().isEmpty() && !oauth.getAllowedClientIds().contains(clientId)) {
+        // null before contains: the configured set may be a Set.of(), which NPEs on a null element
+        if (clientId == null || !oauth.getAllowedClientIds().contains(clientId)) {
             throw new IllegalArgumentException("client_id is not allowed by this deployment");
         }
         URI uri;
