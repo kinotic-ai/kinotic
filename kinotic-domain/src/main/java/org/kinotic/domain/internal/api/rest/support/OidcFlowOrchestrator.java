@@ -51,8 +51,9 @@ public class OidcFlowOrchestrator {
     private final Vertx vertx;
 
     /**
-     * Validates the callback (state match, no IdP error), exchanges the code, validates
-     * the issuer, and returns the configuration along with the verified id_token claims.
+     * Validates the callback (state match, no IdP error), exchanges the code, validates the
+     * issuer, audience and nonce, and returns the configuration along with the verified
+     * id_token claims.
      * The handler decides what to do with the claims (look up an IamUser, create a
      * {@code PendingSignUp}, etc.).
      *
@@ -108,6 +109,12 @@ public class OidcFlowOrchestrator {
                                      if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
                                          log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
                                                   config.getId(), config.getAudience(), claims.get("aud"));
+                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
+                                     }
+                                     // startFlow always sends a nonce, so OIDC Core 3.1.3.7 requires the
+                                     // id_token to echo it — an absent claim fails the equals and is rejected
+                                     if (!flowSession.nonce().equals(OAuth2Util.stringClaim(claims, "nonce"))) {
+                                         log.warn("OIDC nonce validation failed for config {}", config.getId());
                                          throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
                                      }
                                      return new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken());
