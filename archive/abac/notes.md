@@ -204,14 +204,6 @@ class AdminService {
 See [Access Control](/apps/security/access-control) for detailed policy documentation.
 ```
 
-### `website/app/components/home/FeaturesComponent.vue`
-
-- "Security built in" feature card — the details text described the unbuilt
-  access-control engine ("Define who can do what in plain language and the
-  platform enforces it everywhere"). Reworded to describe authentication and
-  scope isolation, which are implemented. Original text:
-  > Fine-grained access control is part of the platform, not something you bolt on. Define who can do what in plain language and the platform enforces it everywhere.
-
 ### `README.md`
 
 - "The Vision" — Enterprise Ready bullet, removed `RBAC,`:
@@ -220,6 +212,11 @@ See [Access Control](/apps/security/access-control) for detailed policy document
   > * RBAC policies required for access.
 
 ## Left in place on purpose
+
+`website/app/components/home/FeaturesComponent.vue` — the "Security built in"
+card still markets the unbuilt access-control engine ("Define who can do what
+in plain language and the platform enforces it everywhere"). The homepage was
+intentionally left unchanged; revisit this card when the engine ships.
 
 `docs/future-prompts/Gateway ABAC.md` — the design prompt for the planned
 authorization overhaul — was kept in the roadmap folder. It is a

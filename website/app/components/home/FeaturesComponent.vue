@@ -9,7 +9,7 @@ const features = [
   {
     title: "Security built in",
     details:
-      "Authentication and multi-tenant identity are part of the platform, not something you bolt on. Email/password and OIDC single sign-on work out of the box, with strict scope isolation between organizations and applications.",
+      "Fine-grained access control is part of the platform, not something you bolt on. Define who can do what in plain language and the platform enforces it everywhere.",
     icon: "account_tree.svg",
   },
   {
