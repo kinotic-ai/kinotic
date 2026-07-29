@@ -26,6 +26,9 @@ const CREDENTIALS_KEY = 'kinotic-credentials'
 /** Per-request timeout for REST calls to the Kinotic Server. */
 const FETCH_TIMEOUT_MS = 30_000
 
+/** Identifies this CLI to the device grant, which serves only this pre-registered client. */
+const CLI_CLIENT_ID = 'kinotic-cli'
+
 /**
  * CLI authentication against a Kinotic server using the OAuth 2.0 Device Authorization Grant
  * (RFC 8628). {@link login} runs the interactive browser flow once and stores the refresh
@@ -116,10 +119,10 @@ export class CliAuthenticator {
         if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
             return this.accessToken
         }
-        const res = await fetch(restBaseUrl + '/api/auth/device/refresh', {
+        const res = await fetch(restBaseUrl + '/api/auth/oauth/token', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({refresh_token: this.refreshToken}),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: this.refreshToken}),
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
         if (!res.ok) {
@@ -161,8 +164,10 @@ export class CliAuthenticator {
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
     private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/auth/device/start', {
+        const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
             method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({client_id: CLI_CLIENT_ID}),
             signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
         })
         if (!startRes.ok) {
@@ -190,10 +195,11 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/auth/device/token', {
+            const tokenRes = await fetch(restBaseUrl + '/api/auth/oauth/token', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({device_code: start.device_code}),
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+                                           device_code: start.device_code}),
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             })
             if (tokenRes.ok) {

@@ -28,6 +28,13 @@ public class CorsProperties {
     private Set<String> allowedHeaders = Set.of("Accept", "Authorization", "Content-Type");
 
     /**
+     * The response headers exposed to browser callers via Access-Control-Expose-Headers.
+     * WWW-Authenticate is exposed by default so browser-based MCP hosts can read the OAuth
+     * discovery challenge off a 401.
+     */
+    private Set<String> exposedHeaders = Set.of("WWW-Authenticate");
+
+    /**
      * If set will set the CORS Access-Control-Allow-Credentials header to this value
      * If true then allowed origins must not contain a wildcard "*"
      */

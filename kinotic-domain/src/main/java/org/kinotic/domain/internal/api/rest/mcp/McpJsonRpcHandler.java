@@ -12,16 +12,19 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.security.AuthenticationHandler;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
+import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,38 +52,55 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     private static final int INTERNAL_ERROR = -32603;
 
     private final SecurityService securityService;
+    private final SecurityContext securityContext;
     private final ServiceDirectory serviceDirectory;
     private final McpToolInvoker mcpToolInvoker;
     private final JsonMapper jsonMapper;
+    private final AuthEndpointSupport authEndpointSupport;
 
     @Override
     public void mountRoutes(Router router) {
+        router.post(MCP_ROUTE).handler(this::armDiscoveryChallenge);
+        // AuthenticationHandler pauses the request while authenticating, so it precedes the
+        // BodyHandler. It also binds the Participant to the Vert.x context, which is where
+        // service invocation reads it from when a tool's method declares one.
+        router.post(MCP_ROUTE).handler(new AuthenticationHandler(securityService, securityContext));
         router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
         router.post(MCP_ROUTE).handler(this::handlePost);
         router.route(MCP_ROUTE).handler(ctx -> ctx.response().setStatusCode(405).end());
     }
 
-    private void handlePost(RoutingContext ctx) {
-        Map<String, String> authenticationInfo = new HashMap<>();
-        ctx.request()
-           .headers()
-           .forEach(entry -> authenticationInfo.put(entry.getKey().toLowerCase(), entry.getValue()));
+    /**
+     * Arms the RFC 9728 challenge before authentication runs so it is attached however the 401 is
+     * produced. The router's failure handler is registered ahead of any route-level one and would
+     * otherwise write the response first.
+     */
+    private void armDiscoveryChallenge(RoutingContext ctx) {
+        ctx.addHeadersEndHandler(_ -> {
+            if (ctx.response().getStatusCode() == 401) {
+                // points MCP hosts at the document that starts the OAuth discovery flow
+                ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
+                        + authEndpointSupport.absoluteUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
+            }
+        });
+        ctx.next();
+    }
 
-        securityService.authenticate(authenticationInfo)
-                       .onSuccess(participant -> handle(ctx.body(), participant)
-                               .onSuccess(response -> {
-                                   if (response == null) {
-                                       // a notification gets no response body
-                                       ctx.response().setStatusCode(202).end();
-                                   } else {
-                                       ctx.json(response);
-                                   }
-                               })
-                               .onFailure(throwable -> {
-                                   log.error("MCP request handling failed", throwable);
-                                   ctx.response().setStatusCode(500).end();
-                               }))
-                       .onFailure(_ -> ctx.response().setStatusCode(401).end());
+    private void handlePost(RoutingContext ctx) {
+        Participant participant = ctx.get(EventConstants.SENDER_HEADER);
+        handle(ctx.body(), participant)
+                .onSuccess(response -> {
+                    if (response == null) {
+                        // a notification gets no response body
+                        ctx.response().setStatusCode(202).end();
+                    } else {
+                        ctx.json(response);
+                    }
+                })
+                .onFailure(throwable -> {
+                    log.error("MCP request handling failed", throwable);
+                    ctx.response().setStatusCode(500).end();
+                });
     }
 
     // succeeds with null when the request was a notification and no response body must be sent
