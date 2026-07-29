@@ -117,8 +117,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                         return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown authorization code"));
                     }
                     // consume the grant before judging it, so a failed exchange burns the code too.
-                    // the delete must wait for the index refresh: findByCodeHash is a search, so an
-                    // unrefreshed delete leaves the code exchangeable until the next refresh interval
+                    // the delete must wait for the index refresh: findByCodeHash is a search
                     return grantRepository.deleteByIdSync(grant.getId()).thenCompose(v -> {
                         if (grant.getExpiresAt().before(new Date())) {
                             return CompletableFuture.failedFuture(new IllegalArgumentException("Authorization code has expired"));
