@@ -18,7 +18,6 @@ of truth for restoring the documentation.
 |---|---|
 | `website/content/01.apps/06.security/01.access-control.md` | `archive/abac/access-control.md` |
 | `website/content/01.apps/09.reference/03.abac-expression-language.md` | `archive/abac/abac-expression-language.md` |
-| `docs/future-prompts/Gateway ABAC.md` | `archive/abac/Gateway ABAC.md` |
 
 ### Related change
 
@@ -222,12 +221,15 @@ See [Access Control](/apps/security/access-control) for detailed policy document
 
 ## Left in place on purpose
 
+`docs/future-prompts/Gateway ABAC.md` — the design prompt for the planned
+authorization overhaul — was kept in the roadmap folder. It is a
+forward-looking planning doc, not user-facing documentation presenting ABAC as
+shipped.
+
 `docs/future-prompts/Multi-environment architecture.md` still references the
 planned Gateway ABAC work (and "RBAC-defined path patterns"). Those are
 forward-looking references inside a design/planning doc — they describe future
-work rather than presenting ABAC as shipped — so they were kept. The two
-file-path references to `docs/future-prompts/Gateway ABAC.md` were updated to
-point to `archive/abac/Gateway ABAC.md`.
+work rather than presenting ABAC as shipped — so they were kept.
 
 Kubernetes RBAC (`deployment/helm/**`, `deployment/terraform/**`,
 `archive/docs/kubernetes/**`) is unrelated infrastructure role-binding, not the
