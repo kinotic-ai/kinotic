@@ -1,5 +1,8 @@
 package org.kinotic.domain.internal.api.rest.support;
 
+import com.github.benmanes.caffeine.cache.AsyncCache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.RemovalCause;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -15,12 +18,11 @@ import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 
 /**
@@ -37,13 +39,21 @@ public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
 
-    private final ConcurrentMap<String, Future<OAuth2Auth>> oauth2AuthCache = new ConcurrentHashMap<>();
+    private final AsyncCache<String, OAuth2Auth> oauth2AuthCache =
+            Caffeine.newBuilder()
+                    // OpenIDConnectAuth.discover leaves each provider holding a periodic JWKS refresh timer;
+                    // close() cancels it, so an entry dropped by either policy does not leak one
+                    .removalListener((String id, OAuth2Auth oauth2Auth, RemovalCause cause) -> oauth2Auth.close())
+                    .expireAfterAccess(Duration.ofHours(1))
+                    .maximumSize(1_000)
+                    .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
     private final Vertx vertx;
 
     /**
-     * Validates the callback (state match, no IdP error), exchanges the code, validates
-     * the issuer, and returns the configuration along with the verified id_token claims.
+     * Validates the callback (state match, no IdP error), exchanges the code, validates the
+     * issuer, audience and nonce, and returns the configuration along with the verified
+     * id_token claims.
      * The handler decides what to do with the claims (look up an IamUser, create a
      * {@code PendingSignUp}, etc.).
      *
@@ -99,6 +109,12 @@ public class OidcFlowOrchestrator {
                                      if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
                                          log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
                                                   config.getId(), config.getAudience(), claims.get("aud"));
+                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
+                                     }
+                                     // startFlow always sends a nonce, so OIDC Core 3.1.3.7 requires the
+                                     // id_token to echo it — an absent claim fails the equals and is rejected
+                                     if (!flowSession.nonce().equals(OAuth2Util.stringClaim(claims, "nonce"))) {
+                                         log.warn("OIDC nonce validation failed for config {}", config.getId());
                                          throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
                                      }
                                      return new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken());
@@ -227,14 +243,26 @@ public class OidcFlowOrchestrator {
         return map;
     }
 
+    /**
+     * The {@link OAuth2Auth} for {@code config} as it is currently persisted, discovered against its
+     * authority on first use and cached until an hour passes with no flow using it. Saving the
+     * configuration takes effect on the next flow. A discovery that fails is not cached, so the next
+     * flow retries it.
+     */
     private Future<OAuth2Auth> getOAuth2Auth(BaseOidcConfiguration config) {
-        return oauth2AuthCache.computeIfAbsent(config.getId(), id ->
-                Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()))
-                      .compose(secret -> createOAuth2Auth(config, secret))
-                      .onFailure(err -> {
-                          log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err);
-                          oauth2AuthCache.remove(config.getId());
-                      }));
+        // Keying on updated as well as id is what picks up an edited clientId/authority/secretNameRef:
+        // both call sites pass a row read for this request, so a save misses the cache on every node
+        // without an invalidation message, and the superseded entry ages out on its own.
+        String key = config.getId() + ':' + (config.getUpdated() != null ? config.getUpdated().getTime() : 0);
+        // AsyncCache evicts an entry whose future completes exceptionally, which is what keeps a
+        // transient discovery failure from being cached — the loader must not touch the cache itself
+        CompletableFuture<OAuth2Auth> cached =
+                oauth2AuthCache.get(key,
+                                    (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
+                                                                             .thenCompose(secret -> createOAuth2Auth(config, secret)
+                                                                                     .toCompletionStage()));
+        return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
+                     .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
     }
 
 }

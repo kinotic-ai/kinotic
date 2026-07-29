@@ -88,6 +88,21 @@ the label need to not silently accept an implementation that drops it.
 `200` from `POST /mcp`. That assertion is the marker: restoring the check should turn it back into a
 `401` with a `WWW-Authenticate` challenge.
 
+### Outstanding requests count in a system UI
+
+Nothing that dispatches a request and waits for a reply bounds how long it waits. `McpToolInvoker`
+holds a `Promise` in `pendingCalls` until the reply arrives, and `DefaultRpcServiceProxyHandle` does
+the same with `responseMap`. `sendWithAck` only acks receipt, so a service that accepts a request and
+then dies leaves the entry there for the life of the process, and for MCP that also means the HTTP
+response is never written.
+
+A global timeout is the wrong answer — we do not know how long a published service is entitled to
+take, and any number we pick is wrong for somebody. Instead expose the size of those maps as a
+counted metric in a system UI, per node. Then we can see whether outstanding requests actually
+accumulate in practice, and how, before deciding whether anything needs bounding at all. If the
+count is flat under real load the whole concern is theoretical; if it climbs monotonically, the shape
+of the climb tells us what the right mechanism is.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 
