@@ -159,8 +159,18 @@ public class AuthEndpointSupport {
      * access tokens. Both act as {@code user}.
      */
     public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, KinoticAudience audience) {
+        String accessToken;
+        try {
+            accessToken = mintAccessToken(user, audience);
+        } catch (Exception e) {
+            // Callers invoke this from a Future handler, where a throw never reaches the router's
+            // failure handler and leaves the request unanswered until the client times out.
+            log.error("Could not mint access token", e);
+            respondError(ctx, 500, "Could not issue tokens");
+            return;
+        }
         JsonObject body = new JsonObject()
-                .put("access_token", mintAccessToken(user, audience))
+                .put("access_token", accessToken)
                 .put("token_type", "Bearer")
                 .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
                 .put("refresh_token", refreshToken);

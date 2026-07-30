@@ -22,3 +22,9 @@ services:
       # GitHub is disabled for e2e; the domain MockProjectRepoProvisioner supplies a no-op
       # ProjectRepoProvisioner so project-create flows work without a configured GitHub App.
       KINOTIC_DISABLEGITHUB: "true"
+      # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
+      # them under the `development` profile, which e2e drops, so mount the dummy set below; without
+      # it the OAuth token endpoints cannot mint a token.
+      KINOTIC_PLATFORMSECRETS_JWTSIGNINGKEYSPATH: /platform-secrets/jwt-signing-keys
+    volumes:
+      - ./jwt-signing-keys.e2e-test.json:/platform-secrets/jwt-signing-keys:ro
