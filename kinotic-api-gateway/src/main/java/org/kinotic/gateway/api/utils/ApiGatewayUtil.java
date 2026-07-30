@@ -110,7 +110,9 @@ public final class ApiGatewayUtil {
 
             errorMessage = throwable.getMessage();
 
-            if(statusCode == -1){
+            // 500 is what RoutingContext.fail(Throwable) stamps on any exception a handler throws, and -1 is
+            // an unfailed context this was called on directly, so the throwable is the better signal for both
+            if(statusCode == -1 || statusCode == 500){
                 if (throwable instanceof IllegalArgumentException) {
                     statusCode = 400;
                 } else if (throwable instanceof NullPointerException) {
