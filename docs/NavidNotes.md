@@ -88,6 +88,17 @@ the label need to not silently accept an implementation that drops it.
 `200` from `POST /mcp`. That assertion is the marker: restoring the check should turn it back into a
 `401` with a `WWW-Authenticate` challenge.
 
+### Self-service OIDC provisioning into an application scope
+
+`OidcConfiguration` used to carry a `provisioningMode` field (`UserProvisioningMode` —
+`AUTO` / `REGISTRATION_REQUIRED` / `INVITE_ONLY`) for this, but nothing ever read it, so an admin
+setting it got silence rather than the behaviour the name promised. Removed along with
+`rolesClaimPath`, `additionalScopes`, and the four unread redirect/domain fields.
+
+If we want it, the pieces are: a policy on the configuration, `completeOidcLogin` consulting it
+instead of always refusing an unknown subject, and the per-application admin UI to set it. Today an
+application's users arrive by invitation or admin creation only.
+
 ### Outstanding requests count in a system UI
 
 Nothing that dispatches a request and waits for a reply bounds how long it waits. `McpToolInvoker`

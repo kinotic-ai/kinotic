@@ -14,7 +14,6 @@ import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
@@ -126,32 +125,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated provider.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        String provider = ctx.pathParam("provider");
-        OidcProviderKind providerKind;
-        try {
-            providerKind = OidcProviderKind.fromKey(provider);
-        } catch (IllegalArgumentException ex) {
-            authEndpointSupport.respondError(ctx, 400, "Unknown platform provider: " + provider);
-            return;
-        }
-
-        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
-              .compose(config -> {
-                  if (config == null) {
-                      authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
-                      return Future.succeededFuture();
-                  }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, socialCallbackUrl(config.getId()), null);
-              })
-              .onSuccess(url -> {
-                  if (url != null) {
-                      ctx.response().setStatusCode(302).putHeader("Location", url).end();
-                  }
-              })
-              .onFailure(ex -> {
-                  log.error("Social login start failed for {}", provider, ex);
-                  authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
-              });
+        authEndpointSupport.handleSocialStart(ctx, this::socialCallbackUrl);
     }
 
     /**

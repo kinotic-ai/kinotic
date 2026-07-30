@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.internal.api.rest.support.*;
 import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.iam.IamUserService;
@@ -122,32 +121,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      * browser to the chosen Kinotic-curated social IdP.
      */
     private void handleSocialStart(RoutingContext ctx) {
-        String provider = ctx.pathParam("provider");
-        OidcProviderKind providerKind;
-        try {
-            providerKind = OidcProviderKind.fromKey(provider);
-        } catch (IllegalArgumentException ex) {
-            authEndpointSupport.respondError(ctx, 400, "Unknown platform provider: " + provider);
-            return;
-        }
-
-        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
-              .compose(config -> {
-                  if (config == null) {
-                      authEndpointSupport.respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
-                      return Future.succeededFuture();
-                  }
-                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl(config.getId()), null);
-              })
-              .onSuccess(url -> {
-                  if (url != null) {
-                      ctx.response().setStatusCode(302).putHeader("Location", url).end();
-                  }
-              })
-              .onFailure(ex -> {
-                  log.error("Signup start failed for provider {}", provider, ex);
-                  authEndpointSupport.respondError(ctx, 500, "Provider initialization failed");
-              });
+        authEndpointSupport.handleSocialStart(ctx, this::callbackUrl);
     }
 
     /**

@@ -15,6 +15,8 @@ import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.iam.OidcProviderKind;
+import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
@@ -45,6 +47,8 @@ public class AuthEndpointSupport {
 
     private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
+    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final OidcFlowOrchestrator oidcFlowOrchestrator;
 
 
     /**
@@ -225,6 +229,42 @@ public class AuthEndpointSupport {
     }
 
     // ── Composite flows ───────────────────────────────────────────────────────
+
+    /**
+     * Standard social start endpoint: resolves the {@code :provider} path parameter to the enabled
+     * Kinotic-curated configuration for that provider kind and redirects the browser to its IdP,
+     * writing a {@code 400} for an unknown or disabled provider. The caller supplies the callback
+     * URL the IdP returns to, which is what distinguishes a signup start from a login start.
+     */
+    public void handleSocialStart(RoutingContext ctx, Function<String, String> callbackUrl) {
+        String provider = ctx.pathParam("provider");
+        OidcProviderKind providerKind;
+        try {
+            providerKind = OidcProviderKind.fromKey(provider);
+        } catch (IllegalArgumentException ex) {
+            respondError(ctx, 400, "Unknown platform provider: " + provider);
+            return;
+        }
+
+        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
+              .compose(config -> {
+                  if (config == null) {
+                      respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
+                      return Future.succeededFuture();
+                  }
+                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl.apply(config.getId()), null);
+              })
+              .onSuccess(url -> {
+                  // null means the compose above already answered the unknown-provider case
+                  if (url != null) {
+                      ctx.response().setStatusCode(302).putHeader("Location", url).end();
+                  }
+              })
+              .onFailure(ex -> {
+                  log.error("Social start failed for provider {}", provider, ex);
+                  respondError(ctx, 500, "Provider initialization failed");
+              });
+    }
 
     /**
      * Standard email/password login endpoint: parses the JSON body, validates fields,
