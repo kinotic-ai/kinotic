@@ -135,21 +135,20 @@ public class AuthEndpointSupport {
     // ── Request bodies ────────────────────────────────────────────────────────
 
     /**
-     * The request body parsed as JSON, or {@code null} when the body is absent or is not JSON — in
-     * which case a {@code 400} has already been written and the caller must return immediately.
-     * A non-null result lets the caller read its fields without null-checking the body itself.
+     * The request body parsed as JSON, so the caller can read its fields directly. A body that is
+     * absent or is not JSON answers the request with a {@code 400}.
      */
     public JsonObject readJsonBody(RoutingContext ctx) {
         JsonObject ret;
         try {
             ret = ctx.body().asJsonObject();
         } catch (Exception e) {
-            // a malformed body raises DecodeException, which would otherwise reach the router's
-            // failure handler and render as a 500
-            ret = null;
+            // a malformed body raises DecodeException, which the router's failure handler renders as a
+            // 500; IllegalArgumentException is what it maps to the 400 this deserves
+            throw new IllegalArgumentException("Invalid request body", e);
         }
         if (ret == null) {
-            respondError(ctx, 400, "Invalid request body");
+            throw new IllegalArgumentException("Invalid request body");
         }
         return ret;
     }
@@ -245,9 +244,6 @@ public class AuthEndpointSupport {
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
         JsonObject body = readJsonBody(ctx);
-        if (body == null) {
-            return;
-        }
         String email = body.getString("email");
         String password = body.getString("password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {

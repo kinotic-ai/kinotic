@@ -61,9 +61,6 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      */
     private void handleLookup(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        if (body == null) {
-            return;
-        }
         String email = body.getString("email");
         if (email == null || email.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "email is required");

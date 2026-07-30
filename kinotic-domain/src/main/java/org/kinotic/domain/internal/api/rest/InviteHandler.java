@@ -102,9 +102,6 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      */
     private void handleLocalAccept(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        if (body == null) {
-            return;
-        }
         String token = body.getString("token");
         String password = body.getString("password");
         String displayName = body.getString("displayName");

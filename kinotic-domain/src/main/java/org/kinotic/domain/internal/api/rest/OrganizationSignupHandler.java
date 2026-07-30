@@ -220,9 +220,6 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
      */
     private void handleSocialCompleteOrg(RoutingContext ctx) {
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        if (body == null) {
-            return;
-        }
         String token = body.getString("token");
         String orgName = body.getString("orgName");
         String orgDescription = body.getString("orgDescription");

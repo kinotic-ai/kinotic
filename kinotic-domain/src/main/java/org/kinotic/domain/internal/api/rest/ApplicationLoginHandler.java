@@ -87,9 +87,6 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         JsonObject body = authEndpointSupport.readJsonBody(ctx);
-        if (body == null) {
-            return;
-        }
         String email = body.getString("email");
         if (email == null || email.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "email is required");
