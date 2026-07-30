@@ -101,16 +101,13 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * page uses for its confirmation state since the web app is not their UI.
      */
     private void handleLocalAccept(RoutingContext ctx) {
-        JsonObject body;
-        try {
-            body = ctx.body().asJsonObject();
-        } catch (Exception e) {
-            authEndpointSupport.respondError(ctx, 400, "Invalid request body");
+        JsonObject body = authEndpointSupport.readJsonBody(ctx);
+        if (body == null) {
             return;
         }
-        String token = body == null ? null : body.getString("token");
-        String password = body == null ? null : body.getString("password");
-        String displayName = body == null ? null : body.getString("displayName");
+        String token = body.getString("token");
+        String password = body.getString("password");
+        String displayName = body.getString("displayName");
         if (token == null || token.isBlank() || password == null || password.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "token and password are required");
             return;

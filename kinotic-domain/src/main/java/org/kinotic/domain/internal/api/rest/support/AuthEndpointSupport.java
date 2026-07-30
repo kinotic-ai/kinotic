@@ -132,6 +132,28 @@ public class AuthEndpointSupport {
            .end(new JsonObject().put("error", message).encode());
     }
 
+    // ── Request bodies ────────────────────────────────────────────────────────
+
+    /**
+     * The request body parsed as JSON, or {@code null} when the body is absent or is not JSON — in
+     * which case a {@code 400} has already been written and the caller must return immediately.
+     * A non-null result lets the caller read its fields without null-checking the body itself.
+     */
+    public JsonObject readJsonBody(RoutingContext ctx) {
+        JsonObject ret;
+        try {
+            ret = ctx.body().asJsonObject();
+        } catch (Exception e) {
+            // a malformed body raises DecodeException, which would otherwise reach the router's
+            // failure handler and render as a 500
+            ret = null;
+        }
+        if (ret == null) {
+            respondError(ctx, 400, "Invalid request body");
+        }
+        return ret;
+    }
+
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
@@ -222,15 +244,12 @@ public class AuthEndpointSupport {
      */
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
-        JsonObject body;
-        try {
-            body = ctx.body().asJsonObject();
-        } catch (Exception e) {
-            respondError(ctx, 400, "Invalid request body");
+        JsonObject body = readJsonBody(ctx);
+        if (body == null) {
             return;
         }
-        String email = body == null ? null : body.getString("email");
-        String password = body == null ? null : body.getString("password");
+        String email = body.getString("email");
+        String password = body.getString("password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             respondError(ctx, 400, "email and password are required");
             return;

@@ -86,8 +86,11 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private void handleLookup(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
-        JsonObject body = ctx.body().asJsonObject();
-        String email = body == null ? null : body.getString("email");
+        JsonObject body = authEndpointSupport.readJsonBody(ctx);
+        if (body == null) {
+            return;
+        }
+        String email = body.getString("email");
         if (email == null || email.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "email is required");
             return;

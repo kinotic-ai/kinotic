@@ -13,7 +13,7 @@ Kinotic is a next-generation Operating System for the Cloud. Just as traditional
 Modern cloud development is bogged down by "plumbing"—IAM roles, VPCs, CI/CD pipelines, and service meshes. Kinotic OS handles this underlying complexity, allowing developers (and AI agents) to focus on the **vibe**: the core logic, user experience, and business value.
 
 * **Rapid Prototyping:** Move from idea to a scalable Kubernetes deployment in minutes.
-* **Enterprise Ready:** Built-in RBAC, SBOM support, and observability from day one.
+* **Enterprise Ready:** Built-in SBOM support and observability from day one.
 * **Internet Scale:** Designed to handle massive throughput with automated dependency management and Firecracker VM isolation.
 
 ---
@@ -42,7 +42,6 @@ Kinotic organizes work into **Applications** (logical containers) and **Projects
 ### **2. Service Directory**
 A centralized registry providing a source of truth for all services within an application:
 * Function definitions and input schemas.
-* RBAC policies required for access.
 * Metadata for AI-agent discovery and documentation.
 
 ### **3. Security & Identity **

@@ -60,8 +60,11 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * for an OIDC org member whose org has a live login config, otherwise "use password".
      */
     private void handleLookup(RoutingContext ctx) {
-        JsonObject body = ctx.body().asJsonObject();
-        String email = body == null ? null : body.getString("email");
+        JsonObject body = authEndpointSupport.readJsonBody(ctx);
+        if (body == null) {
+            return;
+        }
+        String email = body.getString("email");
         if (email == null || email.isBlank()) {
             authEndpointSupport.respondError(ctx, 400, "email is required");
             return;

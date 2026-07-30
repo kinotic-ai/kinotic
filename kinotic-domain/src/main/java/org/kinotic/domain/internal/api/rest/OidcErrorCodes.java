@@ -18,7 +18,7 @@ public final class OidcErrorCodes {
     /** {@code :configId} resolves to no enabled OIDC configuration for the flow's scope. */
     public static final String CONFIG_NOT_FOUND = "config_not_found";
 
-    /** id_token failed validation (issuer, audience, sub missing, etc.). */
+    /** id_token failed validation (issuer, audience, nonce, sub missing, etc.). */
     public static final String INVALID_TOKEN = "invalid_token";
 
     /** id_token's email_verified claim is false (or missing for providers that require it). */
