@@ -20,7 +20,7 @@ not "fix" the clone to match this document.
     │   ├── package.json
     │   ├── tsconfig.json
     │   ├── model/            # @Entity classes go here
-    │   └── repositories/     # kinotic sync/generate writes repository classes here
+    │   └── repositories/     # `bun run generate` writes repository classes here
     ├── microservices/        # @Publish service classes
     └── ui/                   # frontend packages
 ```
@@ -34,7 +34,11 @@ not "fix" the clone to match this document.
     "scripts": {
         "build": "bunup",
         "dev": "bunup --watch",
+        "generate": "kinotic generate",
         "type-check": "bun run --filter '*' type-check"
+    },
+    "devDependencies": {
+        "@kinotic-ai/kinotic-cli": "<pinned version>"
     },
     "catalog": {
         "@kinotic-ai/core": "<pinned version>",
@@ -47,6 +51,12 @@ not "fix" the clone to match this document.
 
 Workspace packages reference the catalog (`"@kinotic-ai/core": "catalog:"`) so the
 Kinotic SDK version is pinned once at the root.
+
+The Kinotic CLI ships as a project dependency with a `generate` script wired in
+`package.json` — repository classes are generated with `bun run generate`, entirely
+locally. Server synchronization is handled by Kinotic OS from the connected GitHub
+repository; the globally-installed CLI (`kinotic login`, `kinotic sync`) is a
+human-operator tool that Claude does not use.
 
 ## `.config/kinotic.config.ts`
 

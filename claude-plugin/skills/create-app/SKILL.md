@@ -31,9 +31,7 @@ If the tools are missing, the user has not authenticated the `kinotic-os` MCP se
    Kinotic OS account can sign up from the login page, then lands on the consent page —
    approving it completes the connection.
 3. The MCP endpoint URL comes from the plugin setting `server_url`
-   (default: Kinotic OS Cloud; local dev: `http://localhost:58503/mcp`). The Kinotic
-   **API base URL** is `server_url` with the trailing `/mcp` removed — you will need it
-   for `kinotic login` in Step 5.
+   (default: Kinotic OS Cloud; local dev: `http://localhost:58503/mcp`).
 
 If tools still do not appear right after a server restart, wait and retry: the service
 directory publishes tools shortly after startup, not instantly.
@@ -115,15 +113,17 @@ Run `bun install`, then `bun run type-check`. Report any mismatch between the cl
 the expected shape to the user instead of silently changing files — the repository
 contents are the source of truth.
 
-## Step 5 — Install the CLI, log in, first sync
+## Step 5 — First entity and handoff
 
-1. `bun install -g @kinotic-ai/kinotic-cli`
-2. `kinotic login --server <API base URL from Step 0>` — an OAuth device flow; the user
-   approves once in the browser and the CLI stores a refresh token.
-3. Define a first entity under the path listed in `.config/kinotic.config.ts`
-   `entitiesPaths` (see the entities-and-persistence skill), then run `kinotic sync -p`
-   from the project root. Sync reuses the same create-if-not-exist services as Steps 1–2,
-   so it is safe against the already-created application and project.
+1. Define a first entity under the path listed in `.config/kinotic.config.ts`
+   `entitiesPaths` (see the entities-and-persistence skill).
+2. Run `bun run generate` from the project root to generate the typed repository
+   classes. The script wraps the Kinotic CLI vendored as a project dependency and runs
+   locally — no server connection or login. If the script is missing from
+   `package.json`, tell the user instead of improvising.
+3. Commit and push. Kinotic OS synchronizes the project from its connected GitHub
+   repository — never install the Kinotic CLI globally or run `kinotic login` /
+   `kinotic sync` yourself.
 
 From here, hand off to the other kinotic skills: entity modeling and persistence →
 `entities-and-persistence`; business logic and APIs → `services`; UI and client
