@@ -26,24 +26,18 @@
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",
         "chalk": "^5.6.2",
-        "glob": "^13.0.6",
         "liquidjs": "10.27.0",
         "open": "^11.0.0",
         "p-timeout": "^7.0.1",
         "radash": "^12.1.1",
         "simple-git": "3.36.0",
-        "terminal-link": "^5.0.0",
         "ts-morph": "^27.0.2",
-        "uuid": "^13.0.0",
-        "ws": "^8.19.0",
-        "yaml": "2.8.3"
+        "ws": "^8.19.0"
     },
     "devDependencies": {
         "@types/chai": "^5",
-        "@types/inquirer": "^9.0.9",
         "@types/mocha": "^10.0.10",
         "@types/node": "^25.5.0",
-        "@types/uuid": "^11.0.0",
         "@types/ws": "^8.18.1",
         "chai": "^6",
         "eslint": "^9",
@@ -69,7 +63,6 @@
     "scripts": {
         "build": "shx rm -rf dist && tsc -b && tsc-alias -f && pnpm run copy-files",
         "lint": "eslint . --ext .ts --config .eslintrc",
-        "posttest": "pnpm lint",
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
         "version": "git add README.md",
