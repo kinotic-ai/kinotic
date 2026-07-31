@@ -1,7 +1,7 @@
 {
     "globals": {
-        "kinoticCoreVersion": "^1.9.1",
-        "kinoticPersistenceVersion": "^2.0.0"
+        "kinoticApiVersion": "^4.0.0",
+        "kinoticPersistenceVersion": "^4.0.0"
     },
     "propertySchema":{
         "projectName": {
