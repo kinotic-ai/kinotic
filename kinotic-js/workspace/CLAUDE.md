@@ -20,6 +20,19 @@ Whenever you bump core's version, in the same change:
 
 This keeps `os-api`/`persistence` consumers from resolving an older core that lacks the symbols those packages now expect.
 
+### These versions reach provisioned projects
+
+The `version` field of every package here is projected at build time into
+`kinotic-github`'s `npmPackageVersions` task, which turns it into the spawn global a
+project template pins the package through (`@kinotic-ai/os-api` -> `kinoticOsApiVersion`,
+`@kinotic-ai/kinotic-cli` -> `kinoticCliVersion`). `GitHubProjectRepoProvisioner` puts
+those globals in the render context, so every project the server provisions depends on
+`^<version as it stands here>`.
+
+Nothing to update on the Java or template side when you bump a version — but the bump
+does reach users, so publish it. A server built from a commit whose `version` is not on
+the registry hands out a range that no `bun install` can resolve.
+
 ## Kinotic Service Registration
 
 **IMPORTANT:** Any service class that needs to be called remotely via the Kinotic event bus **must** use the `@Publish` decorator from `@kinotic-ai/core`. Without `@Publish`, the service will not be registered with the `ServiceRegistry` and will not be accessible through service proxies.

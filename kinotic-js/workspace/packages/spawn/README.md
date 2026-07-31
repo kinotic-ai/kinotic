@@ -11,7 +11,8 @@ and returns the rendered tree. Hosts supply the adapters:
   via a `PropertyResolver`
 - the Kinotic server runs the same engine embedded in the JVM (GraalJS) to
   render project baselines into freshly provisioned repositories, with the
-  context derived entirely from the `Project`
+  context derived from the `Project` plus a version range for every published
+  `@kinotic-ai` package (see "Package version globals")
 
 ## What a Spawn looks like
 
@@ -45,7 +46,7 @@ the three top-level keys below are recognized; anything else is ignored.
   // Values made available to every template. Optional.
   // A caller-supplied context value of the same name wins over a global.
   "globals": {
-    "kinoticApiVersion": "^1.0.9"
+    "kinoticCoreVersion": "^4.0.0"
   },
 
   // Properties the spawn needs but does not hardcode. Optional.
@@ -187,6 +188,46 @@ src/{{ package | packageToPath }}/{{ name | upperFirst }}.ts.liquid
 Use `lint` (or `lintSpawnDir` in the Node host) to find variables referenced by
 the templates but declared in neither `globals` nor `propertySchema` before
 shipping a spawn.
+
+## Package version globals
+
+A spawn that generates a Kinotic project pins the `@kinotic-ai` packages through
+a global per package, named `kinotic<Package>Version`:
+
+```jsonc
+// spawn.json
+{
+  "globals": {
+    "kinoticCliVersion": "^4.0.0",
+    "kinoticCoreVersion": "^4.0.0",
+    "kinoticOsApiVersion": "^4.0.0",
+    "kinoticPersistenceVersion": "^4.0.0"
+  }
+}
+```
+
+```jsonc
+// package.json.liquid
+{
+  "devDependencies": {"@kinotic-ai/kinotic-cli": "{{ kinoticCliVersion }}"},
+  "catalog": {"@kinotic-ai/core": "{{ kinoticCoreVersion }}"}
+}
+```
+
+The name drops the `@kinotic-ai` scope and a `kinotic-` prefix on the package
+name, so `@kinotic-ai/os-api` is `kinoticOsApiVersion` and
+`@kinotic-ai/kinotic-cli` is `kinoticCliVersion`.
+
+When the Kinotic server renders a spawn it supplies every one of these globals
+from a build-time projection of this repo's `package.json` files, and a context
+value beats a global — so a provisioned project pins the package versions that
+server ships with, whatever the spawn's own `globals` say. Keep declaring them in
+`spawn.json` anyway: the values are what `kinotic create project` renders with,
+and `lint` reports an undeclared global even when a host happens to supply it.
+
+Because the server supplies them from the packages it knows about, a spawn adding
+a global for a package that server predates falls back to the `spawn.json` value
+rather than failing to render.
 
 ## Examples in this repo
 
