@@ -119,6 +119,11 @@ export class CliAuthenticator {
         if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
             return this.accessToken
         }
+        // BearerTokenAuthProvider calls this on every reconnect, long after connect() checked
+        // the field, so the null case has to be caught here rather than posting "null" as the token
+        if (this.refreshToken === null) {
+            throw new Error('Not logged in. Run `kinotic login` first.')
+        }
         const res = await fetch(restBaseUrl + '/api/auth/oauth/token', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},

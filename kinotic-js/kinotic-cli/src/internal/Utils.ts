@@ -223,14 +223,17 @@ export async function writeEntityJsonToFilesystem(config: ConversionConfiguratio
     }
 }
 
-export async function writeGeneratedServiceInfoToFilesystem(savePath: string, info: GeneratedServiceInfo, logger?: Logger): Promise<void> {
+/**
+ * Saves the named queries for a generated Repository to the project's .config/c3/queries directory
+ * @param config the conversion configuration in effect
+ * @param info the generated Repository to save the named queries of
+ */
+export async function writeGeneratedServiceInfoToFilesystem(config: ConversionConfiguration, info: GeneratedServiceInfo): Promise<void> {
     const json = JSON.stringify(info, jsonStringifyReplacer, 2)
     if (json && json.length > 0) {
-        const outputPath = path.resolve(savePath, 'generated', 'query-definitions', `${info.entityServiceName}.json`)
+        const outputPath = path.resolve(resolveKinoticConfigDir(), 'c3', 'queries', `${info.entityServiceName}.json`)
         await fsPromises.mkdir(path.dirname(outputPath), {recursive: true})
         await fsPromises.writeFile(outputPath, json)
-        if (logger) {
-            logger.log(`Wrote ${info.entityServiceName} named queries to ${outputPath}`)
-        }
+        config.logger.logVerbose(`Wrote ${info.entityServiceName} named queries to ${outputPath}`, config.verbose)
     }
 }
