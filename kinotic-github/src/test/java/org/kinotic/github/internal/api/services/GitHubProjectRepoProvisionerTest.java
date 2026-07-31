@@ -188,7 +188,7 @@ class GitHubProjectRepoProvisionerTest {
             addEntry(tar, "root/versions.txt.liquid",
                      "{{ kinoticCoreVersion }}\n{{ kinoticCliVersion }}\n".getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/package.json.liquid",
-                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organization}}\", \"app\": \"{{application}}\"}"
+                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organizationId}}\", \"app\": \"{{applicationId}}\"}"
                              .getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
                      "export class {{ projectName | camelCase | upperFirst }} {}".getBytes(StandardCharsets.UTF_8), false);

@@ -226,8 +226,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         // shouldn't inherit GitHub's repo-name length limit.
         ret.put("projectName", project.getName());
         ret.put("projectSlug", SLUGIFY.slugify(project.getName()));
-        ret.put("organization", project.getOrganizationId());
-        ret.put("application", project.getApplicationId());
+        ret.put("organizationId", project.getOrganizationId());
+        ret.put("applicationId", project.getApplicationId());
         return ret;
     }
 
