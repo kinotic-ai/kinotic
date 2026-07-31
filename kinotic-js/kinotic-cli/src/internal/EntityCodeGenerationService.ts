@@ -146,11 +146,9 @@ export class EntityCodeGenerationService {
                                                                          repositoryOutputPath))
                 }
 
-                if(config.verbose){
+                await writeEntityJsonToFilesystem(config, entityInfo.entity)
 
-                    await writeEntityJsonToFilesystem(repositoryOutputPath,
-                                                      entityInfo.entity,
-                                                      this.logger)
+                if(config.verbose){
 
                     for(let generatedServiceInfo of generatedServices) {
                         if (generatedServiceInfo.namedQueries.length > 0) {
