@@ -177,7 +177,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
                      .compose(match -> {
                          if (match == null) {
-                             // Org has no live ORG_LOGIN config — fall back to password (which will
+                             // Org has no enabled SSO config — fall back to password (which will
                              // fail with invalid creds since OIDC users have no password).
                              // Deliberately generic so we don't leak which orgs use SSO.
                              return authEndpointSupport.respondPasswordPath(ctx);

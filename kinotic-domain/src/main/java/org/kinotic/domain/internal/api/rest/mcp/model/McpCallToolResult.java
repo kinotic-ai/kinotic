@@ -28,7 +28,8 @@ public class McpCallToolResult {
     }
 
     public static McpCallToolResult error(String message) {
-        return result(message, true);
+        // the wire contract requires a string; a throwable without a message would emit null
+        return result(message != null ? message : "Unknown error", true);
     }
 
     private static McpCallToolResult result(String text, boolean error) {
