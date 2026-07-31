@@ -221,13 +221,13 @@ name, so `@kinotic-ai/os-api` is `kinoticOsApiVersion` and
 When the Kinotic server renders a spawn it supplies every one of these globals
 from a build-time projection of this repo's `package.json` files, and a context
 value beats a global — so a provisioned project pins the package versions that
-server ships with, whatever the spawn's own `globals` say. Keep declaring them in
-`spawn.json` anyway: the values are what `kinotic create project` renders with,
-and `lint` reports an undeclared global even when a host happens to supply it.
+server ships with, whatever the spawn's own `globals` say.
 
-Because the server supplies them from the packages it knows about, a spawn adding
-a global for a package that server predates falls back to the `spawn.json` value
-rather than failing to render.
+Keep declaring them in `spawn.json` anyway. `lint` reports an undeclared global
+whatever a host supplies at render time, and the declared value is the fallback:
+because the server supplies only the packages it knows about, a spawn adding a
+global for a package that server predates renders with the `spawn.json` value
+rather than failing.
 
 ## Examples in this repo
 
