@@ -224,16 +224,19 @@ export async function writeEntityJsonToFilesystem(config: ConversionConfiguratio
 }
 
 /**
- * Saves the named queries for a generated Repository to the project's .config/c3/queries directory
+ * Saves the named queries for a generated Repository to the project's .config/c3/queries directory,
+ * removing the file left by a previous run when the Repository declares no named queries.
  * @param config the conversion configuration in effect
  * @param info the generated Repository to save the named queries of
  */
 export async function writeGeneratedServiceInfoToFilesystem(config: ConversionConfiguration, info: GeneratedServiceInfo): Promise<void> {
-    const json = JSON.stringify(info, jsonStringifyReplacer, 2)
-    if (json && json.length > 0) {
-        const outputPath = path.resolve(resolveKinoticConfigDir(), 'c3', 'queries', `${info.entityServiceName}.json`)
+    const outputPath = path.resolve(resolveKinoticConfigDir(), 'c3', 'queries', `${info.entityServiceName}.json`)
+    if (info.namedQueries.length > 0) {
         await fsPromises.mkdir(path.dirname(outputPath), {recursive: true})
-        await fsPromises.writeFile(outputPath, json)
+        await fsPromises.writeFile(outputPath, JSON.stringify(info, jsonStringifyReplacer, 2))
         config.logger.logVerbose(`Wrote ${info.entityServiceName} named queries to ${outputPath}`, config.verbose)
+    } else if (fs.existsSync(outputPath)) {
+        await fsPromises.rm(outputPath)
+        config.logger.logVerbose(`Removed stale named queries for ${info.entityServiceName} at ${outputPath}`, config.verbose)
     }
 }

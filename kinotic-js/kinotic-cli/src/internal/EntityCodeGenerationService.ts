@@ -149,9 +149,7 @@ export class EntityCodeGenerationService {
                 await writeEntityJsonToFilesystem(config, entityInfo.entity)
 
                 for(let generatedServiceInfo of generatedServices) {
-                    if (generatedServiceInfo.namedQueries.length > 0) {
-                        await writeGeneratedServiceInfoToFilesystem(config, generatedServiceInfo)
-                    }
+                    await writeGeneratedServiceInfoToFilesystem(config, generatedServiceInfo)
                 }
 
                 if(entityProcessor){
