@@ -15,13 +15,10 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.services.iam.IamUserService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Login routes for end-users of an application built on Kinotic. Distinct from the
@@ -37,7 +34,6 @@ import java.util.concurrent.CompletableFuture;
 public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
     private final IamUserService iamUserService;
-    private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
     private final LocalAuthenticationService localAuthenticationService;
@@ -60,14 +56,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
     private void handleProviders(RoutingContext ctx) {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
-        applicationRepository.findById(appId, orgId)
-              .thenCompose(app -> {
-                  if (app == null || app.getOidcConfigurationIds() == null
-                          || app.getOidcConfigurationIds().isEmpty()) {
-                      return CompletableFuture.completedFuture(List.<OidcConfiguration>of());
-                  }
-                  return oidcConfigurationService.findEnabledByIds(app.getOidcConfigurationIds(), orgId);
-              })
+        oidcConfigurationService.findEnabledForScope(orgId, appId)
               .whenComplete((configs, err) -> {
                   if (err != null) {
                       log.warn("Failed to list app providers for {}/{}: {}", orgId, appId, err.getMessage());

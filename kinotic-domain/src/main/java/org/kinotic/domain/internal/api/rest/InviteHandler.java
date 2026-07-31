@@ -13,7 +13,6 @@ import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.rest.support.CallbackResult;
@@ -25,7 +24,6 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -46,7 +44,6 @@ public class InviteHandler implements SuppliesGatewayRoutes {
 
     private final InviteService inviteService;
     private final OrganizationService organizationService;
-    private final ApplicationRepository applicationRepository;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
@@ -78,7 +75,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                           organizationService.findById(invite.getOrganizationId()))
                           .map(org -> org == null ? null : org.getName());
                   Future<List<BaseOidcConfiguration>> providers = Future.fromCompletionStage(
-                          resolveScopeProviders(invite));
+                          oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
+                                                                      invite.getApplicationId()));
                   return Future.all(orgName, providers)
                                .map(v -> new JsonObject()
                                        .put("email", invite.getEmail())
@@ -239,77 +237,28 @@ public class InviteHandler implements SuppliesGatewayRoutes {
 
     /**
      * Builds the IdP authorization redirect for the provider the invitee chose. The chosen
-     * configId must be one the invite's target scope actually offers — for an app invite,
-     * one of that application's enabled OIDC configs; for an org invite, an enabled
-     * platform social config or the organization's own SSO config. Anything else fails
-     * with config_not_found. The flow carries the accept token on the session and returns
-     * to {@link #handleOidcCallback}.
+     * configId must be one the invite's target scope offers, which is the same list
+     * {@link #handleDetails} rendered; anything else fails with config_not_found. The flow
+     * carries the accept token on the session and returns to {@link #handleOidcCallback}.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
-        String orgId = invite.getOrganizationId();
-
-        if (invite.getApplicationId() != null) {
-            String appId = invite.getApplicationId();
-            return Future.fromCompletionStage(applicationRepository.findById(appId, orgId))
-                         .compose(app -> {
-                             if (app == null || app.getOidcConfigurationIds() == null
-                                     || !app.getOidcConfigurationIds().contains(configId)) {
-                                 return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
-                             }
-                             return Future.fromCompletionStage(
-                                     oidcConfigurationService.findEnabledByIds(List.of(configId), orgId));
-                         })
-                         .compose(configs -> configs.isEmpty()
-                                 ? Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND))
-                                 : oidcFlowOrchestrator.startFlow(ctx, configs.getFirst(),
-                                                                  inviteCallbackUrl(configId), orgId, token));
-        }
-
-        return Future.fromCompletionStage(orgSignupOidcConfigurationService.findById(configId))
-                     .compose(social -> {
-                         if (social != null && social.isEnabled()) {
-                             return oidcFlowOrchestrator.startFlow(ctx, social,
-                                                                   inviteCallbackUrl(configId), orgId, token);
+        return Future.fromCompletionStage(
+                             oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
+                                                                         invite.getApplicationId()))
+                     .compose(offered -> {
+                         BaseOidcConfiguration chosen = offered.stream()
+                                                              .filter(c -> configId.equals(c.getId()))
+                                                              .findFirst()
+                                                              .orElse(null);
+                         Future<String> ret;
+                         if (chosen == null) {
+                             ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
+                         } else {
+                             ret = oidcFlowOrchestrator.startFlow(ctx, chosen, inviteCallbackUrl(configId),
+                                                                  invite.getOrganizationId(), token);
                          }
-                         return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
-                                      .compose(sso -> {
-                                          if (sso == null || !sso.isEnabled() || !sso.getId().equals(configId)) {
-                                              return Future.failedFuture(
-                                                      new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
-                                          }
-                                          return oidcFlowOrchestrator.startFlow(ctx, sso,
-                                                                                inviteCallbackUrl(configId), orgId, token);
-                                      });
+                         return ret;
                      });
-    }
-
-    /**
-     * The providers the invitee may accept with, resolved from the scope's live config at
-     * request time: org invites offer the platform social configs plus the org's enabled
-     * SSO config; app invites offer the application's enabled configs.
-     */
-    private CompletableFuture<List<BaseOidcConfiguration>> resolveScopeProviders(PendingInvite invite) {
-        String orgId = invite.getOrganizationId();
-        if (invite.getApplicationId() != null) {
-            return applicationRepository.findById(invite.getApplicationId(), orgId)
-                    .thenCompose(app -> {
-                        if (app == null || app.getOidcConfigurationIds() == null
-                                || app.getOidcConfigurationIds().isEmpty()) {
-                            return CompletableFuture.completedFuture(List.of());
-                        }
-                        return oidcConfigurationService.findEnabledByIds(app.getOidcConfigurationIds(), orgId);
-                    })
-                    .thenApply(ArrayList::new);
-        }
-        return orgSignupOidcConfigurationService.findAllEnabled()
-                .thenCombine(oidcConfigurationService.findOrgLoginConfig(orgId),
-                             (social, sso) -> {
-                                 List<BaseOidcConfiguration> providers = new ArrayList<>(social);
-                                 if (sso != null && sso.isEnabled()) {
-                                     providers.add(sso);
-                                 }
-                                 return providers;
-                             });
     }
 
     /**

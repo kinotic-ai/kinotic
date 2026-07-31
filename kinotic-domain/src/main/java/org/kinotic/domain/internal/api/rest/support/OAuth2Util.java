@@ -2,10 +2,7 @@ package org.kinotic.domain.internal.api.rest.support;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
-import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -14,12 +11,14 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class OAuth2Util {
+/**
+ * Claim validation and PKCE helpers shared by the OIDC flows.
+ */
+public final class OAuth2Util {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private OAuth2Util() {}
 
     public static String firstPresent(Map<String, Object> claims, String... names) {
         for (String name : names) {

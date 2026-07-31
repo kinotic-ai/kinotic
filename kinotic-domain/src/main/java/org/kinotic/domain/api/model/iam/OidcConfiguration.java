@@ -1,7 +1,5 @@
 package org.kinotic.domain.api.model.iam;
 
-import java.util.List;
-
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationScoped;
@@ -39,52 +37,4 @@ public class OidcConfiguration extends BaseOidcConfiguration implements Organiza
      * from the security context — callers don't set it directly outside elevated access.
      */
     private String organizationId;
-
-
-    /**
-     * Optional cluster-internal URL used for backchannel token validation when the
-     * browser-facing authority is not reachable from within the cluster.
-     */
-    private String backChannelAuthority;
-
-    /**
-     * The URI the provider will redirect to after a successful authorization.
-     * Must be registered with the provider during Kinotic OS's application registration.
-     */
-    private String redirectUri;
-
-    /**
-     * The URI the provider will redirect to after the user logs out.
-     * Optional — only used if the provider supports logout redirects.
-     */
-    private String postLogoutRedirectUri;
-
-    /**
-     * The URI used for silent token renewal in the browser (hidden iframe).
-     * Optional — only used by frontends that implement silent refresh flows.
-     */
-    private String silentRedirectUri;
-
-    /**
-     * Email domains this provider handles (e.g., ["gmail.com", "company.com"]), or null for any domain.
-     */
-    private List<String> domains;
-
-    /**
-     * Dot-separated path to roles in JWT claims (e.g., "realm_access.roles" for Keycloak).
-     * If set, roles are extracted from this path and included in the authenticated Participant.
-     */
-    private String rolesClaimPath;
-
-    /**
-     * Additional OAuth scopes to request beyond the defaults (typically "openid profile email").
-     * Space-separated string passed to the provider during the authorization request.
-     */
-    private String additionalScopes;
-
-    /**
-     * The provisioning policy configured for new identities from this provider (see
-     * {@link UserProvisioningMode}). Defaults to {@link UserProvisioningMode#AUTO}.
-     */
-    private UserProvisioningMode provisioningMode = UserProvisioningMode.AUTO;
 }

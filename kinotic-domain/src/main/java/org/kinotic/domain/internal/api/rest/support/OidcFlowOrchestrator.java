@@ -63,7 +63,8 @@ public class OidcFlowOrchestrator {
      *                       recovered from the flow session (or {@code null} when the flow
      *                       stashed none — non-org-scoped routes ignore the argument). Must
      *                       return a {@link CompletableFuture} resolving to {@code null} when
-     *                       the config is unknown.
+     *                       the config is unknown; a config that is no longer enabled is
+     *                       rejected here, so the resolver need not check it.
      */
     public <C extends BaseOidcConfiguration> Future<CallbackResult<C>> handleCallback(
             RoutingContext ctx,
@@ -94,7 +95,9 @@ public class OidcFlowOrchestrator {
 
         return Future.fromCompletionStage(configResolver.apply(flowSession.orgId()))
                      .compose(config -> {
-                         if (config == null) {
+                         // Re-checked here rather than in each resolver: a config disabled while the
+                         // user was at the IdP must not complete the flow it started.
+                         if (config == null || !config.isEnabled()) {
                              return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.CONFIG_NOT_FOUND));
                          }
                          return getOAuth2Auth(config)
