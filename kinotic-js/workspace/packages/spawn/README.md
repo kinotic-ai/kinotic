@@ -11,8 +11,8 @@ and returns the rendered tree. Hosts supply the adapters:
   via a `PropertyResolver`
 - the Kinotic server runs the same engine embedded in the JVM (GraalJS) to
   render project baselines into freshly provisioned repositories, with the
-  context derived from the `Project` plus a version range for every published
-  `@kinotic-ai` package (see "Package version globals")
+  context derived from the `Project` and the package versions that server
+  ships with
 
 ## What a Spawn looks like
 
@@ -188,46 +188,6 @@ src/{{ package | packageToPath }}/{{ name | upperFirst }}.ts.liquid
 Use `lint` (or `lintSpawnDir` in the Node host) to find variables referenced by
 the templates but declared in neither `globals` nor `propertySchema` before
 shipping a spawn.
-
-## Package version globals
-
-A spawn that generates a Kinotic project pins the `@kinotic-ai` packages through
-a global per package, named `kinotic<Package>Version`:
-
-```jsonc
-// spawn.json
-{
-  "globals": {
-    "kinoticCliVersion": "^4.0.0",
-    "kinoticCoreVersion": "^4.0.0",
-    "kinoticOsApiVersion": "^4.0.0",
-    "kinoticPersistenceVersion": "^4.0.0"
-  }
-}
-```
-
-```jsonc
-// package.json.liquid
-{
-  "devDependencies": {"@kinotic-ai/kinotic-cli": "{{ kinoticCliVersion }}"},
-  "catalog": {"@kinotic-ai/core": "{{ kinoticCoreVersion }}"}
-}
-```
-
-The name drops the `@kinotic-ai` scope and a `kinotic-` prefix on the package
-name, so `@kinotic-ai/os-api` is `kinoticOsApiVersion` and
-`@kinotic-ai/kinotic-cli` is `kinoticCliVersion`.
-
-When the Kinotic server renders a spawn it supplies every one of these globals
-from a build-time projection of this repo's `package.json` files, and a context
-value beats a global — so a provisioned project pins the package versions that
-server ships with, whatever the spawn's own `globals` say.
-
-Keep declaring them in `spawn.json` anyway. `lint` reports an undeclared global
-whatever a host supplies at render time, and the declared value is the fallback:
-because the server supplies only the packages it knows about, a spawn adding a
-global for a package that server predates renders with the `spawn.json` value
-rather than failing.
 
 ## Examples in this repo
 
