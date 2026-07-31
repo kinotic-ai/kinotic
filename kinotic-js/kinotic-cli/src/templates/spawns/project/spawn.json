@@ -1,6 +1,6 @@
 {
     "globals": {
-        "kinoticCoreVersion": "^1.9.1",
+        "kinoticApiVersion": "^1.9.1",
         "kinoticPersistenceVersion": "^2.0.0"
     },
     "propertySchema":{
