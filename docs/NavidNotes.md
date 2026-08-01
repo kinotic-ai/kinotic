@@ -137,3 +137,7 @@ We store a bunch of maps during decorator processing that will not be used. We n
 # Kinotic OS Security
 * Add flags to specify what users are allowed to login, i.e. System, Org, App. This will allow us to only allow System logins from behind a  VPN.
   * Make sure this flag also affects if a JWT can be minted, basically will require the org or app id based on the allowed login hierarchy.
+
+
+# Kinotic CLI
+* Remove or fix the init command. It does not have the OrgId and the way the AppId is handled is problematic.
