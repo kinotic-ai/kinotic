@@ -45,7 +45,7 @@ public interface ServiceDirectory {
     /**
      * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
      * a system scope (both ids null) sees all tools, an organization scope sees {@code os-api}- and
-     * {@code app-api}-zone tools, and an application scope sees its own {@code app.<org>.<app>}-zone tools plus
+     * {@code app-api}-zone tools, and an application scope sees its own {@code kinotic-app.<org>.<app>}-zone tools plus
      * {@code app-api}-zone tools.
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null

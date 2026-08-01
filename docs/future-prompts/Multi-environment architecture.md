@@ -41,7 +41,7 @@ applications:
  customer microservices─►│ kinotic-server, profile "app-gateway"      │──► env ES cluster
  (STOMP, per env)        │ (per env, own Ignite cluster via k8s       │    (entity data only)
                          │ Service discovery — Terraform-scoped):     │
-                         │ app login, app.<org>.<app> + app-api       │
+                         │ app login, kinotic-app.<org>.<app> + app-api       │
                          │ zones, entity data plane (RPC over STOMP)  │
                          └────────────────────────────────────────────┘
 
@@ -67,7 +67,7 @@ override):
   node pool or a separate k8s cluster) — membership is whatever the Service selects, so no
   cluster naming in code. Gateways of the same environment cluster together (so a UI on replica
   A reaches a microservice on replica B). Because each environment has its own bus, the existing
-  zone grammar (`app.<orgId>.<appId>`, `app-api`) is unchanged — no collisions between a dev and
+  zone grammar (`kinotic-app.<orgId>.<appId>`, `app-api`) is unchanged — no collisions between a dev and
   prod instance of the same app, and the `APP_API_ZONE` CRIs built by `@kinotic-ai/persistence`
   keep working.
 - **VmManagers stay on the kinotic-server bus** (they are platform infrastructure, connected via
@@ -185,7 +185,7 @@ entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logi
 ```
 
 **Zones** (`kinotic-domain/.../internal/utils/DomainUtil.java`, constants near the top): `os-api`,
-`app-api`, `system`, `APP_ZONE_PREFIX="app"` → `app.<orgId>.<appId>`. Names use **dashes**, not
+`app-api`, `system`, `APP_ZONE_PREFIX="app"` → `kinotic-app.<orgId>.<appId>`. Names use **dashes**, not
 underscores (CRIs are valid URIs by convention; ids are dash-slugified). A service declares
 **exactly one zone** via `@Zone` (`kinotic-core/.../api/annotations/Zone.java`) on the type or its
 `package-info.java` — type-level overrides package-level, and **no declaration means the service
@@ -391,7 +391,7 @@ The three mechanisms that consume this configuration:
 - **`kinotic.zones`** (`List<String>` on `KinoticProperties`) — the zones this deployment
   serves, consumed by two mechanisms: `ServiceRegistrationBeanPostProcessor` fails startup for
   any `@Publish` registration whose zone is outside the list (`app` matching the leading label
-  of `app.<org>.<app>` zones) or **un-zoned**; and the `StompAuthorizer` intersects its
+  of `kinotic-app.<org>.<app>` zones) or **un-zoned**; and the `StompAuthorizer` intersects its
   hardcoded per-participant patterns with it (work item 1). When unset, both are unrestricted —
   today's behavior, so plain dev/test contexts keep working; both deployment profiles always
   set it.
@@ -428,8 +428,8 @@ Work items in this phase:
    | participant | hardcoded today | ∩ gateway `[app-api, app]` | ∩ os-server `[os-api, system]` (post-cutover) |
    |---|---|---|---|
    | Organization | `os-api.**` + `app-api.**` | `app-api.**` (frontend data browsing) | `os-api.**` — `app-api` drops out at cutover automatically |
-   | Application | `app-api.**` + `app.<org>.<app>.**` | unchanged — the customer surface | ∅ — app participants have nothing on the OS bus |
-   | System | everything | `app-api.**` + `app.**` | `os-api.**` + `system.**` — VmManager orchestration intact |
+   | Application | `app-api.**` + `kinotic-app.<org>.<app>.**` | unchanged — the customer surface | ∅ — app participants have nothing on the OS bus |
+   | System | everything | `app-api.**` + `kinotic-app.**` | `os-api.**` + `system.**` — VmManager orchestration intact |
 
    (`reply://` destinations stay exempt from the intersection, as they are from de-scoping
    today.)
@@ -487,7 +487,7 @@ Work items in this phase:
    registrations as allowlist violations whenever the allowlist is set — every service a gateway publishes
    must be deliberately zoned. Client-*hosted* services are
    already constrained by the authorizer (an `ApplicationParticipant` may only host inside its
-   own `app.<org>.<app>` zone). Depth beneath all of this: even if the `StompAuthorizer` had a
+   own `kinotic-app.<org>.<app>` zone). Depth beneath all of this: even if the `StompAuthorizer` had a
    bug allowing an `os-api` send, there is no `os-api` listener on the environment bus — the
    send has nothing to reach.
 

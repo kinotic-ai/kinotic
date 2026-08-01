@@ -78,8 +78,8 @@ disagree, the code wins: read the referenced source before implementing against 
    - *What can I call?* → MCP `tools/list` = (zone send rules mirroring
      `StompAuthorizerFactory.java:66-90`) ∩ (`mcpExposed`) ∩ (`online`). Exactly the
      send rules, nothing more: system → all zones; org participant → `os-api` +
-     `app-api` zones (never `app.<org>.<app>` zones); app participant → own
-     `app.<org>.<app>` + `app-api` zones (never `os-api`). An LLM can only call what
+     `app-api` zones (never `kinotic-app.<org>.<app>` zones); app participant → own
+     `kinotic-app.<org>.<app>` + `app-api` zones (never `os-api`). An LLM can only call what
      is listed — so OS tools meant for app users must be published in the `app-api`
      zone, and OS tools meant for org users in `os-api`.
    - *What belongs to my app?* → ownership queries, participant-org filtered; OS
@@ -356,7 +356,7 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   and pick). Queries: scope listing — `findEntriesScopedTo`, tools —
   `findMcpToolsCallableBy` (`mcpExposed && published && online` + the decision #7
   zone matrix: system → all; org scope → `os-api` + `app-api` zones; app scope → own
-  `app.<org>.<app>` + `app-api` zones — keep this filter in ONE place with a comment
+  `kinotic-app.<org>.<app>` + `app-api` zones — keep this filter in ONE place with a comment
   pointing at `StompAuthorizerFactory`; `sendAllowed` remains the call-time
   enforcement, this is only the listing view). `findMcpToolsCallableBy` returns
   `Page<McpToolDefinition>` flattened from the matching entries: the ES query MUST

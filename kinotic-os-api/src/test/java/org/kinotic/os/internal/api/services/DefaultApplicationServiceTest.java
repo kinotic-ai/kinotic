@@ -5,6 +5,7 @@ import org.kinotic.domain.api.model.Application;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -50,17 +51,22 @@ class DefaultApplicationServiceTest {
     }
 
     @Test
-    void rejectsIdsThatCollideWithAPlatformZoneLabel() {
-        for (String name : List.of("System", "os-api", "App API", "app")) {
-            Application application = new Application(name, "desc");
-            assertThrows(IllegalArgumentException.class,
-                         () -> service.beforeSave(application),
-                         "expected '" + name + "' to be rejected");
-        }
+    void rejectsIdsThatCollideWithTheSystemZone() {
+        assertThrows(IllegalArgumentException.class,
+                     () -> service.beforeSave(new Application("System", "desc")));
         // an update keeps the caller's id rather than re-minting it, so that path is guarded too
         Application existing = new Application("Anything", "desc");
         existing.setId("system");
         assertThrows(IllegalArgumentException.class, () -> service.beforeSave(existing));
+    }
+
+    @Test
+    void allowsNamesMatchingTheOtherPlatformZones() {
+        // the kinotic-app prefix keeps application zones clear of these, so they stay usable names
+        for (String name : List.of("App API", "OS API", "App")) {
+            assertDoesNotThrow(() -> service.beforeSave(new Application(name, "desc")),
+                               "expected '" + name + "' to be allowed");
+        }
     }
 
     @Test

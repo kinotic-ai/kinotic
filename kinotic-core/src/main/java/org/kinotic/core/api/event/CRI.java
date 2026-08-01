@@ -48,7 +48,7 @@ public interface CRI {
      * The zone this {@link CRI} is addressed in, or null if un-zoned
      *
      * The zone is the isolation boundary routing is validated against, such as
-     * {@code app.acme-org.orders-app} or {@code os-api}.
+     * {@code kinotic-app.acme-org.orders-app} or {@code os-api}.
      *
      * For the following CRI zone would be the portion specified by zone
      *

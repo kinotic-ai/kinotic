@@ -21,7 +21,6 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -47,16 +46,10 @@ public class DomainUtil {
     public static final String SYSTEM_ZONE = "system";
 
     /**
-     * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
+     * The leading label of application zones, which follow the form
+     * kinotic-app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
-    public static final String APP_ZONE_PREFIX = "app";
-
-    // Organization and application ids become zone labels, so an id equal to one of the
-    // platform's own zone labels could be read as that zone wherever a label is taken for a zone
-    private static final Set<String> RESERVED_ZONE_LABELS = Set.of(OS_API_ZONE,
-                                                                   APP_API_ZONE,
-                                                                   SYSTEM_ZONE,
-                                                                   APP_ZONE_PREFIX);
+    public static final String APP_ZONE_PREFIX = "kinotic-app";
 
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit
@@ -97,8 +90,7 @@ public class DomainUtil {
 
     private static void validateZoneLabelId(String id) {
         ZoneUtil.validateLabel(id);
-        Validate.isTrue(!RESERVED_ZONE_LABELS.contains(id),
-                        "Id '%s' is reserved by the platform", id);
+        Validate.isTrue(!SYSTEM_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
     }
 
     public static void validateProjectId(String projectId){

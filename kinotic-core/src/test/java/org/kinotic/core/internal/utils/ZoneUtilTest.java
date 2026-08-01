@@ -18,7 +18,7 @@ public class ZoneUtilTest {
         assertDoesNotThrow(() -> ZoneUtil.validateZone("system"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("billing"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("api.admin"));
-        assertDoesNotThrow(() -> ZoneUtil.validateZone("app.acme-corp.orders-app"));
+        assertDoesNotThrow(() -> ZoneUtil.validateZone("kinotic-app.acme-corp.orders-app"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("zone2.with-dash.x9"));
     }
 
