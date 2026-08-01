@@ -29,10 +29,14 @@ INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId,
 
 INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, enabled, created, updated) VALUES ('google-platform', 'Google', 'google', '1018531658131-komame5nk0m59fkp4836b4hrci0r538r.apps.googleusercontent.com', 'google-platform', 'https://accounts.google.com', true, '2026-05-05', '2026-05-05') WITH REFRESH;
 
--- github-platform is the kinotic-ai GitHub App's OAuth credential: "Request user
--- authorization (OAuth)" must be enabled on the app and the app needs the "Email
--- addresses: read-only" account permission (the userEmailsUri lookup reads it). GitHub
--- ignores the scope param for GitHub Apps (App permissions govern access); the scopes
--- below keep a classic OAuth App registration working with the same row.
+-- github-platform is the kinotic-ai GitHub App's OAuth credential: the app must have a
+-- client secret generated, the callback URLs above registered under "Identifying and
+-- authorizing users", and the "Email addresses: read-only" account permission (the
+-- userEmailsUri lookup reads it). Leave "Request user authorization (OAuth) during
+-- installation" unchecked — it reroutes the post-install redirect from the Setup URL
+-- (completeInstall flow) to the OAuth callback; the standalone authorize flow used here
+-- doesn't need it. GitHub ignores the scope param for GitHub Apps (App permissions
+-- govern access); the scopes below keep a classic OAuth App registration working with
+-- the same row.
 
 INSERT INTO kinotic_org_signup_oidc_configuration (id, name, provider, clientId, secretNameRef, authority, authorizationUri, tokenUri, userInfoUri, userEmailsUri, scopes, enabled, created, updated) VALUES ('github-platform', 'GitHub', 'github', 'REPLACE_WITH_GITHUB_APP_CLIENT_ID', 'github-platform', 'https://github.com/login', 'https://github.com/login/oauth/authorize', 'https://github.com/login/oauth/access_token', 'https://api.github.com/user', 'https://api.github.com/user/emails', 'read:user user:email', true, '2026-08-01', '2026-08-01') WITH REFRESH;
