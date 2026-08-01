@@ -26,7 +26,8 @@ not "fix" the clone to match this document.
     │   ├── index.ts          # package entry — export entities/repositories here
     │   ├── model/            # @Entity classes go here
     │   └── repositories/     # `bun run generate` writes repository classes here
-    ├── microservices/        # each microservice is its own nested workspace package
+    ├── microservices/
+    │   └── main/             # starter microservice (zone setup + connect); copy for new services
     └── ui/                   # frontend packages
 ```
 
@@ -48,6 +49,7 @@ not "fix" the clone to match this document.
     },
     "catalog": {
         "@kinotic-ai/core": "<pinned version>",
+        "@kinotic-ai/os-api": "<pinned version>",
         "@kinotic-ai/persistence": "<pinned version>"
     },
     "workspaces": ["packages/*", "packages/microservices/*", "packages/ui/*"],
@@ -98,8 +100,11 @@ export default config
 ## Adding a microservice or UI package
 
 Each microservice or UI is its own workspace package nested under
-`packages/microservices/` or `packages/ui/` (e.g. `packages/microservices/todo-service`)
-— the root workspace globs cover exactly that depth. A minimal service package:
+`packages/microservices/` or `packages/ui/` — the root workspace globs cover exactly
+that depth. The template ships a starter at `packages/microservices/main` with the
+canonical entry point (zone prefix from the project config, then
+`Kinotic.connect(new ConnectionInfo())`); copy it for additional services. A minimal
+service package:
 
 ```json
 {

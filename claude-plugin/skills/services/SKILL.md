@@ -40,14 +40,21 @@ alone makes it callable but unlisted).
 entry point sets the zone prefix from the project config:
 
 ```typescript
-import { Kinotic } from '@kinotic-ai/core'
+import { ConnectionInfo, Kinotic } from '@kinotic-ai/core'
 import { appZone } from '@kinotic-ai/os-api'
 import config from './.config/kinotic.config'
 
 Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
 // ... instantiate @Publish services, then:
-await Kinotic.connect({ host: 'localhost', port: 58503 })
+const connectionInfo = new ConnectionInfo()
+connectionInfo.host = 'localhost'
+connectionInfo.port = 58503
+
+await Kinotic.connect(connectionInfo)
 ```
+
+`ConnectionInfo` is a class with a required `sessionKeepAlive` default — construct it
+and assign fields; a plain object literal fails to type-check against it.
 
 This registers services in the application's zone `app.<orgId>.<appId>`. A class-level
 `@Zone('billing')` nests a sub-zone (`app.<org>.<app>.billing`); a project-wide default
