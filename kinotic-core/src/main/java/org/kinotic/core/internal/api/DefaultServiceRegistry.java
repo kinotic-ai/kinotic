@@ -1,6 +1,7 @@
 package org.kinotic.core.internal.api;
 
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
@@ -71,39 +72,41 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public Future<Void> register(ServiceDescriptor serviceDescriptor, FunctionInstanceProvider instanceProvider) {
-        ServiceIdentifier serviceIdentifier = serviceDescriptor.serviceIdentifier();
+        Promise<Void> promise = Promise.promise();
+        supervisors.compute(serviceDescriptor.serviceIdentifier(),
+                            (_, serviceInvocationSupervisor) -> {
+                                if(serviceInvocationSupervisor == null){
+                                    try {
+                                        serviceInvocationSupervisor = new ServiceInvocationSupervisor(
+                                                serviceDescriptor,
+                                                instanceProvider,
+                                                argumentResolver,
+                                                returnValueConverter,
+                                                exceptionConverter,
+                                                eventBusService,
+                                                reactiveAdapterRegistry,
+                                                vertx,
+                                                securityContext);
 
-        Future<Void> ret;
-        ServiceInvocationSupervisor supervisor = null;
-        try {
-            supervisor = new ServiceInvocationSupervisor(serviceDescriptor,
-                                                         instanceProvider,
-                                                         argumentResolver,
-                                                         returnValueConverter,
-                                                         exceptionConverter,
-                                                         eventBusService,
-                                                         reactiveAdapterRegistry,
-                                                         vertx,
-                                                         securityContext);
+                                        serviceInvocationSupervisor
+                                                .start()
+                                                .onComplete(ar -> {
+                                                    if(ar.succeeded()){
+                                                        promise.complete();
+                                                    }else{
+                                                        promise.fail(ar.cause());
+                                                    }
+                                                });
 
-            if(supervisors.putIfAbsent(serviceIdentifier, supervisor) != null){
-                ret = Future.failedFuture(new IllegalArgumentException("Service already registered for ServiceIdentifier " + serviceIdentifier));
-            }else{
-                // a supervisor that never started must not hold the identifier against a retry. Removal is
-                // keyed on the instance so a registration that replaced it meanwhile is left alone, and it
-                // runs outside any map computation, which ConcurrentHashMap forbids re-entering.
-                ServiceInvocationSupervisor starting = supervisor;
-                ret = supervisor.start()
-                                .onFailure(_ -> supervisors.remove(serviceIdentifier, starting));
-            }
-        } catch (Exception e) {
-            // null until the constructor returns, so this only unwinds a map entry that was actually made
-            if(supervisor != null){
-                supervisors.remove(serviceIdentifier, supervisor);
-            }
-            ret = Future.failedFuture(e);
-        }
-        return ret;
+                                    } catch (Exception e) {
+                                        promise.fail(e);
+                                    }
+                                }else{
+                                    promise.fail(new IllegalArgumentException("Service already registered for ServiceIdentifier "+ serviceDescriptor.serviceIdentifier()));
+                                }
+                                return serviceInvocationSupervisor;
+                            });
+        return promise.future();
     }
 
     @Override
@@ -159,18 +162,24 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public Future<Void> unregister(ServiceIdentifier serviceIdentifier) {
-        ServiceInvocationSupervisor supervisor = supervisors.get(serviceIdentifier);
-
-        Future<Void> ret;
-        if(supervisor == null){
-            ret = Future.failedFuture(new IllegalArgumentException("No Service registered for ServiceIdentifier " + serviceIdentifier));
-        }else{
-            // the identifier is released only once the supervisor has actually stopped: a failed stop can
-            // leave its event bus consumer registered, and releasing the identifier anyway would let the
-            // next register put a second supervisor on the same address
-            ret = supervisor.stop()
-                            .onSuccess(_ -> supervisors.remove(serviceIdentifier, supervisor));
-        }
-        return ret;
+        Promise<Void> promise = Promise.promise();
+        supervisors.compute(serviceIdentifier,
+                            (serviceIdentifier1, serviceInvocationSupervisor) -> {
+                                if(serviceInvocationSupervisor != null){
+                                    serviceInvocationSupervisor
+                                            .stop()
+                                            .onComplete(ar -> {
+                                                if(ar.succeeded()){
+                                                    promise.complete();
+                                                }else{
+                                                    promise.fail(ar.cause());
+                                                }
+                                            });
+                                }else{
+                                    promise.fail(new IllegalArgumentException(" No Service registered for for ServiceIdentifier "+ serviceIdentifier));
+                                }
+                                return null; // remove from map
+                            });
+        return promise.future();
     }
 }
