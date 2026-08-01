@@ -69,8 +69,7 @@ public interface ServiceDirectory {
      * @param serviceIdentifier the identifier the service registered under
      * @param serviceInterface the {@code @Publish} interface being registered
      * @param serviceImplementation the class implementing the interface, an AOP proxy class is unwrapped;
-     *                              parameter names and annotations resolve against its methods, matching
-     *                              the runtime invocation
+     *                              generic bindings and annotations resolve against its methods
      */
     void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
 

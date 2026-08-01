@@ -122,9 +122,8 @@ public class DefaultSchemaFactory implements SchemaFactory {
         // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
         for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
 
-            // the implementation's override decides parameter names, generic bindings, and annotations —
-            // the same method the invocation-side named-argument binding resolves, so the published schema
-            // and the runtime binding cannot drift
+            // the implementation's override decides generic bindings and annotations, so an inherited
+            // CompletableFuture<T> converts with T bound and @McpTool is honored on the override
             Method specificMethod = BridgeMethodResolver.findBridgedMethod(
                     ClassUtils.getMostSpecificMethod(function.getValue(), implementation));
 
@@ -138,12 +137,16 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                functionDefinition.addParameter(IdlUtil.parameterName(methodParameter), c3Type);
+                // names come from the interface method: AopUtils.selectInvocableMethod returns the
+                // interface's method to the invoker, so the interface's parameter names are what
+                // named-argument binding resolves. Mcp.test.ts pins the two together.
+                functionDefinition.addParameter(IdlUtil.parameterName(new MethodParameter(function.getValue(), i)),
+                                                c3Type);
             }
 
             functionDefinition.setName(function.getKey());
 
-            // findAnnotation walks super methods, so @McpTool applies whether declared on the contract
+            // findAnnotation walks super methods, so @McpTool applies whether declared on the interface
             // method or only on the implementation's override (e.g. an inherited CRUD method); a
             // method-level annotation overrides the type-level defaults for that method
             McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
@@ -167,10 +170,10 @@ public class DefaultSchemaFactory implements SchemaFactory {
         return serviceDefinition;
     }
 
-    private String resolveDescription(McpTool mcpTool, Method contractMethod, Method specificMethod, String functionName) {
+    private String resolveDescription(McpTool mcpTool, Method interfaceMethod, Method specificMethod, String functionName) {
         String ret = mcpTool.description();
         if (ret.isEmpty()) {
-            ret = javadocDescription(specificMethod, contractMethod);
+            ret = javadocDescription(specificMethod, interfaceMethod);
         }
         if (ret == null || ret.isEmpty()) {
             ret = deriveDescription(functionName);
@@ -180,14 +183,14 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
     /**
      * Looks up the compile-time extracted Javadoc description for a function, walking the most specific
-     * declaration first: the implementation's override, the contract's declaration, then the contract's
+     * declaration first: the implementation's override, the interface's declaration, then the interface's
      * ancestors — so an inherited CRUD function finds the doc written on the generic base.
      */
-    private String javadocDescription(Method specificMethod, Method contractMethod) {
+    private String javadocDescription(Method specificMethod, Method interfaceMethod) {
         String ret = null;
-        String functionName = contractMethod.getName();
+        String functionName = interfaceMethod.getName();
         Deque<Class<?>> queue = new ArrayDeque<>(List.of(specificMethod.getDeclaringClass(),
-                                                         contractMethod.getDeclaringClass()));
+                                                         interfaceMethod.getDeclaringClass()));
         Set<Class<?>> visited = new HashSet<>();
         while (ret == null && !queue.isEmpty()) {
             Class<?> type = queue.poll();

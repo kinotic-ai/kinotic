@@ -123,6 +123,17 @@ public class RpcTests {
     }
 
     @Test
+    public void testObjectMethodsAreAnsweredWithoutRemoteInvocation(){
+        Assertions.assertTrue(rpcTestServiceProxy.toString().contains("RpcTestService"));
+
+        Assertions.assertEquals(rpcTestServiceProxy, rpcTestServiceProxy);
+        Assertions.assertNotEquals(rpcTestServiceProxy, nonExistentServiceProxy);
+
+        // exercises hashCode and equals together, and would hang or throw if either went to the remote end
+        Assertions.assertTrue(Set.of(rpcTestServiceProxy, nonExistentServiceProxy).contains(rpcTestServiceProxy));
+    }
+
+    @Test
     public void testFirstArgParticipant(){
         String suffix = " Wat";
         Mono<String> mono = withParticipant(() -> rpcTestServiceProxy.firstArgParticipant(suffix));

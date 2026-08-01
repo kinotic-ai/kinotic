@@ -19,22 +19,22 @@ public final class IdlUtil {
     }
 
     /**
-     * Resolves the functions a service contract declares: every user-declared method keyed by function name.
+     * Resolves the functions a service interface declares: every user-declared method keyed by function name.
      * Overloading is not supported; when a name is declared more than once only one method is kept. Schema
      * generation and service registration must both use this rule, so a published schema never carries a
      * function the registry does not serve.
      *
-     * @param serviceClass the service contract to introspect
-     * @return the contract's functions keyed by name
+     * @param serviceInterface the service interface to introspect
+     * @return the interface's functions keyed by name
      */
-    public static Map<String, Method> serviceFunctions(Class<?> serviceClass) {
+    public static Map<String, Method> serviceFunctions(Class<?> serviceInterface) {
         Map<String, Method> ret = new LinkedHashMap<>();
-        ReflectionUtils.doWithMethods(serviceClass, method -> {
+        ReflectionUtils.doWithMethods(serviceInterface, method -> {
             Method existing = ret.putIfAbsent(method.getName(), method);
             // a default method can be visited twice; only a genuinely different signature is an overload
             if (existing != null && !existing.equals(method)) {
                 log.warn("{} has overloaded method {} overloading is not supported. \n {} will be ignored",
-                         serviceClass.getName(),
+                         serviceInterface.getName(),
                          method.getName(),
                          method.toGenericString());
             }

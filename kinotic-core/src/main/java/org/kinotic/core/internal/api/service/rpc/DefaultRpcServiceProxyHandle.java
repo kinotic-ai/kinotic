@@ -20,7 +20,6 @@ import org.kinotic.core.internal.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.util.Assert;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.InvocationHandler;
@@ -186,126 +185,112 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     @Override
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         Object ret;
-        if(!released.get()){
+        // The JDK proxy dispatches equals, hashCode and toString here with Object as the declaring class, even
+        // when a proxy interface redeclares one of them. None of them reach the remote end, so they are answered
+        // ahead of the released guard: logging or collecting a released proxy must not fail.
+        if(method.getDeclaringClass() == Object.class){
+
+            // a handle mints exactly one proxy, so the proxy's identity is the handle's identity
+            ret = switch (method.getName()) {
+                case "equals" -> proxy == args[0];
+                case "hashCode" -> System.identityHashCode(proxy);
+                default -> toString();
+            };
+
+        }else if(!released.get()){
 
             if(log.isTraceEnabled()){
                 log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
             }
 
-            if(!shouldInvokeLocally(method)) {
-
-                // Get all data for remote invocation. If anything fails in this step the error automatically props up
-                // This way no ReturnValueHandler is created until message is ready to get dispatched to remote end
+            // Get all data for remote invocation. If anything fails in this step the error automatically props up
+            // This way no ReturnValueHandler is created until message is ready to get dispatched to remote end
 
 
-                // if there is a scope parameter remove it from args to be sent, and store it as part of the CRI
-                Integer scopeParameter = methodsWithScopeAnnotation.get(method);
-                String scope = (scopeParameter != null ? args[scopeParameter].toString() : null); // effectively final.. lol
-                if(scopeParameter != null){
-                    args = ArrayUtils.remove(args, scopeParameter);
-                }
-
-                // convert arguments to be sent
-                byte[] argumentData = rpcArgumentConverter.convert(method, args);
-                String correlationId = UUID.randomUUID().toString();
-
-                // Now create response handler and store, so we can propagate response in replyMessageConsumer
-                RpcReturnValueHandler handler = rpcReturnValueHandlerFactory.createReturnValueHandler(method, args);
-                responseMap.put(correlationId, handler);
-
-                // Create Event to be sent to remote end to cause service invocation
-                Metadata metadata = Metadata.create();
-                metadata.put(EventConstants.REPLY_TO_HEADER, handlerCRI.raw());
-                metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
-                metadata.put(EventConstants.CONTENT_TYPE_HEADER, rpcArgumentConverter.producesContentType());
-
-                // TODO: use version string to determine how specific the invocation has to be like npm semantics ^1.0.0 ect
-                CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
-                                            scope,
-                                            serviceIdentifier.qualifiedName(),
-                                            "/" + method.getName(),
-                                            serviceIdentifier.version());
-
-                // Propagate the participant active on the calling context so the callee sees the originator.
-                Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
-                                                              metadata,
-                                                              argumentData,
-                                                              securityContext.currentParticipant());
-
-                ret = handler.getReturnValue(new RpcRequest() {
-                    @Override
-                    public void send() {
-                        // Send data to remote end to trigger service invocation
-                        eventBusService.sendWithAck(rpcOutboundEvent)
-                                       .onComplete(ar -> {
-                                           if(ar.failed()) {
-                                               // send failed, signal handler so failure can be relayed to the return value
-                                               try{
-
-                                                   responseMap.remove(correlationId);
-
-                                                   Throwable throwable = ar.cause();
-                                                   // TODO: refactor into util, this is also done in the EndpointConnectionHandler
-                                                   if (throwable instanceof ReplyException replyException) {
-                                                       if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                                           throwable = new RpcMissingServiceException(throwable);
-                                                       }
-                                                   }
-                                                   handler.processError(throwable);
-                                               }catch (Exception e){
-                                                   log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
-                                                   release();
-                                               }
-                                           }
-                                       });
-                    }
-
-                    @Override
-                    public void cancelRequest() {
-                        if(handler.isMultiValue()) {
-                            // Now publish message for remote control
-                            Metadata metadata = Metadata.create();
-                            metadata.put(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL);
-                            metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
-
-                            // Send data to remote end for control request
-                            eventBusService.sendWithAck(Event.create(requestCri,
-                                                                     metadata,
-                                                                     null))
-                                           .onComplete(ar -> responseMap.remove(correlationId));
-                        } else {
-                            throw new IllegalStateException("Cancel is not supported if RpcReturnValueHandler.isMultiValue returns false");
-                        }
-                    }
-                });
-
-            }else{
-                // Method not defined on service interface pass call directly to this service handle. ex: toString()
-                Class<?>[] paramTypes = new Class[args.length];
-                for(int i = 0; i < args.length; i++){
-                    paramTypes[i] = args[i].getClass();
-                }
-                Method serviceHandleMethod = ReflectionUtils.findMethod(this.getClass(), method.getName(), paramTypes);
-
-                Assert.notNull(serviceHandleMethod, "Could not find appropriate method on proxy handle");
-
-                ret = serviceHandleMethod.invoke(this, args);
+            // if there is a scope parameter remove it from args to be sent, and store it as part of the CRI
+            Integer scopeParameter = methodsWithScopeAnnotation.get(method);
+            String scope = (scopeParameter != null ? args[scopeParameter].toString() : null); // effectively final.. lol
+            if(scopeParameter != null){
+                args = ArrayUtils.remove(args, scopeParameter);
             }
+
+            // convert arguments to be sent
+            byte[] argumentData = rpcArgumentConverter.convert(method, args);
+            String correlationId = UUID.randomUUID().toString();
+
+            // Now create response handler and store, so we can propagate response in replyMessageConsumer
+            RpcReturnValueHandler handler = rpcReturnValueHandlerFactory.createReturnValueHandler(method, args);
+            responseMap.put(correlationId, handler);
+
+            // Create Event to be sent to remote end to cause service invocation
+            Metadata metadata = Metadata.create();
+            metadata.put(EventConstants.REPLY_TO_HEADER, handlerCRI.raw());
+            metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+            metadata.put(EventConstants.CONTENT_TYPE_HEADER, rpcArgumentConverter.producesContentType());
+
+            // TODO: use version string to determine how specific the invocation has to be like npm semantics ^1.0.0 ect
+            CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                        scope,
+                                        serviceIdentifier.qualifiedName(),
+                                        "/" + method.getName(),
+                                        serviceIdentifier.version());
+
+            // Propagate the participant active on the calling context so the callee sees the originator.
+            Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
+                                                          metadata,
+                                                          argumentData,
+                                                          securityContext.currentParticipant());
+
+            ret = handler.getReturnValue(new RpcRequest() {
+                @Override
+                public void send() {
+                    // Send data to remote end to trigger service invocation
+                    eventBusService.sendWithAck(rpcOutboundEvent)
+                                   .onComplete(ar -> {
+                                       if(ar.failed()) {
+                                           // send failed, signal handler so failure can be relayed to the return value
+                                           try{
+
+                                               responseMap.remove(correlationId);
+
+                                               Throwable throwable = ar.cause();
+                                               // TODO: refactor into util, this is also done in the EndpointConnectionHandler
+                                               if (throwable instanceof ReplyException replyException) {
+                                                   if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                                                       throwable = new RpcMissingServiceException(throwable);
+                                                   }
+                                               }
+                                               handler.processError(throwable);
+                                           }catch (Exception e){
+                                               log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
+                                               release();
+                                           }
+                                       }
+                                   });
+                }
+
+                @Override
+                public void cancelRequest() {
+                    if(handler.isMultiValue()) {
+                        // Now publish message for remote control
+                        Metadata metadata = Metadata.create();
+                        metadata.put(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL);
+                        metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
+
+                        // Send data to remote end for control request
+                        eventBusService.sendWithAck(Event.create(requestCri,
+                                                                 metadata,
+                                                                 null))
+                                       .onComplete(ar -> responseMap.remove(correlationId));
+                    } else {
+                        throw new IllegalStateException("Cancel is not supported if RpcReturnValueHandler.isMultiValue returns false");
+                    }
+                }
+            });
 
         }else{
            throw new IllegalStateException("RpcServiceProxyHandle has already been released. No service method can be called after release.");
         }
-        return ret;
-    }
-
-    private boolean shouldInvokeLocally(Method method){
-        boolean ret = false;
-
-        String methodName = method.getName();
-        if(methodName.equals("toString")){
-            ret = true;
-        }
-
         return ret;
     }
 
