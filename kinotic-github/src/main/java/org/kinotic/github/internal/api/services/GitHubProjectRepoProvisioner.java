@@ -17,6 +17,8 @@ import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.api.services.ProjectRepoProvisioner;
 import org.springframework.stereotype.Component;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -44,6 +47,11 @@ import java.util.concurrent.TimeUnit;
  * GitHub repo name. That slug is also exposed to the templates as
  * {@code projectSlug} for values that must be identifiers rather than the raw name;
  * the repo name is the same slug truncated to GitHub's repo-name length limit.
+ * <p>
+ * Alongside the project's own values, the render context carries a version range for
+ * every published {@code @kinotic-ai} npm package, keyed by the spawn global a template
+ * pins it through ({@code kinoticCoreVersion}, {@code kinoticCliVersion}, ...), so a
+ * provisioned project depends on the package versions this server ships with.
  */
 @Slf4j
 @Component
@@ -54,6 +62,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private static final int GITHUB_REPO_NAME_MAX = 100;
     private static final int TARBALL_MAX_ATTEMPTS = 10;
     private static final Duration TARBALL_RETRY_DELAY = Duration.ofSeconds(2);
+    private static final String NPM_PACKAGE_VERSIONS_RESOURCE = "/spawn/npm-package-versions.properties";
+    private static final Map<String, Object> NPM_PACKAGE_VERSIONS = loadNpmPackageVersions();
 
     private final GitHubAppInstallationService installationService;
     private final GitHubApiClient apiClient;
@@ -207,14 +217,36 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Map<String, Object> contextFor(Project project) {
+        // The package versions seed the context, so a template that also declares them as
+        // spawn.json globals gets this server's values instead of its own defaults.
+        Map<String, Object> ret = new LinkedHashMap<>(NPM_PACKAGE_VERSIONS);
         // projectName is the human-facing name; projectSlug is its slug, for template
         // values that must be npm identifiers (e.g. the package.json name), which the
         // raw name is not. It is not truncated to the repo-name cap: an npm identifier
         // shouldn't inherit GitHub's repo-name length limit.
-        return Map.of("projectName", project.getName(),
-                      "projectSlug", SLUGIFY.slugify(project.getName()),
-                      "organization", project.getOrganizationId(),
-                      "application", project.getApplicationId());
+        ret.put("projectName", project.getName());
+        ret.put("projectSlug", SLUGIFY.slugify(project.getName()));
+        ret.put("organizationId", project.getOrganizationId());
+        ret.put("applicationId", project.getApplicationId());
+        return ret;
+    }
+
+    private static Map<String, Object> loadNpmPackageVersions() {
+        Properties properties = new Properties();
+        try (InputStream in = GitHubProjectRepoProvisioner.class.getResourceAsStream(NPM_PACKAGE_VERSIONS_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException(
+                        "Spawn context resource " + NPM_PACKAGE_VERSIONS_RESOURCE + " is missing from the classpath. "
+                        + "It is generated from the kinotic-js package.json files by the "
+                        + "kinotic-github npmPackageVersions task.");
+            }
+            properties.load(in);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to load " + NPM_PACKAGE_VERSIONS_RESOURCE, e);
+        }
+        Map<String, Object> ret = new LinkedHashMap<>();
+        properties.forEach((name, range) -> ret.put((String) name, range));
+        return Map.copyOf(ret);
     }
 
     /** @return the bytes decoded as strict UTF-8, or null when they are not valid UTF-8 (binary). */

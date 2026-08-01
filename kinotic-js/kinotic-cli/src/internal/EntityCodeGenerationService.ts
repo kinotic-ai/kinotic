@@ -79,7 +79,7 @@ export class EntityCodeGenerationService {
 
         for (const resolvedPathConfig of resolvedConfigs) {
             const config: ConversionConfiguration = {
-                application        : projectConfig.application,
+                application        : projectConfig.applicationId,
                 entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
@@ -216,7 +216,7 @@ export class EntityCodeGenerationService {
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
-                                                                           organizationId: projectConfig.organization,
+                                                                           organizationId: projectConfig.organizationId,
                                                                            defaultExport,
                                                                            entityImportPath,
                                                                            validationLogic,

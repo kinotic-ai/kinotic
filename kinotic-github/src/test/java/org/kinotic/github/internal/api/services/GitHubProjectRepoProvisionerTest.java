@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertLinesMatch;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -111,6 +112,11 @@ class GitHubProjectRepoProvisionerTest {
         assertEquals(TreeEntry.MODE_EXECUTABLE, tree.get("bin/demo.sh").mode());
         // binary files ride as blobs created out of band
         assertEquals("blob-sha", tree.get("assets/logo.png").sha());
+        // npm package versions come from the build-generated resource, and override the
+        // spawn.json global the template declares them with
+        assertLinesMatch(List.of("\\^\\d+\\.\\d+\\.\\d+", "\\^\\d+\\.\\d+\\.\\d+"),
+                         tree.get("versions.txt").content().lines().toList());
+        assertTrue(!tree.get("versions.txt").content().contains("^0.0.1"));
 
         verify(apiClient).createCommit(eq("repo-token"), eq("acme/demo"), anyString(), eq("tree-sha"));
         verify(apiClient).updateRef(eq("repo-token"), eq("acme/demo"), eq("heads/main"), eq("commit-sha"), eq(true));
@@ -176,9 +182,13 @@ class GitHubProjectRepoProvisionerTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (TarArchiveOutputStream tar = new TarArchiveOutputStream(new GZIPOutputStream(out))) {
             addEntry(tar, "root/spawn.json",
-                     "{\"propertySchema\": {\"projectName\": {\"type\": \"string\"}}}".getBytes(StandardCharsets.UTF_8), false);
+                     ("{\"globals\": {\"kinoticCoreVersion\": \"^0.0.1\"},"
+                      + " \"propertySchema\": {\"projectName\": {\"type\": \"string\"}}}")
+                             .getBytes(StandardCharsets.UTF_8), false);
+            addEntry(tar, "root/versions.txt.liquid",
+                     "{{ kinoticCoreVersion }}\n{{ kinoticCliVersion }}\n".getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/package.json.liquid",
-                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organization}}\", \"app\": \"{{application}}\"}"
+                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organizationId}}\", \"app\": \"{{applicationId}}\"}"
                              .getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
                      "export class {{ projectName | camelCase | upperFirst }} {}".getBytes(StandardCharsets.UTF_8), false);

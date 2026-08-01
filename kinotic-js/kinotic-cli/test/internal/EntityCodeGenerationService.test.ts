@@ -72,8 +72,8 @@ describe('EntityCodeGenerationService', () => {
             include: ['src/**/*']
         }))
 
-        projectConfig.application = 'my.app'
-        projectConfig.organization = 'acme'
+        projectConfig.applicationId = 'my.app'
+        projectConfig.organizationId = 'acme'
         projectConfig.validate = false
         projectConfig.fileExtensionForImports = '.js'
         projectConfig.entitiesPaths = [{
@@ -92,7 +92,7 @@ describe('EntityCodeGenerationService', () => {
 
     // A fresh service per call, matching the one-generation-per-process lifecycle of `kinotic gen`.
     async function generate(): Promise<void> {
-        const service = new EntityCodeGenerationService(projectConfig.application,
+        const service = new EntityCodeGenerationService(projectConfig.applicationId,
                                                         projectConfig.fileExtensionForImports,
                                                         new ConsoleLogger())
         await service.generateAllEntities(projectConfig, false, undefined, true)

@@ -66,17 +66,17 @@ export class Synchronize extends Command {
 
                 let project: Project | null = null
                 if(!flags.dryRun) {
-                    await Kinotic.applications.createApplicationIfNotExist(kinoticProjectConfig.application, '')
+                    await Kinotic.applications.createApplicationIfNotExist(kinoticProjectConfig.applicationId, '')
                     project = new Project(null,
-                                          kinoticProjectConfig.application,
+                                          kinoticProjectConfig.applicationId,
                                           kinoticProjectConfig.name as string,
                                           kinoticProjectConfig.description)
-                    project.organizationId = kinoticProjectConfig.organization
+                    project.organizationId = kinoticProjectConfig.organizationId
                     project.sourceOfTruth = ProjectType.TYPESCRIPT
                     project = await Kinotic.projects.createProjectIfNotExist(project)
                 }
 
-                const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.application,
+                const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.applicationId,
                                                                               kinoticProjectConfig.fileExtensionForImports,
                                                                               this)
 
@@ -96,11 +96,11 @@ export class Synchronize extends Command {
                                              //      This will evict the named query execution plan cache
                                              //      We want to make sure the GraphQL schema is updated after both these are updated and the EntityDefinition below
                                              if(!flags.dryRun && namedQueries.length > 0){
-                                                 await this.synchronizeNamedQueries(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, namedQueries)
+                                                 await this.synchronizeNamedQueries(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, namedQueries)
                                              }
 
                                              if(!flags.dryRun) {
-                                                 await this.synchronizeEntity(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
+                                                 await this.synchronizeEntity(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
                                              }
                                          },
                                          flags.force)
@@ -115,7 +115,7 @@ export class Synchronize extends Command {
                     )
                 }
 
-                this.log(`Synchronization Complete For application: ${kinoticProjectConfig.application}`)
+                this.log(`Synchronization Complete For application: ${kinoticProjectConfig.applicationId}`)
 
             } catch (e) {
                 if (e instanceof Error) {

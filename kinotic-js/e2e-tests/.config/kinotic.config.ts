@@ -1,8 +1,8 @@
 import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 const config: KinoticProjectConfig = {
-  organization: "kinotic-test",
-  application: "e2e-tests",
+  organizationId: "kinotic-test",
+  applicationId: "e2e-tests",
   entitiesPaths: [
     {
       path: "test/domain",
