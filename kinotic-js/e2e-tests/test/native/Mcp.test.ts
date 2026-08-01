@@ -7,6 +7,9 @@ import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 // Tool names are minted server side: the service's qualified name with '~' as '.', then the function name
 const FIND_PROJECTS_BY_REPO = 'os-api.org.kinotic.os.api.services.ProjectService.findByRepoFullName'
 const CREATE_APPLICATION = 'os-api.org.kinotic.os.api.services.ApplicationService.createApplicationIfNotExist'
+// ProjectService inherits save from CrudService, which declares save(T entity), while the
+// implementation it inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
+const SAVE_PROJECT = 'os-api.org.kinotic.os.api.services.ProjectService.save'
 
 /** APPLICATION-scope fixture application seeded for this suite by V5__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
@@ -99,6 +102,24 @@ describe('Kinotic JS', () => {
         const result = await organizationClient.callTool({name: FIND_PROJECTS_BY_REPO,
                                                           arguments: {repoFullName: 'a/b', bogus: 'x'}})
         expect(result.isError).toBe(true)
+    })
+
+    it('publishes and binds the contract parameter name where the implementation renames it', async () => {
+        const save = (await systemClient.listTools()).tools.find(tool => tool.name === SAVE_PROJECT)
+        expect(save, `${SAVE_PROJECT} is not exposed as a tool`).toBeDefined()
+
+        // the contract's name, never the inherited implementation's 'value'
+        expect(Object.keys(save!.inputSchema.properties ?? {})).toEqual(['entity'])
+
+        // taking the argument name from the schema is what makes this a round trip: publishing a name the
+        // service does not bind fails here, whichever name that is
+        const [publishedName] = Object.keys(save!.inputSchema.properties ?? {})
+        const result = await organizationClient.callTool({name: SAVE_PROJECT,
+                                                          arguments: {[publishedName]: {}}})
+
+        // an empty project still fails on its own business rules; only the binder's rejection is under test
+        const content = result.content as Array<{ type: string, text?: string }>
+        expect(content[0]?.text ?? '').not.toContain('matches no parameter')
     })
 
     it('refuses a call to a tool outside the caller zones', async () => {
