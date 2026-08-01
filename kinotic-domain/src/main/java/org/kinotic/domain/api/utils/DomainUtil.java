@@ -38,7 +38,7 @@ public class DomainUtil {
      * The zone for the platform's application facing data services, such as entity persistence
      * and named query execution
      */
-    public static final String APP_API_ZONE = "app-api";
+    public static final String APP_API_ZONE = "kinotic-app-api";
 
     /**
      * The zone for services internal to the platform, only reachable by system participants

@@ -14,7 +14,7 @@ public class ZoneUtilTest {
     @Test
     public void validZones() {
         assertDoesNotThrow(() -> ZoneUtil.validateZone("os-api"));
-        assertDoesNotThrow(() -> ZoneUtil.validateZone("app-api"));
+        assertDoesNotThrow(() -> ZoneUtil.validateZone("kinotic-app-api"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("system"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("billing"));
         assertDoesNotThrow(() -> ZoneUtil.validateZone("api.admin"));

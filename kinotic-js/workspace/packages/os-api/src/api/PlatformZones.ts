@@ -2,7 +2,7 @@ import { validateLabel } from '@kinotic-ai/core'
 
 /**
  * The zones the Kinotic platform partitions the event bus address space into:
- * `kinotic-app.<organizationId>.<applicationId>` addresses belong to a single application, `app-api`
+ * `kinotic-app.<organizationId>.<applicationId>` addresses belong to a single application, `kinotic-app-api`
  * contains the platform's data plane for applications, `os-api` contains the platform services
  * organizations manage the system through, and `system` addresses are internal to the platform.
  * The gateway enforces which zones a participant may address on every send and subscribe.

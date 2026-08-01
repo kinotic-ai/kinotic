@@ -58,8 +58,8 @@ public class StompAuthorizerFactoryTest {
     public void applicationParticipantSendRules() {
         StompAuthorizer authorizer = applicationAuthorizer("acme-org", "orders-app");
 
-        // the app-api data plane and the app's own zone, including app declared sub zones
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        // the kinotic-app-api data plane and the app's own zone, including app declared sub zones
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app.billing~InvoiceService/pay#1.0.0")));
 
@@ -113,7 +113,7 @@ public class StompAuthorizerFactoryTest {
         // authenticates as an organization participant
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app~OrderService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("stream://kinotic-app.acme-org.orders-app~OrderEvents")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://system~kinotic-ai.vm-manager.VmManager#0.1.0")));
     }
@@ -128,7 +128,7 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app.billing~InvoiceService#1.0.0")));
 
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app.other-org.orders-app~OrderService#1.0.0")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://system~kinotic-ai.vm-manager.VmManager#0.1.0")));
     }
@@ -140,7 +140,7 @@ public class StompAuthorizerFactoryTest {
         // the management surface, the data plane, and its own applications' zones
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.persistence.api.services.EntityDefinitionService/publish#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app~OrderService/create#1.0.0")));
 
         // never another organization's applications or the platform internals
@@ -153,7 +153,7 @@ public class StompAuthorizerFactoryTest {
         StompAuthorizer authorizer = systemAuthorizer();
 
         assertTrue(authorizer.sendAllowed(CRI.create("srv://os-api~org.kinotic.os.api.services.iam.MemberService/findMembers#1.0.0")));
-        assertTrue(authorizer.sendAllowed(CRI.create("srv://app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
+        assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.persistence.api.services.JsonEntitiesRepository/save#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://system~org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService/startWorkload#0.1.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app~OrderService/create#1.0.0")));
         assertTrue(authorizer.sendAllowed(CRI.create("srv://node1@system~kinotic-ai.vm-manager.VmManager/startWorkload#0.1.0")));
@@ -162,9 +162,9 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://system~kinotic-ai.vm-manager.VmManager#0.1.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@system~kinotic-ai.vm-manager.VmManager#0.1.0")));
 
-        // os-api and app-api are hosted in-process only, so not even system may subscribe to them
+        // os-api and kinotic-app-api are hosted in-process only, so not even system may subscribe to them
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://os-api~org.kinotic.some.PlatformService#1.0.0")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app-api~org.kinotic.some.DataService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://kinotic-app.acme-org.orders-app~OrderService#1.0.0")));
         // subscribing requires a zone: an un-zoned address is never subscribable, even for system
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://org.kinotic.server.clienttest.SomeLegacyService#1.0.0")));
