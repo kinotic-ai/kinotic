@@ -23,6 +23,7 @@ not "fix" the clone to match this document.
     ├── domain/               # entity model + generated repositories
     │   ├── package.json
     │   ├── tsconfig.json
+    │   ├── index.ts          # package entry — export entities/repositories here
     │   ├── model/            # @Entity classes go here
     │   └── repositories/     # `bun run generate` writes repository classes here
     ├── microservices/        # @Publish service classes
