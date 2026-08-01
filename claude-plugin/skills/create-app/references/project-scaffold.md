@@ -9,12 +9,15 @@ not "fix" the clone to match this document.
 
 ```
 <repo root>/
+├── README.md
 ├── package.json              # Bun workspace root
+├── tsconfig.json             # `bun run generate` resolves entity types through its include globs
 ├── tsconfig.base.json
-├── bunup.config.ts
+├── bunup.config.ts           # bunup workspace definition (packages are registered here)
 ├── .config/
 │   ├── kinotic.config.ts     # Kinotic project configuration (see below)
 │   └── c3/                   # generated entity/query schemas (written by `bun run generate`)
+├── .kinotic/                 # local incremental-generation cache (gitignored — never commit)
 ├── migrations/               # V<N>__<description>.sql migration files (may be absent until first used)
 └── packages/
     ├── domain/               # entity model + generated repositories
@@ -25,6 +28,10 @@ not "fix" the clone to match this document.
     ├── microservices/        # @Publish service classes
     └── ui/                   # frontend packages
 ```
+
+The root `tsconfig.json` include globs mirror `entitiesPaths` — if an entity path is
+added to `kinotic.config.ts`, add the matching glob there too or `bun run generate`
+cannot resolve the entity types.
 
 ## Root `package.json`
 
@@ -39,7 +46,8 @@ not "fix" the clone to match this document.
         "type-check": "bun run --filter '*' type-check"
     },
     "devDependencies": {
-        "@kinotic-ai/kinotic-cli": "<pinned version>"
+        "@kinotic-ai/kinotic-cli": "<pinned version>",
+        "@kinotic-ai/os-api": "<pinned version>"
     },
     "catalog": {
         "@kinotic-ai/core": "<pinned version>",
@@ -72,7 +80,7 @@ const config: KinoticProjectConfig = {
   entitiesPaths: [
     {
       path: "packages/domain/model",
-      repositoryPath: "packages/domain/repository",
+      repositoryPath: "packages/domain/repositories",
       mirrorFolderStructure: true
     }
   ],
@@ -88,8 +96,7 @@ export default config
   wrong application — surface this to the user before pushing.
 - `entitiesPaths[].path` is where `@Entity` classes are discovered;
   `repositoryPath` is where repository classes are generated. Trust the values in the
-  cloned config over the ones shown here — the directory name for repositories has
-  varied between template revisions (`repository` vs `repositories`).
+  cloned config over the ones shown here.
 
 ## Verification checklist
 
