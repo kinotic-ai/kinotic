@@ -12,7 +12,7 @@ import {
  * The zone for the platform's application facing data services, such as entity persistence
  * and named query execution — where the services backing these repositories are hosted.
  */
-export const APP_API_ZONE = 'kinotic-app-api'
+export const APP_API_ZONE = 'app-api'
 
 export interface IEntitiesRepository {
 

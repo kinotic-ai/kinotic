@@ -33,7 +33,7 @@ exists).
    connection properties, as part of the rollout.
 6. **Cutover** (the one deliberate breaking step, only after the frontend talks to gateways for
    entity data): in `application-os-server.yml`, set `disablePersistence: true` and drop
-   `kinotic-app-api` from `kinotic.zones`. From then on the OS bus carries no entity data plane, and
+   `app-api` from `kinotic.zones`. From then on the OS bus carries no entity data plane, and
    the zones intersection automatically narrows organization participants on the OS server to
    `os-api.**`.
 7. **Secrets/TLS** — extend the `platformSecrets` mounting (JWT signing keys are shared across

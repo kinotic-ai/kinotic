@@ -12,8 +12,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers id handling in {@link DefaultApplicationService#beforeSave}: minting the id from the
- * slugified name and rejecting ids that are not lowercase letters, digits, and interior
- * dashes. The collaborators are unused by beforeSave, so none are given.
+ * slugified name, rejecting ids that are not lowercase letters, digits, and interior dashes,
+ * and rejecting the reserved {@code system} label. The collaborators are unused by beforeSave,
+ * so none are given.
  */
 class DefaultApplicationServiceTest {
 
@@ -62,7 +63,7 @@ class DefaultApplicationServiceTest {
 
     @Test
     void allowsNamesMatchingTheOtherPlatformZones() {
-        // the kinotic-app prefix keeps application zones clear of these, so they stay usable names
+        // an id only ever lands after the app zone prefix, so these cannot collide with a zone
         for (String name : List.of("App API", "OS API", "App")) {
             assertDoesNotThrow(() -> service.beforeSave(new Application(name, "desc")),
                                "expected '" + name + "' to be allowed");

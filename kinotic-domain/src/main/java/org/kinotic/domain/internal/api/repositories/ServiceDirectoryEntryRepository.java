@@ -206,7 +206,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     }
 
     // The listing view of the zone send rules enforced at dispatch time by ZoneRules: system sees all zones,
-    // an organization sees os-api + kinotic-app-api, an application sees its own kinotic-app.<org>.<app> zone + kinotic-app-api.
+    // an organization sees os-api + app-api, an application sees its own app.<org>.<app> zone + app-api.
     private Query zoneVisibilityFilter(String organizationId, String applicationId) {
         Query ret;
         if (organizationId == null) {

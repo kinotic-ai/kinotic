@@ -38,7 +38,7 @@ public class DomainUtil {
      * The zone for the platform's application facing data services, such as entity persistence
      * and named query execution
      */
-    public static final String APP_API_ZONE = "kinotic-app-api";
+    public static final String APP_API_ZONE = "app-api";
 
     /**
      * The zone for services internal to the platform, only reachable by system participants
@@ -46,10 +46,9 @@ public class DomainUtil {
     public static final String SYSTEM_ZONE = "system";
 
     /**
-     * The leading label of application zones, which follow the form
-     * kinotic-app.&lt;organizationId&gt;.&lt;applicationId&gt;
+     * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
-    public static final String APP_ZONE_PREFIX = "kinotic-app";
+    public static final String APP_ZONE_PREFIX = "app";
 
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit

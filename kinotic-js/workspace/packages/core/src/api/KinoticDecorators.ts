@@ -76,7 +76,7 @@ export function Version(version: string) {
 /**
  * Declares the zone a service is addressable in, relative to this client's trust context: the
  * declared zone is appended to {@link KinoticSingleton#zonePrefix}, so an application's service
- * can never leave its own `kinotic-app.<organizationId>.<applicationId>` zone. When absent,
+ * can never leave its own `app.<organizationId>.<applicationId>` zone. When absent,
  * {@link KinoticSingleton#defaultZone} (typically loaded from the project package.json
  * `kinotic.zone` field) applies.
  * @param zone one or more dot separated labels of lowercase letters, digits, and interior

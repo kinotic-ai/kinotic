@@ -11,8 +11,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Covers id minting in {@link DefaultOrganizationService#beforeSave}: slug derivation and
- * the reserved platform prefix guard. The repository is unused by beforeSave, so none is given.
+ * Covers id minting in {@link DefaultOrganizationService#beforeSave}: slug derivation, the
+ * reserved platform prefix guard, and the reserved {@code system} label. The repository is
+ * unused by beforeSave, so none is given.
  */
 class DefaultOrganizationServiceTest {
 
@@ -66,7 +67,7 @@ class DefaultOrganizationServiceTest {
 
     @Test
     void allowsNamesMatchingTheOtherPlatformZones() {
-        // the kinotic-app prefix keeps application zones clear of these, so they stay usable names
+        // an id only ever lands after the app zone prefix, so these cannot collide with a zone
         for (String name : List.of("App API", "OS API", "App")) {
             assertDoesNotThrow(() -> service.beforeSave(new Organization().setName(name)),
                                "expected '" + name + "' to be allowed");

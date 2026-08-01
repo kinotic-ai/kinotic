@@ -44,7 +44,7 @@ export interface CRI {
      * The zone this `CRI` is addressed in, or `null` if un-zoned.
      *
      * The zone is the isolation boundary routing is validated against, such as
-     * `kinotic-app.acme-org.orders-app` or `os-api`.
+     * `app.acme-org.orders-app` or `os-api`.
      *
      * For the following CRI, `zone` would be the portion specified by `zone`:
      *

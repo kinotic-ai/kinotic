@@ -78,9 +78,9 @@ disagree, the code wins: read the referenced source before implementing against 
    - *What can I call?* → MCP `tools/list` = (zone send rules mirroring
      `StompAuthorizerFactory.java:66-90`) ∩ (`mcpExposed`) ∩ (`online`). Exactly the
      send rules, nothing more: system → all zones; org participant → `os-api` +
-     `kinotic-app-api` zones (never `kinotic-app.<org>.<app>` zones); app participant → own
-     `kinotic-app.<org>.<app>` + `kinotic-app-api` zones (never `os-api`). An LLM can only call what
-     is listed — so OS tools meant for app users must be published in the `kinotic-app-api`
+     `app-api` zones (never `app.<org>.<app>` zones); app participant → own
+     `app.<org>.<app>` + `app-api` zones (never `os-api`). An LLM can only call what
+     is listed — so OS tools meant for app users must be published in the `app-api`
      zone, and OS tools meant for org users in `os-api`.
    - *What belongs to my app?* → ownership queries, participant-org filtered; OS
      entries never appear.
@@ -355,8 +355,8 @@ tools-query visibility must mirror; `DomainUtil` zone constants).
   entries by a constant or build on `CrudServiceTemplate` directly (read the base class
   and pick). Queries: scope listing — `findEntriesScopedTo`, tools —
   `findMcpToolsCallableBy` (`mcpExposed && published && online` + the decision #7
-  zone matrix: system → all; org scope → `os-api` + `kinotic-app-api` zones; app scope → own
-  `kinotic-app.<org>.<app>` + `kinotic-app-api` zones — keep this filter in ONE place with a comment
+  zone matrix: system → all; org scope → `os-api` + `app-api` zones; app scope → own
+  `app.<org>.<app>` + `app-api` zones — keep this filter in ONE place with a comment
   pointing at `StompAuthorizerFactory`; `sendAllowed` remains the call-time
   enforcement, this is only the listing view). `findMcpToolsCallableBy` returns
   `Page<McpToolDefinition>` flattened from the matching entries: the ES query MUST
@@ -480,8 +480,8 @@ as each participant type where relevant:
   tool absent from the listing (proving the liveness flag).
 - `tools/call`: happy path, unknown-argument error, offline-service error.
 - Scope matrix (the security invariants, per decision #7): app participant sees own-app
-  + `kinotic-app-api` tools, never `os-api` tools, never another app's; org participant sees
-  `os-api` + `kinotic-app-api` tools, never any app-zone tools; ownership queries never return
+  + `app-api` tools, never `os-api` tools, never another app's; org participant sees
+  `os-api` + `app-api` tools, never any app-zone tools; ownership queries never return
   OS entries; a `@McpTool` method with a streaming return type fails registration.
 The boot is the expensive part and happens once; each assertion is cheap.
 
@@ -497,13 +497,13 @@ The boot is the expensive part and happens once; each assertion is cheap.
   fits the module's existing service layout) delegating to core's
   `findEntriesScopedTo`, annotated
   `@McpTool(description = "Lists the services this application provides, with their functions and schemas", readOnlyHint = true)`.
-  Publish it in the **`kinotic-app-api` zone** — per the decision #7 matrix that is the only
+  Publish it in the **`app-api` zone** — per the decision #7 matrix that is the only
   OS-provided zone application participants may call (and org participants may call it
   too). An app user's LLM introspects its own app's services through the same tool
   path, scope-filtered automatically by participant.
 - Extend the Phase 4 e2e test class (do not add a new harness): an
   `ApplicationParticipant` MCP session lists the introspection tool, calls it, and
-  receives only its own app's entries (never OS entries), while other `kinotic-app-api` tools
+  receives only its own app's entries (never OS entries), while other `app-api` tools
   remain callable.
 - Decide-with-user during approval: which other OS services get `@McpTool` in this pass
   (candidates: `ApplicationService` creation/listing). Default: only the introspection
