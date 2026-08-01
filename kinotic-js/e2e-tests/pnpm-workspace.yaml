@@ -10,3 +10,4 @@ minimumReleaseAgeExclude:
   - '@kinotic-ai/persistence@4.0.0'
   - '@kinotic-ai/kinotic-cli@4.0.0'
   - '@kinotic-ai/idl@1.0.10'
+  - '@kinotic-ai/os-api@4.1.0'
