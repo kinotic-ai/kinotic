@@ -146,7 +146,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
             functionDefinition.setName(function.getKey());
 
-            // findAnnotation walks super methods, so @McpTool applies whether declared on the contract
+            // findAnnotation walks super methods, so @McpTool applies whether declared on the interface
             // method or only on the implementation's override (e.g. an inherited CRUD method); a
             // method-level annotation overrides the type-level defaults for that method
             McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
@@ -170,10 +170,10 @@ public class DefaultSchemaFactory implements SchemaFactory {
         return serviceDefinition;
     }
 
-    private String resolveDescription(McpTool mcpTool, Method contractMethod, Method specificMethod, String functionName) {
+    private String resolveDescription(McpTool mcpTool, Method interfaceMethod, Method specificMethod, String functionName) {
         String ret = mcpTool.description();
         if (ret.isEmpty()) {
-            ret = javadocDescription(specificMethod, contractMethod);
+            ret = javadocDescription(specificMethod, interfaceMethod);
         }
         if (ret == null || ret.isEmpty()) {
             ret = deriveDescription(functionName);
@@ -183,14 +183,14 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
     /**
      * Looks up the compile-time extracted Javadoc description for a function, walking the most specific
-     * declaration first: the implementation's override, the contract's declaration, then the contract's
+     * declaration first: the implementation's override, the interface's declaration, then the interface's
      * ancestors — so an inherited CRUD function finds the doc written on the generic base.
      */
-    private String javadocDescription(Method specificMethod, Method contractMethod) {
+    private String javadocDescription(Method specificMethod, Method interfaceMethod) {
         String ret = null;
-        String functionName = contractMethod.getName();
+        String functionName = interfaceMethod.getName();
         Deque<Class<?>> queue = new ArrayDeque<>(List.of(specificMethod.getDeclaringClass(),
-                                                         contractMethod.getDeclaringClass()));
+                                                         interfaceMethod.getDeclaringClass()));
         Set<Class<?>> visited = new HashSet<>();
         while (ret == null && !queue.isEmpty()) {
             Class<?> type = queue.poll();

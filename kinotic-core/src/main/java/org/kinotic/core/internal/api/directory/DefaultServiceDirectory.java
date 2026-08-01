@@ -345,11 +345,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     private boolean hasMcpToolFunction(ServiceDeclaration registration) {
-        // a type-level @McpTool marks every function a tool, so the contract alone decides
+        // a type-level @McpTool marks every function a tool, so the interface alone decides
         boolean ret = AnnotationUtils.findAnnotation(registration.serviceInterface(), McpTool.class) != null;
         if (!ret) {
             for (Method method : IdlUtil.serviceFunctions(registration.serviceInterface()).values()) {
-                // findAnnotation on the most specific method honors @McpTool declared on the contract method
+                // findAnnotation on the most specific method honors @McpTool declared on the interface method
                 // or only on the implementation's override, matching DefaultSchemaFactory's discovery
                 Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.serviceImplementation());
                 if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
