@@ -26,7 +26,7 @@ not "fix" the clone to match this document.
     │   ├── index.ts          # package entry — export entities/repositories here
     │   ├── model/            # @Entity classes go here
     │   └── repositories/     # `bun run generate` writes repository classes here
-    ├── microservices/        # @Publish service classes
+    ├── microservices/        # each microservice is its own nested workspace package
     └── ui/                   # frontend packages
 ```
 
@@ -50,7 +50,7 @@ not "fix" the clone to match this document.
         "@kinotic-ai/core": "<pinned version>",
         "@kinotic-ai/persistence": "<pinned version>"
     },
-    "workspaces": ["packages/*"],
+    "workspaces": ["packages/*", "packages/microservices/*", "packages/ui/*"],
     "type": "module"
 }
 ```
@@ -95,9 +95,45 @@ export default config
   `repositoryPath` is where repository classes are generated. Trust the values in the
   cloned config over the ones shown here.
 
+## Adding a microservice or UI package
+
+Each microservice or UI is its own workspace package nested under
+`packages/microservices/` or `packages/ui/` (e.g. `packages/microservices/todo-service`)
+— the root workspace globs cover exactly that depth. A minimal service package:
+
+```json
+{
+    "name": "@<project slug>/todo-service",
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "type-check": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@<project slug>/domain": "workspace:*",
+        "@kinotic-ai/core": "catalog:"
+    }
+}
+```
+
+```jsonc
+// tsconfig.json — three levels up to the base config
+{
+    "extends": "../../../tsconfig.base.json",
+    "files": [],
+    "include": ["**/*"],
+    "exclude": ["node_modules", "dist"]
+}
+```
+
+Register the package in `bunup.config.ts`, and run `bun install` after creating it.
+Packages importing the domain package resolve its types from the built `dist/`
+output, so run `bun run build` after changing domain code or its export barrel —
+otherwise their `type-check` fails with TS7016 on the domain import.
+
 ## Verification checklist
 
-1. `package.json` at the root declares `"workspaces": ["packages/*"]` and the
+1. `package.json` at the root declares the workspace globs shown above and the
    `@kinotic-ai/*` catalog entries.
 2. `.config/kinotic.config.ts` exists, default-exports a config, and its
    `organizationId`/`applicationId` match the created Application.
