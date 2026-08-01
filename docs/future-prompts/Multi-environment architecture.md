@@ -32,7 +32,7 @@ applications:
 ```
                         ┌────────────────────────────────────────────┐
  kinotic-frontend ────► │ kinotic-server, profile "os-server"         │──► OS ES cluster
- kinotic-cli      ────► │ (own Ignite cluster): os-api/system zones,  │    (kinotic_* domain
+ kinotic-cli      ────► │ (own Ignite cluster): os-api/kinotic zones,  │    (kinotic_* domain
  VmManagers (STOMP)───► │ OIDC login, GitHub, orchestrator,           │     indices)
                         │ entity-definition mgmt                      │
                         └────────────────────────────────────────────┘
@@ -124,7 +124,7 @@ override):
   `kinotic.applicationGateway.environmentId` is set. No enum, no derivation, no
   deployment-conditional beans — nothing spread through code. The **allowlist startup guard is
   what makes this safe**: any drift — a forgotten flag on a new module, a stray env var
-  override — that lets an `os-api`/`system` service register in a gateway kills the process at
+  override — that lets an `os-api`/`kinotic` service register in a gateway kills the process at
   boot. Accepted trade-offs of one image: the gateway jar carries the OS admin SPA and OS
   module bytecode (never instantiated); image size is not optimized per deployment shape.
 - **No OS service *bean* exists in a gateway process — absence, not just authorization.**
@@ -185,7 +185,7 @@ entityDefinition.setItemIndex(this.persistenceProperties.getIndexPrefix() + logi
 ```
 
 **Zones** (`kinotic-domain/.../internal/utils/DomainUtil.java`, constants near the top): `os-api`,
-`app-api`, `system`, `APP_ZONE_PREFIX="app"` → `app.<orgId>.<appId>`. Names use **dashes**, not
+`app-api`, `kinotic`, `APP_ZONE_PREFIX="app"` → `app.<orgId>.<appId>`. Names use **dashes**, not
 underscores (CRIs are valid URIs by convention; ids are dash-slugified). A service declares
 **exactly one zone** via `@Zone` (`kinotic-core/.../api/annotations/Zone.java`) on the type or its
 `package-info.java` — type-level overrides package-level, and **no declaration means the service
@@ -365,7 +365,7 @@ flags. The profile YAML selects property values; the properties gate behavior.
 | `kinotic.disableOsApi` (includes definition management after Phase 3) | false | **true** |
 | `kinotic.disableGithub` | false | **true** |
 | `kinotic.disablePersistence` (= the data plane after Phase 3) | false *(flips to true at the cloud cutover — companion plan)* | false |
-| `kinotic.zones` (publish guard ∩ authorizer) | `os-api`, `system` (+ `app-api` until the cloud cutover — companion plan) | `app-api`, `app` |
+| `kinotic.zones` (publish guard ∩ authorizer) | `os-api`, `kinotic` (+ `app-api` until the cloud cutover — companion plan) | `app-api`, `app` |
 
 ```yaml
 # kinotic-server/src/main/resources/application-app-gateway.yml  (new profile — flags, allowlist,
@@ -404,7 +404,7 @@ Accepted trade, stated plainly: profile YAML can drift — a *new* module gate a
 forgotten in a profile is silently ON (`matchIfMissing = true`), the same misconfiguration risk
 every env-specific property already carries. The allowlist guard and the gateway boot test
 exist precisely to convert the dangerous case into a **startup failure** (the new module's
-`os-api`/`system` services register → allowlist violation → the process dies loudly). The same
+`os-api`/`kinotic` services register → allowlist violation → the process dies loudly). The same
 guard neutralizes a stray `KINOTIC_DISABLE*` env var overriding profile YAML.
 
 `ApplicationGatewayProperties` (`environmentId`, env-cluster `elasticConnections`/credentials)
@@ -425,11 +425,11 @@ Work items in this phase:
    deployment's `kinotic.zones` list. The intersection lands every case where it should with
    zero per-deployment policy code:
 
-   | participant | hardcoded today | ∩ gateway `[app-api, app]` | ∩ os-server `[os-api, system]` (post-cutover) |
+   | participant | hardcoded today | ∩ gateway `[app-api, app]` | ∩ os-server `[os-api, kinotic]` (post-cutover) |
    |---|---|---|---|
    | Organization | `os-api.**` + `app-api.**` | `app-api.**` (frontend data browsing) | `os-api.**` — `app-api` drops out at cutover automatically |
    | Application | `app-api.**` + `app.<org>.<app>.**` | unchanged — the customer surface | ∅ — app participants have nothing on the OS bus |
-   | System | everything | `app-api.**` + `app.**` | `os-api.**` + `system.**` — VmManager orchestration intact |
+   | System | everything | `app-api.**` + `app.**` | `os-api.**` + `kinotic.**` — VmManager orchestration intact |
 
    (`reply://` destinations stay exempt from the intersection, as they are from de-scoping
    today.)
@@ -474,7 +474,7 @@ Work items in this phase:
    | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence — its entire published surface after Phase 3) | `app-api` (explicit `@Zone`) | yes — the data plane |
    | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EntityDefinitionService`/`NamedQueriesDefinitionService`/`MigrationService` (moved in Phase 3), `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all os-api | `os-api` | no — `disableOsApi` (app-gateway profile) gates the whole `KinoticOsApiLibrary` |
    | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `os-api` | no — `disableGithub` (app-gateway profile) |
-   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, set in the deployment profiles |
+   | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `kinotic` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, set in the deployment profiles |
    | `DataInsightsService` | `os-api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
 
    `kinotic-domain` publishes **nothing** (`LocalAuthenticationService` is deliberately not
@@ -684,7 +684,7 @@ Follow the repo rule: behavioral tests through real infrastructure over mocked u
   service creates the entity index only in B and `kinotic_*` domain indices exist only in A,
   then exercise `JsonEntitiesRepository` CRUD (data plane pointed at B) end-to-end.
 - **Gateway boot test**: start `KinoticServerApplication` with the `app-gateway` profile,
-  assert: the `ServiceRegistry` contains **zero** registrations in `os-api`/`system` zones (the
+  assert: the `ServiceRegistry` contains **zero** registrations in `os-api`/`kinotic` zones (the
   no-OS-services invariant), os-api CRIs are rejected by the authorizer for an application
   participant, app login routes respond, org signup routes 404.
 - **Allowlist guard**: with `kinotic.zones` set, a context that registers a bean

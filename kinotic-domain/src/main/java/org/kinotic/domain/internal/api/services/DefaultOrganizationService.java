@@ -14,13 +14,6 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultOrganizationService extends AbstractCrudService<Organization> implements OrganizationService {
 
-    /**
-     * No organization can be saved with an id that begins with this prefix. It is used
-     * internally when the platform needs multi-tenancy but the system is the tenant —
-     * e.g. VM workloads executed by the OS for the OS.
-     */
-    public static final String RESERVED_ID_PREFIX = "kinotic";
-
     public DefaultOrganizationService(OrganizationRepository repository) {
         super(repository);
     }
@@ -34,7 +27,7 @@ public class DefaultOrganizationService extends AbstractCrudService<Organization
             entity.setCreated(new Date());
         }
         // Reserved-id organizations are only ever seeded by db migrations, which bypass this service
-        Validate.isTrue(!entity.getId().startsWith(RESERVED_ID_PREFIX),
+        Validate.isTrue(!entity.getId().startsWith(DomainUtil.RESERVED_PREFIX),
                         "Organization id '%s' is reserved", entity.getId());
 
         entity.setUpdated(new Date());

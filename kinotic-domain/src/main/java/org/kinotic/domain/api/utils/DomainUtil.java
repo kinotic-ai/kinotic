@@ -29,6 +29,12 @@ import java.util.regex.Pattern;
 public class DomainUtil {
 
     /**
+     * The prefix reserved for the platform's own identifiers. No organization id may begin with
+     * it, so every identifier the platform derives from it is one no organization can ever mint.
+     */
+    public static final String RESERVED_PREFIX = "kinotic";
+
+    /**
      * The zone for platform services organizations use to manage the system, such as member,
      * application, and entity definition management
      */
@@ -43,7 +49,7 @@ public class DomainUtil {
     /**
      * The zone for services internal to the platform, only reachable by system participants
      */
-    public static final String SYSTEM_ZONE = "system";
+    public static final String SYSTEM_ZONE = RESERVED_PREFIX;
 
     /**
      * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;

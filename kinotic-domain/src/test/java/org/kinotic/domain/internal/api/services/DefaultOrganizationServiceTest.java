@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.services;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.List;
 
@@ -52,6 +53,15 @@ class DefaultOrganizationServiceTest {
         service.beforeSave(organization).join();
 
         assertEquals("kinetic-corp", organization.getId());
+    }
+
+    @Test
+    void rejectsAnOrganizationThatWouldMintTheSystemZoneLabel() {
+        // The system zone label is only out of an organization's reach because it is the reserved
+        // prefix; asserting through the constant keeps a change to either one from breaking that
+        Organization organization = new Organization().setName(DomainUtil.SYSTEM_ZONE);
+
+        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(organization));
     }
 
     @Test
