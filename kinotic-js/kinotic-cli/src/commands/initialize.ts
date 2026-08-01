@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
-import { isKinoticProject, saveKinoticProjectConfig } from '@/internal/state/KinoticProjectConfigUtil'
+import { isKinoticProject, resolveKinoticConfigDir, saveKinoticProjectConfig } from '@/internal/state/KinoticProjectConfigUtil'
 import { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 /**
@@ -105,10 +105,10 @@ export class Initialize extends Command {
         }
 
         // Only use TypescriptProjectConfig for initialization
-        const configDir = path.resolve(process.cwd(), '.config')
+        const configDir = resolveKinoticConfigDir()
         const configObj = new KinoticProjectConfig()
         // Don't set name - it will be loaded from package.json
-        configObj.application = application
+        configObj.applicationId = application
         configObj.entitiesPaths = [{
             path: entitiesPath,
             repositoryPath: repositoryPath,

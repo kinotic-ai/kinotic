@@ -88,6 +88,32 @@ the label need to not silently accept an implementation that drops it.
 `200` from `POST /mcp`. That assertion is the marker: restoring the check should turn it back into a
 `401` with a `WWW-Authenticate` challenge.
 
+### Self-service OIDC provisioning into an application scope
+
+`OidcConfiguration` used to carry a `provisioningMode` field (`UserProvisioningMode` —
+`AUTO` / `REGISTRATION_REQUIRED` / `INVITE_ONLY`) for this, but nothing ever read it, so an admin
+setting it got silence rather than the behaviour the name promised. Removed along with
+`rolesClaimPath`, `additionalScopes`, and the four unread redirect/domain fields.
+
+If we want it, the pieces are: a policy on the configuration, `completeOidcLogin` consulting it
+instead of always refusing an unknown subject, and the per-application admin UI to set it. Today an
+application's users arrive by invitation or admin creation only.
+
+### Outstanding requests count in a system UI
+
+Nothing that dispatches a request and waits for a reply bounds how long it waits. `McpToolInvoker`
+holds a `Promise` in `pendingCalls` until the reply arrives, and `DefaultRpcServiceProxyHandle` does
+the same with `responseMap`. `sendWithAck` only acks receipt, so a service that accepts a request and
+then dies leaves the entry there for the life of the process, and for MCP that also means the HTTP
+response is never written.
+
+A global timeout is the wrong answer — we do not know how long a published service is entitled to
+take, and any number we pick is wrong for somebody. Instead expose the size of those maps as a
+counted metric in a system UI, per node. Then we can see whether outstanding requests actually
+accumulate in practice, and how, before deciding whether anything needs bounding at all. If the
+count is flat under real load the whole concern is theoretical; if it climbs monotonically, the shape
+of the climb tells us what the right mechanism is.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 
@@ -111,3 +137,7 @@ We store a bunch of maps during decorator processing that will not be used. We n
 # Kinotic OS Security
 * Add flags to specify what users are allowed to login, i.e. System, Org, App. This will allow us to only allow System logins from behind a  VPN.
   * Make sure this flag also affects if a JWT can be minted, basically will require the org or app id based on the allowed login hierarchy.
+
+
+# Kinotic CLI
+* Remove or fix the init command. It does not have the OrgId and the way the AppId is handled is problematic.

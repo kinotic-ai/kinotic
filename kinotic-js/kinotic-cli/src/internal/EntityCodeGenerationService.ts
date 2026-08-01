@@ -79,7 +79,7 @@ export class EntityCodeGenerationService {
 
         for (const resolvedPathConfig of resolvedConfigs) {
             const config: ConversionConfiguration = {
-                application        : projectConfig.application,
+                application        : projectConfig.applicationId,
                 entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
@@ -146,19 +146,10 @@ export class EntityCodeGenerationService {
                                                                          repositoryOutputPath))
                 }
 
-                if(config.verbose){
+                await writeEntityJsonToFilesystem(config, entityInfo.entity)
 
-                    await writeEntityJsonToFilesystem(repositoryOutputPath,
-                                                      entityInfo.entity,
-                                                      this.logger)
-
-                    for(let generatedServiceInfo of generatedServices) {
-                        if (generatedServiceInfo.namedQueries.length > 0) {
-                            await writeGeneratedServiceInfoToFilesystem(repositoryOutputPath,
-                                                                        generatedServiceInfo,
-                                                                        this.logger)
-                        }
-                    }
+                for(let generatedServiceInfo of generatedServices) {
+                    await writeGeneratedServiceInfoToFilesystem(config, generatedServiceInfo)
                 }
 
                 if(entityProcessor){
@@ -225,7 +216,7 @@ export class EntityCodeGenerationService {
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
-                                                                           organizationId: projectConfig.organization,
+                                                                           organizationId: projectConfig.organizationId,
                                                                            defaultExport,
                                                                            entityImportPath,
                                                                            validationLogic,

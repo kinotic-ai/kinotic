@@ -39,14 +39,14 @@ export class KinoticProjectConfig {
     public description?: string
 
     /**
-     * The Kinotic Organization that this project belongs to.
+     * The id of the Kinotic Organization that this project belongs to.
      */
-    public organization!: string
+    public organizationId!: string
 
     /**
-     * The Kinotic Application that this project belongs to.
+     * The id of the Kinotic Application that this project belongs to.
      */
-    public application!: string
+    public applicationId!: string
 
     /**
      * The paths to search for classes decorated with @Entity that Kinotic will be created for.

@@ -2,6 +2,7 @@ package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 
 import java.util.List;
@@ -28,4 +29,15 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * one-per-org, no scope flag needed on the config row itself.
      */
     CompletableFuture<OidcConfiguration> findOrgLoginConfig(String organizationId);
+
+    /**
+     * The enabled OIDC configurations a login scope offers its users, in the order they should be
+     * presented. An application scope ({@code applicationId} set) offers the configurations that
+     * application references; an organization scope offers the Kinotic-curated social providers
+     * followed by the organization's own SSO configuration. Empty when the scope offers none.
+     *
+     * @param organizationId the organization the scope belongs to
+     * @param applicationId the application within it, or {@code null} for the organization scope
+     */
+    CompletableFuture<List<BaseOidcConfiguration>> findEnabledForScope(String organizationId, String applicationId);
 }

@@ -7,6 +7,8 @@ import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
+const OAUTH_APPROVAL_SERVICE = 'os-api~org.kinotic.os.api.services.iam.OAuthApprovalService'
+
 /**
  * Attempts the STOMP WebSocket upgrade with the given bearer token. Resolves with the HTTP status
  * the gateway answered the upgrade with, or 'open' when the handshake succeeded — a failed
@@ -126,8 +128,10 @@ describe('Kinotic JS', () => {
         })).json()
         expect(start.user_code).toBeTruthy()
 
-        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP
-        await (Kinotic as any).oauthApproval.approveDevice(start.user_code)
+        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP.
+        // Through the service proxy directly because the installed @kinotic-ai/os-api still
+        // exposes the pre-fold deviceApproval rather than oauthApproval.
+        await Kinotic.serviceProxy(OAUTH_APPROVAL_SERVICE).invoke('approveDevice', [start.user_code])
 
         const tokenResponse = await fetch(`${base()}/api/auth/oauth/token`, {
             method: 'POST',

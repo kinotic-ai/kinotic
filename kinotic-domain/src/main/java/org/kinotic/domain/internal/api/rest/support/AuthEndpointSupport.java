@@ -15,6 +15,8 @@ import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.iam.OidcProviderKind;
+import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
@@ -45,6 +47,8 @@ public class AuthEndpointSupport {
 
     private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
+    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final OidcFlowOrchestrator oidcFlowOrchestrator;
 
 
     /**
@@ -132,6 +136,27 @@ public class AuthEndpointSupport {
            .end(new JsonObject().put("error", message).encode());
     }
 
+    // ── Request bodies ────────────────────────────────────────────────────────
+
+    /**
+     * The request body parsed as JSON, so the caller can read its fields directly. A body that is
+     * absent or is not JSON answers the request with a {@code 400}.
+     */
+    public JsonObject readJsonBody(RoutingContext ctx) {
+        JsonObject ret;
+        try {
+            ret = ctx.body().asJsonObject();
+        } catch (Exception e) {
+            // a malformed body raises DecodeException, which the router's failure handler renders as a
+            // 500; IllegalArgumentException is what it maps to the 400 this deserves
+            throw new IllegalArgumentException("Invalid request body", e);
+        }
+        if (ret == null) {
+            throw new IllegalArgumentException("Invalid request body");
+        }
+        return ret;
+    }
+
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
@@ -159,8 +184,18 @@ public class AuthEndpointSupport {
      * access tokens. Both act as {@code user}.
      */
     public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, KinoticAudience audience) {
+        String accessToken;
+        try {
+            accessToken = mintAccessToken(user, audience);
+        } catch (Exception e) {
+            // Callers invoke this from a Future handler, where a throw never reaches the router's
+            // failure handler and leaves the request unanswered until the client times out.
+            log.error("Could not mint access token", e);
+            respondError(ctx, 500, "Could not issue tokens");
+            return;
+        }
         JsonObject body = new JsonObject()
-                .put("access_token", mintAccessToken(user, audience))
+                .put("access_token", accessToken)
                 .put("token_type", "Bearer")
                 .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
                 .put("refresh_token", refreshToken);
@@ -205,6 +240,42 @@ public class AuthEndpointSupport {
     // ── Composite flows ───────────────────────────────────────────────────────
 
     /**
+     * Standard social start endpoint: resolves the {@code :provider} path parameter to the enabled
+     * Kinotic-curated configuration for that provider kind and redirects the browser to its IdP,
+     * writing a {@code 400} for an unknown or disabled provider. The caller supplies the callback
+     * URL the IdP returns to, which is what distinguishes a signup start from a login start.
+     */
+    public void handleSocialStart(RoutingContext ctx, Function<String, String> callbackUrl) {
+        String provider = ctx.pathParam("provider");
+        OidcProviderKind providerKind;
+        try {
+            providerKind = OidcProviderKind.fromKey(provider);
+        } catch (IllegalArgumentException ex) {
+            respondError(ctx, 400, "Unknown platform provider: " + provider);
+            return;
+        }
+
+        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
+              .compose(config -> {
+                  if (config == null) {
+                      respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
+                      return Future.succeededFuture();
+                  }
+                  return oidcFlowOrchestrator.startFlow(ctx, config, callbackUrl.apply(config.getId()), null);
+              })
+              .onSuccess(url -> {
+                  // null means the compose above already answered the unknown-provider case
+                  if (url != null) {
+                      ctx.response().setStatusCode(302).putHeader("Location", url).end();
+                  }
+              })
+              .onFailure(ex -> {
+                  log.error("Social start failed for provider {}", provider, ex);
+                  respondError(ctx, 500, "Provider initialization failed");
+              });
+    }
+
+    /**
      * Standard email/password login endpoint: parses the JSON body, validates fields,
      * runs the supplied authenticate function, and on success establishes the browser
      * session — otherwise writes a generic {@code 401}. The handler only needs to provide
@@ -212,15 +283,9 @@ public class AuthEndpointSupport {
      */
     public void handlePasswordLogin(RoutingContext ctx,
                                     BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
-        JsonObject body;
-        try {
-            body = ctx.body().asJsonObject();
-        } catch (Exception e) {
-            respondError(ctx, 400, "Invalid request body");
-            return;
-        }
-        String email = body == null ? null : body.getString("email");
-        String password = body == null ? null : body.getString("password");
+        JsonObject body = readJsonBody(ctx);
+        String email = body.getString("email");
+        String password = body.getString("password");
         if (email == null || email.isBlank() || password == null || password.isBlank()) {
             respondError(ctx, 400, "email and password are required");
             return;

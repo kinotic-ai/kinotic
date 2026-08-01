@@ -31,13 +31,13 @@ export class Generate extends Command {
 
         const kinoticProjectConfig = await loadKinoticProjectConfig()
 
-        const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.application,
+        const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.applicationId,
                                                                       kinoticProjectConfig.fileExtensionForImports,
                                                                       this)
 
             await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, undefined, flags.force)
 
-        this.log(`Code Generation Complete For application: ${kinoticProjectConfig.application}`)
+        this.log(`Code Generation Complete For application: ${kinoticProjectConfig.applicationId}`)
     }
 
     // This is needed for the CodeGenerationService to log verbose messages

@@ -7,11 +7,13 @@ declaring globals, a property schema, and inheritance.
 The engine performs no IO — it takes an in-memory tree of `path -> content`
 and returns the rendered tree. Hosts supply the adapters:
 
-- the Kinotic CLI loads spawns from disk and prompts for missing properties
-  via a `PropertyResolver`
+- the Node host loads a spawn directory from disk, writes the rendered tree
+  back out, and takes a `PropertyResolver` for properties the caller did not
+  supply; `kinotic spawn lint` uses it to lint a directory
 - the Kinotic server runs the same engine embedded in the JVM (GraalJS) to
   render project baselines into freshly provisioned repositories, with the
-  context derived entirely from the `Project`
+  context derived from the `Project` and the package versions that server
+  ships with
 
 ## What a Spawn looks like
 
@@ -45,7 +47,7 @@ the three top-level keys below are recognized; anything else is ignored.
   // Values made available to every template. Optional.
   // A caller-supplied context value of the same name wins over a global.
   "globals": {
-    "kinoticApiVersion": "^1.0.9"
+    "kinoticCoreVersion": "^4.0.0"
   },
 
   // Properties the spawn needs but does not hardcode. Optional.
@@ -190,8 +192,10 @@ shipping a spawn.
 
 ## Examples in this repo
 
-Two working spawns ship with the CLI under
-`kinotic-cli/src/templates/spawns/`:
+The tests render worked spawns inline:
 
-- `library/spawn.json` — a single `propertySchema` property, no globals
-- `project/spawn.json` — `globals` plus several `propertySchema` properties
+- `test/SpawnEngine.test.ts` — a spawn.json carrying both `globals` and
+  `propertySchema`, nested package templates, verbatim files, and inheritance
+- `test/NodeSpawnRenderer.test.ts` — loading a spawn directory from disk and
+  writing the result to another
+- `test/SpawnLint.test.ts` — what `lint` does and does not report as undeclared
