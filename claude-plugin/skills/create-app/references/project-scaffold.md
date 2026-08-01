@@ -127,7 +127,11 @@ Each microservice or UI is its own workspace package nested under
 ```
 
 Register the package in `bunup.config.ts`, and run `bun install` after creating it
-so the workspace links it. Inside the repository the domain package resolves to its
+so the workspace links it. Production microservices are built as single-file
+executables from the service package directory with
+`bun build --compile src/main.ts --outfile bin/<service-name>` — use `bun build`
+directly, not bunup's `compile` option (it miscompiles the Kinotic client
+libraries). Inside the repository the domain package resolves to its
 TypeScript source (its `development`/`bun` export conditions, matched by
 `customConditions` in `tsconfig.base.json`), so imports type-check and run without
 a prior build — but an entity or repository is only importable once it is exported
