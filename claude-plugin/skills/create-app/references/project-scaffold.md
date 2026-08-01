@@ -127,9 +127,12 @@ Each microservice or UI is its own workspace package nested under
 ```
 
 Register the package in `bunup.config.ts`, and run `bun install` after creating it
-so the workspace links it. The domain package exports its TypeScript source
-(`index.ts`), so imports type-check and run without a prior build — but an entity
-or repository is only importable once it is exported from that barrel.
+so the workspace links it. Inside the repository the domain package resolves to its
+TypeScript source (its `development`/`bun` export conditions, matched by
+`customConditions` in `tsconfig.base.json`), so imports type-check and run without
+a prior build — but an entity or repository is only importable once it is exported
+from the `index.ts` barrel. Consumers installing the package from a registry get
+the built `dist/` output instead.
 
 ## Verification checklist
 
