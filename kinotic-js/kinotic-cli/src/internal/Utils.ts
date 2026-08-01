@@ -56,7 +56,9 @@ function getEntityDecoratorIfExists(node: Node){
 }
 
 export function pathToTsGlobPath(path: string): string{
-    return path.endsWith('.ts') ? path : (path.endsWith('/') ? path + '*.ts' : path + '/*.ts')
+    // Recursive so nested entity folders (mirrorFolderStructure) are found without
+    // relying on the tsconfig include globs.
+    return path.endsWith('.ts') ? path : (path.endsWith('/') ? path + '**/*.ts' : path + '/**/*.ts')
 }
 
 export function createTsMorphProject(): Project {
@@ -64,8 +66,13 @@ export function createTsMorphProject(): Project {
     if(!fs.existsSync(tsConfigFilePath)){
         throw new Error(`No tsconfig.json found in working directory: ${process.cwd()}`)
     }
+    // The tsconfig supplies compilerOptions only. Source files are added explicitly
+    // from the configured entitiesPaths, and the TypeScript program pulls in their
+    // transitive imports on its own — so generation cost scales with the number of
+    // entities, not with how much other code the tsconfig includes.
     return new Project({
        tsConfigFilePath: tsConfigFilePath,
+       skipAddingFilesFromTsConfig: true,
        manipulationSettings: {
            indentationText: IndentationText.TwoSpaces
        }
