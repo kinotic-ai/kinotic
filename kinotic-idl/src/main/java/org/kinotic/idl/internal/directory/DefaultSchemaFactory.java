@@ -122,9 +122,8 @@ public class DefaultSchemaFactory implements SchemaFactory {
         // registers with the ServiceRegistry, so the schema carries exactly the functions the registry serves
         for (Map.Entry<String, Method> function : IdlUtil.serviceFunctions(serviceInterface).entrySet()) {
 
-            // the implementation's override decides parameter names, generic bindings, and annotations —
-            // the same method the invocation-side named-argument binding resolves, so the published schema
-            // and the runtime binding cannot drift
+            // the implementation's override decides generic bindings and annotations, so an inherited
+            // CompletableFuture<T> converts with T bound and @McpTool is honored on the override
             Method specificMethod = BridgeMethodResolver.findBridgedMethod(
                     ClassUtils.getMostSpecificMethod(function.getValue(), implementation));
 
@@ -138,7 +137,11 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                functionDefinition.addParameter(IdlUtil.parameterName(methodParameter), c3Type);
+                // names come from the contract method: AopUtils.selectInvocableMethod returns the contract's
+                // method to the invoker, so the contract's parameter names are what named-argument binding
+                // resolves. NamedJsonInvocationTests pins the two together.
+                functionDefinition.addParameter(IdlUtil.parameterName(new MethodParameter(function.getValue(), i)),
+                                                c3Type);
             }
 
             functionDefinition.setName(function.getKey());
