@@ -10,7 +10,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.*;
-import io.vertx.ext.auth.oauth2.providers.GithubAuth;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
@@ -22,7 +21,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
@@ -46,7 +44,7 @@ import java.util.function.Function;
 public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
-    private static final String GITHUB_API_BASE = "https://api.github.com";
+    private static final String USER_AGENT = "kinotic-platform";
 
     private final AsyncCache<String, OAuth2Auth> oauth2AuthCache =
             Caffeine.newBuilder()
@@ -131,16 +129,17 @@ public class OidcFlowOrchestrator {
 
     /**
      * Produces the verified identity claims for an exchanged token: id_token claims validated
-     * against issuer, audience and nonce for OIDC providers, or claims built from the GitHub
-     * API for {@link OidcProviderKind#GITHUB}.
+     * against issuer, audience and nonce for OIDC providers, or claims fetched from the
+     * provider's identity endpoint for rows that set {@code userInfoUri}.
      */
     private Future<Map<String, Object>> verifiedClaims(BaseOidcConfiguration config, User user, OidcFlowSession flowSession) {
         Future<Map<String, Object>> ret;
-        if (config.getProvider() == OidcProviderKind.GITHUB) {
-            // GitHub issues no id_token, so there is no issuer/audience/nonce to check — the state
-            // match in handleCallback plus the direct TLS code exchange are the security boundary,
-            // and identity comes from the GitHub API using the exchanged access token.
-            ret = fetchGithubClaims(user);
+        if (config.getUserInfoUri() != null && !config.getUserInfoUri().isBlank()) {
+            // A provider configured with an identity endpoint issues no id_token, so there is no
+            // issuer/audience/nonce to check — the state match in handleCallback plus the direct
+            // TLS code exchange are the security boundary, and identity comes from the provider's
+            // API using the exchanged access token.
+            ret = fetchApiClaims(config, user);
         } else {
             Map<String, Object> claims = flattenClaims(user);
             if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
@@ -196,11 +195,10 @@ public class OidcFlowOrchestrator {
         session.regenerateId();
         session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId, inviteToken));
 
-        // GitHub Apps ignore the scope param (access comes from the app's configured permissions);
-        // these scopes keep a classic OAuth App registration working with the same row. GitHub also
-        // ignores the PKCE and nonce params rather than rejecting them.
-        List<String> scopes = config.getProvider() == OidcProviderKind.GITHUB
-                ? List.of("read:user", "user:email")
+        // Scopes ride as RFC 6749's space-delimited string; a row without them gets the
+        // standard OIDC triple.
+        List<String> scopes = config.getScopes() != null && !config.getScopes().isBlank()
+                ? List.of(config.getScopes().split(" "))
                 : List.of("openid", "email", "profile");
 
         return getOAuth2Auth(config)
@@ -220,10 +218,27 @@ public class OidcFlowOrchestrator {
      */
     private Future<OAuth2Auth> createOAuth2Auth(BaseOidcConfiguration config, String clientSecret) {
         Future<OAuth2Auth> ret;
-        if (config.getProvider() == OidcProviderKind.GITHUB) {
-            // GitHub publishes no OIDC discovery document — GithubAuth wires the fixed
-            // github.com/login OAuth endpoints directly.
-            ret = Future.succeededFuture(GithubAuth.create(vertx, config.getClientId(), clientSecret));
+        if (config.getAuthorizationUri() != null || config.getTokenUri() != null) {
+            if (config.getAuthorizationUri() == null || config.getTokenUri() == null) {
+                ret = Future.failedFuture(new IllegalArgumentException(
+                        "OidcConfiguration " + config.getId()
+                                + " must set both authorizationUri and tokenUri to bypass OIDC discovery"));
+            } else {
+                // Explicit endpoints — the provider publishes no OIDC discovery document.
+                // Vert.x uses an absolute URL in a *Path option as-is; OAuth2API prepends
+                // the site only when the value starts with '/'.
+                OAuth2Options options = new OAuth2Options()
+                        .setClientId(config.getClientId())
+                        .setSite(config.getAuthority())
+                        .setAuthorizationPath(config.getAuthorizationUri())
+                        .setTokenPath(config.getTokenUri())
+                        // some providers (github.com) reject requests that carry no User-Agent
+                        .setHeaders(new JsonObject().put("User-Agent", USER_AGENT));
+                if (clientSecret != null) {
+                    options.setClientSecret(clientSecret);
+                }
+                ret = Future.succeededFuture(OAuth2Auth.create(vertx, options));
+            }
         } else if (config.getAuthority() == null || config.getAuthority().isBlank()) {
             ret = Future.failedFuture(new IllegalArgumentException(
                     "OidcConfiguration " + config.getId() + " has no authority; required for OIDC discovery"));
@@ -298,32 +313,64 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * Builds the identity claims for a GitHub flow from {@code GET /user} and
-     * {@code GET /user/emails}: {@code sub} is the numeric GitHub account id, {@code email} /
-     * {@code email_verified} come from the best address on the account, and {@code name}
-     * falls back to the GitHub login when no display name is set.
+     * Builds the identity claims for a provider with no id_token by querying the endpoints
+     * on its configuration: {@code userInfoUri} supplies {@code sub}, {@code name} and
+     * {@code email}; {@code userEmailsUri}, when set, supplies the definitive {@code email}
+     * and {@code email_verified} from a GitHub-style emails array.
      */
-    private Future<Map<String, Object>> fetchGithubClaims(User user) {
+    private Future<Map<String, Object>> fetchApiClaims(BaseOidcConfiguration config, User user) {
         String accessToken = user.principal().getString("access_token");
-        return githubApiGet(accessToken, "/user")
-                .map(HttpResponse::bodyAsJsonObject)
-                .compose(githubUser -> githubApiGet(accessToken, "/user/emails")
-                        .map(HttpResponse::bodyAsJsonArray)
-                        .map(emails -> {
-                            Map<String, Object> claims = new HashMap<>();
-                            Long id = githubUser.getLong("id");
-                            if (id != null) {
-                                claims.put("sub", String.valueOf(id));
-                            }
-                            String name = githubUser.getString("name");
-                            claims.put("name", name != null && !name.isBlank() ? name : githubUser.getString("login"));
-                            JsonObject email = bestEmail(emails);
-                            if (email != null) {
-                                claims.put("email", email.getString("email"));
-                                claims.put("email_verified", Boolean.TRUE.equals(email.getBoolean("verified")));
-                            }
-                            return claims;
-                        }));
+        return apiGet(accessToken, config.getUserInfoUri())
+                .map(response -> profileClaims(response.bodyAsJsonObject()))
+                .compose(claims -> {
+                    Future<Map<String, Object>> ret;
+                    if (config.getUserEmailsUri() != null && !config.getUserEmailsUri().isBlank()) {
+                        ret = apiGet(accessToken, config.getUserEmailsUri())
+                                .map(response -> withBestEmail(claims, response.bodyAsJsonArray()));
+                    } else {
+                        ret = Future.succeededFuture(claims);
+                    }
+                    return ret;
+                });
+    }
+
+    /**
+     * Maps an identity-endpoint profile to claims, reading the standard OIDC userinfo names
+     * first and the GitHub names as fallbacks: {@code sub} else numeric {@code id},
+     * {@code name} else {@code login}, {@code email} / {@code email_verified} as given.
+     */
+    private static Map<String, Object> profileClaims(JsonObject profile) {
+        Map<String, Object> claims = new HashMap<>();
+        Object sub = profile.getValue("sub") != null ? profile.getValue("sub") : profile.getValue("id");
+        if (sub != null) {
+            claims.put("sub", String.valueOf(sub));
+        }
+        String name = profile.getString("name");
+        if (name == null || name.isBlank()) {
+            name = profile.getString("login");
+        }
+        if (name != null) {
+            claims.put("name", name);
+        }
+        String email = profile.getString("email");
+        if (email != null) {
+            claims.put("email", email);
+            Object verified = profile.getValue("email_verified");
+            if (verified != null) {
+                claims.put("email_verified", verified);
+            }
+        }
+        return claims;
+    }
+
+    /** Replaces the email claims with the best address from a GitHub-style emails array. */
+    private static Map<String, Object> withBestEmail(Map<String, Object> claims, JsonArray emails) {
+        JsonObject best = bestEmail(emails);
+        if (best != null) {
+            claims.put("email", best.getString("email"));
+            claims.put("email_verified", Boolean.TRUE.equals(best.getBoolean("verified")));
+        }
+        return claims;
     }
 
     /**
@@ -354,21 +401,21 @@ public class OidcFlowOrchestrator {
         return verified != null ? verified : primary;
     }
 
-    private Future<HttpResponse<Buffer>> githubApiGet(String accessToken, String path) {
-        return webClient.getAbs(GITHUB_API_BASE + path)
+    private Future<HttpResponse<Buffer>> apiGet(String accessToken, String uri) {
+        return webClient.getAbs(uri)
                         .putHeader("Authorization", "Bearer " + accessToken)
-                        .putHeader("Accept", "application/vnd.github+json")
-                        // api.github.com rejects requests that carry no User-Agent
-                        .putHeader("User-Agent", "kinotic-platform")
+                        .putHeader("Accept", "application/json")
+                        // some provider APIs (api.github.com) reject requests that carry no User-Agent
+                        .putHeader("User-Agent", USER_AGENT)
                         .send()
                         .compose(response -> {
                             Future<HttpResponse<Buffer>> ret;
                             if (response.statusCode() == 200) {
                                 ret = Future.succeededFuture(response);
                             } else {
-                                // A 403 on /user/emails usually means the GitHub App lacks the
+                                // On GitHub, a 403 from /user/emails usually means the app lacks the
                                 // "Email addresses: read-only" account permission
-                                log.warn("GitHub API GET {} failed with status {}", path, response.statusCode());
+                                log.warn("Identity API GET {} failed with status {}", uri, response.statusCode());
                                 ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.EXCHANGE_FAILED));
                             }
                             return ret;
