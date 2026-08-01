@@ -50,6 +50,11 @@ public class DomainUtil {
      */
     public static final String APP_ZONE_PREFIX = "app";
 
+    // Organization ids beginning with this prefix belong to the platform, which needs an
+    // organization wherever it is its own tenant — the owner of VM workloads the OS runs for
+    // the OS, for instance
+    private static final String RESERVED_ID_PREFIX = "kinotic";
+
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit
     private static final Pattern ProjectIdPattern = Pattern.compile("^[a-z0-9][a-z0-9.-]*$");
@@ -75,7 +80,8 @@ public class DomainUtil {
 
     /**
      * Validates that the given organization id contains only lowercase letters, digits, and
-     * interior dashes, and is not a zone label the platform reserves for itself.
+     * interior dashes, is not a zone label the platform reserves for itself, and does not begin
+     * with the prefix reserved for the platform's own organizations.
      *
      * @param organizationId to validate
      * @throws IllegalArgumentException if the organization id is null, invalid, or reserved
@@ -85,6 +91,10 @@ public class DomainUtil {
             throw new IllegalArgumentException("Organization Id must not be null");
         }
         validateZoneLabelId(organizationId);
+        // The platform's own organizations are seeded by db migrations, which do not come
+        // through here, so the prefix needs no escape hatch
+        Validate.isTrue(!organizationId.startsWith(RESERVED_ID_PREFIX),
+                        "Organization Id '%s' is reserved by the platform", organizationId);
     }
 
     private static void validateZoneLabelId(String id) {
