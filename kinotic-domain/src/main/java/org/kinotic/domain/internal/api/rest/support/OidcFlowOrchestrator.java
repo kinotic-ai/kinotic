@@ -5,16 +5,24 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.User;
 import io.vertx.ext.auth.oauth2.*;
+import io.vertx.ext.auth.oauth2.providers.GithubAuth;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClient;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
@@ -38,6 +46,7 @@ import java.util.function.Function;
 public class OidcFlowOrchestrator {
 
     private static final String OIDC_FLOW_SESSION_KEY = "oidcFlow";
+    private static final String GITHUB_API_BASE = "https://api.github.com";
 
     private final AsyncCache<String, OAuth2Auth> oauth2AuthCache =
             Caffeine.newBuilder()
@@ -49,11 +58,24 @@ public class OidcFlowOrchestrator {
                     .buildAsync();
     private final SecretReferenceResolver secretReferenceResolver;
     private final Vertx vertx;
+    private WebClient webClient;
+
+    @PostConstruct
+    public void start() {
+        this.webClient = WebClient.create(vertx);
+    }
+
+    @PreDestroy
+    public void stop() {
+        if (webClient != null) {
+            webClient.close();
+        }
+    }
 
     /**
-     * Validates the callback (state match, no IdP error), exchanges the code, validates the
-     * issuer, audience and nonce, and returns the configuration along with the verified
-     * id_token claims.
+     * Validates the callback (state match, no IdP error), exchanges the code, and returns the
+     * configuration along with the verified identity claims ({@code sub}, {@code email},
+     * {@code email_verified}, {@code name}, …).
      * The handler decides what to do with the claims (look up an IamUser, create a
      * {@code PendingSignUp}, etc.).
      *
@@ -102,27 +124,43 @@ public class OidcFlowOrchestrator {
                          }
                          return getOAuth2Auth(config)
                                  .compose(oauth2 -> exchangeCode(oauth2, code, callbackUrl, flowSession.pkceVerifier()))
-                                 .map(user -> {
-                                     Map<String, Object> claims = flattenClaims(user);
-                                     if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
-                                         log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
-                                                  config.getId(), claims.get("iss"), claims.get("tid"));
-                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
-                                     }
-                                     if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
-                                         log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
-                                                  config.getId(), config.getAudience(), claims.get("aud"));
-                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
-                                     }
-                                     // startFlow always sends a nonce, so OIDC Core 3.1.3.7 requires the
-                                     // id_token to echo it — an absent claim fails the equals and is rejected
-                                     if (!flowSession.nonce().equals(OAuth2Util.stringClaim(claims, "nonce"))) {
-                                         log.warn("OIDC nonce validation failed for config {}", config.getId());
-                                         throw new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN);
-                                     }
-                                     return new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken());
-                                 });
+                                 .compose(user -> verifiedClaims(config, user, flowSession))
+                                 .map(claims -> new CallbackResult<>(config, claims, flowSession.orgId(), flowSession.inviteToken()));
                      });
+    }
+
+    /**
+     * Produces the verified identity claims for an exchanged token: id_token claims validated
+     * against issuer, audience and nonce for OIDC providers, or claims built from the GitHub
+     * API for {@link OidcProviderKind#GITHUB}.
+     */
+    private Future<Map<String, Object>> verifiedClaims(BaseOidcConfiguration config, User user, OidcFlowSession flowSession) {
+        Future<Map<String, Object>> ret;
+        if (config.getProvider() == OidcProviderKind.GITHUB) {
+            // GitHub issues no id_token, so there is no issuer/audience/nonce to check — the state
+            // match in handleCallback plus the direct TLS code exchange are the security boundary,
+            // and identity comes from the GitHub API using the exchanged access token.
+            ret = fetchGithubClaims(user);
+        } else {
+            Map<String, Object> claims = flattenClaims(user);
+            if (!OAuth2Util.isIssuerValid(claims, config.getAuthority())) {
+                log.warn("OIDC issuer validation failed for config {}: iss={}, tid={}",
+                         config.getId(), claims.get("iss"), claims.get("tid"));
+                ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+            } else if (!OAuth2Util.isAudienceValid(claims, config.getAudience())) {
+                log.warn("OIDC audience validation failed for config {}: expected={}, aud={}",
+                         config.getId(), config.getAudience(), claims.get("aud"));
+                ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+            } else if (!flowSession.nonce().equals(OAuth2Util.stringClaim(claims, "nonce"))) {
+                // startFlow always sends a nonce, so OIDC Core 3.1.3.7 requires the
+                // id_token to echo it — an absent claim fails the equals and is rejected
+                log.warn("OIDC nonce validation failed for config {}", config.getId());
+                ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.INVALID_TOKEN));
+            } else {
+                ret = Future.succeededFuture(claims);
+            }
+        }
+        return ret;
     }
 
     /**
@@ -158,11 +196,18 @@ public class OidcFlowOrchestrator {
         session.regenerateId();
         session.put(OIDC_FLOW_SESSION_KEY, new OidcFlowSession(state, nonce, pkceVerifier, config.getId(), orgId, inviteToken));
 
+        // GitHub Apps ignore the scope param (access comes from the app's configured permissions);
+        // these scopes keep a classic OAuth App registration working with the same row. GitHub also
+        // ignores the PKCE and nonce params rather than rejecting them.
+        List<String> scopes = config.getProvider() == OidcProviderKind.GITHUB
+                ? List.of("read:user", "user:email")
+                : List.of("openid", "email", "profile");
+
         return getOAuth2Auth(config)
                 .map(oauth2 -> oauth2.authorizeURL(
                         new OAuth2AuthorizationURL()
                                 .setRedirectUri(callbackUrl)
-                                .setScopes(List.of("openid", "email", "profile"))
+                                .setScopes(scopes)
                                 .setState(state)
                                 .setCodeChallenge(pkceChallenge)
                                 .setCodeChallengeMethod("S256")
@@ -174,47 +219,53 @@ public class OidcFlowOrchestrator {
      * @param clientSecret resolved client secret, or null for public-client flows
      */
     private Future<OAuth2Auth> createOAuth2Auth(BaseOidcConfiguration config, String clientSecret) {
-        if (config.getAuthority() == null || config.getAuthority().isBlank()) {
-            return Future.failedFuture(new IllegalArgumentException(
+        Future<OAuth2Auth> ret;
+        if (config.getProvider() == OidcProviderKind.GITHUB) {
+            // GitHub publishes no OIDC discovery document — GithubAuth wires the fixed
+            // github.com/login OAuth endpoints directly.
+            ret = Future.succeededFuture(GithubAuth.create(vertx, config.getClientId(), clientSecret));
+        } else if (config.getAuthority() == null || config.getAuthority().isBlank()) {
+            ret = Future.failedFuture(new IllegalArgumentException(
                     "OidcConfiguration " + config.getId() + " has no authority; required for OIDC discovery"));
-        }
+        } else {
+            OAuth2Options options = new OAuth2Options()
+                    .setClientId(config.getClientId())
+                    .setSite(config.getAuthority())
+                    // Microsoft /common returns a discovery doc whose `issuer` is the literal template
+                    // "https://login.microsoftonline.com/{tenantid}/v2.0" — Vert.x's strict
+                    // {site == issuer} comparison fails. JWKS-backed signature verification remains
+                    // the real security check.
+                    .setValidateIssuer(false);
+            if (clientSecret != null) {
+                options.setClientSecret(clientSecret);
+            }
 
-        OAuth2Options options = new OAuth2Options()
-                .setClientId(config.getClientId())
-                .setSite(config.getAuthority())
-                // Microsoft /common returns a discovery doc whose `issuer` is the literal template
-                // "https://login.microsoftonline.com/{tenantid}/v2.0" — Vert.x's strict
-                // {site == issuer} comparison fails. JWKS-backed signature verification remains
-                // the real security check.
-                .setValidateIssuer(false);
-        if (clientSecret != null) {
-            options.setClientSecret(clientSecret);
+            ret = OpenIDConnectAuth.discover(vertx, options)
+                                   .map(oauth -> {
+                                       if (options.getJWTOptions() != null) {
+                                           // Discovery mutates JWTOptions.issuer with the
+                                           // {tenantid}-templated string — Vert.x would then fail every
+                                           // per-JWT validation because the real JWT carries the
+                                           // substituted tid. Clear it for the multi-tenant case; we
+                                           // re-validate the issuer ourselves post-exchange using the
+                                           // JWT's signed tid claim.
+                                           String jwtIssuer = options.getJWTOptions().getIssuer();
+                                           if (jwtIssuer != null && jwtIssuer.contains("{tenantid}")) {
+                                               options.getJWTOptions().setIssuer(null);
+                                           }
+                                           // Belt-and-suspenders audience check: when configured, push
+                                           // the expected audience into Vert.x's JWTOptions so the aud
+                                           // claim is validated during token-exchange JWT processing.
+                                           // The orchestrator re-validates post-exchange so coverage
+                                           // holds across Vert.x version drift.
+                                           if (config.getAudience() != null && !config.getAudience().isBlank()) {
+                                               options.getJWTOptions().addAudience(config.getAudience());
+                                           }
+                                       }
+                                       return oauth;
+                                   });
         }
-
-        return OpenIDConnectAuth.discover(vertx, options)
-                                .map(oauth -> {
-                                    if (options.getJWTOptions() != null) {
-                                        // Discovery mutates JWTOptions.issuer with the
-                                        // {tenantid}-templated string — Vert.x would then fail every
-                                        // per-JWT validation because the real JWT carries the
-                                        // substituted tid. Clear it for the multi-tenant case; we
-                                        // re-validate the issuer ourselves post-exchange using the
-                                        // JWT's signed tid claim.
-                                        String jwtIssuer = options.getJWTOptions().getIssuer();
-                                        if (jwtIssuer != null && jwtIssuer.contains("{tenantid}")) {
-                                            options.getJWTOptions().setIssuer(null);
-                                        }
-                                        // Belt-and-suspenders audience check: when configured, push
-                                        // the expected audience into Vert.x's JWTOptions so the aud
-                                        // claim is validated during token-exchange JWT processing.
-                                        // The orchestrator re-validates post-exchange so coverage
-                                        // holds across Vert.x version drift.
-                                        if (config.getAudience() != null && !config.getAudience().isBlank()) {
-                                            options.getJWTOptions().addAudience(config.getAudience());
-                                        }
-                                    }
-                                    return oauth;
-                                });
+        return ret;
     }
 
     private Future<User> exchangeCode(OAuth2Auth oauth2, String code, String callbackUrl, String pkceVerifier) {
@@ -244,6 +295,84 @@ public class OidcFlowOrchestrator {
             });
         }
         return map;
+    }
+
+    /**
+     * Builds the identity claims for a GitHub flow from {@code GET /user} and
+     * {@code GET /user/emails}: {@code sub} is the numeric GitHub account id, {@code email} /
+     * {@code email_verified} come from the best address on the account, and {@code name}
+     * falls back to the GitHub login when no display name is set.
+     */
+    private Future<Map<String, Object>> fetchGithubClaims(User user) {
+        String accessToken = user.principal().getString("access_token");
+        return githubApiGet(accessToken, "/user")
+                .map(HttpResponse::bodyAsJsonObject)
+                .compose(githubUser -> githubApiGet(accessToken, "/user/emails")
+                        .map(HttpResponse::bodyAsJsonArray)
+                        .map(emails -> {
+                            Map<String, Object> claims = new HashMap<>();
+                            Long id = githubUser.getLong("id");
+                            if (id != null) {
+                                claims.put("sub", String.valueOf(id));
+                            }
+                            String name = githubUser.getString("name");
+                            claims.put("name", name != null && !name.isBlank() ? name : githubUser.getString("login"));
+                            JsonObject email = bestEmail(emails);
+                            if (email != null) {
+                                claims.put("email", email.getString("email"));
+                                claims.put("email_verified", Boolean.TRUE.equals(email.getBoolean("verified")));
+                            }
+                            return claims;
+                        }));
+    }
+
+    /**
+     * The primary verified entry, else any verified entry, else the primary entry;
+     * {@code null} when the account has no address matching any of these.
+     */
+    private static JsonObject bestEmail(JsonArray emails) {
+        JsonObject verified = null;
+        JsonObject primary = null;
+        for (int i = 0; i < emails.size(); i++) {
+            JsonObject entry = emails.getJsonObject(i);
+            boolean isPrimary = Boolean.TRUE.equals(entry.getBoolean("primary"));
+            if (Boolean.TRUE.equals(entry.getBoolean("verified"))) {
+                if (isPrimary) {
+                    // Primary + verified wins outright
+                    verified = entry;
+                    break;
+                }
+                if (verified == null) {
+                    verified = entry;
+                }
+            } else if (isPrimary) {
+                primary = entry;
+            }
+        }
+        // An unverified primary still surfaces so the flow fails as EMAIL_NOT_VERIFIED
+        // rather than the opaque missing-claims INVALID_TOKEN
+        return verified != null ? verified : primary;
+    }
+
+    private Future<HttpResponse<Buffer>> githubApiGet(String accessToken, String path) {
+        return webClient.getAbs(GITHUB_API_BASE + path)
+                        .putHeader("Authorization", "Bearer " + accessToken)
+                        .putHeader("Accept", "application/vnd.github+json")
+                        // api.github.com rejects requests that carry no User-Agent
+                        .putHeader("User-Agent", "kinotic-platform")
+                        .send()
+                        .compose(response -> {
+                            Future<HttpResponse<Buffer>> ret;
+                            if (response.statusCode() == 200) {
+                                ret = Future.succeededFuture(response);
+                            } else {
+                                // A 403 on /user/emails usually means the GitHub App lacks the
+                                // "Email addresses: read-only" account permission
+                                log.warn("GitHub API GET {} failed with status {}", path, response.statusCode());
+                                ret = Future.failedFuture(new OidcCallbackException(OidcErrorCodes.EXCHANGE_FAILED));
+                            }
+                            return ret;
+                        });
     }
 
     /**

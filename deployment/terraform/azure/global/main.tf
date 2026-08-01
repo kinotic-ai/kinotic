@@ -74,6 +74,18 @@ variable "google_client_secret" {
   default     = ""
 }
 
+# Operator-supplied: the OAuth client_secret of the kinotic-ai GitHub App's
+# "Request user authorization (OAuth)" credential. Provide via
+# `TF_VAR_github_client_secret` at apply time — never commit a value here. After the
+# first apply the AKV secret is managed via `az keyvault secret set ...`;
+# lifecycle.ignore_changes on the resource stops terraform from clobbering rotations.
+variable "github_client_secret" {
+  description = "GitHub App OAuth client secret for the Continue-with-GitHub social provider"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {
