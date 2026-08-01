@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
@@ -30,9 +31,10 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     private final IamUserRepository iamUserRepository;
 
     @Override
-    public CompletableFuture<String> issue(String userId) {
+    public CompletableFuture<String> issue(String userId, KinoticAudience audience) {
         Validate.notBlank(userId, "userId is required");
-        return mint(userId, UUID.randomUUID().toString())
+        Validate.notNull(audience, "audience is required");
+        return mint(userId, UUID.randomUUID().toString(), audience)
                 .thenApply(Minted::plaintext);
     }
 
@@ -57,6 +59,12 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         if (current.getExpiresAt().before(new Date())) {
             return CompletableFuture.failedFuture(new IllegalArgumentException("Refresh token has expired"));
         }
+        if (current.getAudience() == null) {
+            // mint() stamps every lineage, so this is a corrupted record; failing beats guessing an
+            // audience, which would hand the replacement a surface the lineage never covered
+            log.error("Refresh token {} in family {} has no audience", current.getId(), current.getFamilyId());
+            return CompletableFuture.failedFuture(new IllegalStateException("Refresh token has no audience"));
+        }
         return iamUserRepository.findById(current.getUserId())
                 .thenCompose(user -> {
                     if (user == null || !user.isEnabled()) {
@@ -65,13 +73,14 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                     }
                     // Mint the replacement before revoking the current token so a failure mid-rotation
                     // never leaves the client without a usable token.
-                    return mint(current.getUserId(), current.getFamilyId())
+                    return mint(current.getUserId(), current.getFamilyId(), current.getAudience())
                             .thenCompose(minted -> {
                                 current.setRevoked(true)
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
                                 return refreshTokenRepository.saveSync(current)
-                                        .thenApply(v -> new RefreshTokenRotation(user, minted.plaintext()));
+                                        .thenApply(v -> new RefreshTokenRotation(user, minted.plaintext(),
+                                                                                 current.getAudience()));
                             });
                 });
     }
@@ -87,7 +96,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 });
     }
 
-    private CompletableFuture<Minted> mint(String userId, String familyId) {
+    private CompletableFuture<Minted> mint(String userId, String familyId, KinoticAudience audience) {
         String plaintext = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
         Date now = new Date();
         RefreshToken record = new RefreshToken()
@@ -95,6 +104,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 .setTokenHash(DomainUtil.sha256Hex(plaintext))
                 .setUserId(userId)
                 .setFamilyId(familyId)
+                .setAudience(audience)
                 .setCreated(now)
                 .setExpiresAt(new Date(now.getTime() + TOKEN_TTL_MS))
                 .setRevoked(false);

@@ -2,6 +2,7 @@ package org.kinotic.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
@@ -13,12 +14,17 @@ import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.support.BrokenTestService;
+import org.kinotic.idl.internal.support.DefaultTestRenamedService;
+import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
+import org.kinotic.idl.internal.support.TestOverloadedService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
+import org.kinotic.idl.internal.support.TestSweptService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,8 +51,8 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
-                                                                                          OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
@@ -94,7 +100,7 @@ public class TestSchemaFactory {
 
     @Test
     public void testInheritedGenericSignaturesResolve() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestObjectCrudService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestObjectCrudService.class, TestObjectCrudService.class)));
 
         ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
         Assertions.assertEquals(2, crudService.getFunctions().size());
@@ -112,13 +118,78 @@ public class TestSchemaFactory {
         Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
         Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
         Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
+
+        // an inherited function's description comes from the Javadoc on the generic base declaring it,
+        // even though GenericCrudService itself carries no annotations
+        McpToolC3Decorator inherited = findById.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(inherited);
+        Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
+    }
+
+    @Test
+    public void testImplementationDecidesNamesAndAnnotations() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRenamedService.class, DefaultTestRenamedService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
+        FunctionDefinition greet = findFunction(service, "greet");
+        // the implementation's parameter name is what the named-argument binding resolves at invocation,
+        // so it is the name the schema publishes — not the interface's "recipientName"
+        Assertions.assertEquals("name", greet.getParameters().getFirst().getName());
+        // @McpTool declared only on the implementation's override still marks the function
+        McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(decorator);
+        Assertions.assertEquals("Greets the recipient", decorator.getDescription());
+        // an explicit description with no title still gets a derived title
+        Assertions.assertEquals("Greet", decorator.getTitle());
+    }
+
+    @Test
+    public void testTypeLevelMcpToolMarksEveryFunction() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestSweptService.class, TestSweptService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
+
+        // a documented method's description is the Javadoc main description extracted at compile time,
+        // with inline tags resolved; the title still derives from the function name
+        McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(documented);
+        Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
+        Assertions.assertEquals("Find By Name", documented.getTitle());
+        Assertions.assertTrue(documented.isReadOnlyHint());
+
+        // no annotation description and no Javadoc: description and title derive from the function name
+        McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(derived);
+        Assertions.assertEquals("Count by name", derived.getDescription());
+        Assertions.assertEquals("Count By Name", derived.getTitle());
+
+        // a method-level @McpTool overrides the type-level defaults for that method
+        McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(specific);
+        Assertions.assertEquals("Counts every test object", specific.getDescription());
+        Assertions.assertEquals("Count Objects", specific.getTitle());
+        Assertions.assertFalse(specific.isReadOnlyHint());
+    }
+
+    @Test
+    public void testOverloadedFunctionPublishesOnce() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestOverloadedService.class);
+        // IdlUtil.serviceFunctions keeps one method per name, the same rule ReflectiveServiceDescriptor
+        // registers with, so the schema never advertises an overload the registry does not serve
+        Assertions.assertEquals(1, service.getFunctions().size());
+        findFunction(service, "find");
     }
 
     @Test
     public void testUnconvertibleServiceOmitted() {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(TestService.class,
-                                                                                          BrokenTestService.class,
-                                                                                          OtherTestService.class));
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+                                                                                          new ServiceDeclaration(BrokenTestService.class, BrokenTestService.class),
+                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 
         // BrokenTestService fails to convert and is omitted; the rest of the batch is unaffected
         Assertions.assertEquals(2, namespaceDefinition.getServices().size());

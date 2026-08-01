@@ -15,6 +15,7 @@ import java.util.concurrent.CompletableFuture;
  */
 // FIXME: add an OrganizationScopedServiceInterface
 @Publish
+@McpTool
 public interface ApplicationService extends IdentifiableCrudService<Application, String> {
 
     /**
@@ -25,7 +26,6 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @return {@link CompletableFuture} emitting the created application, or the existing
      *         application whose id matches the slugified name
      */
-    @McpTool(description = "Creates a new application if it does not already exist")
     CompletableFuture<Application> createApplicationIfNotExist(String name, String description);
 
     /**
@@ -35,8 +35,6 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * @return the enabled configurations, or an empty list if the application is not
      *         found or has no configurations attached
      */
-    @McpTool(description = "Returns the enabled OIDC configurations registered on the given application",
-             readOnlyHint = true)
     CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
 
 }

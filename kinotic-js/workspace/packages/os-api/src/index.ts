@@ -81,7 +81,7 @@ export * from '@/api/services/IVmNodeService'
 export * from '@/api/services/IWorkloadService'
 export * from '@/api/services/IMemberService'
 export * from '@/api/services/IInviteEmailTemplateService'
-export * from '@/api/services/IDeviceApprovalService'
+export * from '@/api/services/IOAuthApprovalService'
 export * from '@/api/services/IGitHubAppInstallationService'
 
 // Plugin

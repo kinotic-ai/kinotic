@@ -37,11 +37,11 @@ import java.util.TreeMap;
  *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers.
  *       Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
- *       by {@link KinoticJwtIssuer} after a successful OIDC callback. We validate the JWT
- *       signature + audience, then look up the {@link IamUser} by id from the JWT
- *       {@code sub} claim. Cross-checks that the JWT's {@code organizationId} /
- *       {@code applicationId} claims match the headers (defense in depth against a JWT for
- *       org A being replayed against org B).</li>
+ *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
+ *       signature, then look up the {@link IamUser} by id from the JWT
+ *       {@code sub} claim. When scope headers accompany the token they must match the JWT's
+ *       {@code organizationId} / {@code applicationId} claims; a bearer-only request takes
+ *       its scope from the signed claims alone.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
  * which mints a Kinotic JWT for the STOMP handoff.
@@ -137,11 +137,13 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must:
-     * carry {@code aud=kinotic} (enforced by {@link KinoticJwtIssuer#authenticate}); have
-     * a {@code sub} claim referencing an existing, enabled {@link IamUser}; and carry
-     * {@code organizationId} / {@code applicationId} claims that match the auth headers
-     * (defense in depth against a JWT for org A being replayed against org B).
+     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must: have a
+     * {@code sub} claim referencing an existing,
+     * enabled {@link IamUser}; and, when the caller supplied {@code organizationId} /
+     * {@code applicationId} headers, carry matching claims (defense in depth against a JWT for
+     * org A being replayed against org B). A bearer-only request carries no scope headers and
+     * authenticates as the scope the JWT's own signed claims declare — the shape MCP hosts and
+     * other plain OAuth clients send.
      */
     private Future<Participant> authenticateKinoticJwt(String organizationId,
                                                        String applicationId,
@@ -154,16 +156,20 @@ public class KinoticSecurityService implements SecurityService {
                             String sub = p.getString("sub");
                             String jwtOrgId = p.getString("organizationId");
                             String jwtAppId = p.getString("applicationId");
+                            boolean scopeHeadersPresent = organizationId != null || applicationId != null;
 
                             Future<Participant> ret;
                             if (sub == null) {
                                 ret = Future.failedFuture(new AuthenticationException("JWT missing sub claim"));
-                            } else if (!Objects.equals(organizationId, jwtOrgId)
-                                    || !Objects.equals(applicationId, jwtAppId)) {
+                            } else if (scopeHeadersPresent
+                                    && (!Objects.equals(organizationId, jwtOrgId)
+                                            || !Objects.equals(applicationId, jwtAppId))) {
                                 ret = Future.failedFuture(new AuthenticationException(
                                         "JWT scope " + describeScope(jwtOrgId, jwtAppId)
                                                 + " does not match auth headers " + describeScope(organizationId, applicationId)));
                             } else {
+                                // the participant's scope derives from the IamUser record, the same
+                                // structure the signed claims were minted from
                                 ret = findEnabledUser(sub);
                             }
                             return ret;

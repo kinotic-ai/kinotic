@@ -2,13 +2,17 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;
+import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -20,13 +24,19 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
 
     private final OidcConfigurationRepository oidcRepository;
     private final OrganizationService organizationService;
+    private final ApplicationRepository applicationRepository;
+    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
 
     public DefaultOidcConfigurationService(OidcConfigurationRepository repository,
                                            OrganizationService organizationService,
+                                           ApplicationRepository applicationRepository,
+                                           OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
                                            SecurityContext securityContext) {
         super(repository, securityContext);
         this.oidcRepository = repository;
         this.organizationService = organizationService;
+        this.applicationRepository = applicationRepository;
+        this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
     }
 
     @Override
@@ -60,6 +70,36 @@ public class DefaultOidcConfigurationService extends AbstractOrganizationScopedS
             return oidcRepository.findById(org.getSsoConfigId(), organizationId)
                                  .thenApply(c -> validForOrgLogin(c, organizationId));
         });
+    }
+
+    @Override
+    public CompletableFuture<List<BaseOidcConfiguration>> findEnabledForScope(String organizationId, String applicationId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        CompletableFuture<List<BaseOidcConfiguration>> ret;
+        if (applicationId != null) {
+            // Direct repository lookup so the pre-auth login pages can resolve without a participant.
+            ret = applicationRepository.findById(applicationId, organizationId)
+                                       .thenCompose(app -> {
+                                           if (app == null
+                                                   || app.getOidcConfigurationIds() == null
+                                                   || app.getOidcConfigurationIds().isEmpty()) {
+                                               return CompletableFuture.completedFuture(List.<OidcConfiguration>of());
+                                           }
+                                           return findEnabledByIds(app.getOidcConfigurationIds(), organizationId);
+                                       })
+                                       .thenApply(ArrayList::new);
+        } else {
+            ret = orgSignupOidcConfigurationService.findAllEnabled()
+                                                   .thenCombine(findOrgLoginConfig(organizationId),
+                                                                (social, sso) -> {
+                                                                    List<BaseOidcConfiguration> providers = new ArrayList<>(social);
+                                                                    if (sso != null && sso.isEnabled()) {
+                                                                        providers.add(sso);
+                                                                    }
+                                                                    return providers;
+                                                                });
+        }
+        return ret;
     }
 
     private static OidcConfiguration validForOrgLogin(OidcConfiguration config, String expectedOrgId) {

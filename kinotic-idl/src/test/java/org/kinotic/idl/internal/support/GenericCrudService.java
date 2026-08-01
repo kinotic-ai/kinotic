@@ -9,6 +9,9 @@ public interface GenericCrudService<T, ID> {
 
     CompletableFuture<T> save(T entity);
 
+    /**
+     * Finds the entity with the given id.
+     */
     CompletableFuture<T> findById(ID id);
 
 }

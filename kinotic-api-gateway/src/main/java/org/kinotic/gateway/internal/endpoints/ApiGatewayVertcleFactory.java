@@ -53,8 +53,10 @@ public class ApiGatewayVertcleFactory {
         router.get("/health")
               .handler(HealthCheckHandler.createWithHealthChecks(healthChecks));
 
-        // Add body handler for all api paths
-        router.route("/api/*").handler(BodyHandler.create().setBodyLimit(16384));
+        // Add body handler for all api paths. File uploads are off: no /api route consumes one, and
+        // BodyHandler mkdirs its uploads directory under the working directory on every form-encoded
+        // request, which the container image's /workspace does not grant the runtime user.
+        router.route("/api/*").handler(BodyHandler.create(false).setBodyLimit(16384));
 
         // Add session handler to all api paths
         SessionHandler sessionHandler = SessionHandler.create(sessionStore)

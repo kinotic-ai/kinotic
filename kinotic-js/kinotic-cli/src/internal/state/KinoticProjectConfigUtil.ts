@@ -6,10 +6,17 @@ import { Liquid } from 'liquidjs'
 import { fileURLToPath } from 'url'
 
 /**
+ * Returns the absolute path to the current project's .config directory.
+ */
+export function resolveKinoticConfigDir(): string {
+    return path.resolve(process.cwd(), '.config')
+}
+
+/**
  * Returns the absolute path to the first supported kinotic.config.* file in the .config directory, or undefined if none found.
  */
 async function findKinoticConfigFile(): Promise<string | undefined> {
-    const configDir = path.resolve(process.cwd(), '.config')
+    const configDir = resolveKinoticConfigDir()
     try {
         const stat = await fsPromises.stat(configDir)
         if (stat.isDirectory()) {
@@ -120,7 +127,7 @@ export async function isKinoticProject(): Promise<boolean> {
 export async function loadKinoticProjectConfig(): Promise<KinoticProjectConfig> {
     let result: KinoticProjectConfig | undefined
     const configFile = await findKinoticConfigFile()
-    let configDir = path.resolve(process.cwd(), '.config')
+    let configDir = resolveKinoticConfigDir()
     if (configFile) {
         configDir = path.dirname(configFile)
         const { config } = await loadConfig({

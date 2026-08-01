@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.rest.mcp;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.security.ApplicationParticipant;
 import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.security.ScopedParticipant;
 import org.kinotic.domain.api.security.SystemParticipant;
 
 /**
@@ -12,18 +13,18 @@ import org.kinotic.domain.api.security.SystemParticipant;
 record McpCallerScope(String organizationId, String applicationId) {
 
     static McpCallerScope from(Participant participant) {
-        McpCallerScope ret;
-        if (participant instanceof SystemParticipant) {
-            ret = new McpCallerScope(null, null);
-        } else if (participant instanceof ApplicationParticipant applicationParticipant) {
-            ret = new McpCallerScope(applicationParticipant.getOrganizationId(),
-                                     applicationParticipant.getApplicationId());
-        } else if (participant instanceof OrganizationParticipant organizationParticipant) {
-            ret = new McpCallerScope(organizationParticipant.getOrganizationId(), null);
-        } else {
+        if (!(participant instanceof ScopedParticipant scopedParticipant)) {
             throw new IllegalArgumentException("Unknown participant type " + participant.getClass().getName()
                                                        + ", no directory scope exists for it");
         }
+        McpCallerScope ret = switch (scopedParticipant) {
+            case SystemParticipant _ -> new McpCallerScope(null, null);
+            case ApplicationParticipant applicationParticipant ->
+                    new McpCallerScope(applicationParticipant.getOrganizationId(),
+                                       applicationParticipant.getApplicationId());
+            case OrganizationParticipant organizationParticipant ->
+                    new McpCallerScope(organizationParticipant.getOrganizationId(), null);
+        };
         return ret;
     }
 }

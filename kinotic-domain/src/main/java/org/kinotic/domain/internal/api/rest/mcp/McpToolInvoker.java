@@ -130,6 +130,7 @@ public class McpToolInvoker {
                                                .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure));
                                ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
                            } else {
+                               log.warn("MCP tool '{}' dispatch to {} failed", tool.getName(), tool.getCri(), throwable);
                                ret.complete(McpCallToolResult.error(throwable.getMessage()));
                            }
                        });

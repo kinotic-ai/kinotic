@@ -21,33 +21,12 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`kinotic create project NAME`](#kinotic-create-project-name)
 * [`kinotic gen`](#kinotic-gen)
 * [`kinotic generate`](#kinotic-generate)
 * [`kinotic init`](#kinotic-init)
 * [`kinotic initialize`](#kinotic-initialize)
 * [`kinotic sync`](#kinotic-sync)
 * [`kinotic synchronize`](#kinotic-synchronize)
-
-## `kinotic create project NAME`
-
-Creates a Kinotic Project
-
-```
-USAGE
-  $ kinotic create project NAME
-
-ARGUMENTS
-  NAME  The name for the project
-
-DESCRIPTION
-  Creates a Kinotic Project
-
-EXAMPLES
-  $ kinotic create project MyProjectName
-```
-
-_See code: [src/commands/create/project.ts](https://github.com/kinotic-ai/kinotic/blob/v2.2.0/src/commands/create/project.ts)_
 
 ## `kinotic gen`
 

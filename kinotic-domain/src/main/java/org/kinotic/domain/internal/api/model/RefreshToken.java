@@ -4,14 +4,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
 
 /**
- * A rotating refresh token for a CLI session. Each redemption revokes this record and issues
- * a replacement in the same {@link #familyId} lineage; presenting an already-revoked token
- * (reuse) revokes the entire family.
+ * A rotating refresh token for an OAuth client session. Each redemption revokes this record and
+ * issues a replacement in the same {@link #familyId} lineage carrying the same {@link #audience};
+ * presenting an already-revoked token (reuse) revokes the entire family.
  * <p>
  * Internal-only — never published. Only ever holds a SHA-256 hash of the token, never the
  * plaintext.
@@ -32,6 +33,12 @@ public class RefreshToken implements Identifiable<String> {
 
     /** Groups every token in one rotation lineage so that reuse can revoke the whole family. */
     private String familyId;
+
+    /**
+     * The surface access tokens minted from this lineage are valid for. Fixed when the grant
+     * that created the lineage was redeemed, and preserved across every rotation.
+     */
+    private KinoticAudience audience;
 
     private Date created;
 

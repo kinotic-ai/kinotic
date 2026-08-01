@@ -25,15 +25,19 @@ public interface SchemaFactory {
     C3Type createForClass(Class<?> clazz);
 
     /**
-     * Creates a {@link NamespaceDefinition} containing a {@link ServiceDefinition} for each given {@link Class},
-     * treating each class as a java "service". All services are converted in one session, so complex types shared
-     * between services are converted once and appear once in the returned namespace. A service that fails to
+     * Creates a {@link NamespaceDefinition} containing a {@link ServiceDefinition} for each given
+     * {@link ServiceDeclaration}. The interface decides which functions the definition carries — one function
+     * per method name, overloading is not supported — while each function's parameter names, generic
+     * bindings, and annotations resolve against the implementation's most specific method — the same method
+     * invoked at runtime.
+     * All services are converted in one session, so complex types shared between services are converted once and
+     * appear once in the returned namespace. Equal declarations convert once, and a service that fails to
      * convert is omitted from the result rather than failing the batch. Each definition's qualified name is the
-     * class's package name and simple name joined with {@code '.'}.
+     * interface's package name and simple name joined with {@code '.'}.
      *
-     * @param serviceInterfaces the classes to create service definitions for, duplicates ignored
+     * @param services the services to create definitions for
      * @return the newly created {@link NamespaceDefinition} with every converted service and every referenced complex type
      */
-    NamespaceDefinition createForServices(Collection<Class<?>> serviceInterfaces);
+    NamespaceDefinition createForServices(Collection<ServiceDeclaration> services);
 
 }

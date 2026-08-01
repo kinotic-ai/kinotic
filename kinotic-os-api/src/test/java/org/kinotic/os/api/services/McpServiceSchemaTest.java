@@ -2,8 +2,14 @@ package org.kinotic.os.api.services;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.os.internal.api.services.DefaultApplicationService;
+import org.kinotic.os.internal.api.services.DefaultProjectService;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
 import org.kinotic.idl.internal.directory.ReactiveTypeConverter;
@@ -39,6 +45,38 @@ public class McpServiceSchemaTest {
 
     @Test
     public void mcpExposedServicesConvert() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
+                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class)));
+
+        // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
+        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
+    }
+
+    @Test
+    public void inheritedJavadocDescriptionsResolveAcrossModules() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(TestCrudSweptService.class, TestCrudSweptService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+        FunctionDefinition findById = service.getFunctions()
+                                             .stream()
+                                             .filter(function -> function.getName().equals("findById"))
+                                             .findFirst()
+                                             .orElseThrow();
+
+        // the description is CrudService.findById's Javadoc, read from the kinotic-core jar resource the
+        // McpToolDocProcessor emitted when kinotic-core compiled — guarding the conventions wiring and the
+        // cross-module ancestor walk together
+        McpToolC3Decorator decorator = findById.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(decorator);
+        Assertions.assertEquals("Retrieves an entity by its id.", decorator.getDescription());
+    }
+
+    private static DefaultSchemaFactory schemaFactory() {
         List<ResolvableTypeConverter> converters = List.of(new ArrayTypeConverter(),
                                                            new BooleanTypeConverter(),
                                                            new ByteTypeConverter(),
@@ -58,13 +96,7 @@ public class McpServiceSchemaTest {
                                                            new VoidTypeConverter(),
                                                            new TokenBufferTypeConverter(),
                                                            new ReactiveTypeConverter(sharedRegistryProvider()));
-        DefaultSchemaFactory schemaFactory = new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
-
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(ProjectService.class, ApplicationService.class));
-
-        // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
-        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
+        return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
     }
 
     // resolves to the shared ReactiveAdapterRegistry, as ReactiveTypeConverter falls back to outside a Spring context
