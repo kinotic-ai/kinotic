@@ -191,8 +191,10 @@ shipping a spawn.
 
 ## Examples in this repo
 
-Two working spawns ship with the CLI under
-`kinotic-cli/src/templates/spawns/`:
+The tests render worked spawns inline:
 
-- `library/spawn.json` — a single `propertySchema` property, no globals
-- `project/spawn.json` — `globals` plus several `propertySchema` properties
+- `test/SpawnEngine.test.ts` — a spawn.json carrying both `globals` and
+  `propertySchema`, nested package templates, verbatim files, and inheritance
+- `test/NodeSpawnRenderer.test.ts` — loading a spawn directory from disk and
+  writing the result to another
+- `test/SpawnLint.test.ts` — what `lint` does and does not report as undeclared
