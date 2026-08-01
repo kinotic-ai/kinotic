@@ -3,7 +3,7 @@ allowBuilds:
 minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
 minimumReleaseAgeExclude:
   - '@kinotic-ai/core@4.0.0'
-  - '@kinotic-ai/os-api@4.0.0'
   - '@kinotic-ai/persistence@4.0.0'
   - '@kinotic-ai/spawn@0.3.0'
   - '@kinotic-ai/spawn@0.4.0'
+  - '@kinotic-ai/os-api@4.1.0'
