@@ -1,3 +1,8 @@
+# Phase Prompt
+
+I would like you to break this work into a series of phases where ideally each phase changes around 10 files. After each phase I would like you to wait for me to review the code before proceeding with the next phase. Once I give approval you can move onto the next phase.
+
+
 ### IamUser refactor
 
 * Fix DefaultPendingRegistrationService.applyPendingScope (Should not be needed)
