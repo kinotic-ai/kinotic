@@ -126,10 +126,10 @@ Each microservice or UI is its own workspace package nested under
 }
 ```
 
-Register the package in `bunup.config.ts`, and run `bun install` after creating it.
-Packages importing the domain package resolve its types from the built `dist/`
-output, so run `bun run build` after changing domain code or its export barrel —
-otherwise their `type-check` fails with TS7016 on the domain import.
+Register the package in `bunup.config.ts`, and run `bun install` after creating it
+so the workspace links it. The domain package exports its TypeScript source
+(`index.ts`), so imports type-check and run without a prior build — but an entity
+or repository is only importable once it is exported from that barrel.
 
 ## Verification checklist
 
