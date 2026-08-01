@@ -127,13 +127,13 @@ public class TestSchemaFactory {
     }
 
     @Test
-    public void testContractDecidesNamesAndImplementationDecidesAnnotations() {
+    public void testInterfaceDecidesNamesAndImplementationDecidesAnnotations() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRenamedService.class, DefaultTestRenamedService.class)));
 
         ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
         FunctionDefinition greet = findFunction(service, "greet");
-        // AopUtils.selectInvocableMethod hands the invoker the contract's method, so the contract's
+        // AopUtils.selectInvocableMethod hands the invoker the interface's method, so the interface's
         // parameter name is what named-argument binding resolves — not the implementation's "name"
         Assertions.assertEquals("recipientName", greet.getParameters().getFirst().getName());
         // @McpTool declared only on the implementation's override still marks the function

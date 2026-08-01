@@ -137,9 +137,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
                 C3Type c3Type = conversionContext.convert(ResolvableType.forMethodParameter(methodParameter));
 
-                // names come from the contract method: AopUtils.selectInvocableMethod returns the contract's
-                // method to the invoker, so the contract's parameter names are what named-argument binding
-                // resolves. NamedJsonInvocationTests pins the two together.
+                // names come from the interface method: AopUtils.selectInvocableMethod returns the
+                // interface's method to the invoker, so the interface's parameter names are what
+                // named-argument binding resolves. Mcp.test.ts pins the two together.
                 functionDefinition.addParameter(IdlUtil.parameterName(new MethodParameter(function.getValue(), i)),
                                                 c3Type);
             }

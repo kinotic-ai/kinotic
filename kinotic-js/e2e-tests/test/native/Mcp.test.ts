@@ -104,11 +104,11 @@ describe('Kinotic JS', () => {
         expect(result.isError).toBe(true)
     })
 
-    it('publishes and binds the contract parameter name where the implementation renames it', async () => {
+    it('publishes and binds the interface parameter name where the implementation renames it', async () => {
         const save = (await systemClient.listTools()).tools.find(tool => tool.name === SAVE_PROJECT)
         expect(save, `${SAVE_PROJECT} is not exposed as a tool`).toBeDefined()
 
-        // the contract's name, never the inherited implementation's 'value'
+        // the interface's name, never the inherited implementation's 'value'
         expect(Object.keys(save!.inputSchema.properties ?? {})).toEqual(['entity'])
 
         // taking the argument name from the schema is what makes this a round trip: publishing a name the
