@@ -11,7 +11,7 @@ not "fix" the clone to match this document.
 <repo root>/
 ├── README.md
 ├── package.json              # Bun workspace root
-├── tsconfig.json             # `bun run generate` resolves entity types through its include globs
+├── tsconfig.json             # `bun run generate` reads compilerOptions from here
 ├── tsconfig.base.json
 ├── bunup.config.ts           # bunup workspace definition (packages are registered here)
 ├── .config/
@@ -28,10 +28,6 @@ not "fix" the clone to match this document.
     ├── microservices/        # @Publish service classes
     └── ui/                   # frontend packages
 ```
-
-The root `tsconfig.json` include globs mirror `entitiesPaths` — if an entity path is
-added to `kinotic.config.ts`, add the matching glob there too or `bun run generate`
-cannot resolve the entity types.
 
 ## Root `package.json`
 

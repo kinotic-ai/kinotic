@@ -61,6 +61,8 @@ describe('EntityCodeGenerationService', () => {
         fs.mkdirSync(path.join(projectDir, 'src/model'), {recursive: true})
         fs.mkdirSync(path.join(projectDir, 'src/repository'), {recursive: true})
         fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), ENTITY_SOURCE)
+        // No "files"/"include" on purpose: generation reads compilerOptions from the
+        // tsconfig but must discover entities from entitiesPaths alone.
         fs.writeFileSync(path.join(projectDir, 'tsconfig.json'), JSON.stringify({
             compilerOptions: {
                 target: 'esnext',
@@ -69,7 +71,7 @@ describe('EntityCodeGenerationService', () => {
                 experimentalDecorators: true,
                 skipLibCheck: true
             },
-            include: ['src/**/*']
+            files: []
         }))
 
         projectConfig.applicationId = 'my.app'
@@ -116,6 +118,22 @@ describe('EntityCodeGenerationService', () => {
 
         expect(readIfExists('src/repository/TodoRepository.ts'), 'Repository').to.not.be.null
         expect(readIfExists('src/repository/generated/BaseTodoRepository.ts'), 'Base Repository').to.not.be.null
+    })
+
+    it('discovers entities in nested folders and mirrors the folder structure', async () => {
+        fs.mkdirSync(path.join(projectDir, 'src/model/billing'), {recursive: true})
+        fs.writeFileSync(path.join(projectDir, 'src/model/billing/Invoice.ts'), ENTITY_SOURCE.replace(/Todo/g, 'Invoice'))
+        projectConfig.entitiesPaths = [{
+            path: 'src/model',
+            repositoryPath: 'src/repository',
+            mirrorFolderStructure: true
+        }]
+
+        await generate()
+
+        expect(readIfExists('.config/c3/entities/my.app.Invoice.json'), 'nested entity C3Type json').to.not.be.null
+        expect(readIfExists('src/repository/billing/InvoiceRepository.ts'), 'nested Repository').to.not.be.null
+        expect(readIfExists('src/repository/billing/generated/BaseInvoiceRepository.ts'), 'nested Base Repository').to.not.be.null
     })
 
     it('writes the named queries json and removes it once the last query is deleted', async () => {
