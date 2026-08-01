@@ -44,7 +44,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { appZone } from '@kinotic-ai/os-api'
 import config from './.config/kinotic.config'
 
-Kinotic.zonePrefix = appZone(config.organization, config.application)
+Kinotic.zonePrefix = appZone(config.organizationId, config.applicationId)
 // ... instantiate @Publish services, then:
 await Kinotic.connect({ host: 'localhost', port: 58503 })
 ```

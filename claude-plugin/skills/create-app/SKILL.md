@@ -107,7 +107,7 @@ have access to it.
 
 Compare the cloned repository against `references/project-scaffold.md`. In short: a Bun
 workspace with `packages/domain`, `packages/microservices`, `packages/ui`, and a
-`.config/kinotic.config.ts` whose `organization` and `application` match Step 1.
+`.config/kinotic.config.ts` whose `organizationId` and `applicationId` match Step 1.
 
 Run `bun install`, then `bun run type-check`. Report any mismatch between the clone and
 the expected shape to the user instead of silently changing files — the repository

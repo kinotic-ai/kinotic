@@ -13,7 +13,8 @@ not "fix" the clone to match this document.
 ├── tsconfig.base.json
 ├── bunup.config.ts
 ├── .config/
-│   └── kinotic.config.ts     # Kinotic project configuration (see below)
+│   ├── kinotic.config.ts     # Kinotic project configuration (see below)
+│   └── c3/                   # generated entity/query schemas (written by `bun run generate`)
 ├── migrations/               # V<N>__<description>.sql migration files (may be absent until first used)
 └── packages/
     ├── domain/               # entity model + generated repositories
@@ -66,8 +67,8 @@ A TypeScript module default-exporting a `KinoticProjectConfig`:
 import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 
 const config: KinoticProjectConfig = {
-  organization: "<organization id>",
-  application: "<application id>",
+  organizationId: "<organization id>",
+  applicationId: "<application id>",
   entitiesPaths: [
     {
       path: "packages/domain/model",
@@ -82,9 +83,9 @@ const config: KinoticProjectConfig = {
 export default config
 ```
 
-- `organization` and `application` must match the Application created through the MCP
-  tools (Step 1 of the workflow). If they differ, `kinotic sync` will target the wrong
-  application — surface this to the user before syncing.
+- `organizationId` and `applicationId` must match the Application created through the
+  MCP tools (Step 1 of the workflow). If they differ, synchronization will target the
+  wrong application — surface this to the user before pushing.
 - `entitiesPaths[].path` is where `@Entity` classes are discovered;
   `repositoryPath` is where repository classes are generated. Trust the values in the
   cloned config over the ones shown here — the directory name for repositories has
@@ -95,7 +96,7 @@ export default config
 1. `package.json` at the root declares `"workspaces": ["packages/*"]` and the
    `@kinotic-ai/*` catalog entries.
 2. `.config/kinotic.config.ts` exists, default-exports a config, and its
-   `organization`/`application` match the created Application.
+   `organizationId`/`applicationId` match the created Application.
 3. The directories named by `entitiesPaths` exist (create the repository output
    directory if the template left it empty — empty directories don't survive git).
 4. `bun install` succeeds.

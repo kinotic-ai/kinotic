@@ -63,10 +63,13 @@ Rules:
 
 1. Create or edit entity classes under the configured entities path.
 2. Run `bun run generate` from the project root — regenerates
-   `generated/Base<Entity>Repository` for every entity and creates
-   `<Entity>Repository` (once) for new ones. Local only; no server connection.
-3. Commit and push. Kinotic OS synchronizes entity definitions from the connected
-   GitHub repository — never run `kinotic login` or `kinotic sync` yourself.
+   `generated/Base<Entity>Repository` for every entity, creates `<Entity>Repository`
+   (once) for new ones, and writes each entity's schema to
+   `.config/c3/entities/<namespace>.<name>.json` (named queries to
+   `.config/c3/queries/<RepositoryName>.json`). Local only; no server connection.
+3. Commit and push everything generate produced — including `.config/c3` — and
+   Kinotic OS synchronizes entity definitions from the connected GitHub repository.
+   Never run `kinotic login` or `kinotic sync` yourself.
 
 Only the `Base*` classes are regenerated; the `<Entity>Repository` subclass is created
 once and never overwritten, so custom code (like named queries) belongs there.

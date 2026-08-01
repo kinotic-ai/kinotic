@@ -12,6 +12,11 @@ secured by OAuth 2.1. Behavior common to every tool:
   Match on the message substrings documented below.
 - Authenticated users act as their Kinotic **organization**, so the tools below operate
   on that organization's applications and projects.
+- Both services expose their **full CRUD surface** as additional tools (`save`,
+  `create`, `findById`, `findAll`, `search`, `count`, `deleteById`, …) beyond those
+  documented below. Stick to the documented tools for the onboarding workflow, and
+  never call a destructive tool such as `deleteById` unless the user explicitly asks
+  for that exact operation.
 
 ## ApplicationService
 
