@@ -50,6 +50,20 @@ class DefaultApplicationServiceTest {
     }
 
     @Test
+    void rejectsIdsThatCollideWithAPlatformZoneLabel() {
+        for (String name : List.of("System", "os-api", "App API", "app")) {
+            Application application = new Application(name, "desc");
+            assertThrows(IllegalArgumentException.class,
+                         () -> service.beforeSave(application),
+                         "expected '" + name + "' to be rejected");
+        }
+        // an update keeps the caller's id rather than re-minting it, so that path is guarded too
+        Application existing = new Application("Anything", "desc");
+        existing.setId("system");
+        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(existing));
+    }
+
+    @Test
     void rejectsAMissingName() {
         Application application = new Application(null, "desc");
         application.setId("orders-app");

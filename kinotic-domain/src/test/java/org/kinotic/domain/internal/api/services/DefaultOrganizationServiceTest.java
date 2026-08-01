@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.services;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.List;
 
@@ -56,12 +55,15 @@ class DefaultOrganizationServiceTest {
     }
 
     @Test
-    void rejectsAnOrganizationThatWouldMintTheSystemZoneLabel() {
-        // The system zone label is only out of an organization's reach because it is the reserved
-        // prefix; asserting through the constant keeps a change to either one from breaking that
-        Organization organization = new Organization().setName(DomainUtil.SYSTEM_ZONE);
-
-        assertThrows(IllegalArgumentException.class, () -> service.beforeSave(organization));
+    void rejectsIdsThatCollideWithAPlatformZoneLabel() {
+        for (String name : List.of("System", "os-api", "App API", "app")) {
+            assertThrows(IllegalArgumentException.class,
+                         () -> service.beforeSave(new Organization().setName(name)),
+                         "expected '" + name + "' to be rejected");
+        }
+        // an update keeps the caller's id rather than re-minting it, so that path is guarded too
+        assertThrows(IllegalArgumentException.class,
+                     () -> service.beforeSave(new Organization().setId("system").setName("Anything")));
     }
 
     @Test

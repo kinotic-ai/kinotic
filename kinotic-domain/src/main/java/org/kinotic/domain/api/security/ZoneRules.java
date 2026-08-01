@@ -32,7 +32,7 @@ public class ZoneRules {
      * all. Organization participants send to the {@code os-api} management surface, {@code app-api}, and their
      * own {@code app.<organizationId>} zones, and subscribe within those same app zones — an application's
      * runtime authenticates as an organization participant to host and call its services. System participants
-     * send everywhere and subscribe in the {@code kinotic} zone.
+     * send everywhere and subscribe in the {@code system} zone.
      * @param participant the authenticated participant
      * @return the participant's zone rules
      */

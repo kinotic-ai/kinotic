@@ -21,18 +21,13 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
  * Created By Navíd Mitchell 🤪on 2/13/26
  */
 public class DomainUtil {
-
-    /**
-     * The prefix reserved for the platform's own identifiers. No organization id may begin with
-     * it, so every identifier the platform derives from it is one no organization can ever mint.
-     */
-    public static final String RESERVED_PREFIX = "kinotic";
 
     /**
      * The zone for platform services organizations use to manage the system, such as member,
@@ -49,12 +44,19 @@ public class DomainUtil {
     /**
      * The zone for services internal to the platform, only reachable by system participants
      */
-    public static final String SYSTEM_ZONE = RESERVED_PREFIX;
+    public static final String SYSTEM_ZONE = "system";
 
     /**
      * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
      */
     public static final String APP_ZONE_PREFIX = "app";
+
+    // Organization and application ids become zone labels, so an id equal to one of the
+    // platform's own zone labels could be read as that zone wherever a label is taken for a zone
+    private static final Set<String> RESERVED_ZONE_LABELS = Set.of(OS_API_ZONE,
+                                                                   APP_API_ZONE,
+                                                                   SYSTEM_ZONE,
+                                                                   APP_ZONE_PREFIX);
 
     // Project ids may start with a digit because they embed application ids, which may
     // themselves start with a digit
@@ -67,16 +69,36 @@ public class DomainUtil {
 
     /**
      * Validates that the given application id contains only lowercase letters, digits, and
-     * interior dashes.
+     * interior dashes, and is not a zone label the platform reserves for itself.
      *
      * @param applicationId to validate
-     * @throws IllegalArgumentException if the application id is null or invalid
+     * @throws IllegalArgumentException if the application id is null, invalid, or reserved
      */
     public static void validateApplicationId(String applicationId) {
         if (applicationId == null) {
             throw new IllegalArgumentException("Application Id must not be null");
         }
-        ZoneUtil.validateLabel(applicationId);
+        validateZoneLabelId(applicationId);
+    }
+
+    /**
+     * Validates that the given organization id contains only lowercase letters, digits, and
+     * interior dashes, and is not a zone label the platform reserves for itself.
+     *
+     * @param organizationId to validate
+     * @throws IllegalArgumentException if the organization id is null, invalid, or reserved
+     */
+    public static void validateOrganizationId(String organizationId) {
+        if (organizationId == null) {
+            throw new IllegalArgumentException("Organization Id must not be null");
+        }
+        validateZoneLabelId(organizationId);
+    }
+
+    private static void validateZoneLabelId(String id) {
+        ZoneUtil.validateLabel(id);
+        Validate.isTrue(!RESERVED_ZONE_LABELS.contains(id),
+                        "Id '%s' is reserved by the platform", id);
     }
 
     public static void validateProjectId(String projectId){
