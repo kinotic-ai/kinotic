@@ -7,8 +7,9 @@ declaring globals, a property schema, and inheritance.
 The engine performs no IO — it takes an in-memory tree of `path -> content`
 and returns the rendered tree. Hosts supply the adapters:
 
-- the Kinotic CLI loads spawns from disk and prompts for missing properties
-  via a `PropertyResolver`
+- the Node host loads a spawn directory from disk, writes the rendered tree
+  back out, and takes a `PropertyResolver` for properties the caller did not
+  supply; `kinotic spawn lint` uses it to lint a directory
 - the Kinotic server runs the same engine embedded in the JVM (GraalJS) to
   render project baselines into freshly provisioned repositories, with the
   context derived from the `Project` and the package versions that server

@@ -108,7 +108,7 @@ export class Initialize extends Command {
         const configDir = resolveKinoticConfigDir()
         const configObj = new KinoticProjectConfig()
         // Don't set name - it will be loaded from package.json
-        configObj.application = application
+        configObj.applicationId = application
         configObj.entitiesPaths = [{
             path: entitiesPath,
             repositoryPath: repositoryPath,
