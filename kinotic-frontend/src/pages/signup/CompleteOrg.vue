@@ -15,6 +15,8 @@
       <h2 class="signup-title">Name your organization</h2>
       <p class="login-form__subtitle">
         Welcome! Pick a name for your new organization to finish creating your account.
+        Next, you'll install the Kinotic GitHub App — every project is backed by a
+        GitHub repository.
       </p>
 
       <div class="login-form__step">
@@ -53,6 +55,7 @@ import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 
 import { CONTINUUM_UI } from '@/IContinuumUI'
+import { Kinotic } from '@kinotic-ai/core'
 import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl } from '@/util/helpers'
@@ -63,7 +66,8 @@ import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
  * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`
  * (a {@code PendingRegistration}). The user supplies an org name; we POST to
  * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin IamUser and
- * establishes the browser session, which we then use to open the realtime connection.
+ * establishes the browser session, which we then use to open the realtime connection and send
+ * the tab straight into the GitHub App install so the new org is project-ready.
  */
 const orgName = ref('')
 const orgDescription = ref('')
@@ -123,11 +127,29 @@ async function handleSubmit() {
     }
     // The org and admin user are created and the session established; connect with it.
     await userState.login()
-    await CONTINUUM_UI.navigate('/applications')
+    await startGithubInstall()
   } catch (err) {
     displayError(err instanceof Error ? err.message : 'Sign-up failed')
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * Sends the tab to the GitHub App install page with the applications page as the
+ * return destination, so the new org can create projects immediately.
+ */
+async function startGithubInstall(): Promise<void> {
+  try {
+    // Full-tab redirect — a popup can't work here: after the round-trip through
+    // github.com, COOP severs window.opener (see NewProjectSidebar.linkGitHub).
+    // startInstall requires the org-scoped session userState.login() just opened.
+    const url = await Kinotic.githubAppInstallations.startInstall('/applications')
+    window.location.href = url
+  } catch {
+    // Install couldn't start (e.g. a kinotic.disableGithub deployment) — signup must
+    // never dead-end here; the user can link GitHub later from Organization Settings.
+    await CONTINUUM_UI.navigate('/applications')
   }
 }
 
