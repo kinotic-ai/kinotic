@@ -10,9 +10,9 @@ import java.lang.annotation.Target;
  * Declares the Model Context Protocol metadata a function serves once some other declaration exposes it as a
  * tool. A base interface — a generic CRUD contract, for instance — states each function's title, description,
  * and behavior hints once, and every service that {@link McpTool} exposes serves them.
- * Each of the title, the description, and the hints as a set comes from the first declaration stating it,
- * most specific first: a method-level {@code @McpTool}, then this, then a type-level {@code @McpTool}, then
- * the function name.
+ * A method-level {@code @McpTool} takes precedence over this, and this over a type-level {@code @McpTool},
+ * for the title and description. The hints come from whichever of a method-level {@code @McpTool} or this
+ * is nearest the function, and from the function name when it carries neither.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

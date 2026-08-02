@@ -30,7 +30,6 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -42,7 +41,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -117,7 +115,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
         serviceDefinition.setNamespace(serviceInterface.getPackage().getName());
         serviceDefinition.setName(serviceInterface.getSimpleName());
 
-        // a type-level @McpTool marks every function a tool with these defaults
+        // a type-level @McpTool marks every function a tool, and supplies their shared title and description
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
 
         // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
@@ -177,66 +175,67 @@ public class DefaultSchemaFactory implements SchemaFactory {
         McpToolC3Decorator ret = null;
         if (methodMcpTool != null || typeLevelMcpTool != null) {
 
-            // most specific declaration first and the function name last, so each of the title, the
-            // description, and the hints comes from the first declaration stating it
-            List<McpToolMetadata> sources = new ArrayList<>(4);
-            if (methodMcpTool != null) {
-                sources.add(McpToolMetadata.from(methodMcpTool));
-            }
-            if (mcpToolInfo != null) {
-                sources.add(McpToolMetadata.from(mcpToolInfo));
-            }
-            if (typeLevelMcpTool != null) {
-                sources.add(McpToolMetadata.from(typeLevelMcpTool));
-            }
-            sources.add(McpToolMetadata.fromFunctionName(interfaceMethod.getName()));
+            String functionName = interfaceMethod.getName();
 
-            McpToolMetadata hints = sources.stream()
-                                           .filter(McpToolMetadata::declaresHints)
-                                           .findFirst()
-                                           .orElse(McpToolMetadata.NONE);
+            // the declaration nearest the function owns its hints outright, so what that declaration says —
+            // including saying nothing — is what is served. A type-level @McpTool sweeps functions in
+            // without describing any one of them, so a function it exposes is hinted by its own name.
+            McpToolHints hints;
+            if (methodMcpTool != null) {
+                hints = McpToolHints.of(methodMcpTool);
+            } else if (mcpToolInfo != null) {
+                hints = McpToolHints.of(mcpToolInfo);
+            } else {
+                hints = McpToolHints.forFunctionName(functionName);
+            }
+
+            String title = firstStated(methodMcpTool != null ? methodMcpTool.title() : "",
+                                       mcpToolInfo != null ? mcpToolInfo.title() : "",
+                                       typeLevelMcpTool != null ? typeLevelMcpTool.title() : "");
+            if (title.isEmpty()) {
+                // the service name qualifies a derived title, so the same function name on many services
+                // stays distinguishable in a tool listing
+                title = IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(functionName);
+            }
+
+            String description = firstStated(methodMcpTool != null ? methodMcpTool.description() : "",
+                                             mcpToolInfo != null ? mcpToolInfo.description() : "",
+                                             typeLevelMcpTool != null ? typeLevelMcpTool.description() : "");
+            if (description.isEmpty()) {
+                description = describe(interfaceMethod, specificMethod);
+            }
 
             ret = new McpToolC3Decorator()
-                    .setTitle(resolveTitle(sources, serviceInterface, interfaceMethod.getName()))
-                    .setDescription(resolveDescription(sources, interfaceMethod, specificMethod))
-                    .setReadOnlyHint(hints.readOnlyHint())
-                    .setDestructiveHint(hints.destructiveHint())
-                    .setIdempotentHint(hints.idempotentHint());
-        }
-        return ret;
-    }
-
-    private static String resolveTitle(List<McpToolMetadata> sources, Class<?> serviceInterface, String functionName) {
-        String ret = firstStated(sources, McpToolMetadata::title);
-        if (ret.isEmpty()) {
-            // the service name qualifies a derived title, so the same function name on many services stays
-            // distinguishable in a tool listing
-            ret = IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(functionName);
+                    .setTitle(title)
+                    .setDescription(description)
+                    .setReadOnlyHint(hints.readOnly())
+                    .setDestructiveHint(hints.destructive())
+                    .setIdempotentHint(hints.idempotent());
         }
         return ret;
     }
 
     /**
-     * Resolves the LLM-facing description a caller reads to decide which tool to invoke: the first
-     * declaration stating one, then the compile-time extracted Javadoc, then the function name.
+     * Describes a function no declaration describes: the compile-time extracted Javadoc, then the function
+     * name as a sentence, so an LLM caller always has something to choose the tool by.
      */
-    private String resolveDescription(List<McpToolMetadata> sources, Method interfaceMethod, Method specificMethod) {
-        String ret = firstStated(sources, McpToolMetadata::description);
-        if (ret.isEmpty()) {
-            ret = javadocDescription(specificMethod, interfaceMethod);
-        }
+    private String describe(Method interfaceMethod, Method specificMethod) {
+        String ret = javadocDescription(specificMethod, interfaceMethod);
         if (ret == null || ret.isEmpty()) {
             ret = IdlUtil.sentenceCase(interfaceMethod.getName());
         }
         return ret;
     }
 
-    private static String firstStated(List<McpToolMetadata> sources, Function<McpToolMetadata, String> field) {
-        return sources.stream()
-                      .map(field)
-                      .filter(value -> !value.isEmpty())
-                      .findFirst()
-                      .orElse("");
+    private static String firstStated(String... values) {
+        String ret = "";
+        for (String value : values) {
+            if (!value.isEmpty()) {
+                ret = value;
+                break;
+            }
+        }
+        return ret;
     }
 
     /**

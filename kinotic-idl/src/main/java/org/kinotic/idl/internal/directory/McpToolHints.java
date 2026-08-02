@@ -11,20 +11,14 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * The MCP tool metadata one declaration states for a function. An empty {@link #title} or
- * {@link #description}, and a hint set with nothing set, mean the declaration states nothing there and the
- * next declaration decides.
+ * The behavior hints served as a tool's MCP annotations.
  */
-record McpToolMetadata(String title,
-                       String description,
-                       boolean readOnlyHint,
-                       boolean destructiveHint,
-                       boolean idempotentHint) {
+record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent) {
 
     /**
-     * Metadata stating nothing at all.
+     * Hints for a tool whose behavior nothing is known about.
      */
-    static final McpToolMetadata NONE = new McpToolMetadata("", "", false, false, false);
+    static final McpToolHints NONE = new McpToolHints(false, false, false);
 
     private static final Set<String> READ_ONLY_VERBS = Set.of("count", "exists", "fetch", "find", "get",
                                                               "has", "is", "list", "load", "query", "read",
@@ -42,59 +36,44 @@ record McpToolMetadata(String title,
                                                              "register", "retry", "run", "send", "start",
                                                              "stop", "submit", "trigger", "upload");
 
-    static McpToolMetadata from(McpTool annotation) {
-        return new McpToolMetadata(annotation.title(),
-                                   annotation.description(),
-                                   annotation.readOnlyHint(),
-                                   annotation.destructiveHint(),
-                                   annotation.idempotentHint());
+    static McpToolHints of(McpTool annotation) {
+        return new McpToolHints(annotation.readOnlyHint(),
+                                annotation.destructiveHint(),
+                                annotation.idempotentHint());
     }
 
-    static McpToolMetadata from(McpToolInfo annotation) {
-        return new McpToolMetadata(annotation.title(),
-                                   annotation.description(),
-                                   annotation.readOnlyHint(),
-                                   annotation.destructiveHint(),
-                                   annotation.idempotentHint());
+    static McpToolHints of(McpToolInfo annotation) {
+        return new McpToolHints(annotation.readOnlyHint(),
+                                annotation.destructiveHint(),
+                                annotation.idempotentHint());
     }
 
     /**
      * Derives the hints a function name implies: a name naming a verb that replaces or removes state is
      * destructive and idempotent, a create that yields to an existing entity is idempotent, and a name whose
-     * only verbs read is read-only. Any other name implies no hint.
+     * only verbs read is read-only. Any other name yields {@link #NONE}.
      *
      * @param functionName the function name to read
-     * @return the hints the name implies, carrying no title or description
+     * @return the hints the name implies
      */
-    static McpToolMetadata fromFunctionName(String functionName) {
+    static McpToolHints forFunctionName(String functionName) {
         // every word counts, not just the leading one, so peopleCount reads as a count; and a mutating word
         // anywhere outranks a reading one, so getOrCreatePerson is never served as read-only — serving a
         // mutation as safe to call unattended is the one mistake worth ordering the rules around
         Set<String> words = words(functionName);
-        McpToolMetadata ret;
+        McpToolHints ret;
         if (!Collections.disjoint(words, DESTRUCTIVE_VERBS)) {
-            ret = hints(false, true, true);
+            ret = new McpToolHints(false, true, true);
         } else if (functionName.endsWith("IfNotExist") || functionName.endsWith("IfNotExists")) {
-            ret = hints(false, false, true);
+            ret = new McpToolHints(false, false, true);
         } else if (!Collections.disjoint(words, ADDITIVE_VERBS)) {
             ret = NONE;
         } else if (!Collections.disjoint(words, READ_ONLY_VERBS)) {
-            ret = hints(true, false, false);
+            ret = new McpToolHints(true, false, false);
         } else {
             ret = NONE;
         }
         return ret;
-    }
-
-    /**
-     * Whether this declaration states the tool's behavior hints.
-     */
-    boolean declaresHints() {
-        return readOnlyHint || destructiveHint || idempotentHint;
-    }
-
-    private static McpToolMetadata hints(boolean readOnlyHint, boolean destructiveHint, boolean idempotentHint) {
-        return new McpToolMetadata("", "", readOnlyHint, destructiveHint, idempotentHint);
     }
 
     private static Set<String> words(String functionName) {

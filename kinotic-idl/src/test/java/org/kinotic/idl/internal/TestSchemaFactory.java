@@ -126,7 +126,7 @@ public class TestSchemaFactory {
         Assertions.assertNotNull(inherited);
         Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
 
-        // TestObjectCrudService's bare @McpTool states no hints, so findById's name decides
+        // nothing declares findById a tool but TestObjectCrudService's type-level sweep, so its name decides
         Assertions.assertTrue(inherited.isReadOnlyHint());
         Assertions.assertFalse(inherited.isDestructiveHint());
     }
@@ -164,8 +164,8 @@ public class TestSchemaFactory {
         Assertions.assertFalse(notify.isDestructiveHint());
         Assertions.assertFalse(notify.isIdempotentHint());
 
-        // the name is the last source, so a hint stated on the method is never overridden by what "save"
-        // would otherwise imply — the destructive hint the name carries never reaches either of these
+        // a declaration on the method owns the hints, so the name is never read for these two and the
+        // destructive hint "save" implies never reaches either of them
         McpToolC3Decorator draft = hints(service, "savePersonDraft");
         Assertions.assertTrue(draft.isIdempotentHint());
         Assertions.assertFalse(draft.isDestructiveHint());
@@ -216,6 +216,7 @@ public class TestSchemaFactory {
         Assertions.assertNotNull(documented);
         Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
         Assertions.assertEquals("Test Swept Service Find By Name", documented.getTitle());
+        // the sweep exposes it, its own name hints it
         Assertions.assertTrue(documented.isReadOnlyHint());
 
         // no annotation description and no Javadoc: the description derives from the function name, the
@@ -225,20 +226,21 @@ public class TestSchemaFactory {
         Assertions.assertEquals("Count by name", derived.getDescription());
         Assertions.assertEquals("Test Swept Service Count By Name", derived.getTitle());
 
-        // a method-level @McpTool overrides the type-level description and title for that method; stating
-        // no hint of its own leaves the type-level hint in place
+        // a method-level @McpTool owns that method: it supplies the description and title, and the hints
+        // it does not declare are served as declared rather than borrowed from the type-level annotation
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(specific);
         Assertions.assertEquals("Counts every test object", specific.getDescription());
         Assertions.assertEquals("Count Objects", specific.getTitle());
-        Assertions.assertTrue(specific.isReadOnlyHint());
+        Assertions.assertFalse(specific.isReadOnlyHint());
 
-        // the type-level hint is a stated one, so it wins over the destructive hint "deleteAll" implies —
-        // which is exactly how a type-level hint mislabels a function it does not hold for
-        McpToolC3Decorator mislabeled = findFunction(service, "deleteAll").findDecorator(McpToolC3Decorator.class);
-        Assertions.assertNotNull(mislabeled);
-        Assertions.assertTrue(mislabeled.isReadOnlyHint());
-        Assertions.assertFalse(mislabeled.isDestructiveHint());
+        // a type-level readOnlyHint cannot mislabel a function it does not hold for, because the sweep
+        // hints nothing — deleteAll is hinted by its own name
+        McpToolC3Decorator swept = findFunction(service, "deleteAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(swept);
+        Assertions.assertFalse(swept.isReadOnlyHint());
+        Assertions.assertTrue(swept.isDestructiveHint());
+        Assertions.assertTrue(swept.isIdempotentHint());
     }
 
     @Test

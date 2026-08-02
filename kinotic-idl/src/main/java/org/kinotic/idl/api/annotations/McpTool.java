@@ -10,11 +10,11 @@ import java.lang.annotation.Target;
  * Marks a published ({@code @Publish}) service's functions as Model Context Protocol tools. On a method —
  * declared on the service interface or on the implementation's override — that method becomes a callable
  * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
- * every function becomes a tool carrying the type-level description and hints, and a method-level
- * {@code @McpTool} overrides them for that method. An empty {@link #description} or {@link #title} is
- * derived from the function name, so each tool stays individually recognizable to an LLM caller.
- * A function exposed here serves the metadata a {@link McpToolInfo} on its declaration states, which is how
- * a base interface describes functions it does not itself expose.
+ * every function becomes a tool carrying the type-level {@link #description} and {@link #title}, while each
+ * function's hints come from its own {@code @McpTool} or {@link McpToolInfo}, or from its name. An empty
+ * {@link #description} or {@link #title} is derived from the function name, so each tool stays individually
+ * recognizable to an LLM caller. A {@link McpToolInfo} anywhere in a function's hierarchy describes it here,
+ * which is how a base interface describes functions it does not itself expose.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -37,12 +37,12 @@ public @interface McpTool {
     String title() default "";
 
     /**
-     * Indicates the tool does not modify its environment. Leaving all three hints unset takes them from the
-     * first declaration stating any of them, and finally from every word of the function name: a word that
-     * replaces or removes state ({@code save}, {@code delete}) makes it destructive and idempotent, a
-     * {@code createIfNotExist} idempotent, a word that adds or acts ({@code create}, {@code send}) states
-     * nothing, and only a name whose verbs all read ({@code find}, {@code get}, {@code peopleCount}) is
-     * read-only.
+     * Indicates the tool does not modify its environment. Declared on a method, this and the other two hints
+     * are served exactly as written. A function swept in by a type-level {@code @McpTool}, carrying neither
+     * a {@code @McpTool} nor a {@link McpToolInfo} of its own, is hinted by every word of its name: a word
+     * that replaces or removes state ({@code save}, {@code delete}) makes it destructive and idempotent, a
+     * {@code createIfNotExist} idempotent, a word that adds or acts ({@code create}, {@code send}) nothing,
+     * and only a name whose verbs all read ({@code find}, {@code get}, {@code peopleCount}) read-only.
      */
     boolean readOnlyHint() default false;
 
