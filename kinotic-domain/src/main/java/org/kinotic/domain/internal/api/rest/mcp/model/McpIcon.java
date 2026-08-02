@@ -8,21 +8,17 @@ import lombok.experimental.Accessors;
 import java.util.List;
 
 /**
- * The serverInfo member of an MCP initialize result.
+ * An optionally-sized icon a client can display for the server, per the MCP {@code Icon} type.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class McpServerInfo {
+public class McpIcon {
 
-    private String name;
+    private String src;
 
-    private String title;
+    private String mimeType;
 
-    private String version;
-
-    private String websiteUrl;
-
-    private List<McpIcon> icons;
+    private List<String> sizes;
 }

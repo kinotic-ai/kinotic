@@ -25,6 +25,7 @@ import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,6 +44,15 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private static final String LATEST_PROTOCOL_VERSION = "2025-11-25";
     private static final Set<String> SUPPORTED_PROTOCOL_VERSIONS = Set.of("2025-03-26", "2025-06-18", LATEST_PROTOCOL_VERSION);
+    private static final String SERVER_TITLE = "Kinotic OS";
+    private static final String WEBSITE_URL = "https://kinotic.ai";
+    private static final List<McpIcon> SERVER_ICONS = List.of(
+            new McpIcon().setSrc(WEBSITE_URL + "/favicon-96x96.png")
+                         .setMimeType("image/png")
+                         .setSizes(List.of("96x96")),
+            new McpIcon().setSrc(WEBSITE_URL + "/favicon.svg")
+                         .setMimeType("image/svg+xml")
+                         .setSizes(List.of("any")));
     private static final int TOOL_LIST_PAGE_SIZE = 1000;
 
     private static final int PARSE_ERROR = -32700;
@@ -153,7 +163,10 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                 .setProtocolVersion(SUPPORTED_PROTOCOL_VERSIONS.contains(requested) ? requested : LATEST_PROTOCOL_VERSION)
                 .setCapabilities(Map.of("tools", Map.of("listChanged", false)))
                 .setServerInfo(new McpServerInfo().setName("kinotic-api-gateway")
-                                                  .setVersion(version != null ? version : "unknown"));
+                                                  .setTitle(SERVER_TITLE)
+                                                  .setVersion(version != null ? version : "unknown")
+                                                  .setWebsiteUrl(WEBSITE_URL)
+                                                  .setIcons(SERVER_ICONS));
     }
 
     private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
