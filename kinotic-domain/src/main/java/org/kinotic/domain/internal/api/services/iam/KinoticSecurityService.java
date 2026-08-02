@@ -30,18 +30,18 @@ import java.util.TreeMap;
  *   <li>{@code organizationId} only → ORGANIZATION</li>
  *   <li>both set → APPLICATION</li>
  * </ul>
+ * {@code applicationId} without {@code organizationId} is rejected.
  * <p>
  * <b>Two paths:</b>
  * <ol>
  *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers, with
- *       {@code organizationId} / {@code applicationId} headers selecting the scope to look in
- *       ({@code applicationId} without {@code organizationId} is rejected). Looks up the
- *       {@link IamUser} by email + scope, verifies the bcrypt password.</li>
+ *       the {@code organizationId} / {@code applicationId} headers selecting the scope to look
+ *       in. Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
  *       signature, then look up the {@link IamUser} by id from the JWT {@code sub} claim and
  *       require the user's {@code organizationId} / {@code applicationId} to equal the token's
- *       claims. Scope headers are ignored on this path — the token carries its own scope.</li>
+ *       claims. The scope headers do not select scope here — the token carries its own.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
  * which mints a Kinotic JWT for the STOMP handoff.
@@ -63,13 +63,21 @@ public class KinoticSecurityService implements SecurityService {
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
 
+        String organizationId = authInfo.get("organizationId");
+        String applicationId = authInfo.get("applicationId");
+
+        if (applicationId != null && organizationId == null) {
+            return Future.failedFuture(new AuthenticationException(
+                    "organizationId header is required when applicationId is supplied"));
+        }
+
         String authHeader = authInfo.get("Authorization");
 
         Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             ret = authenticateKinoticJwt(authHeader.substring(7));
         } else {
-            ret = authenticateEmailPassword(authInfo);
+            ret = authenticateEmailPassword(organizationId, applicationId, authInfo);
         }
         return ret;
     }
@@ -85,19 +93,14 @@ public class KinoticSecurityService implements SecurityService {
     /**
      * Authenticates a user via email and password within the target scope.
      */
-    private Future<Participant> authenticateEmailPassword(Map<String, String> authInfo) {
+    private Future<Participant> authenticateEmailPassword(String organizationId,
+                                                          String applicationId,
+                                                          Map<String, String> authInfo) {
         String email = authInfo.get("clientId");
         String password = authInfo.get("clientSecret");
-        String organizationId = authInfo.get("organizationId");
-        String applicationId = authInfo.get("applicationId");
 
         if (email == null || password == null) {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
-        }
-
-        if (applicationId != null && organizationId == null) {
-            return Future.failedFuture(new AuthenticationException(
-                    "organizationId header is required when applicationId is supplied"));
         }
 
         return Future.fromCompletionStage(userService.findByEmail(email, organizationId, applicationId),
