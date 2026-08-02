@@ -129,6 +129,26 @@ resource "azurerm_key_vault_secret" "google_client_secret" {
   depends_on = [terraform_data.wait_for_kv_rbac]
 }
 
+# GitHub OAuth client secret — the kinotic-ai GitHub App's user-authorization
+# credential (GitHub app registrations aren't terraform-managed). Operator supplies
+# the value via the github_client_secret variable on first apply; rotations happen
+# out-of-band via `az keyvault secret set ...` and lifecycle.ignore_changes prevents
+# terraform from reverting them.
+resource "azurerm_key_vault_secret" "github_client_secret" {
+  name         = "github-platform"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "OAuth client secret for the Continue-with-GitHub social provider"
+  value        = var.github_client_secret
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 # Consumed by cluster/ terraform via terraform_remote_state to grant read access to the
 # kinotic-server managed identity and to pass vault coordinates into the helm chart.

@@ -190,7 +190,7 @@ const pageRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/login',
-    component: () => import('@/pages/login/Login.vue'),
+    component: () => import('@/pages/login/LoginPage.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false
@@ -198,7 +198,7 @@ const pageRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/signup',
-    component: () => import('@/pages/signup/Signup.vue'),
+    component: () => import('@/pages/signup/GithubSignup.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false

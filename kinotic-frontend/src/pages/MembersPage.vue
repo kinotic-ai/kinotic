@@ -238,6 +238,7 @@ function providerDisplayName(key: string): string {
   switch (key) {
     case 'google':   return 'Google'
     case 'azure-ad': return 'Microsoft'
+    case 'github':   return 'GitHub'
     default:         return key.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ')
   }
 }
