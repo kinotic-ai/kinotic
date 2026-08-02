@@ -79,7 +79,7 @@ The split is about audience, not formatting. Javadoc is for **consumers** of the
 
 Keep comments concise — usually a single line. Spend more words only where the logic is genuinely not straightforward and the extra explanation earns its place: a subtle invariant, a non-obvious interaction, a reason that isn't visible in the code. A comment's length should track how hard the code is to follow, not how important the code is.
 
-Write comments the way you would say them out loud, one idea per sentence. Brevity comes from cutting ideas, never from compressing them — three clauses stitched together with em-dashes, semicolons, and "failing that" is shorter to write and slower to read. Prefer `Put it on a method to expose that one function` over `On a method — declared on the service interface or on the implementation's override — that method becomes a callable tool whose description and hints are surfaced to LLM callers`. Every "it", "this", and "here" must point at something in the same sentence. If a sentence needs a second read to parse, split it in two.
+Write comments the way you would say them out loud, one idea per sentence. Brevity comes from cutting ideas, never from compressing them. Three clauses stitched together with em-dashes and semicolons are shorter to write and slower to read. Every "it", "this", and "here" must point at something in the same sentence. If a sentence needs a second read to parse, split it in two.
 
 Comment the code as it is now, not its history. Don't narrate what the code used to do or the edit you're making — no "before", "previously", "used to", "changed from", or "now does X instead" phrasing. The diff and git history record what changed; the comment describes the present state.
 
