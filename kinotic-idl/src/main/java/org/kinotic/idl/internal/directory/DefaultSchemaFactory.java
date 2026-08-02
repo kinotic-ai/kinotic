@@ -7,8 +7,8 @@ import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
@@ -115,7 +115,7 @@ public class DefaultSchemaFactory implements SchemaFactory {
         serviceDefinition.setNamespace(serviceInterface.getPackage().getName());
         serviceDefinition.setName(serviceInterface.getSimpleName());
 
-        // a type-level @McpTool marks every function a tool with these defaults
+        // a type-level @McpTool marks every function a tool, and supplies their shared title and description
         McpTool typeLevelMcpTool = AnnotationUtils.findAnnotation(serviceInterface, McpTool.class);
 
         // IdlUtil.serviceFunctions decides WHICH functions exist — the same walk ReflectiveServiceDescriptor
@@ -146,22 +146,12 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
             functionDefinition.setName(function.getKey());
 
-            // findAnnotation walks super methods, so @McpTool applies whether declared on the interface
-            // method or only on the implementation's override (e.g. an inherited CRUD method); a
-            // method-level annotation overrides the type-level defaults for that method
-            McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
-            if (mcpTool == null) {
-                mcpTool = typeLevelMcpTool;
-            }
-            if(mcpTool != null){
-                // an LLM caller decides which tool to invoke by its description, so an empty description
-                // falls back to the compile-time extracted Javadoc, then to the function name
-                functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setTitle(mcpTool.title().isEmpty() ? deriveTitle(function.getKey()) : mcpTool.title())
-                        .setDescription(resolveDescription(mcpTool, function.getValue(), specificMethod, function.getKey()))
-                        .setReadOnlyHint(mcpTool.readOnlyHint())
-                        .setDestructiveHint(mcpTool.destructiveHint())
-                        .setIdempotentHint(mcpTool.idempotentHint())));
+            McpToolC3Decorator mcpTool = createMcpToolDecorator(serviceInterface,
+                                                                 function.getValue(),
+                                                                 specificMethod,
+                                                                 typeLevelMcpTool);
+            if (mcpTool != null) {
+                functionDefinition.setDecorators(List.of(mcpTool));
             }
 
             serviceDefinition.addFunction(functionDefinition);
@@ -170,13 +160,82 @@ public class DefaultSchemaFactory implements SchemaFactory {
         return serviceDefinition;
     }
 
-    private String resolveDescription(McpTool mcpTool, Method interfaceMethod, Method specificMethod, String functionName) {
-        String ret = mcpTool.description();
-        if (ret.isEmpty()) {
-            ret = javadocDescription(specificMethod, interfaceMethod);
+    /**
+     * Builds the MCP tool decorator for a function, or null when no declaration exposes it as a tool.
+     */
+    private McpToolC3Decorator createMcpToolDecorator(Class<?> serviceInterface,
+                                                      Method interfaceMethod,
+                                                      Method specificMethod,
+                                                      McpTool typeLevelMcpTool) {
+        // findAnnotation walks super methods, so a declaration applies whether it sits on the interface
+        // method or only on the implementation's override (e.g. an inherited CRUD method)
+        McpTool methodMcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
+        McpToolInfo mcpToolInfo = AnnotationUtils.findAnnotation(specificMethod, McpToolInfo.class);
+
+        McpToolC3Decorator ret = null;
+        if (methodMcpTool != null || typeLevelMcpTool != null) {
+
+            String functionName = interfaceMethod.getName();
+            String title;
+            String description;
+            McpToolHints hints;
+
+            // the declaration nearest the function describes it outright, so what that declaration says —
+            // including saying nothing — is what is served. A type-level @McpTool describes the whole
+            // service rather than any one function, so it states neither of these.
+            if (methodMcpTool != null) {
+                title = methodMcpTool.title();
+                description = methodMcpTool.description();
+                hints = McpToolHints.of(methodMcpTool);
+            } else if (mcpToolInfo != null) {
+                title = mcpToolInfo.title();
+                description = mcpToolInfo.description();
+                hints = McpToolHints.of(mcpToolInfo);
+            } else {
+                title = "";
+                description = "";
+                hints = McpToolHints.forFunctionName(functionName);
+            }
+
+            if (title.isEmpty()) {
+                title = IdlUtil.titleCase(functionName);
+            }
+            if (description.isEmpty()) {
+                description = describe(interfaceMethod, specificMethod);
+            }
+
+            ret = new McpToolC3Decorator()
+                    // the service's half leads every title, so the same function name on many services
+                    // stays distinguishable in a tool listing
+                    .setTitle(serviceTitle(serviceInterface, typeLevelMcpTool) + " " + title)
+                    .setDescription(description)
+                    .setReadOnlyHint(hints.readOnly())
+                    .setDestructiveHint(hints.destructive())
+                    .setIdempotentHint(hints.idempotent());
         }
+        return ret;
+    }
+
+    /**
+     * The half of a tool title that names the service: the title its {@code @McpTool} states, otherwise its
+     * interface's simple name as a phrase.
+     */
+    private static String serviceTitle(Class<?> serviceInterface, McpTool typeLevelMcpTool) {
+        String ret = typeLevelMcpTool != null ? typeLevelMcpTool.title() : "";
+        if (ret.isEmpty()) {
+            ret = IdlUtil.titleCase(serviceInterface.getSimpleName());
+        }
+        return ret;
+    }
+
+    /**
+     * Describes a function whose declaration states no description: the compile-time extracted Javadoc, then
+     * the function name as a sentence, so an LLM caller always has something to choose the tool by.
+     */
+    private String describe(Method interfaceMethod, Method specificMethod) {
+        String ret = javadocDescription(specificMethod, interfaceMethod);
         if (ret == null || ret.isEmpty()) {
-            ret = deriveDescription(functionName);
+            ret = IdlUtil.sentenceCase(interfaceMethod.getName());
         }
         return ret;
     }
@@ -223,33 +282,6 @@ public class DefaultSchemaFactory implements SchemaFactory {
             }
             return ret;
         });
-    }
-
-    // createApplicationIfNotExist -> "Create Application If Not Exist"
-    private static String deriveTitle(String functionName) {
-        StringBuilder ret = new StringBuilder();
-        for (String word : StringUtils.splitByCharacterTypeCamelCase(functionName)) {
-            if (!ret.isEmpty()) {
-                ret.append(' ');
-            }
-            ret.append(StringUtils.capitalize(word));
-        }
-        return ret.toString();
-    }
-
-    // createApplicationIfNotExist -> "Create application if not exist"
-    private static String deriveDescription(String functionName) {
-        StringBuilder ret = new StringBuilder();
-        for (String word : StringUtils.splitByCharacterTypeCamelCase(functionName)) {
-            if (ret.isEmpty()) {
-                ret.append(StringUtils.capitalize(word));
-            } else {
-                ret.append(' ');
-                // an all-caps word is an acronym (CRI, OIDC) and keeps its case
-                ret.append(StringUtils.isAllUpperCase(word) ? word : StringUtils.uncapitalize(word));
-            }
-        }
-        return ret.toString();
     }
 
 }

@@ -1,6 +1,7 @@
 package org.kinotic.idl.api.utils;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.Name;
 import org.springframework.core.MethodParameter;
 import org.springframework.util.ReflectionUtils;
@@ -53,5 +54,47 @@ public final class IdlUtil {
     public static String parameterName(MethodParameter methodParameter) {
         Name nameAnnotation = methodParameter.getParameterAnnotation(Name.class);
         return nameAnnotation != null ? nameAnnotation.value() : methodParameter.getParameter().getName();
+    }
+
+    /**
+     * Converts a camel case identifier to a display title: the words split apart and each capitalized, so
+     * {@code findByRepoFullName} becomes {@code "Find By Repo Full Name"} and {@code ProjectService} becomes
+     * {@code "Project Service"}. An acronym stays one word ({@code OidcConfig} becomes {@code "Oidc Config"},
+     * {@code CRIResolver} becomes {@code "CRI Resolver"}).
+     *
+     * @param name the identifier to humanize
+     * @return the identifier as a capitalized phrase
+     */
+    public static String titleCase(String name) {
+        StringBuilder ret = new StringBuilder();
+        for (String word : StringUtils.splitByCharacterTypeCamelCase(name)) {
+            if (!ret.isEmpty()) {
+                ret.append(' ');
+            }
+            ret.append(StringUtils.capitalize(word));
+        }
+        return ret.toString();
+    }
+
+    /**
+     * Converts a camel case identifier to a sentence: the words split apart with only the first capitalized,
+     * so {@code createApplicationIfNotExist} becomes {@code "Create application if not exist"}. An acronym
+     * keeps its case ({@code findByCRI} becomes {@code "Find by CRI"}).
+     *
+     * @param name the identifier to humanize
+     * @return the identifier as a sentence
+     */
+    public static String sentenceCase(String name) {
+        StringBuilder ret = new StringBuilder();
+        for (String word : StringUtils.splitByCharacterTypeCamelCase(name)) {
+            if (ret.isEmpty()) {
+                ret.append(StringUtils.capitalize(word));
+            } else {
+                ret.append(' ');
+                // an all-caps word is an acronym (CRI, OIDC) and keeps its case
+                ret.append(StringUtils.isAllUpperCase(word) ? word : StringUtils.uncapitalize(word));
+            }
+        }
+        return ret.toString();
     }
 }

@@ -76,6 +76,47 @@ public class McpServiceSchemaTest {
         Assertions.assertEquals("Retrieves an entity by its id.", decorator.getDescription());
     }
 
+    @Test
+    public void inheritedCrudHintsResolveAcrossModules() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+
+        // ProjectService's bare @McpTool states no hints, so syncIndex serves the one @McpToolInfo states
+        // on CrudService in kinotic-core — a function ProjectService only inherits, and one whose name
+        // matches no rule, so nothing but the annotation can be the source
+        McpToolC3Decorator syncIndex = mcpTool(service, "syncIndex");
+        Assertions.assertTrue(syncIndex.isIdempotentHint());
+        Assertions.assertFalse(syncIndex.isReadOnlyHint());
+        Assertions.assertFalse(syncIndex.isDestructiveHint());
+
+        McpToolC3Decorator deleteById = mcpTool(service, "deleteById");
+        Assertions.assertTrue(deleteById.isDestructiveHint());
+        Assertions.assertTrue(deleteById.isIdempotentHint());
+        Assertions.assertFalse(deleteById.isReadOnlyHint());
+
+        // nothing states hints for a function ProjectService declares itself, so its name decides
+        McpToolC3Decorator createIfNotExist = mcpTool(service, "createProjectIfNotExist");
+        Assertions.assertTrue(createIfNotExist.isIdempotentHint());
+        Assertions.assertFalse(createIfNotExist.isDestructiveHint());
+        Assertions.assertEquals("Project Service Create Project If Not Exist", createIfNotExist.getTitle());
+    }
+
+    private static McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
+        McpToolC3Decorator ret = service.getFunctions()
+                                        .stream()
+                                        .filter(function -> function.getName().equals(functionName))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
+        return ret;
+    }
+
     private static DefaultSchemaFactory schemaFactory() {
         List<ResolvableTypeConverter> converters = List.of(new ArrayTypeConverter(),
                                                            new BooleanTypeConverter(),

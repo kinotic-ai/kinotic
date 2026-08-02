@@ -1,5 +1,6 @@
 package org.kinotic.idl.internal.support;
 
+import org.kinotic.idl.api.annotations.McpToolInfo;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -10,6 +11,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface OtherTestService {
 
+    @McpToolInfo(readOnlyHint = true)
     TestObject findPerson(String name);
 
     CompletableFuture<TestObject> findPersonAsync(String name);

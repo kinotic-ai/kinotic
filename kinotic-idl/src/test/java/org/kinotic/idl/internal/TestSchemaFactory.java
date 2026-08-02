@@ -20,6 +20,7 @@ import org.kinotic.idl.internal.support.DefaultTestRenamedService;
 import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestObject;
+import org.kinotic.idl.internal.support.TestNamedHintService;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestOverloadedService;
 import org.kinotic.idl.internal.support.TestService;
@@ -120,10 +121,68 @@ public class TestSchemaFactory {
         Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
 
         // an inherited function's description comes from the Javadoc on the generic base declaring it,
-        // even though GenericCrudService itself carries no annotations
+        // even though GenericCrudService declares no @McpTool of its own
         McpToolC3Decorator inherited = findById.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(inherited);
         Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
+
+        // nothing declares findById a tool but TestObjectCrudService's type-level sweep, so its name decides
+        Assertions.assertTrue(inherited.isReadOnlyHint());
+        Assertions.assertFalse(inherited.isDestructiveHint());
+    }
+
+    @Test
+    public void testHintsDeriveFromEveryWordOfTheFunctionName() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNamedHintService.class, TestNamedHintService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestNamedHintService.class);
+
+        // the reading verb trails the noun, so a leading-word rule would miss this one
+        McpToolC3Decorator count = mcpTool(service, "peopleCount");
+        Assertions.assertTrue(count.isReadOnlyHint());
+
+        // "get" reads, but the same name also creates, and serving a mutation as read-only invites a host
+        // to call it unattended
+        McpToolC3Decorator getOrCreate = mcpTool(service, "getOrCreatePerson");
+        Assertions.assertFalse(getOrCreate.isReadOnlyHint());
+        Assertions.assertFalse(getOrCreate.isDestructiveHint());
+
+        McpToolC3Decorator purge = mcpTool(service, "purgeRetiredPeople");
+        Assertions.assertTrue(purge.isDestructiveHint());
+        Assertions.assertTrue(purge.isIdempotentHint());
+        Assertions.assertFalse(purge.isReadOnlyHint());
+
+        // a create that yields to an existing entity is idempotent, and stays additive
+        McpToolC3Decorator createIfNotExist = mcpTool(service, "createPersonIfNotExist");
+        Assertions.assertTrue(createIfNotExist.isIdempotentHint());
+        Assertions.assertFalse(createIfNotExist.isDestructiveHint());
+
+        // a name naming no verb the table knows states nothing
+        McpToolC3Decorator notify = mcpTool(service, "notifyPeople");
+        Assertions.assertFalse(notify.isReadOnlyHint());
+        Assertions.assertFalse(notify.isDestructiveHint());
+        Assertions.assertFalse(notify.isIdempotentHint());
+
+        // a declaration on the method owns the hints, so the name is never read for these two and the
+        // destructive hint "save" implies never reaches either of them
+        McpToolC3Decorator draft = mcpTool(service, "savePersonDraft");
+        Assertions.assertTrue(draft.isIdempotentHint());
+        Assertions.assertFalse(draft.isDestructiveHint());
+
+        McpToolC3Decorator note = mcpTool(service, "savePersonNote");
+        Assertions.assertTrue(note.isIdempotentHint());
+        Assertions.assertFalse(note.isDestructiveHint());
+    }
+
+    @Test
+    public void testMcpToolInfoAloneExposesNothing() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        // OtherTestService.findPerson carries only @McpToolInfo, which describes a tool without making one
+        ServiceDefinition service = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertNull(findFunction(service, "findPerson").findDecorator(McpToolC3Decorator.class));
     }
 
     @Test
@@ -140,8 +199,8 @@ public class TestSchemaFactory {
         McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(decorator);
         Assertions.assertEquals("Greets the recipient", decorator.getDescription());
-        // an explicit description with no title still gets a derived title
-        Assertions.assertEquals("Greet", decorator.getTitle());
+        // an explicit description with no title still gets a derived title, qualified by the service name
+        Assertions.assertEquals("Test Renamed Service Greet", decorator.getTitle());
     }
 
     @Test
@@ -152,25 +211,45 @@ public class TestSchemaFactory {
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
         // a documented method's description is the Javadoc main description extracted at compile time,
-        // with inline tags resolved; the title still derives from the function name
+        // with inline tags resolved; the type-level title leads the title, the function name follows
         McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(documented);
         Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
-        Assertions.assertEquals("Find By Name", documented.getTitle());
+        Assertions.assertEquals("Swept Objects Find By Name", documented.getTitle());
+        // the sweep exposes it, its own name hints it
         Assertions.assertTrue(documented.isReadOnlyHint());
 
-        // no annotation description and no Javadoc: description and title derive from the function name
+        // no annotation description and no Javadoc: the description derives from the function name, and so
+        // does the function half of the title
         McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(derived);
         Assertions.assertEquals("Count by name", derived.getDescription());
-        Assertions.assertEquals("Count By Name", derived.getTitle());
+        Assertions.assertEquals("Swept Objects Count By Name", derived.getTitle());
 
-        // a method-level @McpTool overrides the type-level defaults for that method
+        // a method-level @McpTool owns that method: it supplies the description and title, and the hints
+        // it does not declare are served as declared rather than borrowed from the type-level annotation
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(specific);
         Assertions.assertEquals("Counts every test object", specific.getDescription());
-        Assertions.assertEquals("Count Objects", specific.getTitle());
+        // a method-level title replaces only the function half; the service half still leads
+        Assertions.assertEquals("Swept Objects Count Objects", specific.getTitle());
         Assertions.assertFalse(specific.isReadOnlyHint());
+
+        // a type-level readOnlyHint cannot mislabel a function it does not hold for, because the sweep
+        // hints nothing — deleteAll is hinted by its own name
+        McpToolC3Decorator swept = findFunction(service, "deleteAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(swept);
+        Assertions.assertFalse(swept.isReadOnlyHint());
+        Assertions.assertTrue(swept.isDestructiveHint());
+        Assertions.assertTrue(swept.isIdempotentHint());
+
+        // one declaration describes a function whole: the method's own @McpTool titles it and states no
+        // description, so the description falls to the function name rather than borrowing the
+        // @McpToolInfo's — nothing further down the list is consulted once a nearer one is found
+        McpToolC3Decorator nearest = findFunction(service, "draftObjects").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(nearest);
+        Assertions.assertEquals("Swept Objects Draft Objects", nearest.getTitle());
+        Assertions.assertEquals("Draft objects", nearest.getDescription());
     }
 
     @Test
@@ -196,6 +275,12 @@ public class TestSchemaFactory {
         findService(namespaceDefinition, TestService.class);
         findService(namespaceDefinition, OtherTestService.class);
         Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+    }
+
+    private McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
+        McpToolC3Decorator ret = findFunction(service, functionName).findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
+        return ret;
     }
 
     private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {

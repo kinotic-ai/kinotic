@@ -83,7 +83,8 @@ describe('Kinotic JS', () => {
         expect(findProjects!.description).toBe(
             "Looks up projects in the current participant's organization whose backing GitHub repo has the given "
             + 'owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.')
-        expect(findProjects!.title).toBe('Find Projects by GitHub Repo')
+        // titles are two halves: the service's, derived from ProjectService here, then the function's
+        expect(findProjects!.title).toBe('Project Service Find by GitHub Repo')
         expect(findProjects!.annotations?.readOnlyHint).toBe(true)
         // schema property names come from the compiled parameter names
         expect(Object.keys(findProjects!.inputSchema.properties ?? {})).toContain('repoFullName')
