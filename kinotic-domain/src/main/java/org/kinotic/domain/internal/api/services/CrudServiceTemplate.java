@@ -54,6 +54,9 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
+    // Elasticsearch defaults retry_on_conflict to 0, which fails the loser of a race outright
+    private static final int CONFLICT_RETRIES = 3;
+
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -569,15 +572,15 @@ public class CrudServiceTemplate {
      * @param id              of the document to update
      * @param partial         the fields to merge into the document
      * @param upsert          true to create the document from {@code partial} when it does not exist
-     * @param retryOnConflict how many times to re-apply the merge when another writer updates the document
-     *                        first; zero fails the update on the first conflict
+     * @param retryOnConflict true to re-apply the merge when another writer updates the document first,
+     *                        false to fail the update on the first conflict
      * @return a {@link CompletableFuture} that will complete when the update is applied
      */
     public CompletableFuture<Void> partialUpdate(String indexName,
                                                  String id,
                                                  Map<String, Object> partial,
                                                  boolean upsert,
-                                                 int retryOnConflict) {
+                                                 boolean retryOnConflict) {
         return partialUpdate(indexName, id, partial, upsert, retryOnConflict, null);
     }
 
@@ -589,15 +592,15 @@ public class CrudServiceTemplate {
      * @param id              of the document to update
      * @param partial         the fields to merge into the document
      * @param upsert          true to create the document from {@code partial} when it does not exist
-     * @param retryOnConflict how many times to re-apply the merge when another writer updates the document
-     *                        first; zero fails the update on the first conflict
+     * @param retryOnConflict true to re-apply the merge when another writer updates the document first,
+     *                        false to fail the update on the first conflict
      * @return a {@link CompletableFuture} that will complete when the update is applied
      */
     public CompletableFuture<Void> partialUpdateSync(String indexName,
                                                      String id,
                                                      Map<String, Object> partial,
                                                      boolean upsert,
-                                                     int retryOnConflict) {
+                                                     boolean retryOnConflict) {
         return partialUpdate(indexName, id, partial, upsert, retryOnConflict, Refresh.WaitFor);
     }
 
@@ -605,13 +608,13 @@ public class CrudServiceTemplate {
                                                   String id,
                                                   Map<String, Object> partial,
                                                   boolean upsert,
-                                                  int retryOnConflict,
+                                                  boolean retryOnConflict,
                                                   Refresh refresh) {
         return bindToContext(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
-                                                        .retryOnConflict(retryOnConflict)
+                                                        .retryOnConflict(retryOnConflict ? CONFLICT_RETRIES : 0)
                                                         // null leaves the request at Elasticsearch's default
                                                         .refresh(refresh),
                                                   Map.class)

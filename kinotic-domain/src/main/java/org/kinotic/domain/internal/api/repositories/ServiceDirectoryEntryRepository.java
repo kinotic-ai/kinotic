@@ -37,11 +37,6 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
-    // Registration and liveness writers merge disjoint fields of the same entry concurrently, so both re-run
-    // the merge when they lose the version race. Elasticsearch defaults retry_on_conflict to 0, which instead
-    // fails the loser with a version_conflict_engine_exception.
-    private static final int RETRY_ON_CONFLICT = 3;
-
     private final ObjectMapper objectMapper;
 
     public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
@@ -60,12 +55,13 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         partial.remove("online");
         partial.remove("lastStatusChange");
         // the caller reconciles liveness with a search right after this completes, so the write
-        // must be visible to search before the future does
+        // must be visible to search before the future does. Retry because the liveness writers merge their
+        // own fields into this same entry concurrently
         return crudServiceTemplate.partialUpdateSync(indexName,
                                                      entry.getId(),
                                                      partial,
                                                      true,
-                                                     RETRY_ON_CONFLICT);
+                                                     true);
     }
 
     /**
@@ -73,11 +69,12 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      * {@code lastStatusChange}.
      */
     public CompletableFuture<Void> setOnline(String entryId, boolean online, Instant when) {
+        // retry because registration and the other liveness writers merge into this same entry concurrently
         return crudServiceTemplate.partialUpdate(indexName,
                                                  entryId,
                                                  Map.of("online", online, "lastStatusChange", when),
                                                  false,
-                                                 RETRY_ON_CONFLICT);
+                                                 true);
     }
 
     /**
