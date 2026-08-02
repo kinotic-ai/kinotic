@@ -175,11 +175,13 @@ public class KinoticSecurityService implements SecurityService {
                          } else if (!Objects.equals(iamUser.getOrganizationId(), jwtOrgId)
                                  || !Objects.equals(iamUser.getApplicationId(), jwtAppId)) {
                              // the user was moved or re-scoped after the token was minted, so the
-                             // signed claims no longer describe the authority the record grants
-                             ret = Future.failedFuture(new AuthenticationException(
-                                     "JWT scope " + describeScope(jwtOrgId, jwtAppId)
-                                             + " does not match user scope "
-                                             + describeScope(iamUser.getOrganizationId(), iamUser.getApplicationId())));
+                             // signed claims no longer describe the authority the record grants.
+                             // The scopes stay in the log; the caller gets no ids back.
+                             log.warn("JWT scope {} does not match scope {} of user {}",
+                                      describeScope(jwtOrgId, jwtAppId),
+                                      describeScope(iamUser.getOrganizationId(), iamUser.getApplicationId()),
+                                      sub);
+                             ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
                          } else {
                              ret = Future.succeededFuture(DomainUtil.createParticipant(iamUser));
                          }
