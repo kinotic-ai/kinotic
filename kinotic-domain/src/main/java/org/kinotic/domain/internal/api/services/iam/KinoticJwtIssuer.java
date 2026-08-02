@@ -2,7 +2,6 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.User;
@@ -12,7 +11,7 @@ import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.config.VersionedKeySet;
-import org.kinotic.core.api.security.KinoticJwtConstants;
+import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.core.internal.platform.PlatformSecretsService;
 import org.springframework.stereotype.Component;
 
@@ -59,40 +58,26 @@ public class KinoticJwtIssuer {
     }
 
     /**
-     * Mints a JWT containing the given claims, signed with the currently active key.
-     * Always sets {@code aud=kinotic} (overwriting any caller-supplied value) and stamps
-     * the active {@code kid} into the header so validators can dispatch to the right key.
+     * Mints a JWT containing the given claims, signed with the currently active key. Sets
+     * {@code aud} to {@code audience}'s claim value, overwriting any caller-supplied value, and
+     * stamps the active {@code kid} into the header so validators can dispatch to the right key.
      */
-    public String sign(JsonObject claims, JWTOptions options) {
+    public String sign(JsonObject claims, JWTOptions options, KinoticAudience audience) {
         State current = requireState();
         JWTOptions withDefaults = options
                 .setAlgorithm(ALGORITHM)
-                .setAudience(List.of(KinoticJwtConstants.AUDIENCE))
+                .setAudience(List.of(audience.getClaim()))
                 .setHeader(new JsonObject().put("kid", current.activeKeyId));
         return current.jwtAuth.generateToken(claims, withDefaults);
     }
 
     /**
-     * Validates a token signed by any key currently in the active set and confirms its
-     * audience is {@value KinoticJwtConstants#AUDIENCE}. Tokens minted by an IdP (or any
-     * other party) will fail the audience check even if they happened to share signing
-     * material.
+     * Validates a token's signature against any key currently in the active set, dispatching on
+     * the {@code kid} header to the key that signed it.
      */
     public Future<User> authenticate(String token) {
         State current = requireState();
-        return current.jwtAuth.authenticate(new TokenCredentials(token))
-                              .compose(KinoticJwtIssuer::requireKinoticAudience);
-    }
-
-    private static Future<User> requireKinoticAudience(User user) {
-        Object aud = user.principal().getValue("aud");
-        boolean ok = switch (aud) {
-            case String s -> KinoticJwtConstants.AUDIENCE.equals(s);
-            case JsonArray arr -> arr.contains(KinoticJwtConstants.AUDIENCE);
-            case null, default -> false;
-        };
-        return ok ? Future.succeededFuture(user)
-                  : Future.failedFuture(new SecurityException("JWT audience is not '" + KinoticJwtConstants.AUDIENCE + "'"));
+        return current.jwtAuth.authenticate(new TokenCredentials(token));
     }
 
     private State requireState() {

@@ -12,7 +12,7 @@ import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeS
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
-import { DeviceApprovalService, type IDeviceApprovalService } from '@/api/services/IDeviceApprovalService'
+import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 
 export interface IOsApiExtension {
@@ -28,7 +28,7 @@ export interface IOsApiExtension {
     workloads: IWorkloadService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
-    deviceApproval: IDeviceApprovalService
+    oauthApproval: IOAuthApprovalService
     githubAppInstallations: IGitHubAppInstallationService
 }
 
@@ -47,7 +47,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             workloads: new WorkloadServiceProxy(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
-            deviceApproval: new DeviceApprovalService(kinotic),
+            oauthApproval: new OAuthApprovalService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
         }
     }

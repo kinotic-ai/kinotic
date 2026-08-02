@@ -190,7 +190,7 @@ const pageRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/login',
-    component: () => import('@/pages/login/Login.vue'),
+    component: () => import('@/pages/login/LoginPage.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false
@@ -198,7 +198,7 @@ const pageRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/signup',
-    component: () => import('@/pages/signup/Signup.vue'),
+    component: () => import('@/pages/signup/GithubSignup.vue'),
     meta: {
       showInMainNav: false,
       authenticationRequired: false
@@ -234,6 +234,13 @@ const pageRoutes: RouteRecordRaw[] = [
       authenticationRequired: true
     },
     component: () => import('@/pages/login/DeviceVerification.vue'),
+  },
+  {
+    path: '/oauth/consent',
+    meta: {
+      authenticationRequired: true
+    },
+    component: () => import('@/pages/login/OAuthConsent.vue'),
   },
   {
     path: '/graphql',

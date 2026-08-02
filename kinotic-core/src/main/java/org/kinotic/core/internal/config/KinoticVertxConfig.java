@@ -13,6 +13,7 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
+import org.kinotic.vertx.jackson3.VertxJackson3Codec;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -62,6 +63,10 @@ public class KinoticVertxConfig {
     public Vertx vertx(KinoticProperties properties,
                        JsonMapper jsonMapper,
                        @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
+
+        // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every
+        // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
+        VertxJackson3Codec.setMapper(jsonMapper);
 
         VertxBuilder builder = Vertx.builder();
         Vertx vertx;

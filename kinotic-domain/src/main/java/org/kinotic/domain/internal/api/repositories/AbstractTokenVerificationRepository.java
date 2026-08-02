@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.domain.api.model.iam.PendingVerification;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
@@ -19,9 +18,8 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
 
     protected AbstractTokenVerificationRepository(String indexName,
                                                   Class<T> type,
-                                                  ElasticsearchAsyncClient esAsyncClient,
                                                   CrudServiceTemplate crudServiceTemplate) {
-        super(indexName, type, esAsyncClient, crudServiceTemplate);
+        super(indexName, type, crudServiceTemplate);
     }
 
     /** Finds a record by its verification token, or {@code null} if none matches. */

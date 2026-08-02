@@ -11,7 +11,7 @@ import org.kinotic.domain.api.model.iam.IamUser;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.iam.IamUserService;
-import org.kinotic.domain.api.services.iam.InviteEmailMismatchException;
+import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
 import org.kinotic.domain.internal.api.services.EmailService;

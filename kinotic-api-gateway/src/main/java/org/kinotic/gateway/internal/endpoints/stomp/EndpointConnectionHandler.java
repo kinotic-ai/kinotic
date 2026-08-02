@@ -14,6 +14,7 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
@@ -30,7 +31,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navid Mitchell on 11/3/20
@@ -52,27 +52,25 @@ public class EndpointConnectionHandler {
         this.securityService = services.securityService;
     }
 
-    public CompletableFuture<MultiMap> handshake(RoutingContext routingContext) {
+    public Future<MultiMap> handshake(RoutingContext routingContext) {
         session = routingContext.session();
         this.connectedInfo = connectedInfoFromSession();
 
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
-            return CompletableFuture.completedFuture(MultiMap.caseInsensitiveMultiMap());
+            return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
         return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
-                              .handle((participant, throwable) -> {
-                                  if(throwable != null){
-                                      if(!(throwable instanceof AuthenticationException)) {
-                                          throw new AuthenticationException("Could not authenticate with the given credentials", throwable);
-                                      }else{
-                                          throw (AuthenticationException) throwable;
-                                      }
-                                  }else {
-                                      return participant;
+                              .recover(throwable -> {
+                                  Throwable cause;
+                                  if(throwable instanceof AuthenticationException){
+                                      cause = throwable;
+                                  }else{
+                                      cause = new AuthenticationException("Could not authenticate with the given credentials", throwable);
                                   }
+                                  return Future.failedFuture(cause);
                               })
-                              .thenApply(participant -> {
+                              .map(participant -> {
                                   connectedInfo = new ConnectedInfo();
                                   connectedInfo.setParticipant(participant);
                                   if (session != null) {
@@ -82,15 +80,18 @@ public class EndpointConnectionHandler {
                               });
     }
 
-    public CompletableFuture<Map<String, String>> connect(Map<String, String> connectHeaders) {
-        if (connectedInfo != null && connectedInfo.getParticipant() != null) {
-            try {
-                sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
-                if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
-                    return CompletableFuture.failedFuture(
-                            new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
-                }
+    public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {
+        if (connectedInfo == null || connectedInfo.getParticipant() == null) {
+            return Future.failedFuture(new AuthenticationException("Client must authenticate before sending a CONNECT frame"));
+        }
 
+        Future<Map<String, String>> ret;
+        try {
+            sessionKeepAliveMode = SessionKeepAliveMode.fromHeader(connectHeaders.get(EventConstants.SESSION_KEEP_ALIVE_HEADER));
+            if (sessionKeepAliveMode != SessionKeepAliveMode.NONE && session == null) {
+                ret = Future.failedFuture(
+                        new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
+            } else {
                 // The replyToId is generated server side so the client cannot pick a guessable
                 // or colliding value. It is reused for the life of the session so the client's
                 // reply destination stays stable across reconnects.
@@ -106,16 +107,15 @@ public class EndpointConnectionHandler {
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
                     startSessionTouchTimer();
                 }
-                return CompletableFuture.completedFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
-                                                                services.jsonMapper.writeValueAsString(connectedInfo)));
-            } catch (JacksonException e) {
-                return CompletableFuture.failedFuture(e);
-            } catch (IllegalArgumentException e) {
-                return CompletableFuture.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
+                ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
+                                                    services.jsonMapper.writeValueAsString(connectedInfo)));
             }
+        } catch (JacksonException e) {
+            ret = Future.failedFuture(e);
+        } catch (IllegalArgumentException e) {
+            ret = Future.failedFuture(new AuthenticationException("Invalid CONNECT frame", e));
         }
-
-        return CompletableFuture.failedFuture(new AuthenticationException("Client must authenticate before sending a CONNECT frame"));
+        return ret;
     }
 
     public void removeSession() {
@@ -146,6 +146,12 @@ public class EndpointConnectionHandler {
                             // map errors that occurred because no Service invoker was listening
                             if (throwable instanceof ReplyException replyException) {
                                 if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                                    // every gateway RPC doubles as a liveness probe, so the directory
+                                    // self-heals from ordinary traffic; with no directory bean nothing happens
+                                    ServiceDirectory serviceDirectory = services.serviceDirectoryProvider.getIfAvailable();
+                                    if (serviceDirectory != null) {
+                                        serviceDirectory.reportUnreachable(incomingEvent.cri().raw());
+                                    }
                                     throwable = new RpcMissingServiceException(throwable);
                                 }
                             }

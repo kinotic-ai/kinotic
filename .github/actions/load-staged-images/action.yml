@@ -1,0 +1,33 @@
+name: Load staged images
+description: >-
+  Pulls the per-commit images the build staged on ghcr.io and tags them with the name the compose
+  files reference, so a suite runs against the image built from this commit without that image ever
+  reaching Docker Hub.
+
+inputs:
+  images:
+    description: Space-separated image names, e.g. "kinotic-migration kinotic-server".
+    required: true
+  token:
+    description: Token with packages:read for ghcr.io. Composite actions cannot read secrets directly.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Log in to GitHub Container Registry
+      shell: bash
+      run: echo "${{ inputs.token }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+    # Both compose files pin kinoticai/<name>:${kinoticVersion} with pull_policy: missing, so the
+    # local tag applied here is what the stack resolves — no registry lookup, no chance of picking up
+    # a Docker Hub image from another commit.
+    - name: Pull and tag staged images
+      shell: bash
+      run: |
+        version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+        for image in ${{ inputs.images }}; do
+          staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
+          docker pull "$staged"
+          docker tag "$staged" "kinoticai/${image}:${version}"
+        done

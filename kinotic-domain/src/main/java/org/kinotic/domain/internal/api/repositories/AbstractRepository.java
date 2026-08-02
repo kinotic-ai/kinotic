@@ -1,12 +1,7 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch.core.CountRequest;
-import co.elastic.clients.elasticsearch.core.DeleteRequest;
-import co.elastic.clients.elasticsearch.core.GetRequest;
-import co.elastic.clients.elasticsearch.core.IndexRequest;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.*;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +30,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     protected final String indexName;
     @Getter
     protected final Class<T> type;
-    protected final ElasticsearchAsyncClient esAsyncClient;
     protected final CrudServiceTemplate crudServiceTemplate;
 
     @PostConstruct
@@ -142,9 +136,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     }
 
     public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(_ -> null);
+        return crudServiceTemplate.syncIndex(indexName);
     }
 
     protected Query composeFilter(Query... filters) {

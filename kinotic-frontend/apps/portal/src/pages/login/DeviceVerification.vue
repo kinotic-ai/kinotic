@@ -66,7 +66,9 @@ async function handleApprove() {
   if (!userCodeValue) return
   loading.value = true
   try {
-    await Kinotic.deviceApproval.approve(userCodeValue)
+    // typed locally until the installed @kinotic-ai/os-api ships the oauthApproval extension
+    await (Kinotic as unknown as { oauthApproval: { approveDevice(code: string): Promise<void> } })
+        .oauthApproval.approveDevice(userCodeValue)
     approved.value = true
   } catch (err) {
     displayError(err instanceof Error ? err.message : 'Could not approve the device')

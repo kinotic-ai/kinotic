@@ -13,7 +13,18 @@ CREATE TABLE IF NOT EXISTS kinotic_service_directory (
     serviceDefinition JSON NOT INDEXED,
     advertised BOOLEAN,
     mcpExposed BOOLEAN,
-    mcpTools JSON NOT INDEXED,
+    mcpTools OBJECT (
+        name KEYWORD,
+        title KEYWORD,
+        description TEXT,
+        inputSchema JSON NOT INDEXED,
+        cri KEYWORD NOT INDEXED,
+        annotations OBJECT (
+            readOnlyHint BOOLEAN,
+            destructiveHint BOOLEAN,
+            idempotentHint BOOLEAN
+        ) NOT INDEXED
+    ),
     online BOOLEAN,
     lastStatusChange DATE
 );

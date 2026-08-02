@@ -54,7 +54,9 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
                 log.trace("Successfully Registered service {}", serviceIdentifier);
             } catch (Exception e) {
+                // A service that is not actually serving must not advertise itself in the directory
                 log.error("Error Registering service {}", serviceIdentifier, e);
+                return;
             }
 
             // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
@@ -62,7 +64,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.register(serviceIdentifier, clazz);
+                    serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
                 } catch (Exception e) {
                     log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
                 }
@@ -91,7 +93,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
             if (serviceDirectory != null) {
                 try {
-                    serviceDirectory.unregister(serviceIdentifier, clazz);
+                    serviceDirectory.unregister(serviceIdentifier);
                 } catch (Exception e) {
                     log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
                 }

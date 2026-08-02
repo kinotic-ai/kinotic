@@ -18,7 +18,6 @@ import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.idl.api.schema.decorators.NotNullC3Decorator;
 import org.kinotic.idl.internal.api.converter.DefaultIdlConverterFactory;
 import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashSet;
 import java.util.List;
@@ -37,8 +36,6 @@ public class McpJsonSchemaGeneratorTest {
 
     private final McpJsonSchemaGenerator generator = new McpJsonSchemaGenerator(new DefaultIdlConverterFactory());
 
-    private final JsonMapper jsonMapper = JsonMapper.builder().build();
-
     @Test
     public void primitivesRequiredAndParameterDescription() {
         ParameterDefinition name = new ParameterDefinition("name", new StringC3Type());
@@ -51,7 +48,7 @@ public class McpJsonSchemaGeneratorTest {
                                                            .addParameter(name)
                                                            .addParameter(age);
 
-        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(greet, Map.of()));
+        JsonNode schema = generator.generateInputSchema(greet, Map.of());
 
         assertEquals("object", schema.path("type").asString());
         assertEquals("string", schema.path("properties").path("name").path("type").asString());
@@ -72,7 +69,7 @@ public class McpJsonSchemaGeneratorTest {
         FunctionDefinition function = new FunctionDefinition().setName("store")
                                                               .addParameter(new ParameterDefinition("value", new AnyC3Type()));
 
-        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, Map.of()));
+        JsonNode schema = generator.generateInputSchema(function, Map.of());
 
         JsonNode value = schema.path("properties").path("value");
         assertTrue(value.isObject());
@@ -85,7 +82,7 @@ public class McpJsonSchemaGeneratorTest {
                                                              .addParameter(new ParameterDefinition("b", new ByteC3Type()))
                                                              .addParameter(new ParameterDefinition("s", new ShortC3Type()));
 
-        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, Map.of()));
+        JsonNode schema = generator.generateInputSchema(function, Map.of());
 
         JsonNode b = schema.path("properties").path("b");
         assertEquals("integer", b.path("type").asString());
@@ -110,8 +107,7 @@ public class McpJsonSchemaGeneratorTest {
                 .setName("saveAddress")
                 .addParameter(new ParameterDefinition("address", new ReferenceC3Type("com.acme.Address")));
 
-        JsonNode schema = jsonMapper.readTree(
-                generator.generateInputSchema(function, Map.of("com.acme.Address", address)));
+        JsonNode schema = generator.generateInputSchema(function, Map.of("com.acme.Address", address));
 
         assertEquals("Street line of the address",
                      schema.path("$defs").path("Address").path("properties").path("street").path("description").asString());
@@ -134,7 +130,7 @@ public class McpJsonSchemaGeneratorTest {
         Map<String, ObjectC3Type> resolver = Map.of("com.acme.Person", person,
                                                     "com.acme.Address", address);
 
-        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, resolver));
+        JsonNode schema = generator.generateInputSchema(function, resolver);
 
         assertEquals("#/$defs/Person", schema.path("properties").path("person").path("$ref").asString());
 
@@ -160,8 +156,7 @@ public class McpJsonSchemaGeneratorTest {
                 .setName("register")
                 .addParameter(new ParameterDefinition("pet", pet));
 
-        String json = generator.generateInputSchema(function, Map.of());
-        JsonNode schema = jsonMapper.readTree(json);
+        JsonNode schema = generator.generateInputSchema(function, Map.of());
 
         JsonNode oneOf = schema.path("properties").path("pet").path("oneOf");
         assertTrue(oneOf.isArray());
@@ -172,7 +167,7 @@ public class McpJsonSchemaGeneratorTest {
         assertTrue(refs.contains("#/$defs/Cat"));
         assertTrue(refs.contains("#/$defs/Dog"));
 
-        assertFalse(json.contains("discriminator"), "discriminator is OpenAPI vocabulary and must not be emitted");
+        assertFalse(schema.toString().contains("discriminator"), "discriminator is OpenAPI vocabulary and must not be emitted");
 
         JsonNode defs = schema.path("$defs");
         assertEquals("integer", defs.path("Cat").path("properties").path("meowVolume").path("type").asString());
@@ -192,7 +187,7 @@ public class McpJsonSchemaGeneratorTest {
 
         Map<String, ObjectC3Type> resolver = Map.of("com.acme.Node", node);
 
-        JsonNode schema = jsonMapper.readTree(generator.generateInputSchema(function, resolver));
+        JsonNode schema = generator.generateInputSchema(function, resolver);
 
         assertEquals("#/$defs/Node", schema.path("properties").path("root").path("$ref").asString());
 

@@ -1,12 +1,11 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.PendingInvite;
-import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;
@@ -14,9 +13,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class PendingInviteRepository extends AbstractTokenVerificationRepository<PendingInvite> {
 
-    public PendingInviteRepository(ElasticsearchAsyncClient esAsyncClient,
-                                   CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_pending_invite", PendingInvite.class, esAsyncClient, crudServiceTemplate);
+    public PendingInviteRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_pending_invite", PendingInvite.class, crudServiceTemplate);
     }
 
     public CompletableFuture<PendingInvite> findByEmailAndScope(String email,

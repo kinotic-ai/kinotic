@@ -31,6 +31,20 @@ export async function setup(project: TestProject) {
 
         const container = environment.getContainer('kinotic-server')
 
+        // Surface server-side failures in the test output: without this, a broken server startup
+        // only ever shows up as opaque timeouts in the suites
+        try {
+            const logStream = await container.logs()
+            logStream.on('data', (chunk: Buffer | string) => {
+                const text = String(chunk)
+                if (text.includes('ERROR')) {
+                    console.error('[kinotic-server]', text.trimEnd())
+                }
+            })
+        } catch (e) {
+            console.error('Could not attach to kinotic-server logs', e)
+        }
+
         // @ts-ignore
         project.provide('KINOTIC_HOST', container.getHost())
         // @ts-ignore

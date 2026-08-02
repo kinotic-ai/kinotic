@@ -8,7 +8,6 @@ import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
-import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -47,8 +46,7 @@ public class ApiGatewayEndpointInitializer {
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         log.info("Deploying {} API Gateway Endpoint(s), 1 per core", numToDeploy);
 
-
-        log.info("Deploying API Server at http{}://{}", apiGatewayProperties.getSsl().isEnabled() ? "s" : "", apiGatewayProperties.getStompPort());
+        log.info("Deploying API Server on port {} {}", apiGatewayProperties.getStompPort(), apiGatewayProperties.getSsl().isEnabled() ? " with SSL enabled" : "");
 
         if (apiGatewayProperties.getWebServer().isEnabled()) {
             log.info("Deploying static web server on port {}", apiGatewayProperties.getWebServer().getPort());

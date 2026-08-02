@@ -8,7 +8,6 @@ import org.apache.commons.lang3.Validate;
 import tools.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.Set;
 
 /**
@@ -41,7 +40,7 @@ public class ServiceDefinition extends AbstractDefinition implements HasQualifie
      * The key is the function name and the value is the schema that defines the function
      */
     @EqualsAndHashCode.Exclude
-    @JsonDeserialize(as = LinkedList.class)
+    @JsonDeserialize(as = LinkedHashSet.class)
     private Set<FunctionDefinition> functions = new LinkedHashSet<>();
 
     /**

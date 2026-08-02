@@ -3,6 +3,7 @@ package org.kinotic.os.api.services;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.api.model.Project;
+import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -12,6 +13,7 @@ import java.util.concurrent.CompletableFuture;
  * inherited from {@link ApplicationScopedCrudService}.
  */
 @Publish
+@McpTool
 public interface ProjectService extends ApplicationScopedCrudService<Project, String> {
 
     /**
@@ -29,6 +31,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * has the given {@code owner/repo} full name. Returns the empty list when no project in
      * that organization is backed by the repo.
      */
+    @McpTool(title = "Find Projects by GitHub Repo", readOnlyHint = true)
     CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
 
     /**

@@ -30,7 +30,10 @@ dependencies {
 //                     https://paketo.io/docs/reference/java-reference/
 bootBuildImage {
     network = "host"
-    publish = System.getenv("GITHUB_ACTIONS") == "true"
+    // Builds into the local daemon. CI stages the result on ghcr.io under a per-commit tag, runs
+    // every suite against it, and only pushes to Docker Hub once they pass; publishing from this
+    // task would put an unvalidated image on the tag consumers pull. Pass --publishImage to push
+    // directly to imageName.
     imageName = "kinoticai/${project.name}:${project.version}"
     tags = (!version.endsWith('SNAPSHOT') ?
             [

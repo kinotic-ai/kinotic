@@ -1,5 +1,6 @@
 package org.kinotic.server.clienttest;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * {@link SecurityService} used only under the {@code clienttest} profile, where domain and
@@ -30,7 +30,7 @@ public class TestSecurityService implements SecurityService {
     private static final String CLI_PARTICIPANT_ID = "-42-Kinotic-CLI-42-";
 
     @Override
-    public CompletableFuture<Participant> authenticate(Map<String, String> authenticationInfo) {
+    public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
         // STOMP preserves header case while HTTP callers lowercase; a case-insensitive view
         // lets both work with the same camelCase names.
         Map<String, String> authInfo = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -71,6 +71,6 @@ public class TestSecurityService implements SecurityService {
                                                        .roles(roles)
                                                        .build();
         }
-        return CompletableFuture.completedFuture(participant);
+        return Future.succeededFuture(participant);
     }
 }

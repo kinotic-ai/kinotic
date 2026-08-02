@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
@@ -44,6 +45,12 @@ public class DomainProperties {
      * Loki configuration for the {@code LogService}.
      */
     private LokiProperties loki = new LokiProperties();
+
+    /**
+     * OAuth 2.1 authorization-server configuration.
+     */
+    @Valid
+    private OAuthProperties oauth = new OAuthProperties();
 
     /**
      * Secret storage configuration. If null, an in-memory backend is used.

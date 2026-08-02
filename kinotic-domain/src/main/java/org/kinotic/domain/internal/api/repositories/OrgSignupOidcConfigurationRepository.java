@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
@@ -14,9 +13,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class OrgSignupOidcConfigurationRepository extends AbstractRepository<OrgSignupOidcConfiguration> {
 
-    public OrgSignupOidcConfigurationRepository(ElasticsearchAsyncClient esAsyncClient,
-                                                CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_org_signup_oidc_configuration", OrgSignupOidcConfiguration.class, esAsyncClient, crudServiceTemplate);
+    public OrgSignupOidcConfigurationRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_org_signup_oidc_configuration", OrgSignupOidcConfiguration.class, crudServiceTemplate);
     }
 
     public CompletableFuture<List<OrgSignupOidcConfiguration>> findAllEnabled() {

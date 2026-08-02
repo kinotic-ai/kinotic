@@ -15,8 +15,8 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
-        namespaceConfig.organization = 'kinotic-test'
-        namespaceConfig.application = namespace
+        namespaceConfig.organizationId = 'kinotic-test'
+        namespaceConfig.applicationId = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/ecommerce'),
@@ -45,8 +45,8 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
-        namespaceConfig.organization = 'kinotic-test'
-        namespaceConfig.application = namespace
+        namespaceConfig.organizationId = 'kinotic-test'
+        namespaceConfig.applicationId = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/health'),

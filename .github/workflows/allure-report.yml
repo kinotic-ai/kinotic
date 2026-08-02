@@ -1,0 +1,117 @@
+name: Publish Allure Report
+
+# Triggered by the build rather than being a job inside it, so the ~50s report round-trip is not
+# counted in the build's wall clock and a red build still publishes its report.
+on:
+  workflow_run:
+    workflows: ["Build and Publish"]
+    types: [completed]
+
+# Shared group with website-deploy.yml prevents concurrent gh-pages pushes.
+concurrency:
+  group: gh-pages-deploy
+  cancel-in-progress: false
+
+permissions:
+  actions: read       # download-artifact reaches into the triggering run
+  contents: write     # push to gh-pages
+  statuses: write     # report status back onto the built commit
+
+jobs:
+  publish_test_report:
+    name: Publish Allure Report
+    runs-on: ubuntu-latest
+    env:
+      # Allure 3 CLI version, pinned for reproducible report output and history handling.
+      ALLURE_VERSION: "3.12.0"
+      RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
+    steps:
+      # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
+      # since checkout cleans its destination.
+      - name: Checkout report config
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: allurerc.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # One artifact per job in the build (allure-results-build, -kinotic-test, -e2e, ...);
+      # merge-multiple flattens them back into the single directory allure generate expects.
+      - name: Download Allure results
+        uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          pattern: allure-results-*
+          merge-multiple: true
+          path: allure-results
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get Allure history
+        uses: actions/checkout@v7
+        continue-on-error: true
+        with:
+          ref: gh-pages
+          path: gh-pages
+
+      # Allure 3 has no drop-in publish action, so do the history round-trip explicitly:
+      #   1. restore the prior run's history.jsonl from gh-pages (absent on run 1),
+      #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the report, appends this run,
+      #   3. persist the updated history.jsonl for the next run.
+      # Each run is an immutable folder under test-results/<run_number>/.
+      - name: Generate Allure report
+        run: |
+          if [ ! -d allure-results ] || [ -z "$(ls -A allure-results 2>/dev/null)" ]; then
+            echo "No allure-results found; skipping report generation."
+            exit 0
+          fi
+          if [ -f gh-pages/test-results/history.jsonl ]; then
+            cp gh-pages/test-results/history.jsonl history.jsonl
+          fi
+          npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
+            --config allurerc.mjs \
+            --output "allure-history/test-results/${RUN_NUMBER}"
+          mkdir -p allure-history/test-results
+          cp history.jsonl allure-history/test-results/history.jsonl
+
+      # Stable noindex entry point: /test-results/ redirects to the newest run, linkable without
+      # exposing report pages to search engines.
+      - name: Write latest-report redirect
+        run: |
+          # Relative redirect (host-agnostic for the kinotic.ai domain) to the newest run; mkdir
+          # guarantees a target even if generate produced nothing.
+          mkdir -p allure-history/test-results
+          cat > allure-history/test-results/index.html <<EOF
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="robots" content="noindex">
+            <meta http-equiv="refresh" content="0; url=./${RUN_NUMBER}/">
+            <title>Kinotic test reports</title>
+          </head>
+          <body>Redirecting to the latest <a href="./${RUN_NUMBER}/">Allure report</a></body>
+          </html>
+          EOF
+
+      - name: Deploy report to Github Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-history
+          publish_branch: gh-pages
+          keep_files: true
+
+      - name: Add status to Commit
+        uses: guibranco/github-status-action-v2@v1.2.4
+        with:
+          authToken: ${{ secrets.GITHUB_TOKEN }}
+          context: 'Test Report'
+          description: 'Report published'
+          state: 'success'
+          sha: ${{ github.event.workflow_run.head_sha }}
+          target_url: https://kinotic.ai/test-results/${{ github.event.workflow_run.run_number }}

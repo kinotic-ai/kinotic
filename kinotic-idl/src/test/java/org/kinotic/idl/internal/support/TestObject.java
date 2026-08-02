@@ -19,5 +19,6 @@ public class TestObject {
     private String name;
     private int age;
     private boolean isCool;
+    private TestStatus status;
 
 }

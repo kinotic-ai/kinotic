@@ -12,7 +12,7 @@ import java.util.concurrent.CompletableFuture;
  * organization participant sees its own organization's workloads, a system participant sees any.
  * Both methods return the raw Loki response bytes; the caller parses Loki's wire format.
  */
-@Publish
+@Publish //FIXME: figure out how to provide an McpTool that returns a flux, or add an exclusion to the McpTool annotation.
 public interface LogService {
 
     /**

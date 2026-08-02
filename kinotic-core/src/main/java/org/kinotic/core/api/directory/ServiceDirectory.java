@@ -1,39 +1,21 @@
 package org.kinotic.core.api.directory;
 
+import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.service.ServiceIdentifier;
 
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.Future;
 
 /**
- * Keeps track of registered service contracts and the MCP tools they expose.
+ * Keeps track of registered service contracts and the MCP tools they expose. Every returned {@link Future} is
+ * completed on the Vert.x context of the caller.
  * <p>
  * {@code kinotic-core} defines this API but ships no implementation: the registration path resolves it optionally,
- * so a standalone core deployment with no implementation bean does nothing at all. The Elasticsearch implementation
- * lives in {@code kinotic-domain}.
- *
+ * so a standalone core deployment with no implementation bean does nothing at all.
  * Created by navid on 2019-06-11.
  */
 public interface ServiceDirectory {
-
-    /**
-     * Registers a published service with the directory. What is stored, when the work happens (it may
-     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
-     * reported by the directory.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being registered
-     */
-    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
-
-    /**
-     * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
-     * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
-     * known-but-offline service is a feature.
-     * @param serviceIdentifier the identifier the service registered under
-     * @param serviceInterface the {@code @Publish} interface being unregistered
-     */
-    void unregister(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface);
 
     /**
      * Returns the entries scoped to the given organization/application. System (OS) entries are system-scoped, so
@@ -44,9 +26,21 @@ public interface ServiceDirectory {
      * @param pageable the page settings to use
      * @return a page of entries in the given scope
      */
-    CompletableFuture<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+    Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                        String applicationId,
                                                                        Pageable pageable);
+
+    /**
+     * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
+     * rules as {@link #findMcpToolsCallableBy}. Tool names are unique system wide.
+     * @param toolName the MCP tool name to resolve
+     * @param organizationId the calling scope's organization, or null for a system scope
+     * @param applicationId the calling scope's application, or null
+     * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
+     */
+    Future<McpToolDefinition> findMcpToolByName(String toolName,
+                                                           String organizationId,
+                                                           String applicationId);
 
     /**
      * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:
@@ -55,33 +49,52 @@ public interface ServiceDirectory {
      * {@code app-api}-zone tools.
      * @param organizationId the calling scope's organization, or null for a system scope
      * @param applicationId the calling scope's application, or null
-     * @param pageable the page settings to use
-     * @return a page of callable {@link McpToolDefinition}s, flattened from the matching entries
+     * @param pageable the {@link CursorPageable} to use, because the MCP spec only supports cursor.
+     * @return the page of callable {@link McpToolDefinition}s, carrying a {@code nextCursor} when more exist
      */
-    CompletableFuture<Page<McpToolDefinition>> findMcpToolsCallableBy(String organizationId,
-                                                                      String applicationId,
-                                                                      Pageable pageable);
+    Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                         String applicationId,
+                                                         CursorPageable pageable);
 
     /**
-     * Reports that a caller could not reach the service at the given CRI. Implementations re-check current
-     * registrations and correct the liveness state to the verified truth; this is an invalidation trigger, never a
-     * blind offline write.
-     * @param cri the CRI that could not be reached
-     * @return a {@link CompletableFuture} completing when the report has been accepted
+     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
+     * @return a {@link Future} completing when all entries are corrected
      */
-    CompletableFuture<Void> reportUnreachable(String cri);
+    Future<Void> reconcileLiveness();
+
+    /**
+     * Registers a published service with the directory. What is stored, when the work happens (it may
+     * be batched), and whether any work happens at all is the implementation's decision; failures are handled and
+     * reported by the directory.
+     * @param serviceIdentifier the identifier the service registered under
+     * @param serviceInterface the {@code @Publish} interface being registered
+     * @param serviceImplementation the class implementing the interface, an AOP proxy class is unwrapped;
+     *                              generic bindings and annotations resolve against its methods
+     */
+    void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
+
+    /**
+     * Reports that a caller could not reach the service at the given CRI.
+     * Implementations re-check current registrations and correct the liveness state to the verified truth;
+     * this is an invalidation trigger, never a blind offline write.
+     * @param cri the CRI that could not be reached
+     * @return a {@link Future} completing when the report has been accepted
+     */
+    Future<Void> reportUnreachable(String cri);
+
+    /**
+     * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
+     * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
+     * known-but-offline service is a feature. An identifier this node never registered is ignored.
+     * @param serviceIdentifier the identifier the service registered under
+     */
+    void unregister(ServiceIdentifier serviceIdentifier);
 
     /**
      * Verifies the cluster-wide registration state of the given service address and writes the verified liveness.
      * @param serviceAddress the service address to verify
-     * @return a {@link CompletableFuture} completing when the verified state is stored
+     * @return a {@link Future} completing when the verified state is stored
      */
-    CompletableFuture<Void> verifyLiveness(String serviceAddress);
-
-    /**
-     * Corrects the liveness of every entry against a fresh snapshot of the cluster's active service addresses.
-     * @return a {@link CompletableFuture} completing when all entries are corrected
-     */
-    CompletableFuture<Void> reconcileLiveness();
+    Future<Void> verifyLiveness(String serviceAddress);
 
 }

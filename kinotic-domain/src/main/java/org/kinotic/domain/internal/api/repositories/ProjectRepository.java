@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -14,9 +13,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class ProjectRepository extends AbstractApplicationScopedRepository<Project> {
 
-    public ProjectRepository(ElasticsearchAsyncClient esAsyncClient,
-                             CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_project", Project.class, esAsyncClient, crudServiceTemplate);
+    public ProjectRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_project", Project.class, crudServiceTemplate);
     }
 
     public CompletableFuture<List<Project>> findByRepoFullName(String repoFullName) {

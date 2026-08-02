@@ -3,9 +3,11 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
 minimumReleaseAgeExclude:
   - '@kinotic-ai/core@4.0.0'
   - '@kinotic-ai/os-api@4.0.0'
   - '@kinotic-ai/persistence@4.0.0'
   - '@kinotic-ai/kinotic-cli@4.0.0'
   - '@kinotic-ai/idl@1.0.10'
+  - '@kinotic-ai/os-api@4.1.0'

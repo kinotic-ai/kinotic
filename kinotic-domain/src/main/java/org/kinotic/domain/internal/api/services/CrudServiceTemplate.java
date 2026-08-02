@@ -67,8 +67,67 @@ public class CrudServiceTemplate {
         rawJsonJsonpDeserializer = new RawJsonJsonpDeserializer(objectMapper);
     }
 
+    /**
+     * True when {@code throwable} or one of its causes is an Elasticsearch 409 — i.e. an
+     * {@code op_type=create} index that hit an already-present document id.
+     */
+    private static boolean isVersionConflict(Throwable throwable) {
+        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
+            if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-    // In CrudServiceTemplate.java
+    /**
+     * Appends a document to a data stream using Elasticsearch's {@code create} op-type. Data streams
+     * are append-only — the {@code index} op and updates/deletes by id are rejected — and the document
+     * id is auto-generated, so documents are retrieved by search rather than by id. The document must
+     * carry a {@code @timestamp} date field.
+     *
+     * @param dataStreamName name of the data stream to append to
+     * @param document       the document to append
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName, T document) {
+        return appendToDataStream(dataStreamName, document, null);
+    }
+
+    /**
+     * Appends a document to a data stream using Elasticsearch's {@code create} op-type, with full
+     * {@link IndexRequest} customization (e.g. {@code refresh}). Data streams are append-only and the
+     * document id is auto-generated; the document must carry a {@code @timestamp} date field.
+     *
+     * @param dataStreamName  name of the data stream to append to
+     * @param document        the document to append
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName,
+                                                                   T document,
+                                                                   Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+            builder.index(dataStreamName).opType(OpType.Create).document(document);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        }));
+    }
+
+    /**
+     * Builds a bool query whose {@code filter} clauses are the supplied {@code filters}.
+     * Convenience for callers that compose specialized queries from one or more term
+     * filters. Requires at least one non-null filter.
+     */
+    public Query composeFilter(Query... filters) {
+        Validate.notEmpty(filters, "filters cannot be empty");
+        return Query.of(q -> q.bool(b -> {
+            for (Query f : filters) if (f != null) b.filter(f);
+            return b;
+        }));
+    }
 
     /**
      * Counts the number of documents in the index. Also allows for customization of the {@link CountRequest}.
@@ -90,38 +149,57 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Indexes a document only if its id is not already present, using Elasticsearch's
+     * {@code create} op-type. Fails with {@link AlreadyExistsException} when a document with the
+     * same id already exists, instead of overwriting it the way {@link #save} would.
+     *
+     * @param indexName name of the index
+     * @param id        id the document must be created under
+     * @param document  the document to index
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     *         with {@link AlreadyExistsException} if the id is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> create(String indexName,
+                                                       String id,
+                                                       T document) {
+        return create(indexName, id, document, null);
+    }
+
+    /**
+     * Indexes a document only if its id is not already present, using Elasticsearch's
+     * {@code create} op-type, with full {@link IndexRequest} customization. Fails with
+     * {@link AlreadyExistsException} when a document with the same id already exists.
+     *
+     * @param indexName       name of the index
+     * @param id              id the document must be created under
+     * @param document        the document to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     *         with {@link AlreadyExistsException} if the id is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> create(String indexName,
+                                                       String id,
+                                                       T document,
+                                                       Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+                    builder.index(indexName).id(id).document(document).opType(OpType.Create);
+                    if (builderConsumer != null) {
+                        builderConsumer.accept(builder);
+                    }
+                    return builder;
+                }))
+                .exceptionallyCompose(throwable -> isVersionConflict(throwable)
+                        ? CompletableFuture.failedFuture(new AlreadyExistsException(
+                                "A document with id '" + id + "' already exists in index '" + indexName + "'"))
+                        : CompletableFuture.<IndexResponse>failedFuture(throwable));
+    }
+
+    /**
      * Creates a data stream
      */
     public CompletableFuture<Void> createDataStream(String dataStreamName) {
         return bindToContext(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
                                           .thenApply(response -> null));
-    }
-
-    /**
-     * Verifies that the given Elasticsearch index exists, throwing {@link IllegalStateException}
-     * if it does not. This is intended to be called from {@code @PostConstruct} methods on
-     * services that depend on a pre-existing index. A missing index typically indicates that
-     * the expected migration has not been applied.
-     *
-     * @param indexName name of the index to check
-     * @throws IllegalStateException if the index does not exist or if the existence check fails
-     */
-    public void verifyIndexExists(String indexName) {
-        try {
-            boolean exists = esAsyncClient.indices()
-                                          .exists(b -> b.index(indexName))
-                                          .get()
-                                          .value();
-            if (!exists) {
-                throw new IllegalStateException(
-                        "Elasticsearch index '" + indexName + "' does not exist. "
-                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
-            }
-        } catch (IllegalStateException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
-        }
     }
 
     /**
@@ -232,6 +310,31 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Indexes a document only if its id is not already present, using {@link Refresh#WaitFor}
+     * to guarantee read-your-write semantics for subsequent queries. Fails with
+     * {@link AlreadyExistsException} when a document with the same id already exists.
+     *
+     * @param indexName       name of the index
+     * @param id              id the document must be created under
+     * @param document        the document to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} completing with the {@link IndexResponse} after the
+     *         document is searchable, or failing with {@link AlreadyExistsException} if the id
+     *         is already taken
+     */
+    public <T> CompletableFuture<IndexResponse> createSync(String indexName,
+                                                           String id,
+                                                           T document,
+                                                           Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return create(indexName, id, document, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
+    }
+
+    /**
      * Deletes a document by id. Also allows for customization of the {@link DeleteRequest}.
      *
      * @param indexName       name of the index to delete from
@@ -290,6 +393,15 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Deletes a data stream
+     */
+    public CompletableFuture<Void> deleteDataStream(String dataStreamName) {
+        return bindToContext(esAsyncClient.indices()
+                                          .deleteDataStream(builder -> builder.name(dataStreamName))
+                                          .thenApply(response -> null));
+    }
+
+    /**
      * Deletes an index.
      *
      * @param indexName name of the index to delete
@@ -302,21 +414,17 @@ public class CrudServiceTemplate {
     }
 
     /**
-     * Deletes a data stream
-     */
-    public CompletableFuture<Void> deleteDataStream(String dataStreamName) {
-        return bindToContext(esAsyncClient.indices()
-                                          .deleteDataStream(builder -> builder.name(dataStreamName))
-                                          .thenApply(response -> null));
-    }
-
-    /**
      * Deletes an index template
      */
     public CompletableFuture<Void> deleteIndexTemplate(String templateName) {
         return bindToContext(esAsyncClient.indices()
                                           .deleteIndexTemplate(builder -> builder.name(templateName))
                                           .thenApply(response -> null));
+    }
+
+    /** Matches documents where {@code field} is present (the inverse of {@link #missingFilter}). */
+    public Query existsFilter(String field) {
+        return Query.of(q -> q.exists(e -> e.field(field)));
     }
 
     /**
@@ -352,7 +460,7 @@ public class CrudServiceTemplate {
                                                 Function<GetResult<T>, R> resultMapper) {
 
         @SuppressWarnings("unchecked")
-        JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse> endpoint = 
+        JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse> endpoint =
             (JsonEndpoint<GetRequest, GetResponse<T>, ErrorResponse>) GetRequest._ENDPOINT;
 
         endpoint = new EndpointWithResponseMapperAttr<>(endpoint,
@@ -379,6 +487,22 @@ public class CrudServiceTemplate {
                                                   return result;
                                               }
                                           }));
+    }
+
+    /**
+     * Issues a search with {@code size=1} and returns the single hit, or {@code null} if none.
+     * Convenience for "find by unique key" lookups.
+     */
+    public <T> CompletableFuture<T> findFirst(String indexName,
+                                              Class<T> type,
+                                              Consumer<SearchRequest.Builder> builderConsumer) {
+        return search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builderConsumer)
+                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+    }
+
+    /** Matches documents where {@code field} is absent (the inverse of {@link #existsFilter}). */
+    public Query missingFilter(String field) {
+        return Query.of(q -> q.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field(field)))));
     }
 
     /**
@@ -434,6 +558,96 @@ public class CrudServiceTemplate {
                                               }
                                               return content;
                                           }));
+    }
+
+    /**
+     * Applies a partial update to a document, merging only the given fields into the stored source and leaving
+     * every other field untouched. With {@code upsert} true a missing document is created from the partial
+     * instead of failing.
+     *
+     * @param indexName name of the index containing the document
+     * @param id        of the document to update
+     * @param partial   the fields to merge into the document
+     * @param upsert    true to create the document from {@code partial} when it does not exist
+     * @return a {@link CompletableFuture} that will complete when the update is applied
+     */
+    public CompletableFuture<Void> partialUpdate(String indexName,
+                                                 String id,
+                                                 Map<String, Object> partial,
+                                                 boolean upsert) {
+        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+                                                        .id(id)
+                                                        .doc(partial)
+                                                        .docAsUpsert(upsert),
+                                                  Map.class)
+                                          .thenApply(response -> null));
+    }
+
+    /**
+     * Merges the given fields into a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
+     * semantics for subsequent queries.
+     *
+     * @param indexName name of the index
+     * @param id        of the document to update
+     * @param partial   the fields to merge into the document
+     * @param upsert    true to create the document from {@code partial} when it does not exist
+     * @return a {@link CompletableFuture} that will complete when the update is applied
+     */
+    public CompletableFuture<Void> partialUpdateSync(String indexName,
+                                                     String id,
+                                                     Map<String, Object> partial,
+                                                     boolean upsert) {
+        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+                                                        .id(id)
+                                                        .doc(partial)
+                                                        .docAsUpsert(upsert)
+                                                        .refresh(Refresh.WaitFor),
+                                                  Map.class)
+                                          .thenApply(response -> null));
+    }
+
+    /**
+     * Indexes a document. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> save(String indexName,
+                                                     String id,
+                                                     T document,
+                                                     Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+            builder.index(indexName).id(id).document(document);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        }));
+    }
+
+    /**
+     * Indexes a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
+     * semantics for subsequent queries. Also allows for customization of the {@link IndexRequest}.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to index
+     * @param document        to index
+     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
+     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     */
+    public <T> CompletableFuture<IndexResponse> saveSync(String indexName,
+                                                         String id,
+                                                         T document,
+                                                         Consumer<IndexRequest.Builder<T>> builderConsumer) {
+        return save(indexName, id, document, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
     }
 
     /**
@@ -516,155 +730,30 @@ public class CrudServiceTemplate {
                 }));
     }
 
-    /**
-     * Indexes a document. Also allows for customization of the {@link IndexRequest}.
-     *
-     * @param indexName       name of the index
-     * @param id              of the document to index
-     * @param document        to index
-     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
-     */
-    public <T> CompletableFuture<IndexResponse> save(String indexName,
-                                                     String id,
-                                                     T document,
-                                                     Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
-            builder.index(indexName).id(id).document(document);
-            if (builderConsumer != null) {
-                builderConsumer.accept(builder);
-            }
-            return builder;
-        }));
+    public CompletableFuture<Void> syncIndex(String indexName) {
+        return esAsyncClient.indices()
+                            .refresh(b -> b.index(indexName))
+                            .thenApply(_ -> null);
     }
 
-    /**
-     * Indexes a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
-     * semantics for subsequent queries. Also allows for customization of the {@link IndexRequest}.
-     *
-     * @param indexName       name of the index
-     * @param id              of the document to index
-     * @param document        to index
-     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
-     */
-    public <T> CompletableFuture<IndexResponse> saveSync(String indexName,
-                                                         String id,
-                                                         T document,
-                                                         Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return save(indexName, id, document, builder -> {
-            if (builderConsumer != null) {
-                builderConsumer.accept(builder);
-            }
-            builder.refresh(Refresh.WaitFor);
-        });
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, String value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
-    /**
-     * Indexes a document only if its id is not already present, using Elasticsearch's
-     * {@code create} op-type. Fails with {@link AlreadyExistsException} when a document with the
-     * same id already exists, instead of overwriting it the way {@link #save} would.
-     *
-     * @param indexName name of the index
-     * @param id        id the document must be created under
-     * @param document  the document to index
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
-     *         with {@link AlreadyExistsException} if the id is already taken
-     */
-    public <T> CompletableFuture<IndexResponse> create(String indexName,
-                                                       String id,
-                                                       T document) {
-        return create(indexName, id, document, null);
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, boolean value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
-    /**
-     * Indexes a document only if its id is not already present, using Elasticsearch's
-     * {@code create} op-type, with full {@link IndexRequest} customization. Fails with
-     * {@link AlreadyExistsException} when a document with the same id already exists.
-     *
-     * @param indexName       name of the index
-     * @param id              id the document must be created under
-     * @param document        the document to index
-     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
-     *         with {@link AlreadyExistsException} if the id is already taken
-     */
-    public <T> CompletableFuture<IndexResponse> create(String indexName,
-                                                       String id,
-                                                       T document,
-                                                       Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
-                    builder.index(indexName).id(id).document(document).opType(OpType.Create);
-                    if (builderConsumer != null) {
-                        builderConsumer.accept(builder);
-                    }
-                    return builder;
-                }))
-                .exceptionallyCompose(throwable -> isVersionConflict(throwable)
-                        ? CompletableFuture.failedFuture(new AlreadyExistsException(
-                                "A document with id '" + id + "' already exists in index '" + indexName + "'"))
-                        : CompletableFuture.<IndexResponse>failedFuture(throwable));
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, long value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
-    /**
-     * Indexes a document only if its id is not already present, using {@link Refresh#WaitFor}
-     * to guarantee read-your-write semantics for subsequent queries. Fails with
-     * {@link AlreadyExistsException} when a document with the same id already exists.
-     *
-     * @param indexName       name of the index
-     * @param id              id the document must be created under
-     * @param document        the document to index
-     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse} after the
-     *         document is searchable, or failing with {@link AlreadyExistsException} if the id
-     *         is already taken
-     */
-    public <T> CompletableFuture<IndexResponse> createSync(String indexName,
-                                                           String id,
-                                                           T document,
-                                                           Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return create(indexName, id, document, builder -> {
-            if (builderConsumer != null) {
-                builderConsumer.accept(builder);
-            }
-            builder.refresh(Refresh.WaitFor);
-        });
-    }
-
-    /**
-     * Appends a document to a data stream using Elasticsearch's {@code create} op-type. Data streams
-     * are append-only — the {@code index} op and updates/deletes by id are rejected — and the document
-     * id is auto-generated, so documents are retrieved by search rather than by id. The document must
-     * carry a {@code @timestamp} date field.
-     *
-     * @param dataStreamName name of the data stream to append to
-     * @param document       the document to append
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
-     */
-    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName, T document) {
-        return appendToDataStream(dataStreamName, document, null);
-    }
-
-    /**
-     * Appends a document to a data stream using Elasticsearch's {@code create} op-type, with full
-     * {@link IndexRequest} customization (e.g. {@code refresh}). Data streams are append-only and the
-     * document id is auto-generated; the document must carry a {@code @timestamp} date field.
-     *
-     * @param dataStreamName  name of the data stream to append to
-     * @param document        the document to append
-     * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
-     */
-    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName,
-                                                                   T document,
-                                                                   Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
-            builder.index(dataStreamName).opType(OpType.Create).document(document);
-            if (builderConsumer != null) {
-                builderConsumer.accept(builder);
-            }
-            return builder;
-        }));
+    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
+    public Query termFilter(String field, double value) {
+        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
     public CompletableFuture<Void> updateIndexMapping(String indexName,
@@ -750,57 +839,30 @@ public class CrudServiceTemplate {
     }
 
     /**
-     * Issues a search with {@code size=1} and returns the single hit, or {@code null} if none.
-     * Convenience for "find by unique key" lookups.
+     * Verifies that the given Elasticsearch index exists, throwing {@link IllegalStateException}
+     * if it does not. This is intended to be called from {@code @PostConstruct} methods on
+     * services that depend on a pre-existing index. A missing index typically indicates that
+     * the expected migration has not been applied.
+     *
+     * @param indexName name of the index to check
+     * @throws IllegalStateException if the index does not exist or if the existence check fails
      */
-    public <T> CompletableFuture<T> findFirst(String indexName,
-                                              Class<T> type,
-                                              Consumer<SearchRequest.Builder> builderConsumer) {
-        return search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builderConsumer)
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
-    }
-
-    /**
-     * Builds a bool query whose {@code filter} clauses are the supplied {@code filters}.
-     * Convenience for callers that compose specialized queries from one or more term
-     * filters. Requires at least one non-null filter.
-     */
-    public Query composeFilter(Query... filters) {
-        Validate.notEmpty(filters, "filters cannot be empty");
-        return Query.of(q -> q.bool(b -> {
-            for (Query f : filters) if (f != null) b.filter(f);
-            return b;
-        }));
-    }
-
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
-    public Query termFilter(String field, String value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
-    }
-
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
-    public Query termFilter(String field, boolean value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
-    }
-
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
-    public Query termFilter(String field, long value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
-    }
-
-    /** Builds a {@code term} query for {@code field} equal to {@code value}. */
-    public Query termFilter(String field, double value) {
-        return TermQuery.of(t -> t.field(field).value(value))._toQuery();
-    }
-
-    /** Matches documents where {@code field} is present (the inverse of {@link #missingFilter}). */
-    public Query existsFilter(String field) {
-        return Query.of(q -> q.exists(e -> e.field(field)));
-    }
-
-    /** Matches documents where {@code field} is absent (the inverse of {@link #existsFilter}). */
-    public Query missingFilter(String field) {
-        return Query.of(q -> q.bool(b -> b.mustNot(mn -> mn.exists(e -> e.field(field)))));
+    public void verifyIndexExists(String indexName) {
+        try {
+            boolean exists = esAsyncClient.indices()
+                                          .exists(b -> b.index(indexName))
+                                          .get()
+                                          .value();
+            if (!exists) {
+                throw new IllegalStateException(
+                        "Elasticsearch index '" + indexName + "' does not exist. "
+                        + "Did you forget to add a migration in kinotic-migration/src/main/resources/migrations/?");
+            }
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to verify existence of index '" + indexName + "'", e);
+        }
     }
 
     /**
@@ -828,19 +890,6 @@ public class CrudServiceTemplate {
             }
         }));
         return bound;
-    }
-
-    /**
-     * True when {@code throwable} or one of its causes is an Elasticsearch 409 — i.e. an
-     * {@code op_type=create} index that hit an already-present document id.
-     */
-    private static boolean isVersionConflict(Throwable throwable) {
-        for (Throwable cause = throwable; cause != null; cause = cause.getCause()) {
-            if (cause instanceof ElasticsearchException esException && esException.status() == 409) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {

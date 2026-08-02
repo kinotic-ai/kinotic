@@ -51,7 +51,7 @@ Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true
 
 Prefer a single `return` per method. Guard clauses that short-circuit errors or degenerate cases at the top of a method are fine (throwing, or bailing before the real work), but branching LOGIC paths use if/else assigning a result variable that is returned once at the end (the `String ret; if (...) { ret = ...; } else { ret = ...; } return ret;` idiom used throughout the codebase) — never a `return` inside each branch.
 
-Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthScopeType`, `AuthType`, `OidcProviderKind`. If a field is `String authScopeType` accepting `"ORGANIZATION"`/`"APPLICATION"`/`"SYSTEM"`, that's a special case — not a pattern to repeat.
+Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthType`, `OidcProviderKind`.
 
 ## Package Structure (Crucial!!)
 
@@ -98,6 +98,10 @@ Never gate a bean on a Spring profile — `@Profile` is for test contexts only; 
 Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
 
 One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
+
+## Snapshot versions — nothing is in stone
+
+While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
 ## Keep docs in sync with code
 

@@ -8,7 +8,7 @@ on:
       - 'website/**'
   workflow_dispatch:
 
-# Shares the gh-pages-deploy group with gradle-build.yml's Allure deploy so the two never push to
+# Shares the gh-pages-deploy group with allure-report.yml's deploy so the two never push to
 # gh-pages at the same time. Without this, an Allure push landing between the "Preserve existing
 # Allure reports" checkout and the keep_files:false deploy below would be wiped.
 concurrency:

@@ -2,10 +2,7 @@ package org.kinotic.domain.internal.api.rest.support;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
-import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -14,12 +11,14 @@ import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
-public class OAuth2Util {
+/**
+ * Claim validation and PKCE helpers shared by the OIDC flows.
+ */
+public final class OAuth2Util {
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    private OAuth2Util() {}
 
     public static String firstPresent(Map<String, Object> claims, String... names) {
         for (String name : names) {
@@ -163,6 +162,17 @@ public class OAuth2Util {
         byte[] buf = new byte[byteLen];
         SECURE_RANDOM.nextBytes(buf);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
+    }
+
+    /**
+     * Whether {@code host} is a loopback host, which RFC 8252 gives native clients special
+     * treatment for: they bind their callback to an ephemeral port chosen at runtime.
+     *
+     * @param host the host component of a URI, or {@code null}
+     * @return {@code true} for {@code localhost}, {@code 127.0.0.1}, and {@code [::1]}
+     */
+    public static boolean isLoopbackHost(String host) {
+        return "localhost".equals(host) || "127.0.0.1".equals(host) || "[::1]".equals(host);
     }
 
     /** Computes the PKCE S256 code-challenge for the given verifier. */

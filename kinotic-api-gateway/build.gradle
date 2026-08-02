@@ -27,9 +27,6 @@ dependencies {
 
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
-
-    testImplementation 'io.vertx:vertx-web-client'
-    testImplementation 'org.awaitility:awaitility'
 }
 
 // kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime

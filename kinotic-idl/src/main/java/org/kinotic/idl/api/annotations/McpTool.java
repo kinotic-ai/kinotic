@@ -7,25 +7,31 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a method on a published ({@code @Publish}) service interface as a Model Context Protocol tool.
- * A service is MCP-exposed when at least one of its methods carries this annotation, and each annotated method
- * becomes a callable tool whose {@link #description} and hints are surfaced to LLM callers.
+ * Marks a published ({@code @Publish}) service's functions as Model Context Protocol tools. On a method —
+ * declared on the service interface or on the implementation's override — that method becomes a callable
+ * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
+ * every function becomes a tool carrying the type-level description and hints, and a method-level
+ * {@code @McpTool} overrides them for that method. An empty {@link #description} or {@link #title} is
+ * derived from the function name, so each tool stays individually recognizable to an LLM caller.
  */
-@Target(ElementType.METHOD)
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface McpTool {
 
     /**
-     * The LLM-facing description of what the tool does.
+     * The LLM-facing description of what the tool does. When empty, the function name is split into a
+     * sentence and used instead ({@code findByRepoFullName} becomes {@code "Find by repo full name"}).
      */
-    String description();
+    String description() default "";
 
     /**
-     * The tool name, which must match {@code ^[a-zA-Z0-9_-]{1,128}$}. When empty the name is derived from the
-     * service's qualified name and the method name.
+     * The human-readable display title for the tool. When empty, the function name is split into a
+     * capitalized phrase ({@code findByRepoFullName} becomes {@code "Find By Repo Full Name"}). The tool
+     * name itself is always derived from the service's qualified name and the method name, so it is
+     * unique system wide.
      */
-    String name() default "";
+    String title() default "";
 
     /**
      * Indicates the tool does not modify its environment.

@@ -1,6 +1,5 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -15,9 +14,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class PendingSignUpRepository extends AbstractTokenVerificationRepository<PendingSignUp> {
 
-    public PendingSignUpRepository(ElasticsearchAsyncClient esAsyncClient,
-                                   CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_pending_signup", PendingSignUp.class, esAsyncClient, crudServiceTemplate);
+    public PendingSignUpRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_pending_signup", PendingSignUp.class, crudServiceTemplate);
     }
 
     /** Finds a pending sign-up by email, or {@code null} — used to block duplicate submissions. */

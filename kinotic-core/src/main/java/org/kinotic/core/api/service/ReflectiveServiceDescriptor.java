@@ -2,20 +2,16 @@
 
 package org.kinotic.core.api.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.util.ReflectionUtils;
+import org.kinotic.idl.api.utils.IdlUtil;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 /**
  * Created by Navíd Mitchell 🤪 on 9/2/21.
  */
 class ReflectiveServiceDescriptor implements ServiceDescriptor{
-
-    private static final Logger log = LoggerFactory.getLogger(ReflectiveServiceDescriptor.class);
 
     private final ServiceIdentifier serviceIdentifier;
     private final Collection<FunctionDescriptor> functionDescriptors;
@@ -29,24 +25,12 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
     public ReflectiveServiceDescriptor(ServiceIdentifier serviceIdentifier, Class<?> serviceClass) {
         this.serviceIdentifier = serviceIdentifier;
 
-        // build list of service functions
-        Map<String, FunctionDescriptor> functionMap = new HashMap<>();
-        ReflectionUtils.doWithMethods(serviceClass, method -> {
-            String methodName = method.getName();
-            if(functionMap.containsKey(methodName)){
-                // in some cases such as with default methods we may actually get the same method multiple times check for that.
-                if(!functionMap.get(methodName).invocationMethod().equals(method)){
-                    log.warn("{} has overloaded method {} overloading is not supported. \n {} will be ignored",
-                             serviceClass.getName(),
-                             methodName,
-                             method.toGenericString());
-                }
-            }else{
-                functionMap.put(methodName,  FunctionDescriptor.create(methodName, method));
-            }
-        }, ReflectionUtils.USER_DECLARED_METHODS);
-
-        this.functionDescriptors = functionMap.values();
+        // IdlUtil.serviceFunctions is the same walk DefaultSchemaFactory converts, so the functions
+        // this descriptor registers are exactly the functions any published schema carries
+        List<FunctionDescriptor> functions = new ArrayList<>();
+        IdlUtil.serviceFunctions(serviceClass)
+               .forEach((name, method) -> functions.add(FunctionDescriptor.create(name, method)));
+        this.functionDescriptors = functions;
     }
 
     @Override
