@@ -181,7 +181,8 @@ public class DefaultSchemaFactory implements SchemaFactory {
             McpToolHints hints;
 
             // the declaration nearest the function describes it outright, so what that declaration says —
-            // including saying nothing — is what is served
+            // including saying nothing — is what is served. A type-level @McpTool describes the whole
+            // service rather than any one function, so it states neither of these.
             if (methodMcpTool != null) {
                 title = methodMcpTool.title();
                 description = methodMcpTool.description();
@@ -191,28 +192,38 @@ public class DefaultSchemaFactory implements SchemaFactory {
                 description = mcpToolInfo.description();
                 hints = McpToolHints.of(mcpToolInfo);
             } else {
-                // a type-level @McpTool describes the whole service rather than any one function, so a
-                // function it sweeps in is hinted by its own name
-                title = typeLevelMcpTool.title();
-                description = typeLevelMcpTool.description();
+                title = "";
+                description = "";
                 hints = McpToolHints.forFunctionName(functionName);
             }
 
             if (title.isEmpty()) {
-                // the service name qualifies a derived title, so the same function name on many services
-                // stays distinguishable in a tool listing
-                title = IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(functionName);
+                title = IdlUtil.titleCase(functionName);
             }
             if (description.isEmpty()) {
                 description = describe(interfaceMethod, specificMethod);
             }
 
             ret = new McpToolC3Decorator()
-                    .setTitle(title)
+                    // the service's half leads every title, so the same function name on many services
+                    // stays distinguishable in a tool listing
+                    .setTitle(serviceTitle(serviceInterface, typeLevelMcpTool) + " " + title)
                     .setDescription(description)
                     .setReadOnlyHint(hints.readOnly())
                     .setDestructiveHint(hints.destructive())
                     .setIdempotentHint(hints.idempotent());
+        }
+        return ret;
+    }
+
+    /**
+     * The half of a tool title that names the service: the title its {@code @McpTool} states, otherwise its
+     * interface's simple name as a phrase.
+     */
+    private static String serviceTitle(Class<?> serviceInterface, McpTool typeLevelMcpTool) {
+        String ret = typeLevelMcpTool != null ? typeLevelMcpTool.title() : "";
+        if (ret.isEmpty()) {
+            ret = IdlUtil.titleCase(serviceInterface.getSimpleName());
         }
         return ret;
     }

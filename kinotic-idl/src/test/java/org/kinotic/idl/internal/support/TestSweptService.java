@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Created by Navíd Mitchell 🤪 on 7/27/26.
  */
-@McpTool(readOnlyHint = true)
+@McpTool(title = "Swept Objects", readOnlyHint = true)
 public interface TestSweptService {
 
     /**

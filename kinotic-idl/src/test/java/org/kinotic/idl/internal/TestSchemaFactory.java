@@ -211,27 +211,28 @@ public class TestSchemaFactory {
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
         // a documented method's description is the Javadoc main description extracted at compile time,
-        // with inline tags resolved; the title still derives from the service and function names
+        // with inline tags resolved; the type-level title leads the title, the function name follows
         McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(documented);
         Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
-        Assertions.assertEquals("Test Swept Service Find By Name", documented.getTitle());
+        Assertions.assertEquals("Swept Objects Find By Name", documented.getTitle());
         // the sweep exposes it, its own name hints it
         Assertions.assertTrue(documented.isReadOnlyHint());
 
-        // no annotation description and no Javadoc: the description derives from the function name, the
-        // title from the service and function names
+        // no annotation description and no Javadoc: the description derives from the function name, and so
+        // does the function half of the title
         McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(derived);
         Assertions.assertEquals("Count by name", derived.getDescription());
-        Assertions.assertEquals("Test Swept Service Count By Name", derived.getTitle());
+        Assertions.assertEquals("Swept Objects Count By Name", derived.getTitle());
 
         // a method-level @McpTool owns that method: it supplies the description and title, and the hints
         // it does not declare are served as declared rather than borrowed from the type-level annotation
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(specific);
         Assertions.assertEquals("Counts every test object", specific.getDescription());
-        Assertions.assertEquals("Count Objects", specific.getTitle());
+        // a method-level title replaces only the function half; the service half still leads
+        Assertions.assertEquals("Swept Objects Count Objects", specific.getTitle());
         Assertions.assertFalse(specific.isReadOnlyHint());
 
         // a type-level readOnlyHint cannot mislabel a function it does not hold for, because the sweep
@@ -247,7 +248,7 @@ public class TestSchemaFactory {
         // @McpToolInfo's — nothing further down the list is consulted once a nearer one is found
         McpToolC3Decorator nearest = findFunction(service, "draftObjects").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(nearest);
-        Assertions.assertEquals("Draft Objects", nearest.getTitle());
+        Assertions.assertEquals("Swept Objects Draft Objects", nearest.getTitle());
         Assertions.assertEquals("Draft objects", nearest.getDescription());
     }
 

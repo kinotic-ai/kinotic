@@ -10,11 +10,11 @@ import java.lang.annotation.Target;
  * Marks a published ({@code @Publish}) service's functions as Model Context Protocol tools. On a method —
  * declared on the service interface or on the implementation's override — that method becomes a callable
  * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
- * every function becomes a tool carrying the type-level {@link #description} and {@link #title}, while each
- * function's hints come from its own {@code @McpTool} or {@link McpToolInfo}, or from its name. An empty
- * {@link #description} or {@link #title} is derived from the function name, so each tool stays individually
- * recognizable to an LLM caller. A {@link McpToolInfo} anywhere in a function's hierarchy describes it here,
- * which is how a base interface describes functions it does not itself expose.
+ * every function becomes a tool, and the annotation states the service half of their {@link #title}; each
+ * function's own description and hints come from its {@code @McpTool} or {@link McpToolInfo}, its Javadoc,
+ * or its name, so each tool stays individually recognizable to an LLM caller. A {@link McpToolInfo} anywhere
+ * in a function's hierarchy describes it here, which is how a base interface describes functions it does not
+ * itself expose.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -22,17 +22,20 @@ import java.lang.annotation.Target;
 public @interface McpTool {
 
     /**
-     * The LLM-facing description of what the tool does. When empty, the function name is split into a
-     * sentence and used instead ({@code findByRepoFullName} becomes {@code "Find by repo full name"}).
+     * The LLM-facing description of what the tool does, read on a method. When empty, the function's Javadoc
+     * describes the tool, and failing that the function name split into a sentence
+     * ({@code findByRepoFullName} becomes {@code "Find by repo full name"}).
      */
     String description() default "";
 
     /**
-     * The human-readable display title for the tool. When empty, the service interface's simple name and
-     * the function name are each split into a capitalized phrase and joined
-     * ({@code ProjectService.findByRepoFullName} becomes {@code "Project Service Find By Repo Full Name"}),
-     * so a title stays recognizable among the same function name on many services. The tool name itself is
-     * always derived from the service's qualified name and the method name, so it is unique system wide.
+     * Half of the tool's human-readable display title, which is always a service half and a function half
+     * joined by a space. On the service interface this states the service half, on a method the function
+     * half; each half a declaration leaves empty is split out of the name it stands for, so
+     * {@code ProjectService.findByRepoFullName} titles as {@code "Project Service Find By Repo Full Name"}.
+     * Carrying the service half on every tool is what keeps a title recognizable when many services expose
+     * a function of the same name. The tool name itself is always derived from the service's qualified name
+     * and the method name, so it is unique system wide.
      */
     String title() default "";
 
