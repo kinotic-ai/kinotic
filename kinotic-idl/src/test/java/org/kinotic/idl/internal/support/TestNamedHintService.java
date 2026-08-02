@@ -1,6 +1,7 @@
 package org.kinotic.idl.internal.support;
 
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.McpToolInfo;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -19,5 +20,11 @@ public interface TestNamedHintService {
     CompletableFuture<TestObject> createPersonIfNotExist(TestObject person);
 
     CompletableFuture<Void> notifyPeople();
+
+    @McpTool(idempotentHint = true)
+    CompletableFuture<Void> savePersonDraft(TestObject person);
+
+    @McpToolInfo(idempotentHint = true)
+    CompletableFuture<Void> savePersonNote(TestObject person);
 
 }

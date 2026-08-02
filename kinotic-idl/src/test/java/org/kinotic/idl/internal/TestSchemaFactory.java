@@ -163,6 +163,16 @@ public class TestSchemaFactory {
         Assertions.assertFalse(notify.isReadOnlyHint());
         Assertions.assertFalse(notify.isDestructiveHint());
         Assertions.assertFalse(notify.isIdempotentHint());
+
+        // the name is the last source, so a hint stated on the method is never overridden by what "save"
+        // would otherwise imply — the destructive hint the name carries never reaches either of these
+        McpToolC3Decorator draft = hints(service, "savePersonDraft");
+        Assertions.assertTrue(draft.isIdempotentHint());
+        Assertions.assertFalse(draft.isDestructiveHint());
+
+        McpToolC3Decorator note = hints(service, "savePersonNote");
+        Assertions.assertTrue(note.isIdempotentHint());
+        Assertions.assertFalse(note.isDestructiveHint());
     }
 
     @Test
