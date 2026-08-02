@@ -7,11 +7,12 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares the Model Context Protocol metadata a function serves once some other declaration exposes it as a
- * tool. A base interface — a generic CRUD contract, for instance — states each function's title, description,
- * and behavior hints once, and every service that {@link McpTool} exposes serves them.
- * A method-level {@code @McpTool} takes precedence over this. What neither states falls to the function
- * itself: its Javadoc for the description, and its name for the title half and the hints.
+ * Describes a function as a Model Context Protocol tool without exposing it as one. A base interface such as
+ * a CRUD contract gives each of its functions a title, a description, and behavior hints once, and every
+ * service that exposes them with {@link McpTool} serves what it wrote.
+ *
+ * An {@code @McpTool} on the same function wins over this. What neither sets comes from the function itself:
+ * its Javadoc becomes the description, and its name becomes its half of the title and its hints.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -19,12 +20,12 @@ import java.lang.annotation.Target;
 public @interface McpToolInfo {
 
     /**
-     * The LLM-facing description of what the tool does.
+     * What the tool does, in the words an LLM reads to decide whether to call it.
      */
     String description() default "";
 
     /**
-     * The function half of the tool's display title, which the service half always leads.
+     * The function's half of the tool's display title. The service's half always comes first.
      */
     String title() default "";
 
