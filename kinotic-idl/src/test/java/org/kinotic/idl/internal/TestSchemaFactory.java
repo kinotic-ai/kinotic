@@ -139,38 +139,38 @@ public class TestSchemaFactory {
         ServiceDefinition service = findService(namespaceDefinition, TestNamedHintService.class);
 
         // the reading verb trails the noun, so a leading-word rule would miss this one
-        McpToolC3Decorator count = hints(service, "peopleCount");
+        McpToolC3Decorator count = mcpTool(service, "peopleCount");
         Assertions.assertTrue(count.isReadOnlyHint());
 
         // "get" reads, but the same name also creates, and serving a mutation as read-only invites a host
         // to call it unattended
-        McpToolC3Decorator getOrCreate = hints(service, "getOrCreatePerson");
+        McpToolC3Decorator getOrCreate = mcpTool(service, "getOrCreatePerson");
         Assertions.assertFalse(getOrCreate.isReadOnlyHint());
         Assertions.assertFalse(getOrCreate.isDestructiveHint());
 
-        McpToolC3Decorator purge = hints(service, "purgeRetiredPeople");
+        McpToolC3Decorator purge = mcpTool(service, "purgeRetiredPeople");
         Assertions.assertTrue(purge.isDestructiveHint());
         Assertions.assertTrue(purge.isIdempotentHint());
         Assertions.assertFalse(purge.isReadOnlyHint());
 
         // a create that yields to an existing entity is idempotent, and stays additive
-        McpToolC3Decorator createIfNotExist = hints(service, "createPersonIfNotExist");
+        McpToolC3Decorator createIfNotExist = mcpTool(service, "createPersonIfNotExist");
         Assertions.assertTrue(createIfNotExist.isIdempotentHint());
         Assertions.assertFalse(createIfNotExist.isDestructiveHint());
 
         // a name naming no verb the table knows states nothing
-        McpToolC3Decorator notify = hints(service, "notifyPeople");
+        McpToolC3Decorator notify = mcpTool(service, "notifyPeople");
         Assertions.assertFalse(notify.isReadOnlyHint());
         Assertions.assertFalse(notify.isDestructiveHint());
         Assertions.assertFalse(notify.isIdempotentHint());
 
         // a declaration on the method owns the hints, so the name is never read for these two and the
         // destructive hint "save" implies never reaches either of them
-        McpToolC3Decorator draft = hints(service, "savePersonDraft");
+        McpToolC3Decorator draft = mcpTool(service, "savePersonDraft");
         Assertions.assertTrue(draft.isIdempotentHint());
         Assertions.assertFalse(draft.isDestructiveHint());
 
-        McpToolC3Decorator note = hints(service, "savePersonNote");
+        McpToolC3Decorator note = mcpTool(service, "savePersonNote");
         Assertions.assertTrue(note.isIdempotentHint());
         Assertions.assertFalse(note.isDestructiveHint());
     }
@@ -241,6 +241,14 @@ public class TestSchemaFactory {
         Assertions.assertFalse(swept.isReadOnlyHint());
         Assertions.assertTrue(swept.isDestructiveHint());
         Assertions.assertTrue(swept.isIdempotentHint());
+
+        // one declaration describes a function whole: the method's own @McpTool titles it and states no
+        // description, so the description falls to the function name rather than borrowing the
+        // @McpToolInfo's — nothing further down the list is consulted once a nearer one is found
+        McpToolC3Decorator nearest = findFunction(service, "draftObjects").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(nearest);
+        Assertions.assertEquals("Draft Objects", nearest.getTitle());
+        Assertions.assertEquals("Draft objects", nearest.getDescription());
     }
 
     @Test
@@ -268,7 +276,7 @@ public class TestSchemaFactory {
         Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
     }
 
-    private McpToolC3Decorator hints(ServiceDefinition service, String functionName) {
+    private McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
         McpToolC3Decorator ret = findFunction(service, functionName).findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
         return ret;

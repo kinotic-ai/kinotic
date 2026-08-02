@@ -176,31 +176,33 @@ public class DefaultSchemaFactory implements SchemaFactory {
         if (methodMcpTool != null || typeLevelMcpTool != null) {
 
             String functionName = interfaceMethod.getName();
-
-            // the declaration nearest the function owns its hints outright, so what that declaration says —
-            // including saying nothing — is what is served. A type-level @McpTool sweeps functions in
-            // without describing any one of them, so a function it exposes is hinted by its own name.
+            String title;
+            String description;
             McpToolHints hints;
+
+            // the declaration nearest the function describes it outright, so what that declaration says —
+            // including saying nothing — is what is served
             if (methodMcpTool != null) {
+                title = methodMcpTool.title();
+                description = methodMcpTool.description();
                 hints = McpToolHints.of(methodMcpTool);
             } else if (mcpToolInfo != null) {
+                title = mcpToolInfo.title();
+                description = mcpToolInfo.description();
                 hints = McpToolHints.of(mcpToolInfo);
             } else {
+                // a type-level @McpTool describes the whole service rather than any one function, so a
+                // function it sweeps in is hinted by its own name
+                title = typeLevelMcpTool.title();
+                description = typeLevelMcpTool.description();
                 hints = McpToolHints.forFunctionName(functionName);
             }
 
-            String title = firstStated(methodMcpTool != null ? methodMcpTool.title() : "",
-                                       mcpToolInfo != null ? mcpToolInfo.title() : "",
-                                       typeLevelMcpTool != null ? typeLevelMcpTool.title() : "");
             if (title.isEmpty()) {
                 // the service name qualifies a derived title, so the same function name on many services
                 // stays distinguishable in a tool listing
                 title = IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(functionName);
             }
-
-            String description = firstStated(methodMcpTool != null ? methodMcpTool.description() : "",
-                                             mcpToolInfo != null ? mcpToolInfo.description() : "",
-                                             typeLevelMcpTool != null ? typeLevelMcpTool.description() : "");
             if (description.isEmpty()) {
                 description = describe(interfaceMethod, specificMethod);
             }
@@ -216,24 +218,13 @@ public class DefaultSchemaFactory implements SchemaFactory {
     }
 
     /**
-     * Describes a function no declaration describes: the compile-time extracted Javadoc, then the function
-     * name as a sentence, so an LLM caller always has something to choose the tool by.
+     * Describes a function whose declaration states no description: the compile-time extracted Javadoc, then
+     * the function name as a sentence, so an LLM caller always has something to choose the tool by.
      */
     private String describe(Method interfaceMethod, Method specificMethod) {
         String ret = javadocDescription(specificMethod, interfaceMethod);
         if (ret == null || ret.isEmpty()) {
             ret = IdlUtil.sentenceCase(interfaceMethod.getName());
-        }
-        return ret;
-    }
-
-    private static String firstStated(String... values) {
-        String ret = "";
-        for (String value : values) {
-            if (!value.isEmpty()) {
-                ret = value;
-                break;
-            }
         }
         return ret;
     }

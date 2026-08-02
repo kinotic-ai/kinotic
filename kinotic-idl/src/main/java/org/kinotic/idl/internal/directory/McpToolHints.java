@@ -20,6 +20,12 @@ record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent) {
      */
     static final McpToolHints NONE = new McpToolHints(false, false, false);
 
+    static final McpToolHints READ_ONLY = new McpToolHints(true, false, false);
+
+    static final McpToolHints DESTRUCTIVE_AND_IDEMPOTENT = new McpToolHints(false, true, true);
+
+    static final McpToolHints IDEMPOTENT = new McpToolHints(false, false, true);
+
     private static final Set<String> READ_ONLY_VERBS = Set.of("count", "exists", "fetch", "find", "get",
                                                               "has", "is", "list", "load", "query", "read",
                                                               "search");
@@ -63,13 +69,13 @@ record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent) {
         Set<String> words = words(functionName);
         McpToolHints ret;
         if (!Collections.disjoint(words, DESTRUCTIVE_VERBS)) {
-            ret = new McpToolHints(false, true, true);
+            ret = DESTRUCTIVE_AND_IDEMPOTENT;
         } else if (functionName.endsWith("IfNotExist") || functionName.endsWith("IfNotExists")) {
-            ret = new McpToolHints(false, false, true);
+            ret = IDEMPOTENT;
         } else if (!Collections.disjoint(words, ADDITIVE_VERBS)) {
             ret = NONE;
         } else if (!Collections.disjoint(words, READ_ONLY_VERBS)) {
-            ret = new McpToolHints(true, false, false);
+            ret = READ_ONLY;
         } else {
             ret = NONE;
         }
