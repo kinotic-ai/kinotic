@@ -3,7 +3,6 @@ package org.kinotic.core.internal.api.directory;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
-import net.openhft.hashing.LongTupleHashFunction;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.CursorPageable;
@@ -20,6 +19,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -44,8 +44,6 @@ import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
-import java.math.BigInteger;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -295,7 +293,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
 
-                String toolName = toolName(serviceIdentifier, function.getName());
+                String toolName = KinoticUtil.mcpToolName(serviceIdentifier.qualifiedName(), function.getName());
                 if (!toolNames.add(toolName)) {
                     // the name is a hash, so it names nothing on its own — the function it was minted from
                     // is what a reader needs to act on this
@@ -371,24 +369,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         return resolver;
-    }
-
-    /**
-     * Returns the tool name for the function: the XXHash128 of the service's qualified name plus the
-     * function, in base 36. Hashing a qualified name that is already unique system wide keeps the tool name
-     * unique system wide, at 25 characters or fewer whatever the service is called; {@code title} carries
-     * the human-readable display name. Names are minted here, never parsed back apart.
-     */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
-        // MCP allows characters in a tool name that LLM hosts do not — a dot most commonly. A host rewrites
-        // each one, and then holds two names for the same tool: the advertised one and the callable one.
-        // Layers that compare the wrong pair (a permission grant recorded against one, checked against the
-        // other) break. Base 36 emits only [0-9a-z], so there is nothing left for a host to rewrite.
-        long[] hash = LongTupleHashFunction.xx128().hashChars(serviceIdentifier.qualifiedName() + "/" + functionName);
-        byte[] bytes = ByteBuffer.allocate(Long.BYTES * 2).putLong(hash[0]).putLong(hash[1]).array();
-        // signum 1 reads the 16 bytes as an unsigned 128-bit magnitude, so a high bit set in hash[0] stays a
-        // positive value rather than becoming a two's-complement negative one
-        return new BigInteger(1, bytes).toString(36);
     }
 
 }

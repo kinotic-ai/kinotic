@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -21,10 +22,11 @@ import java.util.List;
 @SpringBootTest
 public class McpToolDirectoryTests extends KinoticTestBase {
 
-    // base-36 XXHash128 of "os-api~org.kinotic.os.api.services.ProjectService/findByRepoFullName"
-    private static final String FIND_PROJECTS_BY_REPO = "c90vhkooqs0jat647hhkbm4q2";
-    // base-36 XXHash128 of "os-api~org.kinotic.os.api.services.ApplicationService/getOidcConfigurations"
-    private static final String GET_OIDC_CONFIGURATIONS = "ai2bnwxt71kuve8k1qsyu3hje";
+    private static final String PROJECT_SERVICE = "os-api~org.kinotic.os.api.services.ProjectService";
+    private static final String APPLICATION_SERVICE = "os-api~org.kinotic.os.api.services.ApplicationService";
+
+    private static final String FIND_PROJECTS_BY_REPO = KinoticUtil.mcpToolName(PROJECT_SERVICE, "findByRepoFullName");
+    private static final String GET_OIDC_CONFIGURATIONS = KinoticUtil.mcpToolName(APPLICATION_SERVICE, "getOidcConfigurations");
 
     @Autowired
     private ServiceDirectory serviceDirectory;
