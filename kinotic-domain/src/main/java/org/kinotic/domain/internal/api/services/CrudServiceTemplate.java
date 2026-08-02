@@ -599,7 +599,7 @@ public class CrudServiceTemplate {
      *                        false to fail the write on the first conflict
      * @return a {@link CompletableFuture} that will complete when the write is applied
      */
-    public CompletableFuture<Void> upsertPartialSync(String indexName,
+    public CompletableFuture<Void> partialUpsertSync(String indexName,
                                                      String id,
                                                      Map<String, Object> partial,
                                                      boolean retryOnConflict) {

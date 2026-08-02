@@ -56,7 +56,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         partial.remove("lastStatusChange");
         // the liveness updater finds entries by search, so this write must be visible to search before the
         // future completes or its first reconcile runs against a directory missing these entries
-        return crudServiceTemplate.upsertPartialSync(indexName, entry.getId(), partial, true);
+        return crudServiceTemplate.partialUpsertSync(indexName, entry.getId(), partial, true);
     }
 
     /**
