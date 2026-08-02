@@ -99,6 +99,10 @@ Never hardcode a dependency version in a module `build.gradle`. Every version li
 
 One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
 
+## Snapshot versions — nothing is in stone
+
+While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
+
 ## Keep docs in sync with code
 
 When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.

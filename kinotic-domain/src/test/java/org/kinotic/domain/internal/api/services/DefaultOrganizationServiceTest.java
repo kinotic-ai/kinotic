@@ -5,13 +5,15 @@ import org.kinotic.domain.api.model.Organization;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Covers id minting in {@link DefaultOrganizationService#beforeSave}: slug derivation and
- * the reserved platform prefix guard. The repository is unused by beforeSave, so none is given.
+ * Covers id minting in {@link DefaultOrganizationService#beforeSave}: slug derivation, the
+ * reserved platform prefix guard, and the reserved {@code system} label. The repository is
+ * unused by beforeSave, so none is given.
  */
 class DefaultOrganizationServiceTest {
 
@@ -52,6 +54,24 @@ class DefaultOrganizationServiceTest {
         service.beforeSave(organization).join();
 
         assertEquals("kinetic-corp", organization.getId());
+    }
+
+    @Test
+    void rejectsIdsThatCollideWithTheSystemZone() {
+        assertThrows(IllegalArgumentException.class,
+                     () -> service.beforeSave(new Organization().setName("System")));
+        // an update keeps the caller's id rather than re-minting it, so that path is guarded too
+        assertThrows(IllegalArgumentException.class,
+                     () -> service.beforeSave(new Organization().setId("system").setName("Anything")));
+    }
+
+    @Test
+    void allowsNamesMatchingTheOtherPlatformZones() {
+        // an id only ever lands after the app zone prefix, so these cannot collide with a zone
+        for (String name : List.of("App API", "OS API", "App")) {
+            assertDoesNotThrow(() -> service.beforeSave(new Organization().setName(name)),
+                               "expected '" + name + "' to be allowed");
+        }
     }
 
     @Test

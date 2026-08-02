@@ -1,3 +1,8 @@
+# Phase Prompt
+
+I would like you to break this work into a series of phases where ideally each phase changes around 10 files. After each phase I would like you to wait for me to review the code before proceeding with the next phase. Once I give approval you can move onto the next phase.
+
+
 ### IamUser refactor
 
 * Fix DefaultPendingRegistrationService.applyPendingScope (Should not be needed)
@@ -137,6 +142,8 @@ We store a bunch of maps during decorator processing that will not be used. We n
 # Kinotic OS Security
 * Add flags to specify what users are allowed to login, i.e. System, Org, App. This will allow us to only allow System logins from behind a  VPN.
   * Make sure this flag also affects if a JWT can be minted, basically will require the org or app id based on the allowed login hierarchy.
+* Make the Kinotic CLI and LLM plugins authenticate with credentials that are not an IamUser, but associated with one. We heed a new type of credentials for external programs to use, similar to an IamUser but a different thing. 
+* When we have a system UI, add support for setting the secrets for Github, Azure, and Google apps. I don't like the idea of doing it through a terminal where they end up having to be on a users machine and also in terminal history. 
 
 
 # Kinotic CLI

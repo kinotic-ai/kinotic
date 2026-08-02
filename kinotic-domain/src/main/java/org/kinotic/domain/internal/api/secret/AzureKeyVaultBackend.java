@@ -29,10 +29,6 @@ public class AzureKeyVaultBackend implements SecretStorageBackend {
                 .buildAsyncClient();
     }
 
-    public AzureKeyVaultBackend(SecretAsyncClient client) {
-        this.client = client;
-    }
-
     @Override
     public CompletableFuture<Void> setSecret(String derivedName, String value) {
         return client.setSecret(derivedName, value)

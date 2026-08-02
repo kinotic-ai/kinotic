@@ -53,7 +53,6 @@ public class ProxyRegistrationBeanDefinitionRegistryPostProcessor implements Bea
 
         // scan classpath for all Classes annotated with @Proxy
         List<String> packages = KinoticPackages.get(this.applicationContext);
-        packages.add("org.kinotic.rpc.internal"); // core kinotic rpc proxies
 
         Set<MetadataReader> readers = MetaUtil.findClassesWithAnnotation(applicationContext, packages, Proxy.class);
 

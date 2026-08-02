@@ -41,7 +41,7 @@ import static org.apache.ignite.failure.FailureType.*;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(value = "continuum.disableClustering", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.disableClustering", havingValue = "false", matchIfMissing = true)
 public class KinoticIgniteConfig {
 
     @Autowired
