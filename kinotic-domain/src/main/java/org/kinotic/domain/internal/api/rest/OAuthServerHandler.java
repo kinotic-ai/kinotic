@@ -246,7 +246,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
     }
 
     private String issuer() {
-        return authEndpointSupport.absoluteUrl("");
+        return authEndpointSupport.issuerUrl("");
     }
 
     private static void respondJson(RoutingContext ctx, int status, JsonObject body) {

@@ -89,4 +89,14 @@ public class DomainProperties {
         return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
     }
 
+    /**
+     * Returns {@link OAuthProperties#getIssuerBaseUrl()} when set, otherwise falls back to
+     * {@link #resolveApiBaseUrl()}. Use this when publishing the OAuth 2.1 surface MCP hosts
+     * discover, which their backends reach directly rather than through the browser.
+     */
+    public String resolveIssuerBaseUrl() {
+        String issuerBaseUrl = oauth.getIssuerBaseUrl();
+        return (issuerBaseUrl != null && !issuerBaseUrl.isBlank()) ? issuerBaseUrl : resolveApiBaseUrl();
+    }
+
 }

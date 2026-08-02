@@ -67,6 +67,16 @@ public class AuthEndpointSupport {
     }
 
     /**
+     * Builds an absolute URL on the OAuth 2.1 surface
+     * ({@code kinotic.domain.oauth.issuerBaseUrl}, falling back to {@code apiBaseUrl}, +
+     * {@code relativePath}) — used for the issuer identifier, the endpoints its metadata
+     * advertises, and the RFC 9728 resource metadata an MCP host discovers.
+     */
+    public String issuerUrl(String relativePath) {
+        return domainProperties.getDomain().resolveIssuerBaseUrl() + relativePath;
+    }
+
+    /**
      * Builds an absolute SPA URL ({@code kinotic.domain.appBaseUrl} + {@code relativePath}). The SPA is
      * a different origin than this gateway, so redirects back to the browser must be absolute.
      */
