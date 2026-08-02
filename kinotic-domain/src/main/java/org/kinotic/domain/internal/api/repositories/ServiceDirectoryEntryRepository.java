@@ -16,6 +16,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -51,17 +52,18 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
      */
     public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
         @SuppressWarnings("unchecked")
-        Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
+        Map<String, Object> complete = objectMapper.convertValue(entry, Map.class);
+        Map<String, Object> partial = new HashMap<>(complete);
         partial.remove("online");
         partial.remove("lastStatusChange");
         // the caller reconciles liveness with a search right after this completes, so the write
         // must be visible to search before the future does. Retry because the liveness writers merge their
         // own fields into this same entry concurrently
-        return crudServiceTemplate.partialUpdateSync(indexName,
-                                                     entry.getId(),
-                                                     partial,
-                                                     true,
-                                                     true);
+        return crudServiceTemplate.partialUpdateOrCreateSync(indexName,
+                                                             entry.getId(),
+                                                             partial,
+                                                             complete,
+                                                             true);
     }
 
     /**
@@ -73,7 +75,6 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return crudServiceTemplate.partialUpdate(indexName,
                                                  entryId,
                                                  Map.of("online", online, "lastStatusChange", when),
-                                                 false,
                                                  true);
     }
 
