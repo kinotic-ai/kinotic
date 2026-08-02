@@ -38,10 +38,11 @@ public @interface McpTool {
 
     /**
      * Indicates the tool does not modify its environment. Leaving all three hints unset takes them from the
-     * first declaration stating any of them, and finally from the function name: a reading verb
-     * ({@code find}, {@code get}, {@code count}) is read-only, a verb that replaces or removes state
-     * ({@code save}, {@code delete}) is destructive and idempotent, and a {@code createIfNotExist} is
-     * idempotent.
+     * first declaration stating any of them, and finally from every word of the function name: a word that
+     * replaces or removes state ({@code save}, {@code delete}) makes it destructive and idempotent, a
+     * {@code createIfNotExist} idempotent, a word that adds or acts ({@code create}, {@code send}) states
+     * nothing, and only a name whose verbs all read ({@code find}, {@code get}, {@code peopleCount}) is
+     * read-only.
      */
     boolean readOnlyHint() default false;
 

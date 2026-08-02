@@ -4,8 +4,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.annotations.McpToolInfo;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * The MCP tool metadata one declaration states for a function. An empty {@link #title} or
@@ -32,6 +35,13 @@ record McpToolMetadata(String title,
                                                                 "put", "remove", "save", "set", "truncate",
                                                                 "update", "upsert");
 
+    // a verb that changes state additively: no hint of its own, but it disqualifies a reading verb elsewhere
+    // in the same name
+    private static final Set<String> ADDITIVE_VERBS = Set.of("add", "apply", "create", "execute", "generate",
+                                                             "import", "insert", "invoke", "publish",
+                                                             "register", "retry", "run", "send", "start",
+                                                             "stop", "submit", "trigger", "upload");
+
     static McpToolMetadata from(McpTool annotation) {
         return new McpToolMetadata(annotation.title(),
                                    annotation.description(),
@@ -49,22 +59,27 @@ record McpToolMetadata(String title,
     }
 
     /**
-     * Derives the hints a function name implies: a reading verb is read-only, a verb that replaces or removes
-     * state is destructive and idempotent, and a create that yields to an existing entity is idempotent. A
-     * name implying none of those states no hint.
+     * Derives the hints a function name implies: a name naming a verb that replaces or removes state is
+     * destructive and idempotent, a create that yields to an existing entity is idempotent, and a name whose
+     * only verbs read is read-only. Any other name implies no hint.
      *
      * @param functionName the function name to read
      * @return the hints the name implies, carrying no title or description
      */
     static McpToolMetadata fromFunctionName(String functionName) {
-        String verb = StringUtils.splitByCharacterTypeCamelCase(functionName)[0].toLowerCase(Locale.ROOT);
+        // every word counts, not just the leading one, so peopleCount reads as a count; and a mutating word
+        // anywhere outranks a reading one, so getOrCreatePerson is never served as read-only — serving a
+        // mutation as safe to call unattended is the one mistake worth ordering the rules around
+        Set<String> words = words(functionName);
         McpToolMetadata ret;
-        if (READ_ONLY_VERBS.contains(verb)) {
-            ret = hints(true, false, false);
-        } else if (DESTRUCTIVE_VERBS.contains(verb)) {
+        if (!Collections.disjoint(words, DESTRUCTIVE_VERBS)) {
             ret = hints(false, true, true);
         } else if (functionName.endsWith("IfNotExist") || functionName.endsWith("IfNotExists")) {
             ret = hints(false, false, true);
+        } else if (!Collections.disjoint(words, ADDITIVE_VERBS)) {
+            ret = NONE;
+        } else if (!Collections.disjoint(words, READ_ONLY_VERBS)) {
+            ret = hints(true, false, false);
         } else {
             ret = NONE;
         }
@@ -80,6 +95,12 @@ record McpToolMetadata(String title,
 
     private static McpToolMetadata hints(boolean readOnlyHint, boolean destructiveHint, boolean idempotentHint) {
         return new McpToolMetadata("", "", readOnlyHint, destructiveHint, idempotentHint);
+    }
+
+    private static Set<String> words(String functionName) {
+        return Arrays.stream(StringUtils.splitByCharacterTypeCamelCase(functionName))
+                     .map(word -> word.toLowerCase(Locale.ROOT))
+                     .collect(Collectors.toSet());
     }
 
 }

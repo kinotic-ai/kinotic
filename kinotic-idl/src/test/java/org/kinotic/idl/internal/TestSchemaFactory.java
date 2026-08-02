@@ -20,6 +20,7 @@ import org.kinotic.idl.internal.support.DefaultTestRenamedService;
 import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
 import org.kinotic.idl.internal.support.TestObject;
+import org.kinotic.idl.internal.support.TestNamedHintService;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestOverloadedService;
 import org.kinotic.idl.internal.support.TestService;
@@ -125,7 +126,7 @@ public class TestSchemaFactory {
         Assertions.assertNotNull(inherited);
         Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
 
-        // TestObjectCrudService's bare @McpTool states no hints, so findById's leading verb decides
+        // TestObjectCrudService's bare @McpTool states no hints, so findById's name decides
         Assertions.assertTrue(inherited.isReadOnlyHint());
         Assertions.assertFalse(inherited.isDestructiveHint());
 
@@ -136,6 +137,40 @@ public class TestSchemaFactory {
         Assertions.assertEquals("Store Entity", stated.getTitle());
         Assertions.assertTrue(stated.isIdempotentHint());
         Assertions.assertFalse(stated.isDestructiveHint());
+    }
+
+    @Test
+    public void testHintsDeriveFromEveryWordOfTheFunctionName() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNamedHintService.class, TestNamedHintService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestNamedHintService.class);
+
+        // the reading verb trails the noun, so a leading-word rule would miss this one
+        McpToolC3Decorator count = hints(service, "peopleCount");
+        Assertions.assertTrue(count.isReadOnlyHint());
+
+        // "get" reads, but the same name also creates, and serving a mutation as read-only invites a host
+        // to call it unattended
+        McpToolC3Decorator getOrCreate = hints(service, "getOrCreatePerson");
+        Assertions.assertFalse(getOrCreate.isReadOnlyHint());
+        Assertions.assertFalse(getOrCreate.isDestructiveHint());
+
+        McpToolC3Decorator purge = hints(service, "purgeRetiredPeople");
+        Assertions.assertTrue(purge.isDestructiveHint());
+        Assertions.assertTrue(purge.isIdempotentHint());
+        Assertions.assertFalse(purge.isReadOnlyHint());
+
+        // a create that yields to an existing entity is idempotent, and stays additive
+        McpToolC3Decorator createIfNotExist = hints(service, "createPersonIfNotExist");
+        Assertions.assertTrue(createIfNotExist.isIdempotentHint());
+        Assertions.assertFalse(createIfNotExist.isDestructiveHint());
+
+        // a name naming no verb the table knows states nothing
+        McpToolC3Decorator notify = hints(service, "notifyPeople");
+        Assertions.assertFalse(notify.isReadOnlyHint());
+        Assertions.assertFalse(notify.isDestructiveHint());
+        Assertions.assertFalse(notify.isIdempotentHint());
     }
 
     @Test
@@ -227,6 +262,12 @@ public class TestSchemaFactory {
         findService(namespaceDefinition, TestService.class);
         findService(namespaceDefinition, OtherTestService.class);
         Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+    }
+
+    private McpToolC3Decorator hints(ServiceDefinition service, String functionName) {
+        McpToolC3Decorator ret = findFunction(service, functionName).findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
+        return ret;
     }
 
     private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {
