@@ -69,7 +69,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
 
-    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]{1,128}$");
+    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_-]{1,128}$");
 
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
@@ -372,14 +372,17 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Returns the tool name for the function: the service's qualified name (with {@code ~} as {@code .}) plus
-     * the function, encoded to fit {@code ^[a-zA-Z0-9_.-]{1,128}$}. The qualified name makes the tool name
-     * unique system wide; {@code title} carries the human-readable display name. Names are minted here, never
-     * parsed back apart.
+     * Returns the tool name for the function: the service's qualified name plus the function, encoded to fit
+     * {@code ^[a-zA-Z0-9_-]{1,128}$}. The qualified name makes the tool name unique system wide;
+     * {@code title} carries the human-readable display name. Names are minted here, never parsed back apart.
      */
     private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
-        String toolName = (serviceIdentifier.qualifiedName().replace('~', '.') + "." + functionName)
-                .replaceAll("[^a-zA-Z0-9_.-]", "_");
+        // MCP allows a dot in a tool name but LLM hosts do not, so a host rewrites one to an underscore and
+        // then holds two names for the same tool — the advertised one and the callable one. Layers that
+        // compare the wrong pair (a permission grant recorded against one, checked against the other) break.
+        // Minting the already-encoded form leaves the host nothing to rewrite.
+        String toolName = (serviceIdentifier.qualifiedName() + "_" + functionName)
+                .replaceAll("[^a-zA-Z0-9_-]", "_");
         // a name long enough to overflow the 128-char limit must fail loudly, never truncate
         if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
             throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName

@@ -22,9 +22,9 @@ import java.util.List;
 public class McpToolDirectoryTests extends KinoticTestBase {
 
     private static final String FIND_PROJECTS_BY_REPO =
-            "os-api.org.kinotic.os.api.services.ProjectService.findByRepoFullName";
+            "os-api_org_kinotic_os_api_services_ProjectService_findByRepoFullName";
     private static final String GET_OIDC_CONFIGURATIONS =
-            "os-api.org.kinotic.os.api.services.ApplicationService.getOidcConfigurations";
+            "os-api_org_kinotic_os_api_services_ApplicationService_getOidcConfigurations";
 
     @Autowired
     private ServiceDirectory serviceDirectory;
