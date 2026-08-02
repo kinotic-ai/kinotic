@@ -72,6 +72,9 @@ public class AuthEndpointSupport {
      * {@code relativePath}) — used for the issuer identifier, the endpoints its metadata
      * advertises, and the RFC 9728 resource metadata an MCP host discovers.
      */
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // Every externally reached URL added from here on has to pick this over absoluteUrl, with
+    // nothing enforcing the choice. See "OAuth base URL split" in docs/NavidNotes.md.
     public String issuerUrl(String relativePath) {
         return domainProperties.getDomain().resolveIssuerBaseUrl() + relativePath;
     }

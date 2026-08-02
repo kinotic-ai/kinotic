@@ -245,6 +245,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
               });
     }
 
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
     private String issuer() {
         return authEndpointSupport.issuerUrl("");
     }

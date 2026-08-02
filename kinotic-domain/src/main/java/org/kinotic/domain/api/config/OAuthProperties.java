@@ -38,6 +38,8 @@ public class OAuthProperties {
      * When left null the platform falls back to {@code apiBaseUrl}, which is correct wherever the
      * browser and the internet reach the gateway at the same URL.
      */
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
     private String issuerBaseUrl = null;
 
 
