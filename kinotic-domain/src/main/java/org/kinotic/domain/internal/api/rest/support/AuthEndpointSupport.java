@@ -45,6 +45,13 @@ public class AuthEndpointSupport {
     /** Access-token TTL for OAuth-issued tokens; clients refresh via the rotating refresh token. */
     private static final int ACCESS_TOKEN_TTL_SECONDS = 3600;
 
+    /**
+     * Session key holding the SPA path a completed social login returns to, placed by
+     * {@link #handleSocialStart} and consumed by {@link #redirectSuccess}. Carried on the session
+     * because IdP redirect URIs are registered exactly, so it cannot ride in the callback URL.
+     */
+    private static final String RETURN_PATH_SESSION_KEY = "loginReturnPath";
+
     private final KinoticDomainProperties domainProperties;
     private final KinoticJwtIssuer jwtIssuer;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
@@ -96,18 +103,39 @@ public class AuthEndpointSupport {
     // ── Redirects ─────────────────────────────────────────────────────────────
 
     /**
-     * Establishes the browser session and redirects to the SPA. No token travels in the URL —
-     * the browser is authenticated by its session cookie.
+     * Establishes the browser session and redirects to the SPA — to the path the login started
+     * from when there was one, otherwise the SPA root. No token travels in the URL — the browser
+     * is authenticated by its session cookie.
      */
     public void redirectSuccess(RoutingContext ctx, IamUser user) {
+        // read before establishSession, which regenerates the session id
+        String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
         establishSession(ctx, user);
         ctx.response().setStatusCode(302)
-           .putHeader("Location", appUrl("/"))
+           .putHeader("Location", appUrl(returnPath != null ? returnPath : "/"))
            .end();
+    }
+
+    /**
+     * The SPA path a completed login returns to, or {@code null} when the request named none or
+     * named one that is not a path within the SPA.
+     */
+    private static String safeReturnPath(String referer) {
+        String ret = null;
+        // concatenated onto appBaseUrl, so a value that could open an authority ("//host") or
+        // break out of the Location header is dropped rather than sanitized
+        if (referer != null && referer.startsWith("/") && !referer.startsWith("//")
+                && referer.indexOf('\\') < 0 && referer.chars().noneMatch(Character::isISOControl)) {
+            ret = referer;
+        }
+        return ret;
     }
 
     /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
+        // the flow that stored a return path ends here, so it must not outlive it and send an
+        // unrelated later login somewhere the user never asked for
+        ctx.session().remove(RETURN_PATH_SESSION_KEY);
         ctx.response().setStatusCode(302)
            .putHeader("Location", appUrl("/login")
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
@@ -244,6 +272,9 @@ public class AuthEndpointSupport {
      * Kinotic-curated configuration for that provider kind and redirects the browser to its IdP,
      * writing a {@code 400} for an unknown or disabled provider. The caller supplies the callback
      * URL the IdP returns to, which is what distinguishes a signup start from a login start.
+     * <p>
+     * A {@code referer} query parameter naming a path within the SPA is where the browser lands
+     * once the flow completes.
      */
     public void handleSocialStart(RoutingContext ctx, Function<String, String> callbackUrl) {
         String provider = ctx.pathParam("provider");
@@ -254,6 +285,8 @@ public class AuthEndpointSupport {
             respondError(ctx, 400, "Unknown platform provider: " + provider);
             return;
         }
+
+        String returnPath = safeReturnPath(ctx.request().getParam("referer"));
 
         Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
               .compose(config -> {
@@ -266,6 +299,14 @@ public class AuthEndpointSupport {
               .onSuccess(url -> {
                   // null means the compose above already answered the unknown-provider case
                   if (url != null) {
+                      // written after startFlow, which regenerates the session id. each start
+                      // defines where its own flow lands, so a path a previous one abandoned at
+                      // the IdP is replaced rather than inherited
+                      if (returnPath != null) {
+                          ctx.session().put(RETURN_PATH_SESSION_KEY, returnPath);
+                      } else {
+                          ctx.session().remove(RETURN_PATH_SESSION_KEY);
+                      }
                       ctx.response().setStatusCode(302).putHeader("Location", url).end();
                   }
               })
