@@ -157,7 +157,9 @@ public class DefaultSchemaFactory implements SchemaFactory {
                 // an LLM caller decides which tool to invoke by its description, so an empty description
                 // falls back to the compile-time extracted Javadoc, then to the function name
                 functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setTitle(mcpTool.title().isEmpty() ? deriveTitle(function.getKey()) : mcpTool.title())
+                        .setTitle(mcpTool.title().isEmpty()
+                                          ? deriveTitle(serviceInterface.getSimpleName(), function.getKey())
+                                          : mcpTool.title())
                         .setDescription(resolveDescription(mcpTool, function.getValue(), specificMethod, function.getKey()))
                         .setReadOnlyHint(mcpTool.readOnlyHint())
                         .setDestructiveHint(mcpTool.destructiveHint())
@@ -225,10 +227,15 @@ public class DefaultSchemaFactory implements SchemaFactory {
         });
     }
 
+    // ApplicationService + createApplicationIfNotExist -> "Application Service Create Application If Not Exist"
+    private static String deriveTitle(String serviceName, String functionName) {
+        return capitalizedWords(serviceName) + " " + capitalizedWords(functionName);
+    }
+
     // createApplicationIfNotExist -> "Create Application If Not Exist"
-    private static String deriveTitle(String functionName) {
+    private static String capitalizedWords(String name) {
         StringBuilder ret = new StringBuilder();
-        for (String word : StringUtils.splitByCharacterTypeCamelCase(functionName)) {
+        for (String word : StringUtils.splitByCharacterTypeCamelCase(name)) {
             if (!ret.isEmpty()) {
                 ret.append(' ');
             }

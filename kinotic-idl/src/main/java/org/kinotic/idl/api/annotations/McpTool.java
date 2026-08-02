@@ -26,10 +26,11 @@ public @interface McpTool {
     String description() default "";
 
     /**
-     * The human-readable display title for the tool. When empty, the function name is split into a
-     * capitalized phrase ({@code findByRepoFullName} becomes {@code "Find By Repo Full Name"}). The tool
-     * name itself is always derived from the service's qualified name and the method name, so it is
-     * unique system wide.
+     * The human-readable display title for the tool. When empty, the service interface's simple name and
+     * the function name are each split into a capitalized phrase and joined
+     * ({@code ProjectService.findByRepoFullName} becomes {@code "Project Service Find By Repo Full Name"}),
+     * so a title stays recognizable among the same function name on many services. The tool name itself is
+     * always derived from the service's qualified name and the method name, so it is unique system wide.
      */
     String title() default "";
 

@@ -140,8 +140,8 @@ public class TestSchemaFactory {
         McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(decorator);
         Assertions.assertEquals("Greets the recipient", decorator.getDescription());
-        // an explicit description with no title still gets a derived title
-        Assertions.assertEquals("Greet", decorator.getTitle());
+        // an explicit description with no title still gets a derived title, qualified by the service name
+        Assertions.assertEquals("Test Renamed Service Greet", decorator.getTitle());
     }
 
     @Test
@@ -152,18 +152,19 @@ public class TestSchemaFactory {
         ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
 
         // a documented method's description is the Javadoc main description extracted at compile time,
-        // with inline tags resolved; the title still derives from the function name
+        // with inline tags resolved; the title still derives from the service and function names
         McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(documented);
         Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
-        Assertions.assertEquals("Find By Name", documented.getTitle());
+        Assertions.assertEquals("Test Swept Service Find By Name", documented.getTitle());
         Assertions.assertTrue(documented.isReadOnlyHint());
 
-        // no annotation description and no Javadoc: description and title derive from the function name
+        // no annotation description and no Javadoc: the description derives from the function name, the
+        // title from the service and function names
         McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(derived);
         Assertions.assertEquals("Count by name", derived.getDescription());
-        Assertions.assertEquals("Count By Name", derived.getTitle());
+        Assertions.assertEquals("Test Swept Service Count By Name", derived.getTitle());
 
         // a method-level @McpTool overrides the type-level defaults for that method
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
