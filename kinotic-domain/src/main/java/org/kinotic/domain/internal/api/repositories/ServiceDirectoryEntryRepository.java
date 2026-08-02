@@ -12,6 +12,7 @@ import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -36,18 +37,26 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
-    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate) {
+    private final ObjectMapper objectMapper;
+
+    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
+                                           ObjectMapper objectMapper) {
         super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
+        this.objectMapper = objectMapper;
     }
 
     /**
-     * Writes the entry, replacing any document already carrying its id.
+     * Writes the contract fields of an entry, creating it when the directory holds none for its id. The
+     * liveness fields are left to {@code setOnline}, so a re-registration never disturbs them.
      */
     public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> partial = objectMapper.convertValue(entry, Map.class);
+        partial.remove("online");
+        partial.remove("lastStatusChange");
         // the liveness updater finds entries by search, so this write must be visible to search before the
         // future completes or its first reconcile runs against a directory missing these entries
-        return crudServiceTemplate.saveSync(indexName, entry.getId(), entry, null)
-                                  .thenApply(response -> null);
+        return crudServiceTemplate.upsertPartialSync(indexName, entry.getId(), partial, true);
     }
 
     /**

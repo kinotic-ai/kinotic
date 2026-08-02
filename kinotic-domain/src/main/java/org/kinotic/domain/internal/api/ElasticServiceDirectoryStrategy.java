@@ -33,12 +33,6 @@ public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy
     }
 
     @Override
-    public Future<Void> setOnline(String entryId, boolean online, Instant when) {
-        return Future.fromCompletionStage(repository.setOnline(entryId, online, when),
-                                          vertx.getOrCreateContext());
-    }
-
-    @Override
     public Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when) {
         return Future.fromCompletionStage(repository.setOnlineByAddress(serviceAddress, online, when),
                                           vertx.getOrCreateContext());

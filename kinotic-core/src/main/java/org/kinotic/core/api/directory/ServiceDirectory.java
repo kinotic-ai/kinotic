@@ -74,15 +74,6 @@ public interface ServiceDirectory {
     void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation);
 
     /**
-     * Reports that a caller could not reach the service at the given CRI.
-     * Implementations re-check current registrations and correct the liveness state to the verified truth;
-     * this is an invalidation trigger, never a blind offline write.
-     * @param cri the CRI that could not be reached
-     * @return a {@link Future} completing when the report has been accepted
-     */
-    Future<Void> reportUnreachable(String cri);
-
-    /**
      * Notifies the directory that the calling node no longer provides the service. Other nodes may still provide
      * it, so how liveness is updated is the implementation's decision. Entries are never deleted; a
      * known-but-offline service is a feature. An identifier this node never registered is ignored.

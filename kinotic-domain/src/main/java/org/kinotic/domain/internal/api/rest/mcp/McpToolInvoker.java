@@ -125,9 +125,6 @@ public class McpToolInvoker {
                            pendingCalls.remove(correlationId);
                            if (throwable instanceof ReplyException replyException
                                    && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                               // fire-and-forget: reportUnreachable debounces and only writes verified state
-                               serviceDirectory.reportUnreachable(tool.getCri())
-                                               .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure));
                                ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
                            } else {
                                log.warn("MCP tool '{}' dispatch to {} failed", tool.getName(), tool.getCri(), throwable);

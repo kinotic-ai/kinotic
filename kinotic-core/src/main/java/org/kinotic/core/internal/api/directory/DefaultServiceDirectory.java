@@ -1,7 +1,5 @@
 package org.kinotic.core.internal.api.directory;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteException;
@@ -44,7 +42,6 @@ import org.springframework.util.ClassUtils;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -82,16 +79,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     // Registrations arriving during startup are held here and published in ONE conversion session on
     // ApplicationReadyEvent, so model types shared between services are converted once per node
     private final Map<ServiceIdentifier, ServiceDeclaration> pendingRegistrations = new HashMap<>();
-    // Identifiers this node has published or queued, so unregister(ServiceIdentifier) knows whether
-    // liveness needs a refresh without the caller re-supplying the registration classes
-    private final Set<ServiceIdentifier> registered = new HashSet<>(); // guarded by registrationLock
     private final Object registrationLock = new Object();
     private boolean startupComplete; // guarded by registrationLock
-
-    // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
-    private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
-                                                                  .expireAfterWrite(Duration.ofSeconds(5))
-                                                                  .build();
 
     public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
                                    EventBusService eventBusService,
@@ -121,7 +110,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
         boolean queued;
         synchronized (registrationLock) {
-            registered.add(serviceIdentifier);
             queued = !startupComplete;
             if (queued) {
                 pendingRegistrations.put(serviceIdentifier, registration);
@@ -136,16 +124,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @Override
     public void unregister(ServiceIdentifier serviceIdentifier) {
-        boolean published;
         synchronized (registrationLock) {
-            // a registration still pending never reached the directory, removing it from the batch is enough
-            published = registered.remove(serviceIdentifier) && pendingRegistrations.remove(serviceIdentifier) == null;
-        }
-        if (published) {
-            // this node leaving says nothing about other instances of the service — verify, never
-            // write offline blindly
-            refreshOnline(serviceIdentifier)
-                    .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
+            // a registration still pending never reached the directory, removing it from the batch is enough.
+            // Dropping the service's consumer emits a ServiceListenerChange, which is how ServiceLivenessUpdater
+            // learns the entry went offline — liveness is never written from here
+            pendingRegistrations.remove(serviceIdentifier);
         }
     }
 
@@ -255,19 +238,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     @Override
-    public Future<Void> reportUnreachable(String cri) {
-        Future<Void> ret;
-        if (reportDebounce.getIfPresent(cri) != null) {
-            ret = Future.succeededFuture();
-        } else {
-            reportDebounce.put(cri, Boolean.TRUE);
-            // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
-            ret = verifyLiveness(CRI.create(cri).baseResource());
-        }
-        return ret;
-    }
-
-    @Override
     public Future<Void> verifyLiveness(String serviceAddress) {
         return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
                               .compose(online -> strategy.setOnlineByAddress(serviceAddress, online, Instant.now()));
@@ -277,16 +247,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     public Future<Void> reconcileLiveness() {
         return eventBusService.activeServiceAddresses()
                               .compose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
-    }
-
-    /**
-     * Sets the entry's liveness to the verified cluster-wide registration state.
-     */
-    private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
-        return eventBusService.isAnybodyListening(serviceIdentifier.cri())
-                              .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
-                                                                    online,
-                                                                    Instant.now()));
     }
 
     private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
@@ -348,11 +308,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setServiceDefinition(serviceDefinition)
                 .setAdvertised(isAdvertised(serviceInterface))
                 .setMcpExposed(!tools.isEmpty())
-                .setMcpTools(tools.isEmpty() ? null : tools)
-                // the service registered on this node before it reached the directory, so it is published
-                // live; ServiceLivenessUpdater owns every transition from here on
-                .setOnline(true)
-                .setLastStatusChange(Instant.now());
+                .setMcpTools(tools.isEmpty() ? null : tools);
     }
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already

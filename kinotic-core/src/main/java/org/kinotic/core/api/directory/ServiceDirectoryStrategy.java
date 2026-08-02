@@ -60,15 +60,6 @@ public interface ServiceDirectoryStrategy {
     Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when);
 
     /**
-     * Sets the liveness fields of the entry with the given id.
-     * @param entryId the entry id
-     * @param online the liveness state
-     * @param when the time of the state change
-     * @return a {@link Future} completing when the entry is updated
-     */
-    Future<Void> setOnline(String entryId, boolean online, Instant when);
-
-    /**
      * Sets the liveness fields of the entry with the given service address.
      * @param serviceAddress the service address of the entry
      * @param online the liveness state
@@ -78,7 +69,7 @@ public interface ServiceDirectoryStrategy {
     Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
 
     /**
-     * Stores an entry, replacing any entry already carrying its id, liveness fields included.
+     * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
      * @param entry the entry to upsert
      * @return a {@link Future} completing when the entry is stored
      */

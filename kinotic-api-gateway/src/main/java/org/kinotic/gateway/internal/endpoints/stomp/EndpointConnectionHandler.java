@@ -14,7 +14,6 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
@@ -146,12 +145,6 @@ public class EndpointConnectionHandler {
                             // map errors that occurred because no Service invoker was listening
                             if (throwable instanceof ReplyException replyException) {
                                 if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                    // every gateway RPC doubles as a liveness probe, so the directory
-                                    // self-heals from ordinary traffic; with no directory bean nothing happens
-                                    ServiceDirectory serviceDirectory = services.serviceDirectoryProvider.getIfAvailable();
-                                    if (serviceDirectory != null) {
-                                        serviceDirectory.reportUnreachable(incomingEvent.cri().raw());
-                                    }
                                     throwable = new RpcMissingServiceException(throwable);
                                 }
                             }

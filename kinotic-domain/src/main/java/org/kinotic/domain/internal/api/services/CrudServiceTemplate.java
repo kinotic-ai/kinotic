@@ -588,6 +588,32 @@ public class CrudServiceTemplate {
     }
 
     /**
+     * Merges the given fields into a document, inserting them as a new document when no document carries the
+     * id. Fields the caller does not own stay absent until their owner writes them. Uses {@link Refresh#WaitFor},
+     * guaranteeing read-your-write semantics for subsequent queries.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to write
+     * @param partial         the fields this caller owns
+     * @param retryOnConflict true to re-apply the merge when another writer updates the document first,
+     *                        false to fail the write on the first conflict
+     * @return a {@link CompletableFuture} that will complete when the write is applied
+     */
+    public CompletableFuture<Void> upsertPartialSync(String indexName,
+                                                     String id,
+                                                     Map<String, Object> partial,
+                                                     boolean retryOnConflict) {
+        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+                                                        .id(id)
+                                                        .doc(partial)
+                                                        .docAsUpsert(true)
+                                                        .retryOnConflict(retryOnConflict ? CONFLICT_RETRIES : 0)
+                                                        .refresh(Refresh.WaitFor),
+                                                  Map.class)
+                                          .thenApply(response -> null));
+    }
+
+    /**
      * Indexes a document. Also allows for customization of the {@link IndexRequest}.
      *
      * @param indexName       name of the index
