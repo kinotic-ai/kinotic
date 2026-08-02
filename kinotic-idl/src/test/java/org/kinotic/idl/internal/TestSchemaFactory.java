@@ -120,10 +120,32 @@ public class TestSchemaFactory {
         Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
 
         // an inherited function's description comes from the Javadoc on the generic base declaring it,
-        // even though GenericCrudService itself carries no annotations
+        // even though GenericCrudService declares no @McpTool of its own
         McpToolC3Decorator inherited = findById.findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(inherited);
         Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
+
+        // TestObjectCrudService's bare @McpTool states no hints, so findById's leading verb decides
+        Assertions.assertTrue(inherited.isReadOnlyHint());
+        Assertions.assertFalse(inherited.isDestructiveHint());
+
+        // @McpToolInfo on the generic base states the title and hints for a function the base never
+        // exposes itself, and it beats what the "save" verb would otherwise imply
+        McpToolC3Decorator stated = save.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(stated);
+        Assertions.assertEquals("Store Entity", stated.getTitle());
+        Assertions.assertTrue(stated.isIdempotentHint());
+        Assertions.assertFalse(stated.isDestructiveHint());
+    }
+
+    @Test
+    public void testMcpToolInfoAloneExposesNothing() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        // OtherTestService.findPerson carries only @McpToolInfo, which describes a tool without making one
+        ServiceDefinition service = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertNull(findFunction(service, "findPerson").findDecorator(McpToolC3Decorator.class));
     }
 
     @Test
@@ -166,12 +188,20 @@ public class TestSchemaFactory {
         Assertions.assertEquals("Count by name", derived.getDescription());
         Assertions.assertEquals("Test Swept Service Count By Name", derived.getTitle());
 
-        // a method-level @McpTool overrides the type-level defaults for that method
+        // a method-level @McpTool overrides the type-level description and title for that method; stating
+        // no hint of its own leaves the type-level hint in place
         McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(specific);
         Assertions.assertEquals("Counts every test object", specific.getDescription());
         Assertions.assertEquals("Count Objects", specific.getTitle());
-        Assertions.assertFalse(specific.isReadOnlyHint());
+        Assertions.assertTrue(specific.isReadOnlyHint());
+
+        // the type-level hint is a stated one, so it wins over the destructive hint "deleteAll" implies —
+        // which is exactly how a type-level hint mislabels a function it does not hold for
+        McpToolC3Decorator mislabeled = findFunction(service, "deleteAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(mislabeled);
+        Assertions.assertTrue(mislabeled.isReadOnlyHint());
+        Assertions.assertFalse(mislabeled.isDestructiveHint());
     }
 
     @Test

@@ -13,6 +13,8 @@ import java.lang.annotation.Target;
  * every function becomes a tool carrying the type-level description and hints, and a method-level
  * {@code @McpTool} overrides them for that method. An empty {@link #description} or {@link #title} is
  * derived from the function name, so each tool stays individually recognizable to an LLM caller.
+ * A function exposed here serves the metadata a {@link McpToolInfo} on its declaration states, which is how
+ * a base interface describes functions it does not itself expose.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -35,7 +37,11 @@ public @interface McpTool {
     String title() default "";
 
     /**
-     * Indicates the tool does not modify its environment.
+     * Indicates the tool does not modify its environment. Leaving all three hints unset takes them from the
+     * first declaration stating any of them, and finally from the function name: a reading verb
+     * ({@code find}, {@code get}, {@code count}) is read-only, a verb that replaces or removes state
+     * ({@code save}, {@code delete}) is destructive and idempotent, and a {@code createIfNotExist} is
+     * idempotent.
      */
     boolean readOnlyHint() default false;
 

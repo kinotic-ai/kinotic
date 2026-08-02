@@ -8,6 +8,7 @@ import org.kinotic.idl.api.directory.GenericTypeConverter;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.McpToolInfo;
 import org.kinotic.idl.api.directory.SchemaFactory;
 import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.api.schema.C3Type;
@@ -29,6 +30,7 @@ import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
@@ -40,6 +42,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * Provides the ability to create {@link C3Type}'s
@@ -145,28 +148,12 @@ public class DefaultSchemaFactory implements SchemaFactory {
 
             functionDefinition.setName(function.getKey());
 
-            // findAnnotation walks super methods, so @McpTool applies whether declared on the interface
-            // method or only on the implementation's override (e.g. an inherited CRUD method); a
-            // method-level annotation overrides the type-level defaults for that method
-            McpTool mcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
-            if (mcpTool == null) {
-                mcpTool = typeLevelMcpTool;
-            }
-            if(mcpTool != null){
-                // the service name qualifies a derived title, so the same function name on many services
-                // stays distinguishable in a tool listing
-                String title = mcpTool.title().isEmpty()
-                        ? IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(function.getKey())
-                        : mcpTool.title();
-
-                // an LLM caller decides which tool to invoke by its description, so an empty description
-                // falls back to the compile-time extracted Javadoc, then to the function name
-                functionDefinition.setDecorators(List.of(new McpToolC3Decorator()
-                        .setTitle(title)
-                        .setDescription(resolveDescription(mcpTool, function.getValue(), specificMethod, function.getKey()))
-                        .setReadOnlyHint(mcpTool.readOnlyHint())
-                        .setDestructiveHint(mcpTool.destructiveHint())
-                        .setIdempotentHint(mcpTool.idempotentHint())));
+            McpToolC3Decorator mcpTool = createMcpToolDecorator(serviceInterface,
+                                                                 function.getValue(),
+                                                                 specificMethod,
+                                                                 typeLevelMcpTool);
+            if (mcpTool != null) {
+                functionDefinition.setDecorators(List.of(mcpTool));
             }
 
             serviceDefinition.addFunction(functionDefinition);
@@ -175,15 +162,81 @@ public class DefaultSchemaFactory implements SchemaFactory {
         return serviceDefinition;
     }
 
-    private String resolveDescription(McpTool mcpTool, Method interfaceMethod, Method specificMethod, String functionName) {
-        String ret = mcpTool.description();
+    /**
+     * Builds the MCP tool decorator for a function, or null when no declaration exposes it as a tool.
+     */
+    private McpToolC3Decorator createMcpToolDecorator(Class<?> serviceInterface,
+                                                      Method interfaceMethod,
+                                                      Method specificMethod,
+                                                      McpTool typeLevelMcpTool) {
+        // findAnnotation walks super methods, so a declaration applies whether it sits on the interface
+        // method or only on the implementation's override (e.g. an inherited CRUD method)
+        McpTool methodMcpTool = AnnotationUtils.findAnnotation(specificMethod, McpTool.class);
+        McpToolInfo mcpToolInfo = AnnotationUtils.findAnnotation(specificMethod, McpToolInfo.class);
+
+        McpToolC3Decorator ret = null;
+        if (methodMcpTool != null || typeLevelMcpTool != null) {
+
+            // most specific declaration first and the function name last, so each of the title, the
+            // description, and the hints comes from the first declaration stating it
+            List<McpToolMetadata> sources = new ArrayList<>(4);
+            if (methodMcpTool != null) {
+                sources.add(McpToolMetadata.from(methodMcpTool));
+            }
+            if (mcpToolInfo != null) {
+                sources.add(McpToolMetadata.from(mcpToolInfo));
+            }
+            if (typeLevelMcpTool != null) {
+                sources.add(McpToolMetadata.from(typeLevelMcpTool));
+            }
+            sources.add(McpToolMetadata.fromFunctionName(interfaceMethod.getName()));
+
+            McpToolMetadata hints = sources.stream()
+                                           .filter(McpToolMetadata::declaresHints)
+                                           .findFirst()
+                                           .orElse(McpToolMetadata.NONE);
+
+            ret = new McpToolC3Decorator()
+                    .setTitle(resolveTitle(sources, serviceInterface, interfaceMethod.getName()))
+                    .setDescription(resolveDescription(sources, interfaceMethod, specificMethod))
+                    .setReadOnlyHint(hints.readOnlyHint())
+                    .setDestructiveHint(hints.destructiveHint())
+                    .setIdempotentHint(hints.idempotentHint());
+        }
+        return ret;
+    }
+
+    private static String resolveTitle(List<McpToolMetadata> sources, Class<?> serviceInterface, String functionName) {
+        String ret = firstStated(sources, McpToolMetadata::title);
+        if (ret.isEmpty()) {
+            // the service name qualifies a derived title, so the same function name on many services stays
+            // distinguishable in a tool listing
+            ret = IdlUtil.titleCase(serviceInterface.getSimpleName()) + " " + IdlUtil.titleCase(functionName);
+        }
+        return ret;
+    }
+
+    /**
+     * Resolves the LLM-facing description a caller reads to decide which tool to invoke: the first
+     * declaration stating one, then the compile-time extracted Javadoc, then the function name.
+     */
+    private String resolveDescription(List<McpToolMetadata> sources, Method interfaceMethod, Method specificMethod) {
+        String ret = firstStated(sources, McpToolMetadata::description);
         if (ret.isEmpty()) {
             ret = javadocDescription(specificMethod, interfaceMethod);
         }
         if (ret == null || ret.isEmpty()) {
-            ret = IdlUtil.sentenceCase(functionName);
+            ret = IdlUtil.sentenceCase(interfaceMethod.getName());
         }
         return ret;
+    }
+
+    private static String firstStated(List<McpToolMetadata> sources, Function<McpToolMetadata, String> field) {
+        return sources.stream()
+                      .map(field)
+                      .filter(value -> !value.isEmpty())
+                      .findFirst()
+                      .orElse("");
     }
 
     /**

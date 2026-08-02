@@ -20,4 +20,6 @@ public interface TestSweptService {
     @McpTool(description = "Counts every test object", title = "Count Objects")
     CompletableFuture<Long> countAll();
 
+    CompletableFuture<Void> deleteAll();
+
 }
