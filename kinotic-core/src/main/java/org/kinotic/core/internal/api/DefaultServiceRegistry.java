@@ -21,7 +21,7 @@ import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.core.internal.utils.KinoticUtil;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
