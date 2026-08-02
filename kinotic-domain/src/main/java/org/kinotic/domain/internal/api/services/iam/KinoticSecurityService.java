@@ -72,12 +72,19 @@ public class KinoticSecurityService implements SecurityService {
         }
 
         String authHeader = authInfo.get("Authorization");
+        String email = authInfo.get("clientId");
+        String password = authInfo.get("clientSecret");
 
         Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             ret = authenticateKinoticJwt(authHeader.substring(7));
+        } else if (email != null || password != null) {
+            ret = authenticateEmailPassword(organizationId, applicationId, email, password);
         } else {
-            ret = authenticateEmailPassword(organizationId, applicationId, authInfo);
+            // MCP hosts probe POST /mcp with no credentials to collect the RFC 9728 challenge, so
+            // this is a routine step of the OAuth flow rather than a malformed credential attempt
+            ret = Future.failedFuture(new AuthenticationException(
+                    "Authorization Bearer token, or clientId and clientSecret headers, are required"));
         }
         return ret;
     }
@@ -95,10 +102,8 @@ public class KinoticSecurityService implements SecurityService {
      */
     private Future<Participant> authenticateEmailPassword(String organizationId,
                                                           String applicationId,
-                                                          Map<String, String> authInfo) {
-        String email = authInfo.get("clientId");
-        String password = authInfo.get("clientSecret");
-
+                                                          String email,
+                                                          String password) {
         if (email == null || password == null) {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
