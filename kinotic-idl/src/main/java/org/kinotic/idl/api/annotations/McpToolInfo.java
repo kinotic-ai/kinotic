@@ -44,4 +44,12 @@ public @interface McpToolInfo {
      */
     boolean idempotentHint() default false;
 
+    /**
+     * Indicates the tool reaches a system outside the platform, such as a third-party API. A function that
+     * works against the platform's own data leaves this false, which is what an MCP host reads to decide how
+     * much scrutiny a call deserves. MCP itself defaults this hint to true, so a tool that never states it
+     * would otherwise be served as if it called out to the world.
+     */
+    boolean openWorldHint() default false;
+
 }

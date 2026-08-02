@@ -211,7 +211,8 @@ public class DefaultSchemaFactory implements SchemaFactory {
                     .setDescription(description)
                     .setReadOnlyHint(hints.readOnly())
                     .setDestructiveHint(hints.destructive())
-                    .setIdempotentHint(hints.idempotent());
+                    .setIdempotentHint(hints.idempotent())
+                    .setOpenWorldHint(hints.openWorld());
         }
         return ret;
     }

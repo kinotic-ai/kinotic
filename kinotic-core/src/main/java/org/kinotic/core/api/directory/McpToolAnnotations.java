@@ -19,4 +19,6 @@ public class McpToolAnnotations {
     private boolean destructiveHint;
 
     private boolean idempotentHint;
+
+    private boolean openWorldHint;
 }

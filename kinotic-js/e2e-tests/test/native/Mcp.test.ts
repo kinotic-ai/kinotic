@@ -110,6 +110,8 @@ describe('Kinotic JS', () => {
             "Looks up projects in the current participant's organization whose backing GitHub repo has the given "
             + 'owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.')
         expect(findProjects!.annotations?.readOnlyHint).toBe(true)
+        // served explicitly because MCP defaults it to true, which reads as a call that leaves the platform
+        expect(findProjects!.annotations?.openWorldHint).toBe(false)
         // a name is a hash, so it carries nothing an LLM host would rewrite to a different name
         expect(findProjects!.name).toMatch(/^[0-9a-z]+$/)
         // schema property names come from the compiled parameter names

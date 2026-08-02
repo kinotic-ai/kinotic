@@ -45,6 +45,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link CompletableFuture} emitting the updated project
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
+    @McpTool(openWorldHint = true)
     CompletableFuture<Project> retryRepoInitialization(String projectId);
 
 }
