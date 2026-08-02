@@ -6,9 +6,12 @@ kinotic:
     appPrivateKey: "-"
   domain:
     # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
-    # Verification email URLs and OIDC redirect URIs are built from this base, so they
-    # need to point at the SPA's origin — not at kinotic-server's static port (9090).
+    # appBaseUrl builds SPA links (verification emails, post-auth redirects) — the SPA's
+    # origin. apiBaseUrl builds the OAuth2/OIDC redirect_uris, which must land on the
+    # backend: the vite server has no /api proxy, so an IdP callback sent to 5173
+    # dead-ends in the SPA router. IdP callback URLs are registered against apiBaseUrl.
     appBaseUrl: http://localhost:5173
+    apiBaseUrl: http://localhost:58503
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
