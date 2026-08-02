@@ -54,6 +54,11 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
+    // A partial update is a field merge, so re-running the get-and-reindex cycle after a concurrent write
+    // converges on the same result. Elasticsearch defaults retry_on_conflict to 0, which fails the loser of
+    // any race with a version_conflict_engine_exception.
+    private static final int PARTIAL_UPDATE_RETRY_ON_CONFLICT = 3;
+
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -563,7 +568,7 @@ public class CrudServiceTemplate {
     /**
      * Applies a partial update to a document, merging only the given fields into the stored source and leaving
      * every other field untouched. With {@code upsert} true a missing document is created from the partial
-     * instead of failing.
+     * instead of failing. A write racing another update of the same document is retried until it applies.
      *
      * @param indexName name of the index containing the document
      * @param id        of the document to update
@@ -578,14 +583,16 @@ public class CrudServiceTemplate {
         return bindToContext(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
-                                                        .docAsUpsert(upsert),
+                                                        .docAsUpsert(upsert)
+                                                        .retryOnConflict(PARTIAL_UPDATE_RETRY_ON_CONFLICT),
                                                   Map.class)
                                           .thenApply(response -> null));
     }
 
     /**
      * Merges the given fields into a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
-     * semantics for subsequent queries.
+     * semantics for subsequent queries. A write racing another update of the same document is retried until
+     * it applies.
      *
      * @param indexName name of the index
      * @param id        of the document to update
@@ -601,6 +608,7 @@ public class CrudServiceTemplate {
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
+                                                        .retryOnConflict(PARTIAL_UPDATE_RETRY_ON_CONFLICT)
                                                         .refresh(Refresh.WaitFor),
                                                   Map.class)
                                           .thenApply(response -> null));
