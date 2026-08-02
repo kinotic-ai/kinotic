@@ -31,6 +31,14 @@ function lowerDomainDecorators(): Plugin {
     }
 }
 
+const GATEWAY_TARGET = 'http://localhost:58503'
+
+// Public hostname of a dev tunnel (ngrok, Cloudflare, …) fronting this dev server, unset for plain
+// local development. Point VITE_KINOTIC_HOST at the same hostname and the SPA, the REST endpoints
+// and the STOMP upgrade all share the tunnel's origin, which is what the SameSite=Lax session
+// cookie and the OIDC start/callback pair both require.
+const tunnelHost = process.env.VITE_DEV_TUNNEL_HOST
+
 // https://vite.dev/config/
 export default defineConfig(
     {
@@ -53,6 +61,18 @@ export default defineConfig(
             port: 5173,
             host: true,
             open: false,
+            // vite rejects a Host header it does not recognise, and the HMR client would otherwise
+            // dial the dev server's own port rather than the tunnel's
+            allowedHosts: tunnelHost ? [tunnelHost] : [],
+            hmr: tunnelHost ? { protocol: 'wss', host: tunnelHost, clientPort: 443 } : undefined,
+            // Dormant unless VITE_KINOTIC_HOST names this dev server, in which case helpers.ts
+            // emits URLs that land here and these forward them to the gateway.
+            proxy: {
+                '/api': GATEWAY_TARGET,
+                '/mcp': GATEWAY_TARGET,
+                '/.well-known': GATEWAY_TARGET,
+                '/v1': { target: GATEWAY_TARGET, ws: true }
+            },
             headers: {
                 'Cache-Control': 'no-store'
             }
