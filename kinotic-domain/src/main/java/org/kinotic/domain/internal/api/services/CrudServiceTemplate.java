@@ -54,11 +54,6 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
-    // A partial update is a field merge, so re-running the get-and-reindex cycle after a concurrent write
-    // converges on the same result. Elasticsearch defaults retry_on_conflict to 0, which fails the loser of
-    // any race with a version_conflict_engine_exception.
-    private static final int PARTIAL_UPDATE_RETRY_ON_CONFLICT = 3;
-
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -567,51 +562,49 @@ public class CrudServiceTemplate {
 
     /**
      * Applies a partial update to a document, merging only the given fields into the stored source and leaving
-     * every other field untouched. With {@code upsert} true a missing document is created from the partial
-     * instead of failing. A write racing another update of the same document is retried until it applies.
+     * every other field untouched. Also allows for customization of the {@link UpdateRequest}, e.g.
+     * {@code docAsUpsert} to create a missing document from the partial, or {@code retryOnConflict} for a
+     * document other writers update concurrently.
      *
-     * @param indexName name of the index containing the document
-     * @param id        of the document to update
-     * @param partial   the fields to merge into the document
-     * @param upsert    true to create the document from {@code partial} when it does not exist
+     * @param indexName       name of the index containing the document
+     * @param id              of the document to update
+     * @param partial         the fields to merge into the document
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
      * @return a {@link CompletableFuture} that will complete when the update is applied
      */
     public CompletableFuture<Void> partialUpdate(String indexName,
                                                  String id,
                                                  Map<String, Object> partial,
-                                                 boolean upsert) {
-        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
-                                                        .id(id)
-                                                        .doc(partial)
-                                                        .docAsUpsert(upsert)
-                                                        .retryOnConflict(PARTIAL_UPDATE_RETRY_ON_CONFLICT),
-                                                  Map.class)
-                                          .thenApply(response -> null));
+                                                 Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return bindToContext(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> builder) -> {
+            builder.index(indexName).id(id).doc(partial);
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            return builder;
+        }, Map.class).thenApply(response -> null));
     }
 
     /**
      * Merges the given fields into a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
-     * semantics for subsequent queries. A write racing another update of the same document is retried until
-     * it applies.
+     * semantics for subsequent queries. Also allows for customization of the {@link UpdateRequest}.
      *
-     * @param indexName name of the index
-     * @param id        of the document to update
-     * @param partial   the fields to merge into the document
-     * @param upsert    true to create the document from {@code partial} when it does not exist
+     * @param indexName       name of the index
+     * @param id              of the document to update
+     * @param partial         the fields to merge into the document
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
      * @return a {@link CompletableFuture} that will complete when the update is applied
      */
     public CompletableFuture<Void> partialUpdateSync(String indexName,
                                                      String id,
                                                      Map<String, Object> partial,
-                                                     boolean upsert) {
-        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
-                                                        .id(id)
-                                                        .doc(partial)
-                                                        .docAsUpsert(upsert)
-                                                        .retryOnConflict(PARTIAL_UPDATE_RETRY_ON_CONFLICT)
-                                                        .refresh(Refresh.WaitFor),
-                                                  Map.class)
-                                          .thenApply(response -> null));
+                                                     Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return partialUpdate(indexName, id, partial, builder -> {
+            if (builderConsumer != null) {
+                builderConsumer.accept(builder);
+            }
+            builder.refresh(Refresh.WaitFor);
+        });
     }
 
     /**

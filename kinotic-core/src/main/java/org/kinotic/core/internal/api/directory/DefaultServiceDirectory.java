@@ -4,6 +4,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.IgniteException;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
@@ -106,8 +107,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
-        drainStartupRegistrations();
-        deployLivenessSingleton();
+        // ServiceLivenessUpdater reconciles every entry the moment it starts, so deploying it only once this
+        // node's entries are published keeps that pass from writing the same documents as the publish
+        drainStartupRegistrations().onComplete(ignored -> deployLivenessSingleton());
     }
 
     @Override
@@ -150,23 +152,33 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         }
     }
 
-    private void drainStartupRegistrations() {
+    /**
+     * Publishes the registrations queued during startup in one batch and reconciles their liveness.
+     *
+     * @return a {@link Future} completing once this node's entries are in the directory
+     */
+    private Future<Void> drainStartupRegistrations() {
         Map<ServiceIdentifier, ServiceDeclaration> batch;
         synchronized (registrationLock) {
             startupComplete = true;
             batch = new HashMap<>(pendingRegistrations);
             pendingRegistrations.clear();
         }
-        if (!batch.isEmpty()) {
+        Future<Void> ret;
+        if (batch.isEmpty()) {
+            ret = Future.succeededFuture();
+        } else {
             try {
                 // one reconcile corrects the liveness of every entry from a single cluster snapshot,
                 // instead of one registration query per service
-                publishAllToDirectory(batch).compose(v -> reconcileLiveness())
-                                            .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+                ret = publishAllToDirectory(batch).compose(v -> reconcileLiveness())
+                                                  .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
+                ret = Future.failedFuture(e);
             }
         }
+        return ret;
     }
 
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
@@ -175,8 +187,18 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             log.error("Ignite is not available; the service liveness updater singleton will not be deployed! This means the service directory will never be updated.");
             return;
         }
-        // ServiceLivenessUpdater is an Ignite Service that manages the liveness of services
-        ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
+        // ServiceLivenessUpdater is an Ignite Service that manages the liveness of services. Deploying it
+        // asynchronously keeps the cluster-wide wait off the Vert.x context that completed the startup publish
+        ignite.services()
+              .deployClusterSingletonAsync(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater())
+              .listen(deployment -> {
+                  try {
+                      // the future is already done; get() is what surfaces a deployment failure
+                      deployment.get();
+                  } catch (IgniteException e) {
+                      log.error("Failed to deploy the service liveness updater singleton! This means the service directory will never be updated.", e);
+                  }
+              });
     }
 
     /**
