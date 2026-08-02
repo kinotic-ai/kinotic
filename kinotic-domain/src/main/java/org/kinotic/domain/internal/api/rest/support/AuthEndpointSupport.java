@@ -133,6 +133,9 @@ public class AuthEndpointSupport {
 
     /** {@code 302 Location: <appBaseUrl><errorPath>?error=<code>}. */
     public void redirectError(RoutingContext ctx, String errorCode) {
+        // the flow that stored a return path ends here, so it must not outlive it and send an
+        // unrelated later login somewhere the user never asked for
+        ctx.session().remove(RETURN_PATH_SESSION_KEY);
         ctx.response().setStatusCode(302)
            .putHeader("Location", appUrl("/login")
                    + "?error=" + URLEncoder.encode(errorCode, StandardCharsets.UTF_8))
@@ -296,9 +299,13 @@ public class AuthEndpointSupport {
               .onSuccess(url -> {
                   // null means the compose above already answered the unknown-provider case
                   if (url != null) {
+                      // written after startFlow, which regenerates the session id. each start
+                      // defines where its own flow lands, so a path a previous one abandoned at
+                      // the IdP is replaced rather than inherited
                       if (returnPath != null) {
-                          // written after startFlow, which regenerates the session id
                           ctx.session().put(RETURN_PATH_SESSION_KEY, returnPath);
+                      } else {
+                          ctx.session().remove(RETURN_PATH_SESSION_KEY);
                       }
                       ctx.response().setStatusCode(302).putHeader("Location", url).end();
                   }
