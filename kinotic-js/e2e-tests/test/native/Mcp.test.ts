@@ -4,13 +4,16 @@ import {McpError} from '@modelcontextprotocol/sdk/types.js'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 
-// Tool names are minted server side: the service's qualified name, then the function name, with every
-// character outside [a-zA-Z0-9_-] encoded to an underscore
-const FIND_PROJECTS_BY_REPO = 'os-api_org_kinotic_os_api_services_ProjectService_findByRepoFullName'
-const CREATE_APPLICATION = 'os-api_org_kinotic_os_api_services_ApplicationService_createApplicationIfNotExist'
-// ProjectService inherits save from CrudService, which declares save(T entity), while the
-// implementation it inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
-const SAVE_PROJECT = 'os-api_org_kinotic_os_api_services_ProjectService_save'
+// Tool names are minted server side as the base-36 XXHash128 of '<qualified name>/<function>', so each
+// literal below is opaque and the comment is the only record of what it was minted from.
+// os-api~org.kinotic.os.api.services.ProjectService/findByRepoFullName
+const FIND_PROJECTS_BY_REPO = 'c90vhkooqs0jat647hhkbm4q2'
+// os-api~org.kinotic.os.api.services.ApplicationService/createApplicationIfNotExist
+const CREATE_APPLICATION = 'azmevsseuh9mx2u9p44qk8nfp'
+// os-api~org.kinotic.os.api.services.ProjectService/save — ProjectService inherits save from CrudService,
+// which declares save(T entity), while the implementation it inherits — AbstractCrudService.save(T value) —
+// names the same parameter 'value'.
+const SAVE_PROJECT = '5r16fc0u5r4ooklw689ps4x1y'
 
 /** APPLICATION-scope fixture application seeded for this suite by V5__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
@@ -71,9 +74,11 @@ describe('Kinotic JS', () => {
         expect(await toolNames(organizationClient), 'org participants see os-api tools')
             .toContain(FIND_PROJECTS_BY_REPO)
 
+        // a hashed name carries no zone prefix to filter on, so the known os-api tools are named directly
         const applicationTools = await toolNames(applicationClient)
-        expect(applicationTools.filter(name => name.startsWith('os-api_')),
-               'app participants never see os-api tools').toEqual([])
+        for (const osApiTool of [FIND_PROJECTS_BY_REPO, CREATE_APPLICATION, SAVE_PROJECT]) {
+            expect(applicationTools, 'app participants never see os-api tools').not.toContain(osApiTool)
+        }
     })
 
     it('serves tool metadata and schemas from the service contract', async () => {

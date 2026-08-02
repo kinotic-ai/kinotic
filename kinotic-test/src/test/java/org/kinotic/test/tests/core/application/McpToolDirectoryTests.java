@@ -21,10 +21,10 @@ import java.util.List;
 @SpringBootTest
 public class McpToolDirectoryTests extends KinoticTestBase {
 
-    private static final String FIND_PROJECTS_BY_REPO =
-            "os-api_org_kinotic_os_api_services_ProjectService_findByRepoFullName";
-    private static final String GET_OIDC_CONFIGURATIONS =
-            "os-api_org_kinotic_os_api_services_ApplicationService_getOidcConfigurations";
+    // base-36 XXHash128 of "os-api~org.kinotic.os.api.services.ProjectService/findByRepoFullName"
+    private static final String FIND_PROJECTS_BY_REPO = "c90vhkooqs0jat647hhkbm4q2";
+    // base-36 XXHash128 of "os-api~org.kinotic.os.api.services.ApplicationService/getOidcConfigurations"
+    private static final String GET_OIDC_CONFIGURATIONS = "ai2bnwxt71kuve8k1qsyu3hje";
 
     @Autowired
     private ServiceDirectory serviceDirectory;
