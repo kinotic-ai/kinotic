@@ -7,14 +7,17 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a published ({@code @Publish}) service's functions as Model Context Protocol tools. On a method —
- * declared on the service interface or on the implementation's override — that method becomes a callable
- * tool whose {@link #description} and hints are surfaced to LLM callers. On the service interface itself,
- * every function becomes a tool, and the annotation states the service half of their {@link #title}; each
- * function's own description and hints come from its {@code @McpTool} or {@link McpToolInfo}, its Javadoc,
- * or its name, so each tool stays individually recognizable to an LLM caller. A {@link McpToolInfo} anywhere
- * in a function's hierarchy describes it here, which is how a base interface describes functions it does not
- * itself expose.
+ * Exposes a published ({@code @Publish}) service's functions as Model Context Protocol tools. Put it on a
+ * method to expose that one function, or on the service interface to expose every function. On a method it
+ * works from the interface or from the implementation's override.
+ *
+ * A tool's title is the service's title followed by the function's: the annotation on the interface sets the
+ * first, the one on the method sets the second. The description and hints are read from the method only.
+ * Anything the method leaves empty comes from the function itself: its name becomes its half of the title,
+ * its Javadoc becomes the description, and the words in its name become the hints.
+ *
+ * Use {@link McpToolInfo} to describe a function without exposing it. Both annotations are inherited, so a
+ * base interface such as a CRUD contract can describe functions that only its subtypes expose.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
@@ -22,30 +25,28 @@ import java.lang.annotation.Target;
 public @interface McpTool {
 
     /**
-     * The LLM-facing description of what the tool does, read on a method. When empty, the function's Javadoc
-     * describes the tool, and failing that the function name split into a sentence
-     * ({@code findByRepoFullName} becomes {@code "Find by repo full name"}).
+     * What the tool does, in the words an LLM reads to decide whether to call it. Only read on a method.
+     * When it is empty the function's Javadoc is used, and when the function has none, its name as a
+     * sentence: {@code findByRepoFullName} becomes {@code "Find by repo full name"}.
      */
     String description() default "";
 
     /**
-     * Half of the tool's human-readable display title, which is always a service half and a function half
-     * joined by a space. On the service interface this states the service half, on a method the function
-     * half; each half a declaration leaves empty is split out of the name it stands for, so
-     * {@code ProjectService.findByRepoFullName} titles as {@code "Project Service Find By Repo Full Name"}.
-     * Carrying the service half on every tool is what keeps a title recognizable when many services expose
-     * a function of the same name. The tool name itself is always derived from the service's qualified name
-     * and the method name, so it is unique system wide.
+     * Half of the tool's display title. On the service interface it is the service's half, on a method it is
+     * the function's, and the two are joined by a space. An empty half is built from the name it stands for,
+     * so {@code ProjectService.findByRepoFullName} is titled
+     * {@code "Project Service Find By Repo Full Name"}. Every tool carries the service's half, which is what
+     * keeps a title recognizable when several services have a function of the same name. This never affects
+     * the tool's name, which is always built from the service's qualified name and the method name.
      */
     String title() default "";
 
     /**
-     * Indicates the tool does not modify its environment. Declared on a method, this and the other two hints
-     * are served exactly as written. A function swept in by a type-level {@code @McpTool}, carrying neither
-     * a {@code @McpTool} nor a {@link McpToolInfo} of its own, is hinted by every word of its name: a word
-     * that replaces or removes state ({@code save}, {@code delete}) makes it destructive and idempotent, a
-     * {@code createIfNotExist} idempotent, a word that adds or acts ({@code create}, {@code send}) nothing,
-     * and only a name whose verbs all read ({@code find}, {@code get}, {@code peopleCount}) read-only.
+     * Indicates the tool does not modify its environment. All three hints are read together from the
+     * method's annotation, exactly as it writes them. A function with no annotation of its own is hinted by
+     * the words in its name instead: {@code save} or {@code delete} make it destructive and idempotent, a
+     * name ending in {@code IfNotExist} makes it idempotent, {@code create} or {@code send} leave all three
+     * false, and a name that only reads ({@code find}, {@code get}, {@code peopleCount}) makes it read-only.
      */
     boolean readOnlyHint() default false;
 
