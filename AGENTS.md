@@ -71,6 +71,8 @@ Don't create a new package or folder to hold a single file. Single-file folders 
 
 ## Comments
 
+**IMPORTANT: Write comments the way you would explain the code to another developer.**
+
 Javadoc — block comments on classes, methods, fields, anything else — describes the contract from the caller's perspective: what something is for, what guarantees it makes, what the inputs and outputs mean. It should not document implementation details — how the class persists, which helper it delegates to, what bypass mechanism it uses internally — that's noise for someone using the API and rots when the implementation changes. Also they should not document what something does not do. Only what it does do. (Unless it is a security concern, Does not validate user) 
 
 Inline comments inside method bodies are different: they're for implementation details that aren't obvious from reading the code, and only when they aren't. A subtle invariant, the reason for an unusual ordering, a workaround for a specific bug, a non-obvious choice between two valid approaches — those earn an inline comment. Self-evident code does not. If you find yourself writing a comment that restates what the next line does, delete it.
@@ -78,8 +80,6 @@ Inline comments inside method bodies are different: they're for implementation d
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
 Keep comments concise — usually a single line. Spend more words only where the logic is genuinely not straightforward and the extra explanation earns its place: a subtle invariant, a non-obvious interaction, a reason that isn't visible in the code. A comment's length should track how hard the code is to follow, not how important the code is.
-
-Write comments the way you would explain the code to another developer, one idea per sentence. Brevity comes from cutting ideas, never from compressing them. Three clauses stitched together with em-dashes and semicolons are shorter to write and slower to read. Every "it", "this", and "here" must point at something in the same sentence. If a sentence needs a second read to parse, split it in two.
 
 Comment the code as it is now, not its history. Don't narrate what the code used to do or the edit you're making — no "before", "previously", "used to", "changed from", or "now does X instead" phrasing. The diff and git history record what changed; the comment describes the present state.
 
