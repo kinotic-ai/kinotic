@@ -15,8 +15,8 @@ import java.util.List;
  * {@link #applicationId} both null means a system (OS) service, mirroring the participant model. An
  * {@link #applicationId} is never set without an {@link #organizationId}.
  * <p>
- * Contract fields are written when the service is published to the directory; {@link #online} and {@link #lastStatusChange} are maintained
- * separately by the liveness owner and must be left untouched by entry upserts.
+ * The whole entry is written when the service is published to the directory, which publishes it live;
+ * {@link #online} and {@link #lastStatusChange} are maintained from then on by the liveness owner.
  */
 @Getter
 @Setter

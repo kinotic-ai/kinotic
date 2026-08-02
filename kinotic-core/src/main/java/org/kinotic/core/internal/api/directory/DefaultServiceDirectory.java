@@ -128,11 +128,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         if (!queued) {
-            // a late registration (lazily created bean) cannot join a batch, publish it immediately.
-            // The entry starts with online unset and its ACTIVE registration event may have fired before the
-            // entry existed, so refresh from the verified cluster state after the upsert
+            // a late registration (lazily created bean) cannot join a batch, publish it immediately
             publishAllToDirectory(Map.of(serviceIdentifier, registration))
-                    .compose(v -> refreshOnline(serviceIdentifier))
                     .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
         }
     }
@@ -153,7 +150,7 @@ public class DefaultServiceDirectory implements ServiceDirectory {
     }
 
     /**
-     * Publishes the registrations queued during startup in one batch and reconciles their liveness.
+     * Publishes the registrations queued during startup in one batch.
      *
      * @return a {@link Future} completing once this node's entries are in the directory
      */
@@ -169,10 +166,9 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             ret = Future.succeededFuture();
         } else {
             try {
-                // one reconcile corrects the liveness of every entry from a single cluster snapshot,
-                // instead of one registration query per service
-                ret = publishAllToDirectory(batch).compose(v -> reconcileLiveness())
-                                                  .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+                // the entries carry their liveness, so no reconcile is needed to bring them online
+                ret = publishAllToDirectory(batch)
+                        .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
             } catch (Exception e) {
                 log.error("Startup directory publish failed", e);
                 ret = Future.failedFuture(e);
@@ -352,7 +348,11 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                 .setServiceDefinition(serviceDefinition)
                 .setAdvertised(isAdvertised(serviceInterface))
                 .setMcpExposed(!tools.isEmpty())
-                .setMcpTools(tools.isEmpty() ? null : tools);
+                .setMcpTools(tools.isEmpty() ? null : tools)
+                // the service registered on this node before it reached the directory, so it is published
+                // live; ServiceLivenessUpdater owns every transition from here on
+                .setOnline(true)
+                .setLastStatusChange(Instant.now());
     }
 
     // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already

@@ -12,11 +12,9 @@ import org.kinotic.core.api.directory.ServiceDirectoryEntry;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
-import tools.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,32 +36,18 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
     // a name resolution matches at most a handful of entries; more than this only under pathological collision
     private static final int RESOLUTION_PAGE_SIZE = 25;
 
-    private final ObjectMapper objectMapper;
-
-    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate,
-                                           ObjectMapper objectMapper) {
+    public ServiceDirectoryEntryRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_service_directory", ServiceDirectoryEntry.class, crudServiceTemplate);
-        this.objectMapper = objectMapper;
     }
 
     /**
-     * Upserts an entry as a partial update, leaving the liveness fields untouched so a re-registration never
-     * clobbers the {@code online} state the liveness owner maintains.
+     * Writes the entry, replacing any document already carrying its id.
      */
     public CompletableFuture<Void> upsertEntry(ServiceDirectoryEntry entry) {
-        @SuppressWarnings("unchecked")
-        Map<String, Object> complete = objectMapper.convertValue(entry, Map.class);
-        Map<String, Object> partial = new HashMap<>(complete);
-        partial.remove("online");
-        partial.remove("lastStatusChange");
-        // the caller reconciles liveness with a search right after this completes, so the write
-        // must be visible to search before the future does. Retry because the liveness writers merge their
-        // own fields into this same entry concurrently
-        return crudServiceTemplate.partialUpdateOrCreateSync(indexName,
-                                                             entry.getId(),
-                                                             partial,
-                                                             complete,
-                                                             true);
+        // the liveness updater finds entries by search, so this write must be visible to search before the
+        // future completes or its first reconcile runs against a directory missing these entries
+        return crudServiceTemplate.saveSync(indexName, entry.getId(), entry, null)
+                                  .thenApply(response -> null);
     }
 
     /**

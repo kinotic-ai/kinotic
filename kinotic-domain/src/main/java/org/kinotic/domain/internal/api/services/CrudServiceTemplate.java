@@ -578,45 +578,11 @@ public class CrudServiceTemplate {
                                                  String id,
                                                  Map<String, Object> partial,
                                                  boolean retryOnConflict) {
-        return partialUpdate(indexName, id, partial, null, retryOnConflict, null);
-    }
-
-    /**
-     * Merges the given fields into an existing document, or inserts {@code createWith} when no document
-     * carries the id. Uses {@link Refresh#WaitFor}, guaranteeing read-your-write semantics for subsequent
-     * queries.
-     *
-     * @param indexName       name of the index
-     * @param id              of the document to update
-     * @param partial         the fields to merge into an existing document
-     * @param createWith      the complete document to insert when none exists
-     * @param retryOnConflict true to re-apply the merge when another writer updates the document first,
-     *                        false to fail the update on the first conflict
-     * @return a {@link CompletableFuture} that will complete when the update is applied
-     */
-    public CompletableFuture<Void> partialUpdateOrCreateSync(String indexName,
-                                                             String id,
-                                                             Map<String, Object> partial,
-                                                             Map<String, Object> createWith,
-                                                             boolean retryOnConflict) {
-        return partialUpdate(indexName, id, partial, createWith, retryOnConflict, Refresh.WaitFor);
-    }
-
-    private CompletableFuture<Void> partialUpdate(String indexName,
-                                                  String id,
-                                                  Map<String, Object> partial,
-                                                  Map<String, Object> createWith,
-                                                  boolean retryOnConflict,
-                                                  Refresh refresh) {
+        // no upsert document, so a missing id fails the request rather than creating a partial document
         return bindToContext(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
-                                                        // a null upsert makes a missing document fail the
-                                                        // request rather than create a partial one
-                                                        .upsert(createWith)
-                                                        .retryOnConflict(retryOnConflict ? CONFLICT_RETRIES : 0)
-                                                        // null leaves the request at Elasticsearch's default
-                                                        .refresh(refresh),
+                                                        .retryOnConflict(retryOnConflict ? CONFLICT_RETRIES : 0),
                                                   Map.class)
                                           .thenApply(response -> null));
     }

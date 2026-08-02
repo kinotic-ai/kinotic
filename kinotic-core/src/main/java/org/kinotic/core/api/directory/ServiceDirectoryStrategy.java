@@ -78,7 +78,7 @@ public interface ServiceDirectoryStrategy {
     Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when);
 
     /**
-     * Upserts an entry, leaving the liveness fields ({@code online}, {@code lastStatusChange}) untouched.
+     * Stores an entry, replacing any entry already carrying its id, liveness fields included.
      * @param entry the entry to upsert
      * @return a {@link Future} completing when the entry is stored
      */
