@@ -21,15 +21,17 @@
         <Button
           label="Approve"
           class="login-submit"
-          :loading="deciding"
-          @click="decide(true)"
+          :loading="deciding === 'approve'"
+          :disabled="deciding !== null"
+          @click="decide('approve')"
         />
         <Button
           label="Deny"
           class="login-submit consent-deny"
           severity="secondary"
-          :loading="deciding"
-          @click="decide(false)"
+          :loading="deciding === 'deny'"
+          :disabled="deciding !== null"
+          @click="decide('deny')"
         />
       </div>
     </div>
@@ -65,9 +67,12 @@ const oauthApproval = (Kinotic as unknown as { oauthApproval: OAuthApprovalProxy
  * (`/oauth/consent?request_id=<id>`); the signed-in user approves or denies, and either
  * decision returns the client's redirect URL this page navigates to.
  */
+type Decision = 'approve' | 'deny'
+
 const pending = ref<PendingOAuthAuthorization | null>(null)
 const failed = ref<string | null>(null)
-const deciding = ref(false)
+// which decision is in flight, so only the clicked button shows its spinner
+const deciding = ref<Decision | null>(null)
 
 const loginBackgroundArt = loginPageLeft
 const route = useRoute()
@@ -96,18 +101,18 @@ onMounted(async () => {
   }
 })
 
-async function decide(approve: boolean) {
+async function decide(decision: Decision) {
   const id = requestId.value
   if (!id) return
-  deciding.value = true
+  deciding.value = decision
   try {
-    const redirectUrl = approve
+    const redirectUrl = decision === 'approve'
       ? await oauthApproval.approve(id)
       : await oauthApproval.deny(id)
     window.location.href = redirectUrl
   } catch (err) {
     failed.value = err instanceof Error ? err.message : 'Could not complete the authorization'
-    deciding.value = false
+    deciding.value = null
   }
 }
 </script>
@@ -128,7 +133,18 @@ async function decide(approve: boolean) {
   font-family: monospace;
 }
 
-.consent-deny {
+/* Deny is the secondary action, but .login-submit in auth-pages.css paints the primary fill at
+ * a specificity PrimeVue's secondary severity cannot beat. Scoping adds the data-v attribute,
+ * which wins, and the surface matches the social buttons on the other auth pages. */
+.consent-deny.p-button {
   margin-top: 0.75rem;
+  background: var(--lp-provider-bg);
+  border: 1px solid var(--lp-provider-border);
+  color: var(--lp-provider-color);
+}
+
+.consent-deny.p-button:hover {
+  background: var(--lp-provider-bg-hover);
+  border-color: var(--lp-provider-border-hover);
 }
 </style>
