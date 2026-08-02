@@ -19,6 +19,7 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
 import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
@@ -51,7 +52,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 /**
  * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
@@ -68,8 +68,6 @@ import java.util.regex.Pattern;
 public class DefaultServiceDirectory implements ServiceDirectory {
 
     private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
-
-    private static final Pattern TOOL_NAME_PATTERN = Pattern.compile("^[a-zA-Z0-9_.-]{1,128}$");
 
     // A strategy pattern is used, to favor composition over inheritance
     private final ServiceDirectoryStrategy strategy;
@@ -295,10 +293,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                                             + " has a streaming return type, which MCP tools do not support");
                 }
 
-                String toolName = toolName(serviceIdentifier, function.getName());
+                String toolName = KinoticUtil.mcpToolName(serviceIdentifier.qualifiedName(), function.getName());
                 if (!toolNames.add(toolName)) {
-                    throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for service "
-                                                            + serviceIdentifier);
+                    // the name is a hash, so it names nothing on its own — the function it was minted from
+                    // is what a reader needs to act on this
+                    throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for function '"
+                                                            + function.getName() + "' on service " + serviceIdentifier);
                 }
 
                 tools.add(new McpToolDefinition()
@@ -369,24 +369,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
             }
         }
         return resolver;
-    }
-
-    /**
-     * Returns the tool name for the function: the service's qualified name (with {@code ~} as {@code .}) plus
-     * the function, encoded to fit {@code ^[a-zA-Z0-9_.-]{1,128}$}. The qualified name makes the tool name
-     * unique system wide; {@code title} carries the human-readable display name. Names are minted here, never
-     * parsed back apart.
-     */
-    private String toolName(ServiceIdentifier serviceIdentifier, String functionName) {
-        String toolName = (serviceIdentifier.qualifiedName().replace('~', '.') + "." + functionName)
-                .replaceAll("[^a-zA-Z0-9_.-]", "_");
-        // a name long enough to overflow the 128-char limit must fail loudly, never truncate
-        if (!TOOL_NAME_PATTERN.matcher(toolName).matches()) {
-            throw new IllegalStateException("MCP tool name '" + toolName + "' for function '" + functionName
-                                                    + "' on service " + serviceIdentifier
-                                                    + " does not match the required pattern " + TOOL_NAME_PATTERN.pattern());
-        }
-        return toolName;
     }
 
 }

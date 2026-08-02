@@ -4,12 +4,14 @@ import {McpError} from '@modelcontextprotocol/sdk/types.js'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 
-// Tool names are minted server side: the service's qualified name with '~' as '.', then the function name
-const FIND_PROJECTS_BY_REPO = 'os-api.org.kinotic.os.api.services.ProjectService.findByRepoFullName'
-const CREATE_APPLICATION = 'os-api.org.kinotic.os.api.services.ApplicationService.createApplicationIfNotExist'
-// ProjectService inherits save from CrudService, which declares save(T entity), while the
-// implementation it inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
-const SAVE_PROJECT = 'os-api.org.kinotic.os.api.services.ProjectService.save'
+// A tool name is the base-36 XXHash128 of '<qualified name>/<function>', minted server side by
+// KinoticUtil.mcpToolName, so it says nothing on its own. Tools are named here by the title the server
+// derives from the service and the function, and their minted names come from the listing.
+const FIND_PROJECTS_BY_REPO = 'Project Service Find by GitHub Repo'
+const CREATE_APPLICATION = 'Application Service Create Application If Not Exist'
+// ProjectService inherits save from CrudService, which declares save(T entity), while the implementation it
+// inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
+const SAVE_PROJECT = 'Project Service Save'
 
 /** APPLICATION-scope fixture application seeded for this suite by V5__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
@@ -25,8 +27,8 @@ async function connectMcpClient(authHeaders: Record<string, string>): Promise<Cl
     return client
 }
 
-async function toolNames(client: Client): Promise<string[]> {
-    return (await client.listTools()).tools.map(tool => tool.name)
+async function toolTitles(client: Client): Promise<string[]> {
+    return (await client.listTools()).tools.map(tool => tool.title ?? '')
 }
 
 describe('Kinotic JS', () => {
@@ -34,6 +36,17 @@ describe('Kinotic JS', () => {
     let systemClient: Client
     let organizationClient: Client
     let applicationClient: Client
+
+    /** Title to minted name, read from the system listing once every expected tool is published. */
+    const mintedNames = new Map<string, string>()
+
+    function toolName(title: string): string {
+        const name = mintedNames.get(title)
+        if (name === undefined) {
+            throw new Error(`No tool titled '${title}' in the listing`)
+        }
+        return name
+    }
 
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
@@ -49,12 +62,23 @@ describe('Kinotic JS', () => {
                                                     applicationId: APP_ID})
 
         // the directory publishes on server startup; wait for the listing to settle
+        const expected = [FIND_PROJECTS_BY_REPO, CREATE_APPLICATION, SAVE_PROJECT]
         const deadline = Date.now() + 30000
-        while (!(await toolNames(systemClient)).includes(FIND_PROJECTS_BY_REPO)) {
+        let titles: string[] = []
+        while (!expected.every(title => titles.includes(title))) {
             if (Date.now() > deadline) {
-                throw new Error(`Timed out waiting for ${FIND_PROJECTS_BY_REPO} to appear in the tool listing`)
+                throw new Error(`Timed out waiting for ${expected} in the tool listing, got: ${titles}`)
             }
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            titles = await toolTitles(systemClient)
+            if (!expected.every(title => titles.includes(title))) {
+                await new Promise(resolve => setTimeout(resolve, 1000))
+            }
+        }
+
+        for (const tool of (await systemClient.listTools()).tools) {
+            if (tool.title !== undefined) {
+                mintedNames.set(tool.title, tool.name)
+            }
         }
     }, 120000)
 
@@ -65,33 +89,35 @@ describe('Kinotic JS', () => {
     }, 60000)
 
     it('lists tools following the zone visibility matrix', async () => {
-        expect(await toolNames(systemClient), 'system sees every zone').toContain(CREATE_APPLICATION)
+        expect(await toolTitles(systemClient), 'system sees every zone').toContain(CREATE_APPLICATION)
 
-        expect(await toolNames(organizationClient), 'org participants see os-api tools')
+        expect(await toolTitles(organizationClient), 'org participants see os-api tools')
             .toContain(FIND_PROJECTS_BY_REPO)
 
-        const applicationTools = await toolNames(applicationClient)
-        expect(applicationTools.filter(name => name.startsWith('os-api.')),
-               'app participants never see os-api tools').toEqual([])
+        // every os-api tool's title leads with its service's half, so this catches the os-api tools this
+        // suite never names as well as the three it does
+        const leaked = (await toolTitles(applicationClient))
+            .filter(title => title.startsWith('Project Service') || title.startsWith('Application Service'))
+        expect(leaked, 'app participants never see os-api tools').toHaveLength(0)
     })
 
     it('serves tool metadata and schemas from the service contract', async () => {
-        const tools = (await systemClient.listTools()).tools
-        const findProjects = tools.find(tool => tool.name === FIND_PROJECTS_BY_REPO)
+        const findProjects = (await systemClient.listTools()).tools
+            .find(tool => tool.name === toolName(FIND_PROJECTS_BY_REPO))
 
         expect(findProjects).toBeDefined()
         expect(findProjects!.description).toBe(
             "Looks up projects in the current participant's organization whose backing GitHub repo has the given "
             + 'owner/repo full name. Returns the empty list when no project in that organization is backed by the repo.')
-        // titles are two halves: the service's, derived from ProjectService here, then the function's
-        expect(findProjects!.title).toBe('Project Service Find by GitHub Repo')
         expect(findProjects!.annotations?.readOnlyHint).toBe(true)
+        // a name is a hash, so it carries nothing an LLM host would rewrite to a different name
+        expect(findProjects!.name).toMatch(/^[0-9a-z]+$/)
         // schema property names come from the compiled parameter names
         expect(Object.keys(findProjects!.inputSchema.properties ?? {})).toContain('repoFullName')
     })
 
     it('dispatches tools/call through the rpc path', async () => {
-        const result = await organizationClient.callTool({name: FIND_PROJECTS_BY_REPO,
+        const result = await organizationClient.callTool({name: toolName(FIND_PROJECTS_BY_REPO),
                                                           arguments: {repoFullName: 'kinotic-ai/no-such-repo'}})
         expect(result.isError).toBeFalsy()
         const content = result.content as Array<{ type: string, text?: string }>
@@ -100,14 +126,14 @@ describe('Kinotic JS', () => {
     })
 
     it('rejects arguments matching no parameter as a tool error', async () => {
-        const result = await organizationClient.callTool({name: FIND_PROJECTS_BY_REPO,
+        const result = await organizationClient.callTool({name: toolName(FIND_PROJECTS_BY_REPO),
                                                           arguments: {repoFullName: 'a/b', bogus: 'x'}})
         expect(result.isError).toBe(true)
     })
 
     it('publishes and binds the interface parameter name where the implementation renames it', async () => {
-        const save = (await systemClient.listTools()).tools.find(tool => tool.name === SAVE_PROJECT)
-        expect(save, `${SAVE_PROJECT} is not exposed as a tool`).toBeDefined()
+        const save = (await systemClient.listTools()).tools.find(tool => tool.name === toolName(SAVE_PROJECT))
+        expect(save, `'${SAVE_PROJECT}' is not exposed as a tool`).toBeDefined()
 
         // the interface's name, never the inherited implementation's 'value'
         expect(Object.keys(save!.inputSchema.properties ?? {})).toEqual(['entity'])
@@ -115,7 +141,7 @@ describe('Kinotic JS', () => {
         // taking the argument name from the schema is what makes this a round trip: publishing a name the
         // service does not bind fails here, whichever name that is
         const [publishedName] = Object.keys(save!.inputSchema.properties ?? {})
-        const result = await organizationClient.callTool({name: SAVE_PROJECT,
+        const result = await organizationClient.callTool({name: toolName(SAVE_PROJECT),
                                                           arguments: {[publishedName]: {}}})
 
         // an empty project still fails on its own business rules; only the binder's rejection is under test
@@ -125,7 +151,7 @@ describe('Kinotic JS', () => {
 
     it('refuses a call to a tool outside the caller zones', async () => {
         // resolution is scoped to the caller's zones, so the os-api tool does not exist for an app participant
-        await expect(applicationClient.callTool({name: FIND_PROJECTS_BY_REPO,
+        await expect(applicationClient.callTool({name: toolName(FIND_PROJECTS_BY_REPO),
                                                  arguments: {repoFullName: 'a/b'}}))
             .rejects.toThrowError(McpError)
     })

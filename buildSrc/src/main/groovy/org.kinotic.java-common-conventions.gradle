@@ -129,6 +129,7 @@ dependencyManagement {
         dependency "jakarta.json:jakarta.json-api:${jakartaJsonVersion}"
 
         dependency "net.openhft:chronicle-map:${chronicleMapVersion}"
+        dependency "net.openhft:zero-allocation-hashing:${zeroAllocationHashingVersion}"
 
         dependency "org.antlr:antlr4:${antlrVersion}"
         dependency "org.antlr:antlr4-runtime:${antlrVersion}"
