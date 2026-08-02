@@ -9,7 +9,7 @@ import org.apache.ignite.internal.util.typedef.internal.U;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.ServerInfo;
 import org.kinotic.core.api.config.KinoticProperties;
-import org.kinotic.core.internal.utils.KinoticUtil;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

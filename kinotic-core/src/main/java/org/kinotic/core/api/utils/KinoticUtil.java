@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.utils;
+package org.kinotic.core.api.utils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
