@@ -64,7 +64,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return crudServiceTemplate.partialUpdateSync(indexName,
                                                      entry.getId(),
                                                      partial,
-                                                     b -> b.docAsUpsert(true).retryOnConflict(RETRY_ON_CONFLICT));
+                                                     true,
+                                                     RETRY_ON_CONFLICT);
     }
 
     /**
@@ -75,7 +76,8 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
         return crudServiceTemplate.partialUpdate(indexName,
                                                  entryId,
                                                  Map.of("online", online, "lastStatusChange", when),
-                                                 b -> b.retryOnConflict(RETRY_ON_CONFLICT));
+                                                 false,
+                                                 RETRY_ON_CONFLICT);
     }
 
     /**
