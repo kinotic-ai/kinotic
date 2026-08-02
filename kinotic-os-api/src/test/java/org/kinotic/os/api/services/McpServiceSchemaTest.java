@@ -86,8 +86,14 @@ public class McpServiceSchemaTest {
                                                        .findFirst()
                                                        .orElseThrow();
 
-        // ProjectService's bare @McpTool states no hints, so deleteById serves the ones @McpToolInfo
-        // states on CrudService in kinotic-core — a function ProjectService only inherits
+        // ProjectService's bare @McpTool states no hints, so syncIndex serves the one @McpToolInfo states
+        // on CrudService in kinotic-core — a function ProjectService only inherits, and one whose name
+        // matches no rule, so nothing but the annotation can be the source
+        McpToolC3Decorator syncIndex = mcpTool(service, "syncIndex");
+        Assertions.assertTrue(syncIndex.isIdempotentHint());
+        Assertions.assertFalse(syncIndex.isReadOnlyHint());
+        Assertions.assertFalse(syncIndex.isDestructiveHint());
+
         McpToolC3Decorator deleteById = mcpTool(service, "deleteById");
         Assertions.assertTrue(deleteById.isDestructiveHint());
         Assertions.assertTrue(deleteById.isIdempotentHint());

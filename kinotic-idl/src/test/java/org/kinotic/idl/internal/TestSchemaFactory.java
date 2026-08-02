@@ -129,14 +129,6 @@ public class TestSchemaFactory {
         // TestObjectCrudService's bare @McpTool states no hints, so findById's name decides
         Assertions.assertTrue(inherited.isReadOnlyHint());
         Assertions.assertFalse(inherited.isDestructiveHint());
-
-        // @McpToolInfo on the generic base states the title and hints for a function the base never
-        // exposes itself, and it beats what the "save" verb would otherwise imply
-        McpToolC3Decorator stated = save.findDecorator(McpToolC3Decorator.class);
-        Assertions.assertNotNull(stated);
-        Assertions.assertEquals("Store Entity", stated.getTitle());
-        Assertions.assertTrue(stated.isIdempotentHint());
-        Assertions.assertFalse(stated.isDestructiveHint());
     }
 
     @Test
