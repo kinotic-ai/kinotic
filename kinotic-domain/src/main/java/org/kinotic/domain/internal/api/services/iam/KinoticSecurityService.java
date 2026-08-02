@@ -24,24 +24,24 @@ import java.util.TreeMap;
  * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
  * and Kinotic-issued JWT authentication across all three scope layers (System, Organization,
  * Application). Scope is identified structurally by the {@code organizationId} and
- * {@code applicationId} STOMP CONNECT headers (or the matching JWT claims):
+ * {@code applicationId} of the resolved {@link IamUser}:
  * <ul>
  *   <li>both absent → SYSTEM</li>
  *   <li>{@code organizationId} only → ORGANIZATION</li>
  *   <li>both set → APPLICATION</li>
  * </ul>
- * {@code applicationId} without {@code organizationId} is rejected.
  * <p>
  * <b>Two paths:</b>
  * <ol>
- *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers.
- *       Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
+ *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers, with
+ *       {@code organizationId} / {@code applicationId} headers selecting the scope to look in
+ *       ({@code applicationId} without {@code organizationId} is rejected). Looks up the
+ *       {@link IamUser} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
- *       signature, then look up the {@link IamUser} by id from the JWT
- *       {@code sub} claim. When scope headers accompany the token they must match the JWT's
- *       {@code organizationId} / {@code applicationId} claims; a bearer-only request takes
- *       its scope from the signed claims alone.</li>
+ *       signature, then look up the {@link IamUser} by id from the JWT {@code sub} claim and
+ *       require the user's {@code organizationId} / {@code applicationId} to equal the token's
+ *       claims. Scope headers are ignored on this path — the token carries its own scope.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
  * which mints a Kinotic JWT for the STOMP handoff.
@@ -63,21 +63,13 @@ public class KinoticSecurityService implements SecurityService {
         // Wrap in a case-insensitive view so both transports work with the same camelCase names.
         Map<String, String> authInfo = caseInsensitive(authenticationInfo);
 
-        String organizationId = authInfo.get("organizationId");
-        String applicationId = authInfo.get("applicationId");
-
-        if (applicationId != null && organizationId == null) {
-            return Future.failedFuture(new AuthenticationException(
-                    "organizationId header is required when applicationId is supplied"));
-        }
-
         String authHeader = authInfo.get("Authorization");
 
         Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            ret = authenticateKinoticJwt(organizationId, applicationId, authHeader.substring(7));
+            ret = authenticateKinoticJwt(authHeader.substring(7));
         } else {
-            ret = authenticateEmailPassword(organizationId, applicationId, authInfo);
+            ret = authenticateEmailPassword(authInfo);
         }
         return ret;
     }
@@ -93,14 +85,19 @@ public class KinoticSecurityService implements SecurityService {
     /**
      * Authenticates a user via email and password within the target scope.
      */
-    private Future<Participant> authenticateEmailPassword(String organizationId,
-                                                          String applicationId,
-                                                          Map<String, String> authInfo) {
+    private Future<Participant> authenticateEmailPassword(Map<String, String> authInfo) {
         String email = authInfo.get("clientId");
         String password = authInfo.get("clientSecret");
+        String organizationId = authInfo.get("organizationId");
+        String applicationId = authInfo.get("applicationId");
 
         if (email == null || password == null) {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
+        }
+
+        if (applicationId != null && organizationId == null) {
+            return Future.failedFuture(new AuthenticationException(
+                    "organizationId header is required when applicationId is supplied"));
         }
 
         return Future.fromCompletionStage(userService.findByEmail(email, organizationId, applicationId),
@@ -137,46 +134,33 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must: have a
-     * {@code sub} claim referencing an existing,
-     * enabled {@link IamUser}; and, when the caller supplied {@code organizationId} /
-     * {@code applicationId} headers, carry matching claims (defense in depth against a JWT for
-     * org A being replayed against org B). A bearer-only request carries no scope headers and
-     * authenticates as the scope the JWT's own signed claims declare — the shape MCP hosts and
-     * other plain OAuth clients send.
+     * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must have a
+     * {@code sub} claim referencing an existing, enabled {@link IamUser} whose
+     * {@code organizationId} / {@code applicationId} equal the token's claims for those values
+     * (defense in depth against a token outliving the scope it was minted for). The resulting
+     * Participant is scoped by that user record.
      */
-    private Future<Participant> authenticateKinoticJwt(String organizationId,
-                                                       String applicationId,
-                                                       String token) {
+    private Future<Participant> authenticateKinoticJwt(String token) {
         return jwtIssuer.authenticate(token)
                         .recover(err -> Future.failedFuture(
                                 new AuthenticationException("JWT validation failed: " + err.getMessage(), err)))
                         .compose(user -> {
                             JsonObject p = user.principal();
                             String sub = p.getString("sub");
-                            String jwtOrgId = p.getString("organizationId");
-                            String jwtAppId = p.getString("applicationId");
-                            boolean scopeHeadersPresent = organizationId != null || applicationId != null;
 
                             Future<Participant> ret;
                             if (sub == null) {
                                 ret = Future.failedFuture(new AuthenticationException("JWT missing sub claim"));
-                            } else if (scopeHeadersPresent
-                                    && (!Objects.equals(organizationId, jwtOrgId)
-                                            || !Objects.equals(applicationId, jwtAppId))) {
-                                ret = Future.failedFuture(new AuthenticationException(
-                                        "JWT scope " + describeScope(jwtOrgId, jwtAppId)
-                                                + " does not match auth headers " + describeScope(organizationId, applicationId)));
                             } else {
-                                // the participant's scope derives from the IamUser record, the same
-                                // structure the signed claims were minted from
-                                ret = findEnabledUser(sub);
+                                ret = resolveParticipant(sub,
+                                                         p.getString("organizationId"),
+                                                         p.getString("applicationId"));
                             }
                             return ret;
                         });
     }
 
-    private Future<Participant> findEnabledUser(String sub) {
+    private Future<Participant> resolveParticipant(String sub, String jwtOrgId, String jwtAppId) {
         return Future.fromCompletionStage(userService.findById(sub), vertx.getOrCreateContext())
                      .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
                      .compose(iamUser -> {
@@ -185,6 +169,14 @@ public class KinoticSecurityService implements SecurityService {
                              ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
                          } else if (!iamUser.isEnabled()) {
                              ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
+                         } else if (!Objects.equals(iamUser.getOrganizationId(), jwtOrgId)
+                                 || !Objects.equals(iamUser.getApplicationId(), jwtAppId)) {
+                             // the user was moved or re-scoped after the token was minted, so the
+                             // signed claims no longer describe the authority the record grants
+                             ret = Future.failedFuture(new AuthenticationException(
+                                     "JWT scope " + describeScope(jwtOrgId, jwtAppId)
+                                             + " does not match user scope "
+                                             + describeScope(iamUser.getOrganizationId(), iamUser.getApplicationId())));
                          } else {
                              ret = Future.succeededFuture(DomainUtil.createParticipant(iamUser));
                          }
