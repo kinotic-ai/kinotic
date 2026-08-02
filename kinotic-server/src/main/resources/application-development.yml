@@ -12,6 +12,13 @@ kinotic:
     # dead-ends in the SPA router. IdP callback URLs are registered against apiBaseUrl.
     appBaseUrl: http://localhost:5173
     apiBaseUrl: http://localhost:58503
+    oauth:
+      # An MCP host exchanges its authorization code from its own backend, which cannot reach
+      # localhost, so the OAuth surface is published on a tunnel to 58503 instead. Only the
+      # metadata, the endpoints it advertises and the /mcp resource document move — the OIDC
+      # redirect_uris stay on apiBaseUrl, so the IdP registrations above are unaffected.
+      # Set this to whichever tunnel is running, or comment it out to fall back to apiBaseUrl.
+      issuerBaseUrl: https://platinum-protector-thesis.ngrok-free.dev
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).

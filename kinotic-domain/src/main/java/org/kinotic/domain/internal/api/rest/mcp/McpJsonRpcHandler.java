@@ -79,8 +79,10 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         ctx.addHeadersEndHandler(_ -> {
             if (ctx.response().getStatusCode() == 401) {
                 // points MCP hosts at the document that starts the OAuth discovery flow
+                // FIXME: shotgun surgery — one of five places that know the OAuth surface has its
+                // own base URL. See "OAuth base URL split" in docs/NavidNotes.md.
                 ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
-                        + authEndpointSupport.absoluteUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
+                        + authEndpointSupport.issuerUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
             }
         });
         ctx.next();

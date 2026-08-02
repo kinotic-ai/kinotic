@@ -119,6 +119,49 @@ accumulate in practice, and how, before deciding whether anything needs bounding
 count is flat under real load the whole concern is theoretical; if it climbs monotonically, the shape
 of the climb tells us what the right mechanism is.
 
+### OAuth base URL split (`issuerBaseUrl`)
+
+`kinotic.domain.oauth.issuerBaseUrl` exists because two different parties reach the gateway and,
+today, they can reach it at different URLs. A browser follows the OIDC `redirect_uri`s built from
+`apiBaseUrl`; an MCP host's backend calls the token endpoint built from `issuerBaseUrl`, having never
+been near the browser. A development gateway on `localhost` whose OAuth surface is tunnelled is the
+case that forced the split: one value cannot be both browser-local and internet-reachable.
+
+The cost is the FIXMEs — five places now know the OAuth surface has its own base URL
+(`OAuthProperties.issuerBaseUrl`, `DomainProperties.resolveIssuerBaseUrl`,
+`AuthEndpointSupport.issuerUrl`, `OAuthServerHandler.issuer`, `McpJsonRpcHandler.armDiscoveryChallenge`).
+Nothing enforces the choice: every externally reached URL added from here on has to pick `issuerUrl`
+over `absoluteUrl`, and picking wrong fails only in the tunnelled topology, which is exactly the one
+nobody runs in CI.
+
+**The split disappears if the browser and the internet reach the gateway at one URL.** That is a
+topology decision, not a code one, and it is the reason to keep these markers rather than settle.
+
+**Option A — keep the split.** No infrastructure change. Development works today; production sets
+nothing and falls back. Carries the shotgun surgery indefinitely.
+
+**Option B — dev-server proxy.** Have the vite dev server proxy `/api`, `/mcp`, `/.well-known` and
+the `/v1` STOMP upgrade to the gateway, and tunnel the dev server rather than the gateway. One origin
+in development, so `issuerBaseUrl` is never needed. Costs a second IdP callback registration (the
+tunnel host) and leaves the development topology different from production — the proxy hop exists
+nowhere else — so it removes the property without removing the underlying asymmetry.
+
+**Option C — one origin everywhere, via path-based routing at the ingress.** SPA and API behind a
+single hostname, `/api` and `/v1` routed to kinotic-server and everything else to the SPA. Then
+`appBaseUrl`, `apiBaseUrl` and `issuerBaseUrl` collapse to one value and all five FIXMEs delete. On
+Azure this means a layer-7 front end (Application Gateway or Front Door) where today's LoadBalancer
+is layer 4 — a real, recurring cost, which is the thing to price before choosing this.
+
+**On making the session cookie stricter.** Worth recording because it is the natural next thought and
+it does not work: `SameSite=Strict` is not available to us at any topology, single origin or not.
+Strict withholds the cookie on *every* cross-site request including top-level navigations, and the
+IdP returning the browser to `/api/auth/org/login/social/callback/:configId` is exactly that. The
+handler needs `OIDC_FLOW_SESSION_KEY` from the session to validate `state`; without the cookie it
+finds nothing and every social login fails with `state_mismatch`. `Lax` is the floor for as long as
+we terminate an OIDC redirect flow — a single origin buys us the base-URL collapse, not a stricter
+cookie. Getting to Strict would mean the callback landing on a bounce page that re-enters same-site
+before the session is read, which is a different design.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 
