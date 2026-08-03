@@ -15,11 +15,7 @@ export interface ITestService {
 
     getParticipantIdFromContext(): Promise<string>;
 
-    getParticipantIdFromContextViaDispatch(): Promise<string>;
-
     getParticipantIdFromContextInExecuteBlocking(): Promise<string>;
-
-    verifyParticipantParameterMatchesContext(): Promise<string>;
 
     getFullParticipantFromContext(): Promise<Record<string, any>>;
 
@@ -28,8 +24,6 @@ export interface ITestService {
     getParticipantIdFromMonoChain(): Promise<string>;
 
     getParticipantIdFromNestedExecuteBlocking(): Promise<string>;
-
-    getParticipantIdRepeated(count: number): Promise<string[]>;
 
     participantFirstArgWithContext(suffix: string): Promise<string>;
 
@@ -72,16 +66,8 @@ export class TestService implements ITestService {
         return this.serviceProxy.invoke('getParticipantIdFromContext')
     }
 
-    getParticipantIdFromContextViaDispatch(): Promise<string> {
-        return this.serviceProxy.invoke('getParticipantIdFromContextViaDispatch')
-    }
-
     getParticipantIdFromContextInExecuteBlocking(): Promise<string> {
         return this.serviceProxy.invoke('getParticipantIdFromContextInExecuteBlocking')
-    }
-
-    verifyParticipantParameterMatchesContext(): Promise<string> {
-        return this.serviceProxy.invoke('verifyParticipantParameterMatchesContext')
     }
 
     getFullParticipantFromContext(): Promise<Record<string, any>> {
@@ -98,10 +84,6 @@ export class TestService implements ITestService {
 
     getParticipantIdFromNestedExecuteBlocking(): Promise<string> {
         return this.serviceProxy.invoke('getParticipantIdFromNestedExecuteBlocking')
-    }
-
-    getParticipantIdRepeated(count: number): Promise<string[]> {
-        return this.serviceProxy.invoke('getParticipantIdRepeated', [count])
     }
 
     participantFirstArgWithContext(suffix: string): Promise<string> {

@@ -15,5 +15,10 @@ public non-sealed interface OrganizationParticipant extends ScopedParticipant {
      * @return the id of the Organization this participant is authenticated under; never null
      */
     String getOrganizationId();
+
+    @Override
+    default ParticipantScope getScope() {
+        return new ParticipantScope(getOrganizationId(), null, null);
+    }
 }
 

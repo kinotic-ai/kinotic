@@ -28,4 +28,9 @@ public non-sealed interface ApplicationParticipant extends ScopedParticipant {
      *         to, or null when the Application is not multi-tenant
      */
     String getTenantId();
+
+    @Override
+    default ParticipantScope getScope() {
+        return new ParticipantScope(getOrganizationId(), getApplicationId(), getTenantId());
+    }
 }
