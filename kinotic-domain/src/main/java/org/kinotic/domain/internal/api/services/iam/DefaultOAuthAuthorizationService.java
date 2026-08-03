@@ -3,7 +3,7 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -103,7 +103,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> exchangeCode(String code,
+    public CompletableFuture<UserParticipantIdentity> exchangeCode(String code,
                                                    String clientId,
                                                    String redirectUri,
                                                    String codeVerifier) {
@@ -196,8 +196,9 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                 });
     }
 
-    private CompletableFuture<ParticipantIdentity> loadEnabledUser(String identityId) {
+    private CompletableFuture<UserParticipantIdentity> loadEnabledUser(String identityId) {
         return identityRepository.findById(identityId)
+                .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(user -> (user == null || !user.isEnabled())
                         ? CompletableFuture.failedFuture(new IllegalArgumentException("User is not available"))
                         : CompletableFuture.completedFuture(user));

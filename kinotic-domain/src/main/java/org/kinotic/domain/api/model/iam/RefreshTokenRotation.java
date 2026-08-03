@@ -5,4 +5,4 @@ package org.kinotic.domain.api.model.iam;
  * (available only here — the server stores only its hash), and the audience the lineage was
  * issued for, which the replacement access token must be minted with.
  */
-public record RefreshTokenRotation(ParticipantIdentity user, String refreshToken, KinoticAudience audience) {}
+public record RefreshTokenRotation(UserParticipantIdentity user, String refreshToken, KinoticAudience audience) {}

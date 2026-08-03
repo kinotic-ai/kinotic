@@ -2,7 +2,7 @@ package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 
 import java.util.concurrent.CompletableFuture;
@@ -42,7 +42,7 @@ public interface InviteService {
      * @param displayName optional display-name override; the invite's value is used when blank
      * @return a future emitting the created member
      */
-    CompletableFuture<ParticipantIdentity> acceptLocalInvite(String token, String password, String displayName);
+    CompletableFuture<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName);
 
     /**
      * Accepts an invitation with a verified OIDC identity. The IdP-verified email must match the
@@ -55,7 +55,7 @@ public interface InviteService {
      * @param verifiedEmail the verified {@code email} claim from the IdP
      * @return a future emitting the created member
      */
-    CompletableFuture<ParticipantIdentity> acceptOidcInvite(String token,
+    CompletableFuture<UserParticipantIdentity> acceptOidcInvite(String token,
                                                 String oidcSubject,
                                                 String oidcConfigId,
                                                 String verifiedEmail);

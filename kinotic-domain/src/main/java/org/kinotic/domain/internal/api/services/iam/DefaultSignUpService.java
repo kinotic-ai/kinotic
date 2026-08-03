@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -80,7 +80,7 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+    public CompletableFuture<UserParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
         Validate.notBlank(token, "Verification token is required");
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
@@ -92,7 +92,7 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
+    public CompletableFuture<UserParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
         return pendingSignUpRepository.findValidByToken(token)
                 .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
@@ -105,7 +105,7 @@ public class DefaultSignUpService implements SignUpService {
      * member and creator. The admin (and its credential, when {@code password} is non-null) is
      * created through {@link ParticipantIdentityService#createUser} so member creation has a single code path.
      */
-    private CompletableFuture<ParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, ParticipantIdentity admin, String password) {
+    private CompletableFuture<UserParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, UserParticipantIdentity admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
         return organizationService.create(org)
                 .thenCompose(savedOrg -> {
@@ -119,14 +119,14 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     /**
-     * Builds an unsaved {@link ParticipantIdentity} carrying the pending record's identity. Id, dates, the
-     * enabled flag and the credential are applied by {@link ParticipantIdentityService#createUser}.
+     * Builds an unsaved {@link UserParticipantIdentity} carrying the pending record's identity. Id, dates,
+     * the enabled flag and the credential are applied by {@link ParticipantIdentityService#createUser}.
      */
-    private ParticipantIdentity newUser(PendingSignUp pending) {
-        ParticipantIdentity user = new ParticipantIdentity()
-                .setEmail(pending.getEmail())
-                .setDisplayName(pending.getDisplayName())
-                .setAuthType(pending.getAuthType());
+    private UserParticipantIdentity newUser(PendingSignUp pending) {
+        UserParticipantIdentity user = new UserParticipantIdentity();
+        user.setEmail(pending.getEmail())
+            .setDisplayName(pending.getDisplayName())
+            .setAuthType(pending.getAuthType());
         if (pending.getAuthType() == AuthType.OIDC) {
             user.setOidcSubject(pending.getOidcSubject())
                 .setOidcConfigId(pending.getOidcConfigId());

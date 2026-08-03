@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
 import org.kinotic.domain.api.model.iam.PollStatus;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.model.DeviceCodeGrant;
 import org.kinotic.domain.internal.api.repositories.DeviceCodeGrantRepository;
@@ -79,6 +80,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
         if (grant.getIdentityId() != null) {
             // Approved — hand back the user and consume the grant so it cannot be replayed.
             return identityRepository.findById(grant.getIdentityId())
+                    .thenApply(UserParticipantIdentity.class::cast)
                     .thenCompose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
                             .thenApply(v -> (user == null || !user.isEnabled())
                                     ? new DeviceCodePollResult(PollStatus.INVALID, null)

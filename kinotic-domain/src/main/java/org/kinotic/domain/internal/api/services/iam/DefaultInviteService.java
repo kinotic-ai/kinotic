@@ -7,7 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -74,7 +74,7 @@ public class DefaultInviteService implements InviteService {
      * an invitation is already pending in the scope.
      */
     private CompletableFuture<Void> checkEmailAvailable(PendingInvite invite) {
-        CompletableFuture<ParticipantIdentity> existingUser = invite.getApplicationId() == null
+        CompletableFuture<UserParticipantIdentity> existingUser = invite.getApplicationId() == null
                 ? identityService.findFirstOrgUserByEmail(invite.getEmail())
                 : identityService.findByEmail(invite.getEmail(),
                                              invite.getOrganizationId(),
@@ -107,7 +107,7 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> acceptLocalInvite(String token, String password, String displayName) {
+    public CompletableFuture<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName) {
         Validate.notBlank(token, "token is required");
         Validate.notBlank(password, "password is required");
 
@@ -116,7 +116,7 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> acceptOidcInvite(String token,
+    public CompletableFuture<UserParticipantIdentity> acceptOidcInvite(String token,
                                                        String oidcSubject,
                                                        String oidcConfigId,
                                                        String verifiedEmail) {
@@ -141,18 +141,18 @@ public class DefaultInviteService implements InviteService {
      * the invite is consumed on success. A concurrent double-accept is safe — createUser's
      * unique-email-in-scope check fails the second attempt.
      */
-    private CompletableFuture<ParticipantIdentity> acceptInvite(PendingInvite invite,
+    private CompletableFuture<UserParticipantIdentity> acceptInvite(PendingInvite invite,
                                                     String password,
                                                     String displayNameOverride,
                                                     String oidcSubject,
                                                     String oidcConfigId) {
-        ParticipantIdentity user = new ParticipantIdentity()
-                .setEmail(invite.getEmail())
-                .setDisplayName(StringUtils.isNotBlank(displayNameOverride)
-                                        ? displayNameOverride
-                                        : invite.getDisplayName())
-                .setOrganizationId(invite.getOrganizationId())
-                .setApplicationId(invite.getApplicationId());
+        UserParticipantIdentity user = new UserParticipantIdentity();
+        user.setEmail(invite.getEmail())
+            .setDisplayName(StringUtils.isNotBlank(displayNameOverride)
+                                    ? displayNameOverride
+                                    : invite.getDisplayName())
+            .setOrganizationId(invite.getOrganizationId())
+            .setApplicationId(invite.getApplicationId());
         if (oidcSubject != null) {
             user.setOidcSubject(oidcSubject)
                 .setOidcConfigId(oidcConfigId);

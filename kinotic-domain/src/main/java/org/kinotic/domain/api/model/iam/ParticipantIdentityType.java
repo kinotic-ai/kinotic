@@ -1,16 +1,10 @@
 package org.kinotic.domain.api.model.iam;
 
 /**
- * What kind of principal a {@link ParticipantIdentity} represents.
- * <ul>
- *   <li>{@link #USER} — a person, unique by email within their scope, authenticating with
- *       {@link AuthType#LOCAL} credentials or a federated {@link AuthType#OIDC} identity.</li>
- *   <li>{@link #DELEGATE} — a client (a CLI install, an MCP host such as an LLM) a USER has
- *       authorized to act on their behalf. Carries the owning user's scope, is unique by
- *       {@code (ownerId, clientKey)}, and authenticates with {@link AuthType#DELEGATED}
- *       tokens only. Disabling a delegate revokes that client's access without touching
- *       the owner.</li>
- * </ul>
+ * What kind of principal a {@link ParticipantIdentity} represents. Mirrors the concrete
+ * subtype one-to-one — {@link #USER} for {@link UserParticipantIdentity}, {@link #DELEGATE}
+ * for {@link DelegatingParticipantIdentity} — and is persisted as the document's polymorphic
+ * discriminator, so it is also the value scope queries filter identities by kind with.
  */
 public enum ParticipantIdentityType {
     USER,

@@ -1,6 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
 import java.util.concurrent.CompletableFuture;
 
@@ -46,7 +46,7 @@ public interface OAuthAuthorizationService {
      * Binds the approving user to the request and mints its single-use authorization code.
      *
      * @param requestId the id returned by {@link #createAuthorizationRequest}
-     * @param identityId    the approving {@link ParticipantIdentity}'s id
+     * @param identityId    the approving {@link UserParticipantIdentity}'s id
      * @return a {@link CompletableFuture} emitting the full redirect URL, carrying the code and
      *         the client's {@code state}, that the browser must navigate to
      */
@@ -72,7 +72,7 @@ public interface OAuthAuthorizationService {
      * @param codeVerifier the PKCE verifier whose S256 hash must equal the stored challenge
      * @return a {@link CompletableFuture} emitting the enabled approving user
      */
-    CompletableFuture<ParticipantIdentity> exchangeCode(String code,
+    CompletableFuture<UserParticipantIdentity> exchangeCode(String code,
                                             String clientId,
                                             String redirectUri,
                                             String codeVerifier);
