@@ -4,7 +4,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.security.ParticipantScope;
+import org.kinotic.domain.api.security.ScopedParticipant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -90,8 +90,8 @@ public class DefaultTestService implements ITestService{
             throw new IllegalStateException("Participant parameter ID (" + participant.getId()
                                             + ") does not match context ID (" + fromContext.getId() + ")");
         }
-        String paramTenant = ParticipantScope.of(participant).tenantId();
-        String ctxTenant = ParticipantScope.of(fromContext).tenantId();
+        String paramTenant = participant instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null;
+        String ctxTenant = fromContext instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null;
         if (!Objects.equals(paramTenant, ctxTenant)) {
             throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
         }
@@ -221,7 +221,7 @@ public class DefaultTestService implements ITestService{
     private Map<String, Object> participantToMap(Participant participant) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", participant.getId());
-        result.put("tenantId", ParticipantScope.of(participant).tenantId());
+        result.put("tenantId", participant instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null);
         result.put("roles", participant.getRoles());
         result.put("metadata", participant.getMetadata());
         return result;
