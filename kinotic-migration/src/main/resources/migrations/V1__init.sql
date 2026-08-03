@@ -71,17 +71,23 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
+-- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by
 -- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
 -- ORGANIZATION, both set = APPLICATION.
--- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
+-- Uniqueness rules (enforced in service layer): one USER per (email, organizationId,
+-- applicationId); one DELEGATE per (ownerId, clientKey).
 CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
+    type KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
+    ownerId KEYWORD,
+    clientKey KEYWORD,
+    delegateKind KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
     tenantId KEYWORD,
