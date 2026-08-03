@@ -6,4 +6,9 @@ package org.kinotic.domain.api.security;
  * own {@code id}.
  */
 public non-sealed interface SystemParticipant extends ScopedParticipant {
+
+    @Override
+    default ParticipantScope getScope() {
+        return new ParticipantScope(null, null, null);
+    }
 }

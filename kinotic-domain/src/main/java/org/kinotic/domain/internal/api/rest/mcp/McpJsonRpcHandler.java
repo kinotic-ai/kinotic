@@ -18,6 +18,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.security.ParticipantScope;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
@@ -171,7 +172,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
 
-        McpCallerScope scope = McpCallerScope.from(participant);
+        ParticipantScope scope = ParticipantScope.of(participant);
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         CursorPageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
 

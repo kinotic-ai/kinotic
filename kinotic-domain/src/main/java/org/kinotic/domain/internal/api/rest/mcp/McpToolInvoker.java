@@ -12,6 +12,7 @@ import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.security.ParticipantScope;
 import org.kinotic.domain.api.security.ZoneRules;
 import org.kinotic.domain.internal.api.rest.mcp.model.McpCallToolResult;
 import org.springframework.stereotype.Component;
@@ -82,7 +83,7 @@ public class McpToolInvoker {
         if (!ready) {
             return Future.succeededFuture(McpCallToolResult.error("The MCP endpoint is not ready"));
         }
-        McpCallerScope scope = McpCallerScope.from(participant);
+        ParticipantScope scope = ParticipantScope.of(participant);
         // resolution uses the caller-visible query, so zone visibility is enforced by the lookup itself
         return serviceDirectory.findMcpToolByName(toolName, scope.organizationId(), scope.applicationId())
                                .compose(tool -> {
