@@ -8,6 +8,7 @@ import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
@@ -237,8 +238,10 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             return;
         }
         Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
+              // token minting still assumes user claims (email); the delegate lifecycle work
+              // reworks minting per identity kind and removes this narrowing
               .onSuccess(rotation -> authEndpointSupport.respondTokenPair(
-                      ctx, rotation.user(), rotation.refreshToken(), rotation.audience()))
+                      ctx, (UserParticipantIdentity) rotation.identity(), rotation.refreshToken(), rotation.audience()))
               .onFailure(err -> {
                   log.warn("OAuth refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
