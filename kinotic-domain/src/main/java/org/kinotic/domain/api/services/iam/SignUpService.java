@@ -1,6 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 
 import java.util.concurrent.CompletableFuture;
@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Drives every sign-up through one short-lived {@link PendingSignUp} record. Two phases:
  * <em>initiate</em> stashes the record and verifies the email (a link for local, the IdP callback
- * for OIDC); <em>complete</em> consumes the record and creates the {@link IamUser} — and, for a
+ * for OIDC); <em>complete</em> consumes the record and creates the {@link ParticipantIdentity} — and, for a
  * brand-new organization, the organization too.
  */
 public interface SignUpService {
@@ -33,11 +33,11 @@ public interface SignUpService {
      *
      * @return the new organization's admin user
      */
-    CompletableFuture<IamUser> completeLocalSignUp(String token, String orgName, String orgDescription, String password);
+    CompletableFuture<ParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password);
 
     /**
      * Completes an OIDC sign-up by creating a new organization with the given name (failing if it
      * is taken), making the verified identity its admin, then deleting the pending record.
      */
-    CompletableFuture<IamUser> completeOidcWithNewOrg(String token, String orgName, String orgDescription);
+    CompletableFuture<ParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription);
 }

@@ -3,11 +3,11 @@ package org.kinotic.domain.api.services.iam;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 
 import java.util.concurrent.CompletableFuture;
 
-public interface IamUserService extends IdentifiableCrudService<IamUser, String> {
+public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 
     /**
      * Finds the user with the given email within the given scope, identified structurally
@@ -25,29 +25,29 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      * @param applicationId the owning app id, or null for SYSTEM/ORGANIZATION
      * @return {@link CompletableFuture} emitting the matching user, or {@code null} if no user matches
      */
-    CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId);
+    CompletableFuture<ParticipantIdentity> findByEmail(String email, String organizationId, String applicationId);
 
     /**
      * Finds the first ORG-scope user with the given email across all organizations. Used by
      * the sign-up flow to enforce one user per email at organization-creation time, before
      * the new organization's id exists.
      */
-    CompletableFuture<IamUser> findFirstOrgUserByEmail(String email);
+    CompletableFuture<ParticipantIdentity> findFirstOrgUserByEmail(String email);
 
     /**
-     * Finds the {@link IamUser} record for the given email, across all scopes. Returns
+     * Finds the {@link ParticipantIdentity} record for the given email, across all scopes. Returns
      * the first match. Used by the email-first login lookup to decide between password vs
      * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
      * this an unambiguous lookup for the org-login flow.
      */
-    CompletableFuture<IamUser> findByEmail(String email);
+    CompletableFuture<ParticipantIdentity> findByEmail(String email);
 
     /**
-     * Finds the {@link IamUser} (if any) with the given OIDC identity within a specific
+     * Finds the {@link ParticipantIdentity} (if any) with the given OIDC identity within a specific
      * scope. Scope is identified by {@code (organizationId, applicationId)} with the same
      * null conventions as {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
+    CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                   String oidcConfigId,
                                                   String organizationId,
                                                   String applicationId);
@@ -58,21 +58,21 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      * it is unambiguous because an email may belong to at most one organization, so a given
      * {@code (oidcSubject, oidcConfigId)} identity maps to at most one org-scope user.
      */
-    CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
+    CompletableFuture<ParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
 
     /**
      * Finds all users within the given scope, identified structurally by
      * {@code (organizationId, applicationId)} with the same null conventions as
      * {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable);
+    CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable);
 
     /**
      * Searches users within the given scope by free text over email and display name. A blank
      * {@code searchText} returns every user in scope, equivalent to
      * {@link #findByScope(String, String, Pageable)}.
      */
-    CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+    CompletableFuture<Page<ParticipantIdentity>> searchByScope(String searchText,
                                                    String organizationId,
                                                    String applicationId,
                                                    Pageable pageable);
@@ -88,7 +88,7 @@ public interface IamUserService extends IdentifiableCrudService<IamUser, String>
      * @param password the password for a LOCAL user, or null for an OIDC user
      * @return a future emitting the created user
      */
-    CompletableFuture<IamUser> createUser(IamUser user, String password);
+    CompletableFuture<ParticipantIdentity> createUser(ParticipantIdentity user, String password);
 
 }
 

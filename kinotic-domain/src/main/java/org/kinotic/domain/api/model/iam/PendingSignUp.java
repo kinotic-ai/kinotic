@@ -10,7 +10,7 @@ import java.util.Date;
 /**
  * A short-lived, single-use record capturing a sign-up in flight — held from the moment an
  * identity is established until the user completes onboarding, at which point it is consumed to
- * create the new Organization and its admin {@link IamUser}, then deleted.
+ * create the new Organization and its admin {@link ParticipantIdentity}, then deleted.
  * <p>
  * {@link #authType} records how the email was established: LOCAL (email/password verified by
  * clicking the link) or OIDC (federated, pre-verified by the IdP, carrying {@link #oidcSubject}
@@ -32,10 +32,10 @@ public class PendingSignUp implements PendingVerification {
 
     private Date created;
 
-    /** Email the eventual {@link IamUser} is created with. */
+    /** Email the eventual {@link ParticipantIdentity} is created with. */
     private String email;
 
-    /** Display name for the eventual {@link IamUser}. For OIDC this is taken from the IdP claims. */
+    /** Display name for the eventual {@link ParticipantIdentity}. For OIDC this is taken from the IdP claims. */
     private String displayName;
 
     /** How the email was established — drives whether a password/credential is involved. */

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
     id KEYWORD,
     deviceCodeHash KEYWORD,
     userCode KEYWORD,
-    userId KEYWORD,
+    identityId KEYWORD,
     created DATE,
     expiresAt DATE,
     lastPolledAt DATE,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
 CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
     id KEYWORD,
     tokenHash KEYWORD,
-    userId KEYWORD,
+    identityId KEYWORD,
     familyId KEYWORD,
     created DATE,
     expiresAt DATE,

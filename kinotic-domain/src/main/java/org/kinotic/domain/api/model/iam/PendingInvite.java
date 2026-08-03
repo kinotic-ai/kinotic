@@ -10,7 +10,7 @@ import java.util.Date;
 /**
  * A short-lived, single-use record capturing an invitation into an existing scope — an
  * Organization, or an Application within one. Created by an org member, consumed when the
- * invitee accepts (creating the new {@link IamUser} in the stored scope), then deleted.
+ * invitee accepts (creating the new {@link ParticipantIdentity} in the stored scope), then deleted.
  * <p>
  * Unlike {@link PendingSignUp} there is no {@code authType}: the invitee chooses how to
  * accept — set a password or sign in with an OIDC provider configured for the scope — and
@@ -32,10 +32,10 @@ public class PendingInvite implements PendingVerification {
 
     private Date created;
 
-    /** Email the invitation was sent to; the eventual {@link IamUser} is created with it. */
+    /** Email the invitation was sent to; the eventual {@link ParticipantIdentity} is created with it. */
     private String email;
 
-    /** Display name for the eventual {@link IamUser}; the invitee may override it at accept. */
+    /** Display name for the eventual {@link ParticipantIdentity}; the invitee may override it at accept. */
     private String displayName;
 
     /** The Organization the invitee joins. Always set. */

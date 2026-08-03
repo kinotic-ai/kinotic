@@ -5,10 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.services.iam.SignUpService;
 import org.kinotic.domain.internal.api.repositories.PendingSignUpRepository;
 import org.kinotic.domain.internal.api.services.EmailService;
@@ -27,7 +27,7 @@ public class DefaultSignUpService implements SignUpService {
     private static final long OIDC_TTL_MS = 10 * 60 * 1000L;       // 10 minutes
 
     private final PendingSignUpRepository pendingSignUpRepository;
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
@@ -42,7 +42,7 @@ public class DefaultSignUpService implements SignUpService {
                         return CompletableFuture.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    return iamUserService.findFirstOrgUserByEmail(email);
+                    return identityService.findFirstOrgUserByEmail(email);
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
@@ -80,7 +80,7 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<IamUser> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+    public CompletableFuture<ParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
         Validate.notBlank(token, "Verification token is required");
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
@@ -92,7 +92,7 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     @Override
-    public CompletableFuture<IamUser> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
+    public CompletableFuture<ParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
         return pendingSignUpRepository.findValidByToken(token)
                 .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
@@ -103,14 +103,14 @@ public class DefaultSignUpService implements SignUpService {
     /**
      * Creates the organization (failing if the name is taken), then makes {@code admin} its first
      * member and creator. The admin (and its credential, when {@code password} is non-null) is
-     * created through {@link IamUserService#createUser} so member creation has a single code path.
+     * created through {@link ParticipantIdentityService#createUser} so member creation has a single code path.
      */
-    private CompletableFuture<IamUser> createOrgWithAdmin(String orgName, String orgDescription, IamUser admin, String password) {
+    private CompletableFuture<ParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, ParticipantIdentity admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
         return organizationService.create(org)
                 .thenCompose(savedOrg -> {
                     admin.setOrganizationId(savedOrg.getId());
-                    return iamUserService.createUser(admin, password)
+                    return identityService.createUser(admin, password)
                             .thenCompose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
                                 return organizationService.save(savedOrg).thenApply(o -> savedAdmin);
@@ -119,11 +119,11 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     /**
-     * Builds an unsaved {@link IamUser} carrying the pending record's identity. Id, dates, the
-     * enabled flag and the credential are applied by {@link IamUserService#createUser}.
+     * Builds an unsaved {@link ParticipantIdentity} carrying the pending record's identity. Id, dates, the
+     * enabled flag and the credential are applied by {@link ParticipantIdentityService#createUser}.
      */
-    private IamUser newUser(PendingSignUp pending) {
-        IamUser user = new IamUser()
+    private ParticipantIdentity newUser(PendingSignUp pending) {
+        ParticipantIdentity user = new ParticipantIdentity()
                 .setEmail(pending.getEmail())
                 .setDisplayName(pending.getDisplayName())
                 .setAuthType(pending.getAuthType());

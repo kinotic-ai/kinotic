@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
     scope KEYWORD NOT INDEXED,
     resource KEYWORD NOT INDEXED,
     state KEYWORD NOT INDEXED,
-    userId KEYWORD,
+    identityId KEYWORD,
     codeHash KEYWORD,
     created DATE,
     expiresAt DATE

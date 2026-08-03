@@ -3,12 +3,12 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
-import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.repositories.OAuthAuthorizationGrantRepository;
 import org.kinotic.domain.internal.api.rest.support.OAuth2Util;
 import org.springframework.stereotype.Component;
@@ -38,7 +38,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
 
     private final ClientMetadataDocumentService clientMetadataDocumentService;
     private final OAuthAuthorizationGrantRepository grantRepository;
-    private final IamUserRepository iamUserRepository;
+    private final ParticipantIdentityRepository identityRepository;
 
     @Override
     public CompletableFuture<String> createAuthorizationRequest(String clientId,
@@ -81,12 +81,12 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public CompletableFuture<String> approve(String requestId, String userId) {
-        Validate.notBlank(userId, "userId is required");
+    public CompletableFuture<String> approve(String requestId, String identityId) {
+        Validate.notBlank(identityId, "identityId is required");
         return loadPendingGrant(requestId)
                 .thenCompose(grant -> {
                     String code = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
-                    grant.setUserId(userId)
+                    grant.setIdentityId(identityId)
                          .setCodeHash(DomainUtil.sha256Hex(code))
                          // the code's own, shorter expiry replaces the consent window
                          .setExpiresAt(new Date(System.currentTimeMillis() + CODE_TTL_MS));
@@ -103,7 +103,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public CompletableFuture<IamUser> exchangeCode(String code,
+    public CompletableFuture<ParticipantIdentity> exchangeCode(String code,
                                                    String clientId,
                                                    String redirectUri,
                                                    String codeVerifier) {
@@ -129,7 +129,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                         if (!OAuth2Util.s256Challenge(codeVerifier).equals(grant.getCodeChallenge())) {
                             return CompletableFuture.failedFuture(new IllegalArgumentException("PKCE verification failed"));
                         }
-                        return loadEnabledUser(grant.getUserId());
+                        return loadEnabledUser(grant.getIdentityId());
                     });
                 });
     }
@@ -188,7 +188,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                                 .thenCompose(v -> CompletableFuture.failedFuture(
                                         new IllegalArgumentException("Authorization request has expired")));
                     }
-                    if (grant.getUserId() != null) {
+                    if (grant.getIdentityId() != null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Authorization request has already been decided"));
                     }
@@ -196,8 +196,8 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                 });
     }
 
-    private CompletableFuture<IamUser> loadEnabledUser(String userId) {
-        return iamUserRepository.findById(userId)
+    private CompletableFuture<ParticipantIdentity> loadEnabledUser(String identityId) {
+        return identityRepository.findById(identityId)
                 .thenCompose(user -> (user == null || !user.isEnabled())
                         ? CompletableFuture.failedFuture(new IllegalArgumentException("User is not available"))
                         : CompletableFuture.completedFuture(user));

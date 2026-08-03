@@ -12,10 +12,10 @@ import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.rest.support.CallbackResult;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
@@ -37,7 +37,7 @@ import java.util.Set;
 public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private final AuthEndpointSupport authEndpointSupport;
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
@@ -66,7 +66,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByEmail(email))
+        Future.fromCompletionStage(identityService.findByEmail(email))
               .compose(user -> resolveSsoOrPassword(ctx, user))
               .onFailure(err -> {
                   log.warn("Login lookup failed for {}: {}", email, err.getMessage());
@@ -114,7 +114,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private void completeSocialLogin(RoutingContext ctx, CallbackResult<OrgSignupOidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                sub -> iamUserService.findOrgUserByOidcIdentity(sub, result.config().getId()));
+                sub -> identityService.findOrgUserByOidcIdentity(sub, result.config().getId()));
     }
 
     /**
@@ -145,7 +145,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
 
     private void completeSsoLogin(RoutingContext ctx, CallbackResult<OidcConfiguration> result) {
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
+                sub -> identityService.findByOidcIdentity(sub, result.config().getId(), result.orgId(), null));
     }
 
     /**
@@ -162,7 +162,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * config is live → "sso" with a pre-built redirect URL; the session cookie is set so
      * the callback can validate state.
      */
-    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, IamUser user) {
+    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, ParticipantIdentity user) {
         if (user == null
                 || user.getAuthType() != AuthType.OIDC
                 || user.getOrganizationId() == null

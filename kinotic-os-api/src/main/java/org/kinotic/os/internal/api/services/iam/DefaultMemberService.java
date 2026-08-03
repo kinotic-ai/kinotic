@@ -6,10 +6,10 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.security.OrganizationParticipant;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.os.api.model.iam.PendingInviteSummary;
@@ -23,24 +23,24 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultMemberService implements MemberService {
 
     private final SecurityContext securityContext;
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final ApplicationRepository applicationRepository;
 
     @Override
-    public CompletableFuture<Page<IamUser>> findMembers(String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<ParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> iamUserService.findByScope(participant.getOrganizationId(),
+                .thenCompose(app -> identityService.findByScope(participant.getOrganizationId(),
                                                                applicationId,
                                                                pageable));
     }
 
     @Override
-    public CompletableFuture<Page<IamUser>> searchMembers(String searchText, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<ParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> iamUserService.searchByScope(searchText,
+                .thenCompose(app -> identityService.searchByScope(searchText,
                                                                  participant.getOrganizationId(),
                                                                  applicationId,
                                                                  pageable));
@@ -65,21 +65,21 @@ public class DefaultMemberService implements MemberService {
     }
 
     @Override
-    public CompletableFuture<Void> setMemberEnabled(String userId, boolean enabled) {
+    public CompletableFuture<Void> setMemberEnabled(String identityId, boolean enabled) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return loadOwnedMember(userId, participant)
+        return loadOwnedMember(identityId, participant)
                 // saveSync so the console's immediate re-query sees the change
-                .thenCompose(user -> iamUserService.saveSync(user.setEnabled(enabled)))
+                .thenCompose(user -> identityService.saveSync(user.setEnabled(enabled)))
                 .thenApply(u -> null);
     }
 
     @Override
-    public CompletableFuture<Void> removeMember(String userId) {
+    public CompletableFuture<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return loadOwnedMember(userId, participant)
+        return loadOwnedMember(identityId, participant)
                 // Cascades the IamCredential; sync so the console's immediate re-query
                 // no longer shows the member.
-                .thenCompose(user -> iamUserService.deleteByIdSync(user.getId()));
+                .thenCompose(user -> identityService.deleteByIdSync(user.getId()));
     }
 
     @Override
@@ -129,13 +129,13 @@ public class DefaultMemberService implements MemberService {
      * foreign users (same message — no existence oracle) and rejects acting on the caller's
      * own account, so an admin can't disable or remove themselves out of the org.
      */
-    private CompletableFuture<IamUser> loadOwnedMember(String userId, OrganizationParticipant participant) {
-        Validate.notBlank(userId, "userId is required");
-        if (userId.equals(participant.getId())) {
+    private CompletableFuture<ParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
+        Validate.notBlank(identityId, "identityId is required");
+        if (identityId.equals(participant.getId())) {
             return CompletableFuture.failedFuture(
                     new IllegalArgumentException("You cannot perform this action on your own account."));
         }
-        return iamUserService.findById(userId)
+        return identityService.findById(identityId)
                 .thenApply(user -> {
                     if (user == null || !participant.getOrganizationId().equals(user.getOrganizationId())) {
                         throw new IllegalArgumentException("Member not found.");

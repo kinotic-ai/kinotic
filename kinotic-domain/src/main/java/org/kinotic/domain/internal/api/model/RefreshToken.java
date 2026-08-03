@@ -28,8 +28,8 @@ public class RefreshToken implements Identifiable<String> {
     /** SHA-256 hash of the refresh token. The plaintext is returned to the client once and never stored. */
     private String tokenHash;
 
-    /** Id of the {@link org.kinotic.domain.api.model.iam.IamUser} this token authenticates. */
-    private String userId;
+    /** Id of the {@link org.kinotic.domain.api.model.iam.ParticipantIdentity} this token authenticates. */
+    private String identityId;
 
     /** Groups every token in one rotation lineage so that reuse can revoke the whole family. */
     private String familyId;

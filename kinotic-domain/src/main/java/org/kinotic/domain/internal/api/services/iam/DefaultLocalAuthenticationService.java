@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -20,17 +20,17 @@ import java.util.function.Supplier;
 public class DefaultLocalAuthenticationService implements LocalAuthenticationService {
 
     private final IamCredentialRepository credentialRepository;
-    private final IamUserRepository iamUserRepository;
+    private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<IamUser> authenticateLocal(String email, String password) {
+    public CompletableFuture<ParticipantIdentity> authenticateLocal(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
-        return verifyMatchingUser(password, () -> iamUserRepository.findByEmail(email));
+        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email));
     }
 
     @Override
-    public CompletableFuture<IamUser> authenticateLocal(String email,
+    public CompletableFuture<ParticipantIdentity> authenticateLocal(String email,
                                                         String password,
                                                         String organizationId,
                                                         String applicationId) {
@@ -39,11 +39,11 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
         if (applicationId != null) {
             Validate.notBlank(organizationId, "organizationId is required when applicationId is supplied");
         }
-        return verifyMatchingUser(password, () -> iamUserRepository.findByEmail(email, organizationId, applicationId));
+        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email, organizationId, applicationId));
     }
 
-    private CompletableFuture<IamUser> verifyMatchingUser(String password,
-                                                          Supplier<CompletableFuture<IamUser>> lookup) {
+    private CompletableFuture<ParticipantIdentity> verifyMatchingUser(String password,
+                                                          Supplier<CompletableFuture<ParticipantIdentity>> lookup) {
         return lookup.get().thenCompose(user -> {
             if (user == null
                     || user.getAuthType() != AuthType.LOCAL

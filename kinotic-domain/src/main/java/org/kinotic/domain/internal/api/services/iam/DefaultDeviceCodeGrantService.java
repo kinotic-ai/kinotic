@@ -9,7 +9,7 @@ import org.kinotic.domain.api.model.iam.PollStatus;
 import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
 import org.kinotic.domain.internal.api.model.DeviceCodeGrant;
 import org.kinotic.domain.internal.api.repositories.DeviceCodeGrantRepository;
-import org.kinotic.domain.internal.api.repositories.IamUserRepository;
+import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
@@ -39,7 +39,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final DeviceCodeGrantRepository deviceCodeGrantRepository;
-    private final IamUserRepository iamUserRepository;
+    private final ParticipantIdentityRepository identityRepository;
 
     @Override
     public CompletableFuture<DeviceCodeGrantStart> start() {
@@ -76,9 +76,9 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
             return deviceCodeGrantRepository.deleteById(grant.getId())
                     .thenApply(v -> new DeviceCodePollResult(PollStatus.EXPIRED, null));
         }
-        if (grant.getUserId() != null) {
+        if (grant.getIdentityId() != null) {
             // Approved — hand back the user and consume the grant so it cannot be replayed.
-            return iamUserRepository.findById(grant.getUserId())
+            return identityRepository.findById(grant.getIdentityId())
                     .thenCompose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
                             .thenApply(v -> (user == null || !user.isEnabled())
                                     ? new DeviceCodePollResult(PollStatus.INVALID, null)
@@ -93,9 +93,9 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     }
 
     @Override
-    public CompletableFuture<Void> approve(String userCode, String userId) {
+    public CompletableFuture<Void> approve(String userCode, String identityId) {
         Validate.notBlank(userCode, "userCode is required");
-        Validate.notBlank(userId, "userId is required");
+        Validate.notBlank(identityId, "identityId is required");
         return deviceCodeGrantRepository.findByUserCode(normalizeUserCode(userCode))
                 .thenCompose(grant -> {
                     if (grant == null) {
@@ -105,11 +105,11 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Device authorization request has expired"));
                     }
-                    if (grant.getUserId() != null) {
+                    if (grant.getIdentityId() != null) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Device authorization request has already been approved"));
                     }
-                    grant.setUserId(userId);
+                    grant.setIdentityId(identityId);
                     return deviceCodeGrantRepository.saveSync(grant).thenApply(v -> null);
                 });
     }

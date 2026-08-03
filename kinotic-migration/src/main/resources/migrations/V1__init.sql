@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
 -- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
 -- ORGANIZATION, both set = APPLICATION.
 -- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
-CREATE TABLE IF NOT EXISTS kinotic_iam_user (
+CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
     email KEYWORD,
     displayName KEYWORD,

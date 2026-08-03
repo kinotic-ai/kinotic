@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 
 import java.util.Date;
 import java.util.List;
@@ -29,7 +29,7 @@ public class Application implements OrganizationScoped<String> {
     private List<String> oidcConfigurationIds;
 
     /**
-     * When true, every APPLICATION-scope {@link IamUser}
+     * When true, every APPLICATION-scope {@link ParticipantIdentity}
      * created for this application receives an auto-generated unique {@code tenantId},
      * isolating each user's {@code MultiTenancyType.SHARED} entity data in its own tenant.
      * Applies only to users created after it is enabled; existing users are not backfilled.

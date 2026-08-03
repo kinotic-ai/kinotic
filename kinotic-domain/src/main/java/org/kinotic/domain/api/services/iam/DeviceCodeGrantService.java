@@ -2,7 +2,7 @@ package org.kinotic.domain.api.services.iam;
 
 import org.kinotic.domain.api.model.iam.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -32,7 +32,7 @@ public interface DeviceCodeGrantService {
      * Fails if the code is unknown, already approved, or expired.
      *
      * @param userCode the code the user entered in the browser
-     * @param userId   id of the authenticated {@link IamUser} approving the grant
+     * @param identityId   id of the authenticated {@link ParticipantIdentity} approving the grant
      */
-    CompletableFuture<Void> approve(String userCode, String userId);
+    CompletableFuture<Void> approve(String userCode, String identityId);
 }
