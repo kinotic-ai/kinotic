@@ -5,6 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.security.ScopedParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
@@ -53,7 +54,7 @@ public interface ITestService {
     /**
      * Takes a Participant as a method parameter and also reads from context, verifies they match
      */
-    String verifyParticipantParameterMatchesContext(Participant participant);
+    String verifyParticipantParameterMatchesContext(ScopedParticipant participant);
 
     /**
      * Returns a map of all Participant fields from the context (id, tenantId, roles, metadata)

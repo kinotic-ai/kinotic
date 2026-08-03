@@ -84,13 +84,13 @@ public class DefaultTestService implements ITestService{
 
     @WithSpan
     @Override
-    public String verifyParticipantParameterMatchesContext(Participant participant) {
+    public String verifyParticipantParameterMatchesContext(ScopedParticipant participant) {
         Participant fromContext = requireParticipant();
         if (!participant.getId().equals(fromContext.getId())) {
             throw new IllegalStateException("Participant parameter ID (" + participant.getId()
                                             + ") does not match context ID (" + fromContext.getId() + ")");
         }
-        String paramTenant = participant instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null;
+        String paramTenant = participant.getScope().tenantId();
         String ctxTenant = fromContext instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null;
         if (!Objects.equals(paramTenant, ctxTenant)) {
             throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
