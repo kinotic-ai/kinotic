@@ -44,7 +44,7 @@ export * from '@/api/model/workload/VmNodeStatus'
 export * from '@/api/model/log/LogQuery'
 
 export * from '@/api/model/iam/AuthType'
-export * from '@/api/model/iam/IamUser'
+export * from '@/api/model/iam/ParticipantIdentity'
 export * from '@/api/model/iam/SignUpRequest'
 export * from '@/api/model/iam/SignUpCompleteRequest'
 export * from '@/api/model/iam/CompleteOrgRequest'

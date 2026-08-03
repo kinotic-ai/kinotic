@@ -4,7 +4,7 @@ import type { IAuthProvider } from '@kinotic-ai/core'
  * {@link IAuthProvider} for Kinotic OS credential authentication. Sends the credential and
  * scope as discrete WebSocket upgrade headers — {@code clientId}, {@code clientSecret}, and,
  * when supplied, {@code organizationId} / {@code applicationId} — which the gateway matches
- * against an {@code IamUser} at handshake time.
+ * against an {@code ParticipantIdentity} at handshake time.
  *
  * Scope is structural, determined by which ids are given: neither → SYSTEM, organizationId
  * only → ORGANIZATION, both → APPLICATION.

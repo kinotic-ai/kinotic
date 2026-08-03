@@ -9,7 +9,7 @@ import { AuthType } from '@/api/model/iam/AuthType'
  * - {@link organizationId} only → ORGANIZATION
  * - both set → APPLICATION, with {@link tenantId} identifying the end-user data slice
  */
-export class IamUser implements Identifiable<string> {
+export class ParticipantIdentity implements Identifiable<string> {
     public id: string | null = null
     public email: string = ''
     public displayName: string | null = null
