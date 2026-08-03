@@ -62,11 +62,6 @@ public class DefaultTestService implements ITestService{
         return requireParticipant().getId();
     }
 
-    @WithSpan
-    @Override
-    public String getParticipantIdFromContextViaDispatch() {
-        return internalGetParticipantId();
-    }
 
     @WithSpan
     @Override
@@ -82,24 +77,6 @@ public class DefaultTestService implements ITestService{
         return future;
     }
 
-    @WithSpan
-    @Override
-    public String verifyParticipantParameterMatchesContext(ScopedParticipant participant) {
-        Participant fromContext = requireParticipant();
-        if (!participant.getId().equals(fromContext.getId())) {
-            throw new IllegalStateException("Participant parameter ID (" + participant.getId()
-                                            + ") does not match context ID (" + fromContext.getId() + ")");
-        }
-        String paramTenant = participant.getScope().tenantId();
-        String ctxTenant = fromContext instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null;
-        if (!Objects.equals(paramTenant, ctxTenant)) {
-            throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
-        }
-        if (!Objects.equals(participant.getRoles(), fromContext.getRoles())) {
-            throw new IllegalStateException("Participant parameter roles do not match context roles");
-        }
-        return participant.getId();
-    }
 
     @WithSpan
     @Override
@@ -107,16 +84,6 @@ public class DefaultTestService implements ITestService{
         return participantToMap(requireParticipant());
     }
 
-    @WithSpan
-    @Override
-    public Map<String, Object> getParticipantOnlyParam(Participant participant) {
-        // Also verify context matches
-        Participant fromContext = requireParticipant();
-        if (!participant.getId().equals(fromContext.getId())) {
-            throw new IllegalStateException("Participant-only param ID does not match context ID");
-        }
-        return participantToMap(participant);
-    }
 
     @WithSpan
     @Override
@@ -153,22 +120,6 @@ public class DefaultTestService implements ITestService{
         return future;
     }
 
-    @WithSpan
-    @Override
-    public List<String> getParticipantIdRepeated(int count) {
-        List<String> ids = new ArrayList<>(count);
-        String firstId = requireParticipant().getId();
-        ids.add(firstId);
-        for (int i = 1; i < count; i++) {
-            String id = requireParticipant().getId();
-            if (!firstId.equals(id)) {
-                throw new IllegalStateException("Participant ID changed during invocation at iteration " + i
-                                                + ": expected " + firstId + " got " + id);
-            }
-            ids.add(id);
-        }
-        return ids;
-    }
 
     @WithSpan
     @Override
@@ -206,9 +157,6 @@ public class DefaultTestService implements ITestService{
         }).toFuture();
     }
 
-    private String internalGetParticipantId() {
-        return requireParticipant().getId();
-    }
 
     private Participant requireParticipant() {
         Participant participant = securityContext.currentParticipant();

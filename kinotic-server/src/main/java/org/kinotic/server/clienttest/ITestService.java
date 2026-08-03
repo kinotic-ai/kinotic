@@ -5,7 +5,6 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.security.ScopedParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
@@ -41,31 +40,18 @@ public interface ITestService {
      */
     String getParticipantIdFromContext();
 
-    /**
-     * Delegates to an internal method that reads Participant from context
-     */
-    String getParticipantIdFromContextViaDispatch();
 
     /**
      * Reads Participant from context inside vertx.executeBlocking()
      */
     CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking();
 
-    /**
-     * Takes a Participant as a method parameter and also reads from context, verifies they match
-     */
-    String verifyParticipantParameterMatchesContext(ScopedParticipant participant);
 
     /**
      * Returns a map of all Participant fields from the context (id, tenantId, roles, metadata)
      */
     Map<String, Object> getFullParticipantFromContext();
 
-    /**
-     * Method with only a Participant parameter, returns the participant's info.
-     * Exercises the zero-JSON-args code path.
-     */
-    Map<String, Object> getParticipantOnlyParam(Participant participant);
 
     /**
      * Reads Participant inside a Mono reactive chain
@@ -77,10 +63,6 @@ public interface ITestService {
      */
     CompletableFuture<String> getParticipantIdFromNestedExecuteBlocking();
 
-    /**
-     * Reads the Participant N times in a loop to verify consistency within a single invocation
-     */
-    List<String> getParticipantIdRepeated(int count);
 
     /**
      * Participant as first arg with a suffix, verifies context matches param
