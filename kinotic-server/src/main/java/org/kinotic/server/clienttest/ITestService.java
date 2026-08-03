@@ -52,6 +52,12 @@ public interface ITestService {
      */
     Map<String, Object> getFullParticipantFromContext();
 
+    /**
+     * Takes a Participant as its only parameter; the caller sends no arguments, so the invoker
+     * must supply it. Returns the injected Participant's fields (id, tenantId, roles, metadata).
+     */
+    Map<String, Object> getParticipantOnlyParam(Participant participant);
+
 
     /**
      * Reads Participant inside a Mono reactive chain

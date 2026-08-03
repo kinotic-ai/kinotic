@@ -84,6 +84,12 @@ public class DefaultTestService implements ITestService{
         return participantToMap(requireParticipant());
     }
 
+    @WithSpan
+    @Override
+    public Map<String, Object> getParticipantOnlyParam(Participant participant) {
+        return participantToMap(participant);
+    }
+
 
     @WithSpan
     @Override

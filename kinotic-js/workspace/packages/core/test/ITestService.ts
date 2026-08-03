@@ -19,6 +19,8 @@ export interface ITestService {
 
     getFullParticipantFromContext(): Promise<Record<string, any>>;
 
+    getParticipantOnlyParam(): Promise<Record<string, any>>;
+
     getParticipantIdFromMonoChain(): Promise<string>;
 
     getParticipantIdFromNestedExecuteBlocking(): Promise<string>;
@@ -70,6 +72,10 @@ export class TestService implements ITestService {
 
     getFullParticipantFromContext(): Promise<Record<string, any>> {
         return this.serviceProxy.invoke('getFullParticipantFromContext')
+    }
+
+    getParticipantOnlyParam(): Promise<Record<string, any>> {
+        return this.serviceProxy.invoke('getParticipantOnlyParam')
     }
 
     getParticipantIdFromMonoChain(): Promise<string> {

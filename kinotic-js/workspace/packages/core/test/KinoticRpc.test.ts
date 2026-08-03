@@ -81,6 +81,15 @@ describe('Kinotic JS', () => {
         })
 
 
+        it('should inject the participant parameter when the caller sends no arguments', async () => {
+            const result = await TEST_SERVICE.getParticipantOnlyParam()
+            expect(result).toBeDefined()
+            expect(result.id).toBeDefined()
+            expect(result.id.length).toBeGreaterThan(0)
+            expect(result.roles).toBeDefined()
+            expect(Array.isArray(result.roles)).toBe(true)
+        })
+
         it('should get participant id through Mono reactive chain', async () => {
             const result = await TEST_SERVICE.getParticipantIdFromMonoChain()
             expect(result).toBeDefined()
