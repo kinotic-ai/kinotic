@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
@@ -66,6 +67,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
             return CompletableFuture.failedFuture(new IllegalStateException("Refresh token has no audience"));
         }
         return identityRepository.findById(current.getIdentityId())
+                .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(user -> {
                     if (user == null || !user.isEnabled()) {
                         return CompletableFuture.failedFuture(

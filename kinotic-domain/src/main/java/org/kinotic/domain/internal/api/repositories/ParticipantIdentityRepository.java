@@ -4,7 +4,9 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -18,7 +20,7 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
         super("kinotic_participant_identity", ParticipantIdentity.class, crudServiceTemplate);
     }
 
-    public CompletableFuture<ParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
+    public CompletableFuture<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
         if (applicationId != null) {
             Validate.notBlank(organizationId,
@@ -26,18 +28,21 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
         }
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", DomainUtil.normalizeEmail(email)),
-                scopeFilter(organizationId, applicationId))));
+                scopeFilter(organizationId, applicationId))))
+                .thenApply(UserParticipantIdentity.class::cast);
     }
 
-    public CompletableFuture<ParticipantIdentity> findFirstOrgUserByEmail(String email) {
+    public CompletableFuture<UserParticipantIdentity> findFirstOrgUserByEmail(String email) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", DomainUtil.normalizeEmail(email)),
                 existsFilter("organizationId"),
-                missingFilter("applicationId"))));
+                missingFilter("applicationId"))))
+                .thenApply(UserParticipantIdentity.class::cast);
     }
 
-    public CompletableFuture<ParticipantIdentity> findByEmail(String email) {
-        return findFirst(b -> b.query(termFilter("email", DomainUtil.normalizeEmail(email))));
+    public CompletableFuture<UserParticipantIdentity> findByEmail(String email) {
+        return findFirst(b -> b.query(termFilter("email", DomainUtil.normalizeEmail(email))))
+                .thenApply(UserParticipantIdentity.class::cast);
     }
 
     public CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable) {
@@ -58,30 +63,33 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .filter(scopeFilter(organizationId, applicationId))))));
     }
 
-    public CompletableFuture<ParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {
+    public CompletableFuture<DelegatingParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {
         Validate.notBlank(ownerId, "ownerId cannot be blank");
         Validate.notBlank(clientKey, "clientKey cannot be blank");
         return findFirst(b -> b.query(composeFilter(
                 termFilter("ownerId", ownerId),
-                termFilter("clientKey", clientKey))));
+                termFilter("clientKey", clientKey))))
+                .thenApply(DelegatingParticipantIdentity.class::cast);
     }
 
-    public CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
+    public CompletableFuture<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,
                                                          String applicationId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
                 termFilter("oidcConfigId", oidcConfigId),
-                scopeFilter(organizationId, applicationId))));
+                scopeFilter(organizationId, applicationId))))
+                .thenApply(UserParticipantIdentity.class::cast);
     }
 
-    public CompletableFuture<ParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
                 termFilter("oidcConfigId", oidcConfigId),
                 existsFilter("organizationId"),
-                missingFilter("applicationId"))));
+                missingFilter("applicationId"))))
+                .thenApply(UserParticipantIdentity.class::cast);
     }
 
     /**

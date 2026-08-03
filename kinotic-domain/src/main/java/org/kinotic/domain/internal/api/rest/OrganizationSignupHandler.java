@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.internal.api.rest.support.*;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -24,7 +24,7 @@ import java.util.Map;
 /**
  * Organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler}.
  * Both email/password and social (OIDC) sign-up create a new {@link Organization} and its admin
- * {@link ParticipantIdentity}; each handler method documents its own step.
+ * {@link UserParticipantIdentity}; each handler method documents its own step.
  */
 @Slf4j
 @Component
@@ -140,7 +140,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * Turns a verified social identity into a pending sign-up: refuses if an {@link ParticipantIdentity}
+     * Turns a verified social identity into a pending sign-up: refuses if an {@link UserParticipantIdentity}
      * already exists for this identity (they should log in, not sign up), otherwise stores a
      * {@link PendingSignUp} carrying the verified identity and redirects the browser to the
      * org-naming page that posts back to {@link #handleSocialCompleteOrg}.
@@ -189,7 +189,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/org/signup/social/complete} — finish social sign-up. The user has named their org;
-     * creates the organization and its admin {@link ParticipantIdentity} (AuthType=OIDC) from the pending
+     * creates the organization and its admin {@link UserParticipantIdentity} (AuthType=OIDC) from the pending
      * sign-up identified by the token.
      */
     private void handleSocialCompleteOrg(RoutingContext ctx) {

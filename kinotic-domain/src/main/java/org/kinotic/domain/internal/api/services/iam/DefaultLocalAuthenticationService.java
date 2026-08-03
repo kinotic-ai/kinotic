@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
@@ -23,14 +23,14 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<ParticipantIdentity> authenticateLocal(String email, String password) {
+    public CompletableFuture<UserParticipantIdentity> authenticateLocal(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
         return verifyMatchingUser(password, () -> identityRepository.findByEmail(email));
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> authenticateLocal(String email,
+    public CompletableFuture<UserParticipantIdentity> authenticateLocal(String email,
                                                         String password,
                                                         String organizationId,
                                                         String applicationId) {
@@ -42,8 +42,8 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
         return verifyMatchingUser(password, () -> identityRepository.findByEmail(email, organizationId, applicationId));
     }
 
-    private CompletableFuture<ParticipantIdentity> verifyMatchingUser(String password,
-                                                          Supplier<CompletableFuture<ParticipantIdentity>> lookup) {
+    private CompletableFuture<UserParticipantIdentity> verifyMatchingUser(String password,
+                                                          Supplier<CompletableFuture<UserParticipantIdentity>> lookup) {
         return lookup.get().thenCompose(user -> {
             if (user == null
                     || user.getAuthType() != AuthType.LOCAL

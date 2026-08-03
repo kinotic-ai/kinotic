@@ -12,7 +12,7 @@ import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.rest.support.CallbackResult;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -162,7 +162,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * config is live → "sso" with a pre-built redirect URL; the session cookie is set so
      * the callback can validate state.
      */
-    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, ParticipantIdentity user) {
+    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, UserParticipantIdentity user) {
         if (user == null
                 || user.getAuthType() != AuthType.OIDC
                 || user.getOrganizationId() == null

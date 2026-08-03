@@ -5,7 +5,8 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
-import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
+import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
@@ -37,42 +38,28 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     protected CompletableFuture<Void> beforeSave(ParticipantIdentity entity) {
-        Validate.notNull(entity.getType(), "ParticipantIdentity type cannot be null");
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
         }
         entity.setUpdated(new Date());
 
-        CompletableFuture<Void> ret;
-        if (entity.getType() == ParticipantIdentityType.DELEGATE) {
-            validateDelegateFields(entity);
-            ret = enforceUniqueClientKeyForOwner(entity);
-        } else {
-            validateUserFields(entity);
-            // Canonical form at the single write chokepoint; lookups normalize in the repository.
-            entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
-            ret = enforceUniqueEmailInScope(entity);
-        }
-        return ret;
-    }
-
-    private static void validateUserFields(ParticipantIdentity entity) {
-        Validate.notNull(entity.getEmail(), "ParticipantIdentity email cannot be null");
-        Validate.isTrue(entity.getOwnerId() == null && entity.getClientKey() == null
-                                && entity.getDelegateKind() == null,
-                        "ownerId, clientKey, and delegateKind are DELEGATE-only fields");
-    }
-
-    private static void validateDelegateFields(ParticipantIdentity entity) {
-        Validate.notBlank(entity.getOwnerId(), "DELEGATE ownerId is required");
-        Validate.notBlank(entity.getClientKey(), "DELEGATE clientKey is required");
-        Validate.notNull(entity.getDelegateKind(), "DELEGATE delegateKind is required");
-        Validate.isTrue(entity.getAuthType() == AuthType.DELEGATED,
-                        "DELEGATE authType must be DELEGATED");
-        Validate.isTrue(entity.getEmail() == null, "DELEGATE email must be null");
-        Validate.isTrue(entity.getOidcSubject() == null && entity.getOidcConfigId() == null,
-                        "oidcSubject and oidcConfigId are USER-only fields");
+        return switch (entity) {
+            case DelegatingParticipantIdentity delegate -> {
+                Validate.notBlank(delegate.getOwnerId(), "DELEGATE ownerId is required");
+                Validate.notBlank(delegate.getClientKey(), "DELEGATE clientKey is required");
+                Validate.notNull(delegate.getDelegateKind(), "DELEGATE delegateKind is required");
+                Validate.isTrue(delegate.getAuthType() == AuthType.DELEGATED,
+                                "DELEGATE authType must be DELEGATED");
+                yield enforceUniqueClientKeyForOwner(delegate);
+            }
+            case UserParticipantIdentity user -> {
+                Validate.notNull(user.getEmail(), "UserParticipantIdentity email cannot be null");
+                // Canonical form at the single write chokepoint; lookups normalize in the repository.
+                user.setEmail(DomainUtil.normalizeEmail(user.getEmail()));
+                yield enforceUniqueEmailInScope(user);
+            }
+        };
     }
 
     /**
@@ -96,11 +83,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     /**
-     * Service-layer guarantee: at most one {@link ParticipantIdentity} per
+     * Service-layer guarantee: at most one {@link UserParticipantIdentity} per
      * {@code (email, organizationId, applicationId)}. Self-id is excluded so updating an
      * existing user doesn't trip on its own row.
      */
-    private CompletableFuture<Void> enforceUniqueEmailInScope(ParticipantIdentity entity) {
+    private CompletableFuture<Void> enforceUniqueEmailInScope(UserParticipantIdentity entity) {
         return findByEmail(entity.getEmail(), entity.getOrganizationId(), entity.getApplicationId())
                 .thenAccept(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
@@ -112,10 +99,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     /**
-     * Service-layer guarantee: at most one DELEGATE per {@code (ownerId, clientKey)}.
-     * Self-id is excluded so updating an existing delegate doesn't trip on its own row.
+     * Service-layer guarantee: at most one {@link DelegatingParticipantIdentity} per
+     * {@code (ownerId, clientKey)}. Self-id is excluded so updating an existing delegate
+     * doesn't trip on its own row.
      */
-    private CompletableFuture<Void> enforceUniqueClientKeyForOwner(ParticipantIdentity entity) {
+    private CompletableFuture<Void> enforceUniqueClientKeyForOwner(DelegatingParticipantIdentity entity) {
         return identityRepository.findByOwnerAndClientKey(entity.getOwnerId(), entity.getClientKey())
                 .thenAccept(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
@@ -133,24 +121,24 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
+    public CompletableFuture<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
         return identityRepository.findByEmail(email, organizationId, applicationId);
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> findFirstOrgUserByEmail(String email) {
+    public CompletableFuture<UserParticipantIdentity> findFirstOrgUserByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return identityRepository.findFirstOrgUserByEmail(email);
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> findByEmail(String email) {
+    public CompletableFuture<UserParticipantIdentity> findByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return identityRepository.findByEmail(email);
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
+    public CompletableFuture<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,
                                                          String applicationId) {
@@ -164,7 +152,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         return identityRepository.findOrgUserByOidcIdentity(oidcSubject, oidcConfigId);
@@ -192,10 +180,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<ParticipantIdentity> createUser(ParticipantIdentity user, String password) {
-        Validate.notNull(user.getEmail(), "ParticipantIdentity email cannot be null");
+    public CompletableFuture<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password) {
+        Validate.notNull(user.getEmail(), "UserParticipantIdentity email cannot be null");
         validateScopeFields(user);
-        user.setType(ParticipantIdentityType.USER);
 
         if (user.getId() == null) {
             user.setId(UUID.randomUUID().toString());
@@ -212,6 +199,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
         return applyTenantPolicy(user)
                 .thenCompose(this::save)
+                .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(savedUser -> {
                     if (password != null) {
                         IamCredential credential = new IamCredential()
@@ -231,7 +219,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
      * createUser accepts caller-supplied ids of any shape; a dedicated UUID keeps tenant
      * identity decoupled from id semantics.
      */
-    private CompletableFuture<ParticipantIdentity> applyTenantPolicy(ParticipantIdentity user) {
+    private CompletableFuture<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
         if (user.getApplicationId() == null || user.getTenantId() != null) {
             return CompletableFuture.completedFuture(user);
         }

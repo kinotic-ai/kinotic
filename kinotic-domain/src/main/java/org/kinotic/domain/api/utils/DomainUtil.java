@@ -6,8 +6,10 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
@@ -245,13 +247,18 @@ public class DomainUtil {
     private static Map<String, String> participantMetadata(ParticipantIdentity identity) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, participantTypeFor(identity.getType()));
-        metadata.put("displayName", displayNameFor(identity));
         metadata.put("authType", identity.getAuthType().name());
-        if (identity.getEmail() != null) {
-            metadata.put("email", identity.getEmail());
-        }
-        if (identity.getOwnerId() != null) {
-            metadata.put("onBehalfOf", identity.getOwnerId());
+        switch (identity) {
+            case UserParticipantIdentity user -> {
+                metadata.put("email", user.getEmail());
+                metadata.put("displayName",
+                             user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
+            }
+            case DelegatingParticipantIdentity delegate -> {
+                metadata.put("onBehalfOf", delegate.getOwnerId());
+                metadata.put("displayName",
+                             delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
+            }
         }
         return Map.copyOf(metadata);
     }
@@ -261,16 +268,6 @@ public class DomainUtil {
             case USER -> ParticipantConstants.PARTICIPANT_TYPE_USER;
             case DELEGATE -> ParticipantConstants.PARTICIPANT_TYPE_DELEGATE;
         };
-    }
-
-    private static String displayNameFor(ParticipantIdentity identity) {
-        String ret;
-        if (identity.getDisplayName() != null) {
-            ret = identity.getDisplayName();
-        } else {
-            ret = identity.getEmail() != null ? identity.getEmail() : identity.getId();
-        }
-        return ret;
     }
 
 }

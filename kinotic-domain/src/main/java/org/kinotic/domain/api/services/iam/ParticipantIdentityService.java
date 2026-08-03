@@ -4,6 +4,7 @@ import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -25,29 +26,29 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * @param applicationId the owning app id, or null for SYSTEM/ORGANIZATION
      * @return {@link CompletableFuture} emitting the matching user, or {@code null} if no user matches
      */
-    CompletableFuture<ParticipantIdentity> findByEmail(String email, String organizationId, String applicationId);
+    CompletableFuture<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId);
 
     /**
      * Finds the first ORG-scope user with the given email across all organizations. Used by
      * the sign-up flow to enforce one user per email at organization-creation time, before
      * the new organization's id exists.
      */
-    CompletableFuture<ParticipantIdentity> findFirstOrgUserByEmail(String email);
+    CompletableFuture<UserParticipantIdentity> findFirstOrgUserByEmail(String email);
 
     /**
-     * Finds the {@link ParticipantIdentity} record for the given email, across all scopes. Returns
+     * Finds the {@link UserParticipantIdentity} record for the given email, across all scopes. Returns
      * the first match. Used by the email-first login lookup to decide between password vs
      * SSO redirect — the service-layer uniqueness rule (one row per email + scope) makes
      * this an unambiguous lookup for the org-login flow.
      */
-    CompletableFuture<ParticipantIdentity> findByEmail(String email);
+    CompletableFuture<UserParticipantIdentity> findByEmail(String email);
 
     /**
-     * Finds the {@link ParticipantIdentity} (if any) with the given OIDC identity within a specific
+     * Finds the {@link UserParticipantIdentity} (if any) with the given OIDC identity within a specific
      * scope. Scope is identified by {@code (organizationId, applicationId)} with the same
      * null conventions as {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
+    CompletableFuture<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                   String oidcConfigId,
                                                   String organizationId,
                                                   String applicationId);
@@ -58,7 +59,7 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * it is unambiguous because an email may belong to at most one organization, so a given
      * {@code (oidcSubject, oidcConfigId)} identity maps to at most one org-scope user.
      */
-    CompletableFuture<ParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
+    CompletableFuture<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
 
     /**
      * Finds all users within the given scope, identified structurally by
@@ -88,7 +89,7 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * @param password the password for a LOCAL user, or null for an OIDC user
      * @return a future emitting the created user
      */
-    CompletableFuture<ParticipantIdentity> createUser(ParticipantIdentity user, String password);
+    CompletableFuture<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password);
 
 }
 
