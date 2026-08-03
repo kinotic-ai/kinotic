@@ -12,13 +12,12 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.AuthenticationHandler;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.security.ParticipantScope;
+import org.kinotic.domain.api.security.ScopedParticipant;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
@@ -74,7 +73,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         router.post(MCP_ROUTE).handler(this::armDiscoveryChallenge);
         // AuthenticationHandler pauses the request while authenticating, so it precedes the
         // BodyHandler. It also binds the Participant to the Vert.x context, which is where
-        // service invocation reads it from when a tool's method declares one.
+        // handlePost and service invocation read it from.
         router.post(MCP_ROUTE).handler(new AuthenticationHandler(securityService, securityContext));
         router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
         router.post(MCP_ROUTE).handler(this::handlePost);
@@ -100,7 +99,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     }
 
     private void handlePost(RoutingContext ctx) {
-        Participant participant = ctx.get(EventConstants.SENDER_HEADER);
+        ScopedParticipant participant = securityContext.requireParticipant(ScopedParticipant.class);
         handle(ctx.body(), participant)
                 .onSuccess(response -> {
                     if (response == null) {
@@ -117,7 +116,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     }
 
     // succeeds with null when the request was a notification and no response body must be sent
-    private Future<JsonRpcResponse> handle(RequestBody body, Participant participant) {
+    private Future<JsonRpcResponse> handle(RequestBody body, ScopedParticipant participant) {
         JsonRpcRequest request;
         try {
 
@@ -170,15 +169,15 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                                                   .setIcons(SERVER_ICONS));
     }
 
-    private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
+    private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, ScopedParticipant participant) {
 
-        ParticipantScope scope = ParticipantScope.of(participant);
+        ParticipantScope callerScope = participant.getScope();
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         CursorPageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
 
         try {
             // the directory result IS the tools/list wire shape; the query already excluded the internal cri
-            return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable)
+            return serviceDirectory.findMcpToolsCallableBy(callerScope.organizationId(), callerScope.applicationId(), pageable)
                                    .map(tools -> JsonRpcResponse.result(id, tools));
 
         } catch (Exception e) {
@@ -187,7 +186,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         }
     }
 
-    private Future<JsonRpcResponse> toolsCall(Object id, ObjectNode params, Participant participant) {
+    private Future<JsonRpcResponse> toolsCall(Object id, ObjectNode params, ScopedParticipant participant) {
 
         Future<JsonRpcResponse> ret;
         if (params.path("name").isString()) {
