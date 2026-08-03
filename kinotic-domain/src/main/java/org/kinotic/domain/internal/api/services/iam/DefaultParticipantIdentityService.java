@@ -5,6 +5,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
@@ -36,15 +37,45 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     protected CompletableFuture<Void> beforeSave(ParticipantIdentity entity) {
-        Validate.notNull(entity.getEmail(), "ParticipantIdentity email cannot be null");
-        // Canonical form at the single write chokepoint; lookups normalize in the repository.
-        entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
+        // absent means USER, so every pre-existing caller that never sets the field stays correct
+        if (entity.getType() == null) {
+            entity.setType(ParticipantIdentityType.USER);
+        }
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
         }
         entity.setUpdated(new Date());
-        return enforceUniqueEmailInScope(entity);
+
+        CompletableFuture<Void> ret;
+        if (entity.getType() == ParticipantIdentityType.DELEGATE) {
+            validateDelegateFields(entity);
+            ret = enforceUniqueClientKeyForOwner(entity);
+        } else {
+            validateUserFields(entity);
+            // Canonical form at the single write chokepoint; lookups normalize in the repository.
+            entity.setEmail(DomainUtil.normalizeEmail(entity.getEmail()));
+            ret = enforceUniqueEmailInScope(entity);
+        }
+        return ret;
+    }
+
+    private static void validateUserFields(ParticipantIdentity entity) {
+        Validate.notNull(entity.getEmail(), "ParticipantIdentity email cannot be null");
+        Validate.isTrue(entity.getOwnerId() == null && entity.getClientKey() == null
+                                && entity.getDelegateKind() == null,
+                        "ownerId, clientKey, and delegateKind are DELEGATE-only fields");
+    }
+
+    private static void validateDelegateFields(ParticipantIdentity entity) {
+        Validate.notBlank(entity.getOwnerId(), "DELEGATE ownerId is required");
+        Validate.notBlank(entity.getClientKey(), "DELEGATE clientKey is required");
+        Validate.notNull(entity.getDelegateKind(), "DELEGATE delegateKind is required");
+        Validate.isTrue(entity.getAuthType() == AuthType.DELEGATED,
+                        "DELEGATE authType must be DELEGATED");
+        Validate.isTrue(entity.getEmail() == null, "DELEGATE email must be null");
+        Validate.isTrue(entity.getOidcSubject() == null && entity.getOidcConfigId() == null,
+                        "oidcSubject and oidcConfigId are USER-only fields");
     }
 
     /**
@@ -79,6 +110,21 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         throw new IllegalArgumentException(
                                 "ParticipantIdentity with email " + entity.getEmail()
                                         + " already exists in scope " + describeScope(entity));
+                    }
+                });
+    }
+
+    /**
+     * Service-layer guarantee: at most one DELEGATE per {@code (ownerId, clientKey)}.
+     * Self-id is excluded so updating an existing delegate doesn't trip on its own row.
+     */
+    private CompletableFuture<Void> enforceUniqueClientKeyForOwner(ParticipantIdentity entity) {
+        return identityRepository.findByOwnerAndClientKey(entity.getOwnerId(), entity.getClientKey())
+                .thenAccept(existing -> {
+                    if (existing != null && !existing.getId().equals(entity.getId())) {
+                        throw new IllegalArgumentException(
+                                "DELEGATE with clientKey " + entity.getClientKey()
+                                        + " already exists for owner " + entity.getOwnerId());
                     }
                 });
     }
@@ -152,6 +198,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     public CompletableFuture<ParticipantIdentity> createUser(ParticipantIdentity user, String password) {
         Validate.notNull(user.getEmail(), "ParticipantIdentity email cannot be null");
         validateScopeFields(user);
+        user.setType(ParticipantIdentityType.USER);
 
         if (user.getId() == null) {
             user.setId(UUID.randomUUID().toString());

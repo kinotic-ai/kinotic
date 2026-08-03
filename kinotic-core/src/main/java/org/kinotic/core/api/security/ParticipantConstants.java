@@ -14,6 +14,9 @@ public class ParticipantConstants {
 
     public static final String PARTICIPANT_TYPE_USER = "user";
 
+    /** A client (CLI, MCP host) acting on behalf of a user that authorized it. */
+    public static final String PARTICIPANT_TYPE_DELEGATE = "delegate";
+
     public static final String PARTICIPANT_TYPE_NODE = "node";
 
 }

@@ -58,6 +58,14 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .filter(scopeFilter(organizationId, applicationId))))));
     }
 
+    public CompletableFuture<ParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {
+        Validate.notBlank(ownerId, "ownerId cannot be blank");
+        Validate.notBlank(clientKey, "clientKey cannot be blank");
+        return findFirst(b -> b.query(composeFilter(
+                termFilter("ownerId", ownerId),
+                termFilter("clientKey", clientKey))));
+    }
+
     public CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,

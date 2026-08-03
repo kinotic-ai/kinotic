@@ -9,16 +9,20 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * Represents an authenticated identity at any scope layer in the IAM system.
- * Each user is scoped to exactly one layer — SYSTEM, an Organization, or an Application
- * within an Organization — and is unique by email within that scope. The scope is encoded
- * structurally by which of {@link #organizationId} / {@link #applicationId} is set:
+ * Represents an authenticated identity at any scope layer in the IAM system — a person
+ * ({@link ParticipantIdentityType#USER}) or a client acting on a person's behalf
+ * ({@link ParticipantIdentityType#DELEGATE}). Each identity is scoped to exactly one
+ * layer — SYSTEM, an Organization, or an Application within an Organization. The scope is
+ * encoded structurally by which of {@link #organizationId} / {@link #applicationId} is set:
  * <ul>
  *   <li>both null → SYSTEM (platform operators)</li>
  *   <li>{@code organizationId} set, {@code applicationId} null → ORGANIZATION</li>
  *   <li>both set → APPLICATION (a user of an Application owned by an Organization)</li>
  * </ul>
- * Users must be pre-created by an administrator before they can authenticate.
+ * USER identities are unique by email within their scope and must be pre-created by an
+ * administrator before they can authenticate. DELEGATE identities are unique by
+ * {@code (ownerId, clientKey)}, carry their owner's scope, and are created when the owner
+ * approves an OAuth grant.
  */
 @Getter
 @Setter
@@ -29,16 +33,43 @@ public class ParticipantIdentity implements Identifiable<String> {
     private String id;
 
     /**
+     * What kind of principal this identity is. Never null once persisted; determines which
+     * of the USER-only (email, oidc*) and DELEGATE-only (ownerId, clientKey, delegateKind)
+     * fields are set.
+     */
+    private ParticipantIdentityType type;
+
+    /**
      * Email address, unique within the user's scope (organizationId + applicationId).
+     * USER only; null for DELEGATE identities.
      */
     private String email;
 
     private String displayName;
 
     /**
-     * Authentication method: {@link AuthType#LOCAL} for email/password or {@link AuthType#OIDC} for federated identity.
+     * Authentication method: {@link AuthType#LOCAL} or {@link AuthType#OIDC} for USER
+     * identities, always {@link AuthType#DELEGATED} for DELEGATE identities.
      */
     private AuthType authType;
+
+    /**
+     * Id of the USER {@link ParticipantIdentity} this delegate acts on behalf of.
+     * DELEGATE only; null for USER identities.
+     */
+    private String ownerId;
+
+    /**
+     * Stable identity of the authorized client, unique per owner: the CIMD {@code client_id}
+     * URL for {@link DelegateKind#MCP_CLIENT}, a fixed well-known key for
+     * {@link DelegateKind#CLI}. DELEGATE only.
+     */
+    private String clientKey;
+
+    /**
+     * The kind of client this delegate represents. DELEGATE only.
+     */
+    private DelegateKind delegateKind;
 
     /**
      * The {@code sub} claim from the OIDC token. Populated when an OIDC user is provisioned

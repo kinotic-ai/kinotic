@@ -7,6 +7,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
@@ -17,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -214,12 +216,7 @@ public class DomainUtil {
      * @return the typed participant for the given user
      */
     public static Participant createParticipant(ParticipantIdentity user) {
-        Map<String, String> metadata = Map.of(
-                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
-                "email", user.getEmail(),
-                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authType", user.getAuthType().name()
-        );
+        Map<String, String> metadata = participantMetadata(user);
         if (user.getOrganizationId() == null) {
             return DefaultSystemParticipant.builder()
                                            .id(user.getId())
@@ -243,6 +240,37 @@ public class DomainUtil {
                                             .metadata(metadata)
                                             .roles(List.of())
                                             .build();
+    }
+
+    private static Map<String, String> participantMetadata(ParticipantIdentity identity) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, participantTypeFor(identity.getType()));
+        metadata.put("displayName", displayNameFor(identity));
+        metadata.put("authType", identity.getAuthType().name());
+        if (identity.getEmail() != null) {
+            metadata.put("email", identity.getEmail());
+        }
+        if (identity.getOwnerId() != null) {
+            metadata.put("onBehalfOf", identity.getOwnerId());
+        }
+        return Map.copyOf(metadata);
+    }
+
+    private static String participantTypeFor(ParticipantIdentityType type) {
+        return switch (type) {
+            case USER -> ParticipantConstants.PARTICIPANT_TYPE_USER;
+            case DELEGATE -> ParticipantConstants.PARTICIPANT_TYPE_DELEGATE;
+        };
+    }
+
+    private static String displayNameFor(ParticipantIdentity identity) {
+        String ret;
+        if (identity.getDisplayName() != null) {
+            ret = identity.getDisplayName();
+        } else {
+            ret = identity.getEmail() != null ? identity.getEmail() : identity.getId();
+        }
+        return ret;
     }
 
 }
