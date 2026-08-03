@@ -1,5 +1,5 @@
 /**
- * Authentication method for an {@link IamUser}.
+ * Authentication method for an {@link ParticipantIdentity}.
  */
 export enum AuthType {
     LOCAL = 'LOCAL',

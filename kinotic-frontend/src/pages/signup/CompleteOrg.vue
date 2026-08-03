@@ -86,7 +86,7 @@ import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
 /**
  * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`
  * (a {@code PendingRegistration}). The user supplies an org name; we POST to
- * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin IamUser and
+ * `/api/auth/org/signup/social/complete`, the backend creates the Organization + admin ParticipantIdentity and
  * establishes the browser session, which we then use to open the realtime connection. A
  * "Connect GitHub" step then explains the repository-access authorization before sending the
  * tab into the GitHub App install so the new org is project-ready.
