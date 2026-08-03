@@ -20,8 +20,3 @@ CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
     created DATE,
     expiresAt DATE
 );
-
--- The surface access tokens minted from a refresh-token lineage are valid for. Rotation preserves
--- it, so an MCP host's lineage can never mint a published-services token or the reverse. Lineages
--- predating this column are all CLI device-grant tokens and are read as PUBLISHED_SERVICES.
-ALTER TABLE kinotic_refresh_token ADD COLUMN audience KEYWORD;
