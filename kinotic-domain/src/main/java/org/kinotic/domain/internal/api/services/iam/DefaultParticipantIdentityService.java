@@ -37,10 +37,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     protected CompletableFuture<Void> beforeSave(ParticipantIdentity entity) {
-        // absent means USER, so every pre-existing caller that never sets the field stays correct
-        if (entity.getType() == null) {
-            entity.setType(ParticipantIdentityType.USER);
-        }
+        Validate.notNull(entity.getType(), "ParticipantIdentity type cannot be null");
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
