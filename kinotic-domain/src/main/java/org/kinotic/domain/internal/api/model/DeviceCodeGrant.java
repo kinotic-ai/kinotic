@@ -31,10 +31,10 @@ public class DeviceCodeGrant implements Identifiable<String> {
     private String userCode;
 
     /**
-     * Id of the {@link org.kinotic.domain.api.model.iam.IamUser} that approved the grant,
+     * Id of the {@link org.kinotic.domain.api.model.iam.ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant is still pending approval.
      */
-    private String userId;
+    private String identityId;
 
     private Date created;
 

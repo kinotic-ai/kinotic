@@ -13,7 +13,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
@@ -35,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
  * browser-session establishment, redirect construction, JSON error/payload writing, the
  * standard "after-callback" flow, and absolute URL building.
  * Each individual handler delegates the boilerplate here so its body keeps only the
- * route-specific decisions (which config to start with, which IamUser lookup to run).
+ * route-specific decisions (which config to start with, which ParticipantIdentity lookup to run).
  */
 @Slf4j
 @Component
@@ -96,7 +96,7 @@ public class AuthEndpointSupport {
      * participant type follows the user's scope (org users get an OrganizationParticipant,
      * app users an ApplicationParticipant), which is what scopes their authority.
      */
-    public void establishSession(RoutingContext ctx, IamUser user) {
+    public void establishSession(RoutingContext ctx, ParticipantIdentity user) {
         Session session = ctx.session();
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
@@ -108,7 +108,7 @@ public class AuthEndpointSupport {
     }
 
     /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
-    public void respondSuccess(RoutingContext ctx, IamUser user) {
+    public void respondSuccess(RoutingContext ctx, ParticipantIdentity user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(204).end();
     }
@@ -120,7 +120,7 @@ public class AuthEndpointSupport {
      * from when there was one, otherwise the SPA root. No token travels in the URL — the browser
      * is authenticated by its session cookie.
      */
-    public void redirectSuccess(RoutingContext ctx, IamUser user) {
+    public void redirectSuccess(RoutingContext ctx, ParticipantIdentity user) {
         // read before establishSession, which regenerates the session id
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
         establishSession(ctx, user);
@@ -206,7 +206,7 @@ public class AuthEndpointSupport {
      * resolves the caller's {@link org.kinotic.core.api.security.Participant} from, so the
      * bearer acts as this user and no other.
      */
-    private String mintAccessToken(IamUser user, KinoticAudience audience) {
+    private String mintAccessToken(ParticipantIdentity user, KinoticAudience audience) {
         JsonObject claims = new JsonObject()
                 .put("sub", user.getId())
                 .put("email", user.getEmail());
@@ -224,7 +224,7 @@ public class AuthEndpointSupport {
      * {@code access_token}, plus the {@code refresh_token} the client persists to mint future
      * access tokens. Both act as {@code user}.
      */
-    public void respondTokenPair(RoutingContext ctx, IamUser user, String refreshToken, KinoticAudience audience) {
+    public void respondTokenPair(RoutingContext ctx, ParticipantIdentity user, String refreshToken, KinoticAudience audience) {
         String accessToken;
         try {
             accessToken = mintAccessToken(user, audience);
@@ -336,7 +336,7 @@ public class AuthEndpointSupport {
      * the authenticate call (already scope-aware where appropriate).
      */
     public void handlePasswordLogin(RoutingContext ctx,
-                                    BiFunction<String, String, CompletionStage<IamUser>> authenticate) {
+                                    BiFunction<String, String, CompletionStage<ParticipantIdentity>> authenticate) {
         JsonObject body = readJsonBody(ctx);
         String email = body.getString("email");
         String password = body.getString("password");
@@ -361,16 +361,16 @@ public class AuthEndpointSupport {
 
     /**
      * "After the IdP returned" composite flow used by every login callback: validates
-     * {@code sub} + {@code email_verified}, looks up the {@link IamUser} via the
+     * {@code sub} + {@code email_verified}, looks up the {@link ParticipantIdentity} via the
      * supplied function, and redirects success or error accordingly. Never creates
      * users — the signup path owns provisioning.
      *
-     * @param userLookup takes the OIDC {@code sub} claim and returns the IamUser (or null).
+     * @param userLookup takes the OIDC {@code sub} claim and returns the ParticipantIdentity (or null).
      */
     public void completeOidcLogin(RoutingContext ctx,
                                   BaseOidcConfiguration config,
                                   Map<String, Object> claims,
-                                  Function<String, CompletionStage<IamUser>> userLookup) {
+                                  Function<String, CompletionStage<ParticipantIdentity>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);

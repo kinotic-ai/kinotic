@@ -7,10 +7,10 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.exceptions.InviteEmailMismatchException;
 import org.kinotic.domain.api.services.iam.InviteService;
 import org.kinotic.domain.internal.api.repositories.PendingInviteRepository;
@@ -31,7 +31,7 @@ public class DefaultInviteService implements InviteService {
     private static final long INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000L; // 7 days
 
     private final PendingInviteRepository pendingInviteRepository;
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final OrganizationService organizationService;
     private final EmailService emailService;
 
@@ -74,9 +74,9 @@ public class DefaultInviteService implements InviteService {
      * an invitation is already pending in the scope.
      */
     private CompletableFuture<Void> checkEmailAvailable(PendingInvite invite) {
-        CompletableFuture<IamUser> existingUser = invite.getApplicationId() == null
-                ? iamUserService.findFirstOrgUserByEmail(invite.getEmail())
-                : iamUserService.findByEmail(invite.getEmail(),
+        CompletableFuture<ParticipantIdentity> existingUser = invite.getApplicationId() == null
+                ? identityService.findFirstOrgUserByEmail(invite.getEmail())
+                : identityService.findByEmail(invite.getEmail(),
                                              invite.getOrganizationId(),
                                              invite.getApplicationId());
         return existingUser
@@ -107,7 +107,7 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
-    public CompletableFuture<IamUser> acceptLocalInvite(String token, String password, String displayName) {
+    public CompletableFuture<ParticipantIdentity> acceptLocalInvite(String token, String password, String displayName) {
         Validate.notBlank(token, "token is required");
         Validate.notBlank(password, "password is required");
 
@@ -116,7 +116,7 @@ public class DefaultInviteService implements InviteService {
     }
 
     @Override
-    public CompletableFuture<IamUser> acceptOidcInvite(String token,
+    public CompletableFuture<ParticipantIdentity> acceptOidcInvite(String token,
                                                        String oidcSubject,
                                                        String oidcConfigId,
                                                        String verifiedEmail) {
@@ -141,12 +141,12 @@ public class DefaultInviteService implements InviteService {
      * the invite is consumed on success. A concurrent double-accept is safe — createUser's
      * unique-email-in-scope check fails the second attempt.
      */
-    private CompletableFuture<IamUser> acceptInvite(PendingInvite invite,
+    private CompletableFuture<ParticipantIdentity> acceptInvite(PendingInvite invite,
                                                     String password,
                                                     String displayNameOverride,
                                                     String oidcSubject,
                                                     String oidcConfigId) {
-        IamUser user = new IamUser()
+        ParticipantIdentity user = new ParticipantIdentity()
                 .setEmail(invite.getEmail())
                 .setDisplayName(StringUtils.isNotBlank(displayNameOverride)
                                         ? displayNameOverride
@@ -157,7 +157,7 @@ public class DefaultInviteService implements InviteService {
             user.setOidcSubject(oidcSubject)
                 .setOidcConfigId(oidcConfigId);
         }
-        return iamUserService.createUser(user, password)
+        return identityService.createUser(user, password)
                 .thenCompose(saved -> pendingInviteRepository.deleteById(invite.getId())
                                                              .thenApply(v -> saved));
     }

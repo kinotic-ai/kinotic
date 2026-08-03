@@ -1,6 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 
@@ -17,11 +17,11 @@ public interface RefreshTokenService {
     /**
      * Issues a new refresh token in a new family for the given user.
      *
-     * @param userId   id of the {@link IamUser} the token will authenticate
+     * @param identityId   id of the {@link ParticipantIdentity} the token will authenticate
      * @param audience the surface access tokens minted from this lineage are valid for
      * @return the plaintext refresh token — available only here, the server stores only its hash
      */
-    CompletableFuture<String> issue(String userId, KinoticAudience audience);
+    CompletableFuture<String> issue(String identityId, KinoticAudience audience);
 
     /**
      * Validates and rotates a refresh token: the presented token is revoked and a fresh one

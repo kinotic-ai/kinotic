@@ -9,8 +9,8 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.model.IamCredential;
 import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
@@ -24,7 +24,7 @@ import java.util.TreeMap;
  * Sole {@link SecurityService} implementation for Kinotic OS. Handles both email/password
  * and Kinotic-issued JWT authentication across all three scope layers (System, Organization,
  * Application). Scope is identified structurally by the {@code organizationId} and
- * {@code applicationId} of the resolved {@link IamUser}:
+ * {@code applicationId} of the resolved {@link ParticipantIdentity}:
  * <ul>
  *   <li>both absent → SYSTEM</li>
  *   <li>{@code organizationId} only → ORGANIZATION</li>
@@ -36,10 +36,10 @@ import java.util.TreeMap;
  * <ol>
  *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers, with
  *       the {@code organizationId} / {@code applicationId} headers selecting the scope to look
- *       in. Looks up the {@link IamUser} by email + scope, verifies the bcrypt password.</li>
+ *       in. Looks up the {@link ParticipantIdentity} by email + scope, verifies the bcrypt password.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
- *       signature, then look up the {@link IamUser} by id from the JWT {@code sub} claim and
+ *       signature, then look up the {@link ParticipantIdentity} by id from the JWT {@code sub} claim and
  *       require the user's {@code organizationId} / {@code applicationId} to equal the token's
  *       claims. The scope headers do not select scope here — the token carries its own.</li>
  * </ol>
@@ -52,7 +52,7 @@ import java.util.TreeMap;
 // FIXME: this should be in a different module
 public class KinoticSecurityService implements SecurityService {
 
-    private final IamUserService userService;
+    private final ParticipantIdentityService identityService;
     private final IamCredentialRepository credentialRepository;
     private final KinoticJwtIssuer jwtIssuer;
     private final Vertx vertx;
@@ -108,7 +108,7 @@ public class KinoticSecurityService implements SecurityService {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
-        return Future.fromCompletionStage(userService.findByEmail(email, organizationId, applicationId),
+        return Future.fromCompletionStage(identityService.findByEmail(email, organizationId, applicationId),
                                           vertx.getOrCreateContext())
                      .compose(user -> {
                          Future<Participant> ret;
@@ -127,7 +127,7 @@ public class KinoticSecurityService implements SecurityService {
                      });
     }
 
-    private Future<Participant> verifyPasswordAndCreateParticipant(IamUser user,
+    private Future<Participant> verifyPasswordAndCreateParticipant(ParticipantIdentity user,
                                                                    IamCredential credential,
                                                                    String password) {
         Future<Participant> ret;
@@ -143,7 +143,7 @@ public class KinoticSecurityService implements SecurityService {
 
     /**
      * Validates a Kinotic-issued JWT and resolves it to a Participant. The JWT must have a
-     * {@code sub} claim referencing an existing, enabled {@link IamUser} whose
+     * {@code sub} claim referencing an existing, enabled {@link ParticipantIdentity} whose
      * {@code organizationId} / {@code applicationId} equal the token's claims for those values
      * (defense in depth against a token outliving the scope it was minted for). The resulting
      * Participant is scoped by that user record.
@@ -169,26 +169,26 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     private Future<Participant> resolveParticipant(String sub, String jwtOrgId, String jwtAppId) {
-        return Future.fromCompletionStage(userService.findById(sub), vertx.getOrCreateContext())
+        return Future.fromCompletionStage(identityService.findById(sub), vertx.getOrCreateContext())
                      .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
-                     .compose(iamUser -> {
+                     .compose(identity -> {
                          Future<Participant> ret;
-                         if (iamUser == null) {
+                         if (identity == null) {
                              ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
-                         } else if (!iamUser.isEnabled()) {
+                         } else if (!identity.isEnabled()) {
                              ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
-                         } else if (!Objects.equals(iamUser.getOrganizationId(), jwtOrgId)
-                                 || !Objects.equals(iamUser.getApplicationId(), jwtAppId)) {
+                         } else if (!Objects.equals(identity.getOrganizationId(), jwtOrgId)
+                                 || !Objects.equals(identity.getApplicationId(), jwtAppId)) {
                              // the user was moved or re-scoped after the token was minted, so the
                              // signed claims no longer describe the authority the record grants.
                              // The scopes stay in the log; the caller gets no ids back.
                              log.warn("JWT scope {} does not match scope {} of user {}",
                                       describeScope(jwtOrgId, jwtAppId),
-                                      describeScope(iamUser.getOrganizationId(), iamUser.getApplicationId()),
+                                      describeScope(identity.getOrganizationId(), identity.getApplicationId()),
                                       sub);
                              ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
                          } else {
-                             ret = Future.succeededFuture(DomainUtil.createParticipant(iamUser));
+                             ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
                          }
                          return ret;
                      });

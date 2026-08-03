@@ -24,7 +24,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class IamUser implements Identifiable<String> {
+public class ParticipantIdentity implements Identifiable<String> {
 
     private String id;
 
@@ -43,7 +43,7 @@ public class IamUser implements Identifiable<String> {
     /**
      * The {@code sub} claim from the OIDC token. Populated when an OIDC user is provisioned
      * (auto on first login, or via pending sign-up completion); used together with
-     * {@link #oidcConfigId} to resolve the IamUser back from the IdP callback.
+     * {@link #oidcConfigId} to resolve the ParticipantIdentity back from the IdP callback.
      */
     private String oidcSubject;
 

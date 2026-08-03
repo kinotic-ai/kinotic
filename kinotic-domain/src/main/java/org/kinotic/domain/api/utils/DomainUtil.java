@@ -6,7 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
@@ -201,7 +201,7 @@ public class DomainUtil {
     }
 
     /**
-     * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
+     * Builds the {@link Participant} security identity for an authenticated {@link ParticipantIdentity}.
      * Returns the typed subtype that matches the user's structural scope:
      * <ul>
      *   <li>{@code organizationId == null} → {@link DefaultSystemParticipant}</li>
@@ -213,7 +213,7 @@ public class DomainUtil {
      * @param user the authenticated user
      * @return the typed participant for the given user
      */
-    public static Participant createParticipant(IamUser user) {
+    public static Participant createParticipant(ParticipantIdentity user) {
         Map<String, String> metadata = Map.of(
                 ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
                 "email", user.getEmail(),

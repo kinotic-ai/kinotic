@@ -9,10 +9,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.internal.api.rest.support.*;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.iam.PendingSignUp;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.services.iam.SignUpService;
 import org.springframework.stereotype.Component;
@@ -24,14 +24,14 @@ import java.util.Map;
 /**
  * Organization sign-up routes — the sign-up counterpart to {@link OrganizationLoginHandler}.
  * Both email/password and social (OIDC) sign-up create a new {@link Organization} and its admin
- * {@link IamUser}; each handler method documents its own step.
+ * {@link ParticipantIdentity}; each handler method documents its own step.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final SignUpService signUpService;
     private final OidcFlowOrchestrator oidcFlowOrchestrator;
@@ -140,7 +140,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
     }
 
     /**
-     * Turns a verified social identity into a pending sign-up: refuses if an {@link IamUser}
+     * Turns a verified social identity into a pending sign-up: refuses if an {@link ParticipantIdentity}
      * already exists for this identity (they should log in, not sign up), otherwise stores a
      * {@link PendingSignUp} carrying the verified identity and redirects the browser to the
      * org-naming page that posts back to {@link #handleSocialCompleteOrg}.
@@ -162,7 +162,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findOrgUserByOidcIdentity(sub, config.getId()))
+        Future.fromCompletionStage(identityService.findOrgUserByOidcIdentity(sub, config.getId()))
               .compose(existing -> {
                   if (existing != null) {
                       // Already have an account for this identity — push them to log in instead.
@@ -189,7 +189,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/org/signup/social/complete} — finish social sign-up. The user has named their org;
-     * creates the organization and its admin {@link IamUser} (AuthType=OIDC) from the pending
+     * creates the organization and its admin {@link ParticipantIdentity} (AuthType=OIDC) from the pending
      * sign-up identified by the token.
      */
     private void handleSocialCompleteOrg(RoutingContext ctx) {

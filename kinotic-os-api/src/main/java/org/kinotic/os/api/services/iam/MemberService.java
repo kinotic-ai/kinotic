@@ -3,7 +3,7 @@ package org.kinotic.os.api.services.iam;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.os.api.model.iam.PendingInviteSummary;
 
 import java.util.concurrent.CompletableFuture;
@@ -19,13 +19,13 @@ import java.util.concurrent.CompletableFuture;
 public interface MemberService {
 
     /** Lists the members of the scope. */
-    CompletableFuture<Page<IamUser>> findMembers(String applicationId, Pageable pageable);
+    CompletableFuture<Page<ParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    CompletableFuture<Page<IamUser>> searchMembers(String searchText, String applicationId, Pageable pageable);
+    CompletableFuture<Page<ParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the
@@ -42,13 +42,13 @@ public interface MemberService {
      * Enables or disables a member of the caller's organization. Disabling gates future
      * logins; established sessions last until they expire. Callers cannot disable themselves.
      */
-    CompletableFuture<Void> setMemberEnabled(String userId, boolean enabled);
+    CompletableFuture<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
      * Permanently removes a member of the caller's organization, including any stored
      * credential. Callers cannot remove themselves.
      */
-    CompletableFuture<Void> removeMember(String userId);
+    CompletableFuture<Void> removeMember(String identityId);
 
     /** Lists the scope's live (unexpired) pending invitations. */
     CompletableFuture<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);

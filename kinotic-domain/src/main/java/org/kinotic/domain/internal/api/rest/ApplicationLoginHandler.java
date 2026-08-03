@@ -11,9 +11,9 @@ import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.kinotic.domain.internal.api.rest.support.CallbackResult;
 import org.kinotic.domain.internal.api.rest.support.OidcFlowOrchestrator;
 import org.kinotic.domain.api.model.iam.AuthType;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.OidcConfiguration;
-import org.kinotic.domain.api.services.iam.IamUserService;
+import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.services.iam.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.repositories.OidcConfigurationRepository;
 import org.kinotic.domain.api.services.iam.OidcConfigurationService;
@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 /**
  * Login routes for end-users of an application built on Kinotic. Distinct from the
  * org-login handler: the user is logging into an application's own user base (an
- * APP-scope {@link IamUser} — {@code organizationId} + {@code applicationId} both set),
+ * APP-scope {@link ParticipantIdentity} — {@code organizationId} + {@code applicationId} both set),
  * not into the platform-managed org admin surface. Every lookup carries both path ids so
  * the auth path can never collide cross-org, and OIDC flows started here return to this
  * handler's own callback.
@@ -33,7 +33,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
 
-    private final IamUserService iamUserService;
+    private final ParticipantIdentityService identityService;
     private final OidcConfigurationService oidcConfigurationService;
     private final OidcConfigurationRepository oidcConfigurationRepository;
     private final LocalAuthenticationService localAuthenticationService;
@@ -82,7 +82,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(iamUserService.findByEmail(email, orgId, appId))
+        Future.fromCompletionStage(identityService.findByEmail(email, orgId, appId))
               .compose(user -> resolveSsoOrPassword(ctx, orgId, appId, user))
               .onFailure(err -> {
                   log.warn("App login lookup failed for {}/{}/{}: {}", orgId, appId, email, err.getMessage());
@@ -90,7 +90,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
               });
     }
 
-    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, String orgId, String appId, IamUser user) {
+    private Future<Void> resolveSsoOrPassword(RoutingContext ctx, String orgId, String appId, ParticipantIdentity user) {
         if (user == null
                 || user.getAuthType() != AuthType.OIDC
                 || user.getOidcConfigId() == null) {
@@ -142,7 +142,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
                                   String orgId,
                                   String appId) {
         authEndpointSupport.completeOidcLogin(ctx, result.config(), result.claims(),
-                sub -> iamUserService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
+                sub -> identityService.findByOidcIdentity(sub, result.config().getId(), orgId, appId));
     }
 
     private String callbackUrl(String orgId, String appId, String configId) {

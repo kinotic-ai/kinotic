@@ -4,7 +4,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.IamUser;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -12,13 +12,13 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.CompletableFuture;
 
 @Component
-public class IamUserRepository extends AbstractRepository<IamUser> {
+public class ParticipantIdentityRepository extends AbstractRepository<ParticipantIdentity> {
 
-    public IamUserRepository(CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_iam_user", IamUser.class, crudServiceTemplate);
+    public ParticipantIdentityRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_participant_identity", ParticipantIdentity.class, crudServiceTemplate);
     }
 
-    public CompletableFuture<IamUser> findByEmail(String email, String organizationId, String applicationId) {
+    public CompletableFuture<ParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
         if (applicationId != null) {
             Validate.notBlank(organizationId,
@@ -29,22 +29,22 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                 scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<IamUser> findFirstOrgUserByEmail(String email) {
+    public CompletableFuture<ParticipantIdentity> findFirstOrgUserByEmail(String email) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", DomainUtil.normalizeEmail(email)),
                 existsFilter("organizationId"),
                 missingFilter("applicationId"))));
     }
 
-    public CompletableFuture<IamUser> findByEmail(String email) {
+    public CompletableFuture<ParticipantIdentity> findByEmail(String email) {
         return findFirst(b -> b.query(termFilter("email", DomainUtil.normalizeEmail(email))));
     }
 
-    public CompletableFuture<Page<IamUser>> findByScope(String organizationId, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable) {
         return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
     }
 
-    public CompletableFuture<Page<IamUser>> searchByScope(String searchText,
+    public CompletableFuture<Page<ParticipantIdentity>> searchByScope(String searchText,
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {
@@ -58,7 +58,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                 .filter(scopeFilter(organizationId, applicationId))))));
     }
 
-    public CompletableFuture<IamUser> findByOidcIdentity(String oidcSubject,
+    public CompletableFuture<ParticipantIdentity> findByOidcIdentity(String oidcSubject,
                                                          String oidcConfigId,
                                                          String organizationId,
                                                          String applicationId) {
@@ -68,7 +68,7 @@ public class IamUserRepository extends AbstractRepository<IamUser> {
                 scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<IamUser> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public CompletableFuture<ParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("oidcSubject", oidcSubject),
                 termFilter("oidcConfigId", oidcConfigId),
