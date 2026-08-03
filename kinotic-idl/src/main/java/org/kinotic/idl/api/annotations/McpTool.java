@@ -42,7 +42,7 @@ public @interface McpTool {
     String title() default "";
 
     /**
-     * Indicates the tool does not modify its environment. All three hints are read together from the
+     * Indicates the tool does not modify its environment. All four hints are read together from the
      * method's annotation, exactly as it writes them. A function with no annotation of its own is hinted by
      * the words in its name instead: {@code save} or {@code delete} make it destructive and idempotent, a
      * name ending in {@code IfNotExist} makes it idempotent, {@code create} or {@code send} leave all three
@@ -59,5 +59,13 @@ public @interface McpTool {
      * Indicates repeated calls with the same arguments have no additional effect.
      */
     boolean idempotentHint() default false;
+
+    /**
+     * Indicates the tool reaches a system outside the platform, such as a third-party API. A function that
+     * works against the platform's own data leaves this false, which is what an MCP host reads to decide how
+     * much scrutiny a call deserves. MCP itself defaults this hint to true, so a tool that never states it
+     * would otherwise be served as if it called out to the world.
+     */
+    boolean openWorldHint() default false;
 
 }

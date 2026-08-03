@@ -13,18 +13,21 @@ import java.util.stream.Collectors;
 /**
  * The behavior hints served as a tool's MCP annotations.
  */
-record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent) {
+record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent, boolean openWorld) {
+
+    // a name says nothing about whether a function calls out to another system, and a Kinotic service runs
+    // against the platform's own data, so every name-derived value below leaves openWorld false
 
     /**
      * Hints for a tool whose behavior nothing is known about.
      */
-    static final McpToolHints NONE = new McpToolHints(false, false, false);
+    static final McpToolHints NONE = new McpToolHints(false, false, false, false);
 
-    static final McpToolHints READ_ONLY = new McpToolHints(true, false, false);
+    static final McpToolHints READ_ONLY = new McpToolHints(true, false, false, false);
 
-    static final McpToolHints DESTRUCTIVE_AND_IDEMPOTENT = new McpToolHints(false, true, true);
+    static final McpToolHints DESTRUCTIVE_AND_IDEMPOTENT = new McpToolHints(false, true, true, false);
 
-    static final McpToolHints IDEMPOTENT = new McpToolHints(false, false, true);
+    static final McpToolHints IDEMPOTENT = new McpToolHints(false, false, true, false);
 
     private static final Set<String> READ_ONLY_VERBS = Set.of("count", "exists", "fetch", "find", "get",
                                                               "has", "is", "list", "load", "query", "read",
@@ -45,13 +48,15 @@ record McpToolHints(boolean readOnly, boolean destructive, boolean idempotent) {
     static McpToolHints of(McpTool annotation) {
         return new McpToolHints(annotation.readOnlyHint(),
                                 annotation.destructiveHint(),
-                                annotation.idempotentHint());
+                                annotation.idempotentHint(),
+                                annotation.openWorldHint());
     }
 
     static McpToolHints of(McpToolInfo annotation) {
         return new McpToolHints(annotation.readOnlyHint(),
                                 annotation.destructiveHint(),
-                                annotation.idempotentHint());
+                                annotation.idempotentHint(),
+                                annotation.openWorldHint());
     }
 
     /**

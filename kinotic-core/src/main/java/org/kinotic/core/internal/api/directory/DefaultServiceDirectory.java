@@ -316,7 +316,8 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                   .setAnnotations(new McpToolAnnotations()
                                                           .setReadOnlyHint(decorator.isReadOnlyHint())
                                                           .setDestructiveHint(decorator.isDestructiveHint())
-                                                          .setIdempotentHint(decorator.isIdempotentHint())));
+                                                          .setIdempotentHint(decorator.isIdempotentHint())
+                                                          .setOpenWorldHint(decorator.isOpenWorldHint())));
             }
         }
 
