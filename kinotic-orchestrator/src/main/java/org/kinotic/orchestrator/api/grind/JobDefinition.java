@@ -21,6 +21,35 @@ public interface JobDefinition extends HasSteps{
     String getDescription();
 
     /**
+     * The stable name identifying this job across runs, recorded with every execution.
+     * Required by {@link JobService#execute(JobDefinition)}, optional for definitions
+     * that are only nested within or assembled by others.
+     * @return the name or null if none was set
+     */
+    String getName();
+
+    /**
+     * The version of this job's definition, recorded with every execution so a persisted
+     * run can be matched to the code that produced it.
+     * @return the version or null if none was set
+     */
+    String getVersion();
+
+    /**
+     * Sets the stable name identifying this job across runs.
+     * @param name to use
+     * @return this for fluent use
+     */
+    JobDefinition name(String name);
+
+    /**
+     * Sets the version of this job's definition.
+     * @param version to use
+     * @return this for fluent use
+     */
+    JobDefinition version(String version);
+
+    /**
      * If this {@link JobDefinition} supports running it's  {@link Task}'s in parallel
      *
      * @return true if {@link Tasks}'s can be run in parallel false if not

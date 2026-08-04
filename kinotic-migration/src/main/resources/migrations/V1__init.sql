@@ -231,11 +231,11 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     updated DATE
 );
 
--- Create the job_run table for the persistent history of grind pipeline executions
+-- Create the job_run table for the persistent history of grind job executions
 CREATE TABLE IF NOT EXISTS kinotic_job_run (
     id KEYWORD,
-    pipeline KEYWORD,
-    pipelineVersion KEYWORD,
+    name KEYWORD,
+    version KEYWORD,
     description TEXT,
     status KEYWORD,
     error TEXT,

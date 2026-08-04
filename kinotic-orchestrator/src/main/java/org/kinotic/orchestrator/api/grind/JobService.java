@@ -26,4 +26,27 @@ public interface JobService {
      */
     Flux<Result<?>> assemble(JobDefinition jobDefinition, ResultOptions options);
 
+    /**
+     * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
+     * {@link org.kinotic.domain.api.model.grind.JobRun} for the run and a
+     * {@link org.kinotic.domain.api.model.grind.TaskRecord} for every step executed.
+     * The run starts, and its records are written, when the returned
+     * {@link JobExecution#getResults()} is subscribed to.
+     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
+     * @return the prepared {@link JobExecution}
+     */
+    JobExecution execute(JobDefinition jobDefinition);
+
+    /**
+     * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
+     * {@link org.kinotic.domain.api.model.grind.JobRun} for the run and a
+     * {@link org.kinotic.domain.api.model.grind.TaskRecord} for every step executed.
+     * The run starts, and its records are written, when the returned
+     * {@link JobExecution#getResults()} is subscribed to.
+     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
+     * @param options the {@link ResultOptions} to use when executing the {@link JobDefinition}
+     * @return the prepared {@link JobExecution}
+     */
+    JobExecution execute(JobDefinition jobDefinition, ResultOptions options);
+
 }

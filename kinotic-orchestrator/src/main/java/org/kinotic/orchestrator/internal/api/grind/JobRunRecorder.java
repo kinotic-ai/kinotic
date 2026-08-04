@@ -1,4 +1,4 @@
-package org.kinotic.orchestrator.internal.api.pipeline;
+package org.kinotic.orchestrator.internal.api.grind;
 
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.grind.ExecutionStatus;
@@ -6,10 +6,10 @@ import org.kinotic.domain.api.model.grind.JobRun;
 import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.api.services.TaskRecordService;
+import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.Result;
 import org.kinotic.orchestrator.api.grind.StepCompletion;
 import org.kinotic.orchestrator.api.grind.StepInfo;
-import org.kinotic.orchestrator.api.pipeline.Pipeline;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayDeque;
@@ -22,7 +22,7 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
- * Writes the {@link JobRun} and {@link TaskRecord}s for one pipeline execution as its
+ * Writes the {@link JobRun} and {@link TaskRecord}s for one job execution as its
  * {@link Result} stream emits step lifecycle events.
  */
 @Slf4j
@@ -39,8 +39,7 @@ public class JobRunRecorder {
     private CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
 
     public JobRunRecorder(String jobRunId,
-                          Pipeline pipeline,
-                          String jobDescription,
+                          JobDefinition jobDefinition,
                           JobRunService jobRunService,
                           TaskRecordService taskRecordService,
                           ObjectMapper objectMapper) {
@@ -49,9 +48,9 @@ public class JobRunRecorder {
         this.taskRecordService = taskRecordService;
         this.objectMapper = objectMapper;
         this.jobRun = new JobRun().setId(jobRunId)
-                                  .setPipeline(pipeline.getName())
-                                  .setPipelineVersion(pipeline.getVersion())
-                                  .setDescription(jobDescription);
+                                  .setName(jobDefinition.getName())
+                                  .setVersion(jobDefinition.getVersion())
+                                  .setDescription(jobDefinition.getDescription());
     }
 
     public void runStarted() {

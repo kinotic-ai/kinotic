@@ -21,6 +21,8 @@ public class DefaultJobDefinition implements JobDefinition {
     private final String description;
     private final JobScope jobScope;
     private final boolean parallel;
+    private String name;
+    private String version;
 
     private final LinkedList<Step> steps = new LinkedList<>();
 
@@ -34,6 +36,28 @@ public class DefaultJobDefinition implements JobDefinition {
     @Override
     public String getDescription() {
         return description;
+    }
+
+    @Override
+    public String getName() {
+        return name;
+    }
+
+    @Override
+    public String getVersion() {
+        return version;
+    }
+
+    @Override
+    public JobDefinition name(String name) {
+        this.name = name;
+        return this;
+    }
+
+    @Override
+    public JobDefinition version(String version) {
+        this.version = version;
+        return this;
     }
 
     @Override

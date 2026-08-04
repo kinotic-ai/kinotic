@@ -9,7 +9,7 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * The persistent record of one execution of a grind pipeline.
+ * The persistent record of one execution of a grind {@code JobDefinition}.
  * The individual steps executed during the run are recorded as {@link TaskRecord}s
  * referencing this run's id.
  */
@@ -25,14 +25,14 @@ public class JobRun implements Identifiable<String> {
     private String id;
 
     /**
-     * The registered name of the pipeline this run executed.
+     * The name of the {@code JobDefinition} this run executed.
      */
-    private String pipeline;
+    private String name;
 
     /**
-     * The version of the pipeline this run executed.
+     * The version of the {@code JobDefinition} this run executed.
      */
-    private String pipelineVersion;
+    private String version;
 
     /**
      * The description of the executed {@code JobDefinition}.

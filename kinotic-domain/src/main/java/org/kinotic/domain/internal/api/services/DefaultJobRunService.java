@@ -21,9 +21,9 @@ public class DefaultJobRunService extends AbstractCrudService<JobRun> implements
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findByPipeline(String pipeline, Pageable pageable) {
-        Validate.notBlank(pipeline, "pipeline cannot be blank");
-        return jobRunRepository.findByPipeline(pipeline, pageable);
+    public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
+        Validate.notBlank(name, "name cannot be blank");
+        return jobRunRepository.findByName(name, pageable);
     }
 
     @Override

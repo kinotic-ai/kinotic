@@ -16,10 +16,10 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
     }
 
     /**
-     * Returns the page of runs recorded for the given pipeline name.
+     * Returns the page of runs recorded for the given job name.
      */
-    public CompletableFuture<Page<JobRun>> findByPipeline(String pipeline, Pageable pageable) {
-        return findAll(pageable, b -> b.query(termFilter("pipeline", pipeline)));
+    public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
+        return findAll(pageable, b -> b.query(termFilter("name", name)));
     }
 
 }
