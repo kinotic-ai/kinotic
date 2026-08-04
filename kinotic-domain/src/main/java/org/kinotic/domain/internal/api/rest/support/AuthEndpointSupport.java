@@ -13,6 +13,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
 import org.kinotic.domain.api.model.iam.OidcProviderKind;
@@ -201,20 +202,23 @@ public class AuthEndpointSupport {
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
-     * Mints a Kinotic access-token JWT stamped for {@code audience}, carrying {@code user}'s
-     * {@code sub/email/organizationId/applicationId}. The {@code sub} is what every entry point
-     * resolves the caller's {@link org.kinotic.core.api.security.Participant} from, so the
-     * bearer acts as this user and no other.
+     * Mints a Kinotic access-token JWT stamped for {@code audience}, carrying the identity's
+     * {@code sub/organizationId/applicationId} (and {@code email} for a user). The {@code sub}
+     * is what every entry point resolves the caller's
+     * {@link org.kinotic.core.api.security.Participant} from, so the bearer acts as this
+     * identity and no other.
      */
-    private String mintAccessToken(UserParticipantIdentity user, KinoticAudience audience) {
+    private String mintAccessToken(ParticipantIdentity identity, KinoticAudience audience) {
         JsonObject claims = new JsonObject()
-                .put("sub", user.getId())
-                .put("email", user.getEmail());
-        if (user.getOrganizationId() != null) {
-            claims.put("organizationId", user.getOrganizationId());
+                .put("sub", identity.getId());
+        if (identity instanceof UserParticipantIdentity user) {
+            claims.put("email", user.getEmail());
         }
-        if (user.getApplicationId() != null) {
-            claims.put("applicationId", user.getApplicationId());
+        if (identity.getOrganizationId() != null) {
+            claims.put("organizationId", identity.getOrganizationId());
+        }
+        if (identity.getApplicationId() != null) {
+            claims.put("applicationId", identity.getApplicationId());
         }
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ACCESS_TOKEN_TTL_SECONDS), audience);
     }
@@ -222,12 +226,12 @@ public class AuthEndpointSupport {
     /**
      * {@code 200 application/json} with an OAuth token pair stamped for {@code audience}: an
      * {@code access_token}, plus the {@code refresh_token} the client persists to mint future
-     * access tokens. Both act as {@code user}.
+     * access tokens. Both act as {@code identity}.
      */
-    public void respondTokenPair(RoutingContext ctx, UserParticipantIdentity user, String refreshToken, KinoticAudience audience) {
+    public void respondTokenPair(RoutingContext ctx, ParticipantIdentity identity, String refreshToken, KinoticAudience audience) {
         String accessToken;
         try {
-            accessToken = mintAccessToken(user, audience);
+            accessToken = mintAccessToken(identity, audience);
         } catch (Exception e) {
             // Callers invoke this from a Future handler, where a throw never reaches the router's
             // failure handler and leaves the request unanswered until the client times out.

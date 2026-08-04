@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services.iam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.iam.CodeExchangeResult;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
 import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
@@ -103,7 +104,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> exchangeCode(String code,
+    public CompletableFuture<CodeExchangeResult> exchangeCode(String code,
                                                    String clientId,
                                                    String redirectUri,
                                                    String codeVerifier) {
@@ -129,7 +130,10 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                         if (!OAuth2Util.s256Challenge(codeVerifier).equals(grant.getCodeChallenge())) {
                             return CompletableFuture.failedFuture(new IllegalArgumentException("PKCE verification failed"));
                         }
-                        return loadEnabledUser(grant.getIdentityId());
+                        return loadEnabledUser(grant.getIdentityId())
+                                .thenApply(approver -> new CodeExchangeResult(approver,
+                                                                              grant.getClientId(),
+                                                                              grant.getClientName()));
                     });
                 });
     }

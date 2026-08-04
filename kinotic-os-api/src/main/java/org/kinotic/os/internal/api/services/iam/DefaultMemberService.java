@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingInvite;
 import org.kinotic.domain.api.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -31,7 +32,7 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Page<ParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> identityService.findByScope(participant.getOrganizationId(),
+                .thenCompose(app -> identityService.findUsersByScope(participant.getOrganizationId(),
                                                                applicationId,
                                                                pageable));
     }
@@ -40,7 +41,7 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Page<ParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> identityService.searchByScope(searchText,
+                .thenCompose(app -> identityService.searchUsersByScope(searchText,
                                                                  participant.getOrganizationId(),
                                                                  applicationId,
                                                                  pageable));
@@ -129,15 +130,18 @@ public class DefaultMemberService implements MemberService {
      * foreign users (same message — no existence oracle) and rejects acting on the caller's
      * own account, so an admin can't disable or remove themselves out of the org.
      */
-    private CompletableFuture<ParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
+    private CompletableFuture<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
         Validate.notBlank(identityId, "identityId is required");
         if (identityId.equals(participant.getId())) {
             return CompletableFuture.failedFuture(
                     new IllegalArgumentException("You cannot perform this action on your own account."));
         }
         return identityService.findById(identityId)
-                .thenApply(user -> {
-                    if (user == null || !participant.getOrganizationId().equals(user.getOrganizationId())) {
+                .thenApply(identity -> {
+                    // same message for a delegate id as for a foreign one — member management
+                    // operates on people; delegates are managed by their owner's revocation flow
+                    if (!(identity instanceof UserParticipantIdentity user)
+                            || !participant.getOrganizationId().equals(user.getOrganizationId())) {
                         throw new IllegalArgumentException("Member not found.");
                     }
                     return user;
