@@ -2,8 +2,8 @@
 
 package org.kinotic.orchestrator.internal.api.grind;
 
+import org.kinotic.orchestrator.api.grind.JobContext;
 import org.kinotic.orchestrator.api.grind.Task;
-import org.springframework.context.support.GenericApplicationContext;
 
 /**
  * A {@link Task} that just passes the provided value straight through without any autowiring or invocation
@@ -24,7 +24,7 @@ public class ValueTask<R> extends AbstractTask<R> {
     }
 
     @Override
-    public R execute(GenericApplicationContext applicationContext) {
+    public R execute(JobContext context) {
         return value;
     }
 }

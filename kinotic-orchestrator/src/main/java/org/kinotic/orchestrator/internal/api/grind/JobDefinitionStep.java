@@ -8,15 +8,11 @@ import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.support.GenericApplicationContext;
-import org.springframework.core.env.MapPropertySource;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 /**
@@ -44,30 +40,15 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
     }
 
     @Override
-    public Publisher<Result<?>> assemble(GenericApplicationContext applicationContext, ResultOptions options) {
+    public Publisher<Result<?>> assemble(JobContext context, ResultOptions options) {
         return Flux.create(sink -> {
             try {
 
                 notifyProgress(() -> new Progress(0,
                                                   "JobDefinition: " + taskDisplayString + " Scope: " + jobDefinition.getScope() + " Executing"), sink, options, log);
 
-                boolean cleanupContextOnFinallyDecision = false;
-
-                GenericApplicationContext temp;
-                if(jobDefinition.getScope() == JobScope.CHILD){
-                    temp = createContext(applicationContext);
-                }else if(jobDefinition.getScope() == JobScope.ISOLATED){
-                    temp = createContext(null);
-                    cleanupContextOnFinallyDecision = true;
-                }else if(jobDefinition.getScope() == JobScope.PARENT){
-                    temp = applicationContext;
-                }else{
-                    //noinspection ReactiveStreamsThrowInOperator
-                    throw new IllegalStateException("Unknown JobDefinition Scope " + jobDefinition.getScope());
-                }
-
-                // Another var so it is "effectively" final..
-                GenericApplicationContext contextToUse = temp;
+                boolean destroyContextOnFinally = jobDefinition.getScope() == JobScope.CHILD;
+                JobContext contextToUse = destroyContextOnFinally ? context.createChild() : context;
 
                 notifyDiagnostic(DiagnosticLevel.TRACE,
                                  () -> "JobDefinition: " +taskDisplayString + " Assembling Steps",
@@ -81,9 +62,10 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
 
                 Flux<Result<?>> jobFlux;
                 if(jobDefinition.isParallel()){
+                    // boundedElastic since tasks are allowed to block, which would starve the shared parallel scheduler
                     jobFlux = Flux.merge(assembledTaskDefinitions)
                               .parallel()
-                              .runOn(Schedulers.parallel())
+                              .runOn(Schedulers.boundedElastic())
                               .sequential();
                 }else{
                     jobFlux = Flux.concat(assembledTaskDefinitions);
@@ -91,8 +73,6 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
 
                 int percentPerStep = !assembledTaskDefinitions.isEmpty() ? (int) Math.floor(100F / assembledTaskDefinitions.size()) : 100;
                 ProgressHolder progressHolder = new ProgressHolder();
-                // Another var so it is "effectively" final
-                boolean cleanupContextOnFinally = cleanupContextOnFinallyDecision;
                 Disposable disposable = jobFlux.doOnNext(result -> {
                                                     // notify progress at the job level as internal tasks complete
                                                     if(result.getResultType() == ResultType.PROGRESS){
@@ -124,12 +104,12 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                                                    sink.complete();
                                                })
                                                .doFinally(signalType -> {
-                                                   if(cleanupContextOnFinally) {
+                                                   if(destroyContextOnFinally) {
                                                        notifyDiagnostic(DiagnosticLevel.TRACE,
-                                                                        () -> "JobDefinition: "+taskDisplayString+" Closing Job Execution Context",
+                                                                        () -> "JobDefinition: "+taskDisplayString+" Destroying Job Execution Scope",
                                                                         sink, options, log);
 
-                                                       contextToUse.close();
+                                                       contextToUse.destroy();
                                                    }
                                                })
                                                .subscribe(); // TODO: not sure if warning is really an issue, but it should be investigated
@@ -145,16 +125,6 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
     @Override
     public List<Step> getSteps() {
         return jobDefinition.getSteps();
-    }
-
-    private GenericApplicationContext createContext(GenericApplicationContext applicationContext){
-        AnnotationConfigApplicationContext ret = new AnnotationConfigApplicationContext();
-        ret.getEnvironment().getPropertySources().addLast(new MapPropertySource(GrindConstants.GRIND_MAP_PROPERTY_SOURCE, new HashMap<>()));
-        if(applicationContext != null) {
-            ret.setParent(applicationContext);
-        }
-        ret.refresh();
-        return ret;
     }
 
     @Getter

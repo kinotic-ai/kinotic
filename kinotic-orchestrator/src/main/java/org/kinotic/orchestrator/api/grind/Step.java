@@ -3,7 +3,6 @@
 package org.kinotic.orchestrator.api.grind;
 
 import org.reactivestreams.Publisher;
-import org.springframework.context.support.GenericApplicationContext;
 
 /**
  * A step in a {@link JobDefinition}
@@ -28,11 +27,11 @@ public interface Step {
     /**
      * Prepares the {@link Step} for execution.
      *
-     * @param applicationContext the execution context that will be used for this {@link Step}
+     * @param context the execution scope that will be used for this {@link Step}
      * @param options the {@link ResultOptions} to use when executing the {@link JobDefinition}
      *               this will determine the {@link ResultType}'s that you will receive from the emitted {@link Result}'s
      * @return a {@link Publisher} that when subscribed to will create the result for this {@link Step}
      */
-    Publisher<Result<?>> assemble(GenericApplicationContext applicationContext, ResultOptions options);
+    Publisher<Result<?>> assemble(JobContext context, ResultOptions options);
 
 }

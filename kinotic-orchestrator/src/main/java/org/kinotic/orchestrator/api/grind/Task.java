@@ -2,8 +2,6 @@
 
 package org.kinotic.orchestrator.api.grind;
 
-import org.springframework.context.support.GenericApplicationContext;
-
 /**
  * A general definition of a task that can be executed at some point in the future.
  *
@@ -19,7 +17,7 @@ public interface Task<T> {
 
     /**
      * This method needs to perform the logic that actually returns the value created by this {@link Task} if any.
-     * @param applicationContext the execution context for this job
+     * @param context the execution scope for this job
      * @return the result of this {@link Task}
      *         This can be any value or any of the following which will be handled with special consideration.
      *         Result can be another {@link Task} in this case the {@link Task} will be executed and the result will be handled according to these same rules
@@ -27,6 +25,6 @@ public interface Task<T> {
      *         Result can be a {@link Result} object in this case the {@link Result} will be returned along with any other {@link Result}'s during task execution
      *
      */
-    T execute(GenericApplicationContext applicationContext) throws Exception;
+    T execute(JobContext context) throws Exception;
 
 }

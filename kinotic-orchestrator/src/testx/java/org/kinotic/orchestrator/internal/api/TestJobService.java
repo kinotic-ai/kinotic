@@ -89,7 +89,7 @@ public class TestJobService {
     }
 
 
-    // FIXME: Test is failing
+    @Test
     public void testLifecycleMethods(){
         AtomicBoolean postConstruct = new AtomicBoolean(false);
         AtomicBoolean preDestroy = new AtomicBoolean(false);

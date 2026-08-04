@@ -11,7 +11,7 @@ import org.kinotic.orchestrator.api.grind.ResultOptions;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
-import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 
 import reactor.core.publisher.Flux;
@@ -23,7 +23,7 @@ import reactor.core.publisher.Flux;
 @Component
 public class DefaultJobService implements JobService, ApplicationContextAware {
 
-    private GenericApplicationContext applicationContext;
+    private ConfigurableApplicationContext applicationContext;
 
 
     @Override
@@ -38,14 +38,17 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         return Flux.defer(() -> {
 
+            DefaultJobContext rootContext = new DefaultJobContext(applicationContext);
+
             JobDefinitionStep jobDefinitionStep = new JobDefinitionStep(0, jobDefinition);
 
-            return jobDefinitionStep.assemble(applicationContext, options);
+            return Flux.from(jobDefinitionStep.assemble(rootContext, options))
+                       .doFinally(signalType -> rootContext.destroy());
         });
     }
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-        this.applicationContext = (GenericApplicationContext) applicationContext;
+        this.applicationContext = (ConfigurableApplicationContext) applicationContext;
     }
 }

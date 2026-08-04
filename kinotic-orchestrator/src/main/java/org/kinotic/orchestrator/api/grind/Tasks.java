@@ -6,7 +6,6 @@ import org.apache.commons.io.IOUtils;
 import org.kinotic.orchestrator.internal.api.grind.InstanceTask;
 import org.kinotic.orchestrator.internal.api.grind.NoopTask;
 import org.kinotic.orchestrator.internal.api.grind.ValueTask;
-import org.springframework.context.support.GenericApplicationContext;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
@@ -45,7 +44,7 @@ public class Tasks {
             }
 
             @Override
-            public String execute(GenericApplicationContext applicationContext) throws Exception {
+            public String execute(JobContext context) throws Exception {
                 Process process = new ProcessBuilder(command).start();
                 String out =  IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
                 int exitCode = process.waitFor();
@@ -119,8 +118,8 @@ public class Tasks {
             }
 
             @Override
-            public R execute(GenericApplicationContext applicationContext) throws Exception {
-                return transformer.apply(from.execute(applicationContext));
+            public R execute(JobContext context) throws Exception {
+                return transformer.apply(from.execute(context));
             }
         };
     }

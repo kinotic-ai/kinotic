@@ -12,18 +12,15 @@ package org.kinotic.orchestrator.api.grind;
 public enum JobScope {
 
     /**
-     * The {@link JobDefinition} will use the scope of the parent {@link JobDefinition}
+     * The {@link JobDefinition} will use the scope of the parent {@link JobDefinition},
+     * so results it stores remain available to the caller after it completes
      */
     PARENT,
 
     /**
-     * The {@link JobDefinition} will create a new scope that is the child of the parent scope
+     * The {@link JobDefinition} will create a new scope that is the child of the parent scope,
+     * so results it stores are discarded when it completes
      */
-    CHILD,
-
-    /**
-     * The {@link JobDefinition} will create a new scope that is independent of all other scopes
-     */
-    ISOLATED
+    CHILD
 
 }

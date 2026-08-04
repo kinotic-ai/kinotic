@@ -2,8 +2,8 @@
 
 package org.kinotic.orchestrator.internal.api.grind;
 
+import org.kinotic.orchestrator.api.grind.JobContext;
 import org.kinotic.orchestrator.api.grind.Task;
-import org.springframework.context.support.GenericApplicationContext;
 
 import java.util.function.Function;
 
@@ -32,8 +32,8 @@ public class ClassTask<T, R> extends AbstractTask<R> {
     }
 
     @Override
-    public R execute(GenericApplicationContext applicationContext) {
-        T bean = applicationContext.getAutowireCapableBeanFactory().createBean(clazz);
+    public R execute(JobContext context) {
+        T bean = context.instantiate(clazz);
         return invokerFunction.apply(bean);
     }
 

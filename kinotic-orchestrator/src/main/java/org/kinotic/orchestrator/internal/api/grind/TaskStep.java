@@ -7,11 +7,8 @@ import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.config.ConfigurableBeanFactory;
-import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
-import org.springframework.core.env.MapPropertySource;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -48,8 +45,8 @@ public class TaskStep extends AbstractStep {
     /**
      * Create a {@link Step} that will execute a {@link Task} that will emit a single value
      * @param task for this step
-     * @param storeResult determines if the result of the {@link Task} should be stored in the execution context
-     * @param resultName the name of the result to use when storing the result in the execution context
+     * @param storeResult determines if the result of the {@link Task} should be stored in the execution scope
+     * @param resultName the name of the result to use when storing the result in the execution scope
      */
     public TaskStep(int sequence,
                     Task<?> task,
@@ -70,27 +67,27 @@ public class TaskStep extends AbstractStep {
     }
 
     @Override
-    public Publisher<Result<?>> assemble(GenericApplicationContext applicationContext, ResultOptions options) {
+    public Publisher<Result<?>> assemble(JobContext context, ResultOptions options) {
         return Flux.create(sink -> {
             try {
                 notifyProgress(() -> new Progress(0, "Task: " + taskDisplayString + " Executing"), sink, options, log);
 
                 if(!(task instanceof NoopTask)) {
 
-                    Object result = task.execute(applicationContext);
+                    Object result = task.execute(context);
 
                     // check if this task returned a job definition, task, or something else
                     if(result instanceof JobDefinition){
 
-                        completeWithJobDefinition(applicationContext, options, sink, (JobDefinition) result);
+                        completeWithJobDefinition(context, options, sink, (JobDefinition) result);
 
                     }else if(result instanceof Task){
 
-                        completeWithTask(applicationContext, options, sink, (Task<?>) result);
+                        completeWithTask(context, options, sink, (Task<?>) result);
 
                     }else{
 
-                        completeWithResult(applicationContext, options, sink, result);
+                        completeWithResult(context, options, sink, result);
 
                     }
                 }else{
@@ -107,7 +104,7 @@ public class TaskStep extends AbstractStep {
         });
     }
 
-    private void completeWithJobDefinition(GenericApplicationContext applicationContext,
+    private void completeWithJobDefinition(JobContext context,
                                            ResultOptions options,
                                            FluxSink<Result<?>> sink,
                                            JobDefinition jobDefinition){
@@ -118,10 +115,10 @@ public class TaskStep extends AbstractStep {
 
         sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DYNAMIC_STEPS, jobDefinitionStep));
 
-        completeWithStep(options, sink, jobDefinitionStep.assemble(applicationContext, options));
+        completeWithStep(options, sink, jobDefinitionStep.assemble(context, options));
     }
 
-    private void completeWithTask(GenericApplicationContext applicationContext,
+    private void completeWithTask(JobContext context,
                                   ResultOptions options,
                                   FluxSink<Result<?>> sink,
                                   Task<?> task) {
@@ -132,7 +129,7 @@ public class TaskStep extends AbstractStep {
 
         sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DYNAMIC_STEPS, taskStep));
 
-        completeWithStep(options, sink, taskStep.assemble(applicationContext, options));
+        completeWithStep(options, sink, taskStep.assemble(context, options));
     }
 
     private void completeWithStep(ResultOptions options, FluxSink<Result<?>> sink, Publisher<Result<?>> assemble) {
@@ -156,7 +153,7 @@ public class TaskStep extends AbstractStep {
         sink.onCancel(disposable);
     }
 
-    private void completeWithResult(GenericApplicationContext applicationContext,
+    private void completeWithResult(JobContext context,
                                     ResultOptions options,
                                     FluxSink<Result<?>> sink,
                                     Object result){
@@ -174,12 +171,12 @@ public class TaskStep extends AbstractStep {
                         // we just overwrite the parentIdentifier to match this task
                         if(value instanceof Result<?> resultInternal){
                             if(resultInternal.getResultType() == ResultType.VALUE){
-                                addIfDesiredToApplicationContext(applicationContext, options, sink, resultInternal.getValue());
+                                storeIfDesired(context, options, sink, resultInternal.getValue());
                             }
                             resultInternal.getStepInfo().addAncestor(new StepInfo(sequence));
                             sink.next(resultInternal);
                         }else{
-                            addIfDesiredToApplicationContext(applicationContext, options, sink, value);
+                            storeIfDesired(context, options, sink, value);
                             sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, value));
                         }
 
@@ -198,7 +195,7 @@ public class TaskStep extends AbstractStep {
                 sink.onCancel(disposable);
 
             } else {
-                addIfDesiredToApplicationContext(applicationContext, options, sink, result);
+                storeIfDesired(context, options, sink, result);
 
                 sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, result));
 
@@ -223,24 +220,13 @@ public class TaskStep extends AbstractStep {
         }
     }
 
-    private void addIfDesiredToApplicationContext(GenericApplicationContext applicationContext,
-                                                  ResultOptions options,
-                                                  FluxSink<Result<?>> sink,
-                                                  Object result){
+    private void storeIfDesired(JobContext context,
+                                ResultOptions options,
+                                FluxSink<Result<?>> sink,
+                                Object result){
         if(storeResult) {
 
             if (result != null) {
-
-                Class<?> clazz = result.getClass();
-                ConfigurableBeanFactory beanFactory = applicationContext.getBeanFactory();
-
-                MapPropertySource propertySource = (MapPropertySource) applicationContext.getEnvironment()
-                                                                                         .getPropertySources()
-                                                                                         .get(GrindConstants.GRIND_MAP_PROPERTY_SOURCE);
-                // sanity check
-                if (propertySource == null) {
-                    throw new IllegalStateException("Expected MapPropertySource was not set for " + GrindConstants.GRIND_MAP_PROPERTY_SOURCE);
-                }
 
                 if (isBeanCandidate(result)) {
                     if (result instanceof Collection) {
@@ -250,7 +236,7 @@ public class TaskStep extends AbstractStep {
                                              () -> "Task: " + taskDisplayString + " Storing result as Collection Property \"" + resultName + "\" Value: " + result,
                                              sink, options, log);
 
-                            propertySource.getSource().put(resultName, result);
+                            context.storeProperty(resultName, result);
 
                         }else{
                             for (Object val : ((Collection<?>) result)) {
@@ -261,17 +247,17 @@ public class TaskStep extends AbstractStep {
                                                  () -> "Task: " + taskDisplayString + " Storing result as Singleton: \"" + beanName + "\" Value: " + result,
                                                  sink, options, log);
 
-                                beanFactory.registerSingleton(beanName, val);
+                                context.storeBean(beanName, val);
                              }
                         }
                     } else {
-                        String beanName = this.resultName != null && !this.resultName.isEmpty() ? this.resultName : clazz.getSimpleName();
+                        String beanName = this.resultName != null && !this.resultName.isEmpty() ? this.resultName : result.getClass().getSimpleName();
 
                         notifyDiagnostic(DiagnosticLevel.TRACE,
                                          () -> "Task: " + taskDisplayString + " Storing result as Singleton: \"" + beanName + "\" Value: " + result,
                                          sink, options, log);
 
-                        beanFactory.registerSingleton(beanName, result);
+                        context.storeBean(beanName, result);
                     }
 
                 } else {
@@ -281,11 +267,11 @@ public class TaskStep extends AbstractStep {
                                          () -> "Task: " + taskDisplayString + " Storing result as Property: \"" + resultName + "\" Value: " + result,
                                          sink, options, log);
 
-                        propertySource.getSource().put(resultName, result);
+                        context.storeProperty(resultName, result);
                     } else {
 
                         notifyDiagnostic(DiagnosticLevel.WARN,
-                                         () -> "Task: " + taskDisplayString +" Cannot store Application Context Property. All primitive types must have a name defined.",
+                                         () -> "Task: " + taskDisplayString +" Cannot store Job Scope Property. All primitive types must have a name defined.",
                                          sink, options, log);
                     }
                 }

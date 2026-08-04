@@ -2,7 +2,7 @@
 
 package org.kinotic.orchestrator.internal.api.grind;
 
-import org.springframework.context.support.GenericApplicationContext;
+import org.kinotic.orchestrator.api.grind.JobContext;
 
 /**
  *
@@ -18,7 +18,7 @@ public class NoopTask<T> extends AbstractTask<T> {
     }
 
     @Override
-    public T execute(GenericApplicationContext applicationContext) throws Exception {
+    public T execute(JobContext context) throws Exception {
         return null;
     }
 }
