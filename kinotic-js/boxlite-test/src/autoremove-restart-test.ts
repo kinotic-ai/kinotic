@@ -172,8 +172,15 @@ async function main() {
     console.log(`  boots.log lines after first boot: ${firstBoot}`);
     await entry.stop();
 
+    // Rebooted through the explicit handle rather than an implicit exec-boot: boxlite
+    // PR 988 refuses exec against a box whose own command has run, and start() is the
+    // call BoxliteProvider.restart() makes anyway
+    const stopped = await runtime.get(EP_NAME);
+    if (!stopped) {
+      throw new Error(`box ${EP_NAME} not found`);
+    }
+    await stopped.start();
     const entryAgain = new SimpleBox({ image: "alpine:latest", name: EP_NAME, autoRemove: false, reuseExisting: true, runtime });
-    await entryAgain.exec("true");
     secondBoot = await bootCount(entryAgain, 2);
     console.log(`  boots.log lines after restart   : ${secondBoot}\n`);
     await entryAgain.stop();

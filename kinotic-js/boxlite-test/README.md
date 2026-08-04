@@ -8,6 +8,13 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
 
+**Pending re-verification:** boxlite [PR 988](https://github.com/boxlite-ai/boxlite/pull/988)
+(merged to `main` 2026-07-22) makes a box's main command its init and stops the box when
+that command exits, which rewrites finding 6 and qualifies findings 5 and 8. No published
+release carries it yet — npm `latest` is still `0.9.7` — so those findings still describe
+0.9.7. Once a release lands, `bun update @boxlite-ai/boxlite` and re-run
+`batch-workload-test.ts` and `autoremove-restart-test.ts`.
+
 ```bash
 bun install
 bun run src/<file>.ts
@@ -137,23 +144,46 @@ Two corollaries: options passed to a `reuseExisting` box are **silently ignored*
 change is a recreate, never a reuse), and `create`/`getId()` alone does *not* boot the VM —
 the record sits at status `configured` until the first `exec` or an explicit `start()`.
 
-### 6. Run-to-completion entrypoints zombie the box (`batch-workload-test.ts`)
+PR 988 narrows the implicit exec-boot: a box whose own command has already run is a
+finished job and refuses `exec` rather than re-running it, so `start()` becomes the only
+restart path for those. Boxes with no command of their own still boot implicitly.
+
+### 6. Run-to-completion entrypoints zombie the box — fixed upstream, unreleased (`batch-workload-test.ts`)
 
 Batch images (entrypoint does its work and exits — e.g. a db migration) boot reliably,
-including instant-exit entrypoints. But completion is invisible:
+including instant-exit entrypoints. On 0.9.7 completion is invisible:
 
 - After the entrypoint exits, the VM stays up and `getInfo` reports `running: true`
   **indefinitely** — the box never transitions.
 - In that zombie state `exec` fails with `spawn_failed: Container init process exited —
-  cannot exec ... container status: 'Stopped'` — currently the only external completion
-  signal.
+  cannot exec ... container status: 'Stopped'` — the only external completion signal.
 - The exit code is not exposed by the API (an `exit.previous` file is written inside the
   box dir).
 
 So completion detection and cleanup are the host's job, and the VM holds its memory until
-`stop()`. For observable batch semantics, boot with an idle entrypoint (`sleep infinity`)
-and run the work via `exec` — the promise resolves on completion with the exit code and
-captured output. A feature request for surfacing container exit is filed upstream.
+`stop()`. The workaround for observable batch semantics is an idle entrypoint
+(`sleep infinity`) with the work run via `exec` — that promise resolves on completion with
+the exit code and captured output.
+
+Filed as [boxlite#933](https://github.com/boxlite-ai/boxlite/issues/933) and fixed by
+[PR 988](https://github.com/boxlite-ai/boxlite/pull/988), which makes a box's main command
+its init (PID 1) and gives the box's lifetime to that command:
+
+- the box stops when its main command exits — the guest powers the VM off and a host-side
+  watcher marks it `Stopped` with the exit code
+- the exit code is written to `containers/<cid>/exit.json` (`ExitRecord`) and surfaced on
+  CLI `inspect .State.ExitCode` and on the REST wire
+- `exec` / `cp` / `metrics` against a **finished job** are refused rather than silently
+  restarting it, and a handle whose VM has died refuses instead of serving the corpse — a
+  box with no command of its own still boots implicitly
+- the SDK surface for this (`box.wait() -> BoxResult(exit_code)`, an exit code on box
+  info) is a designed follow-up, not part of PR 988 — `JsBoxStateInfo` on `main` is still
+  `{ status, running, pid }`
+
+That last point is what decides the vm-manager work: the Node SDK sees the *transition*
+but has no field carrying the code, so the probe checks `getInfo()` and the on-disk record
+for it. Re-run `batch-workload-test.ts` once a release ships and rewrite this finding from
+its report.
 
 ### 7. The entrypoint is opaque; exec is fully observable (`log-capture-gaps-test.ts`, `console-log-test.ts`)
 
@@ -180,7 +210,9 @@ captured output. A feature request for surfacing container exit is filed upstrea
   tcp.
 - `autoRemove: true` + `detach: true` is rejected at creation ("Detached boxes should use
   auto_remove=false for manual lifecycle control") — auto-remove semantics for detached
-  boxes must be implemented by the caller.
+  boxes must be implemented by the caller. On `main` `autoRemove` is deprecated in favour
+  of `autoDelete` (seconds after stop before deletion), alongside `autoStop` (idle seconds)
+  and `autoResume`; unreleased, so the rejection still stands on 0.9.7.
 - Overriding `entrypoint` without `cmd` still appends the image's CMD (Docker semantics):
   `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
   suppress the image CMD.
@@ -199,7 +231,7 @@ captured output. A feature request for surfacing container exit is filed upstrea
 | `volume-poll-test.ts` | Same setup with chokidar `{ usePolling }` (recursive, nested file) — shows the fix works. | self-cleaning |
 | `volume-host-notify-test.ts` | **Guest→host** notify (finding #4): a box writes to a host-mounted volume while the host process watches via `fs.watch` (event) vs `fs.watchFile` (poll). Decides whether host-side Alloy can use inotify or must poll. | self-cleaning |
 | `autoremove-restart-test.ts` | Stop/restart lifecycle (finding #5): what `autoRemove` keeps or removes, restart via `start()` vs implicit exec-boot, rootfs persistence, entrypoint re-run. | self-cleaning |
-| `batch-workload-test.ts` | Run-to-completion semantics (finding #6): the post-entrypoint zombie state, exec failure as the only completion signal, instant-exit boots. | self-cleaning |
+| `batch-workload-test.ts` | Run-to-completion semantics (finding #6): whether the box stops when its entrypoint exits, where the exit code surfaces (`getInfo` vs on-disk `exit.json`), what a finished job refuses (`exec`/`metrics`/`copyOut`/`stop`), restart via `start()`, instant-exit boots. | self-cleaning |
 | `console-log-test.ts` | Does `boxes/<id>/logs/console.log` capture entrypoint stdout/stderr live? (finding #7 — it does not; kernel/guest-agent output only.) | self-cleaning |
 | `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
