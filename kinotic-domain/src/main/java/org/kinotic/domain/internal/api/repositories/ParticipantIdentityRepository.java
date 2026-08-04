@@ -51,7 +51,7 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
         return findAll(pageable, b -> b.query(composeFilter(
                 termFilter("type", ParticipantIdentityType.USER.name()),
                 scopeFilter(organizationId, applicationId))))
-                .thenApply(ParticipantIdentityRepository::usersPage);
+                .thenApply(page -> page.map(UserParticipantIdentity.class::cast));
     }
 
     /** Users only — delegates share their owner's scope and must not appear in member listings. */
@@ -69,22 +69,13 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .filter(composeFilter(
                         termFilter("type", ParticipantIdentityType.USER.name()),
                         scopeFilter(organizationId, applicationId)))))))
-                .thenApply(ParticipantIdentityRepository::usersPage);
+                .thenApply(page -> page.map(UserParticipantIdentity.class::cast));
     }
 
-    // the type=USER term filter guarantees every hit deserializes as a UserParticipantIdentity,
-    // so the element-type narrowing cannot be violated at runtime
-    @SuppressWarnings("unchecked")
-    private static Page<UserParticipantIdentity> usersPage(Page<ParticipantIdentity> page) {
-        return (Page<UserParticipantIdentity>) (Page<?>) page;
-    }
-
-    // only delegates carry ownerId, so the term filter narrows the element type by itself
-    @SuppressWarnings("unchecked")
     public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
         Validate.notBlank(ownerId, "ownerId cannot be blank");
         return findAll(pageable, b -> b.query(termFilter("ownerId", ownerId)))
-                .thenApply(page -> (Page<DelegatingParticipantIdentity>) (Page<?>) page);
+                .thenApply(page -> page.map(DelegatingParticipantIdentity.class::cast));
     }
 
     public CompletableFuture<DelegatingParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {
