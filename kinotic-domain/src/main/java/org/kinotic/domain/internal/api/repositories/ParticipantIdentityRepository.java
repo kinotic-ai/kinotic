@@ -47,14 +47,15 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
     }
 
     /** Users only — delegates share their owner's scope and must not appear in member listings. */
-    public CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
                 termFilter("type", ParticipantIdentityType.USER.name()),
-                scopeFilter(organizationId, applicationId))));
+                scopeFilter(organizationId, applicationId))))
+                .thenApply(ParticipantIdentityRepository::usersPage);
     }
 
     /** Users only — delegates share their owner's scope and must not appear in member listings. */
-    public CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
+    public CompletableFuture<Page<UserParticipantIdentity>> searchUsersByScope(String searchText,
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {
@@ -67,12 +68,23 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                                                  .analyzeWildcard(true)))
                 .filter(composeFilter(
                         termFilter("type", ParticipantIdentityType.USER.name()),
-                        scopeFilter(organizationId, applicationId)))))));
+                        scopeFilter(organizationId, applicationId)))))))
+                .thenApply(ParticipantIdentityRepository::usersPage);
     }
 
-    public CompletableFuture<Page<ParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
+    // the type=USER term filter guarantees every hit deserializes as a UserParticipantIdentity,
+    // so the element-type narrowing cannot be violated at runtime
+    @SuppressWarnings("unchecked")
+    private static Page<UserParticipantIdentity> usersPage(Page<ParticipantIdentity> page) {
+        return (Page<UserParticipantIdentity>) (Page<?>) page;
+    }
+
+    // only delegates carry ownerId, so the term filter narrows the element type by itself
+    @SuppressWarnings("unchecked")
+    public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
         Validate.notBlank(ownerId, "ownerId cannot be blank");
-        return findAll(pageable, b -> b.query(termFilter("ownerId", ownerId)));
+        return findAll(pageable, b -> b.query(termFilter("ownerId", ownerId)))
+                .thenApply(page -> (Page<DelegatingParticipantIdentity>) (Page<?>) page);
     }
 
     public CompletableFuture<DelegatingParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {

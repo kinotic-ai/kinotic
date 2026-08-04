@@ -29,7 +29,7 @@ public class DefaultMemberService implements MemberService {
     private final ApplicationRepository applicationRepository;
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
                 .thenCompose(app -> identityService.findUsersByScope(participant.getOrganizationId(),
@@ -38,7 +38,7 @@ public class DefaultMemberService implements MemberService {
     }
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
                 .thenCompose(app -> identityService.searchUsersByScope(searchText,

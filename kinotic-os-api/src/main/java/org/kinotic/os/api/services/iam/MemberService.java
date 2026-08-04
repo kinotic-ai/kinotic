@@ -4,6 +4,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.os.api.model.iam.PendingInviteSummary;
 
 import java.util.concurrent.CompletableFuture;
@@ -19,13 +20,13 @@ import java.util.concurrent.CompletableFuture;
 public interface MemberService {
 
     /** Lists the members of the scope. */
-    CompletableFuture<Page<ParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
+    CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    CompletableFuture<Page<ParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
+    CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the

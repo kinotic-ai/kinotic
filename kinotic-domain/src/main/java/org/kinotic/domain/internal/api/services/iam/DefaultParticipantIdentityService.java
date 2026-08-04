@@ -161,7 +161,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
         if (applicationId != null) {
             Validate.notBlank(organizationId,
                               "organizationId is required when applicationId is supplied");
@@ -170,7 +170,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
+    public CompletableFuture<Page<UserParticipantIdentity>> searchUsersByScope(String searchText,
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {

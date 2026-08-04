@@ -68,14 +68,14 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * {@code (organizationId, applicationId)} with the same null conventions as
      * {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable);
+    CompletableFuture<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable);
 
     /**
      * Searches users (never delegates) within the given scope by free text over email and
      * display name. A blank {@code searchText} returns every user in scope, equivalent to
      * {@link #findUsersByScope(String, String, Pageable)}.
      */
-    CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
+    CompletableFuture<Page<UserParticipantIdentity>> searchUsersByScope(String searchText,
                                                    String organizationId,
                                                    String applicationId,
                                                    Pageable pageable);
