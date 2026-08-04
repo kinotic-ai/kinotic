@@ -42,10 +42,10 @@ public class JobRun implements Identifiable<String> {
     /**
      * Current status of the run.
      */
-    private JobRunStatus status = JobRunStatus.RUNNING;
+    private ExecutionStatus status = ExecutionStatus.RUNNING;
 
     /**
-     * The failure message when {@link #status} is {@link JobRunStatus#FAILED}.
+     * The failure message when {@link #status} is {@link ExecutionStatus#FAILED}.
      */
     private String error;
 

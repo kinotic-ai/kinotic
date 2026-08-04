@@ -43,7 +43,7 @@ public class TaskRecord implements Identifiable<String> {
     /**
      * Current status of the step.
      */
-    private TaskRecordStatus status = TaskRecordStatus.STARTED;
+    private ExecutionStatus status = ExecutionStatus.RUNNING;
 
     /**
      * The name the step's result was stored under in the job scope,
@@ -67,7 +67,7 @@ public class TaskRecord implements Identifiable<String> {
     private String output;
 
     /**
-     * The failure message when {@link #status} is {@link TaskRecordStatus#FAILED}.
+     * The failure message when {@link #status} is {@link ExecutionStatus#FAILED}.
      */
     private String error;
 
