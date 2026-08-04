@@ -3,6 +3,8 @@ package org.kinotic.domain.api.services.iam;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.iam.DelegateKind;
+import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 
@@ -62,18 +64,18 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     CompletableFuture<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId);
 
     /**
-     * Finds all users within the given scope, identified structurally by
+     * Finds all users (never delegates) within the given scope, identified structurally by
      * {@code (organizationId, applicationId)} with the same null conventions as
      * {@link #findByEmail(String, String, String)}.
      */
-    CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable);
+    CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable);
 
     /**
-     * Searches users within the given scope by free text over email and display name. A blank
-     * {@code searchText} returns every user in scope, equivalent to
-     * {@link #findByScope(String, String, Pageable)}.
+     * Searches users (never delegates) within the given scope by free text over email and
+     * display name. A blank {@code searchText} returns every user in scope, equivalent to
+     * {@link #findUsersByScope(String, String, Pageable)}.
      */
-    CompletableFuture<Page<ParticipantIdentity>> searchByScope(String searchText,
+    CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
                                                    String organizationId,
                                                    String applicationId,
                                                    Pageable pageable);
@@ -90,6 +92,23 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * @return a future emitting the created user
      */
     CompletableFuture<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password);
+
+    /**
+     * Resolves the delegate for {@code (owner, clientKey)}, creating it on first approval.
+     * The delegate carries the owner's scope and authenticates with DELEGATED tokens only.
+     * A re-approval refreshes {@code displayName} from the latest client metadata and
+     * re-enables a previously revoked delegate — the owner just consented again.
+     *
+     * @param owner       the user whose approval authorizes the client
+     * @param kind        the kind of client being authorized
+     * @param clientKey   stable client identity, unique per owner
+     * @param displayName the client's display name, shown wherever the delegate is listed
+     * @return a future emitting the enabled delegate
+     */
+    CompletableFuture<DelegatingParticipantIdentity> findOrCreateDelegate(UserParticipantIdentity owner,
+                                                                          DelegateKind kind,
+                                                                          String clientKey,
+                                                                          String displayName);
 
 }
 

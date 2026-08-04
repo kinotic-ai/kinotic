@@ -9,6 +9,7 @@ import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.iam.AuthType;
+import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -187,8 +188,30 @@ public class KinoticSecurityService implements SecurityService {
                                       describeScope(identity.getOrganizationId(), identity.getApplicationId()),
                                       sub);
                              ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
+                         } else if (identity instanceof DelegatingParticipantIdentity delegate) {
+                             // a delegate wields its owner's authority, so revoking the owner
+                             // revokes every delegate on the next request, with no cascade to miss
+                             ret = requireEnabledOwner(delegate)
+                                     .map(v -> DomainUtil.createParticipant(delegate));
                          } else {
                              ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
+                         }
+                         return ret;
+                     });
+    }
+
+    private Future<Void> requireEnabledOwner(DelegatingParticipantIdentity delegate) {
+        return Future.fromCompletionStage(identityService.findById(delegate.getOwnerId()),
+                                          vertx.getOrCreateContext())
+                     .recover(err -> Future.failedFuture(new AuthenticationException("Owner lookup failed", err)))
+                     .compose(owner -> {
+                         Future<Void> ret;
+                         if (owner == null || !owner.isEnabled()) {
+                             log.warn("Delegate {} rejected: owner {} is missing or disabled",
+                                      delegate.getId(), delegate.getOwnerId());
+                             ret = Future.failedFuture(new AuthenticationException("Delegate owner is not available"));
+                         } else {
+                             ret = Future.succeededFuture();
                          }
                          return ret;
                      });

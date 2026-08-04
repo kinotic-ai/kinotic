@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -45,22 +46,33 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                 .thenApply(UserParticipantIdentity.class::cast);
     }
 
-    public CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable) {
-        return findAll(pageable, b -> b.query(scopeFilter(organizationId, applicationId)));
+    /** Users only — delegates share their owner's scope and must not appear in member listings. */
+    public CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
+        return findAll(pageable, b -> b.query(composeFilter(
+                termFilter("type", ParticipantIdentityType.USER.name()),
+                scopeFilter(organizationId, applicationId))));
     }
 
-    public CompletableFuture<Page<ParticipantIdentity>> searchByScope(String searchText,
+    /** Users only — delegates share their owner's scope and must not appear in member listings. */
+    public CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {
         if (searchText == null || searchText.isEmpty()) {
-            return findByScope(organizationId, applicationId, pageable);
+            return findUsersByScope(organizationId, applicationId, pageable);
         }
         return findAll(pageable, b -> b.query(Query.of(q -> q.bool(bq -> bq
                 .must(m -> m.queryString(qs -> qs.query(searchText)
                                                  .fields("email", "displayName")
                                                  .analyzeWildcard(true)))
-                .filter(scopeFilter(organizationId, applicationId))))));
+                .filter(composeFilter(
+                        termFilter("type", ParticipantIdentityType.USER.name()),
+                        scopeFilter(organizationId, applicationId)))))));
+    }
+
+    public CompletableFuture<Page<ParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
+        Validate.notBlank(ownerId, "ownerId cannot be blank");
+        return findAll(pageable, b -> b.query(termFilter("ownerId", ownerId)));
     }
 
     public CompletableFuture<DelegatingParticipantIdentity> findByOwnerAndClientKey(String ownerId, String clientKey) {

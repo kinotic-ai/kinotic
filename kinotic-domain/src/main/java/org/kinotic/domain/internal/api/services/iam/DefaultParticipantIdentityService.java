@@ -3,8 +3,10 @@ package org.kinotic.domain.internal.api.services.iam;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.crud.Sort;
 import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
+import org.kinotic.domain.api.model.iam.DelegateKind;
 import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
@@ -159,16 +161,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> findByScope(String organizationId, String applicationId, Pageable pageable) {
+    public CompletableFuture<Page<ParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
         if (applicationId != null) {
             Validate.notBlank(organizationId,
                               "organizationId is required when applicationId is supplied");
         }
-        return identityRepository.findByScope(organizationId, applicationId, pageable);
+        return identityRepository.findUsersByScope(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<ParticipantIdentity>> searchByScope(String searchText,
+    public CompletableFuture<Page<ParticipantIdentity>> searchUsersByScope(String searchText,
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {
@@ -176,7 +178,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
             Validate.notBlank(organizationId,
                               "organizationId is required when applicationId is supplied");
         }
-        return identityRepository.searchByScope(searchText, organizationId, applicationId, pageable);
+        return identityRepository.searchUsersByScope(searchText, organizationId, applicationId, pageable);
     }
 
     @Override
@@ -270,10 +272,56 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public CompletableFuture<DelegatingParticipantIdentity> findOrCreateDelegate(UserParticipantIdentity owner,
+                                                                                 DelegateKind kind,
+                                                                                 String clientKey,
+                                                                                 String displayName) {
+        Validate.notNull(owner, "owner is required");
+        Validate.notBlank(owner.getId(), "owner id is required");
+        Validate.notNull(kind, "kind is required");
+        Validate.notBlank(clientKey, "clientKey is required");
+        Validate.notBlank(displayName, "displayName is required");
+
+        return identityRepository.findByOwnerAndClientKey(owner.getId(), clientKey)
+                .thenCompose(existing -> {
+                    DelegatingParticipantIdentity delegate;
+                    if (existing != null) {
+                        delegate = existing;
+                    } else {
+                        delegate = new DelegatingParticipantIdentity();
+                        delegate.setOwnerId(owner.getId())
+                                .setClientKey(clientKey)
+                                .setDelegateKind(kind)
+                                .setAuthType(AuthType.DELEGATED)
+                                // the delegate wields the owner's authority, so it lives at the
+                                // owner's exact scope, tenant included
+                                .setOrganizationId(owner.getOrganizationId())
+                                .setApplicationId(owner.getApplicationId())
+                                .setTenantId(owner.getTenantId())
+                                .setCreated(new Date());
+                    }
+                    delegate.setDisplayName(displayName);
+                    delegate.setEnabled(true);
+                    // sync so the (ownerId, clientKey) uniqueness search sees this write before
+                    // the next approval of the same client can run
+                    return saveSync(delegate).thenApply(DelegatingParticipantIdentity.class::cast);
+                });
+    }
+
+    @Override
     protected CompletableFuture<Void> beforeDelete(String id) {
         // Cascade the IamCredential. Credential lookups are by id (realtime GETs), so the
         // credential delete never needs to wait for search visibility.
-        return credentialRepository.deleteById(id);
+        // Delegates owned by the deleted identity go with it — a delegate must not outlive
+        // the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
+        return credentialRepository.deleteById(id)
+                .thenCompose(v -> identityRepository.findDelegatesByOwner(id, Pageable.create(0, 1000, Sort.by("created"))))
+                .thenCompose(delegates -> {
+                    CompletableFuture<?>[] deletes = delegates.getContent().stream()
+                            .map(delegate -> deleteById(delegate.getId()))
+                            .toArray(CompletableFuture[]::new);
+                    return CompletableFuture.allOf(deletes);
+                });
     }
 
 }

@@ -1,5 +1,6 @@
 package org.kinotic.domain.api.services.iam;
 
+import org.kinotic.domain.api.model.iam.CodeExchangeResult;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.model.iam.PendingOAuthAuthorization;
 import java.util.concurrent.CompletableFuture;
@@ -72,7 +73,7 @@ public interface OAuthAuthorizationService {
      * @param codeVerifier the PKCE verifier whose S256 hash must equal the stored challenge
      * @return a {@link CompletableFuture} emitting the enabled approving user
      */
-    CompletableFuture<UserParticipantIdentity> exchangeCode(String code,
+    CompletableFuture<CodeExchangeResult> exchangeCode(String code,
                                             String clientId,
                                             String redirectUri,
                                             String codeVerifier);
