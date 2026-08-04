@@ -17,6 +17,7 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Date;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Provides functionality for a {@link Step} that will execute a {@link Task} that will emit a single value
@@ -70,6 +71,7 @@ public class TaskStep extends AbstractStep {
     public Publisher<Result<?>> assemble(JobContext context, ResultOptions options) {
         return Flux.create(sink -> {
             try {
+                notifyStepStarted(task.getDescription(), sink);
                 notifyProgress(() -> new Progress(0, "Task: " + taskDisplayString + " Executing"), sink, options, log);
 
                 if(!(task instanceof NoopTask)) {
@@ -94,10 +96,12 @@ public class TaskStep extends AbstractStep {
                     log.debug("Task was noop {}", taskDisplayString);
 
                     sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.NOOP, null));
+                    notifyStepCompleted(new StepCompletion(null, null), sink);
                     notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
                     sink.complete();
                 }
             } catch (Exception throwable) {
+                notifyStepFailed(throwable, sink);
                 notifyException(() -> "Task: " + taskDisplayString + " Exception during execution ", throwable, sink, options, log);
                 sink.error(throwable);
             }
@@ -141,10 +145,13 @@ public class TaskStep extends AbstractStep {
                                         sink.next(result);
                                     })
                                     .doOnError(throwable -> {
+                                        notifyStepFailed(throwable, sink);
                                         notifyException(() -> "Task: " + taskDisplayString + " Exception during execution ", throwable, sink, options, log);
                                         sink.error(throwable);
                                     })
                                     .doOnComplete(() -> {
+                                        // The dynamic step carries this step's storeResult settings, so it reports the stored value
+                                        notifyStepCompleted(new StepCompletion(null, null), sink);
                                         notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"),
                                                        sink, options, log);
                                         sink.complete();
@@ -164,6 +171,9 @@ public class TaskStep extends AbstractStep {
 
                 notifyDiagnostic(DiagnosticLevel.TRACE, () -> "Task: " + taskDisplayString+ " returned value of type:\"" + result.getClass().getName(), sink, options, log);
 
+                // Holds the last stored value so STEP_COMPLETED can report it once the publisher finishes
+                AtomicReference<Object> lastStoredValue = new AtomicReference<>();
+
                 Disposable disposable = Flux.from(reactiveAdapter.toPublisher(result))
                     .doOnNext(value -> {
 
@@ -172,21 +182,26 @@ public class TaskStep extends AbstractStep {
                         if(value instanceof Result<?> resultInternal){
                             if(resultInternal.getResultType() == ResultType.VALUE){
                                 storeIfDesired(context, options, sink, resultInternal.getValue());
+                                lastStoredValue.set(resultInternal.getValue());
                             }
                             resultInternal.getStepInfo().addAncestor(new StepInfo(sequence));
                             sink.next(resultInternal);
                         }else{
                             storeIfDesired(context, options, sink, value);
+                            lastStoredValue.set(value);
                             sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, value));
                         }
 
                     }).doOnError(throwable -> {
 
+                        notifyStepFailed(throwable, sink);
                         notifyException(() -> "Task: " + taskDisplayString + " Exception during execution ", throwable, sink, options, log);
                         sink.error(throwable);
 
                     }).doOnComplete(() -> {
 
+                        notifyStepCompleted(new StepCompletion(storeResult ? resultName : null,
+                                                               storeResult ? lastStoredValue.get() : null), sink);
                         notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
                         sink.complete();
 
@@ -198,6 +213,9 @@ public class TaskStep extends AbstractStep {
                 storeIfDesired(context, options, sink, result);
 
                 sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, result));
+
+                notifyStepCompleted(new StepCompletion(storeResult ? resultName : null,
+                                                       storeResult ? result : null), sink);
 
                 notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
 
@@ -213,6 +231,8 @@ public class TaskStep extends AbstractStep {
             }
 
             sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, null));
+
+            notifyStepCompleted(new StepCompletion(storeResult ? resultName : null, null), sink);
 
             notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
 

@@ -44,6 +44,7 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
         return Flux.create(sink -> {
             try {
 
+                notifyStepStarted(jobDefinition.getDescription(), sink);
                 notifyProgress(() -> new Progress(0,
                                                   "JobDefinition: " + taskDisplayString + " Scope: " + jobDefinition.getScope() + " Executing"), sink, options, log);
 
@@ -95,10 +96,12 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                                                     sink.next(result);
                                                 })
                                                .doOnError(throwable -> {
+                                                   notifyStepFailed(throwable, sink);
                                                    notifyException(() -> "JobDefinition: " + taskDisplayString + " Exception during execution ", throwable, sink, options, log);
                                                    sink.error(throwable);
                                                })
                                                .doOnComplete(() -> {
+                                                   notifyStepCompleted(new StepCompletion(null, null), sink);
                                                    notifyProgress(() -> new Progress(100,
                                                                                      "JobDefinition: " + taskDisplayString + " Finished Executing"), sink, options, log);
                                                    sink.complete();
@@ -116,6 +119,7 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                 sink.onCancel(disposable);
 
             } catch (Exception throwable) {
+                notifyStepFailed(throwable, sink);
                 notifyException(() -> "JobDefinition: " + taskDisplayString + " Exception during execution ", throwable, sink, options, log);
                 sink.error(throwable);
             }

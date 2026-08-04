@@ -47,6 +47,18 @@ public abstract class AbstractStep implements Step {
         }
     }
 
+    protected void notifyStepStarted(String description, FluxSink<Result<?>> sink){
+        sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.STEP_STARTED, description));
+    }
+
+    protected void notifyStepCompleted(StepCompletion completion, FluxSink<Result<?>> sink){
+        sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.STEP_COMPLETED, completion));
+    }
+
+    protected void notifyStepFailed(Throwable throwable, FluxSink<Result<?>> sink){
+        sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.STEP_FAILED, throwable));
+    }
+
     protected void notifyException(Supplier<String> messageSupplier, Throwable throwable, FluxSink<Result<?>> sink, ResultOptions options, Logger log){
         String message = (options.isEnableProgressResults() || log.isDebugEnabled()) ? messageSupplier.get() : "";
 
