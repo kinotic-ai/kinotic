@@ -67,14 +67,12 @@
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
         "version": "git add README.md",
         "copy-files": "cp -r ./src/templates/  ./dist/templates/",
-        "prepublishOnly": "node -e \"const p=require('./package.json');const beta=p.version.includes('-beta.');const tag=p.publishConfig&&p.publishConfig.tag;if(beta&&tag!=='beta'){console.error('version '+p.version+' is a beta prerelease; set publishConfig.tag to beta');process.exit(1)}if(!beta&&tag==='beta'){console.error('version '+p.version+' is stable; remove publishConfig.tag before publishing');process.exit(1)}\""
+        "prepublishOnly": "node -e \"if(require('./package.json').version.includes('-beta.')&&!process.env.KINOTIC_BETA_PUBLISH){console.error('This is a beta prerelease; publish it with: pnpm release');process.exit(1)}\"",
+        "release": "KINOTIC_BETA_PUBLISH=1 pnpm publish --tag beta"
     },
     "engines": {
         "node": ">=18.0.0"
     },
     "keywords": [],
-    "types": "dist/index.d.ts",
-    "publishConfig": {
-        "tag": "beta"
-    }
+    "types": "dist/index.d.ts"
 }
