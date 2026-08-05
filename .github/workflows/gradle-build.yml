@@ -271,6 +271,24 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # The e2e vite config aliases @kinotic-ai/os-api to the workspace dist, so the suites test
+      # the SDK at HEAD; the dist must exist before the tests run.
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('kinotic-js/workspace/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Build JS workspace dist
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          bunx bunup
+
       # kinotic-js/e2e-tests is a standalone Gradle build whose node-gradle plugin unpacks Node and
       # pnpm under the project's own .gradle dir — outside the Gradle User Home that setup-gradle
       # caches, so without this they are re-downloaded on every run.
