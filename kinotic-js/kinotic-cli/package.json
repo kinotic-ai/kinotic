@@ -66,6 +66,7 @@
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
         "version": "git add README.md",
+        "release": "pnpm publish --tag $(node -p \"require('./package.json').version.includes('-beta.')?'beta':'latest'\")",
         "copy-files": "cp -r ./src/templates/  ./dist/templates/"
     },
     "engines": {
