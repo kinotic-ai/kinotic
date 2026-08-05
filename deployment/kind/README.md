@@ -204,7 +204,7 @@ Override values in `config/load-generator/values.yaml`:
 ./gradlew :kinotic-server:bootBuildImage
 
 # Load into running cluster
-kind load docker-image kinoticai/kinotic-server:4.2.0-SNAPSHOT --name kinotic-cluster
+kind load docker-image kinoticai/kinotic-server:5.0.0-SNAPSHOT --name kinotic-cluster
 
 # Restart to pick up new image
 kubectl rollout restart deployment/kinotic-server

@@ -10,7 +10,7 @@
 # for wiring/cluster-formation testing, not cross-node JWT validation.
 
 x-kinotic-node: &kinotic-node
-  image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0-SNAPSHOT}
+  image: kinoticai/kinotic-server:${kinoticVersion:-5.0.0-SNAPSHOT}
   pull_policy: always
   healthcheck:
     test: ["CMD", "/workspace/health-check"]

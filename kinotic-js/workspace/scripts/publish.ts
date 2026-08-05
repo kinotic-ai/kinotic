@@ -10,6 +10,12 @@ const packagesDir = resolve(root, 'packages')
 // republishing many artifacts where the suite has already been run.
 const skipTests = process.argv.includes('--skip-tests')
 
+// `bun run publish --beta` publishes under the npm `beta` dist-tag. The flag and the version
+// must agree: --beta requires every package version to be a -beta prerelease, and a -beta
+// version cannot be published without the flag — so a stable dist-tag can never end up
+// pointing at a beta build, or the reverse.
+const beta = process.argv.includes('--beta')
+
 const registry = (process.env.npm_config_registry ?? 'https://registry.npmjs.org').replace(/\/$/, '')
 
 // True if name@version is already on the registry, so the script can skip it instead of failing
@@ -95,6 +101,18 @@ for (const pkg of packages) {
 const published: Pkg[] = []
 const failedToPublish: Pkg[] = []
 
+for (const pkg of toPublish) {
+    const isBetaVersion = pkg.version.includes('-beta.')
+    if (beta && !isBetaVersion) {
+        console.error(`--beta requires a -beta prerelease version, but ${pkg.name} is ${pkg.version}`)
+        process.exit(1)
+    }
+    if (!beta && isBetaVersion) {
+        console.error(`${pkg.name}@${pkg.version} is a beta prerelease; pass --beta to publish it under the beta dist-tag`)
+        process.exit(1)
+    }
+}
+
 if (toPublish.length > 0) {
     // Verify only the packages being published, so e.g. a spawn-only publish doesn't
     // spin up core's gateway. The GraalJS bundle smoke test runs only when spawn is
@@ -118,7 +136,7 @@ if (toPublish.length > 0) {
     for (const pkg of toPublish) {
         console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
 
-        const publishArgs = pkg.version.includes('beta') ? ['publish', '--tag', 'beta'] : ['publish']
+        const publishArgs = beta ? ['publish', '--tag', 'beta'] : ['publish']
 
         const result = spawnSync('bun', publishArgs, { cwd: pkg.dir, stdio: 'inherit' })
 
