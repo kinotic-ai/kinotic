@@ -35,6 +35,13 @@ public class RefreshToken implements Identifiable<String> {
     private String familyId;
 
     /**
+     * Optional human-readable label for the lineage, shown wherever the identity's sessions are
+     * listed — e.g. the device name the CLI supplied when the flow started. Preserved across
+     * rotation. Null when the client supplied none.
+     */
+    private String label;
+
+    /**
      * The surface access tokens minted from this lineage are valid for. Fixed when the grant
      * that created the lineage was redeemed, and preserved across every rotation.
      */

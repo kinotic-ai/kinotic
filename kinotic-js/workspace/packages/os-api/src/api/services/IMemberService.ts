@@ -8,7 +8,7 @@ import {
     type Page,
     type Pageable
 } from '@kinotic-ai/core'
-import { ParticipantIdentity } from '@/api/model/iam/ParticipantIdentity'
+import { UserParticipantIdentity } from '@/api/model/iam/UserParticipantIdentity'
 import { PendingInviteSummary } from '@/api/model/iam/PendingInviteSummary'
 
 /**
@@ -20,13 +20,13 @@ import { PendingInviteSummary } from '@/api/model/iam/PendingInviteSummary'
 export interface IMemberService {
 
     /** Lists the members of the scope. */
-    findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<ParticipantIdentity>>
+    findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>>
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * searchText is equivalent to {@link findMembers}.
      */
-    searchMembers(searchText: string, applicationId: string | null, pageable: Pageable): Promise<IterablePage<ParticipantIdentity>>
+    searchMembers(searchText: string, applicationId: string | null, pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>>
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the
@@ -54,7 +54,7 @@ export interface IMemberService {
     cancelInvite(inviteId: string): Promise<void>
 
     /** An {@link IDataSource} over the scope's members, for table components. */
-    memberDataSource(applicationId: string | null): IDataSource<ParticipantIdentity>
+    memberDataSource(applicationId: string | null): IDataSource<UserParticipantIdentity>
 
 }
 
@@ -66,14 +66,14 @@ export class MemberService implements IMemberService {
         this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.iam.MemberService`)
     }
 
-    public async findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<ParticipantIdentity>> {
-        const page: Page<ParticipantIdentity> = await this.serviceProxy.invoke('findMembers', [applicationId, pageable])
+    public async findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>> {
+        const page: Page<UserParticipantIdentity> = await this.serviceProxy.invoke('findMembers', [applicationId, pageable])
         return new FunctionalIterablePage(pageable, page,
             (next: Pageable) => this.serviceProxy.invoke('findMembers', [applicationId, next]))
     }
 
-    public async searchMembers(searchText: string, applicationId: string | null, pageable: Pageable): Promise<IterablePage<ParticipantIdentity>> {
-        const page: Page<ParticipantIdentity> = await this.serviceProxy.invoke('searchMembers', [searchText, applicationId, pageable])
+    public async searchMembers(searchText: string, applicationId: string | null, pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>> {
+        const page: Page<UserParticipantIdentity> = await this.serviceProxy.invoke('searchMembers', [searchText, applicationId, pageable])
         return new FunctionalIterablePage(pageable, page,
             (next: Pageable) => this.serviceProxy.invoke('searchMembers', [searchText, applicationId, next]))
     }
@@ -100,7 +100,7 @@ export class MemberService implements IMemberService {
         return this.serviceProxy.invoke('cancelInvite', [inviteId])
     }
 
-    public memberDataSource(applicationId: string | null): IDataSource<ParticipantIdentity> {
+    public memberDataSource(applicationId: string | null): IDataSource<UserParticipantIdentity> {
         return {
             findAll: (pageable: Pageable) => this.findMembers(applicationId, pageable),
             search: (searchText: string, pageable: Pageable) => this.searchMembers(searchText, applicationId, pageable)

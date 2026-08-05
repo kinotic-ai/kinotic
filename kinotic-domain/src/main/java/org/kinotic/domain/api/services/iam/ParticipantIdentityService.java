@@ -110,6 +110,12 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
                                                                           String clientKey,
                                                                           String displayName);
 
+    /**
+     * Finds every delegate authorized on behalf of the given owner, revoked ones included —
+     * the owner's view of which clients hold or held access.
+     */
+    CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable);
+
 }
 
 

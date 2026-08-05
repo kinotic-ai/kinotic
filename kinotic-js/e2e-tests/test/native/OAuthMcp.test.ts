@@ -1,4 +1,4 @@
-import {Kinotic} from '@kinotic-ai/core'
+import {Kinotic, Pageable} from '@kinotic-ai/core'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
 import {WebSocket} from 'ws'
@@ -8,6 +8,8 @@ import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
 const OAUTH_APPROVAL_SERVICE = 'os-api~org.kinotic.os.api.services.iam.OAuthApprovalService'
+
+const DELEGATE_SERVICE = 'os-api~org.kinotic.os.api.services.iam.DelegateService'
 
 /**
  * Attempts the STOMP WebSocket upgrade with the given bearer token. Resolves with the HTTP status
@@ -124,7 +126,7 @@ describe('Kinotic JS', () => {
         const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({client_id: 'kinotic-cli'})
+            body: new URLSearchParams({client_id: 'kinotic-cli', device_name: 'e2e-laptop'})
         })).json()
         expect(start.user_code).toBeTruthy()
 
@@ -163,6 +165,17 @@ describe('Kinotic JS', () => {
         const rotated = await refreshed.json()
         expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe('open')
 
+        // the grant created a CLI delegate owned by the approving user, holding one labeled session
+        const delegates: any = await Kinotic.serviceProxy(DELEGATE_SERVICE)
+            .invoke('findMyDelegates', [Pageable.create(0, 25)])
+        const cliDelegate = delegates.content.find((d: any) => d.delegateKind === 'CLI')
+        expect(cliDelegate).toBeDefined()
+        expect(cliDelegate.enabled).toBe(true)
+        const sessions: any[] = await Kinotic.serviceProxy(DELEGATE_SERVICE)
+            .invoke('findSessions', [cliDelegate.id])
+        expect(sessions.length).toBeGreaterThan(0)
+        expect(sessions[0].label).toBe('e2e-laptop')
+
         // reusing the rotated-out token revokes the family
         const reuse = await fetch(`${base()}/api/auth/oauth/token`, {
             method: 'POST',
@@ -171,5 +184,9 @@ describe('Kinotic JS', () => {
         })
         expect(reuse.status).toBe(400)
         expect((await reuse.json()).error).toBe('invalid_grant')
+
+        // revoking the delegate rejects its unexpired access token at the next request
+        await Kinotic.serviceProxy(DELEGATE_SERVICE).invoke('revokeDelegate', [cliDelegate.id])
+        expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe(401)
     }, 60000)
 })

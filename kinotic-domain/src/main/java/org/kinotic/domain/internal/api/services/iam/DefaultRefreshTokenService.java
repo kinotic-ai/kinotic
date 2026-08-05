@@ -2,8 +2,10 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.iam.DelegateSession;
 import org.kinotic.domain.api.model.iam.RefreshTokenRotation;
 import org.kinotic.domain.api.services.iam.RefreshTokenService;
 import org.kinotic.domain.internal.api.model.RefreshToken;
@@ -13,6 +15,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -31,11 +34,51 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<String> issue(String identityId, KinoticAudience audience) {
+    public CompletableFuture<String> issue(String identityId, KinoticAudience audience, String label) {
         Validate.notBlank(identityId, "identityId is required");
         Validate.notNull(audience, "audience is required");
-        return mint(identityId, UUID.randomUUID().toString(), audience)
+        return mint(identityId, UUID.randomUUID().toString(), audience, StringUtils.trimToNull(label))
                 .thenApply(Minted::plaintext);
+    }
+
+    @Override
+    public CompletableFuture<List<DelegateSession>> findActiveSessions(String identityId) {
+        Validate.notBlank(identityId, "identityId is required");
+        Date now = new Date();
+        return refreshTokenRepository.findActiveByIdentityId(identityId)
+                .thenApply(tokens -> tokens.stream()
+                        .filter(t -> t.getExpiresAt().after(now))
+                        .map(t -> new DelegateSession(t.getFamilyId(), t.getLabel(),
+                                                      t.getCreated(), t.getExpiresAt()))
+                        .toList());
+    }
+
+    @Override
+    public CompletableFuture<Void> revokeFamily(String identityId, String familyId) {
+        Validate.notBlank(identityId, "identityId is required");
+        Validate.notBlank(familyId, "familyId is required");
+        return refreshTokenRepository.findByFamilyId(familyId)
+                .thenCompose(tokens -> {
+                    // identity scoping over every row: a family id from another identity's
+                    // lineage revokes nothing
+                    CompletableFuture<?>[] saves = tokens.stream()
+                            .filter(t -> identityId.equals(t.getIdentityId()) && !t.isRevoked())
+                            .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                            .toArray(CompletableFuture[]::new);
+                    return CompletableFuture.allOf(saves);
+                });
+    }
+
+    @Override
+    public CompletableFuture<Void> revokeAllFor(String identityId) {
+        Validate.notBlank(identityId, "identityId is required");
+        return refreshTokenRepository.findActiveByIdentityId(identityId)
+                .thenCompose(tokens -> {
+                    CompletableFuture<?>[] saves = tokens.stream()
+                            .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                            .toArray(CompletableFuture[]::new);
+                    return CompletableFuture.allOf(saves);
+                });
     }
 
     @Override
@@ -73,7 +116,8 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                     }
                     // Mint the replacement before revoking the current token so a failure mid-rotation
                     // never leaves the client without a usable token.
-                    return mint(current.getIdentityId(), current.getFamilyId(), current.getAudience())
+                    return mint(current.getIdentityId(), current.getFamilyId(), current.getAudience(),
+                                current.getLabel())
                             .thenCompose(minted -> {
                                 current.setRevoked(true)
                                        .setLastUsedAt(new Date())
@@ -96,7 +140,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 });
     }
 
-    private CompletableFuture<Minted> mint(String identityId, String familyId, KinoticAudience audience) {
+    private CompletableFuture<Minted> mint(String identityId, String familyId, KinoticAudience audience, String label) {
         String plaintext = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
         Date now = new Date();
         RefreshToken record = new RefreshToken()
@@ -104,6 +148,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 .setTokenHash(DomainUtil.sha256Hex(plaintext))
                 .setIdentityId(identityId)
                 .setFamilyId(familyId)
+                .setLabel(label)
                 .setAudience(audience)
                 .setCreated(now)
                 .setExpiresAt(new Date(now.getTime() + TOKEN_TTL_MS))

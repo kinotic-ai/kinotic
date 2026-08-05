@@ -13,6 +13,7 @@ import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWor
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
 import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
+import { DelegateService, type IDelegateService } from '@/api/services/IDelegateService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 
 export interface IOsApiExtension {
@@ -29,6 +30,7 @@ export interface IOsApiExtension {
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
     oauthApproval: IOAuthApprovalService
+    delegates: IDelegateService
     githubAppInstallations: IGitHubAppInstallationService
 }
 
@@ -48,6 +50,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
             oauthApproval: new OAuthApprovalService(kinotic),
+            delegates: new DelegateService(kinotic),
             githubAppInstallations: new GitHubAppInstallationService(kinotic),
         }
     }

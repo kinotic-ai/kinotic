@@ -152,7 +152,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_client");
             return;
         }
-        Future.fromCompletionStage(deviceCodeGrantService.start())
+        Future.fromCompletionStage(deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name")))
               .onSuccess(start -> {
                   // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
                   // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
@@ -209,7 +209,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                                                                    CLI_CLIENT_ID, CLI_DISPLAY_NAME))
                               .compose(delegate -> Future.fromCompletionStage(
                                               refreshTokenService.issue(delegate.getId(),
-                                                                        delegate.getDelegateKind().getAudience()))
+                                                                        delegate.getDelegateKind().getAudience(),
+                                                                        result.deviceName()))
                                       .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
                                               ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
                               .onFailure(err -> {
@@ -235,7 +236,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                                                            exchange.clientId(), exchange.clientName())))
               .compose(delegate -> Future.fromCompletionStage(
                                              refreshTokenService.issue(delegate.getId(),
-                                                                       delegate.getDelegateKind().getAudience()))
+                                                                       delegate.getDelegateKind().getAudience(),
+                                                                       null))
                                      .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
                                              ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
               .onFailure(err -> {

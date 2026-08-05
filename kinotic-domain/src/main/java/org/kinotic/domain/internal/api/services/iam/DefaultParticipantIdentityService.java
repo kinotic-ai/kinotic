@@ -309,6 +309,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
+        return identityRepository.findDelegatesByOwner(ownerId, pageable);
+    }
+
+    @Override
     protected CompletableFuture<Void> beforeDelete(String id) {
         // Cascade the IamCredential. Credential lookups are by id (realtime GETs), so the
         // credential delete never needs to wait for search visibility.

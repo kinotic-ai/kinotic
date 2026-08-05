@@ -244,6 +244,21 @@ public class DomainUtil {
                                             .build();
     }
 
+    /**
+     * Requires the participant to be a person (participant type {@code user}), rejecting
+     * delegates and every other kind. Guards operations that grant or revoke authority —
+     * consent, delegate management — which only the human owner may perform.
+     *
+     * @param participant the calling participant
+     * @throws IllegalArgumentException if the participant is not a user
+     */
+    public static void requireUserParticipant(Participant participant) {
+        String type = participant.getMetadata().get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY);
+        if (!ParticipantConstants.PARTICIPANT_TYPE_USER.equals(type)) {
+            throw new IllegalArgumentException("Only a signed-in user may perform this action");
+        }
+    }
+
     private static Map<String, String> participantMetadata(ParticipantIdentity identity) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, participantTypeFor(identity.getType()));

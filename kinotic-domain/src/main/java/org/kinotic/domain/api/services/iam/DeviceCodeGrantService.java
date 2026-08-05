@@ -16,8 +16,11 @@ public interface DeviceCodeGrantService {
     /**
      * Starts a new device authorization grant and returns the codes the CLI needs to display
      * and poll with.
+     *
+     * @param deviceName optional name of the device starting the flow; becomes the label of
+     *                   the token family issued when the grant is redeemed
      */
-    CompletableFuture<DeviceCodeGrantStart> start();
+    CompletableFuture<DeviceCodeGrantStart> start(String deviceName);
 
     /**
      * Polls a pending grant by its {@code device_code}. Once the grant has been approved it

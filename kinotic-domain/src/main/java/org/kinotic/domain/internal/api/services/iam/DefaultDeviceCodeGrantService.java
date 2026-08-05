@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.services.iam;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.iam.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.iam.DeviceCodePollResult;
@@ -43,7 +44,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<DeviceCodeGrantStart> start() {
+    public CompletableFuture<DeviceCodeGrantStart> start(String deviceName) {
         Date now = new Date();
         String deviceCode = DomainUtil.generateUrlSafeToken(DEVICE_CODE_BYTES);
         String userCode = generateUserCode();
@@ -53,6 +54,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                 .setId(UUID.randomUUID().toString())
                 .setDeviceCodeHash(DomainUtil.sha256Hex(deviceCode))
                 .setUserCode(userCode)
+                .setDeviceName(StringUtils.trimToNull(deviceName))
                 .setCreated(now)
                 .setExpiresAt(expiresAt)
                 .setIntervalSeconds(POLL_INTERVAL_SECONDS);
@@ -70,12 +72,12 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
 
     private CompletableFuture<DeviceCodePollResult> evaluatePoll(DeviceCodeGrant grant) {
         if (grant == null) {
-            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.INVALID, null));
+            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null));
         }
         Date now = new Date();
         if (grant.getExpiresAt().before(now)) {
             return deviceCodeGrantRepository.deleteById(grant.getId())
-                    .thenApply(v -> new DeviceCodePollResult(PollStatus.EXPIRED, null));
+                    .thenApply(v -> new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
             // Approved — hand back the user and consume the grant so it cannot be replayed.
@@ -83,15 +85,15 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                     .thenApply(UserParticipantIdentity.class::cast)
                     .thenCompose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
                             .thenApply(v -> (user == null || !user.isEnabled())
-                                    ? new DeviceCodePollResult(PollStatus.INVALID, null)
-                                    : new DeviceCodePollResult(PollStatus.APPROVED, user)));
+                                    ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
+                                    : new DeviceCodePollResult(PollStatus.APPROVED, user, grant.getDeviceName())));
         }
         if (polledTooSoon(grant, now)) {
-            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null));
+            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));
         }
         grant.setLastPolledAt(now);
         return deviceCodeGrantRepository.saveSync(grant)
-                .thenApply(v -> new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null));
+                .thenApply(v -> new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null, null));
     }
 
     @Override

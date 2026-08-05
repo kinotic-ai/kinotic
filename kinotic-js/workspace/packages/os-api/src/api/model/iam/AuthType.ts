@@ -3,5 +3,6 @@
  */
 export enum AuthType {
     LOCAL = 'LOCAL',
-    OIDC = 'OIDC'
+    OIDC = 'OIDC',
+    DELEGATED = 'DELEGATED'
 }
