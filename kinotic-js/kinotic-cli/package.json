@@ -66,12 +66,15 @@
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
         "version": "git add README.md",
-        "release": "pnpm publish --tag $(node -p \"require('./package.json').version.includes('-beta.')?'beta':'latest'\")",
-        "copy-files": "cp -r ./src/templates/  ./dist/templates/"
+        "copy-files": "cp -r ./src/templates/  ./dist/templates/",
+        "prepublishOnly": "node -e \"const p=require('./package.json');const beta=p.version.includes('-beta.');const tag=p.publishConfig&&p.publishConfig.tag;if(beta&&tag!=='beta'){console.error('version '+p.version+' is a beta prerelease; set publishConfig.tag to beta');process.exit(1)}if(!beta&&tag==='beta'){console.error('version '+p.version+' is stable; remove publishConfig.tag before publishing');process.exit(1)}\""
     },
     "engines": {
         "node": ">=18.0.0"
     },
     "keywords": [],
-    "types": "dist/index.d.ts"
+    "types": "dist/index.d.ts",
+    "publishConfig": {
+        "tag": "beta"
+    }
 }
