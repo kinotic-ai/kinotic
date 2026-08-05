@@ -4,13 +4,8 @@ minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rej
 # First-party packages are trusted at any version, so a freshly published release
 # never blocks the build.
 minimumReleaseAgeExclude:
-  - '@kinotic-ai/core@4.0.0'
-  - '@kinotic-ai/persistence@4.0.0'
-  - '@kinotic-ai/spawn@0.3.0'
-  - '@kinotic-ai/spawn@0.4.0'
-  - '@kinotic-ai/os-api@4.1.0'
-  - '@kinotic-ai/core@5.0.0-beta.0'
-  - '@kinotic-ai/idl@5.0.0-beta.0'
-  - '@kinotic-ai/os-api@5.0.0-beta.0'
-  - '@kinotic-ai/persistence@5.0.0-beta.0'
-  - '@kinotic-ai/spawn@5.0.0-beta.0'
+  - '@kinotic-ai/core'
+  - '@kinotic-ai/idl'
+  - '@kinotic-ai/os-api'
+  - '@kinotic-ai/persistence'
+  - '@kinotic-ai/spawn'
