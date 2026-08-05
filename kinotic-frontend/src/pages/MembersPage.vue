@@ -70,7 +70,7 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { ParticipantIdentity, PendingInviteSummary } from '@kinotic-ai/os-api'
+import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 
 import CrudTable from '@/components/CrudTable.vue'
 import type { CrudHeader } from '@/types/CrudHeader'
@@ -205,7 +205,7 @@ function toInviteRow(invite: PendingInviteSummary): MemberRow {
   }
 }
 
-function toMemberRow(user: ParticipantIdentity): MemberRow {
+function toMemberRow(user: UserParticipantIdentity): MemberRow {
   return {
     id: user.id ?? '',
     email: user.email,
