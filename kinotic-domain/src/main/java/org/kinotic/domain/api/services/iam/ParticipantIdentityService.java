@@ -5,6 +5,8 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.iam.DelegateKind;
 import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.iam.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.iam.MachineProvisionResult;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 
@@ -115,6 +117,29 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
      * the owner's view of which clients hold or held access.
      */
     CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable);
+
+    /**
+     * Provisions a machine identity, assigning id and dates, enabling it, and generating the
+     * client secret it authenticates with through the client-credentials grant. The identity's
+     * id is its OAuth {@code client_id}; the secret is returned in plaintext exactly once and
+     * stored only as a hash.
+     *
+     * @param machine the unsaved machine carrying display name and scope
+     * @return a future emitting the saved machine together with its one-time secret
+     */
+    CompletableFuture<MachineProvisionResult> createMachine(MachineParticipantIdentity machine);
+
+    /**
+     * Authenticates a machine by client-credentials: the machine with the given id must exist,
+     * be enabled, and hold a credential matching {@code clientSecret}. Every failure — unknown
+     * id, wrong kind of identity, disabled, or wrong secret — fails the same way, so the token
+     * endpoint leaks nothing about which check missed.
+     *
+     * @param machineId    the machine's id, presented as the OAuth {@code client_id}
+     * @param clientSecret the secret issued at provisioning
+     * @return a future emitting the authenticated machine, failed for any invalid credential
+     */
+    CompletableFuture<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret);
 
 }
 

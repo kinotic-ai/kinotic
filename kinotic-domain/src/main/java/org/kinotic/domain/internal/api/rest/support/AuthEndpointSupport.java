@@ -229,6 +229,19 @@ public class AuthEndpointSupport {
      * access tokens. Both act as {@code identity}.
      */
     public void respondTokenPair(RoutingContext ctx, ParticipantIdentity identity, String refreshToken, KinoticAudience audience) {
+        respondTokens(ctx, identity, refreshToken, audience);
+    }
+
+    /**
+     * {@code 200 application/json} with an OAuth access token stamped for {@code audience} and
+     * no refresh token — the client-credentials response shape (RFC 6749 §4.4.3): the client
+     * holds a secret it re-authenticates with, so a refresh token has nothing to add.
+     */
+    public void respondAccessToken(RoutingContext ctx, ParticipantIdentity identity, KinoticAudience audience) {
+        respondTokens(ctx, identity, null, audience);
+    }
+
+    private void respondTokens(RoutingContext ctx, ParticipantIdentity identity, String refreshToken, KinoticAudience audience) {
         String accessToken;
         try {
             accessToken = mintAccessToken(identity, audience);
@@ -242,8 +255,10 @@ public class AuthEndpointSupport {
         JsonObject body = new JsonObject()
                 .put("access_token", accessToken)
                 .put("token_type", "Bearer")
-                .put("expires_in", ACCESS_TOKEN_TTL_SECONDS)
-                .put("refresh_token", refreshToken);
+                .put("expires_in", ACCESS_TOKEN_TTL_SECONDS);
+        if (refreshToken != null) {
+            body.put("refresh_token", refreshToken);
+        }
         ctx.response().putHeader("Content-Type", "application/json")
            // RFC 6749 §5.1 — a token response must never be cached by an intermediary
            .putHeader("Cache-Control", "no-store")

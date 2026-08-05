@@ -7,6 +7,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.iam.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentityType;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
@@ -274,6 +275,8 @@ public class DomainUtil {
                 metadata.put("displayName",
                              delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
             }
+            case MachineParticipantIdentity machine ->
+                    metadata.put("displayName", machine.getDisplayName());
         }
         return Map.copyOf(metadata);
     }
@@ -282,6 +285,7 @@ public class DomainUtil {
         return switch (type) {
             case USER -> ParticipantConstants.PARTICIPANT_TYPE_USER;
             case DELEGATE -> ParticipantConstants.PARTICIPANT_TYPE_DELEGATE;
+            case MACHINE -> ParticipantConstants.PARTICIPANT_TYPE_MACHINE;
         };
     }
 

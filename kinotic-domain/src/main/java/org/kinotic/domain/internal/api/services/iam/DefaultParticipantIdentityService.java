@@ -8,6 +8,8 @@ import org.kinotic.domain.api.model.iam.AuthType;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.model.iam.DelegateKind;
 import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.iam.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.iam.MachineProvisionResult;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.model.IamCredential;
@@ -60,6 +62,13 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 // Canonical form at the single write chokepoint; lookups normalize in the repository.
                 user.setEmail(DomainUtil.normalizeEmail(user.getEmail()));
                 yield enforceUniqueEmailInScope(user);
+            }
+            case MachineParticipantIdentity machine -> {
+                Validate.notBlank(machine.getDisplayName(), "MACHINE displayName is required");
+                Validate.isTrue(machine.getAuthType() == AuthType.CLIENT_CREDENTIALS,
+                                "MACHINE authType must be CLIENT_CREDENTIALS");
+                // the machine's id is its client_id, so uniqueness is the id's own
+                yield CompletableFuture.completedFuture(null);
             }
         };
     }
@@ -311,6 +320,51 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     @Override
     public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
         return identityRepository.findDelegatesByOwner(ownerId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<MachineProvisionResult> createMachine(MachineParticipantIdentity machine) {
+        Validate.notNull(machine, "machine is required");
+
+        Date now = new Date();
+        machine.setCreated(now);
+        machine.setEnabled(true);
+        machine.setAuthType(AuthType.CLIENT_CREDENTIALS);
+
+        // 32 bytes of entropy — the secret is generated, never user-chosen, and shown only here
+        String clientSecret = DomainUtil.generateUrlSafeToken(32);
+
+        return save(machine)
+                .thenApply(MachineParticipantIdentity.class::cast)
+                .thenCompose(saved -> {
+                    IamCredential credential = new IamCredential()
+                            .setId(saved.getId())
+                            .setPasswordHash(DomainUtil.hashPassword(clientSecret));
+                    return credentialRepository.save(credential)
+                                               .thenApply(c -> new MachineProvisionResult(saved, clientSecret));
+                });
+    }
+
+    @Override
+    public CompletableFuture<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret) {
+        Validate.notBlank(machineId, "machineId is required");
+        Validate.notBlank(clientSecret, "clientSecret is required");
+
+        return findById(machineId)
+                .thenCompose(identity -> {
+                    // one generic failure for every miss — no oracle for which check failed
+                    if (!(identity instanceof MachineParticipantIdentity machine) || !machine.isEnabled()) {
+                        throw new IllegalArgumentException("Invalid client credentials");
+                    }
+                    return credentialRepository.findById(machine.getId())
+                            .thenApply(credential -> {
+                                if (credential == null
+                                        || !DomainUtil.verifyPassword(clientSecret, credential.getPasswordHash())) {
+                                    throw new IllegalArgumentException("Invalid client credentials");
+                                }
+                                return machine;
+                            });
+                });
     }
 
     @Override

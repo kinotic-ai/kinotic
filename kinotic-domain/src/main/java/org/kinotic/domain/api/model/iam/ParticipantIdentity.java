@@ -14,7 +14,8 @@ import java.util.Date;
  * A persisted identity that can authenticate and become a Participant, at any scope layer of
  * the IAM system. The concrete subtype states what kind of principal it is —
  * {@link UserParticipantIdentity} for a person, {@link DelegatingParticipantIdentity} for a
- * client acting on a person's behalf — and carries the fields only that kind has. The scope
+ * client acting on a person's behalf, {@link MachineParticipantIdentity} for a non-human
+ * caller with its own credential — and carries the fields only that kind has. The scope
  * is encoded structurally by which of {@link #organizationId} / {@link #applicationId} is set:
  * <ul>
  *   <li>both null → SYSTEM (platform operators)</li>
@@ -31,10 +32,11 @@ import java.util.Date;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXISTING_PROPERTY, property = "type")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = UserParticipantIdentity.class, name = "USER"),
-        @JsonSubTypes.Type(value = DelegatingParticipantIdentity.class, name = "DELEGATE")
+        @JsonSubTypes.Type(value = DelegatingParticipantIdentity.class, name = "DELEGATE"),
+        @JsonSubTypes.Type(value = MachineParticipantIdentity.class, name = "MACHINE")
 })
 public abstract sealed class ParticipantIdentity implements Identifiable<String>
-        permits UserParticipantIdentity, DelegatingParticipantIdentity {
+        permits UserParticipantIdentity, DelegatingParticipantIdentity, MachineParticipantIdentity {
 
     private String id;
 
@@ -43,7 +45,8 @@ public abstract sealed class ParticipantIdentity implements Identifiable<String>
     /**
      * Authentication method: {@link AuthType#LOCAL} or {@link AuthType#OIDC} for
      * {@link UserParticipantIdentity}, always {@link AuthType#DELEGATED} for
-     * {@link DelegatingParticipantIdentity}.
+     * {@link DelegatingParticipantIdentity}, always {@link AuthType#CLIENT_CREDENTIALS} for
+     * {@link MachineParticipantIdentity}.
      */
     private AuthType authType;
 
