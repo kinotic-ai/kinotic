@@ -115,7 +115,8 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                                                        contextToUse.destroy();
                                                    }
                                                })
-                                               .subscribe(); // TODO: not sure if warning is really an issue, but it should be investigated
+                                               // the error consumer is a no-op because doOnError above already forwarded to the sink
+                                               .subscribe(result -> { }, throwable -> { });
                 sink.onCancel(disposable);
 
             } catch (Exception throwable) {

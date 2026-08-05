@@ -21,8 +21,9 @@ public class JobExecution {
 
     /**
      * The stream performing the run. The job executes exactly once no matter how many
-     * subscribers attach: execution starts when the first subscriber subscribes, additional
-     * subscribers join the run in progress, and results are not replayed to late subscribers.
+     * subscribers attach: execution starts when the first subscriber subscribes, and every
+     * subscriber receives the full result history from the beginning, buffered in memory
+     * for the lifetime of this {@link JobExecution}.
      * A subscriber cancelling only detaches that subscriber - use {@link #cancel()} to abort the run.
      */
     @Getter
@@ -32,7 +33,9 @@ public class JobExecution {
 
     public JobExecution(String jobRunId, Flux<Result<?>> upstream) {
         this.jobRunId = jobRunId;
-        this.results = upstream.publish().autoConnect(1, connection::set);
+        // replay() rather than publish(): a subscriber arriving after completion would otherwise
+        // wait forever for a connection that autoConnect has already spent
+        this.results = upstream.replay().autoConnect(1, connection::set);
     }
 
     /**

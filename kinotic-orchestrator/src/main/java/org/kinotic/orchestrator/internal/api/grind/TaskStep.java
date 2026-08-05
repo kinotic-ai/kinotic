@@ -156,7 +156,8 @@ public class TaskStep extends AbstractStep {
                                                        sink, options, log);
                                         sink.complete();
                                     })
-                                    .subscribe();
+                                    // the error consumer is a no-op because doOnError above already forwarded to the sink
+                                    .subscribe(result -> { }, throwable -> { });
         sink.onCancel(disposable);
     }
 
@@ -205,7 +206,8 @@ public class TaskStep extends AbstractStep {
                         notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
                         sink.complete();
 
-                    }).subscribe();
+                    // the error consumer is a no-op because doOnError above already forwarded to the sink
+                    }).subscribe(value -> { }, throwable -> { });
 
                 sink.onCancel(disposable);
 
