@@ -78,14 +78,15 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                      taskRecordService,
                                                      objectMapper);
 
-        Flux<Result<?>> results = assemble(jobDefinition, options)
-                                      .doOnSubscribe(subscription -> recorder.runStarted())
-                                      .doOnNext(recorder::record)
-                                      .doOnError(recorder::runFailed)
-                                      .doOnCancel(recorder::runCancelled)
-                                      .doOnComplete(recorder::runCompleted);
+        Flux<Result<?>> recorded = assemble(jobDefinition, options)
+                                       .doOnSubscribe(subscription -> recorder.runStarted())
+                                       .doOnNext(recorder::record)
+                                       .doOnError(recorder::runFailed)
+                                       .doOnCancel(recorder::runCancelled)
+                                       .doOnComplete(recorder::runCompleted);
 
-        return new JobExecution(jobRunId, results);
+        // JobExecution multicasts, so these hooks see one subscription no matter how many subscribers attach
+        return new JobExecution(jobRunId, recorded);
     }
 
     @Override

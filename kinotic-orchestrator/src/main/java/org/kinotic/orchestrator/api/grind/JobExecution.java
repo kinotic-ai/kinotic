@@ -1,28 +1,50 @@
 package org.kinotic.orchestrator.api.grind;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * One recorded execution of a {@link JobDefinition}, pairing the id of its persistent
  * {@link org.kinotic.domain.api.model.grind.JobRun} record with the {@link Result} stream
  * that performs the run.
  */
-@Getter
-@RequiredArgsConstructor
 public class JobExecution {
 
     /**
      * The id of the {@link org.kinotic.domain.api.model.grind.JobRun} recorded for this execution.
      */
+    @Getter
     private final String jobRunId;
 
     /**
-     * The stream that executes the job when subscribed to.
-     * Must be subscribed exactly once - each subscription would execute the job
-     * again under the same {@link #jobRunId}.
+     * The stream performing the run. The job executes exactly once no matter how many
+     * subscribers attach: execution starts when the first subscriber subscribes, additional
+     * subscribers join the run in progress, and results are not replayed to late subscribers.
+     * A subscriber cancelling only detaches that subscriber - use {@link #cancel()} to abort the run.
      */
+    @Getter
     private final Flux<Result<?>> results;
+
+    private final AtomicReference<Disposable> connection = new AtomicReference<>();
+
+    public JobExecution(String jobRunId, Flux<Result<?>> upstream) {
+        this.jobRunId = jobRunId;
+        this.results = upstream.publish().autoConnect(1, connection::set);
+    }
+
+    /**
+     * Cancels the run if it has started, recording it as
+     * {@link org.kinotic.domain.api.model.grind.ExecutionStatus#CANCELLED}.
+     * Does nothing if the run has not started or has already finished.
+     */
+    public void cancel() {
+        Disposable upstreamConnection = connection.get();
+        if(upstreamConnection != null){
+            upstreamConnection.dispose();
+        }
+    }
 
 }

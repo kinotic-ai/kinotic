@@ -11,6 +11,10 @@ import java.util.List;
  * For every {@link JobDefinition} a {@link JobContext} is provided,
  * to allow {@link Task}'s to automatically store and access data produced by {@link Task}'s
  *
+ * A {@link JobDefinition} is one run's worth of bound steps: its {@link Task} instances receive
+ * injection per execution, so build a fresh definition for each run - executing the same instance
+ * concurrently is not supported.
+ *
  * Created by Navid Mitchell on 3/19/20
  */
 public interface JobDefinition extends HasSteps{
