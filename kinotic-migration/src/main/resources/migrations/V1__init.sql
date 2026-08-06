@@ -97,9 +97,9 @@ CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
 );
 
 -- IAM Credential: password hashes stored separately from user entities
-CREATE TABLE IF NOT EXISTS kinotic_iam_credential (
+CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     id KEYWORD,
-    passwordHash KEYWORD NOT INDEXED
+    secretHash KEYWORD NOT INDEXED
 );
 
 -- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization

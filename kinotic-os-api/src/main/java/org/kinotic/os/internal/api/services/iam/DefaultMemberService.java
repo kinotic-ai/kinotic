@@ -78,7 +78,7 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
-                // Cascades the IamCredential; sync so the console's immediate re-query
+                // Cascades the IdentityCredential; sync so the console's immediate re-query
                 // no longer shows the member.
                 .thenCompose(user -> identityService.deleteByIdSync(user.getId()));
     }

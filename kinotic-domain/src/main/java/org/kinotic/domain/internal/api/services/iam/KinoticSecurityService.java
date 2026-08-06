@@ -13,8 +13,8 @@ import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.iam.ParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.model.IamCredential;
-import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
+import org.kinotic.domain.internal.api.model.IdentityCredential;
+import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -54,7 +54,7 @@ import java.util.TreeMap;
 public class KinoticSecurityService implements SecurityService {
 
     private final ParticipantIdentityService identityService;
-    private final IamCredentialRepository credentialRepository;
+    private final IdentityCredentialRepository credentialRepository;
     private final KinoticJwtIssuer jwtIssuer;
     private final Vertx vertx;
 
@@ -129,12 +129,12 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     private Future<Participant> verifyPasswordAndCreateParticipant(ParticipantIdentity user,
-                                                                   IamCredential credential,
+                                                                   IdentityCredential credential,
                                                                    String password) {
         Future<Participant> ret;
         if (credential == null) {
             ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-        } else if (!DomainUtil.verifyPassword(password, credential.getPasswordHash())) {
+        } else if (!DomainUtil.verifyPassword(password, credential.getSecretHash())) {
             ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
         } else {
             ret = Future.succeededFuture(DomainUtil.createParticipant(user));

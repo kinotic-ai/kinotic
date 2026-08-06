@@ -12,9 +12,9 @@ import org.kinotic.domain.api.model.iam.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.iam.MachineProvisionResult;
 import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
 import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
-import org.kinotic.domain.internal.api.model.IamCredential;
+import org.kinotic.domain.internal.api.model.IdentityCredential;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
-import org.kinotic.domain.internal.api.repositories.IamCredentialRepository;
+import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.kinotic.domain.internal.api.repositories.ParticipantIdentityRepository;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -28,11 +28,11 @@ import java.util.concurrent.CompletableFuture;
 public class DefaultParticipantIdentityService extends AbstractCrudService<ParticipantIdentity> implements ParticipantIdentityService {
 
     private final ParticipantIdentityRepository identityRepository;
-    private final IamCredentialRepository credentialRepository;
+    private final IdentityCredentialRepository credentialRepository;
     private final ApplicationRepository applicationRepository;
 
     public DefaultParticipantIdentityService(ParticipantIdentityRepository repository,
-                                 IamCredentialRepository credentialRepository,
+                                 IdentityCredentialRepository credentialRepository,
                                  ApplicationRepository applicationRepository) {
         super(repository);
         this.identityRepository = repository;
@@ -213,9 +213,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(savedUser -> {
                     if (password != null) {
-                        IamCredential credential = new IamCredential()
+                        IdentityCredential credential = new IdentityCredential()
                                 .setId(savedUser.getId())
-                                .setPasswordHash(DomainUtil.hashPassword(password));
+                                .setSecretHash(DomainUtil.hashPassword(password));
                         return credentialRepository.save(credential).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
@@ -260,11 +260,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("No credential found for user " + identityId));
                     }
-                    if (!DomainUtil.verifyPassword(currentPassword, credential.getPasswordHash())) {
+                    if (!DomainUtil.verifyPassword(currentPassword, credential.getSecretHash())) {
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
-                    credential.setPasswordHash(DomainUtil.hashPassword(newPassword));
+                    credential.setSecretHash(DomainUtil.hashPassword(newPassword));
                     return credentialRepository.save(credential).thenApply(c -> (Void) null);
                 });
     }
@@ -274,9 +274,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notNull(identityId, "identityId cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
 
-        IamCredential credential = new IamCredential()
+        IdentityCredential credential = new IdentityCredential()
                 .setId(identityId)
-                .setPasswordHash(DomainUtil.hashPassword(newPassword));
+                .setSecretHash(DomainUtil.hashPassword(newPassword));
         return credentialRepository.save(credential).thenApply(c -> null);
     }
 
@@ -337,9 +337,9 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         return save(machine)
                 .thenApply(MachineParticipantIdentity.class::cast)
                 .thenCompose(saved -> {
-                    IamCredential credential = new IamCredential()
+                    IdentityCredential credential = new IdentityCredential()
                             .setId(saved.getId())
-                            .setPasswordHash(DomainUtil.hashPassword(clientSecret));
+                            .setSecretHash(DomainUtil.hashPassword(clientSecret));
                     return credentialRepository.save(credential)
                                                .thenApply(c -> new MachineProvisionResult(saved, clientSecret));
                 });
@@ -359,7 +359,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     return credentialRepository.findById(machine.getId())
                             .thenApply(credential -> {
                                 if (credential == null
-                                        || !DomainUtil.verifyPassword(clientSecret, credential.getPasswordHash())) {
+                                        || !DomainUtil.verifyPassword(clientSecret, credential.getSecretHash())) {
                                     throw new IllegalArgumentException("Invalid client credentials");
                                 }
                                 return machine;
@@ -369,7 +369,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     protected CompletableFuture<Void> beforeDelete(String id) {
-        // Cascade the IamCredential. Credential lookups are by id (realtime GETs), so the
+        // Cascade the IdentityCredential. Credential lookups are by id (realtime GETs), so the
         // credential delete never needs to wait for search visibility.
         // Delegates owned by the deleted identity go with it — a delegate must not outlive
         // the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
