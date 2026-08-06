@@ -248,9 +248,13 @@ describe('Kinotic JS', () => {
                 body: new URLSearchParams({grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret})
             })
 
-        // the signed-in org user provisions a machine for one of the org's applications
+        // the signed-in org user provisions a machine for one of the org's applications.
+        // The application is created through the API: migration-seeded kinotic_application
+        // rows are written with a plain _id, so the org-scoped composite-id lookup behind
+        // createMachine cannot see them.
+        await Kinotic.applications.createApplicationIfNotExist('e2e-machines', 'e2e fixture application for the machine lifecycle test')
         const machineService = new MachineService(Kinotic)
-        const created = await machineService.createMachine('e2e Lifecycle Machine', 'e2e-mcp')
+        const created = await machineService.createMachine('e2e Lifecycle Machine', 'e2e-machines')
         const machineId = created.machine.id!
         expect(created.clientSecret).toBeTruthy()
 
@@ -261,7 +265,7 @@ describe('Kinotic JS', () => {
         expect(await stompHandshake(stompUrl(), firstTokens.access_token)).toBe('open')
 
         // and the machine is listed for its application
-        const listed = await machineService.findMachines('e2e-mcp', Pageable.create(0, 50))
+        const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))
         expect(listed.content?.some(m => m.id === machineId)).toBe(true)
 
         // rotation kills the old secret and issues a working replacement
