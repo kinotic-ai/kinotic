@@ -1,8 +1,8 @@
 import { OS_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy, IterablePage, Page, Pageable } from '@kinotic-ai/core'
 import { FunctionalIterablePage } from '@kinotic-ai/core'
-import type { DelegateSession } from '@/api/model/iam/DelegateSession'
-import type { DelegatingParticipantIdentity } from '@/api/model/iam/DelegatingParticipantIdentity'
+import type { DelegateSession } from '@/api/model/security/DelegateSession'
+import type { DelegatingParticipantIdentity } from '@/api/model/security/DelegatingParticipantIdentity'
 
 /**
  * The signed-in user's view of the clients authorized to act on their behalf — CLI installs
@@ -42,7 +42,7 @@ export class DelegateService implements IDelegateService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.iam.DelegateService`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.security.DelegateService`)
     }
 
     public async findMyDelegates(pageable: Pageable): Promise<IterablePage<DelegatingParticipantIdentity>> {

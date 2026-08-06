@@ -1,5 +1,5 @@
-import { ParticipantIdentity } from '@/api/model/iam/ParticipantIdentity'
-import { ParticipantIdentityType } from '@/api/model/iam/ParticipantIdentityType'
+import { ParticipantIdentity } from '@/api/model/security/ParticipantIdentity'
+import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentityType'
 
 /**
  * A person. Unique by email within their scope, authenticating with LOCAL credentials or a

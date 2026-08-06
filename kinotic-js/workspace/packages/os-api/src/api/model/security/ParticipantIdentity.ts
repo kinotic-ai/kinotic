@@ -1,6 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { AuthType } from '@/api/model/iam/AuthType'
-import { ParticipantIdentityType } from '@/api/model/iam/ParticipantIdentityType'
+import { AuthType } from '@/api/model/security/AuthType'
+import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentityType'
 
 /**
  * A persisted identity that can authenticate — a person ({@link UserParticipantIdentity}) or a

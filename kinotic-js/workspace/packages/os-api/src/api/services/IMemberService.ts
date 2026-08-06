@@ -8,8 +8,8 @@ import {
     type Page,
     type Pageable
 } from '@kinotic-ai/core'
-import { UserParticipantIdentity } from '@/api/model/iam/UserParticipantIdentity'
-import { PendingInviteSummary } from '@/api/model/iam/PendingInviteSummary'
+import { UserParticipantIdentity } from '@/api/model/security/UserParticipantIdentity'
+import { PendingInviteSummary } from '@/api/model/security/PendingInviteSummary'
 
 /**
  * Member management for the caller's organization and its applications. Scope is selected
@@ -63,7 +63,7 @@ export class MemberService implements IMemberService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.iam.MemberService`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.security.MemberService`)
     }
 
     public async findMembers(applicationId: string | null, pageable: Pageable): Promise<IterablePage<UserParticipantIdentity>> {
