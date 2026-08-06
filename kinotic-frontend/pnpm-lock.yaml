@@ -15,17 +15,17 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.34(typescript@5.8.3))
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.0
-        version: 5.0.0-beta.0(typescript@5.8.3)
+        specifier: ^5.0.0-beta.1
+        version: 5.0.0-beta.1(typescript@5.8.3)
       '@kinotic-ai/idl':
         specifier: ^5.0.0-beta.0
         version: 5.0.0-beta.0(typescript@5.8.3)
       '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.0
-        version: 5.0.0-beta.0(@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.1
+        version: 5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       '@kinotic-ai/persistence':
-        specifier: ^5.0.0-beta.0
-        version: 5.0.0-beta.0(@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.1
+        version: 5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -213,8 +213,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kinotic-ai/core@5.0.0-beta.0':
-    resolution: {integrity: sha512-nSqc9fa4k14oOjB5J2P9fjHyDFRWYqexL2DMLmCt0X8ZudtG58YgZ0cY1U9NIbxJWTqXRSFu8ax+47vmVBPjZA==}
+  '@kinotic-ai/core@5.0.0-beta.1':
+    resolution: {integrity: sha512-kz/l5oRJpmutJKbUD69f6PL8q+hIHTHB86igI8gZHWAmb+GgaL69wOIou91QmD2vhsPNAo0MIA0lBZwI7EP54g==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -229,19 +229,19 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@5.0.0-beta.0':
-    resolution: {integrity: sha512-M/luxjnm/hWz3arF16Qa1N1dv0H9GqRS/3ixinagzNWuhy9rA1oHQ3OD4LVs5fSBUYGNKv+7pJLKrMZxOHOTRg==}
+  '@kinotic-ai/os-api@5.0.0-beta.1':
+    resolution: {integrity: sha512-QlDBA4kP8pasuJ2VUHVp5mR4grz0ENolAEJ9HmUmiHGkYp0QQpQBjuUI228ybDL2RD3caxxTMBdasYV8dmLdWQ==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.0'
+      '@kinotic-ai/core': '>=5.0.0-beta.1'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/persistence@5.0.0-beta.0':
-    resolution: {integrity: sha512-A+v38Z6ou/wUtkr5Aja+VwXBZvFWQOPwUCwgb8ObCN6LhCxeSJkUipsxlsB+1feHiSbITRCjU/AjkHs2Q2JnRg==}
+  '@kinotic-ai/persistence@5.0.0-beta.1':
+    resolution: {integrity: sha512-USRk09JDbLbv8M/2UAFeUofKde1yVTxXs7s8zVLtZYW3+C4p5i+Wkl9Wbxge7qwi6XYaMfPBhyKDmGBBlWuR4A==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.0'
+      '@kinotic-ai/core': '>=5.0.0-beta.1'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -546,11 +546,6 @@ packages:
 
   '@volar/typescript@2.4.15':
     resolution: {integrity: sha512-2aZ8i0cqPGjXb4BhkMsPYDkkuc2ZQ6yOpqwAuNwUoncELqoy5fRgOQtLR9gB0g902iS0NAkvpIzs27geVyVdPg==}
-    peerDependencies:
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
 
   '@vue-flow/background@1.3.2':
     resolution: {integrity: sha512-eJPhDcLj1wEo45bBoqTXw1uhl0yK2RaQGnEINqvvBsAFKh/camHJd5NPmOdS1w+M9lggc9igUewxaEd3iCQX2w==}
@@ -1507,7 +1502,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3)':
+  '@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -1528,18 +1523,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/os-api@5.0.0-beta.0(@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/os-api@5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.0(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.1(typescript@5.8.3)
       '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
-      '@kinotic-ai/persistence': 5.0.0-beta.0(@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3))(typescript@5.8.3)
+      '@kinotic-ai/persistence': 5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/persistence@5.0.0-beta.0(@kinotic-ai/core@5.0.0-beta.0(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/persistence@5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.0(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.1(typescript@5.8.3)
       '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
@@ -1763,13 +1758,11 @@ snapshots:
 
   '@volar/source-map@2.4.15': {}
 
-  '@volar/typescript@2.4.15(typescript@5.8.3)':
+  '@volar/typescript@2.4.15':
     dependencies:
       '@volar/language-core': 2.4.15
       path-browserify: 1.0.1
       vscode-uri: 3.0.8
-    optionalDependencies:
-      typescript: 5.8.3
 
   '@vue-flow/background@1.3.2(@vue-flow/core@1.48.2(vue@3.5.34(typescript@5.8.3)))(vue@3.5.34(typescript@5.8.3))':
     dependencies:
@@ -2604,7 +2597,7 @@ snapshots:
 
   vue-tsc@2.2.12(typescript@5.8.3):
     dependencies:
-      '@volar/typescript': 2.4.15(typescript@5.8.3)
+      '@volar/typescript': 2.4.15
       '@vue/language-core': 2.2.12(typescript@5.8.3)
       typescript: 5.8.3
 
