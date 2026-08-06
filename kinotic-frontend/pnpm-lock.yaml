@@ -15,17 +15,17 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.34(typescript@5.8.3))
       '@kinotic-ai/core':
-        specifier: ^4.0.0
-        version: 4.0.0(typescript@5.8.3)
+        specifier: ^5.0.0-beta.1
+        version: 5.0.0-beta.1(typescript@5.8.3)
       '@kinotic-ai/idl':
-        specifier: ^1.0.9
-        version: 1.0.9(typescript@5.8.3)
+        specifier: ^5.0.0-beta.0
+        version: 5.0.0-beta.0(typescript@5.8.3)
       '@kinotic-ai/os-api':
-        specifier: ^4.1.0
-        version: 4.1.0(@kinotic-ai/core@4.0.0(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.2
+        version: 5.0.0-beta.2(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       '@kinotic-ai/persistence':
-        specifier: ^4.0.0
-        version: 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.1
+        version: 5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -213,43 +213,35 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kinotic-ai/core@4.0.0':
-    resolution: {integrity: sha512-XkCmwxV2RIBIZpUb/bqT/9tRWYinrD0mLUeGO65oJMdGbTQfJCJjJTBDx/dGvrpk5oSNha8WDSmlAAVR5Y9nfQ==}
+  '@kinotic-ai/core@5.0.0-beta.1':
+    resolution: {integrity: sha512-kz/l5oRJpmutJKbUD69f6PL8q+hIHTHB86igI8gZHWAmb+GgaL69wOIou91QmD2vhsPNAo0MIA0lBZwI7EP54g==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/idl@1.0.10':
-    resolution: {integrity: sha512-+bhCgJmtCI/6EuPScyy8xzxEofS6Lj9NFi2MLxulftKe7Azid4yyIn/XuaKsCx8zTGjUOXYC9hOmIOBS2TjecA==}
+  '@kinotic-ai/idl@5.0.0-beta.0':
+    resolution: {integrity: sha512-KLNtqfeDpcZqQnrHJgbFlrcaSQGNAUfmuTnpV0JdBfmJCQZ9xAd2Ev+kVgWzEXT0191af7q0QfP+zIdERPoeeg==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/idl@1.0.9':
-    resolution: {integrity: sha512-YcUNlUeTlv8YavhFNDVgQgDmTPBEKGMRaRjr5p92WPACH52l/ZuFGOyE7kJZqjfe0lQhUEGolADwnYkwVxSBVg==}
+  '@kinotic-ai/os-api@5.0.0-beta.2':
+    resolution: {integrity: sha512-yaytuHLXxvkRMCN451SheeuaXhm8ctyjOxqa0d3oyzbm2MAzB9QODtT2F5f6e90vonKXFvLYpRXAYkyCDG1D3g==}
     peerDependencies:
+      '@kinotic-ai/core': '>=5.0.0-beta.1'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@4.1.0':
-    resolution: {integrity: sha512-AXEJpkTWSEziE7tCKQEgE+u2eTjFq0jbyZwG2rze78ViHDmQPTk5fx8wpwaUF31p0wXqUCIOtzVCgJ6He/A76A==}
+  '@kinotic-ai/persistence@5.0.0-beta.1':
+    resolution: {integrity: sha512-USRk09JDbLbv8M/2UAFeUofKde1yVTxXs7s8zVLtZYW3+C4p5i+Wkl9Wbxge7qwi6XYaMfPBhyKDmGBBlWuR4A==}
     peerDependencies:
-      '@kinotic-ai/core': '>=4.0.0'
-      typescript: '*'
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
-  '@kinotic-ai/persistence@4.0.0':
-    resolution: {integrity: sha512-EgewbOPn9/90rHqcEwq4jtgrhDAmv+TGbG4CcUnCFVdkgNUyvhY5PbQPYig0/CQfMmAz6KPc0xdeej1BdbKshA==}
-    peerDependencies:
-      '@kinotic-ai/core': '>=4.0.0'
+      '@kinotic-ai/core': '>=5.0.0-beta.1'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -1211,9 +1203,6 @@ packages:
     resolution: {integrity: sha512-9u/XQ1pvrQtYyMpZe7DXKv2p5CNvyVwzUB6uhLAnQwHMSgKMBR62lc7AHljaeteeHXn11XTAaLLUVZYVZyuRBQ==}
     engines: {node: '>= 20.19.0'}
 
-  reflect-metadata@0.2.2:
-    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
-
   resolve@1.22.10:
     resolution: {integrity: sha512-NPRy+/ncIMeDlTAsuqwKIiferiawhefFJtkNSW0qZJEqMEb+qBt/77B/jGeeek+F0uOeN05CDa6HXbbIgtVX4w==}
     engines: {node: '>= 0.4'}
@@ -1513,7 +1502,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kinotic-ai/core@4.0.0(typescript@5.8.3)':
+  '@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -1530,29 +1519,23 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@kinotic-ai/idl@1.0.10(typescript@5.8.3)':
+  '@kinotic-ai/idl@5.0.0-beta.0(typescript@5.8.3)':
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/idl@1.0.9(typescript@5.8.3)':
+  '@kinotic-ai/os-api@5.0.0-beta.2(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      reflect-metadata: 0.2.2
-    optionalDependencies:
-      typescript: 5.8.3
-
-  '@kinotic-ai/os-api@4.1.0(@kinotic-ai/core@4.0.0(typescript@5.8.3))(typescript@5.8.3)':
-    dependencies:
-      '@kinotic-ai/core': 4.0.0(typescript@5.8.3)
-      '@kinotic-ai/idl': 1.0.10(typescript@5.8.3)
-      '@kinotic-ai/persistence': 4.0.0(@kinotic-ai/core@4.0.0(typescript@5.8.3))(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.1(typescript@5.8.3)
+      '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
+      '@kinotic-ai/persistence': 5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/persistence@4.0.0(@kinotic-ai/core@4.0.0(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/persistence@5.0.0-beta.1(@kinotic-ai/core@5.0.0-beta.1(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      '@kinotic-ai/core': 4.0.0(typescript@5.8.3)
-      '@kinotic-ai/idl': 1.0.10(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.1(typescript@5.8.3)
+      '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.8.3
@@ -1841,7 +1824,7 @@ snapshots:
       '@vue/shared': 3.5.34
       estree-walker: 2.0.2
       magic-string: 0.30.21
-      postcss: 8.5.14
+      postcss: 8.5.16
       source-map-js: 1.2.1
 
   '@vue/compiler-ssr@3.5.34':
@@ -2431,8 +2414,6 @@ snapshots:
       picomatch: 2.3.2
 
   readdirp@5.0.0: {}
-
-  reflect-metadata@0.2.2: {}
 
   resolve@1.22.10:
     dependencies:

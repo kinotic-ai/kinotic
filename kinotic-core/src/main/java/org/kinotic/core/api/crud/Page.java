@@ -1,6 +1,7 @@
 package org.kinotic.core.api.crud;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A {@link Page} defines a page of data.
@@ -28,6 +29,14 @@ public class Page<T> {
      */
     public List<T> getContent(){
         return content;
+    }
+
+    /**
+     * Returns a page whose content is this page's content transformed by {@code mapper},
+     * carrying the same paging metadata.
+     */
+    public <R> Page<R> map(Function<? super T, ? extends R> mapper) {
+        return new Page<>(content.stream().<R>map(mapper).toList(), totalElements);
     }
 
 }

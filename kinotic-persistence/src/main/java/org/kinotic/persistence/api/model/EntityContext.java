@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.model;
 
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
 
 import java.util.List;
 

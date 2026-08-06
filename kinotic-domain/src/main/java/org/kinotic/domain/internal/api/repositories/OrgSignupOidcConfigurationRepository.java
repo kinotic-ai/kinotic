@@ -2,8 +2,8 @@ package org.kinotic.domain.internal.api.repositories;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
-import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcProviderKind;
+import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 

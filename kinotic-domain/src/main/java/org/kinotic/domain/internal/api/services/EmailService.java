@@ -18,7 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
-import org.kinotic.domain.api.model.iam.PendingInvite;
+import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.internal.api.repositories.InviteEmailTemplateRepository;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;

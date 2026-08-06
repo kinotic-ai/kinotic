@@ -47,7 +47,7 @@ export class OAuthApprovalService implements IOAuthApprovalService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.iam.OAuthApprovalService`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.security.OAuthApprovalService`)
     }
 
     public describe(requestId: string): Promise<PendingOAuthAuthorization> {

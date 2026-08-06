@@ -5,8 +5,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 import org.kinotic.domain.internal.config.KinoticDomainJacksonConfig;
 import tools.jackson.databind.json.JsonMapper;
 

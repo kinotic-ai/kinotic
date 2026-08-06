@@ -1,6 +1,6 @@
 {
     "name": "@kinotic-ai/kinotic-cli",
-    "version": "5.1.0",
+    "version": "5.2.0-beta.0",
     "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
     "author": "Kinotic Developers",
     "bin": {
@@ -18,11 +18,11 @@
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.3.2",
-        "@kinotic-ai/core": "^4.0.0",
-        "@kinotic-ai/idl": "^1.0.9",
-        "@kinotic-ai/os-api": "^4.1.0",
-        "@kinotic-ai/persistence": "^4.0.0",
-        "@kinotic-ai/spawn": "^0.5.0",
+        "@kinotic-ai/core": "^5.0.0-beta.0",
+        "@kinotic-ai/idl": "^5.0.0-beta.0",
+        "@kinotic-ai/os-api": "^5.0.0-beta.0",
+        "@kinotic-ai/persistence": "^5.0.0-beta.0",
+        "@kinotic-ai/spawn": "^5.0.0-beta.0",
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",
         "chalk": "^5.6.2",
@@ -66,7 +66,9 @@
         "prepack": "pnpm build",
         "test": "mocha --forbid-only \"test/**/*.test.ts\"",
         "version": "git add README.md",
-        "copy-files": "cp -r ./src/templates/  ./dist/templates/"
+        "copy-files": "cp -r ./src/templates/  ./dist/templates/",
+        "prepublishOnly": "node -e \"if(require('./package.json').version.includes('-beta.')&&!process.env.KINOTIC_BETA_PUBLISH){console.error('This is a beta prerelease; publish it with: pnpm release');process.exit(1)}\"",
+        "release": "KINOTIC_BETA_PUBLISH=1 pnpm publish --tag beta"
     },
     "engines": {
         "node": ">=18.0.0"
