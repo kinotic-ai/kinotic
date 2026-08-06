@@ -34,7 +34,7 @@ public class DeviceCodeGrant implements Identifiable<String> {
     private String deviceName;
 
     /**
-     * Id of the {@link org.kinotic.domain.api.model.iam.ParticipantIdentity} that approved the grant,
+     * Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant is still pending approval.
      */
     private String identityId;

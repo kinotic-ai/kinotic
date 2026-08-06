@@ -9,12 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.internal.api.rest.support.*;
-import org.kinotic.domain.api.model.iam.UserParticipantIdentity;
-import org.kinotic.domain.api.model.iam.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.iam.PendingSignUp;
-import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
-import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
-import org.kinotic.domain.api.services.iam.SignUpService;
+import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
+import org.kinotic.domain.api.model.security.PendingSignUp;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.services.security.SignUpService;
 import org.springframework.stereotype.Component;
 
 import java.net.URLEncoder;

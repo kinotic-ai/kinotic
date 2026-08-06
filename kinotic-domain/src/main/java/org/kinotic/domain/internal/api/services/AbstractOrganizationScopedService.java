@@ -7,8 +7,8 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.OrganizationScoped;
-import org.kinotic.domain.api.security.ApplicationParticipant;
-import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 
 import java.util.concurrent.CompletableFuture;

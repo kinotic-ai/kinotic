@@ -5,7 +5,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 

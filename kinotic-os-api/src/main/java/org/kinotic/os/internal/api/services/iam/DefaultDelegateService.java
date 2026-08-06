@@ -5,12 +5,12 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.model.iam.DelegateSession;
-import org.kinotic.domain.api.model.iam.DelegatingParticipantIdentity;
-import org.kinotic.domain.api.services.iam.ParticipantIdentityService;
-import org.kinotic.domain.api.services.iam.RefreshTokenService;
+import org.kinotic.domain.api.model.security.DelegateSession;
+import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.os.api.services.iam.DelegateService;
+import org.kinotic.os.api.services.security.DelegateService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

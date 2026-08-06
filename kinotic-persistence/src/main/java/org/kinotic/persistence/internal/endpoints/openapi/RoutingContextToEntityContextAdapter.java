@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.endpoints.openapi;
 
 import io.vertx.ext.web.RoutingContext;
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.persistence.api.model.EntityContext;
 

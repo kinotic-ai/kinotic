@@ -1,6 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import org.kinotic.domain.api.model.iam.PendingSignUp;
+import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
