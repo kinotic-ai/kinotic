@@ -113,8 +113,10 @@ class GitHubProjectRepoProvisionerTest {
         // binary files ride as blobs created out of band
         assertEquals("blob-sha", tree.get("assets/logo.png").sha());
         // npm package versions come from the build-generated resource, and override the
-        // spawn.json global the template declares them with
-        assertLinesMatch(List.of("\\^\\d+\\.\\d+\\.\\d+", "\\^\\d+\\.\\d+\\.\\d+"),
+        // spawn.json global the template declares them with; prerelease suffixes
+        // (e.g. ^5.0.0-beta.1) are valid published versions
+        assertLinesMatch(List.of("\\^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?",
+                                 "\\^\\d+\\.\\d+\\.\\d+(-[0-9A-Za-z.-]+)?"),
                          tree.get("versions.txt").content().lines().toList());
         assertTrue(!tree.get("versions.txt").content().contains("^0.0.1"));
 
