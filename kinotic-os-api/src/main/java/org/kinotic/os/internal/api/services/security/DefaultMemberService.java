@@ -30,20 +30,17 @@ public class DefaultMemberService implements MemberService {
     @Override
     public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> identityService.findUsersByScope(participant.getOrganizationId(),
-                                                               applicationId,
-                                                               pageable));
+        // scope-composed query: a foreign or unknown application matches nothing
+        return identityService.findUsersByScope(participant.getOrganizationId(), applicationId, pageable);
     }
 
     @Override
     public CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> identityService.searchUsersByScope(searchText,
-                                                                 participant.getOrganizationId(),
-                                                                 applicationId,
-                                                                 pageable));
+        return identityService.searchUsersByScope(searchText,
+                                                  participant.getOrganizationId(),
+                                                  applicationId,
+                                                  pageable);
     }
 
     @Override
@@ -85,10 +82,9 @@ public class DefaultMemberService implements MemberService {
     @Override
     public CompletableFuture<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> inviteService.findPendingInvites(participant.getOrganizationId(),
-                                                                     applicationId,
-                                                                     pageable))
+        return inviteService.findPendingInvites(participant.getOrganizationId(),
+                                                applicationId,
+                                                pageable)
                 .thenApply(page -> new Page<>(page.getContent().stream()
                                                   .map(DefaultMemberService::toSummary)
                                                   .toList(),
@@ -107,21 +103,18 @@ public class DefaultMemberService implements MemberService {
     }
 
     /**
-     * When an applicationId is supplied, proves it belongs to the participant's org before any
-     * scoped operation — the org-scoped lookup simply misses for a foreign app, blocking
-     * cross-org application access. Completes with null for org scope.
+     * The write-path guard: an invitation persists a reference to an application, so the
+     * application must exist in the participant's org. Completes with null for an org-member
+     * invite (no applicationId).
      */
     private CompletableFuture<Application> requireOwnedApplication(String applicationId, String organizationId) {
+        CompletableFuture<Application> ret;
         if (applicationId == null) {
-            return CompletableFuture.completedFuture(null);
+            ret = CompletableFuture.completedFuture(null);
+        } else {
+            ret = applicationRepository.requireById(applicationId, organizationId);
         }
-        return applicationRepository.findById(applicationId, organizationId)
-                .thenApply(app -> {
-                    if (app == null) {
-                        throw new IllegalArgumentException("Application not found: " + applicationId);
-                    }
-                    return app;
-                });
+        return ret;
     }
 
     /**

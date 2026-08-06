@@ -5,7 +5,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
@@ -28,7 +27,7 @@ public class DefaultMachineService implements MachineService {
     public CompletableFuture<MachineProvisionResult> createMachine(String displayName, String applicationId) {
         Validate.notBlank(displayName, "displayName is required");
         OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
+        return applicationRepository.requireById(applicationId, participant.getOrganizationId())
                 .thenCompose(app -> {
                     MachineParticipantIdentity machine = new MachineParticipantIdentity();
                     machine.setDisplayName(displayName)
@@ -40,11 +39,10 @@ public class DefaultMachineService implements MachineService {
 
     @Override
     public CompletableFuture<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable) {
+        Validate.notBlank(applicationId, "applicationId is required");
         OrganizationParticipant participant = requireOrgParticipant();
-        return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> identityService.findMachinesByScope(participant.getOrganizationId(),
-                                                                        applicationId,
-                                                                        pageable));
+        // scope-composed query: a foreign or unknown application matches nothing
+        return identityService.findMachinesByScope(participant.getOrganizationId(), applicationId, pageable);
     }
 
     @Override
@@ -75,21 +73,6 @@ public class DefaultMachineService implements MachineService {
     private OrganizationParticipant requireOrgParticipant() {
         // ApplicationParticipant is a sibling type, so app end-users are rejected here.
         return securityContext.requireParticipant(OrganizationParticipant.class);
-    }
-
-    /**
-     * Proves the application belongs to the participant's org before any scoped operation —
-     * the org-scoped lookup simply misses for a foreign app, blocking cross-org access.
-     */
-    private CompletableFuture<Application> requireOwnedApplication(String applicationId, String organizationId) {
-        Validate.notBlank(applicationId, "applicationId is required");
-        return applicationRepository.findById(applicationId, organizationId)
-                .thenApply(app -> {
-                    if (app == null) {
-                        throw new IllegalArgumentException("Application not found: " + applicationId);
-                    }
-                    return app;
-                });
     }
 
     /**
