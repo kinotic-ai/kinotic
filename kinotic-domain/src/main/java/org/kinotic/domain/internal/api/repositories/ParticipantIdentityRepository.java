@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
@@ -70,6 +71,13 @@ public class ParticipantIdentityRepository extends AbstractRepository<Participan
                         termFilter("type", ParticipantIdentityType.USER.name()),
                         scopeFilter(organizationId, applicationId)))))))
                 .thenApply(page -> page.map(UserParticipantIdentity.class::cast));
+    }
+
+    public CompletableFuture<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
+        return findAll(pageable, b -> b.query(composeFilter(
+                termFilter("type", ParticipantIdentityType.MACHINE.name()),
+                scopeFilter(organizationId, applicationId))))
+                .thenApply(page -> page.map(MachineParticipantIdentity.class::cast));
     }
 
     public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {

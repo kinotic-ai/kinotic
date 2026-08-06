@@ -130,6 +130,22 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     CompletableFuture<MachineProvisionResult> createMachine(MachineParticipantIdentity machine);
 
     /**
+     * Finds all machines within the given scope, identified structurally by
+     * {@code (organizationId, applicationId)} with the same null conventions as
+     * {@link #findByEmail(String, String, String)}.
+     */
+    CompletableFuture<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable);
+
+    /**
+     * Replaces a machine's client secret with a freshly generated one, invalidating the old
+     * secret immediately. Tokens the machine already holds run out on their own short TTL.
+     *
+     * @param machineId the machine whose secret to replace
+     * @return a future emitting the new secret in plaintext, shown exactly once
+     */
+    CompletableFuture<String> rotateMachineSecret(String machineId);
+
+    /**
      * Authenticates a machine by client-credentials: the machine with the given id must exist,
      * be enabled, and hold a credential matching {@code clientSecret}. Every failure — unknown
      * id, wrong kind of identity, disabled, or wrong secret — fails the same way, so the token

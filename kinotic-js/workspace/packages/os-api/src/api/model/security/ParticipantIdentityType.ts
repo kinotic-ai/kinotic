@@ -4,5 +4,6 @@
  */
 export enum ParticipantIdentityType {
     USER = 'USER',
-    DELEGATE = 'DELEGATE'
+    DELEGATE = 'DELEGATE',
+    MACHINE = 'MACHINE'
 }

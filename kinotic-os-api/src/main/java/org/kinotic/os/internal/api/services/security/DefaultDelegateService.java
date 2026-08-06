@@ -1,4 +1,4 @@
-package org.kinotic.os.internal.api.services.iam;
+package org.kinotic.os.internal.api.services.security;
 
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;

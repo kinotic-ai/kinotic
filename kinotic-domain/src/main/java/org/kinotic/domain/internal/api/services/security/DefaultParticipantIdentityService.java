@@ -346,6 +346,31 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
+    public CompletableFuture<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+        return identityRepository.findMachinesByScope(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public CompletableFuture<String> rotateMachineSecret(String machineId) {
+        Validate.notBlank(machineId, "machineId is required");
+        return findById(machineId)
+                .thenCompose(identity -> {
+                    if (!(identity instanceof MachineParticipantIdentity)) {
+                        throw new IllegalArgumentException("Machine not found.");
+                    }
+                    String clientSecret = DomainUtil.generateUrlSafeToken(32);
+                    IdentityCredential credential = new IdentityCredential()
+                            .setId(identity.getId())
+                            .setSecretHash(DomainUtil.hashPassword(clientSecret));
+                    return credentialRepository.save(credential).thenApply(c -> clientSecret);
+                });
+    }
+
+    @Override
     public CompletableFuture<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret) {
         Validate.notBlank(machineId, "machineId is required");
         Validate.notBlank(clientSecret, "clientSecret is required");
