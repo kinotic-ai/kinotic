@@ -28,3 +28,8 @@ INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000007', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000008', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
 INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000009', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;
+
+-- APPLICATION-scope machine identity for the client-credentials grant e2e tests
+-- (client_id: the identity id below, client_secret: kinotic)
+INSERT INTO kinotic_participant_identity (id, type, displayName, authType, organizationId, applicationId, enabled) VALUES ('00000000-0000-0000-0000-000000000010', 'MACHINE', 'e2e Test Machine', 'CLIENT_CREDENTIALS', 'kinotic-test', 'e2e-mcp', true) WITH REFRESH;
+INSERT INTO kinotic_identity_credential (id, secretHash) VALUES ('00000000-0000-0000-0000-000000000010', '$2b$12$ztUtxd/6nRYTACObjRNnMOisx3QlNuP2GmabcBdrv4Vcd6Vs46GaG') WITH REFRESH;

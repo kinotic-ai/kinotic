@@ -36,8 +36,8 @@
                      autocomplete="off" autofocus @keyup.enter="create" />
         </div>
         <p class="text-sm text-muted-color m-0">
-          A machine authenticates with the OAuth client-credentials grant using the client id and
-          secret shown after creation.
+          A machine calls this application's API with the OAuth client-credentials grant, using
+          the client id and secret shown after creation.
         </p>
       </div>
       <template #footer>
@@ -102,7 +102,7 @@ import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
 import { showErrorToast } from '@/util/helpers'
 
-/** One table row — a machine identity of the organization. */
+/** One table row — a machine API client of the application. */
 interface MachineRow extends DescriptiveIdentifiable {
   id: string
   displayName: string | null
@@ -110,6 +110,11 @@ interface MachineRow extends DescriptiveIdentifiable {
   created: number | null
   enabled: boolean
 }
+
+/** Machine API clients of one application, managed by the owning org's members. */
+const props = defineProps<{
+  applicationId: string
+}>()
 
 const headers: CrudHeader[] = [
   { field: 'displayName', header: 'Name', sortable: false },
@@ -140,7 +145,7 @@ const dataSource = computed<IDataSource<DescriptiveIdentifiable>>(() => {
 })
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
-  const machinesPage = await Kinotic.machines.findMachines(pageable)
+  const machinesPage = await Kinotic.machines.findMachines(props.applicationId, pageable)
   let rows = (machinesPage.content ?? []).map(machine => toRow(machine))
   if (searchText) {
     const needle = searchText.trim().toLowerCase()
@@ -179,7 +184,7 @@ async function create() {
   }
   creating.value = true
   try {
-    const result = await Kinotic.machines.createMachine(name)
+    const result = await Kinotic.machines.createMachine(name, props.applicationId)
     createDialogVisible.value = false
     showSecret(`Machine created — ${name}`, result.machine.id ?? '', result.clientSecret)
     refreshTable()

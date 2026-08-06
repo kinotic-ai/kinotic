@@ -67,6 +67,11 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 Validate.notBlank(machine.getDisplayName(), "MACHINE displayName is required");
                 Validate.isTrue(machine.getAuthType() == AuthType.CLIENT_CREDENTIALS,
                                 "MACHINE authType must be CLIENT_CREDENTIALS");
+                // a machine is a platform daemon (SYSTEM) or an application's API client
+                // (APPLICATION) — an org-scope machine would wield org-admin authority and
+                // nothing legitimately needs that
+                Validate.isTrue(machine.getOrganizationId() == null || machine.getApplicationId() != null,
+                                "MACHINE scope must be SYSTEM or APPLICATION");
                 // the machine's id is its client_id, so uniqueness is the id's own
                 yield CompletableFuture.completedFuture(null);
             }

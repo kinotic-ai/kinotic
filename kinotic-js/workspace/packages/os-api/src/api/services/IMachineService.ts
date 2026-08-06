@@ -5,22 +5,23 @@ import type { MachineParticipantIdentity } from '@/api/model/security/MachinePar
 import type { MachineProvisionResult } from '@/api/model/security/MachineProvisionResult'
 
 /**
- * Machine-identity management for the caller's organization. A machine is a non-human caller
- * that authenticates through the client-credentials grant with the identity's id as client_id
- * and a secret issued here. Only machines belonging to the caller's organization are visible
- * or mutable.
+ * Machine-identity management for the applications of the caller's organization. A machine is
+ * a non-human API client of one application — it authenticates through the client-credentials
+ * grant with the identity's id as client_id and a secret issued here, and acts with that
+ * application's scope. The application must belong to the caller's organization, and only its
+ * machines are visible or mutable.
  */
 export interface IMachineService {
 
     /**
-     * Provisions a machine in the caller's organization and returns it together with its
-     * generated client secret. The secret is disclosed exactly once — it cannot be retrieved
-     * later, only rotated.
+     * Provisions a machine for an application of the caller's organization and returns it
+     * together with its generated client secret. The secret is disclosed exactly once — it
+     * cannot be retrieved later, only rotated.
      */
-    createMachine(displayName: string): Promise<MachineProvisionResult>
+    createMachine(displayName: string, applicationId: string): Promise<MachineProvisionResult>
 
-    /** Lists the machines of the caller's organization, disabled ones included. */
-    findMachines(pageable: Pageable): Promise<IterablePage<MachineParticipantIdentity>>
+    /** Lists the machines of the given application of the caller's organization, disabled ones included. */
+    findMachines(applicationId: string, pageable: Pageable): Promise<IterablePage<MachineParticipantIdentity>>
 
     /**
      * Replaces a machine's client secret, returning the new secret exactly once. The old
@@ -52,14 +53,14 @@ export class MachineService implements IMachineService {
         this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.security.MachineService`)
     }
 
-    public createMachine(displayName: string): Promise<MachineProvisionResult> {
-        return this.serviceProxy.invoke('createMachine', [displayName])
+    public createMachine(displayName: string, applicationId: string): Promise<MachineProvisionResult> {
+        return this.serviceProxy.invoke('createMachine', [displayName, applicationId])
     }
 
-    public async findMachines(pageable: Pageable): Promise<IterablePage<MachineParticipantIdentity>> {
-        const page: Page<MachineParticipantIdentity> = await this.serviceProxy.invoke('findMachines', [pageable])
+    public async findMachines(applicationId: string, pageable: Pageable): Promise<IterablePage<MachineParticipantIdentity>> {
+        const page: Page<MachineParticipantIdentity> = await this.serviceProxy.invoke('findMachines', [applicationId, pageable])
         return new FunctionalIterablePage(pageable, page,
-            (next: Pageable) => this.serviceProxy.invoke('findMachines', [next]))
+            (next: Pageable) => this.serviceProxy.invoke('findMachines', [applicationId, next]))
     }
 
     public rotateSecret(machineId: string): Promise<string> {
