@@ -78,14 +78,15 @@ describe('Kinotic JS', () => {
          expect(savedVehicle.version).toBeDefined()
 
          const loaded = await logFailure(entityService.findById(savedVehicle.id), 'Failed to find vehicle')
-         expect(savedVehicle.id).toEqual(loaded.id)
-         expect(savedVehicle.version).toEqual(loaded.version)
+         expect(loaded).not.toBeNull()
+         expect(savedVehicle.id).toEqual(loaded!.id)
+         expect(savedVehicle.version).toEqual(loaded!.version)
 
          // Count
          await expect(entityService.count()).resolves.toBe(1)
 
          // Delete
-         await expect(entityService.deleteById(loaded.id)).resolves.toBeNull()
+         await expect(entityService.deleteById(loaded!.id)).resolves.toBeNull()
      })
 
     it<LocalTestContext>('Test Optimistic Locking',

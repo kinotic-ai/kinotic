@@ -122,8 +122,8 @@ export async function createSchema(organizationId: string, applicationId: string
                                                                 new ConsoleLogger())
 
         const config = new KinoticProjectConfig()
-        config.organization = organizationId
-        config.application = applicationId
+        config.organizationId = organizationId
+        config.applicationId = applicationId
         config.entitiesPaths = [{
             path: path.resolve(__dirname, './domain'),
             repositoryPath: path.resolve(__dirname, './repository'),
