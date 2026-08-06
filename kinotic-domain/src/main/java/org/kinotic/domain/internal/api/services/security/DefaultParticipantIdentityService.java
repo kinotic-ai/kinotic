@@ -334,7 +334,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         // 32 bytes of entropy — the secret is generated, never user-chosen, and shown only here
         String clientSecret = DomainUtil.generateUrlSafeToken(32);
 
-        return save(machine)
+        // sync so the console's immediate re-query lists the new machine
+        return saveSync(machine)
                 .thenApply(MachineParticipantIdentity.class::cast)
                 .thenCompose(saved -> {
                     IdentityCredential credential = new IdentityCredential()

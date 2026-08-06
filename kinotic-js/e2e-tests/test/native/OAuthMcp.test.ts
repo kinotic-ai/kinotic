@@ -1,5 +1,5 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
-import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/os-api'
+import {DelegateKind, DelegateService, MachineService, OAuthApprovalService} from '@kinotic-ai/os-api'
 import type {DelegatingParticipantIdentity} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
@@ -239,4 +239,47 @@ describe('Kinotic JS', () => {
         expect(userAsMachine.status).toBe(401)
         expect((await userAsMachine.json()).error).toBe('invalid_client')
     })
+
+    it('manages the machine lifecycle through MachineService', async () => {
+        const token = (clientId: string, clientSecret: string) =>
+            fetch(`${base()}/api/auth/oauth/token`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret})
+            })
+
+        // the signed-in org user provisions a machine for one of the org's applications
+        const machineService = new MachineService(Kinotic)
+        const created = await machineService.createMachine('e2e Lifecycle Machine', 'e2e-mcp')
+        const machineId = created.machine.id!
+        expect(created.clientSecret).toBeTruthy()
+
+        // the provisioned credentials authenticate through the grant
+        const first = await token(machineId, created.clientSecret)
+        expect(first.status).toBe(200)
+        const firstTokens = await first.json()
+        expect(await stompHandshake(stompUrl(), firstTokens.access_token)).toBe('open')
+
+        // and the machine is listed for its application
+        const listed = await machineService.findMachines('e2e-mcp', Pageable.create(0, 50))
+        expect(listed.content?.some(m => m.id === machineId)).toBe(true)
+
+        // rotation kills the old secret and issues a working replacement
+        const rotatedSecret = await machineService.rotateSecret(machineId)
+        expect((await token(machineId, created.clientSecret)).status).toBe(401)
+        expect((await token(machineId, rotatedSecret)).status).toBe(200)
+
+        // disabling cuts the machine off — the grant and unexpired access tokens alike
+        await machineService.setMachineEnabled(machineId, false)
+        expect((await token(machineId, rotatedSecret)).status).toBe(401)
+        expect(await stompHandshake(stompUrl(), firstTokens.access_token)).toBe(401)
+
+        // enabling restores access with the same secret
+        await machineService.setMachineEnabled(machineId, true)
+        expect((await token(machineId, rotatedSecret)).status).toBe(200)
+
+        // removal is permanent
+        await machineService.removeMachine(machineId)
+        expect((await token(machineId, rotatedSecret)).status).toBe(401)
+    }, 60000)
 })
