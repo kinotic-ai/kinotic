@@ -20,7 +20,7 @@ export interface IGitHubAppInstallationService extends ICrudServiceProxy<GitHubA
      * Finalises the install once GitHub has redirected the browser back to the SPA
      * callback. Consumes the staged state, fetches the install details from GitHub,
      * persists the {@link GitHubAppInstallation} row, and returns it along with the
-     * original intent and returnTo.
+     * original returnTo.
      */
     completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion>
 

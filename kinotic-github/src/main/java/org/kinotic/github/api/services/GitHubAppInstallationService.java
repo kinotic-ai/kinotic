@@ -11,11 +11,11 @@ import java.util.concurrent.CompletableFuture;
  * Service the frontend uses to drive GitHub-linking from the existing Kinotic
  * (STOMP) session. The install round-trip is two RPC calls:
  * <ol>
- *   <li>{@link #startInstall(String, String)} — stages a single-use {@code state}
+ *   <li>{@link #startInstall(String)} — stages a single-use {@code state}
  *       token and returns the GitHub install URL the SPA navigates the browser to.</li>
  *   <li>{@link #completeInstall(long, String)} — called by the SPA's callback route
  *       once GitHub redirects the browser back; consumes the staged state, persists
- *       the installation row, and returns the SPA-supplied {@code intent}/{@code returnTo}
+ *       the installation row, and returns the SPA-supplied {@code returnTo}
  *       so the SPA can drive the next-action UX.</li>
  * </ol>
  * Org-scoped via {@code OrganizationScoped} on {@link GitHubAppInstallation}.

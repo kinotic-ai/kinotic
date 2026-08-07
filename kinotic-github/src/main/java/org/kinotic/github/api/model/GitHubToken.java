@@ -12,7 +12,9 @@ import java.time.Instant;
  * authoritative wall-clock expiry; callers must not use the token past that point.
  */
 @Getter
-@ToString
+// The token is a live credential, so it is kept out of toString to stop it reaching
+// logs through a "{}" format argument or an interpolated exception message.
+@ToString(onlyExplicitlyIncluded = true)
 @AllArgsConstructor
 public class GitHubToken {
 
@@ -20,5 +22,6 @@ public class GitHubToken {
     private final String token;
 
     /** Absolute UTC instant at which GitHub will reject this token. */
+    @ToString.Include
     private final Instant expiresAt;
 }

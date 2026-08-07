@@ -1,6 +1,5 @@
 package org.kinotic.github.internal.api.services;
 
-import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.event.Event;
@@ -15,7 +14,9 @@ import org.kinotic.github.internal.api.repositories.GitHubAppInstallationReposit
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -45,22 +46,27 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
 
     @Override
     public CompletableFuture<Void> process(GitHubWebhookEvent event) {
+        CompletableFuture<Void> ret;
         try {
-            return switch (event.getEventType()) {
+            ret = switch (event.getEventType()) {
                 case "installation" -> handleInstallation(event);
                 case "installation_repositories" -> handleInstallationRepos(event);
                 default -> handleRepoEvent(event);
             };
         } catch (Exception e) {
-            log.warn("Webhook processing failed for delivery {}: {}", event.getDeliveryId(), e.getMessage());
-            return CompletableFuture.completedFuture(null);
+            ret = CompletableFuture.failedFuture(e);
         }
+        // Swallowing here rather than at each handler is what makes the "always succeeds"
+        // contract hold for asynchronous failures too, not just synchronous throws.
+        return ret.exceptionally(err -> {
+            log.warn("Webhook processing failed for delivery {}: {}", event.getDeliveryId(), err.getMessage());
+            return null;
+        });
     }
 
     private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent event) {
         String action = event.getPayload().getString("action");
-        JsonObject install = event.getPayload().getJsonObject("installation");
-        Long installationId = install != null ? install.getLong("id") : event.getInstallationId();
+        Long installationId = event.getInstallationId();
         if (installationId == null) {
             return CompletableFuture.completedFuture(null);
         }
@@ -94,13 +100,14 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         if (removed == null || removed.isEmpty()) {
             return CompletableFuture.completedFuture(null);
         }
-        CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+        List<CompletableFuture<Void>> pending = new ArrayList<>();
         for (int i = 0; i < removed.size(); i++) {
             String fullName = removed.getJsonObject(i).getString("full_name");
-            if (fullName == null) continue;
-            chain = chain.thenCompose(v -> markDisconnected(fullName));
+            if (fullName != null) {
+                pending.add(markDisconnected(fullName));
+            }
         }
-        return chain;
+        return CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new));
     }
 
     private CompletableFuture<Void> markDisconnected(String repoFullName) {
@@ -108,9 +115,8 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                 .thenCompose(projects -> {
                     if (projects.isEmpty()) {
                         log.debug("Installation lost access to {}; no Kinotic project backed by it", repoFullName);
-                        return CompletableFuture.completedFuture(null);
                     }
-                    CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+                    List<CompletableFuture<Project>> saves = new ArrayList<>();
                     for (Project project : projects) {
                         if (project.getRepoConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
                             continue;
@@ -118,11 +124,9 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                         project.setRepoConnectionStatus(RepositoryConnectionStatus.DISCONNECTED);
                         log.warn("Flagging project {} (org {}) DISCONNECTED — installation lost access to {}",
                                  project.getId(), project.getOrganizationId(), repoFullName);
-                        chain = chain.thenCompose(v -> projectRepository
-                                .save(project, project.getOrganizationId())
-                                .thenApply(saved -> null));
+                        saves.add(projectRepository.save(project, project.getOrganizationId()));
                     }
-                    return chain;
+                    return CompletableFuture.allOf(saves.toArray(CompletableFuture[]::new));
                 });
     }
 

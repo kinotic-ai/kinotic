@@ -91,16 +91,8 @@ public class GitHubInstallStateService {
      */
     public StagedInstall consume(String state) {
         if (state == null || state.isBlank()) return null;
-        if (igniteCache != null) {
-            return igniteCache.getAndRemove(state);
-        }
-        // Caffeine has no atomic getAndRemove; the small race window doesn't matter
-        // because state is single-node-bound when clustering is off.
-        StagedInstall value = caffeineCache.getIfPresent(state);
-        if (value != null) {
-            caffeineCache.invalidate(state);
-        }
-        return value;
+        return igniteCache != null ? igniteCache.getAndRemove(state)
+                                   : caffeineCache.asMap().remove(state);
     }
 
     private static String randomState() {
