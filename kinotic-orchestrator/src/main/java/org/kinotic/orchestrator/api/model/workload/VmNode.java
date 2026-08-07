@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.workload;
+package org.kinotic.orchestrator.api.model.workload;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;

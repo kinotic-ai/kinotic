@@ -1,8 +1,9 @@
-package org.kinotic.domain.internal.api.repositories;
+package org.kinotic.orchestrator.internal.api.repositories;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.model.workload.Workload;
+import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 

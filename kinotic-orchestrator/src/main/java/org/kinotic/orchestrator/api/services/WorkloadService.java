@@ -1,9 +1,9 @@
-package org.kinotic.domain.api.services;
+package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.model.workload.Workload;
 
 import java.util.concurrent.CompletableFuture;
 

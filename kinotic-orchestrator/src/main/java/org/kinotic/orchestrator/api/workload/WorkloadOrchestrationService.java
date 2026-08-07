@@ -1,8 +1,8 @@
 package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.domain.api.model.workload.Workload;
-import org.kinotic.domain.api.services.WorkloadService;
+import org.kinotic.orchestrator.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.services.WorkloadService;
 
 import java.util.concurrent.CompletableFuture;
 

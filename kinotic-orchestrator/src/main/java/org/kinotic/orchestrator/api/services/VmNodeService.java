@@ -1,7 +1,7 @@
-package org.kinotic.domain.api.services;
+package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.domain.api.model.workload.VmNode;
+import org.kinotic.orchestrator.api.model.workload.VmNode;
 
 import java.util.concurrent.CompletableFuture;
 

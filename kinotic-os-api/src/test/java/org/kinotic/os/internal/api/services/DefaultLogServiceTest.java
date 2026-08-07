@@ -13,11 +13,11 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.log.LogQuery;
-import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.kinotic.domain.api.services.LokiClient;
-import org.kinotic.domain.api.services.WorkloadService;
+import org.kinotic.orchestrator.api.services.WorkloadService;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;

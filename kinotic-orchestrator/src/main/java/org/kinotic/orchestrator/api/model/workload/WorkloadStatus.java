@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.workload;
+package org.kinotic.orchestrator.api.model.workload;
 
 /**
  * Represents the current status of a {@link Workload}.

@@ -1,8 +1,8 @@
 package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.domain.api.model.workload.VmNode;
-import org.kinotic.domain.api.services.VmNodeService;
+import org.kinotic.orchestrator.api.model.workload.VmNode;
+import org.kinotic.orchestrator.api.services.VmNodeService;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;

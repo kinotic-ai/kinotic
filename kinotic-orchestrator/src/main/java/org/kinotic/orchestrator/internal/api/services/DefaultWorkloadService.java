@@ -1,11 +1,12 @@
-package org.kinotic.domain.internal.api.services;
+package org.kinotic.orchestrator.internal.api.services;
 
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.workload.Workload;
-import org.kinotic.domain.internal.api.repositories.WorkloadRepository;
-import org.kinotic.domain.api.services.WorkloadService;
+import org.kinotic.orchestrator.api.model.workload.Workload;
+import org.kinotic.orchestrator.internal.api.repositories.WorkloadRepository;
+import org.kinotic.orchestrator.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

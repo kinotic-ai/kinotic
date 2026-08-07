@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.workload;
+package org.kinotic.orchestrator.api.model.workload;
 
 /**
  * The transport protocol for a {@link PortMapping}.
