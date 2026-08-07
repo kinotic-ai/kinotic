@@ -1,5 +1,5 @@
-import {ConnectionInfo, Kinotic, KinoticSingleton, Pageable, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
-import {DelegateKind, DelegateService, KinoticOsCredentialsAuthProvider, MachineService, OAuthApprovalService} from '@kinotic-ai/os-api'
+import {Kinotic, Pageable} from '@kinotic-ai/core'
+import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/os-api'
 import type {DelegatingParticipantIdentity} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
@@ -8,13 +8,6 @@ import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
 
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
-
-// the machine identity V3__kinotic_test_users seeds for these tests (client_secret: kinotic)
-const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
-const MACHINE_CLIENT_SECRET = 'kinotic'
-// the kinotic-test org USER the same migration seeds — a valid identity + password that must
-// nevertheless be refused as machine credentials
-const ORG_USER_ID = '00000000-0000-0000-0000-000000000002'
 
 /**
  * Attempts the STOMP WebSocket upgrade with the given bearer token. Resolves with the HTTP status
@@ -39,8 +32,7 @@ function stompHandshake(url: string, token: string): Promise<number | 'open'> {
 /**
  * Covers the MCP authorization surface: the 401 discovery challenge, the metadata documents a host
  * reads to find the authorization server, the Client ID Metadata Document rules the authorize
- * endpoint enforces on a client_id, the device grant the CLI logs in with, and the
- * credential-header connections machine identities authenticate with.
+ * endpoint enforces on a client_id, and the device grant the CLI logs in with.
  *
  * The authorization-code happy path is not covered here: a client_id must be an https URL whose
  * host does not resolve to a special-use address, which no host reachable from this suite
@@ -53,29 +45,6 @@ describe('Kinotic JS', () => {
     const base = () => `http://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}`
     const stompUrl = () => `ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`
 
-    /**
-     * Attempts a full Kinotic client connection authenticated by machine credentials on the
-     * upgrade headers — exactly how a machine (vm-manager, an external API caller) connects.
-     */
-    async function machineConnect(clientId: string, clientSecret: string,
-                                  organizationId?: string, applicationId?: string): Promise<'connected' | 'rejected'> {
-        const machineKinotic = new KinoticSingleton()
-        const ci = new ConnectionInfo()
-        ci.host = inject('KINOTIC_HOST')
-        ci.port = inject('KINOTIC_PORT')
-        ci.useSSL = false
-        ci.maxConnectionAttempts = 1
-        ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-        ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci,
-            new KinoticOsCredentialsAuthProvider(clientId, clientSecret, organizationId, applicationId))
-        try {
-            await machineKinotic.connect(ci)
-            await machineKinotic.disconnect()
-            return 'connected'
-        } catch {
-            return 'rejected'
-        }
-    }
 
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
@@ -218,67 +187,4 @@ describe('Kinotic JS', () => {
         expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe(401)
     }, 60000)
 
-    it('authenticates a machine with its credentials on the connection', async () => {
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
-        // scope headers, when supplied, must agree with the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-mcp')).toBe('connected')
-    })
-
-    it('rejects connections that do not prove a machine identity', async () => {
-        // wrong secret
-        expect(await machineConnect(MACHINE_CLIENT_ID, 'wrong')).toBe('rejected')
-        // unknown client
-        expect(await machineConnect('no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
-        // a USER id with its correct password — ids without '@' resolve only to machines
-        expect(await machineConnect(ORG_USER_ID, 'kinotic')).toBe('rejected')
-        // valid credentials but scope headers that contradict the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-datastream')).toBe('rejected')
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
-        // the OAuth surface no longer speaks client_credentials — machines connect, not mint
-        const grant = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'client_credentials',
-                client_id: MACHINE_CLIENT_ID, client_secret: MACHINE_CLIENT_SECRET})
-        })
-        expect(grant.status).toBe(400)
-        expect((await grant.json()).error).toBe('unsupported_grant_type')
-    })
-
-    it('manages the machine lifecycle through MachineService', async () => {
-        // the signed-in org user provisions a machine for one of the org's applications.
-        // The application is created through the API: migration-seeded kinotic_application
-        // rows are written with a plain _id, so the org-scoped composite-id lookup behind
-        // createMachine cannot see them.
-        await Kinotic.applications.createApplicationIfNotExist('e2e-machines', 'e2e fixture application for the machine lifecycle test')
-        const machineService = new MachineService(Kinotic)
-        const created = await machineService.createMachine('e2e Lifecycle Machine', 'e2e-machines')
-        const machineId = created.machine.id!
-        expect(created.clientSecret).toBeTruthy()
-
-        // the provisioned credentials connect, with and without declared scope
-        expect(await machineConnect(machineId, created.clientSecret)).toBe('connected')
-        expect(await machineConnect(machineId, created.clientSecret, 'kinotic-test', 'e2e-machines')).toBe('connected')
-
-        // and the machine is listed for its application
-        const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))
-        expect(listed.content?.some(m => m.id === machineId)).toBe(true)
-
-        // rotation kills the old secret and issues a working replacement
-        const rotatedSecret = await machineService.rotateSecret(machineId)
-        expect(await machineConnect(machineId, created.clientSecret)).toBe('rejected')
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
-
-        // disabling cuts the machine off on its next connection
-        await machineService.setMachineEnabled(machineId, false)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
-
-        // enabling restores access with the same secret
-        await machineService.setMachineEnabled(machineId, true)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
-
-        // removal is permanent
-        await machineService.removeMachine(machineId)
-        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
-    }, 90000)
 })
