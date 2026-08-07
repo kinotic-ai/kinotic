@@ -216,6 +216,25 @@ export function tryGetNodeModuleName(nodeModulePath: string): string | null {
 }
 
 /**
+ * Resolves a subdirectory of the project's .config/c3 directory, creating it if it does not
+ * yet exist.
+ * @param subdirectory the c3 subdirectory to resolve, such as entities or queries
+ * @return the absolute path to the subdirectory
+ */
+async function ensureC3Directory(subdirectory: string): Promise<string> {
+    const c3Dir = path.resolve(resolveKinoticConfigDir(), 'c3')
+    const ret = path.resolve(c3Dir, subdirectory)
+    await fsPromises.mkdir(ret, {recursive: true})
+    // c3 holds only what this generator rewrites from the entity sources on every run, so the
+    // directory ignores itself instead of every project needing to add the rule
+    const ignorePath = path.resolve(c3Dir, '.gitignore')
+    if (!fs.existsSync(ignorePath)) {
+        await fsPromises.writeFile(ignorePath, '*\n')
+    }
+    return ret
+}
+
+/**
  * Saves the C3Type for an entity to the project's .config/c3/entities directory
  * @param config the conversion configuration in effect
  * @param entity to save
@@ -223,8 +242,7 @@ export function tryGetNodeModuleName(nodeModulePath: string): string | null {
 export async function writeEntityJsonToFilesystem(config: ConversionConfiguration, entity: ObjectC3Type): Promise<void> {
     const json = JSON.stringify(entity, jsonStringifyReplacer, 2)
     if (json && json.length > 0) {
-        const outputPath = path.resolve(resolveKinoticConfigDir(), 'c3', 'entities', `${entity.namespace}.${entity.name}.json`)
-        await fsPromises.mkdir(path.dirname(outputPath), {recursive: true})
+        const outputPath = path.resolve(await ensureC3Directory('entities'), `${entity.namespace}.${entity.name}.json`)
         await fsPromises.writeFile(outputPath, json)
         config.logger.logVerbose(`Wrote ${entity.namespace}.${entity.name} to ${outputPath}`, config.verbose)
     }
@@ -237,9 +255,8 @@ export async function writeEntityJsonToFilesystem(config: ConversionConfiguratio
  * @param info the generated Repository to save the named queries of
  */
 export async function writeGeneratedServiceInfoToFilesystem(config: ConversionConfiguration, info: GeneratedServiceInfo): Promise<void> {
-    const outputPath = path.resolve(resolveKinoticConfigDir(), 'c3', 'queries', `${info.entityServiceName}.json`)
+    const outputPath = path.resolve(await ensureC3Directory('queries'), `${info.entityServiceName}.json`)
     if (info.namedQueries.length > 0) {
-        await fsPromises.mkdir(path.dirname(outputPath), {recursive: true})
         await fsPromises.writeFile(outputPath, JSON.stringify(info, jsonStringifyReplacer, 2))
         config.logger.logVerbose(`Wrote ${info.entityServiceName} named queries to ${outputPath}`, config.verbose)
     } else if (fs.existsSync(outputPath)) {

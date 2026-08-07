@@ -125,7 +125,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                             String version = MetaUtil.getVersion(inter);
 
                             if (!StringUtils.isNotBlank(version)) {
-                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
+                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or in its package's package-info.java.");
                             }
 
                             // A service is addressable in its declared zone; with no declaration
