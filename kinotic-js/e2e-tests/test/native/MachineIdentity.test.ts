@@ -1,8 +1,13 @@
-import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable, SessionKeepAliveMode} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {MachineService} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
-import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
-import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {E2E_ORGANIZATION_ID,
+        buildConnectOptions,
+        initKinoticClient,
+        postForm,
+        restBase,
+        shutdownKinoticClient} from '../TestHelpers.js'
 
 // the machine identity V5__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
 const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
@@ -18,8 +23,6 @@ const ORG_USER_ID = '00000000-0000-0000-0000-000000000002'
  */
 describe('Kinotic JS', () => {
 
-    const base = () => `http://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}`
-
     /**
      * Attempts a full Kinotic client connection authenticated by machine credentials on the
      * upgrade headers — exactly how a machine connects.
@@ -29,12 +32,8 @@ describe('Kinotic JS', () => {
         const machineKinotic = new KinoticSingleton()
         try {
             await machineKinotic.connect({
-                host: inject('KINOTIC_HOST'),
-                port: inject('KINOTIC_PORT'),
-                useSSL: false,
-                maxConnectionAttempts: 1,
-                sessionKeepAlive: SessionKeepAliveMode.NONE,
-                credentials: new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)
+                ...buildConnectOptions(new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)),
+                maxConnectionAttempts: 1
             })
             await machineKinotic.disconnect()
             return 'connected'
@@ -57,7 +56,7 @@ describe('Kinotic JS', () => {
     it('authenticates a machine with its credentials on the connection', async () => {
         expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
         // scope headers, when supplied, must agree with the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-mcp')).toBe('connected')
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('connected')
     })
 
     it('rejects connections that do not prove a machine identity', async () => {
@@ -68,15 +67,12 @@ describe('Kinotic JS', () => {
         // a USER id with its correct password — ids without '@' resolve only to machines
         expect(await machineConnect(ORG_USER_ID, 'kinotic')).toBe('rejected')
         // valid credentials but scope headers that contradict the machine's own scope
-        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-datastream')).toBe('rejected')
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID, 'e2e-datastream')).toBe('rejected')
         expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
         // the OAuth surface does not speak client_credentials — machines connect, not mint
-        const grant = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'client_credentials',
-                client_id: MACHINE_CLIENT_ID, client_secret: MACHINE_CLIENT_SECRET})
-        })
+        const grant = await postForm(`${restBase()}/api/auth/oauth/token`,
+                                     {grant_type: 'client_credentials',
+                                      client_id: MACHINE_CLIENT_ID, client_secret: MACHINE_CLIENT_SECRET})
         expect(grant.status).toBe(400)
         expect((await grant.json()).error).toBe('unsupported_grant_type')
         // every connect pays the client's connection jitter delay before its only attempt,
@@ -96,7 +92,7 @@ describe('Kinotic JS', () => {
 
         // the provisioned credentials connect, with and without declared scope
         expect(await machineConnect(machineId, created.clientSecret)).toBe('connected')
-        expect(await machineConnect(machineId, created.clientSecret, 'kinotic-test', 'e2e-machines')).toBe('connected')
+        expect(await machineConnect(machineId, created.clientSecret, E2E_ORGANIZATION_ID, 'e2e-machines')).toBe('connected')
 
         // and the machine is listed for its application
         const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))

@@ -33,6 +33,25 @@ export class ServerInfo {
     useSSL?: boolean | null
 }
 
+/**
+ * Builds the base URL of a server for the given scheme stem ({@code 'ws'} or {@code 'http'}):
+ * TLS appends {@code s}, and the port is omitted when absent so the scheme default applies.
+ */
+export function buildServerUrl(server: ServerInfo, scheme: 'ws' | 'http'): string {
+    return scheme + (server.useSSL ? 's' : '')
+        + '://' + server.host
+        + (server.port ? ':' + server.port : '')
+}
+
+/**
+ * Builds the WebSocket broker URL the STOMP client connects to for a given server — the
+ * single source of truth for the broker path, so a caller supplying its own
+ * {@link WebSocketFactory} never re-types it and drifts from core.
+ */
+export function buildBrokerUrl(server: ServerInfo): string {
+    return buildServerUrl(server, 'ws') + '/v1'
+}
+
 export enum SessionKeepAliveMode {
     NONE = 'NONE',
     ACTIVITY = 'ACTIVITY',
@@ -40,21 +59,20 @@ export enum SessionKeepAliveMode {
 }
 
 /**
- * Options for {@link IKinotic#connect}. Every field is optional: absent server fields resolve
- * from the environment (the {@code KINOTIC_SERVER_HOST} / {@code KINOTIC_SERVER_PORT} /
- * {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own location, then
- * {@code https://api.kinotic.com}), and absent {@link credentials} resolve through the
- * default {@link ChainedCredentialsResolver} (environment variables, then the browser
- * session).
+ * Options for {@link IKinotic#connect}. Every field is optional: absent {@link server}
+ * fields resolve from the environment (the {@code KINOTIC_SERVER_HOST} /
+ * {@code KINOTIC_SERVER_PORT} / {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own
+ * location, then {@code https://api.kinotic.com}), and absent {@link credentials} resolve
+ * through the default {@link ChainedCredentialsResolver} (environment variables, then the
+ * browser session).
  *
  * Authentication is performed during the WebSocket upgrade (handshake), not in the STOMP
  * CONNECT frame: the resolved credentials supply the upgrade headers, or none for
  * session-cookie auth.
  */
 export interface ConnectOptions {
-    host?: string
-    port?: number | null
-    useSSL?: boolean | null
+    /** The server to connect to; absent fields resolve from the environment. */
+    server?: Partial<ServerInfo>
 
     /**
      * Finds the credentials this connection authenticates with, consulted on every

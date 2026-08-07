@@ -14,7 +14,9 @@ export interface ResolvedCredentials {
 /**
  * Finds the credentials a Kinotic connection authenticates with. Consulted on every
  * (re)connect, so an implementation backing short-lived credentials can refresh them each
- * time. Returning null means this resolver found nothing — in a
+ * time; one whose resolution is expensive — a network round-trip, a disk read — must cache
+ * the result internally and refresh only as expiry nears, since reconnects pay the cost of
+ * every resolve. Returning null means this resolver found nothing — in a
  * {@link ChainedCredentialsResolver} the next resolver tries; at the top level the connect
  * fails naming every resolver consulted.
  */

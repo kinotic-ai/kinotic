@@ -2,7 +2,14 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js'
 import {StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import {McpError} from '@modelcontextprotocol/sdk/types.js'
 import * as allure from 'allure-js-commons'
-import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {E2E_APP_TENANT,
+        E2E_FIXTURE_PASSWORD,
+        E2E_ORGANIZATION_ID,
+        E2E_ORG_USER_EMAIL,
+        E2E_SYSTEM_USER_EMAIL,
+        appFixtureEmail,
+        restBase} from '../TestHelpers.js'
 
 // A tool name is the base-36 XXHash128 of '<qualified name>/<function>', minted server side by
 // KinoticUtil.mcpToolName, so it says nothing on its own. Tools are named here by the title the server
@@ -15,14 +22,11 @@ const SAVE_PROJECT = 'Project Service Save'
 
 /** applicationId of the APPLICATION-scope user seeded for this suite by V5__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
-const ORGANIZATION_ID = 'kinotic-test'
 
 async function connectMcpClient(authHeaders: Record<string, string>): Promise<Client> {
-    const host = inject('KINOTIC_HOST')
-    const port = inject('KINOTIC_PORT')
     const client = new Client({name: 'kinotic-e2e-tests', version: '1.0.0'})
     // /mcp is stateless: every request re-authenticates from these headers
-    await client.connect(new StreamableHTTPClientTransport(new URL(`http://${host}:${port}/mcp`),
+    await client.connect(new StreamableHTTPClientTransport(new URL(`${restBase()}/mcp`),
                                                            {requestInit: {headers: authHeaders}}))
     return client
 }
@@ -52,13 +56,13 @@ describe('Kinotic JS', () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('Mcp')
 
-        systemClient = await connectMcpClient({clientId: 'admin@kinotic.local', clientSecret: 'kinotic'})
-        organizationClient = await connectMcpClient({clientId: 'kinotic@kinotic.local',
-                                                     clientSecret: 'kinotic',
-                                                     organizationId: ORGANIZATION_ID})
-        applicationClient = await connectMcpClient({clientId: `app-${APP_ID}-kinotic@test.local`,
-                                                    clientSecret: 'kinotic',
-                                                    organizationId: ORGANIZATION_ID,
+        systemClient = await connectMcpClient({clientId: E2E_SYSTEM_USER_EMAIL, clientSecret: E2E_FIXTURE_PASSWORD})
+        organizationClient = await connectMcpClient({clientId: E2E_ORG_USER_EMAIL,
+                                                     clientSecret: E2E_FIXTURE_PASSWORD,
+                                                     organizationId: E2E_ORGANIZATION_ID})
+        applicationClient = await connectMcpClient({clientId: appFixtureEmail(APP_ID, E2E_APP_TENANT),
+                                                    clientSecret: E2E_FIXTURE_PASSWORD,
+                                                    organizationId: E2E_ORGANIZATION_ID,
                                                     applicationId: APP_ID})
 
         // the directory publishes on server startup; wait for the listing to settle

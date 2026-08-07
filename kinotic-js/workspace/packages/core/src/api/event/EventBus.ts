@@ -113,11 +113,8 @@ export class EventBus implements IEventBus {
                 this.cleanup()
 
                 const connectedInfo = await this.stompConnectionManager.activate(options)
-                // manually copy so we don't store any sensitive info
-                this.serverInfo = new ServerInfo()
-                this.serverInfo.host = options.host as string
-                this.serverInfo.port = options.port
-                this.serverInfo.useSSL = options.useSSL
+                // copy so the reported server never aliases the caller's options object
+                this.serverInfo = {...options.server} as ServerInfo
 
                 this.replyToCri = this.stompConnectionManager.replyToCri
 

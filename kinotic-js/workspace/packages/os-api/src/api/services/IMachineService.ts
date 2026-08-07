@@ -31,9 +31,8 @@ export interface IMachineService {
     rotateSecret(machineId: string): Promise<string>
 
     /**
-     * Enables or disables a machine. A disabled machine is cut off on its next request —
-     * token issuance and every authenticated call alike — and enabling it restores access
-     * with the same credential.
+     * Enables or disables a machine. A disabled machine is cut off on its next connection,
+     * and enabling it restores access with the same credential.
      */
     setMachineEnabled(machineId: string, enabled: boolean): Promise<void>
 

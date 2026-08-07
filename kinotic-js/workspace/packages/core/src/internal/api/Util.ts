@@ -1,6 +1,6 @@
 import {EventConstants, type IEvent} from '@/api/event/IEventBus'
 import {Event} from '@/api/event/EventBus'
-import {type ConnectOptions, type ServerInfo, SessionKeepAliveMode} from '@/api/ConnectOptions'
+import {type ConnectOptions, SessionKeepAliveMode} from '@/api/ConnectOptions'
 import {ChainedCredentialsResolver} from '@/api/security/ChainedCredentialsResolver'
 import {EnvCredentialsResolver} from '@/api/security/EnvCredentialsResolver'
 import {SessionCredentialsResolver} from '@/api/security/SessionCredentialsResolver'
@@ -50,19 +50,6 @@ export class Util {
     }
 
     /**
-     * Builds the WebSocket broker URL the STOMP client connects to for a given server.
-     *
-     * Single source of truth for the broker path: used by {@link StompConnectionManager}
-     * and by {@link createAuthenticatedWebSocketFactory}, so a Node/Bun caller that supplies
-     * its own {@link WebSocketFactory} never has to re-type the path and drift from core.
-     */
-    public static buildBrokerUrl(serverInfo: ServerInfo): string {
-        return 'ws' + (serverInfo.useSSL ? 's' : '')
-            + '://' + serverInfo.host
-            + (serverInfo.port ? ':' + serverInfo.port : '') + '/v1'
-    }
-
-    /**
      * Fills every absent {@link ConnectOptions} field from the environment. Server fields
      * resolve explicit value → {@code KINOTIC_SERVER_HOST/PORT/USE_SSL} → the browser's own
      * location (only when the host itself came from the location, so an explicit cross-origin
@@ -71,17 +58,18 @@ export class Util {
      */
     public static resolveConnectOptions(options?: ConnectOptions): ConnectOptions {
         const opts = options ?? {}
+        const server = opts.server ?? {}
         const env = typeof process !== 'undefined' ? process.env : undefined
         const location = typeof window !== 'undefined' ? window.location : undefined
 
-        let host = opts.host ?? env?.KINOTIC_SERVER_HOST
+        let host = server.host ?? env?.KINOTIC_SERVER_HOST
         const hostFromLocation = host == null && location != null
         const hostDefaulted = host == null && location == null
         if (host == null) {
             host = location?.hostname ?? DEFAULT_HOST
         }
 
-        let useSSL = opts.useSSL
+        let useSSL = server.useSSL
         if (useSSL == null) {
             if (env?.KINOTIC_SERVER_USE_SSL != null) {
                 useSSL = env.KINOTIC_SERVER_USE_SSL === 'true'
@@ -93,7 +81,7 @@ export class Util {
             }
         }
 
-        let port = opts.port
+        let port = server.port
         if (port === undefined) {
             if (env?.KINOTIC_SERVER_PORT != null) {
                 port = Number(env.KINOTIC_SERVER_PORT)
@@ -107,9 +95,7 @@ export class Util {
 
         return {
             ...opts,
-            host,
-            port,
-            useSSL,
+            server: {host, port, useSSL},
             sessionKeepAlive: opts.sessionKeepAlive ?? SessionKeepAliveMode.ACTIVITY,
             credentials: opts.credentials
                 ?? new ChainedCredentialsResolver(new EnvCredentialsResolver(), new SessionCredentialsResolver())

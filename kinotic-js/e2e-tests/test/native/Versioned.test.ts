@@ -5,6 +5,8 @@ import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Vehicle} from '../domain/Vehicle.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createTestVehicle,
     createTestVehicles,
     createVehicleEntityDefinitionIfNotExist,
@@ -16,8 +18,6 @@ import {
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
 // The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
 const APP_ID = 'e2e-versioned'
 

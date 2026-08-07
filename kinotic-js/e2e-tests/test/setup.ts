@@ -1,14 +1,14 @@
 import {OsApiPlugin} from '@kinotic-ai/os-api'
 import {Kinotic} from '@kinotic-ai/core'
+import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 // @ts-ignore
 import path from 'node:path'
 import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
 // @ts-ignore
 import {TestProject} from 'vitest/node.js'
-import {WebSocket} from 'ws'
 
-Object.assign(global, {WebSocket})
+ensureNodeWebSocket()
 
 Kinotic.use(OsApiPlugin)
        .use(PersistencePlugin)

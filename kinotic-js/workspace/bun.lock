@@ -12,7 +12,7 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "5.0.0-beta.2",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
@@ -61,7 +61,7 @@
     },
     "packages/os-api": {
       "name": "@kinotic-ai/os-api",
-      "version": "5.0.0-beta.3",
+      "version": "5.0.0-beta.4",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -74,12 +74,12 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.2",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
       },
     },
     "packages/persistence": {
       "name": "@kinotic-ai/persistence",
-      "version": "5.0.0-beta.2",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "rxjs": "^7.8.2",
@@ -91,7 +91,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.2",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
       },
     },
     "packages/spawn": {
@@ -121,7 +121,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.2",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
         "@kinotic-ai/os-api": ">=5.0.0-beta.3",
       },
     },

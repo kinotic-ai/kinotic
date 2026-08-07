@@ -10,17 +10,14 @@
   },
   "dependencies": {
     "vue": "^3.5.26",
-    "@kinotic-ai/os-api": "^5.0.0-beta.3",
-    "@kinotic-ai/core": "^5.0.0-beta.2",
-    "@kinotic-ai/persistence": "^5.0.0-beta.2"
+    "@kinotic-ai/os-api": "^5.0.0-beta.4",
+    "@kinotic-ai/core": "^5.0.0-beta.3",
+    "@kinotic-ai/persistence": "^5.0.0-beta.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^10.2.0",
-    "@kinotic-ai/core": "^5.0.0-beta.1",
     "@kinotic-ai/idl": "^5.0.0-beta.0",
     "@kinotic-ai/kinotic-cli": "^5.2.0-beta.0",
-    "@kinotic-ai/os-api": "5.0.0-beta.2",
-    "@kinotic-ai/persistence": "^5.0.0-beta.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^25.0.6",
     "@types/ws": "^8.18.1",

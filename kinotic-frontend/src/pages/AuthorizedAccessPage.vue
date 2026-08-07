@@ -19,7 +19,7 @@
       </template>
 
       <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="item.status === 'Active' ? 'success' : 'danger'" />
+        <Tag :value="item.status" :severity="statusSeverity(item.status)" />
       </template>
 
       <template #item.created="{ item }">
@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Tag from 'primevue/tag'
@@ -56,20 +56,15 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
-import {
-  FunctionalIterablePage,
-  Kinotic,
-  Pageable,
-  type IDataSource,
-  type IterablePage,
-  type Page
-} from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
 import { DelegateKind } from '@kinotic-ai/os-api'
 import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/os-api'
 
 import CrudTable from '@/components/CrudTable.vue'
+import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@/components/useCrudTablePage'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
+import DatetimeUtil from '@/util/DatetimeUtil'
 import { showErrorToast } from '@/util/helpers'
 
 /** One table row — a client authorized to act on the signed-in user's behalf. */
@@ -89,7 +84,6 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'First authorized', sortable: false }
 ]
 
-const tableSearch = ref('')
 const sessionsDialogVisible = ref(false)
 const sessionsDialogTitle = ref('')
 const sessions = ref<DelegateSession[]>([])
@@ -98,32 +92,18 @@ const endingSession = ref<string | null>(null)
 
 const toast = useToast()
 const confirm = useConfirm()
-const crudTable = ref<InstanceType<typeof CrudTable>>()
 
-const dataSource = computed<IDataSource<DescriptiveIdentifiable>>(() => {
-  return {
-    findAll: (pageable: Pageable) => load(pageable, null),
-    // no server-side delegate search; a user has few delegates, so filtering the page suffices
-    search: (searchText: string, pageable: Pageable) => load(pageable, searchText)
-  }
-})
+// no server-side delegate search; a user has few delegates, so filtering the page suffices
+const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+  filteredPageLoader(
+    pageable => Kinotic.delegates.findMyDelegates(pageable),
+    toRow,
+    row => [row.displayName, row.kind]
+  )
+)
 
-async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
-  const delegatesPage = await Kinotic.delegates.findMyDelegates(pageable)
-  let rows = (delegatesPage.content ?? []).map(delegate => toRow(delegate))
-  if (searchText) {
-    const needle = searchText.trim().toLowerCase()
-    rows = rows.filter(row =>
-      (row.displayName ?? '').toLowerCase().includes(needle) ||
-      row.kind.toLowerCase().includes(needle))
-  }
-  const page: Page<DescriptiveIdentifiable> = {
-    content: rows,
-    totalElements: searchText ? rows.length : delegatesPage.totalElements ?? rows.length,
-    cursor: undefined
-  }
-  return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
-}
+const formatDate = DatetimeUtil.formatEpochDate
+const formatDateTime = DatetimeUtil.formatEpochDateTime
 
 function toRow(delegate: DelegatingParticipantIdentity): DelegateRow {
   return {
@@ -189,19 +169,11 @@ function confirmRevoke(item: DelegateRow) {
       try {
         await Kinotic.delegates.revokeDelegate(item.id)
         toast.add({ severity: 'success', summary: 'Access revoked', detail: item.displayName ?? undefined, life: 5000 })
-        crudTable.value?.find()
+        refreshTable()
       } catch (err) {
         showErrorToast(toast, 'Failed to revoke access', err, { life: 8000 })
       }
     }
   })
-}
-
-function formatDate(epochMillis: number | null): string {
-  return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
-}
-
-function formatDateTime(epochMillis: number | null): string {
-  return epochMillis ? new Date(epochMillis).toLocaleString() : '—'
 }
 </script>
