@@ -2,38 +2,10 @@ import type {CredentialsResolver, ResolvedCredentials, ServerInfo} from '@kinoti
 import {createStateManager} from './state/IStateManager'
 
 /** OAuth 2.0 token response returned by the server's token endpoint. */
-export interface TokenResponse {
+interface TokenResponse {
     access_token: string
     refresh_token: string
     expires_in?: number
-}
-
-/** State key the rotating refresh token is persisted under, keyed by server url. */
-const CREDENTIALS_KEY = 'kinotic-credentials'
-
-/** Per-request timeout for REST calls to the Kinotic Server. */
-export const FETCH_TIMEOUT_MS = 30_000
-
-/** Returns the refresh token `kinotic login` stored for the server url, or null when there is none. */
-export async function loadRefreshToken(configDir: string, serverUrl: string): Promise<string | null> {
-    let ret: string | null = null
-    const stateManager = createStateManager(configDir)
-    if (await stateManager.containsState(CREDENTIALS_KEY)) {
-        const credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
-        ret = credentials[serverUrl] ?? null
-    }
-    return ret
-}
-
-/** Persists the refresh token for the server url, preserving tokens stored for other servers. */
-export async function saveRefreshToken(configDir: string, serverUrl: string, refreshToken: string): Promise<void> {
-    const stateManager = createStateManager(configDir)
-    let credentials: Record<string, string> = {}
-    if (await stateManager.containsState(CREDENTIALS_KEY)) {
-        credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
-    }
-    credentials[serverUrl] = refreshToken
-    await stateManager.save(CREDENTIALS_KEY, credentials)
 }
 
 /**
@@ -44,6 +16,12 @@ export async function saveRefreshToken(configDir: string, serverUrl: string, ref
  * no login is stored for the server.
  */
 export class CliLoginCredentialsResolver implements CredentialsResolver {
+
+    /** State key the rotating refresh token is persisted under, keyed by server url. */
+    private static readonly CREDENTIALS_KEY = 'kinotic-credentials'
+
+    /** Per-request timeout for REST calls to the Kinotic Server. */
+    private static readonly FETCH_TIMEOUT_MS = 30_000
 
     public readonly name = 'CliLogin'
 
@@ -61,12 +39,36 @@ export class CliLoginCredentialsResolver implements CredentialsResolver {
     public async resolve(server: ServerInfo): Promise<ResolvedCredentials | null> {
         let ret: ResolvedCredentials | null = null
         if (this.refreshToken === null) {
-            this.refreshToken = await loadRefreshToken(this.configDir, this.serverUrl)
+            this.refreshToken = await this.loadRefreshToken()
         }
         if (this.refreshToken !== null) {
             // the gateway serves REST on the same host/port the connection targets
             const restBaseUrl = (server.useSSL ? 'https' : 'http') + '://' + server.host + ':' + server.port
             ret = {authHeaders: {Authorization: 'Bearer ' + await this.freshAccessToken(restBaseUrl)}}
+        }
+        return ret
+    }
+
+    /**
+     * Persists a refresh token for this resolver's server — the hand-off from
+     * `kinotic login` — preserving the tokens stored for other servers.
+     */
+    public async storeRefreshToken(refreshToken: string): Promise<void> {
+        const stateManager = createStateManager(this.configDir)
+        let credentials: Record<string, string> = {}
+        if (await stateManager.containsState(CliLoginCredentialsResolver.CREDENTIALS_KEY)) {
+            credentials = await stateManager.load<Record<string, string>>(CliLoginCredentialsResolver.CREDENTIALS_KEY)
+        }
+        credentials[this.serverUrl] = refreshToken
+        await stateManager.save(CliLoginCredentialsResolver.CREDENTIALS_KEY, credentials)
+    }
+
+    private async loadRefreshToken(): Promise<string | null> {
+        let ret: string | null = null
+        const stateManager = createStateManager(this.configDir)
+        if (await stateManager.containsState(CliLoginCredentialsResolver.CREDENTIALS_KEY)) {
+            const credentials = await stateManager.load<Record<string, string>>(CliLoginCredentialsResolver.CREDENTIALS_KEY)
+            ret = credentials[this.serverUrl] ?? null
         }
         return ret
     }
@@ -83,7 +85,7 @@ export class CliLoginCredentialsResolver implements CredentialsResolver {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
             body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: this.refreshToken as string}),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+            signal: AbortSignal.timeout(CliLoginCredentialsResolver.FETCH_TIMEOUT_MS)
         })
         if (!res.ok) {
             throw new Error('Session expired. Run `kinotic login` again.')
@@ -92,7 +94,7 @@ export class CliLoginCredentialsResolver implements CredentialsResolver {
         this.refreshToken = tokens.refresh_token
         this.accessToken = tokens.access_token
         this.accessTokenExpiresAt = Date.now() + (tokens.expires_in ?? 60) * 1000
-        await saveRefreshToken(this.configDir, this.serverUrl, this.refreshToken)
+        await this.storeRefreshToken(this.refreshToken)
         return this.accessToken
     }
 }

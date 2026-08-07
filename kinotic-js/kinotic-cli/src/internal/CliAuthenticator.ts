@@ -3,12 +3,15 @@ import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {CliLoginCredentialsResolver,
-        FETCH_TIMEOUT_MS,
-        loadRefreshToken,
-        saveRefreshToken,
-        type TokenResponse} from './CliLoginCredentialsResolver'
+import {CliLoginCredentialsResolver} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
+
+/** OAuth 2.0 token response returned by the device-authorization endpoints. */
+interface DeviceTokens {
+    access_token: string
+    refresh_token: string
+    expires_in?: number
+}
 
 /** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
 interface ServerTarget {
@@ -17,6 +20,9 @@ interface ServerTarget {
     useSSL: boolean
     restBaseUrl: string
 }
+
+/** Per-request timeout for REST calls to the Kinotic Server. */
+const FETCH_TIMEOUT_MS = 30_000
 
 /** Identifies this CLI to the device grant, which serves only this pre-registered client. */
 const CLI_CLIENT_ID = 'kinotic-cli'
@@ -53,7 +59,7 @@ export class CliAuthenticator {
         if (tokens === null) {
             return false
         }
-        await saveRefreshToken(this.configDir, this.server, tokens.refresh_token)
+        await new CliLoginCredentialsResolver(this.server, this.configDir).storeRefreshToken(tokens.refresh_token)
         return true
     }
 
@@ -69,7 +75,10 @@ export class CliAuthenticator {
             if (target === null) {
                 return false
             }
-            if (await loadRefreshToken(this.configDir, this.server) === null) {
+            const resolver = new CliLoginCredentialsResolver(this.server, this.configDir)
+            // Resolved once up front so a missing login gets its friendly message instead of
+            // the generic chain failure; the resolver caches the token for the connect below.
+            if (await resolver.resolve(target) === null) {
                 this.logger.log('Not logged in. Run `kinotic login` first.')
                 return false
             }
@@ -80,7 +89,7 @@ export class CliAuthenticator {
                 host: target.host,
                 port: target.port,
                 useSSL: target.useSSL,
-                credentials: new CliLoginCredentialsResolver(this.server, this.configDir)
+                credentials: resolver
             }), {
                 milliseconds: 60000,
                 message: 'Connection timeout trying to connect to the Kinotic Server'
@@ -120,7 +129,7 @@ export class CliAuthenticator {
     }
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
-    private async deviceLogin(restBaseUrl: string): Promise<TokenResponse | null> {
+    private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
         const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -160,7 +169,7 @@ export class CliAuthenticator {
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             })
             if (tokenRes.ok) {
-                return await tokenRes.json() as TokenResponse
+                return await tokenRes.json() as DeviceTokens
             }
             const error = await readErrorCode(tokenRes)
             if (error === 'slow_down') {
