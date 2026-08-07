@@ -31,16 +31,10 @@ import java.nio.charset.StandardCharsets;
  * requires. Token responses carry a Kinotic access token plus a rotating refresh token, so clients
  * requesting {@code offline_access} refresh without re-consent.
  *
- * <p>Machine identities authenticate here too, through the RFC 6749 §4.4 client-credentials
- * grant: {@code client_id} is the machine's identity id, {@code client_secret} the secret issued
- * at provisioning ({@code client_secret_post}), and the response carries an access token only —
- * a machine re-authenticates with its secret instead of holding a refresh token.
- *
  * <p>Each grant stamps the audience of the surface it serves: the authorization-code grant issues
  * {@link KinoticAudience#MCP_TOOLS} tokens, the device grant {@link KinoticAudience#PUBLISHED_SERVICES}
- * tokens, the client-credentials grant {@link KinoticAudience#PUBLISHED_SERVICES} tokens, and the
- * refresh grant re-mints whichever audience its lineage was issued for. A user-approved grant's
- * token acts as the user who approved it; a client-credentials token acts as the machine itself.
+ * tokens, and the refresh grant re-mints whichever audience its lineage was issued for. Every token
+ * acts as the user who approved the grant.
  *
  * <p>Error responses use the RFC 6749 shape {@code {"error":"<code>"}}.
  */
@@ -92,11 +86,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                 .put("response_types_supported", new JsonArray().add("code"))
                 .put("grant_types_supported", new JsonArray().add("authorization_code")
                                                              .add("refresh_token")
-                                                             .add("client_credentials")
                                                              .add(DEVICE_CODE_GRANT_TYPE))
                 .put("code_challenge_methods_supported", new JsonArray().add("S256"))
-                .put("token_endpoint_auth_methods_supported", new JsonArray().add("none")
-                                                                             .add("client_secret_post"))
+                .put("token_endpoint_auth_methods_supported", new JsonArray().add("none"))
                 .put("scopes_supported", new JsonArray().add("offline_access")));
     }
 
@@ -184,8 +176,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code POST /api/auth/oauth/token} — form-encoded per RFC 6749. Supports the
-     * {@code authorization_code} (PKCE), {@code refresh_token}, {@code client_credentials},
-     * and RFC 8628 device-code grants.
+     * {@code authorization_code} (PKCE), {@code refresh_token}, and RFC 8628 device-code grants.
      */
     private void handleToken(RoutingContext ctx) {
         String grantType = ctx.request().getFormAttribute("grant_type");
@@ -193,29 +184,11 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             handleAuthorizationCodeGrant(ctx);
         } else if ("refresh_token".equals(grantType)) {
             handleRefreshTokenGrant(ctx);
-        } else if ("client_credentials".equals(grantType)) {
-            handleClientCredentialsGrant(ctx);
         } else if (DEVICE_CODE_GRANT_TYPE.equals(grantType)) {
             handleDeviceCodeGrant(ctx);
         } else {
             authEndpointSupport.respondError(ctx, 400, "unsupported_grant_type");
         }
-    }
-
-    private void handleClientCredentialsGrant(RoutingContext ctx) {
-        String clientId = ctx.request().getFormAttribute("client_id");
-        String clientSecret = ctx.request().getFormAttribute("client_secret");
-        if (clientId == null || clientId.isBlank() || clientSecret == null || clientSecret.isBlank()) {
-            authEndpointSupport.respondError(ctx, 400, "invalid_request");
-            return;
-        }
-        Future.fromCompletionStage(identityService.verifyMachineCredentials(clientId, clientSecret))
-              .onSuccess(machine -> authEndpointSupport.respondAccessToken(
-                      ctx, machine, KinoticAudience.PUBLISHED_SERVICES))
-              .onFailure(err -> {
-                  log.warn("Client credentials grant rejected for client {}", clientId);
-                  authEndpointSupport.respondError(ctx, 401, "invalid_client");
-              });
     }
 
     private void handleDeviceCodeGrant(RoutingContext ctx) {

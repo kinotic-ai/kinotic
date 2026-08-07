@@ -10,6 +10,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -35,9 +36,11 @@ import java.util.TreeMap;
  * <p>
  * <b>Two paths:</b>
  * <ol>
- *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers, with
- *       the {@code organizationId} / {@code applicationId} headers selecting the scope to look
- *       in. Looks up the {@link ParticipantIdentity} by email + scope, verifies the bcrypt password.</li>
+ *   <li><b>Client credentials</b> — {@code clientId}/{@code clientSecret} upgrade headers. A
+ *       {@code clientId} containing {@code @} is a user email, looked up within the scope the
+ *       {@code organizationId} / {@code applicationId} headers select; any other
+ *       {@code clientId} is a {@link MachineParticipantIdentity} id, whose scope comes from
+ *       the identity itself. Both verify the bcrypt secret hash.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
  *       signature, then look up the {@link ParticipantIdentity} by id from the JWT {@code sub} claim and
@@ -45,7 +48,7 @@ import java.util.TreeMap;
  *       claims. The scope headers do not select scope here — the token carries its own.</li>
  * </ol>
  * IdP JWTs are never accepted directly here — the OIDC roundtrip terminates at the gateway,
- * which mints a Kinotic JWT for the STOMP handoff.
+ * which establishes the browser session the STOMP handshake reads.
  */
 @Slf4j
 @Component
@@ -73,14 +76,20 @@ public class KinoticSecurityService implements SecurityService {
         }
 
         String authHeader = authInfo.get("Authorization");
-        String email = authInfo.get("clientId");
-        String password = authInfo.get("clientSecret");
+        String clientId = authInfo.get("clientId");
+        String clientSecret = authInfo.get("clientSecret");
 
         Future<Participant> ret;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             ret = authenticateKinoticJwt(authHeader.substring(7));
-        } else if (email != null || password != null) {
-            ret = authenticateEmailPassword(organizationId, applicationId, email, password);
+        } else if (clientId != null || clientSecret != null) {
+            // an email is a user credential; anything else is a machine identity id — machines
+            // carry their scope structurally, so the scope headers only apply to the user path
+            if (clientId != null && clientId.indexOf('@') >= 0) {
+                ret = authenticateEmailPassword(organizationId, applicationId, clientId, clientSecret);
+            } else {
+                ret = authenticateMachine(clientId, clientSecret);
+            }
         } else {
             // MCP hosts probe POST /mcp with no credentials to collect the RFC 9728 challenge, so
             // this is a routine step of the OAuth flow rather than a malformed credential attempt
@@ -126,6 +135,21 @@ public class KinoticSecurityService implements SecurityService {
                          }
                          return ret;
                      });
+    }
+
+    /**
+     * Authenticates a machine by its identity id and provisioned secret. Scope comes from the
+     * machine identity itself; every failure is the same generic error.
+     */
+    private Future<Participant> authenticateMachine(String clientId, String clientSecret) {
+        if (clientId == null || clientSecret == null) {
+            return Future.failedFuture(new AuthenticationException(
+                    "clientId and clientSecret headers are required for credential authentication"));
+        }
+        return Future.fromCompletionStage(identityService.verifyMachineCredentials(clientId, clientSecret),
+                                          vertx.getOrCreateContext())
+                     .map(machine -> (Participant) DomainUtil.createParticipant(machine))
+                     .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
     }
 
     private Future<Participant> verifyPasswordAndCreateParticipant(ParticipantIdentity user,

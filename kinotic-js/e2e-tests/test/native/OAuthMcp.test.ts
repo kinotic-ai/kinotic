@@ -1,5 +1,5 @@
-import {Kinotic, Pageable} from '@kinotic-ai/core'
-import {DelegateKind, DelegateService, MachineService, OAuthApprovalService} from '@kinotic-ai/os-api'
+import {ConnectionInfo, Kinotic, KinoticSingleton, Pageable, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
+import {DelegateKind, DelegateService, KinoticOsCredentialsAuthProvider, MachineService, OAuthApprovalService} from '@kinotic-ai/os-api'
 import type {DelegatingParticipantIdentity} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
@@ -13,7 +13,7 @@ const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
 const MACHINE_CLIENT_SECRET = 'kinotic'
 // the kinotic-test org USER the same migration seeds — a valid identity + password that must
-// nevertheless be refused by the machine grant
+// nevertheless be refused as machine credentials
 const ORG_USER_ID = '00000000-0000-0000-0000-000000000002'
 
 /**
@@ -40,7 +40,7 @@ function stompHandshake(url: string, token: string): Promise<number | 'open'> {
  * Covers the MCP authorization surface: the 401 discovery challenge, the metadata documents a host
  * reads to find the authorization server, the Client ID Metadata Document rules the authorize
  * endpoint enforces on a client_id, the device grant the CLI logs in with, and the
- * client-credentials grant machine identities authenticate through.
+ * credential-header connections machine identities authenticate with.
  *
  * The authorization-code happy path is not covered here: a client_id must be an https URL whose
  * host does not resolve to a special-use address, which no host reachable from this suite
@@ -52,6 +52,28 @@ describe('Kinotic JS', () => {
 
     const base = () => `http://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}`
     const stompUrl = () => `ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`
+
+    /**
+     * Attempts a full Kinotic client connection authenticated by machine credentials on the
+     * upgrade headers — exactly how a machine (vm-manager, an external API caller) connects.
+     */
+    async function machineConnect(clientId: string, clientSecret: string): Promise<'connected' | 'rejected'> {
+        const machineKinotic = new KinoticSingleton()
+        const ci = new ConnectionInfo()
+        ci.host = inject('KINOTIC_HOST')
+        ci.port = inject('KINOTIC_PORT')
+        ci.useSSL = false
+        ci.maxConnectionAttempts = 1
+        ci.sessionKeepAlive = SessionKeepAliveMode.NONE
+        ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, new KinoticOsCredentialsAuthProvider(clientId, clientSecret))
+        try {
+            await machineKinotic.connect(ci)
+            await machineKinotic.disconnect()
+            return 'connected'
+        } catch {
+            return 'rejected'
+        }
+    }
 
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
@@ -194,60 +216,29 @@ describe('Kinotic JS', () => {
         expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe(401)
     }, 60000)
 
-    it('advertises the client-credentials grant in the server metadata', async () => {
-        const asMetadata = await (await fetch(`${base()}/.well-known/oauth-authorization-server`)).json()
-        expect(asMetadata.grant_types_supported).toContain('client_credentials')
-        expect(asMetadata.token_endpoint_auth_methods_supported).toContain('client_secret_post')
+    it('authenticates a machine with its credentials on the connection', async () => {
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
     })
 
-    it('authenticates a machine through the client-credentials grant', async () => {
-        const tokenResponse = await fetch(`${base()}/api/auth/oauth/token`, {
+    it('rejects connections that do not prove a machine identity', async () => {
+        // wrong secret
+        expect(await machineConnect(MACHINE_CLIENT_ID, 'wrong')).toBe('rejected')
+        // unknown client
+        expect(await machineConnect('no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
+        // a USER id with its correct password — ids without '@' resolve only to machines
+        expect(await machineConnect(ORG_USER_ID, 'kinotic')).toBe('rejected')
+        // the OAuth surface no longer speaks client_credentials — machines connect, not mint
+        const grant = await fetch(`${base()}/api/auth/oauth/token`, {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({
-                grant_type: 'client_credentials',
-                client_id: MACHINE_CLIENT_ID,
-                client_secret: MACHINE_CLIENT_SECRET
-            })
+            body: new URLSearchParams({grant_type: 'client_credentials',
+                client_id: MACHINE_CLIENT_ID, client_secret: MACHINE_CLIENT_SECRET})
         })
-        expect(tokenResponse.status).toBe(200)
-        expect(tokenResponse.headers.get('Cache-Control')).toBe('no-store')
-        const tokens = await tokenResponse.json()
-
-        // RFC 6749 §4.4.3 — no refresh token; the machine re-authenticates with its secret
-        expect(tokens.refresh_token).toBeUndefined()
-        expect(tokens.access_token).toBeTruthy()
-        expect(await stompHandshake(stompUrl(), tokens.access_token)).toBe('open')
-    })
-
-    it('rejects client-credentials requests that do not prove a machine identity', async () => {
-        const token = (params: Record<string, string>) =>
-            fetch(`${base()}/api/auth/oauth/token`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({grant_type: 'client_credentials', ...params})
-            })
-
-        // missing credentials
-        expect((await token({client_id: MACHINE_CLIENT_ID})).status).toBe(400)
-        // wrong secret
-        expect((await token({client_id: MACHINE_CLIENT_ID, client_secret: 'wrong'})).status).toBe(401)
-        // unknown client
-        expect((await token({client_id: 'no-such-machine', client_secret: MACHINE_CLIENT_SECRET})).status).toBe(401)
-        // a USER id with its correct password — only MACHINE identities may use this grant
-        const userAsMachine = await token({client_id: ORG_USER_ID, client_secret: 'kinotic'})
-        expect(userAsMachine.status).toBe(401)
-        expect((await userAsMachine.json()).error).toBe('invalid_client')
+        expect(grant.status).toBe(400)
+        expect((await grant.json()).error).toBe('unsupported_grant_type')
     })
 
     it('manages the machine lifecycle through MachineService', async () => {
-        const token = (clientId: string, clientSecret: string) =>
-            fetch(`${base()}/api/auth/oauth/token`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({grant_type: 'client_credentials', client_id: clientId, client_secret: clientSecret})
-            })
-
         // the signed-in org user provisions a machine for one of the org's applications.
         // The application is created through the API: migration-seeded kinotic_application
         // rows are written with a plain _id, so the org-scoped composite-id lookup behind
@@ -258,11 +249,8 @@ describe('Kinotic JS', () => {
         const machineId = created.machine.id!
         expect(created.clientSecret).toBeTruthy()
 
-        // the provisioned credentials authenticate through the grant
-        const first = await token(machineId, created.clientSecret)
-        expect(first.status).toBe(200)
-        const firstTokens = await first.json()
-        expect(await stompHandshake(stompUrl(), firstTokens.access_token)).toBe('open')
+        // the provisioned credentials connect
+        expect(await machineConnect(machineId, created.clientSecret)).toBe('connected')
 
         // and the machine is listed for its application
         const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))
@@ -270,20 +258,19 @@ describe('Kinotic JS', () => {
 
         // rotation kills the old secret and issues a working replacement
         const rotatedSecret = await machineService.rotateSecret(machineId)
-        expect((await token(machineId, created.clientSecret)).status).toBe(401)
-        expect((await token(machineId, rotatedSecret)).status).toBe(200)
+        expect(await machineConnect(machineId, created.clientSecret)).toBe('rejected')
+        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
 
-        // disabling cuts the machine off — the grant and unexpired access tokens alike
+        // disabling cuts the machine off on its next connection
         await machineService.setMachineEnabled(machineId, false)
-        expect((await token(machineId, rotatedSecret)).status).toBe(401)
-        expect(await stompHandshake(stompUrl(), firstTokens.access_token)).toBe(401)
+        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
 
         // enabling restores access with the same secret
         await machineService.setMachineEnabled(machineId, true)
-        expect((await token(machineId, rotatedSecret)).status).toBe(200)
+        expect(await machineConnect(machineId, rotatedSecret)).toBe('connected')
 
         // removal is permanent
         await machineService.removeMachine(machineId)
-        expect((await token(machineId, rotatedSecret)).status).toBe(401)
-    }, 60000)
+        expect(await machineConnect(machineId, rotatedSecret)).toBe('rejected')
+    }, 90000)
 })

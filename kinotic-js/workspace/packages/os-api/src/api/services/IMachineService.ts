@@ -6,10 +6,10 @@ import type { MachineProvisionResult } from '@/api/model/security/MachineProvisi
 
 /**
  * Machine-identity management for the applications of the caller's organization. A machine is
- * a non-human API client of one application — it authenticates through the client-credentials
- * grant with the identity's id as client_id and a secret issued here, and acts with that
- * application's scope. The application must belong to the caller's organization, and only its
- * machines are visible or mutable.
+ * a non-human API client of one application — it connects through the Kinotic client with the
+ * identity's id as clientId and a secret issued here, and acts with that application's scope.
+ * The application must belong to the caller's organization, and only its machines are visible
+ * or mutable.
  */
 export interface IMachineService {
 
@@ -25,8 +25,8 @@ export interface IMachineService {
 
     /**
      * Replaces a machine's client secret, returning the new secret exactly once. The old
-     * secret stops working immediately; tokens the machine already holds run out on their
-     * own short TTL.
+     * secret stops working immediately; a connection the machine already holds lasts until
+     * it disconnects.
      */
     rotateSecret(machineId: string): Promise<string>
 

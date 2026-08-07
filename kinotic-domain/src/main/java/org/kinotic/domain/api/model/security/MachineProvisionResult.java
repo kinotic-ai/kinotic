@@ -2,8 +2,8 @@ package org.kinotic.domain.api.model.security;
 
 /**
  * The outcome of provisioning a {@link MachineParticipantIdentity}: the saved identity and
- * the one and only disclosure of its client secret. The machine authenticates with
- * {@code (machine.id, clientSecret)} at the token endpoint; only a hash is stored, so the
+ * the one and only disclosure of its client secret. The machine connects with
+ * {@code (machine.id, clientSecret)} as its credentials; only a hash is stored, so the
  * plaintext here is unrecoverable once discarded.
  *
  * @param machine      the provisioned machine identity

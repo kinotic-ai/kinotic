@@ -36,8 +36,8 @@
                      autocomplete="off" autofocus @keyup.enter="create" />
         </div>
         <p class="text-sm text-muted-color m-0">
-          A machine calls this application's API with the OAuth client-credentials grant, using
-          the client id and secret shown after creation.
+          A machine connects to this application's API with the Kinotic client, using the
+          client id and secret shown after creation.
         </p>
       </div>
       <template #footer>
