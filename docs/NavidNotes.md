@@ -162,6 +162,43 @@ we terminate an OIDC redirect flow — a single origin buys us the base-URL coll
 cookie. Getting to Strict would mean the callback landing on a bounce page that re-enters same-site
 before the session is read, which is a different design.
 
+### Evict sessions and kill connections when an identity is disabled or deleted
+
+Disabling or deleting a `ParticipantIdentity` writes the row and stops. Everything already
+authenticated keeps working:
+
+* `DefaultMemberService.setMemberEnabled` / `removeMember` and
+  `DefaultMachineService.setMachineEnabled` / `removeMachine` only save or delete the identity.
+  `DefaultDelegateService.revokeDelegate` is the one path that also calls
+  `refreshTokenService.revokeAllFor` — it is the model the other four should follow.
+* Access tokens live an hour (`AuthEndpointSupport.ACCESS_TOKEN_TTL_SECONDS`) and nothing
+  re-reads the identity while one is valid, so REST and MCP keep serving a deleted identity
+  until its token expires.
+* `EndpointConnectionHandler.handshake` returns success without calling
+  `securityService.authenticate` when the session already carries a `ConnectedInfo` with a
+  participant. A live session therefore outlives both the `enabled` flag and the row itself —
+  reconnecting is enough, the identity is never looked up again.
+* An open STOMP connection is never revisited at all. It authenticated once at handshake and
+  the `Participant` in `ConnectedInfo` is what authorization uses from then on.
+
+What the feature needs:
+
+* Revocation on the disable and delete paths, so a refresh token cannot mint a new access token.
+* The handshake to re-check the identity when it resumes from a session, or to stop
+  short-circuiting.
+* A way to find an identity's sessions. The store is a Vert.x `SessionStore` —
+  `ClusteredSessionStore` when clustered (`ApiGatewayConfiguration.sessionStore`) — keyed by
+  session id only, so an identity → session-id index has to exist before anything can evict by
+  identity.
+* A registry of live connections. `DefaultStompServerHandler` constructs one
+  `EndpointConnectionHandler` per connection and registers it nowhere, so today nothing can
+  enumerate or close the connections belonging to an identity.
+* Cluster-wide reach. A connection terminates on the gateway node that owns it, so eviction is a
+  broadcast, not a local map lookup.
+
+The access-token window is a separate decision from the connection kill — a shorter TTL and a
+revocation check at the entry points are two different answers and only the second closes it.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 
