@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
+import org.kinotic.orchestrator.api.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.Result;
 import org.kinotic.orchestrator.api.grind.StepCompletion;
 import org.kinotic.orchestrator.api.grind.StepInfo;
@@ -41,6 +42,7 @@ public class JobRunRecorder {
 
     public JobRunRecorder(String jobRunId,
                           JobDefinition jobDefinition,
+                          JobOwner owner,
                           String resumedFrom,
                           JobRunService jobRunService,
                           TaskRecordService taskRecordService,
@@ -53,10 +55,27 @@ public class JobRunRecorder {
                                   .setName(jobDefinition.getName())
                                   .setVersion(jobDefinition.getVersion())
                                   .setDescription(jobDefinition.getDescription())
-                                  .setOrganizationId(jobDefinition.getOrganizationId())
-                                  .setApplicationId(jobDefinition.getApplicationId())
-                                  .setProjectId(jobDefinition.getProjectId())
                                   .setResumedFrom(resumedFrom);
+        if(owner != null){
+            jobRun.setOrganizationId(owner.getOrganizationId())
+                  .setApplicationId(owner.getApplicationId())
+                  .setProjectId(owner.getProjectId());
+        }
+    }
+
+    public String getJobRunId() {
+        return jobRunId;
+    }
+
+    /**
+     * Records the owner once it is known, for a resume where the owner comes from the
+     * original run loaded after recording has begun.
+     */
+    public void ownerResolved(String organizationId, String applicationId, String projectId) {
+        jobRun.setOrganizationId(organizationId)
+              .setApplicationId(applicationId)
+              .setProjectId(projectId);
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     public void runStarted() {

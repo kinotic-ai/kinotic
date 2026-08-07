@@ -246,6 +246,33 @@ public class JobResumeTest extends AbstractGrindTest {
     }
 
     @Test
+    public void resumedRunInheritsTheOriginalRunsOwner() throws Exception {
+        AtomicBoolean shouldFail = new AtomicBoolean(true);
+        Supplier<JobDefinition> builder = () -> JobDefinition.create("owned resume").name("owned-resume")
+            .task(Tasks.fromCallable("flaky", () -> {
+                if (shouldFail.get()) {
+                    throw new IllegalStateException("first attempt fails");
+                }
+                return "ok";
+            }));
+
+        JobExecution firstRun = jobService.execute(builder.get(),
+                                                   new org.kinotic.orchestrator.api.grind.JobOwner("org-1", "app-1", null));
+        await(firstRun);
+
+        shouldFail.set(false);
+        // resume takes no owner - it comes from the original run
+        JobExecution resumed = jobService.resume(firstRun.getJobRunId(), builder.get());
+        RunOutcome outcome = await(resumed);
+
+        assertFalse(outcome.failed());
+        JobRun resumedRun = runs.saved.get(resumed.getJobRunId());
+        assertEquals("org-1", resumedRun.getOrganizationId());
+        assertEquals("app-1", resumedRun.getApplicationId());
+        assertNull(resumedRun.getProjectId());
+    }
+
+    @Test
     public void resumeRefusesACompletedRun() throws Exception {
         JobDefinition def = JobDefinition.create("done").name("done-job")
             .task(Tasks.fromCallable("fine", () -> "ok"));

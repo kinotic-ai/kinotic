@@ -14,6 +14,7 @@ import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.orchestrator.api.grind.DiagnosticLevel;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
+import org.kinotic.orchestrator.api.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.JobService;
 import org.kinotic.orchestrator.api.grind.ReplayEntry;
 import org.kinotic.orchestrator.api.grind.ReplayLedger;
@@ -67,16 +68,34 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public JobExecution execute(JobDefinition jobDefinition) {
-        return execute(jobDefinition, new ResultOptions(DiagnosticLevel.NONE, false));
+        return execute(jobDefinition, null, new ResultOptions(DiagnosticLevel.NONE, false));
     }
 
     @Override
     public JobExecution execute(JobDefinition jobDefinition, ResultOptions options) {
+        return execute(jobDefinition, null, options);
+    }
+
+    @Override
+    public JobExecution execute(JobDefinition jobDefinition, JobOwner owner) {
+        return execute(jobDefinition, owner, new ResultOptions(DiagnosticLevel.NONE, false));
+    }
+
+    @Override
+    public JobExecution execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options) {
         Validate.notNull(jobDefinition, "JobDefinition Must not be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to execute");
         Validate.notNull(options, "Options Must not be null");
 
-        return executeRecorded(jobDefinition, options, null, assembleInternal(jobDefinition, options, null));
+        JobRunRecorder recorder = new JobRunRecorder(UUID.randomUUID().toString(),
+                                                     jobDefinition,
+                                                     owner,
+                                                     null,
+                                                     jobRunService,
+                                                     taskRecordService,
+                                                     objectMapper);
+
+        return executeRecorded(recorder, assembleInternal(jobDefinition, options, null));
     }
 
     @Override
@@ -90,6 +109,14 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notNull(jobDefinition, "JobDefinition Must not be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to resume");
         Validate.notNull(options, "Options Must not be null");
+
+        JobRunRecorder recorder = new JobRunRecorder(UUID.randomUUID().toString(),
+                                                     jobDefinition,
+                                                     null,
+                                                     jobRunId,
+                                                     jobRunService,
+                                                     taskRecordService,
+                                                     objectMapper);
 
         Flux<Result<?>> results =
             Flux.defer(() -> Mono.fromFuture(() -> jobRunService.findById(jobRunId))
@@ -107,13 +134,17 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                          ret = Flux.error(new IllegalStateException("Run " + jobRunId + " is " + originalRun.getStatus()
                                                  + ", only FAILED or CANCELLED runs can be resumed"));
                                      }else{
+                                         // the resumed run belongs to whoever owned the original
+                                         recorder.ownerResolved(originalRun.getOrganizationId(),
+                                                                originalRun.getApplicationId(),
+                                                                originalRun.getProjectId());
                                          ret = Mono.fromFuture(() -> loadReplayLedger(jobRunId))
                                                    .flatMapMany(ledger -> assembleInternal(jobDefinition, options, ledger));
                                      }
                                      return ret;
                                  }));
 
-        return executeRecorded(jobDefinition, options, jobRunId, results);
+        return executeRecorded(recorder, results);
     }
 
     @Override
@@ -133,19 +164,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         });
     }
 
-    private JobExecution executeRecorded(JobDefinition jobDefinition,
-                                         ResultOptions options,
-                                         String resumedFrom,
-                                         Flux<Result<?>> results) {
-        String jobRunId = UUID.randomUUID().toString();
-
-        JobRunRecorder recorder = new JobRunRecorder(jobRunId,
-                                                     jobDefinition,
-                                                     resumedFrom,
-                                                     jobRunService,
-                                                     taskRecordService,
-                                                     objectMapper);
-
+    private JobExecution executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
         Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> recorder.runStarted())
                                           .doOnNext(recorder::record)
                                           .doOnError(recorder::runFailed)
@@ -153,7 +172,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                           .doOnComplete(recorder::runCompleted);
 
         // JobExecution multicasts, so these hooks see one subscription no matter how many subscribers attach
-        return new JobExecution(jobRunId, recorded);
+        return new JobExecution(recorder.getJobRunId(), recorded);
     }
 
     /**

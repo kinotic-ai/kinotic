@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
+import org.kinotic.orchestrator.api.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.Task;
 import org.kinotic.orchestrator.api.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -202,13 +203,11 @@ public class JobServiceTest extends AbstractGrindTest {
 
     @Test
     public void ownerHierarchyIsRecordedOnTheRun() throws Exception {
+        // the definition is a system-wide template; ownership is declared per execution
         JobDefinition def = JobDefinition.create("owned job").name("owned-job")
-            .organizationId("org-1")
-            .applicationId("app-1")
-            .projectId("proj-1")
             .task(Tasks.fromCallable("work", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def);
+        JobExecution execution = jobService.execute(def, new JobOwner("org-1", "app-1", "proj-1"));
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
