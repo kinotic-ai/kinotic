@@ -8,6 +8,7 @@ import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
+import org.kinotic.orchestrator.api.grind.Task;
 import org.kinotic.orchestrator.api.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -196,6 +198,73 @@ public class JobServiceTest extends AbstractGrindTest {
         assertEquals(StoreType.STATE, kept.getStoreType());
         assertNotNull(kept.getResultValue());
         assertTrue(kept.getResultValueType().endsWith("Widget"));
+    }
+
+    @Test
+    public void parallelJobExecutesAllTasks() throws Exception {
+        JobDefinition def = JobDefinition.create("parallel test", true).name("parallel-test");
+        for (int i = 1; i <= 5; i++) {
+            final int taskNumber = i;
+            def.task(Tasks.fromCallable("parallel task " + taskNumber, () -> {
+                Thread.sleep(taskNumber * 10L);
+                return taskNumber;
+            }));
+        }
+
+        RunOutcome outcome = await(jobService.execute(def));
+
+        assertFalse(outcome.failed());
+        // parallel execution guarantees completion, not order
+        for (int i = 1; i <= 5; i++) {
+            assertTrue(outcome.values().contains(i), "task " + i + " must have executed");
+        }
+    }
+
+    @Test
+    public void taskReturningTaskExecutesItWithTheStepsStoreSettings() throws Exception {
+        JobDefinition def = JobDefinition.create("task supplier").name("task-supplier")
+            .taskStoreState(Tasks.fromCallable("make widget", () -> new Widget("deferred")))
+            .taskStoreResult(Tasks.fromSupplier("supply task", new Supplier<Task<String>>() {
+                @Autowired
+                private Widget widget;
+                public Task<String> get() { return Tasks.fromValue("supplied value", widget.label + "!"); }
+            }), "supplied")
+            .task(Tasks.fromCallable("read supplied", new Callable<String>() {
+                @Value("${supplied}")
+                private String supplied;
+                public String call() { return supplied; }
+            }));
+
+        RunOutcome outcome = await(jobService.execute(def));
+
+        assertFalse(outcome.failed());
+        assertEquals(2, outcome.values().stream().filter("deferred!"::equals).count(),
+                     "the returned task's value must be emitted and stored under the declaring step's name");
+    }
+
+    @Test
+    public void taskReturningJobDefinitionExecutesItsSteps() throws Exception {
+        JobDefinition def = JobDefinition.create("sub job").name("sub-job")
+            .taskStoreResult(Tasks.fromValue("task count", 3), "taskCount")
+            .task(Tasks.fromCallable("build sub job", new Callable<JobDefinition>() {
+                @Value("${taskCount}")
+                private int taskCount;
+                public JobDefinition call() {
+                    JobDefinition subJob = JobDefinition.create("generated sub job");
+                    for (int i = 1; i <= taskCount; i++) {
+                        final int taskNumber = i;
+                        subJob.task(Tasks.fromCallable("sub task " + taskNumber, () -> "sub-" + taskNumber));
+                    }
+                    return subJob;
+                }
+            }));
+
+        RunOutcome outcome = await(jobService.execute(def));
+
+        assertFalse(outcome.failed());
+        for (int i = 1; i <= 3; i++) {
+            assertTrue(outcome.values().contains("sub-" + i), "generated step " + i + " must have executed");
+        }
     }
 
     @Test
