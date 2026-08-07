@@ -1,6 +1,6 @@
 import {EventConstants, type IEvent} from '@/api/event/IEventBus'
 import {Event} from '@/api/event/EventBus'
-import {type ConnectOptions, type ServerInfo, SessionKeepAliveMode} from '@/api/ConnectOptions'
+import {type ConnectOptions, SessionKeepAliveMode} from '@/api/ConnectOptions'
 import {ChainedCredentialsResolver} from '@/api/security/ChainedCredentialsResolver'
 import {EnvCredentialsResolver} from '@/api/security/EnvCredentialsResolver'
 import {SessionCredentialsResolver} from '@/api/security/SessionCredentialsResolver'
@@ -47,19 +47,6 @@ export class Util {
         }
 
         return new Event(replyCRI, newHeaders, body || undefined)
-    }
-
-    /**
-     * Builds the WebSocket broker URL the STOMP client connects to for a given server.
-     *
-     * Single source of truth for the broker path: used by {@link StompConnectionManager}
-     * and by {@link createAuthenticatedWebSocketFactory}, so a Node/Bun caller that supplies
-     * its own {@link WebSocketFactory} never has to re-type the path and drift from core.
-     */
-    public static buildBrokerUrl(serverInfo: ServerInfo): string {
-        return 'ws' + (serverInfo.useSSL ? 's' : '')
-            + '://' + serverInfo.host
-            + (serverInfo.port ? ':' + serverInfo.port : '') + '/v1'
     }
 
     /**

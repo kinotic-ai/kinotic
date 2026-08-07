@@ -1,13 +1,13 @@
 import {describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
 import {ConnectedInfo, type ConnectOptions, Kinotic, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {ensureNodeWebSocket} from '../src/node'
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
-import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
+import { logFailure, testCredentials, validateConnectedInfo } from './TestHelper'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
-// This is required when running Kinotic from node
-Object.assign(global, { WebSocket})
+// credential headers ride the WebSocket upgrade, which needs the header-capable ws WebSocket
+ensureNodeWebSocket()
 
 // These tests live in their own fle because if working improperly, the can cause the test to hang
 describe('Kinotic JS', () => {
@@ -22,7 +22,7 @@ describe('Kinotic JS', () => {
             ci.host = host
             ci.port = port
             ci.maxConnectionAttempts = 3
-            ci.webSocketFactory = authedWebSocketFactory(host, port)
+            ci.credentials = testCredentials()
 
             // The reconnect-exhausted failure carries the underlying WS/DNS error as the Error cause
             // rather than concatenating its (environment-specific) text into the message.
@@ -39,7 +39,7 @@ describe('Kinotic JS', () => {
            {"timeout": 1000 * 60 * 3},
            async () => {
                let container: StartedTestContainer
-               let connectionInfo: ConnectOptions = {host: ""}
+               let connectOptions: ConnectOptions = {host: ""}
 
                // Start the Kinotic Gateway container
                console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')
@@ -51,19 +51,19 @@ describe('Kinotic JS', () => {
                    .withName('maxretries-container')
                    .start()
 
-               // Create connection info with default activity-based session keep alive
-               connectionInfo.host = container.getHost()
-               connectionInfo.port = 58590
-               connectionInfo.maxConnectionAttempts = 3
-               connectionInfo.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY
-               connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host, connectionInfo.port)
-               console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
+               // Create connect options with default activity-based session keep alive
+               connectOptions.host = container.getHost()
+               connectOptions.port = 58590
+               connectOptions.maxConnectionAttempts = 3
+               connectOptions.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY
+               connectOptions.credentials = testCredentials()
+               console.log(`Kinotic Gateway running at ${connectOptions.host}:${connectOptions.port}`)
 
                const continuum = new KinoticSingleton()
-               let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
+               let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
                                                                    'Failed to connect to Kinotic Gateway')
                validateConnectedInfo(connectedInfo)
-               console.log(`Kinotic Gateway started at ${connectionInfo.host}:${connectionInfo.port}`)
+               console.log(`Kinotic Gateway started at ${connectOptions.host}:${connectOptions.port}`)
 
                const testService = new TestService(continuum)
 

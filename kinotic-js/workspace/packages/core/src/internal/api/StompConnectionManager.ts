@@ -1,6 +1,5 @@
-import {type ConnectOptions, type IWebSocket, type ServerInfo, SessionKeepAliveMode} from '@/api/ConnectOptions'
+import {buildBrokerUrl, buildServerUrl, type ConnectOptions, type IWebSocket, type ServerInfo, SessionKeepAliveMode, toServerInfo} from '@/api/ConnectOptions'
 import type {CredentialsResolver} from '@/api/security/CredentialsResolver'
-import {Util} from '@/internal/api/Util'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
@@ -86,7 +85,7 @@ export class StompConnectionManager {
             throw new Error('Stomp connection already active')
         }
 
-        const server: ServerInfo = {host: options.host, port: options.port, useSSL: options.useSSL}
+        const server: ServerInfo = toServerInfo(options)
         const credentialsResolver: CredentialsResolver | undefined = options.credentials
 
         // The connection's auth mode is fixed for its life: a user factory owns the socket
@@ -112,7 +111,7 @@ export class StompConnectionManager {
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
 
-            const url = Util.buildBrokerUrl(server)
+            const url = buildBrokerUrl(server)
 
             this.rxStomp = new RxStomp()
 
@@ -144,10 +143,7 @@ export class StompConnectionManager {
                     // and surfaces a fatal error on a later reconnect, instead of looping on an
                     // unauthenticated socket. Other statuses (incl. a server without the route) proceed.
                     if(!usesPreparedSocket){
-                        const sessionCheckUrl = 'http' + (server.useSSL ? 's' : '')
-                            + '://' + server.host
-                            + (server.port ? ':' + server.port : '')
-                            + SESSION_CHECK_PATH
+                        const sessionCheckUrl = buildServerUrl(server, 'http') + SESSION_CHECK_PATH
                         try {
                             const res = await fetch(sessionCheckUrl, { credentials: 'include' })
                             if(res.status === 401){

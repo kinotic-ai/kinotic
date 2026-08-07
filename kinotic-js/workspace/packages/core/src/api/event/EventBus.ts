@@ -1,4 +1,4 @@
-import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
+import {type ConnectOptions, ServerInfo, toServerInfo} from '@/api/ConnectOptions'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
@@ -113,11 +113,7 @@ export class EventBus implements IEventBus {
                 this.cleanup()
 
                 const connectedInfo = await this.stompConnectionManager.activate(options)
-                // manually copy so we don't store any sensitive info
-                this.serverInfo = new ServerInfo()
-                this.serverInfo.host = options.host as string
-                this.serverInfo.port = options.port
-                this.serverInfo.useSSL = options.useSSL
+                this.serverInfo = toServerInfo(options)
 
                 this.replyToCri = this.stompConnectionManager.replyToCri
 

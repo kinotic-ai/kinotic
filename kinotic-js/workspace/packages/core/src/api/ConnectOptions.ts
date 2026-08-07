@@ -33,6 +33,37 @@ export class ServerInfo {
     useSSL?: boolean | null
 }
 
+/**
+ * Builds the base URL of a server for the given scheme stem ({@code 'ws'} or {@code 'http'}):
+ * TLS appends {@code s}, and the port is omitted when absent so the scheme default applies.
+ */
+export function buildServerUrl(server: ServerInfo, scheme: 'ws' | 'http'): string {
+    return scheme + (server.useSSL ? 's' : '')
+        + '://' + server.host
+        + (server.port ? ':' + server.port : '')
+}
+
+/**
+ * Builds the WebSocket broker URL the STOMP client connects to for a given server — the
+ * single source of truth for the broker path, so a caller supplying its own
+ * {@link WebSocketFactory} never re-types it and drifts from core.
+ */
+export function buildBrokerUrl(server: ServerInfo): string {
+    return buildServerUrl(server, 'ws') + '/v1'
+}
+
+/**
+ * Copies the server fields of resolved {@link ConnectOptions} into a {@link ServerInfo},
+ * leaving credential material behind.
+ */
+export function toServerInfo(options: ConnectOptions): ServerInfo {
+    const serverInfo = new ServerInfo()
+    serverInfo.host = options.host as string
+    serverInfo.port = options.port
+    serverInfo.useSSL = options.useSSL
+    return serverInfo
+}
+
 export enum SessionKeepAliveMode {
     NONE = 'NONE',
     ACTIVITY = 'ACTIVITY',

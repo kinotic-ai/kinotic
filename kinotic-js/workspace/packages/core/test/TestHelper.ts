@@ -1,7 +1,6 @@
-import {ConnectedInfo, type ConnectOptions, type CredentialsResolver, type IWebSocket, SessionKeepAliveMode, type WebSocketFactory} from '../src'
+import {ConnectedInfo, type ConnectOptions, type CredentialsResolver, SessionKeepAliveMode} from '../src'
 import {ensureNodeWebSocket} from '../src/node'
 import { expect, inject } from 'vitest'
-import { WebSocket } from 'ws'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -65,27 +64,6 @@ export function validateConnectedInfo(connectedInfo: ConnectedInfo, roles?: stri
     }
 }
 
-function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
-    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
-}
-
-/**
- * Builds a webSocketFactory that attaches the given auth headers — merged
- * over the default kinotic-test credentials — to the WebSocket upgrade. The
- * async provider form lets callers refresh headers on every (re)connect.
- */
-export function authedWebSocketFactory(host: string,
-                                       port: number,
-                                       authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>),
-                                       useSSL: boolean = false): WebSocketFactory {
-    const wsUrl = buildWsUrl(host, port, useSSL)
-    return async () => {
-        const overrides = typeof authHeaders === 'function' ? await authHeaders() : (authHeaders ?? {})
-        const headers: AuthHeaders = { ...DEFAULT_AUTH_HEADERS, ...overrides }
-        return new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
-    }
-}
-
 /**
  * A {@link CredentialsResolver} producing the given auth headers merged over the default
  * kinotic-test credentials. The supplier form is consulted on every (re)connect.
@@ -95,7 +73,11 @@ export function testCredentials(authHeaders?: Partial<AuthHeaders> | (() => Prom
         name: 'TestCredentialsResolver',
         async resolve() {
             const overrides = typeof authHeaders === 'function' ? await authHeaders() : (authHeaders ?? {})
-            return {authHeaders: {...DEFAULT_AUTH_HEADERS, ...overrides} as unknown as Record<string, string>}
+            const merged = {...DEFAULT_AUTH_HEADERS, ...overrides}
+            const headers: Record<string, string> = {clientId: merged.clientId, clientSecret: merged.clientSecret}
+            if (merged.organizationId != null) headers.organizationId = merged.organizationId
+            if (merged.applicationId != null) headers.applicationId = merged.applicationId
+            return {authHeaders: headers}
         }
     }
 }
