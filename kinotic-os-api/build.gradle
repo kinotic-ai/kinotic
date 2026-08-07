@@ -5,6 +5,7 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
+    implementation project(':kinotic-orchestrator')
     implementation project(':kinotic-idl')
 
     implementation 'io.vertx:vertx-core'
