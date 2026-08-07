@@ -6,6 +6,9 @@ import org.kinotic.domain.api.model.grind.ExecutionStatus;
 import org.kinotic.domain.api.model.grind.JobRun;
 import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.domain.api.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
 import org.kinotic.orchestrator.api.grind.JobOwner;
@@ -215,6 +218,25 @@ public class JobServiceTest extends AbstractGrindTest {
         assertEquals("org-1", run.getOrganizationId());
         assertEquals("app-1", run.getApplicationId());
         assertEquals("proj-1", run.getProjectId());
+    }
+
+    @Test
+    public void jobOwnerMapsFromEachParticipantScope() {
+        assertNull(JobOwner.from(DefaultSystemParticipant.builder().id("sys").build()),
+                   "a system participant owns platform runs");
+
+        JobOwner org = JobOwner.from(DefaultOrganizationParticipant.builder()
+                                                                   .id("user-1").organizationId("org-1").build());
+        assertEquals("org-1", org.getOrganizationId());
+        assertNull(org.getApplicationId());
+
+        JobOwner app = JobOwner.from(DefaultApplicationParticipant.builder()
+                                                                  .id("user-1").organizationId("org-1")
+                                                                  .applicationId("app-1").build(),
+                                     "proj-1");
+        assertEquals("org-1", app.getOrganizationId());
+        assertEquals("app-1", app.getApplicationId());
+        assertEquals("proj-1", app.getProjectId());
     }
 
     @Test
