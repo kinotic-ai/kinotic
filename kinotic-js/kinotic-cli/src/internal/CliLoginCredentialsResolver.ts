@@ -2,7 +2,7 @@ import type {CredentialsResolver, ResolvedCredentials, ServerInfo} from '@kinoti
 import {createStateManager} from './state/IStateManager'
 
 /** OAuth 2.0 token response returned by the server's token endpoint. */
-interface TokenResponse {
+export interface TokenResponse {
     access_token: string
     refresh_token: string
     expires_in?: number

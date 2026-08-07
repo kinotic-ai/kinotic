@@ -3,15 +3,8 @@ import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {CliLoginCredentialsResolver} from './CliLoginCredentialsResolver'
+import {CliLoginCredentialsResolver, type TokenResponse} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
-
-/** OAuth 2.0 token response returned by the device-authorization endpoints. */
-interface DeviceTokens {
-    access_token: string
-    refresh_token: string
-    expires_in?: number
-}
 
 /** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
 interface ServerTarget {
@@ -129,7 +122,7 @@ export class CliAuthenticator {
     }
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
-    private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
+    private async deviceLogin(restBaseUrl: string): Promise<TokenResponse | null> {
         const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
             method: 'POST',
             headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -169,7 +162,7 @@ export class CliAuthenticator {
                 signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
             })
             if (tokenRes.ok) {
-                return await tokenRes.json() as DeviceTokens
+                return await tokenRes.json() as TokenResponse
             }
             const error = await readErrorCode(tokenRes)
             if (error === 'slow_down') {
