@@ -1,15 +1,53 @@
 import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
 import { loadConfig } from 'c12'
 import path from 'path'
+import fs from 'fs'
 import fsPromises from 'fs/promises'
 import { Liquid } from 'liquidjs'
 import { fileURLToPath } from 'url'
 
 /**
- * Returns the absolute path to the current project's .config directory.
+ * Returns the absolute path to the project's .config directory: the nearest one at or above
+ * the working directory holding a kinotic.config.* file, so CLI commands work from any
+ * directory inside the project. Falls back to the working directory's .config when no
+ * project config exists yet (a project being initialized).
  */
 export function resolveKinoticConfigDir(): string {
-    return path.resolve(process.cwd(), '.config')
+    let ret = path.resolve(process.cwd(), '.config')
+    let dir = process.cwd()
+    for (;;) {
+        const candidate = path.join(dir, '.config')
+        if (hasKinoticConfigFile(candidate)) {
+            ret = candidate
+            break
+        }
+        const parent = path.dirname(dir)
+        if (parent === dir) {
+            break
+        }
+        dir = parent
+    }
+    return ret
+}
+
+/**
+ * Changes the working directory to the project root — the parent of the resolved .config
+ * directory — so the cwd-relative paths commands rely on (tsconfig.json, entitiesPaths,
+ * ./migrations) resolve against the project no matter which subdirectory the command ran
+ * from. Call after confirming {@link isKinoticProject}.
+ */
+export function chdirToProjectRoot(): void {
+    process.chdir(path.dirname(resolveKinoticConfigDir()))
+}
+
+function hasKinoticConfigFile(configDir: string): boolean {
+    let ret = false
+    try {
+        ret = fs.readdirSync(configDir).some(f => f.startsWith('kinotic.config.'))
+    } catch {
+        // no .config directory at this level
+    }
+    return ret
 }
 
 /**
@@ -146,10 +184,10 @@ export async function loadKinoticProjectConfig(): Promise<KinoticProjectConfig> 
     if (!result) {
         throw new Error('No kinotic project config found and not a legacy project')
     }
-    // If name is not set, try to load from package.json in cwd
+    // If name is not set, try to load from package.json in the project root
     if (!result.name || !result.description) {
         try {
-            const pkgPath = path.resolve(process.cwd(), 'package.json')
+            const pkgPath = path.resolve(configDir, '..', 'package.json')
             const pkgRaw = await fsPromises.readFile(pkgPath, 'utf-8')
             const pkg = JSON.parse(pkgRaw)
             if (!result.name && pkg.name) {

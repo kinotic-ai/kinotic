@@ -1,6 +1,7 @@
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {Command, Flags} from '@oclif/core'
 import {
+    chdirToProjectRoot,
     isKinoticProject,
     loadKinoticProjectConfig
 } from '@/internal/state/KinoticProjectConfigUtil'
@@ -28,6 +29,7 @@ export class Generate extends Command {
         if(!(await isKinoticProject())){
             this.error('The working directory is not a Kinotic Project')
         }
+        chdirToProjectRoot()
 
         const kinoticProjectConfig = await loadKinoticProjectConfig()
 

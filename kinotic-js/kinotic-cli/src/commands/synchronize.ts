@@ -1,4 +1,4 @@
-import {isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
+import {chdirToProjectRoot, isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
 import {FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
 import {EntityDefinition,
@@ -10,14 +10,11 @@ import {EntityDefinition,
         ProjectType} from '@kinotic-ai/os-api'
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
-import {WebSocket} from 'ws'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
 import {resolveServer} from '@/internal/state/Environment'
 import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
-// This is required when running Kinotic from node
-Object.assign(global, { WebSocket})
 Kinotic.use(OsApiPlugin)
 
 export class Synchronize extends Command {
@@ -49,6 +46,7 @@ export class Synchronize extends Command {
             if(!(await isKinoticProject())){
                 this.error('The working directory is not a Kinotic Project')
             }
+            chdirToProjectRoot()
 
             const kinoticProjectConfig = await loadKinoticProjectConfig()
 
