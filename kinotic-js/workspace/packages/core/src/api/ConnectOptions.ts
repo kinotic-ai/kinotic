@@ -43,8 +43,9 @@ export enum SessionKeepAliveMode {
  * Options for {@link IKinotic#connect}. Every field is optional: absent server fields resolve
  * from the environment (the {@code KINOTIC_SERVER_HOST} / {@code KINOTIC_SERVER_PORT} /
  * {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own location, then
- * {@code localhost:58503}), and absent {@link credentials} resolve through the default
- * {@link ChainedCredentialsResolver} (environment variables, then the browser session).
+ * {@code https://api.kinotic.com}), and absent {@link credentials} resolve through the
+ * default {@link ChainedCredentialsResolver} (environment variables, then the browser
+ * session).
  *
  * Authentication is performed during the WebSocket upgrade (handshake), not in the STOMP
  * CONNECT frame: the resolved credentials supply the upgrade headers, or none for

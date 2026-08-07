@@ -4,15 +4,18 @@ import {ChainedCredentialsResolver} from '@/api/security/ChainedCredentialsResol
 import {EnvCredentialsResolver} from '@/api/security/EnvCredentialsResolver'
 import {SessionCredentialsResolver} from '@/api/security/SessionCredentialsResolver'
 
-/** The port a local kinotic-server listens on; the last-resort default everywhere. */
+/** The port a kinotic-server listens on when running without TLS termination in front. */
 const DEFAULT_PORT = 58503
+
+/** Where a fully unconfigured client connects: the Kinotic cloud. */
+const DEFAULT_HOST = 'api.kinotic.com'
 
 /**
  * Fills every absent {@link ConnectOptions} field from the environment. Server fields
  * resolve explicit value → {@code KINOTIC_SERVER_HOST/PORT/USE_SSL} → the browser's own
  * location (only when the host itself came from the location, so an explicit cross-origin
- * host never inherits the page's port) → {@code localhost:58503}. Absent credentials get the
- * default chain: environment variables, then the browser session.
+ * host never inherits the page's port) → {@code https://api.kinotic.com}. Absent credentials
+ * get the default chain: environment variables, then the browser session.
  */
 export function resolveConnectOptions(options?: ConnectOptions): ConnectOptions {
     const opts = options ?? {}
@@ -21,8 +24,9 @@ export function resolveConnectOptions(options?: ConnectOptions): ConnectOptions 
 
     let host = opts.host ?? env?.KINOTIC_SERVER_HOST
     const hostFromLocation = host == null && location != null
+    const hostDefaulted = host == null && location == null
     if (host == null) {
-        host = location?.hostname ?? 'localhost'
+        host = location?.hostname ?? DEFAULT_HOST
     }
 
     let useSSL = opts.useSSL
@@ -32,7 +36,8 @@ export function resolveConnectOptions(options?: ConnectOptions): ConnectOptions 
         } else if (hostFromLocation) {
             useSSL = location!.protocol === 'https:'
         } else {
-            useSSL = false
+            // the cloud endpoint is always TLS; a named host states its own preference
+            useSSL = hostDefaulted
         }
     }
 
