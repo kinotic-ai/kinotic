@@ -1,13 +1,13 @@
-package org.kinotic.orchestrator.internal.api.workload;
+package org.kinotic.orchestrator.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.orchestrator.api.services.VmNodeService;
 import org.kinotic.orchestrator.api.services.WorkloadService;
-import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
+import org.kinotic.orchestrator.api.services.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
-import org.kinotic.orchestrator.api.workload.WorkloadOrchestrationService;
+import org.kinotic.orchestrator.api.services.WorkloadOrchestrationService;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;

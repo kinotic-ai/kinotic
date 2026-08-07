@@ -1,7 +1,12 @@
 
 
-package org.kinotic.orchestrator.api.model.grind;
+package org.kinotic.orchestrator.api.services;
 
+import org.kinotic.orchestrator.api.model.grind.JobDefinition;
+import org.kinotic.orchestrator.api.model.grind.JobExecution;
+import org.kinotic.orchestrator.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.Result;
+import org.kinotic.orchestrator.api.model.grind.ResultOptions;
 import reactor.core.publisher.Flux;
 
 /**

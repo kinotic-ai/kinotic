@@ -1,4 +1,4 @@
-package org.kinotic.orchestrator.internal.api.workload;
+package org.kinotic.orchestrator.internal.api.services;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -9,7 +9,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.config.VmNodeProperties;
-import org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService;
+import org.kinotic.orchestrator.api.services.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
 import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
 import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;

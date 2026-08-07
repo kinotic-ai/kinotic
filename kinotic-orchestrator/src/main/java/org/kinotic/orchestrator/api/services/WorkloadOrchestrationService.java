@@ -1,4 +1,4 @@
-package org.kinotic.orchestrator.api.workload;
+package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.orchestrator.api.model.workload.Workload;

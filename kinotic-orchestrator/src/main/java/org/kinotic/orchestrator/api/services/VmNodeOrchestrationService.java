@@ -1,9 +1,11 @@
-package org.kinotic.orchestrator.api.workload;
+package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
 import org.kinotic.orchestrator.api.services.VmNodeService;
 
+import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
+import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
