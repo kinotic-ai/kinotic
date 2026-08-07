@@ -1,8 +1,8 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {ConnectionInfo, IAuthProvider, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
-import {WebSocket} from 'ws'
+import {BasicCredentialsResolver, type ConnectOptions, type CredentialsResolver, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode} from '@kinotic-ai/core'
+import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -13,7 +13,6 @@ import {
     OsApiPlugin,
     EntityDefinition,
     KinoticProjectConfig,
-    KinoticOsCredentialsAuthProvider,
     NamedQueriesDefinition,
     QueryDecorator,
     Project
@@ -31,9 +30,8 @@ import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
 import {Vehicle, Wheel} from './domain/Vehicle.js'
 
-// core's createAuthenticatedWebSocketFactory builds the upgrade socket from the global
-// WebSocket; bind it to the `ws` implementation these tests run against.
-Object.assign(global, {WebSocket})
+// header-credential connects need a WebSocket constructor that accepts upgrade headers
+ensureNodeWebSocket()
 
 Kinotic.use(OsApiPlugin)
 
@@ -46,14 +44,14 @@ let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationR
 /** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
 const E2E_ORGANIZATION_ID = 'kinotic-test'
 
-function buildConnectionInfo(host: string, port: number, authProvider: IAuthProvider): ConnectionInfo {
-    const ci = new ConnectionInfo()
-    ci.host = host
-    ci.port = port
-    ci.useSSL = false
-    ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, authProvider)
-    return ci
+function buildConnectOptions(host: string, port: number, credentials: CredentialsResolver): ConnectOptions {
+    return {
+        host,
+        port,
+        useSSL: false,
+        sessionKeepAlive: SessionKeepAliveMode.NONE,
+        credentials
+    }
 }
 
 export async function initKinoticClient(): Promise<void> {
@@ -65,8 +63,8 @@ export async function initKinoticClient(): Promise<void> {
 
         console.log('Connecting to Kinotic at ' + host)
 
-        await Kinotic.connect(buildConnectionInfo(host, port,
-            new KinoticOsCredentialsAuthProvider('kinotic@kinotic.local', 'kinotic', E2E_ORGANIZATION_ID)))
+        await Kinotic.connect(buildConnectOptions(host, port,
+            new BasicCredentialsResolver('kinotic@kinotic.local', 'kinotic', E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -102,8 +100,8 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectionInfo(host, port,
-        new KinoticOsCredentialsAuthProvider(email, 'kinotic', E2E_ORGANIZATION_ID, applicationId)))
+    await appKinotic.connect(buildConnectOptions(host, port,
+        new BasicCredentialsResolver(email, 'kinotic', E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
 }
 

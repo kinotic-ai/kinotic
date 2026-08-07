@@ -1,5 +1,5 @@
-import {ConnectionInfo, Kinotic, KinoticSingleton, Pageable, SessionKeepAliveMode, createAuthenticatedWebSocketFactory} from '@kinotic-ai/core'
-import {KinoticOsCredentialsAuthProvider, MachineService} from '@kinotic-ai/os-api'
+import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable, SessionKeepAliveMode} from '@kinotic-ai/core'
+import {MachineService} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
 import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
@@ -27,16 +27,15 @@ describe('Kinotic JS', () => {
     async function machineConnect(clientId: string, clientSecret: string,
                                   organizationId?: string, applicationId?: string): Promise<'connected' | 'rejected'> {
         const machineKinotic = new KinoticSingleton()
-        const ci = new ConnectionInfo()
-        ci.host = inject('KINOTIC_HOST')
-        ci.port = inject('KINOTIC_PORT')
-        ci.useSSL = false
-        ci.maxConnectionAttempts = 1
-        ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-        ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci,
-            new KinoticOsCredentialsAuthProvider(clientId, clientSecret, organizationId, applicationId))
         try {
-            await machineKinotic.connect(ci)
+            await machineKinotic.connect({
+                host: inject('KINOTIC_HOST'),
+                port: inject('KINOTIC_PORT'),
+                useSSL: false,
+                maxConnectionAttempts: 1,
+                sessionKeepAlive: SessionKeepAliveMode.NONE,
+                credentials: new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)
+            })
             await machineKinotic.disconnect()
             return 'connected'
         } catch {
@@ -80,10 +79,9 @@ describe('Kinotic JS', () => {
         })
         expect(grant.status).toBe(400)
         expect((await grant.json()).error).toBe('unsupported_grant_type')
-        // each rejected connect costs a jitter delay + reconnect cycle before the client
-        // gives up (maxConnectionAttempts is only checked on the NEXT attempt), so five
-        // rejections need far more than the default 5s test timeout
-    }, 120000)
+        // every connect pays the client's connection jitter delay before its only attempt,
+        // so five rejections need more than the default 5s test timeout
+    }, 60000)
 
     it('manages the machine lifecycle through MachineService', async () => {
         // the signed-in org user provisions a machine for one of the org's applications.
