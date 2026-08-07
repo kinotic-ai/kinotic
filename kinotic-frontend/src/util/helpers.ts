@@ -1,45 +1,34 @@
-import {ConnectionInfo} from "@kinotic-ai/core";
+import type {ConnectOptions} from "@kinotic-ai/core";
 import type {ToastServiceMethods} from "primevue/toastservice";
 
-export function createConnectionInfo(): ConnectionInfo {
-    // Use build time variable if available, otherwise use default
-    const envPort = import.meta.env.VITE_KINOTIC_PORT ? parseInt(import.meta.env.VITE_KINOTIC_PORT) : 58503
-    const envHost = import.meta.env.VITE_KINOTIC_HOST ? import.meta.env.VITE_KINOTIC_HOST : 'localhost'
-    let envUseSSL = import.meta.env.VITE_KINOTIC_USE_SSL ? import.meta.env.VITE_KINOTIC_USE_SSL === 'true' : false
-
-    if(!import.meta.env.VITE_KINOTIC_USE_SSL
-        && window.location.protocol.startsWith('https')){
-        envUseSSL = true
+/**
+ * The gateway overrides the VITE_KINOTIC_HOST/PORT/USE_SSL build vars declare, for both the
+ * STOMP connect and REST URLs. With no VITE_KINOTIC_HOST the object is empty and core's own
+ * resolution applies — the page's location, so a same-origin deployment (SPA served from
+ * kinotic-server's webroot) and vite's dev proxy both work untouched.
+ */
+export function serverOverrides(): Pick<ConnectOptions, 'host' | 'port' | 'useSSL'> {
+    const host = import.meta.env.VITE_KINOTIC_HOST
+    if (!host) return {}
+    const port = import.meta.env.VITE_KINOTIC_PORT ? parseInt(import.meta.env.VITE_KINOTIC_PORT) : 58503
+    let useSSL = import.meta.env.VITE_KINOTIC_USE_SSL ? import.meta.env.VITE_KINOTIC_USE_SSL === 'true' : false
+    if (!import.meta.env.VITE_KINOTIC_USE_SSL
+        && window.location.protocol.startsWith('https')) {
+        useSSL = true
     }
-
-    const connectionInfo = new ConnectionInfo()
-    connectionInfo.host = envHost
-    connectionInfo.port = envPort
-    connectionInfo.useSSL = envUseSSL
-    return connectionInfo
+    return {host, port, useSSL}
 }
 
 /**
- * Builds the absolute URL for a kinotic-server REST endpoint, reusing the same
- * VITE_KINOTIC_HOST/PORT/USE_SSL env vars STOMP uses. Returns the path unchanged
- * when VITE_KINOTIC_HOST is unset so vite's dev proxy handles it (and so a
- * same-origin production deployment — SPA served from kinotic-server's webroot —
- * still works).
+ * Builds the absolute URL for a kinotic-server REST endpoint from the same overrides the
+ * STOMP connect uses. Returns the path unchanged when no host override is set so vite's dev
+ * proxy handles it (and so a same-origin production deployment still works).
  */
 export function apiUrl(path: string): string {
-    const host = import.meta.env.VITE_KINOTIC_HOST
     const suffix = path.startsWith('/') ? path : `/${path}`
+    const {host, port, useSSL} = serverOverrides()
     if (!host) return suffix
-    const port = import.meta.env.VITE_KINOTIC_PORT || '58503'
-    let useSSL = import.meta.env.VITE_KINOTIC_USE_SSL ? import.meta.env.VITE_KINOTIC_USE_SSL === 'true' : false
-
-    if(!import.meta.env.VITE_KINOTIC_USE_SSL
-        && window.location.protocol.startsWith('https')){
-        useSSL = true
-    }
-
-    const protocol = useSSL ? 'https' : 'http'
-    return `${protocol}://${host}:${port}${suffix}`
+    return `${useSSL ? 'https' : 'http'}://${host}:${port}${suffix}`
 }
 
 /**

@@ -110,7 +110,7 @@
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.2",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.9.7",
         "@kinotic-ai/core": "workspace:*",

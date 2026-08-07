@@ -15,10 +15,10 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@kinotic-ai/core": "^5.0.0-beta.1",
+    "@kinotic-ai/core": "^5.0.0-beta.2",
     "@kinotic-ai/idl": "^5.0.0-beta.0",
-    "@kinotic-ai/os-api": "^5.0.0-beta.2",
-    "@kinotic-ai/persistence": "^5.0.0-beta.1",
+    "@kinotic-ai/os-api": "^5.0.0-beta.3",
+    "@kinotic-ai/persistence": "^5.0.0-beta.2",
     "@mdi/js": "^7.4.47",
     "@primeuix/themes": "^2.0.3",
     "@vue-flow/background": "^1.3.2",
