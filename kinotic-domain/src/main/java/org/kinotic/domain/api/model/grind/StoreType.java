@@ -20,6 +20,9 @@ public enum StoreType {
     /**
      * The step stored durable state. The value is serialized into the {@link TaskRecord}
      * and on resume is replayed from the record instead of re-executing the step.
+     * The value must survive a JSON round trip: a plain class or record with concrete field
+     * types. Generic types (List, Map, Optional, ...) are rejected because their erased type
+     * arguments cannot be restored.
      */
     STATE
 

@@ -121,9 +121,19 @@ public interface JobDefinition extends HasSteps{
      * Adds a {@link Task} to the list of {@link Task}'s that will be executed by this {@link JobDefinition}
      * and stores the result as durable state: the value is serialized into the run's records, and on
      * resume it is replayed from the record instead of executing the task again.
-     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step.
-     * Bare collections and maps cannot be stored as state because their element types are erased -
-     * wrap them in a domain class whose field declares the element type
+     * The stored value must survive a JSON round trip, and a value that cannot fails the run at this
+     * step. That rules out three kinds of values:
+     * <ul>
+     * <li>Generic types - List, Map, Optional, or any class declaring type parameters - because Java
+     * erases their type arguments and the contents could not be restored with their real types. Wrap
+     * them in a domain class: a field declared {@code List<Workload> workloads} keeps its element type
+     * and round-trips correctly</li>
+     * <li>Values that cannot be deserialized, such as third-party immutables without a usable
+     * constructor (AWS SDK models and the like) - store your own POJO, or store the id and reload
+     * via {@link #taskStoreResult(Task, Task)}</li>
+     * <li>Live resources - connections, streams, futures, process handles - which are not data;
+     * re-establish them with a task on each run</li>
+     * </ul>
      * @param task to add
      * @return this for fluent use
      */
@@ -133,9 +143,19 @@ public interface JobDefinition extends HasSteps{
      * Adds a {@link Task} to the list of {@link Task}'s that will be executed by this {@link JobDefinition}
      * and stores the result as durable state: the value is serialized into the run's records, and on
      * resume it is replayed from the record instead of executing the task again.
-     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step.
-     * Bare collections and maps cannot be stored as state because their element types are erased -
-     * wrap them in a domain class whose field declares the element type
+     * The stored value must survive a JSON round trip, and a value that cannot fails the run at this
+     * step. That rules out three kinds of values:
+     * <ul>
+     * <li>Generic types - List, Map, Optional, or any class declaring type parameters - because Java
+     * erases their type arguments and the contents could not be restored with their real types. Wrap
+     * them in a domain class: a field declared {@code List<Workload> workloads} keeps its element type
+     * and round-trips correctly</li>
+     * <li>Values that cannot be deserialized, such as third-party immutables without a usable
+     * constructor (AWS SDK models and the like) - store your own POJO, or store the id and reload
+     * via {@link #taskStoreResult(Task, Task)}</li>
+     * <li>Live resources - connections, streams, futures, process handles - which are not data;
+     * re-establish them with a task on each run</li>
+     * </ul>
      * @param task to add
      * @param variableName the name to use when storing the {@link Task} result in the context for this {@link JobDefinition}
      * @return this for fluent use

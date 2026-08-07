@@ -217,6 +217,17 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
+    public void strictContractRejectsAnyGenericTypeAsState() throws Exception {
+        JobDefinition def = JobDefinition.create("optional state").name("optional-state")
+            .taskStoreState(Tasks.fromCallable("bare optional", () -> java.util.Optional.of(new Widget("a"))), "maybe");
+
+        RunOutcome outcome = await(jobService.execute(def));
+
+        assertTrue(outcome.failed());
+        assertTrue(outcome.error().getMessage().contains("a generic type"));
+    }
+
+    @Test
     public void strictContractFailsRunOnUnserializableState() throws Exception {
         class Cyclic {
             @SuppressWarnings("unused")
