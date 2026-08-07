@@ -1,17 +1,16 @@
-import { ConnectionInfo, Kinotic as Continuum, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core';
+import { BasicCredentialsResolver, type ConnectOptions, Kinotic as Continuum, SessionKeepAliveMode } from '@kinotic-ai/core';
 import { ChildProcess, execSync } from 'child_process';
-import { KinoticOsCredentialsAuthProvider } from '@kinotic-ai/os-api';
 
-function adminConnectionInfo(localPort: number): ConnectionInfo {
-    const ci = new ConnectionInfo();
-    ci.host = 'localhost';
-    ci.port = localPort;
-    ci.useSSL = false;
-    ci.maxConnectionAttempts = 5;
-    ci.sessionKeepAlive = SessionKeepAliveMode.NONE;
-    // SYSTEM scope: no organizationId/applicationId.
-    ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, new KinoticOsCredentialsAuthProvider('admin', 'structures'));
-    return ci;
+function adminConnectOptions(localPort: number): ConnectOptions {
+    return {
+        host: 'localhost',
+        port: localPort,
+        useSSL: false,
+        maxConnectionAttempts: 5,
+        sessionKeepAlive: SessionKeepAliveMode.NONE,
+        // the seeded SYSTEM-scope admin: no organizationId/applicationId
+        credentials: new BasicCredentialsResolver('admin@kinotic.local', 'kinotic')
+    };
 }
 
 
@@ -235,7 +234,7 @@ export class K8sTestHelper {
                 console.log(`[port-forward-validate] Attempt ${attempt}/${maxAttempts}: Testing connectivity to ${pod.name}...`);
                 
                 // Try to connect briefly to test connectivity
-                const connectedInfo = await Continuum.connect(adminConnectionInfo(pod.localPort));
+                const connectedInfo = await Continuum.connect(adminConnectOptions(pod.localPort));
 
                 console.log(`[port-forward-validate] Connected to ${pod.name} for validation:`, JSON.stringify(connectedInfo, null, 2));
 
@@ -279,7 +278,7 @@ export class K8sTestHelper {
 
         console.log(`[connect] Port-forward ready, initiating STOMP connection to localhost:${pod.localPort}`);
 
-        const connectedInfo = await Continuum.connect(adminConnectionInfo(pod.localPort));
+        const connectedInfo = await Continuum.connect(adminConnectOptions(pod.localPort));
 
         // Track which pod we're connected to
         this.currentPodIndex = podIndex;

@@ -42,9 +42,55 @@ type SchemaCreationResult ={
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
 /** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
-const E2E_ORGANIZATION_ID = 'kinotic-test'
+export const E2E_ORGANIZATION_ID = 'kinotic-test'
 
-function buildConnectOptions(host: string, port: number, credentials: CredentialsResolver): ConnectOptions {
+/** Password of every user the e2e migrations seed. */
+export const E2E_FIXTURE_PASSWORD = 'kinotic'
+
+/** Tenant id of the V5-seeded APPLICATION-scope fixture users. */
+export const E2E_APP_TENANT = 'kinotic'
+
+/** The seeded ORGANIZATION-scope admin of the e2e organization. */
+export const E2E_ORG_USER_EMAIL = 'kinotic@kinotic.local'
+
+/** The seeded SYSTEM-scope admin. */
+export const E2E_SYSTEM_USER_EMAIL = 'admin@kinotic.local'
+
+/** Email convention of the V5-seeded APPLICATION-scope fixture users. */
+export function appFixtureEmail(applicationId: string, tenantId: string): string {
+    return `app-${applicationId}-${tenantId}@test.local`
+}
+
+export function kinoticHost(): string {
+    // @ts-ignore
+    return inject('KINOTIC_HOST') as string
+}
+
+export function kinoticPort(): number {
+    // @ts-ignore
+    return inject('KINOTIC_PORT') as number
+}
+
+/** REST base URL of the gateway under test. */
+export function restBase(): string {
+    return `http://${kinoticHost()}:${kinoticPort()}`
+}
+
+/** STOMP broker URL of the gateway under test. */
+export function stompUrl(): string {
+    return `ws://${kinoticHost()}:${kinoticPort()}/v1`
+}
+
+/** POSTs an application/x-www-form-urlencoded body — the shape of every OAuth endpoint call. */
+export function postForm(url: string, params: Record<string, string>): Promise<Response> {
+    return fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(params)
+    })
+}
+
+export function buildConnectOptions(host: string, port: number, credentials: CredentialsResolver): ConnectOptions {
     return {
         host,
         port,
@@ -56,15 +102,10 @@ function buildConnectOptions(host: string, port: number, credentials: Credential
 
 export async function initKinoticClient(): Promise<void> {
     try {
-        // @ts-ignore
-        const host = inject('KINOTIC_HOST') as string
-        // @ts-ignore
-        const port = inject('KINOTIC_PORT') as number
+        console.log('Connecting to Kinotic at ' + kinoticHost())
 
-        console.log('Connecting to Kinotic at ' + host)
-
-        await Kinotic.connect(buildConnectOptions(host, port,
-            new BasicCredentialsResolver('kinotic@kinotic.local', 'kinotic', E2E_ORGANIZATION_ID)))
+        await Kinotic.connect(buildConnectOptions(kinoticHost(), kinoticPort(),
+            new BasicCredentialsResolver(E2E_ORG_USER_EMAIL, E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -91,17 +132,12 @@ export async function shutdownKinoticClient(): Promise<void> {
  * {@code AdminEntityRepository} used to act on SHARED entity data.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
-    const email = `app-${applicationId}-${tenantId}@test.local`
-    // @ts-ignore
-    const host = inject('KINOTIC_HOST') as string
-    // @ts-ignore
-    const port = inject('KINOTIC_PORT') as number
-
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectOptions(host, port,
-        new BasicCredentialsResolver(email, 'kinotic', E2E_ORGANIZATION_ID, applicationId)))
+    await appKinotic.connect(buildConnectOptions(kinoticHost(), kinoticPort(),
+        new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
+                                     E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
 }
 
