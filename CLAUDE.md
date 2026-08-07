@@ -31,14 +31,9 @@ This flag has no effect on normal builds — omitting it uses the default Java 2
 
 A merged pull request is finished — never stack new commits onto its history, and never reuse
 it to track follow-up work. When your PR merges, restart your working branch from the latest
-`develop` (keeping the same branch name) and open a **new** pull request for the next unit of
-work:
-
-```bash
-git fetch origin develop && git checkout -B <branch-name> origin/develop
-# a force-with-lease push is fine when the branch holds only already-merged history;
-# if it carries unmerged commits, rebase them onto the new base instead of discarding them
-```
+`develop` (keeping the same branch name, force-with-lease push) and open a **new** pull
+request for the next unit of work. If the branch carries unmerged commits, rebase them onto
+the new base instead of discarding them.
 
 ## Don't guess from names
 
