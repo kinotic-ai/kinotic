@@ -99,7 +99,8 @@ public class DefaultMemberService implements MemberService {
     }
 
     private OrganizationParticipant requireOrgParticipant() {
-        return DomainUtil.requireOrgParticipant(securityContext);
+        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
+        return securityContext.requireParticipant(OrganizationParticipant.class);
     }
 
     /**

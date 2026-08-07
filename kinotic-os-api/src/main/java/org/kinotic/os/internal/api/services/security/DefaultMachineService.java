@@ -72,7 +72,8 @@ public class DefaultMachineService implements MachineService {
     }
 
     private OrganizationParticipant requireOrgParticipant() {
-        return DomainUtil.requireOrgParticipant(securityContext);
+        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
+        return securityContext.requireParticipant(OrganizationParticipant.class);
     }
 
     /** Loads a machine of the participant's organization for inspection or mutation. */

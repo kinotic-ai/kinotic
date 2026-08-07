@@ -5,11 +5,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
-import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
@@ -261,19 +259,6 @@ public class DomainUtil {
         if (!ParticipantConstants.PARTICIPANT_TYPE_USER.equals(type)) {
             throw new IllegalArgumentException("Only a signed-in user may perform this action");
         }
-    }
-
-    /**
-     * Requires the calling participant to be an organization member. Guards the org-console
-     * management services (members, machines).
-     *
-     * @param securityContext the security context of the current call
-     * @return the calling organization participant
-     * @throws IllegalArgumentException if the caller is not an organization participant
-     */
-    public static OrganizationParticipant requireOrgParticipant(SecurityContext securityContext) {
-        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
-        return securityContext.requireParticipant(OrganizationParticipant.class);
     }
 
     /**
