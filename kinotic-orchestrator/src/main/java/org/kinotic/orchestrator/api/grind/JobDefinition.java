@@ -124,10 +124,11 @@ public interface JobDefinition extends HasSteps{
      * The stored value must survive a JSON round trip, and a value that cannot fails the run at this
      * step. That rules out three kinds of values:
      * <ul>
-     * <li>Generic types - List, Map, Optional, or any class declaring type parameters - because Java
-     * erases their type arguments and the contents could not be restored with their real types. Wrap
-     * them in a domain class: a field declared {@code List<Workload> workloads} keeps its element type
-     * and round-trips correctly</li>
+     * <li>Generic types - List, Map, Optional, or any class declaring type parameters. Java erases
+     * their type arguments, so on resume the contents would come back as untyped Maps instead of
+     * their real classes. Instead of storing a {@code List<Workload>} directly, define a small class
+     * with a {@code List<Workload>} field and store that: a field's declared element type is kept in
+     * the class file, so the list is restored with real {@code Workload} elements</li>
      * <li>Values that cannot be deserialized, such as third-party immutables without a usable
      * constructor (AWS SDK models and the like) - store your own POJO, or store the id and reload
      * via {@link #taskStoreResult(Task, Task)}</li>
@@ -146,10 +147,11 @@ public interface JobDefinition extends HasSteps{
      * The stored value must survive a JSON round trip, and a value that cannot fails the run at this
      * step. That rules out three kinds of values:
      * <ul>
-     * <li>Generic types - List, Map, Optional, or any class declaring type parameters - because Java
-     * erases their type arguments and the contents could not be restored with their real types. Wrap
-     * them in a domain class: a field declared {@code List<Workload> workloads} keeps its element type
-     * and round-trips correctly</li>
+     * <li>Generic types - List, Map, Optional, or any class declaring type parameters. Java erases
+     * their type arguments, so on resume the contents would come back as untyped Maps instead of
+     * their real classes. Instead of storing a {@code List<Workload>} directly, define a small class
+     * with a {@code List<Workload>} field and store that: a field's declared element type is kept in
+     * the class file, so the list is restored with real {@code Workload} elements</li>
      * <li>Values that cannot be deserialized, such as third-party immutables without a usable
      * constructor (AWS SDK models and the like) - store your own POJO, or store the id and reload
      * via {@link #taskStoreResult(Task, Task)}</li>
