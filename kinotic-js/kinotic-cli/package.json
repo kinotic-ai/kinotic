@@ -6,9 +6,9 @@
     "bin": {
         "kinotic": "./bin/run.js"
     },
-    "homepage": "https://kinotic-ai",
+    "homepage": "https://github.com/kinotic-ai/kinotic",
     "repository": "https://github.com/kinotic-ai/kinotic",
-    "license": "Elastic License 2.0\"",
+    "license": "Elastic License 2.0",
     "main": "dist/index.js",
     "type": "module",
     "files": [
@@ -26,7 +26,7 @@
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",
         "chalk": "^5.6.2",
-        "liquidjs": "10.27.0",
+        "liquidjs": "10.28.0",
         "open": "^11.0.0",
         "p-timeout": "^7.0.1",
         "radash": "^12.1.1",
