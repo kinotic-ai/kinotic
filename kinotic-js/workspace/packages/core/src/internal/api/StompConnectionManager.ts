@@ -215,8 +215,17 @@ export class StompConnectionManager {
             this.rxStomp.configure(stompConfig)
 
             // Handles Websocket Errors
-            this.rxStomp.webSocketErrors$.subscribe(value => {
+            this.rxStomp.webSocketErrors$.subscribe(async value => {
                 this.lastWebsocketError = value
+                // The attempt that just failed was the last the budget allows — report now
+                // instead of paying the reconnect delay before the next beforeConnect notices.
+                if (options?.maxConnectionAttempts && this.connectionAttempts >= options.maxConnectionAttempts) {
+                    this.maxConnectionAttemptsReached = true
+                    await this.signalFatal(new Error(
+                        'Max number of reconnection attempts reached',
+                        { cause: value ?? undefined }
+                    ))
+                }
             })
 
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the
