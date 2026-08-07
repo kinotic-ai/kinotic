@@ -235,6 +235,9 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
 CREATE TABLE IF NOT EXISTS kinotic_job_run (
     id KEYWORD,
     name KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
     version KEYWORD,
     description TEXT,
     status KEYWORD,

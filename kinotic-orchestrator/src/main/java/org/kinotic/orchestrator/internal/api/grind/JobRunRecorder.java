@@ -53,6 +53,9 @@ public class JobRunRecorder {
                                   .setName(jobDefinition.getName())
                                   .setVersion(jobDefinition.getVersion())
                                   .setDescription(jobDefinition.getDescription())
+                                  .setOrganizationId(jobDefinition.getOrganizationId())
+                                  .setApplicationId(jobDefinition.getApplicationId())
+                                  .setProjectId(jobDefinition.getProjectId())
                                   .setResumedFrom(resumedFrom);
     }
 

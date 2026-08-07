@@ -24,6 +24,9 @@ public class DefaultJobDefinition implements JobDefinition {
     private final boolean parallel;
     private String name;
     private String version;
+    private String organizationId;
+    private String applicationId;
+    private String projectId;
 
     private final LinkedList<Step> steps = new LinkedList<>();
 
@@ -58,6 +61,39 @@ public class DefaultJobDefinition implements JobDefinition {
     @Override
     public JobDefinition version(String version) {
         this.version = version;
+        return this;
+    }
+
+    @Override
+    public String getOrganizationId() {
+        return organizationId;
+    }
+
+    @Override
+    public String getApplicationId() {
+        return applicationId;
+    }
+
+    @Override
+    public String getProjectId() {
+        return projectId;
+    }
+
+    @Override
+    public JobDefinition organizationId(String organizationId) {
+        this.organizationId = organizationId;
+        return this;
+    }
+
+    @Override
+    public JobDefinition applicationId(String applicationId) {
+        this.applicationId = applicationId;
+        return this;
+    }
+
+    @Override
+    public JobDefinition projectId(String projectId) {
+        this.projectId = projectId;
         return this;
     }
 

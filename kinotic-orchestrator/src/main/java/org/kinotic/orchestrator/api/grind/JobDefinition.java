@@ -54,6 +54,48 @@ public interface JobDefinition extends HasSteps{
     JobDefinition version(String version);
 
     /**
+     * The Organization this job runs on behalf of, recorded on the run so runs can be
+     * filtered by owner.
+     * @return the organization id or null for platform jobs
+     */
+    String getOrganizationId();
+
+    /**
+     * The Application this job runs on behalf of. When set, {@link #getOrganizationId()}
+     * must also be set.
+     * @return the application id or null if none
+     */
+    String getApplicationId();
+
+    /**
+     * The Project this job runs on behalf of. When set, {@link #getOrganizationId()}
+     * must also be set.
+     * @return the project id or null if none
+     */
+    String getProjectId();
+
+    /**
+     * Sets the Organization this job runs on behalf of.
+     * @param organizationId to use
+     * @return this for fluent use
+     */
+    JobDefinition organizationId(String organizationId);
+
+    /**
+     * Sets the Application this job runs on behalf of.
+     * @param applicationId to use
+     * @return this for fluent use
+     */
+    JobDefinition applicationId(String applicationId);
+
+    /**
+     * Sets the Project this job runs on behalf of.
+     * @param projectId to use
+     * @return this for fluent use
+     */
+    JobDefinition projectId(String projectId);
+
+    /**
      * If this {@link JobDefinition} supports running it's  {@link Task}'s in parallel
      *
      * @return true if {@link Tasks}'s can be run in parallel false if not

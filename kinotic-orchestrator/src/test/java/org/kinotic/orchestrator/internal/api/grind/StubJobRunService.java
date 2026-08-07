@@ -78,4 +78,12 @@ public class StubJobRunService implements JobRunService {
     public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
+                                                           String applicationId,
+                                                           String projectId,
+                                                           Pageable pageable) {
+        throw new UnsupportedOperationException();
+    }
 }

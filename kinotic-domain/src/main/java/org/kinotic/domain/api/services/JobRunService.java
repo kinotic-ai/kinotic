@@ -20,4 +20,18 @@ public interface JobRunService extends IdentifiableCrudService<JobRun, String> {
      */
     CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable);
 
+    /**
+     * Finds the runs owned by the given hierarchy: all of an organization's runs, narrowed
+     * to an application and/or project when those ids are given.
+     * @param organizationId the owning organization, required
+     * @param applicationId the owning application or null for all of the organization's runs
+     * @param projectId the owning project or null for all of the organization's runs
+     * @param pageable the page of runs to return
+     * @return a future that will complete with the page of runs
+     */
+    CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
+                                                    String applicationId,
+                                                    String projectId,
+                                                    Pageable pageable);
+
 }

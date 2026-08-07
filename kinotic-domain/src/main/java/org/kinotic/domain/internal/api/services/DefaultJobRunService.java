@@ -27,10 +27,23 @@ public class DefaultJobRunService extends AbstractCrudService<JobRun> implements
     }
 
     @Override
+    public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
+                                                           String applicationId,
+                                                           String projectId,
+                                                           Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return jobRunRepository.findAllForOwner(organizationId, applicationId, projectId, pageable);
+    }
+
+    @Override
     protected CompletableFuture<Void> beforeSave(JobRun entity) {
         Validate.notNull(entity, "JobRun cannot be null");
         Validate.notNull(entity.getId(), "JobRun id cannot be null");
         Validate.notNull(entity.getStatus(), "JobRun status cannot be null");
+        Validate.isTrue(entity.getApplicationId() == null || entity.getOrganizationId() != null,
+                        "JobRun applicationId requires organizationId");
+        Validate.isTrue(entity.getProjectId() == null || entity.getOrganizationId() != null,
+                        "JobRun projectId requires organizationId");
         return CompletableFuture.completedFuture(null);
     }
 

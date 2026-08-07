@@ -30,6 +30,24 @@ public class JobRun implements Identifiable<String> {
     private String name;
 
     /**
+     * The Organization this run executed on behalf of.
+     * {@code null} for platform runs (SYSTEM scope).
+     */
+    private String organizationId;
+
+    /**
+     * The Application this run executed on behalf of, or {@code null} if none.
+     * When set, {@link #organizationId} must also be set.
+     */
+    private String applicationId;
+
+    /**
+     * The Project this run executed on behalf of, or {@code null} if none.
+     * When set, {@link #organizationId} must also be set.
+     */
+    private String projectId;
+
+    /**
      * The version of the {@code JobDefinition} this run executed.
      */
     private String version;

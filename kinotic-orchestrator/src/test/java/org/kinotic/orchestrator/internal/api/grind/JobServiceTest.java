@@ -201,6 +201,24 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
+    public void ownerHierarchyIsRecordedOnTheRun() throws Exception {
+        JobDefinition def = JobDefinition.create("owned job").name("owned-job")
+            .organizationId("org-1")
+            .applicationId("app-1")
+            .projectId("proj-1")
+            .task(Tasks.fromCallable("work", () -> "ok"));
+
+        JobExecution execution = jobService.execute(def);
+        RunOutcome outcome = await(execution);
+
+        assertFalse(outcome.failed());
+        JobRun run = runs.saved.get(execution.getJobRunId());
+        assertEquals("org-1", run.getOrganizationId());
+        assertEquals("app-1", run.getApplicationId());
+        assertEquals("proj-1", run.getProjectId());
+    }
+
+    @Test
     public void classTasksConstructWithScopeInjectedConstructorArguments() throws Exception {
         JobDefinition def = JobDefinition.create("class task").name("class-task")
             .taskStoreState(Tasks.fromCallable("make widget", () -> new Widget("hello")))
