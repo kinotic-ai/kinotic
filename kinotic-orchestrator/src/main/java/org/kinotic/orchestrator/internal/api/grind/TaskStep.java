@@ -3,6 +3,7 @@
 package org.kinotic.orchestrator.internal.api.grind;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
@@ -31,31 +32,32 @@ public class TaskStep extends AbstractStep {
 
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final Task<?> task;
-    private final boolean storeResult;
+    private final Task<?> reloadTask;
+    private final StoreType storeType;
     private final String resultName;
     private final String taskDisplayString;
 
     public TaskStep(int sequence, Task<?> task) {
-        this(sequence, task, false, null);
-    }
-
-    public TaskStep(int sequence, Task<?> task, boolean storeResult) {
-        this(sequence, task, storeResult, null);
+        this(sequence, task, null, StoreType.NONE, null);
     }
 
     /**
      * Create a {@link Step} that will execute a {@link Task} that will emit a single value
      * @param task for this step
-     * @param storeResult determines if the result of the {@link Task} should be stored in the execution scope
+     * @param reloadTask executed instead of {@code task} when a resumed run finds this step already
+     *                   completed, or null if the task is its own reload
+     * @param storeType determines how the result of the {@link Task} is stored in the execution scope
      * @param resultName the name of the result to use when storing the result in the execution scope
      */
     public TaskStep(int sequence,
                     Task<?> task,
-                    boolean storeResult,
+                    Task<?> reloadTask,
+                    StoreType storeType,
                     String resultName) {
         super(sequence);
         this.task = task;
-        this.storeResult = storeResult;
+        this.reloadTask = reloadTask;
+        this.storeType = storeType;
         this.resultName = resultName;
         this.taskDisplayString = "\"" + task.getDescription() + "\"";
 
@@ -96,7 +98,8 @@ public class TaskStep extends AbstractStep {
                     log.debug("Task was noop {}", taskDisplayString);
 
                     sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.NOOP, null));
-                    notifyStepCompleted(new StepCompletion(null, null), sink);
+                    // a noop stored nothing, whatever this step's declared StoreType
+                    notifyStepCompleted(new StepCompletion(StoreType.NONE, null, null), sink);
                     notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
                     sink.complete();
                 }
@@ -129,7 +132,7 @@ public class TaskStep extends AbstractStep {
 
         notifyDiagnostic(DiagnosticLevel.TRACE, () -> "Task: " + taskDisplayString + " returned a Task: \"" + task.getDescription() + "\"", sink, options, log);
 
-        TaskStep taskStep = new TaskStep(1, task, storeResult, resultName);
+        TaskStep taskStep = new TaskStep(1, task, reloadTask, storeType, resultName);
 
         sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DYNAMIC_STEPS, taskStep));
 
@@ -150,8 +153,8 @@ public class TaskStep extends AbstractStep {
                                         sink.error(throwable);
                                     })
                                     .doOnComplete(() -> {
-                                        // The dynamic step carries this step's storeResult settings, so it reports the stored value
-                                        notifyStepCompleted(new StepCompletion(null, null), sink);
+                                        // The dynamic step carries this step's store settings, so it reports the stored value
+                                        notifyStepCompleted(new StepCompletion(StoreType.NONE, null, null), sink);
                                         notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"),
                                                        sink, options, log);
                                         sink.complete();
@@ -201,8 +204,9 @@ public class TaskStep extends AbstractStep {
 
                     }).doOnComplete(() -> {
 
-                        notifyStepCompleted(new StepCompletion(storeResult ? resultName : null,
-                                                               storeResult ? lastStoredValue.get() : null), sink);
+                        notifyStepCompleted(new StepCompletion(storeType,
+                                                               storeType != StoreType.NONE ? resultName : null,
+                                                               storeType != StoreType.NONE ? lastStoredValue.get() : null), sink);
                         notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
                         sink.complete();
 
@@ -216,15 +220,16 @@ public class TaskStep extends AbstractStep {
 
                 sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, result));
 
-                notifyStepCompleted(new StepCompletion(storeResult ? resultName : null,
-                                                       storeResult ? result : null), sink);
+                notifyStepCompleted(new StepCompletion(storeType,
+                                                       storeType != StoreType.NONE ? resultName : null,
+                                                       storeType != StoreType.NONE ? result : null), sink);
 
                 notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
 
                 sink.complete();
             }
         }else{
-            if(storeResult) {
+            if(storeType != StoreType.NONE) {
                 notifyDiagnostic(DiagnosticLevel.WARN,
                                  () -> "Task: " + taskDisplayString + " Result was requested to be stored, but result is NULL",
                                  sink,
@@ -234,7 +239,9 @@ public class TaskStep extends AbstractStep {
 
             sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.VALUE, null));
 
-            notifyStepCompleted(new StepCompletion(storeResult ? resultName : null, null), sink);
+            notifyStepCompleted(new StepCompletion(storeType,
+                                                   storeType != StoreType.NONE ? resultName : null,
+                                                   null), sink);
 
             notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " Finished Executing"), sink, options, log);
 
@@ -246,7 +253,7 @@ public class TaskStep extends AbstractStep {
                                 ResultOptions options,
                                 FluxSink<Result<?>> sink,
                                 Object result){
-        if(storeResult) {
+        if(storeType != StoreType.NONE) {
 
             if (result != null) {
 

@@ -4,6 +4,7 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
@@ -101,7 +102,7 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                                                    sink.error(throwable);
                                                })
                                                .doOnComplete(() -> {
-                                                   notifyStepCompleted(new StepCompletion(null, null), sink);
+                                                   notifyStepCompleted(new StepCompletion(StoreType.NONE, null, null), sink);
                                                    notifyProgress(() -> new Progress(100,
                                                                                      "JobDefinition: " + taskDisplayString + " Finished Executing"), sink, options, log);
                                                    sink.complete();

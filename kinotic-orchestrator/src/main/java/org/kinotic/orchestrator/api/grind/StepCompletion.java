@@ -2,6 +2,7 @@ package org.kinotic.orchestrator.api.grind;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.domain.api.model.grind.StoreType;
 
 /**
  * The value of a {@link ResultType#STEP_COMPLETED} result, describing what the {@link Step}
@@ -10,6 +11,11 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public class StepCompletion {
+
+    /**
+     * How the step stored its result, {@link StoreType#NONE} if it stored nothing.
+     */
+    private final StoreType storeType;
 
     /**
      * The name the step's result was stored under, or null if the step stored nothing

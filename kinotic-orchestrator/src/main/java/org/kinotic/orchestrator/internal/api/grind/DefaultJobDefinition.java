@@ -2,6 +2,7 @@
 
 package org.kinotic.orchestrator.internal.api.grind;
 
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobScope;
 import org.kinotic.orchestrator.api.grind.Step;
@@ -78,13 +79,37 @@ public class DefaultJobDefinition implements JobDefinition {
 
     @Override
     public JobDefinition taskStoreResult(Task<?> task) {
-        steps.add(new TaskStep(steps.size() + 1, task, true));
+        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.RESULT, null));
         return this;
     }
 
     @Override
     public JobDefinition taskStoreResult(Task<?> task, String variableName) {
-        steps.add(new TaskStep(steps.size() + 1, task, true, variableName));
+        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.RESULT, variableName));
+        return this;
+    }
+
+    @Override
+    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask) {
+        steps.add(new TaskStep(steps.size() + 1, createTask, reloadTask, StoreType.RESULT, null));
+        return this;
+    }
+
+    @Override
+    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask, String variableName) {
+        steps.add(new TaskStep(steps.size() + 1, createTask, reloadTask, StoreType.RESULT, variableName));
+        return this;
+    }
+
+    @Override
+    public JobDefinition taskStoreState(Task<?> task) {
+        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.STATE, null));
+        return this;
+    }
+
+    @Override
+    public JobDefinition taskStoreState(Task<?> task, String variableName) {
+        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.STATE, variableName));
         return this;
     }
 

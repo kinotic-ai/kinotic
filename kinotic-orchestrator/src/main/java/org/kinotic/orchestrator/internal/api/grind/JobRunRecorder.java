@@ -3,6 +3,7 @@ package org.kinotic.orchestrator.internal.api.grind;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.grind.ExecutionStatus;
 import org.kinotic.domain.api.model.grind.JobRun;
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.api.services.TaskRecordService;
@@ -106,19 +107,39 @@ public class JobRunRecorder {
             log.warn("STEP_COMPLETED for unknown step path {} in run {}", stepPath, jobRunId);
         }else{
             record.setStatus(ExecutionStatus.COMPLETED)
-                  .setFinished(new Date());
-            if(completion.getStoredValue() != null){
-                record.setResultName(completion.getStoredName())
-                      .setResultValueType(completion.getStoredValue().getClass().getName());
+                  .setFinished(new Date())
+                  .setStoreType(completion.getStoreType())
+                  .setResultName(completion.getStoredName());
+            if(completion.getStoreType() == StoreType.STATE){
+                // STATE is a contract: the value must be persistable, or the run fails here and now
+                if(completion.getStoredValue() == null){
+                    failStep(record, "Step " + stepPath + " (" + record.getDescription()
+                             + ") is declared taskStoreState but produced no value", null);
+                }
+                record.setResultValueType(completion.getStoredValue().getClass().getName());
                 try {
                     record.setResultValue(objectMapper.valueToTree(completion.getStoredValue()));
                 } catch (Exception e) {
-                    // An unserializable stored value costs replay of this step, not the run
-                    log.warn("Could not serialize stored result for step {} in run {}", stepPath, jobRunId, e);
+                    failStep(record, "Step " + stepPath + " (" + record.getDescription()
+                             + ") is declared taskStoreState but its value of type "
+                             + completion.getStoredValue().getClass().getName() + " is not serializable", e);
                 }
             }
             enqueue(() -> taskRecordService.save(record));
         }
+    }
+
+    /**
+     * Persists the record as FAILED and throws, failing the run at this step.
+     * Thrown from record(), the exception propagates through the result stream's doOnNext
+     * as the run's error signal.
+     */
+    private void failStep(TaskRecord record, String message, Exception cause) {
+        record.setStatus(ExecutionStatus.FAILED)
+              .setError(message)
+              .setFinished(new Date());
+        enqueue(() -> taskRecordService.save(record));
+        throw new IllegalStateException(message, cause);
     }
 
     private void stepFailed(String stepPath, Throwable throwable) {

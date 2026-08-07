@@ -250,6 +250,7 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
     stepPath KEYWORD,
     description TEXT,
     status KEYWORD,
+    storeType KEYWORD,
     resultName KEYWORD,
     resultValueType KEYWORD,
     resultValue JSON NOT INDEXED,

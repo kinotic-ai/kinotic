@@ -46,6 +46,12 @@ public class TaskRecord implements Identifiable<String> {
     private ExecutionStatus status = ExecutionStatus.RUNNING;
 
     /**
+     * How the step's result was stored in the job scope.
+     * Null until the step completes.
+     */
+    private StoreType storeType;
+
+    /**
      * The name the step's result was stored under in the job scope,
      * or null if the result was not stored.
      */
@@ -53,11 +59,13 @@ public class TaskRecord implements Identifiable<String> {
 
     /**
      * The Java type of the stored result, used to deserialize {@link #resultValue}.
+     * Only set when {@link #storeType} is {@link StoreType#STATE}.
      */
     private String resultValueType;
 
     /**
-     * The stored result serialized as JSON, or null if the result was not stored.
+     * The stored result serialized as JSON.
+     * Only set when {@link #storeType} is {@link StoreType#STATE}.
      */
     private JsonNode resultValue;
 
