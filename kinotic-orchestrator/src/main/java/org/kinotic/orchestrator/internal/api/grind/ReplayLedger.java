@@ -1,4 +1,4 @@
-package org.kinotic.orchestrator.api.grind;
+package org.kinotic.orchestrator.internal.api.grind;
 
 /**
  * The completed steps of a run being resumed, keyed by step path. A {@link Step} consults

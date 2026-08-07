@@ -8,13 +8,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * One recorded execution of a {@link JobDefinition}, pairing the id of its persistent
- * {@link org.kinotic.domain.api.model.grind.JobRun} record with the {@link Result} stream
+ * {@link org.kinotic.orchestrator.api.model.grind.JobRun} record with the {@link Result} stream
  * that performs the run.
  */
 public class JobExecution {
 
     /**
-     * The id of the {@link org.kinotic.domain.api.model.grind.JobRun} recorded for this execution.
+     * The id of the {@link org.kinotic.orchestrator.api.model.grind.JobRun} recorded for this execution.
      */
     @Getter
     private final String jobRunId;
@@ -40,7 +40,7 @@ public class JobExecution {
 
     /**
      * Cancels the run if it has started, recording it as
-     * {@link org.kinotic.domain.api.model.grind.ExecutionStatus#CANCELLED}.
+     * {@link org.kinotic.orchestrator.api.model.grind.ExecutionStatus#CANCELLED}.
      * Does nothing if the run has not started or has already finished.
      */
     public void cancel() {

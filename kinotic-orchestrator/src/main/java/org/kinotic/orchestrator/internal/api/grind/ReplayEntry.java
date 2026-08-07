@@ -1,8 +1,8 @@
-package org.kinotic.orchestrator.api.grind;
+package org.kinotic.orchestrator.internal.api.grind;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.model.grind.StoreType;
+import org.kinotic.orchestrator.api.model.grind.StoreType;
 
 /**
  * What a {@link ReplayLedger} knows about one completed step of the run being resumed.

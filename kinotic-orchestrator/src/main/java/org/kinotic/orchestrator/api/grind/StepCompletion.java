@@ -2,10 +2,10 @@ package org.kinotic.orchestrator.api.grind;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.model.grind.StoreType;
+import org.kinotic.orchestrator.api.model.grind.StoreType;
 
 /**
- * The value of a {@link ResultType#STEP_COMPLETED} result, describing what the {@link Step}
+ * The value of a {@link ResultType#STEP_COMPLETED} result, describing what the completed step
  * stored in the {@link JobContext} when it finished.
  */
 @Getter

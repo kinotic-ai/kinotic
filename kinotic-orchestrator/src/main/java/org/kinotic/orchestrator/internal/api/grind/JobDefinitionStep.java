@@ -4,7 +4,7 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.kinotic.domain.api.model.grind.StoreType;
+import org.kinotic.orchestrator.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
@@ -22,16 +22,18 @@ import java.util.List;
  *
  * Created by Navid Mitchell on 8/5/20
  */
-public class JobDefinitionStep extends AbstractStep implements HasSteps {
+public class JobDefinitionStep extends AbstractStep {
 
     private static final Logger log = LoggerFactory.getLogger(JobDefinitionStep.class);
 
-    private final JobDefinition jobDefinition;
+    private final DefaultJobDefinition jobDefinition;
     private final String taskDisplayString;
 
     public JobDefinitionStep(int sequence, JobDefinition jobDefinition) {
         super(sequence);
-        this.jobDefinition = jobDefinition;
+        // every JobDefinition is created by JobDefinition.create, so the engine can rely on
+        // the concrete type for step access without exposing steps on the api interface
+        this.jobDefinition = (DefaultJobDefinition) jobDefinition;
         this.taskDisplayString = "\"" + jobDefinition.getDescription() + "\"";
     }
 
@@ -126,11 +128,6 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                 sink.error(throwable);
             }
         });
-    }
-
-    @Override
-    public List<Step> getSteps() {
-        return jobDefinition.getSteps();
     }
 
     @Getter

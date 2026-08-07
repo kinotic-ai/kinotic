@@ -3,7 +3,7 @@
 package org.kinotic.orchestrator.api.grind;
 
 /**
- * The sequence of {@link Step}'s that have been executed to get to a specific {@link Result}
+ * The sequence of steps that have been executed to get to a specific {@link Result}
  *
  * Created by Navid Mitchell on 11/18/20
  */
@@ -20,7 +20,7 @@ public class StepInfo {
     }
 
     /**
-     * The sequence of the {@link Step} that created this
+     * The sequence of the step that created this
      * @return the sequence number
      */
     public int getSequence() {

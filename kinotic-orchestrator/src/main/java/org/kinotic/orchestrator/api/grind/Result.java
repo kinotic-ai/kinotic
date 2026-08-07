@@ -10,7 +10,7 @@ public interface Result<T> {
 
 
     /**
-     * The {@link StepInfo} which represents the {@link Step}'s that are responsible for creating this {@link Result}
+     * The {@link StepInfo} which represents the steps that are responsible for creating this {@link Result}
      * @return the {@link StepInfo} for this {@link Result}
      */
     StepInfo getStepInfo();
@@ -34,7 +34,7 @@ public interface Result<T> {
     ResultType getResultType();
 
     /**
-     * @return the result of a successful execution of the associated {@link Step}
+     * @return the result of a successful execution of the associated step
      */
     T getValue();
 

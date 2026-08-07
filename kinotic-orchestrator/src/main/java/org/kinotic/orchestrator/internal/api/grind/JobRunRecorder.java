@@ -1,14 +1,14 @@
 package org.kinotic.orchestrator.internal.api.grind;
 
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.grind.ExecutionStatus;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.model.grind.StoreType;
-import org.kinotic.domain.api.model.grind.TaskRecord;
-import org.kinotic.domain.api.services.JobRunService;
-import org.kinotic.domain.api.services.TaskRecordService;
+import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
+import org.kinotic.orchestrator.api.model.grind.JobRun;
+import org.kinotic.orchestrator.api.model.grind.StoreType;
+import org.kinotic.orchestrator.api.model.grind.TaskRecord;
+import org.kinotic.orchestrator.api.services.JobRunService;
+import org.kinotic.orchestrator.api.services.TaskRecordService;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
-import org.kinotic.domain.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.Result;
 import org.kinotic.orchestrator.api.grind.StepCompletion;
 import org.kinotic.orchestrator.api.grind.StepInfo;

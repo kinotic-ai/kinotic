@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.grind;
+package org.kinotic.orchestrator.api.model.grind;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

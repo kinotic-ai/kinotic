@@ -2,9 +2,9 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.services.JobRunService;
+import org.kinotic.orchestrator.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.JobRun;
+import org.kinotic.orchestrator.api.services.JobRunService;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

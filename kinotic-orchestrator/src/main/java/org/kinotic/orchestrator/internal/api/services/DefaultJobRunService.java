@@ -1,12 +1,13 @@
-package org.kinotic.domain.internal.api.services;
+package org.kinotic.orchestrator.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.services.JobRunService;
-import org.kinotic.domain.internal.api.repositories.JobRunRepository;
+import org.kinotic.orchestrator.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.JobRun;
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.orchestrator.api.services.JobRunService;
+import org.kinotic.orchestrator.internal.api.repositories.JobRunRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.CompletableFuture;

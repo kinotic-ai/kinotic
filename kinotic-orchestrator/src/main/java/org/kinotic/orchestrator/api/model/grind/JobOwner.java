@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.grind;
+package org.kinotic.orchestrator.api.model.grind;
 
 import lombok.AccessLevel;
 import lombok.Getter;

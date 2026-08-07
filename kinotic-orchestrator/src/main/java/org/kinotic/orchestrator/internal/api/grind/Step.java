@@ -1,7 +1,13 @@
 
 
-package org.kinotic.orchestrator.api.grind;
+package org.kinotic.orchestrator.internal.api.grind;
 
+import org.kinotic.orchestrator.api.grind.JobContext;
+import org.kinotic.orchestrator.api.grind.JobDefinition;
+import org.kinotic.orchestrator.api.grind.Result;
+import org.kinotic.orchestrator.api.grind.ResultOptions;
+import org.kinotic.orchestrator.api.grind.ResultType;
+import org.kinotic.orchestrator.api.grind.Task;
 import org.reactivestreams.Publisher;
 
 /**

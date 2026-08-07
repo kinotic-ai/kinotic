@@ -4,7 +4,6 @@ package org.kinotic.orchestrator.api.grind;
 
 import org.kinotic.orchestrator.internal.api.grind.DefaultJobDefinition;
 
-import java.util.List;
 
 /**
  * A {@link JobDefinition} provides a unit of work comprised of {@link Task}'s and other {@link JobDefinition}
@@ -17,7 +16,7 @@ import java.util.List;
  *
  * Created by Navid Mitchell on 3/19/20
  */
-public interface JobDefinition extends HasSteps{
+public interface JobDefinition {
 
     /**
      * @return the description of this {@link JobDefinition}
@@ -170,11 +169,6 @@ public interface JobDefinition extends HasSteps{
      * @return this for fluent use
      */
     JobDefinition jobDefinition(JobDefinition jobDefinition);
-
-    /**
-     * @return the {@link Step}'s defined for this {@link JobDefinition}
-     */
-    List<Step> getSteps();
 
     /**
      * Create a new {@link JobDefinition} with a {@link JobScope#CHILD} and {@link JobDefinition#isParallel()} is false

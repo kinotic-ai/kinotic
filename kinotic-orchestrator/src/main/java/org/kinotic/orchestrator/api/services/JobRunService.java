@@ -1,10 +1,10 @@
-package org.kinotic.domain.api.services;
+package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.domain.api.model.grind.JobRun;
+import org.kinotic.orchestrator.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.JobRun;
 
 import java.util.concurrent.CompletableFuture;
 

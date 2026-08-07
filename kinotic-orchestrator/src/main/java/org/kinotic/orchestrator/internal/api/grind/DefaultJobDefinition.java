@@ -2,10 +2,9 @@
 
 package org.kinotic.orchestrator.internal.api.grind;
 
-import org.kinotic.domain.api.model.grind.StoreType;
+import org.kinotic.orchestrator.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobScope;
-import org.kinotic.orchestrator.api.grind.Step;
 import org.kinotic.orchestrator.api.grind.Task;
 
 import java.util.LinkedList;

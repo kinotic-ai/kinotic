@@ -24,9 +24,9 @@ public enum ResultType {
      */
     PROGRESS,
     /**
-     * Result contains new {@link Step}'s that have been returned by a {@link Task} execution
-     * This is used to update the known {@link Step}'s when wanting to receive progress notifications
-     * The result value will contain the new {@link Step}
+     * Result contains new dynamically created steps that have been returned by a {@link Task} execution
+     * This is used to update the known steps when wanting to receive progress notifications
+     * The result value will contain the new step
      */
     DYNAMIC_STEPS,
     /**
@@ -34,17 +34,17 @@ public enum ResultType {
      */
     EXCEPTION,
     /**
-     * The {@link Step} began executing, the result value is the {@link Step} description.
+     * The step began executing, the result value is the step description.
      * Always emitted regardless of the {@link ResultOptions} used
      */
     STEP_STARTED,
     /**
-     * The {@link Step} finished successfully, the result value is a {@link StepCompletion}.
+     * The step finished successfully, the result value is a {@link StepCompletion}.
      * Always emitted regardless of the {@link ResultOptions} used
      */
     STEP_COMPLETED,
     /**
-     * The {@link Step} terminated with a failure, the result value is the {@link Throwable}.
+     * The step terminated with a failure, the result value is the {@link Throwable}.
      * Always emitted regardless of the {@link ResultOptions} used
      */
     STEP_FAILED

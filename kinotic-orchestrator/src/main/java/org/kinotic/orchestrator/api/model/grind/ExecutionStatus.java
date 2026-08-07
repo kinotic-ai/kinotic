@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.grind;
+package org.kinotic.orchestrator.api.model.grind;
 
 /**
  * The lifecycle state of a recorded execution, shared by {@link JobRun}s and {@link TaskRecord}s.
