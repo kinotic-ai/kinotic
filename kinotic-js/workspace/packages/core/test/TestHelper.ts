@@ -1,4 +1,5 @@
-import {ConnectedInfo, ConnectionInfo, type IWebSocket, SessionKeepAliveMode, type WebSocketFactory} from '../src'
+import {ConnectedInfo, type ConnectOptions, type CredentialsResolver, type IWebSocket, SessionKeepAliveMode, type WebSocketFactory} from '../src'
+import {ensureNodeWebSocket} from '../src/node'
 import { expect, inject } from 'vitest'
 import { WebSocket } from 'ws'
 import * as fs from 'fs'
@@ -85,20 +86,33 @@ export function authedWebSocketFactory(host: string,
     }
 }
 
-export function createConnectionInfo(options: {
+/**
+ * A {@link CredentialsResolver} producing the given auth headers merged over the default
+ * kinotic-test credentials. The supplier form is consulted on every (re)connect.
+ */
+export function testCredentials(authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>)): CredentialsResolver {
+    return {
+        name: 'TestCredentialsResolver',
+        async resolve() {
+            const overrides = typeof authHeaders === 'function' ? await authHeaders() : (authHeaders ?? {})
+            return {authHeaders: {...DEFAULT_AUTH_HEADERS, ...overrides} as unknown as Record<string, string>}
+        }
+    }
+}
+
+export function createConnectOptions(options: {
     sessionKeepAlive?: SessionKeepAliveMode
     authHeaders?: Partial<AuthHeaders> | (() => Promise<Partial<AuthHeaders>>)
-} = {}): ConnectionInfo {
+} = {}): ConnectOptions {
+    ensureNodeWebSocket()
     const { sessionKeepAlive = SessionKeepAliveMode.ACTIVITY, authHeaders } = options
-    const connectionInfo = new ConnectionInfo()
-    // @ts-ignore
-    connectionInfo.host = inject('KINOTIC_HOST')
-    // @ts-ignore
-    connectionInfo.port = inject('KINOTIC_PORT')
-    connectionInfo.maxConnectionAttempts = 3
-    connectionInfo.sessionKeepAlive = sessionKeepAlive
-    connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host as string,
-                                                             connectionInfo.port as number,
-                                                             authHeaders)
-    return connectionInfo
+    return {
+        // @ts-ignore
+        host: inject('KINOTIC_HOST'),
+        // @ts-ignore
+        port: inject('KINOTIC_PORT'),
+        maxConnectionAttempts: 3,
+        sessionKeepAlive,
+        credentials: testCredentials(authHeaders)
+    }
 }

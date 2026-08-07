@@ -80,7 +80,10 @@ describe('Kinotic JS', () => {
         })
         expect(grant.status).toBe(400)
         expect((await grant.json()).error).toBe('unsupported_grant_type')
-    })
+        // each rejected connect costs a jitter delay + reconnect cycle before the client
+        // gives up (maxConnectionAttempts is only checked on the NEXT attempt), so five
+        // rejections need far more than the default 5s test timeout
+    }, 120000)
 
     it('manages the machine lifecycle through MachineService', async () => {
         // the signed-in org user provisions a machine for one of the org's applications.

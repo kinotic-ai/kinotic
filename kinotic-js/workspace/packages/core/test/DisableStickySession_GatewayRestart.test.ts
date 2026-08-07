@@ -1,6 +1,6 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {ConnectedInfo, type ConnectOptions, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {GenericContainer, type StartedTestContainer, Wait} from 'testcontainers'
 import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
@@ -13,7 +13,7 @@ describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         let container: StartedTestContainer
-        let connectionInfo: ConnectionInfo = new ConnectionInfo()
+        let connectionInfo: ConnectOptions = {host: ""}
 
         beforeAll(async () => {
             // Start the Kinotic Gateway container

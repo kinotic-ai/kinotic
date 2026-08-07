@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {ConnectedInfo, KinoticSingleton, Event, EventConstants, ParticipantConstants, SessionKeepAliveMode} from '../src'
 import {TestService} from './ITestService.js'
-import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
+import {createConnectOptions, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -12,7 +12,7 @@ describe('Kinotic JS', () => {
     describe('Kinotic Client Tests', () => {
 
         async function connectToKinotic(kinotic: KinoticSingleton) {
-            return await logFailure(kinotic.connect(createConnectionInfo()),
+            return await logFailure(kinotic.connect(createConnectOptions()),
                                     'Failed to connect to Kinotic Gateway')
         }
 
@@ -61,7 +61,7 @@ describe('Kinotic JS', () => {
             const testService = new TestService(kinotic);
             console.log(`Connecting to Kinotic Gateway running at`)
 
-            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(createConnectionInfo({
+            let connectedInfo: ConnectedInfo = await logFailure(kinotic.connect(createConnectOptions({
                                                                     sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
                                                                     authHeaders: {clientId: ParticipantConstants.CLI_PARTICIPANT_ID}})),
                                                                 'Failed to connect to Kinotic Gateway')
