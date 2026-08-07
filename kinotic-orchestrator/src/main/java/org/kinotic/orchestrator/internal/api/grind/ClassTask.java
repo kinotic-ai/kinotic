@@ -5,36 +5,27 @@ package org.kinotic.orchestrator.internal.api.grind;
 import org.kinotic.orchestrator.api.grind.JobContext;
 import org.kinotic.orchestrator.api.grind.Task;
 
-import java.util.function.Function;
+import java.util.concurrent.Callable;
 
 /**
- * An interesting type of {@link Task} that lets you define a class to be constructed then a method invoked for the result
+ * An interesting type of {@link Task} that constructs an instance of the given class with full
+ * injection each execution, then invokes it for the result
  *
  * Created by Navid Mitchell on 3/19/20
  */
-public class ClassTask<T, R> extends AbstractTask<R> {
+public class ClassTask<R> extends AbstractTask<R> {
 
-    private final Class<? extends T> clazz;
-    private final Function<T, R> invokerFunction;
-
-    public ClassTask(Class<? extends T> clazz,
-                     Function<T, R> invokerFunction) {
-        this.clazz = clazz;
-        this.invokerFunction = invokerFunction;
-    }
+    private final Class<? extends Callable<R>> clazz;
 
     public ClassTask(String description,
-                     Class<? extends T> clazz,
-                     Function<T, R> invokerFunction) {
-        super(description);
+                     Class<? extends Callable<R>> clazz) {
+        super(description != null ? description : clazz.getSimpleName());
         this.clazz = clazz;
-        this.invokerFunction = invokerFunction;
     }
 
     @Override
-    public R execute(JobContext context) {
-        T bean = context.instantiate(clazz);
-        return invokerFunction.apply(bean);
+    public R execute(JobContext context) throws Exception {
+        return context.instantiate(clazz).call();
     }
 
 }

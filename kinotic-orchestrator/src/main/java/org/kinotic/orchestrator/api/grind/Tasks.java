@@ -3,6 +3,7 @@
 package org.kinotic.orchestrator.api.grind;
 
 import org.apache.commons.io.IOUtils;
+import org.kinotic.orchestrator.internal.api.grind.ClassTask;
 import org.kinotic.orchestrator.internal.api.grind.InstanceTask;
 import org.kinotic.orchestrator.internal.api.grind.NoopTask;
 import org.kinotic.orchestrator.internal.api.grind.ValueTask;
@@ -17,6 +18,34 @@ import java.util.function.Supplier;
  * Created by Navid Mitchell on 3/24/20
  */
 public class Tasks {
+
+    /**
+     * Creates a {@link Task} that constructs a new instance of the given class on every execution,
+     * with full injection - constructor parameters and annotated members resolve against the job
+     * scope and the application - then invokes {@link Callable#call()} for the result.
+     * Because the instance is per execution, tasks defined this way hold no state between runs.
+     * The step description is the class's simple name
+     * @param taskClass the class to construct and invoke
+     * @param <R> the result type
+     * @return the task
+     */
+    public static <R> Task<R> fromClass(Class<? extends Callable<R>> taskClass) {
+        return fromClass(null, taskClass);
+    }
+
+    /**
+     * Creates a {@link Task} that constructs a new instance of the given class on every execution,
+     * with full injection - constructor parameters and annotated members resolve against the job
+     * scope and the application - then invokes {@link Callable#call()} for the result.
+     * Because the instance is per execution, tasks defined this way hold no state between runs
+     * @param description of the task
+     * @param taskClass the class to construct and invoke
+     * @param <R> the result type
+     * @return the task
+     */
+    public static <R> Task<R> fromClass(String description, Class<? extends Callable<R>> taskClass) {
+        return new ClassTask<>(description, taskClass);
+    }
 
     public static <R> Task<R> fromCallable(Callable<R> instance) {
         return fromCallable(null, instance);

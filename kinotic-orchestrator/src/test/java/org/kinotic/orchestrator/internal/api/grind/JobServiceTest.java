@@ -201,6 +201,22 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
+    public void classTasksConstructWithScopeInjectedConstructorArguments() throws Exception {
+        JobDefinition def = JobDefinition.create("class task").name("class-task")
+            .taskStoreState(Tasks.fromCallable("make widget", () -> new Widget("hello")))
+            .task(Tasks.fromClass(GreetingTask.class));
+
+        JobExecution execution = jobService.execute(def);
+        RunOutcome outcome = await(execution);
+
+        assertFalse(outcome.failed());
+        assertTrue(outcome.values().contains("typed:hello"),
+                   "the constructor argument must resolve from the job scope");
+        assertNotNull(recordFor(execution.getJobRunId(), "GreetingTask"),
+                      "the step description defaults to the class's simple name");
+    }
+
+    @Test
     public void parallelJobExecutesAllTasks() throws Exception {
         JobDefinition def = JobDefinition.create("parallel test", true).name("parallel-test");
         for (int i = 1; i <= 5; i++) {
