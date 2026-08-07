@@ -2,8 +2,9 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.orchestrator.api.grind.JobExecution;
-import org.kinotic.orchestrator.api.grind.ResultType;
+import org.kinotic.orchestrator.api.model.grind.JobExecution;
+import org.kinotic.orchestrator.api.model.grind.ResultType;
+import org.kinotic.orchestrator.internal.api.model.grind.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 

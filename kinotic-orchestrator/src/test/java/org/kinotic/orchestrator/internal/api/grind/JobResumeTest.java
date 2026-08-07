@@ -4,10 +4,10 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
 import org.kinotic.orchestrator.api.model.grind.JobRun;
 import org.kinotic.orchestrator.api.model.grind.TaskRecord;
-import org.kinotic.orchestrator.api.grind.JobDefinition;
-import org.kinotic.orchestrator.api.grind.JobExecution;
-import org.kinotic.orchestrator.api.grind.JobScope;
-import org.kinotic.orchestrator.api.grind.Tasks;
+import org.kinotic.orchestrator.api.model.grind.JobDefinition;
+import org.kinotic.orchestrator.api.model.grind.JobExecution;
+import org.kinotic.orchestrator.api.model.grind.JobScope;
+import org.kinotic.orchestrator.api.model.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
