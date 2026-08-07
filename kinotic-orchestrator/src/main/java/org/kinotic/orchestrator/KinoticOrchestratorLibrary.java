@@ -1,6 +1,5 @@
 package org.kinotic.orchestrator;
 
-import org.kinotic.core.api.annotations.EnableKinotic;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
@@ -11,9 +10,8 @@ import org.springframework.context.annotation.Configuration;
  * Enables component scanning of all orchestrator packages and configuration properties binding.
  */
 @Configuration
-@ComponentScan
 @EnableConfigurationProperties
-@EnableKinotic // enables proxy scanning and registration
+@ComponentScan
 @ConditionalOnProperty(value = "kinotic.disableOrchestrator", havingValue = "false", matchIfMissing = true)
 public class KinoticOrchestratorLibrary {
 
