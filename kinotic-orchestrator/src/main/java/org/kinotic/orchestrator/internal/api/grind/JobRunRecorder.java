@@ -14,6 +14,7 @@ import org.kinotic.orchestrator.api.grind.StepInfo;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayDeque;
+import java.util.Collection;
 import java.util.Date;
 import java.util.Deque;
 import java.util.Map;
@@ -126,6 +127,20 @@ public class JobRunRecorder {
                 if(completion.getStoredValue() == null){
                     failStep(record, "Step " + stepPath + " (" + record.getDescription()
                              + ") is declared taskStoreState but produced no value", null);
+                }
+                // Type erasure makes a bare collection unrestorable: the record can only capture the
+                // runtime class (e.g. ArrayList), so replay would deserialize a List of Maps instead
+                // of the original element type and downstream injection would fail far from the cause
+                if(completion.getStoredValue() instanceof Collection || completion.getStoredValue() instanceof Map){
+                    failStep(record, "Step " + stepPath + " (" + record.getDescription()
+                             + ") is declared taskStoreState but produced a "
+                             + completion.getStoredValue().getClass().getName()
+                             + ". Collections and Maps cannot be stored as STATE because Java erases their"
+                             + " element types, so the value could not be restored correctly when the run is"
+                             + " resumed. Either wrap the value in a domain class (a field like"
+                             + " 'List<Workload> workloads' keeps its element type and round-trips correctly),"
+                             + " or if the value can be re-fetched from its source of truth, use"
+                             + " taskStoreResult so the step reloads on resume instead", null);
                 }
                 record.setResultValueType(completion.getStoredValue().getClass().getName());
                 try {

@@ -61,6 +61,40 @@ public class JobResumeTest extends AbstractGrindTest {
     }
 
     @Test
+    public void wrappedCollectionsRoundTripAndReplay() throws Exception {
+        AtomicInteger batchExecutions = new AtomicInteger();
+        AtomicBoolean shouldFail = new AtomicBoolean();
+        WidgetBatch original = new WidgetBatch(java.util.List.of(new Widget("a"), new Widget("b")));
+
+        Supplier<JobDefinition> builder = () -> JobDefinition.create("batch resume").name("batch-resume")
+            .taskStoreState(Tasks.fromCallable("make batch", () -> {
+                batchExecutions.incrementAndGet();
+                return original;
+            }), "batch")
+            .task(Tasks.fromCallable("flaky", () -> {
+                if (shouldFail.get()) {
+                    throw new IllegalStateException("first attempt fails");
+                }
+                return "ok";
+            }))
+            .task(Tasks.fromCallable("downstream", new Callable<Integer>() {
+                @Autowired
+                private WidgetBatch batch;
+                public Integer call() {
+                    // proves elements deserialized as Widgets, not Maps
+                    return batch.widgets.get(0) instanceof Widget ? batch.widgets.size() : -1;
+                }
+            }));
+
+        JobExecution resumed = failThenResume(builder, shouldFail);
+        RunOutcome outcome = await(resumed);
+
+        assertFalse(outcome.failed());
+        assertEquals(1, batchExecutions.get(), "the wrapped batch replays instead of re-executing");
+        assertTrue(outcome.values().contains(2), "elements must restore with their real types");
+    }
+
+    @Test
     public void resumeReplaysCompletedStateWithoutReExecuting() throws Exception {
         AtomicInteger stateExecutions = new AtomicInteger();
         AtomicBoolean shouldFail = new AtomicBoolean();

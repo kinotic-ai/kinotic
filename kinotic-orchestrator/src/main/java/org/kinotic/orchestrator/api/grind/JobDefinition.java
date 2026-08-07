@@ -121,7 +121,9 @@ public interface JobDefinition extends HasSteps{
      * Adds a {@link Task} to the list of {@link Task}'s that will be executed by this {@link JobDefinition}
      * and stores the result as durable state: the value is serialized into the run's records, and on
      * resume it is replayed from the record instead of executing the task again.
-     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step
+     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step.
+     * Bare collections and maps cannot be stored as state because their element types are erased -
+     * wrap them in a domain class whose field declares the element type
      * @param task to add
      * @return this for fluent use
      */
@@ -131,7 +133,9 @@ public interface JobDefinition extends HasSteps{
      * Adds a {@link Task} to the list of {@link Task}'s that will be executed by this {@link JobDefinition}
      * and stores the result as durable state: the value is serialized into the run's records, and on
      * resume it is replayed from the record instead of executing the task again.
-     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step
+     * The stored value must serialize to JSON and back; a value that cannot fails the run at this step.
+     * Bare collections and maps cannot be stored as state because their element types are erased -
+     * wrap them in a domain class whose field declares the element type
      * @param task to add
      * @param variableName the name to use when storing the {@link Task} result in the context for this {@link JobDefinition}
      * @return this for fluent use

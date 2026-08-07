@@ -199,6 +199,24 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
+    public void strictContractRejectsBareCollectionsAsState() throws Exception {
+        JobDefinition def = JobDefinition.create("collection state").name("collection-state")
+            .taskStoreState(Tasks.fromCallable("bare list", () -> List.of(new Widget("a"), new Widget("b"))), "widgets")
+            .task(Tasks.fromCallable("never runs", () -> "unreachable"));
+
+        JobExecution execution = jobService.execute(def);
+        RunOutcome outcome = await(execution);
+
+        assertTrue(outcome.failed());
+        assertTrue(outcome.error().getMessage().contains("wrap the value in a domain class"),
+                   "the failure must point authors at the wrapper pattern");
+
+        TaskRecord bad = recordFor(execution.getJobRunId(), "bare list");
+        assertEquals(ExecutionStatus.FAILED, bad.getStatus());
+        assertNull(recordFor(execution.getJobRunId(), "never runs"));
+    }
+
+    @Test
     public void strictContractFailsRunOnUnserializableState() throws Exception {
         class Cyclic {
             @SuppressWarnings("unused")
