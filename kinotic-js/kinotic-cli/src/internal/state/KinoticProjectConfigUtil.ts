@@ -13,19 +13,12 @@ import { fileURLToPath } from 'url'
  * project config exists yet (a project being initialized).
  */
 export function resolveKinoticConfigDir(): string {
-    let ret = path.resolve(process.cwd(), '.config')
-    let dir = process.cwd()
-    for (;;) {
-        const candidate = path.join(dir, '.config')
-        if (hasKinoticConfigFile(candidate)) {
-            ret = candidate
-            break
-        }
-        const parent = path.dirname(dir)
-        if (parent === dir) {
-            break
-        }
-        dir = parent
+    let ret: string
+    const configFile = findKinoticConfigFile()
+    if (configFile) {
+        ret = path.dirname(configFile)
+    } else {
+        ret = path.resolve(process.cwd(), '.config')
     }
     return ret
 }
@@ -40,34 +33,35 @@ export function chdirToProjectRoot(): void {
     process.chdir(path.dirname(resolveKinoticConfigDir()))
 }
 
-function hasKinoticConfigFile(configDir: string): boolean {
-    let ret = false
-    try {
-        ret = fs.readdirSync(configDir).some(f => f.startsWith('kinotic.config.'))
-    } catch {
-        // no .config directory at this level
+/**
+ * Returns the absolute path to the first supported kinotic.config.* file in the nearest
+ * .config directory at or above the working directory, or undefined when none is found.
+ */
+function findKinoticConfigFile(): string | undefined {
+    let ret: string | undefined
+    let dir = process.cwd()
+    for (;;) {
+        ret = findKinoticConfigFileIn(path.join(dir, '.config'))
+        const parent = path.dirname(dir)
+        if (ret !== undefined || parent === dir) {
+            break
+        }
+        dir = parent
     }
     return ret
 }
 
-/**
- * Returns the absolute path to the first supported kinotic.config.* file in the .config directory, or undefined if none found.
- */
-async function findKinoticConfigFile(): Promise<string | undefined> {
-    const configDir = resolveKinoticConfigDir()
+function findKinoticConfigFileIn(configDir: string): string | undefined {
+    let ret: string | undefined
     try {
-        const stat = await fsPromises.stat(configDir)
-        if (stat.isDirectory()) {
-            const files = await fsPromises.readdir(configDir)
-            const supported = files.filter(f => f.startsWith('kinotic.config.'))
-            if (supported.length > 0) {
-                return path.join(configDir, supported[0])
-            }
+        const supported = fs.readdirSync(configDir).filter(f => f.startsWith('kinotic.config.'))
+        if (supported.length > 0) {
+            ret = path.join(configDir, supported[0])
         }
-    } catch (e) {
-        // Directory does not exist or is not accessible
+    } catch {
+        // no .config directory at this level
     }
-    return undefined
+    return ret
 }
 
 /**
@@ -156,34 +150,29 @@ export async function saveKinoticProjectConfig(config: KinoticProjectConfig, con
 
 export async function isKinoticProject(): Promise<boolean> {
     let result = false
-    if (await findKinoticConfigFile()) {
+    if (findKinoticConfigFile()) {
         result = true
     }
     return result
 }
 
 export async function loadKinoticProjectConfig(): Promise<KinoticProjectConfig> {
-    let result: KinoticProjectConfig | undefined
-    const configFile = await findKinoticConfigFile()
-    let configDir = resolveKinoticConfigDir()
-    if (configFile) {
-        configDir = path.dirname(configFile)
-        const { config } = await loadConfig({
-            configFile: configFile,
-            name: 'kinotic',
-            cwd: configDir,
-            dotenv: false,
-            packageJson: false
-        })
-        if (!config) {
-            throw new Error(`Failed to load config from ${configFile}`)
-        }
-        result = config as KinoticProjectConfig
-    }
-
-    if (!result) {
+    const configFile = findKinoticConfigFile()
+    if (!configFile) {
         throw new Error('No kinotic project config found and not a legacy project')
     }
+    const configDir = path.dirname(configFile)
+    const { config } = await loadConfig({
+        configFile: configFile,
+        name: 'kinotic',
+        cwd: configDir,
+        dotenv: false,
+        packageJson: false
+    })
+    if (!config) {
+        throw new Error(`Failed to load config from ${configFile}`)
+    }
+    const result = config as KinoticProjectConfig
     // If name is not set, try to load from package.json in the project root
     if (!result.name || !result.description) {
         try {
