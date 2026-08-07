@@ -42,25 +42,17 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Kinotic } from '@kinotic-ai/core'
+import type { PendingOAuthAuthorization } from '@kinotic-ai/os-api'
 import Button from 'primevue/button'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
-interface PendingOAuthAuthorization {
-  clientName: string
-  clientId: string
-  scope: string | null
-}
+// The installed os-api type omits clientId, which the server does return; the field is
+// already added at the source, so this widening disappears at the next os-api publish.
+type PendingAuthorization = PendingOAuthAuthorization & { clientId: string }
 
-interface OAuthApprovalProxy {
-  describe(requestId: string): Promise<PendingOAuthAuthorization>
-  approve(requestId: string): Promise<string>
-  deny(requestId: string): Promise<string>
-}
-
-// typed locally until the installed @kinotic-ai/os-api ships the oauthApproval extension
-const oauthApproval = (Kinotic as unknown as { oauthApproval: OAuthApprovalProxy }).oauthApproval
+const oauthApproval = Kinotic.oauthApproval
 
 /**
  * The OAuth 2.1 consent page. The gateway's authorize endpoint sends the browser here
@@ -69,7 +61,7 @@ const oauthApproval = (Kinotic as unknown as { oauthApproval: OAuthApprovalProxy
  */
 type Decision = 'approve' | 'deny'
 
-const pending = ref<PendingOAuthAuthorization | null>(null)
+const pending = ref<PendingAuthorization | null>(null)
 const failed = ref<string | null>(null)
 // which decision is in flight, so only the clicked button shows its spinner
 const deciding = ref<Decision | null>(null)
@@ -95,7 +87,7 @@ const clientHost = computed<string>(() => {
 onMounted(async () => {
   if (!requestId.value) return
   try {
-    pending.value = await oauthApproval.describe(requestId.value)
+    pending.value = await oauthApproval.describe(requestId.value) as PendingAuthorization
   } catch (err) {
     failed.value = err instanceof Error ? err.message : 'Could not load the authorization request'
   }
