@@ -31,7 +31,8 @@ public class DefaultJobRunService extends AbstractCrudService<JobRun> implements
                                                            String applicationId,
                                                            String projectId,
                                                            Pageable pageable) {
-        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.isTrue(organizationId != null || (applicationId == null && projectId == null),
+                        "applicationId and projectId require an organizationId");
         return jobRunRepository.findAllForOwner(organizationId, applicationId, projectId, pageable);
     }
 

@@ -24,14 +24,15 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
 
     /**
      * Returns the page of runs owned by the given hierarchy: all of an organization's runs,
-     * narrowed to an application and/or project when those ids are given.
+     * narrowed to an application and/or project when those ids are given. A null
+     * {@code organizationId} selects platform runs - those owned by no organization.
      */
     public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
                                                            String applicationId,
                                                            String projectId,
                                                            Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
-            termFilter("organizationId", organizationId),
+            organizationId != null ? termFilter("organizationId", organizationId) : missingFilter("organizationId"),
             applicationId != null ? termFilter("applicationId", applicationId) : null,
             projectId != null ? termFilter("projectId", projectId) : null)));
     }

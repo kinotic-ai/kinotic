@@ -210,7 +210,7 @@ public class JobServiceTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("owned job").name("owned-job")
             .task(Tasks.fromCallable("work", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def, new JobOwner("org-1", "app-1", "proj-1"));
+        JobExecution execution = jobService.execute(def, JobOwner.of("org-1", "app-1", "proj-1"));
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -222,8 +222,9 @@ public class JobServiceTest extends AbstractGrindTest {
 
     @Test
     public void jobOwnerMapsFromEachParticipantScope() {
-        assertNull(JobOwner.from(DefaultSystemParticipant.builder().id("sys").build()),
-                   "a system participant owns platform runs");
+        JobOwner system = JobOwner.from(DefaultSystemParticipant.builder().id("sys").build());
+        assertTrue(system.isSystem(), "a system participant owns platform runs");
+        assertNull(system.getOrganizationId());
 
         JobOwner org = JobOwner.from(DefaultOrganizationParticipant.builder()
                                                                    .id("user-1").organizationId("org-1").build());
@@ -237,6 +238,10 @@ public class JobServiceTest extends AbstractGrindTest {
         assertEquals("org-1", app.getOrganizationId());
         assertEquals("app-1", app.getApplicationId());
         assertEquals("proj-1", app.getProjectId());
+
+        // project ownership requires an organization, so a system participant cannot carry one
+        assertThrows(IllegalArgumentException.class,
+                     () -> JobOwner.from(DefaultSystemParticipant.builder().id("sys").build(), "proj-1"));
     }
 
     @Test

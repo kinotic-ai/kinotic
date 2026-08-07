@@ -23,7 +23,8 @@ public interface JobRunService extends IdentifiableCrudService<JobRun, String> {
     /**
      * Finds the runs owned by the given hierarchy: all of an organization's runs, narrowed
      * to an application and/or project when those ids are given.
-     * @param organizationId the owning organization, required
+     * @param organizationId the owning organization, or null for platform runs - those owned
+     *                       by no organization
      * @param applicationId the owning application or null for all of the organization's runs
      * @param projectId the owning project or null for all of the organization's runs
      * @param pageable the page of runs to return
