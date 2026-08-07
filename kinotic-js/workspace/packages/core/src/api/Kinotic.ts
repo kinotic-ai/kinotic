@@ -1,4 +1,5 @@
-import {ConnectionInfo} from '@/api/ConnectionInfo'
+import type {ConnectOptions} from '@/api/ConnectOptions'
+import {resolveConnectOptions} from '@/internal/api/ConnectResolution'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {EventBus} from '@/api/event/EventBus'
 import type {IEventBus} from '@/api/event/IEventBus'
@@ -32,11 +33,12 @@ export interface IKinotic {
     defaultZone: string | null
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * Connects to a Kinotic server. Every option is optional: absent server fields and
+     * credentials resolve from the environment — see {@link ConnectOptions}.
+     * @param options overrides for the resolved connection, or nothing to resolve everything
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo>
+    connect(options?: ConnectOptions): Promise<ConnectedInfo>
 
     /**
      * Disconnects the client from the server
@@ -95,12 +97,13 @@ export class KinoticSingleton implements IKinotic {
     }
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * Connects to a Kinotic server. Every option is optional: absent server fields and
+     * credentials resolve from the environment — see {@link ConnectOptions}.
+     * @param options overrides for the resolved connection, or nothing to resolve everything
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
-        return this._eventBus.connect(connectionInfo)
+    connect(options?: ConnectOptions): Promise<ConnectedInfo> {
+        return this._eventBus.connect(resolveConnectOptions(options))
     }
 
     /**

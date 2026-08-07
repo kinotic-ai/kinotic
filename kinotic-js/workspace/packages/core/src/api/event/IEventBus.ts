@@ -1,7 +1,7 @@
 import { Optional } from 'typescript-optional'
 import { Observable } from 'rxjs'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
+import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 
 /**
  * Part of the low level portion of kinoitc representing data to be processed
@@ -90,11 +90,12 @@ export interface IEventBus {
     serverInfo: ServerInfo | null
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * Connects to a Kinotic server using fully resolved options — {@link IKinotic#connect}
+     * performs the resolution.
+     * @param options the resolved connection options
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo>
+    connect(options: ConnectOptions): Promise<ConnectedInfo>
 
     /**
      * Disconnects the client from the server
@@ -171,7 +172,7 @@ export enum EventConstants {
     REPLY_TO_HEADER = 'reply-to',
 
     /**
-     * Header provided by the server on connection to provide the {@link ConnectionInfo} as a JSON string
+     * Header provided by the server on connection to provide the {@link ConnectedInfo} as a JSON string
      */
     CONNECTED_INFO_HEADER = 'connected-info',
 

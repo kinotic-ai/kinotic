@@ -1,3 +1,5 @@
+import type {CredentialsResolver} from '@/api/security/CredentialsResolver'
+
 /**
  * Structural shape of a WebSocket used by the underlying STOMP client.
  * Copied from the WebSocket interface to avoid pulling in the DOM typelib,
@@ -38,19 +40,30 @@ export enum SessionKeepAliveMode {
 }
 
 /**
- * ConnectionInfo provides the information needed to connect to the kinoitc server.
+ * Options for {@link IKinotic#connect}. Every field is optional: absent server fields resolve
+ * from the environment (the {@code KINOTIC_SERVER_HOST} / {@code KINOTIC_SERVER_PORT} /
+ * {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own location, then
+ * {@code localhost:58503}), and absent {@link credentials} resolve through the default
+ * {@link ChainedCredentialsResolver} (environment variables, then the browser session).
  *
- * Authentication is performed during the WebSocket upgrade (handshake), not in
- * the STOMP CONNECT frame. In the browser, log in via the REST endpoints first
- * and the established session cookie will be used. In Node, supply a
- * {@link WebSocketFactory} that attaches the required upgrade headers.
+ * Authentication is performed during the WebSocket upgrade (handshake), not in the STOMP
+ * CONNECT frame: the resolved credentials supply the upgrade headers, or none for
+ * session-cookie auth.
  */
-export class ConnectionInfo extends ServerInfo {
+export interface ConnectOptions {
+    host?: string
+    port?: number | null
+    useSSL?: boolean | null
+
     /**
-     * Optional factory used to create the underlying WebSocket. Use this in
-     * Node to attach custom headers (such as Authorization) to the upgrade
-     * request. If omitted, a default WebSocket is created and authentication
-     * is expected to come from the session cookie.
+     * Finds the credentials this connection authenticates with, consulted on every
+     * (re)connect. Absent, the default resolution chain applies.
+     */
+    credentials?: CredentialsResolver
+
+    /**
+     * Escape hatch: fully replaces socket construction and credential resolution. When set,
+     * {@link credentials} is ignored and the factory owns the upgrade request.
      */
     webSocketFactory?: WebSocketFactory
 
@@ -66,6 +79,5 @@ export class ConnectionInfo extends ServerInfo {
      * Defaults to {@link SessionKeepAliveMode.ACTIVITY}.
      * Use {@link SessionKeepAliveMode.NONE} to remove the session when the websocket connection closes.
      */
-    sessionKeepAlive: SessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY
-
+    sessionKeepAlive?: SessionKeepAliveMode
 }

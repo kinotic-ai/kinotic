@@ -2,7 +2,7 @@ import {v4 as uuidv4} from 'uuid'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
 import {ConnectedInfo, Kinotic, Event, EventConstants, type IEvent} from '../src'
-import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
+import {createConnectOptions, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -12,7 +12,7 @@ describe('Kinotic JS', () => {
     describe('Kinotic RPC Tests', () => {
 
         beforeAll(async () => {
-            const connectionInfo = createConnectionInfo()
+            const connectionInfo = createConnectOptions()
             let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo), 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
         }, 1000 * 60 * 10) // 10 minutes

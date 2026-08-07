@@ -1,11 +1,11 @@
-import { Kinotic, SessionKeepAliveMode, createAuthenticatedWebSocketFactory } from '@kinotic-ai/core'
-import type { ConnectionInfo, ServerInfo } from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
+import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
 import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { createAuthProvider } from '@/api/createAuthProvider'
+import { createCredentialsResolver } from '@/api/createCredentialsResolver'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
 import type { Workload } from '@kinotic-ai/os-api'
@@ -62,19 +62,14 @@ async function start() {
     // system zone. Must be set before DefaultVmManager is instantiated (@Publish registers there).
     Kinotic.zonePrefix = SYSTEM_ZONE
 
-    // Connect to the Kinotic server. As of @kinotic-ai/core 1.7.0 authentication
-    // is performed during the WebSocket upgrade via a pluggable auth provider.
-    const serverInfo: ServerInfo = {
+    // Authentication happens during the WebSocket upgrade with the resolved credentials.
+    ensureNodeWebSocket()
+    await Kinotic.connect({
         host: config.serverHost,
         port: config.serverPort,
-        useSSL: config.serverUseSSL
-    }
-    const connectionInfo: ConnectionInfo = {
-        ...serverInfo,
-        sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
-        webSocketFactory: createAuthenticatedWebSocketFactory(serverInfo, createAuthProvider(config))
-    }
-    await Kinotic.connect(connectionInfo)
+        useSSL: config.serverUseSSL,
+        credentials: createCredentialsResolver(config)
+    })
     console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
@@ -133,4 +128,4 @@ export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/os-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'
-export { createAuthProvider } from '@/api/createAuthProvider'
+export { createCredentialsResolver } from '@/api/createCredentialsResolver'

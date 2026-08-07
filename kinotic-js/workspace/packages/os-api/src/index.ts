@@ -71,7 +71,6 @@ export * from '@/api/model/security/ISystemParticipant'
 export * from '@/api/model/security/IOrganizationParticipant'
 export * from '@/api/model/security/IApplicationParticipant'
 export * from '@/api/model/security/ParticipantGuards'
-export * from '@/api/model/security/KinoticOsCredentialsAuthProvider'
 
 // Services
 export * from '@/api/services/IApplicationService'

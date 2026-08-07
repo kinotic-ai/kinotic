@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, Kinotic, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {ConnectedInfo, type ConnectOptions, Kinotic, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import { GenericContainer, type StartedTestContainer, Wait } from 'testcontainers'
 import {TestService} from './ITestService.js'
 import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
@@ -18,7 +18,7 @@ describe('Kinotic JS', () => {
             const host: string = 'notavailable'
             const port: number = 58503
             console.log(`Trying to Connecting to Unavailable Kinotic Gateway`)
-            const ci = new ConnectionInfo()
+            const ci: ConnectOptions = {host: ""}
             ci.host = host
             ci.port = port
             ci.maxConnectionAttempts = 3
@@ -39,7 +39,7 @@ describe('Kinotic JS', () => {
            {"timeout": 1000 * 60 * 3},
            async () => {
                let container: StartedTestContainer
-               let connectionInfo: ConnectionInfo = new ConnectionInfo()
+               let connectionInfo: ConnectOptions = {host: ""}
 
                // Start the Kinotic Gateway container
                console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')

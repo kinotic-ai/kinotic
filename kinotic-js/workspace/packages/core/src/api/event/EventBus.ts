@@ -1,4 +1,4 @@
-import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
+import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
@@ -105,19 +105,19 @@ export class EventBus implements IEventBus {
         return this.stompConnectionManager.connected
     }
 
-    public connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
+    public connect(options: ConnectOptions): Promise<ConnectedInfo> {
         return this.serializeLifecycle(async () => {
             if(!this.stompConnectionManager.active){
 
                 // reset state in case connection ended due to max connection attempts
                 this.cleanup()
 
-                const connectedInfo = await this.stompConnectionManager.activate(connectionInfo)
+                const connectedInfo = await this.stompConnectionManager.activate(options)
                 // manually copy so we don't store any sensitive info
                 this.serverInfo = new ServerInfo()
-                this.serverInfo.host = connectionInfo.host
-                this.serverInfo.port = connectionInfo.port
-                this.serverInfo.useSSL = connectionInfo.useSSL
+                this.serverInfo.host = options.host as string
+                this.serverInfo.port = options.port
+                this.serverInfo.useSSL = options.useSSL
 
                 this.replyToCri = this.stompConnectionManager.replyToCri
 

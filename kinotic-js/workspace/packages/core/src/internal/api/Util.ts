@@ -1,6 +1,6 @@
 import {EventConstants, type IEvent} from '@/api/event/IEventBus'
 import {Event} from '@/api/event/EventBus'
-import type {ServerInfo} from '@/api/ConnectionInfo'
+import type {ServerInfo} from '@/api/ConnectOptions'
 
 /**
  * Static utility functions used across the Kinoitc core runtime.
