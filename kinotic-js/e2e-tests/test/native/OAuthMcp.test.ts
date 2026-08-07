@@ -57,7 +57,8 @@ describe('Kinotic JS', () => {
      * Attempts a full Kinotic client connection authenticated by machine credentials on the
      * upgrade headers — exactly how a machine (vm-manager, an external API caller) connects.
      */
-    async function machineConnect(clientId: string, clientSecret: string): Promise<'connected' | 'rejected'> {
+    async function machineConnect(clientId: string, clientSecret: string,
+                                  organizationId?: string, applicationId?: string): Promise<'connected' | 'rejected'> {
         const machineKinotic = new KinoticSingleton()
         const ci = new ConnectionInfo()
         ci.host = inject('KINOTIC_HOST')
@@ -65,7 +66,8 @@ describe('Kinotic JS', () => {
         ci.useSSL = false
         ci.maxConnectionAttempts = 1
         ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-        ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci, new KinoticOsCredentialsAuthProvider(clientId, clientSecret))
+        ci.webSocketFactory = createAuthenticatedWebSocketFactory(ci,
+            new KinoticOsCredentialsAuthProvider(clientId, clientSecret, organizationId, applicationId))
         try {
             await machineKinotic.connect(ci)
             await machineKinotic.disconnect()
@@ -218,6 +220,8 @@ describe('Kinotic JS', () => {
 
     it('authenticates a machine with its credentials on the connection', async () => {
         expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
+        // scope headers, when supplied, must agree with the machine's own scope
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-mcp')).toBe('connected')
     })
 
     it('rejects connections that do not prove a machine identity', async () => {
@@ -227,6 +231,9 @@ describe('Kinotic JS', () => {
         expect(await machineConnect('no-such-machine', MACHINE_CLIENT_SECRET)).toBe('rejected')
         // a USER id with its correct password — ids without '@' resolve only to machines
         expect(await machineConnect(ORG_USER_ID, 'kinotic')).toBe('rejected')
+        // valid credentials but scope headers that contradict the machine's own scope
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'kinotic-test', 'e2e-datastream')).toBe('rejected')
+        expect(await machineConnect(MACHINE_CLIENT_ID, MACHINE_CLIENT_SECRET, 'some-other-org')).toBe('rejected')
         // the OAuth surface no longer speaks client_credentials — machines connect, not mint
         const grant = await fetch(`${base()}/api/auth/oauth/token`, {
             method: 'POST',
@@ -249,8 +256,9 @@ describe('Kinotic JS', () => {
         const machineId = created.machine.id!
         expect(created.clientSecret).toBeTruthy()
 
-        // the provisioned credentials connect
+        // the provisioned credentials connect, with and without declared scope
         expect(await machineConnect(machineId, created.clientSecret)).toBe('connected')
+        expect(await machineConnect(machineId, created.clientSecret, 'kinotic-test', 'e2e-machines')).toBe('connected')
 
         // and the machine is listed for its application
         const listed = await machineService.findMachines('e2e-machines', Pageable.create(0, 50))

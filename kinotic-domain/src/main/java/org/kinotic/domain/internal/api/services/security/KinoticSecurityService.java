@@ -40,7 +40,8 @@ import java.util.TreeMap;
  *       {@code clientId} containing {@code @} is a user email, looked up within the scope the
  *       {@code organizationId} / {@code applicationId} headers select; any other
  *       {@code clientId} is a {@link MachineParticipantIdentity} id, whose scope comes from
- *       the identity itself. Both verify the bcrypt secret hash.</li>
+ *       the identity itself and must agree with the scope headers when they are supplied.
+ *       Both verify the bcrypt secret hash.</li>
  *   <li><b>Kinotic JWT</b> — {@code Authorization: Bearer <jwt>} header. The JWT was minted
  *       by {@link KinoticJwtIssuer} through one of the OAuth grants. We validate the JWT
  *       signature, then look up the {@link ParticipantIdentity} by id from the JWT {@code sub} claim and
@@ -83,12 +84,11 @@ public class KinoticSecurityService implements SecurityService {
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             ret = authenticateKinoticJwt(authHeader.substring(7));
         } else if (clientId != null || clientSecret != null) {
-            // an email is a user credential; anything else is a machine identity id — machines
-            // carry their scope structurally, so the scope headers only apply to the user path
+            // an email is a user credential; anything else is a machine identity id
             if (clientId != null && clientId.indexOf('@') >= 0) {
                 ret = authenticateEmailPassword(organizationId, applicationId, clientId, clientSecret);
             } else {
-                ret = authenticateMachine(clientId, clientSecret);
+                ret = authenticateMachine(organizationId, applicationId, clientId, clientSecret);
             }
         } else {
             // MCP hosts probe POST /mcp with no credentials to collect the RFC 9728 challenge, so
@@ -138,17 +138,31 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Authenticates a machine by its identity id and provisioned secret. Scope comes from the
-     * machine identity itself; every failure is the same generic error.
+     * Authenticates a machine by its identity id and provisioned secret. The machine's scope
+     * comes from the identity itself; the scope headers, when supplied, must agree with it —
+     * a client configured for the wrong organization or application is rejected. Every
+     * failure is the same generic error.
      */
-    private Future<Participant> authenticateMachine(String clientId, String clientSecret) {
+    private Future<Participant> authenticateMachine(String organizationId,
+                                                    String applicationId,
+                                                    String clientId,
+                                                    String clientSecret) {
         if (clientId == null || clientSecret == null) {
             return Future.failedFuture(new AuthenticationException(
                     "clientId and clientSecret headers are required for credential authentication"));
         }
         return Future.fromCompletionStage(identityService.verifyMachineCredentials(clientId, clientSecret),
                                           vertx.getOrCreateContext())
-                     .map(machine -> (Participant) DomainUtil.createParticipant(machine))
+                     .compose(machine -> {
+                         Future<Participant> ret;
+                         if ((organizationId != null && !organizationId.equals(machine.getOrganizationId()))
+                                 || (applicationId != null && !applicationId.equals(machine.getApplicationId()))) {
+                             ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+                         } else {
+                             ret = Future.succeededFuture(DomainUtil.createParticipant(machine));
+                         }
+                         return ret;
+                     })
                      .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
     }
 
