@@ -52,6 +52,12 @@ public class TaskRecord implements Identifiable<String> {
     private StoreType storeType;
 
     /**
+     * True if the step's {@code Task} returned further steps that were executed dynamically.
+     * A resumed run re-executes such a step so the dynamic steps are regenerated.
+     */
+    private boolean dynamicSteps;
+
+    /**
      * The name the step's result was stored under in the job scope,
      * or null if the result was not stored.
      */

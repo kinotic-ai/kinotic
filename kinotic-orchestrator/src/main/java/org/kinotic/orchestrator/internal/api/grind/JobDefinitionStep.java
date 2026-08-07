@@ -41,7 +41,7 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
     }
 
     @Override
-    public Publisher<Result<?>> assemble(JobContext context, ResultOptions options) {
+    public Publisher<Result<?>> assemble(String stepPath, JobContext context, ResultOptions options, ReplayLedger replayLedger) {
         return Flux.create(sink -> {
             try {
 
@@ -59,7 +59,7 @@ public class JobDefinitionStep extends AbstractStep implements HasSteps {
                 List<Publisher<Result<?>>> assembledTaskDefinitions = new ArrayList<>();
 
                 for(Step step: jobDefinition.getSteps()){
-                    assembledTaskDefinitions.add(step.assemble(contextToUse, options));
+                    assembledTaskDefinitions.add(step.assemble(stepPath + "/" + step.getSequence(), contextToUse, options, replayLedger));
                 }
 
                 Flux<Result<?>> jobFlux;

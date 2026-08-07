@@ -50,6 +50,11 @@ public class JobRun implements Identifiable<String> {
     private String error;
 
     /**
+     * The id of the {@link JobRun} this run resumed, or null if this run was not a resume.
+     */
+    private String resumedFrom;
+
+    /**
      * When the run started executing.
      */
     private Date started;

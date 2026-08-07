@@ -70,24 +70,51 @@ public class TaskStep extends AbstractStep {
     }
 
     @Override
-    public Publisher<Result<?>> assemble(JobContext context, ResultOptions options) {
+    public Publisher<Result<?>> assemble(String stepPath, JobContext context, ResultOptions options, ReplayLedger replayLedger) {
         return Flux.create(sink -> {
             try {
+                // A ledger entry means the original run completed this step. A step that produced
+                // dynamic steps must re-execute so they are regenerated; the regenerated steps then
+                // consult the ledger at their own paths.
+                ReplayEntry replayEntry = replayLedger != null ? replayLedger.get(stepPath) : null;
+                boolean completedInOriginalRun = replayEntry != null && !replayEntry.isDynamicSteps();
+
+                if(completedInOriginalRun && storeType == StoreType.NONE){
+                    notifyStepStarted(task.getDescription(), sink);
+                    notifyStepCompleted(new StepCompletion(StoreType.NONE, null, null), sink);
+                    notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " already completed, skipped"), sink, options, log);
+                    sink.complete();
+                    return;
+                }
+
+                if(completedInOriginalRun && storeType == StoreType.STATE && replayEntry.getValue() != null){
+                    notifyStepStarted(task.getDescription(), sink);
+                    storeIfDesired(context, options, sink, replayEntry.getValue());
+                    notifyStepCompleted(new StepCompletion(storeType, resultName, replayEntry.getValue()), sink);
+                    notifyProgress(() -> new Progress(100, "Task: " + taskDisplayString + " already completed, replayed stored state"), sink, options, log);
+                    sink.complete();
+                    return;
+                }
+
+                // RESULT reloads from its source of truth: the declared reload task when there is one,
+                // otherwise the task itself, which must then be safe to re-run
+                Task<?> taskToRun = completedInOriginalRun && reloadTask != null ? reloadTask : task;
+
                 notifyStepStarted(task.getDescription(), sink);
                 notifyProgress(() -> new Progress(0, "Task: " + taskDisplayString + " Executing"), sink, options, log);
 
-                if(!(task instanceof NoopTask)) {
+                if(!(taskToRun instanceof NoopTask)) {
 
-                    Object result = task.execute(context);
+                    Object result = taskToRun.execute(context);
 
                     // check if this task returned a job definition, task, or something else
                     if(result instanceof JobDefinition){
 
-                        completeWithJobDefinition(context, options, sink, (JobDefinition) result);
+                        completeWithJobDefinition(stepPath, context, options, replayLedger, sink, (JobDefinition) result);
 
                     }else if(result instanceof Task){
 
-                        completeWithTask(context, options, sink, (Task<?>) result);
+                        completeWithTask(stepPath, context, options, replayLedger, sink, (Task<?>) result);
 
                     }else{
 
@@ -111,8 +138,10 @@ public class TaskStep extends AbstractStep {
         });
     }
 
-    private void completeWithJobDefinition(JobContext context,
+    private void completeWithJobDefinition(String stepPath,
+                                           JobContext context,
                                            ResultOptions options,
+                                           ReplayLedger replayLedger,
                                            FluxSink<Result<?>> sink,
                                            JobDefinition jobDefinition){
 
@@ -122,11 +151,13 @@ public class TaskStep extends AbstractStep {
 
         sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DYNAMIC_STEPS, jobDefinitionStep));
 
-        completeWithStep(options, sink, jobDefinitionStep.assemble(context, options));
+        completeWithStep(options, sink, jobDefinitionStep.assemble(stepPath + "/" + jobDefinitionStep.getSequence(), context, options, replayLedger));
     }
 
-    private void completeWithTask(JobContext context,
+    private void completeWithTask(String stepPath,
+                                  JobContext context,
                                   ResultOptions options,
+                                  ReplayLedger replayLedger,
                                   FluxSink<Result<?>> sink,
                                   Task<?> task) {
 
@@ -136,7 +167,7 @@ public class TaskStep extends AbstractStep {
 
         sink.next(new DefaultResult<>(new StepInfo(sequence), ResultType.DYNAMIC_STEPS, taskStep));
 
-        completeWithStep(options, sink, taskStep.assemble(context, options));
+        completeWithStep(options, sink, taskStep.assemble(stepPath + "/" + taskStep.getSequence(), context, options, replayLedger));
     }
 
     private void completeWithStep(ResultOptions options, FluxSink<Result<?>> sink, Publisher<Result<?>> assemble) {

@@ -41,6 +41,7 @@ public class JobRunRecorder {
 
     public JobRunRecorder(String jobRunId,
                           JobDefinition jobDefinition,
+                          String resumedFrom,
                           JobRunService jobRunService,
                           TaskRecordService taskRecordService,
                           ObjectMapper objectMapper) {
@@ -51,7 +52,8 @@ public class JobRunRecorder {
         this.jobRun = new JobRun().setId(jobRunId)
                                   .setName(jobDefinition.getName())
                                   .setVersion(jobDefinition.getVersion())
-                                  .setDescription(jobDefinition.getDescription());
+                                  .setDescription(jobDefinition.getDescription())
+                                  .setResumedFrom(resumedFrom);
     }
 
     public void runStarted() {
@@ -65,7 +67,16 @@ public class JobRunRecorder {
             case STEP_STARTED -> stepStarted(pathOf(result), (String) result.getValue());
             case STEP_COMPLETED -> stepCompleted(pathOf(result), (StepCompletion) result.getValue());
             case STEP_FAILED -> stepFailed(pathOf(result), (Throwable) result.getValue());
+            case DYNAMIC_STEPS -> stepProducedDynamicSteps(pathOf(result));
             default -> { }
+        }
+    }
+
+    private void stepProducedDynamicSteps(String stepPath) {
+        TaskRecord record = recordsByPath.get(stepPath);
+        if(record != null){
+            record.setDynamicSteps(true);
+            enqueue(() -> taskRecordService.save(record));
         }
     }
 

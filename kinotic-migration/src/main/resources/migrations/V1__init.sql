@@ -239,6 +239,7 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     description TEXT,
     status KEYWORD,
     error TEXT,
+    resumedFrom KEYWORD,
     started DATE,
     finished DATE
 );
@@ -251,6 +252,7 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
     description TEXT,
     status KEYWORD,
     storeType KEYWORD,
+    dynamicSteps BOOLEAN,
     resultName KEYWORD,
     resultValueType KEYWORD,
     resultValue JSON NOT INDEXED,

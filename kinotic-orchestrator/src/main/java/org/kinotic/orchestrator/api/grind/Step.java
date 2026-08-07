@@ -27,11 +27,13 @@ public interface Step {
     /**
      * Prepares the {@link Step} for execution.
      *
+     * @param stepPath the {@code /} separated sequence path locating this {@link Step} within the run
      * @param context the execution scope that will be used for this {@link Step}
      * @param options the {@link ResultOptions} to use when executing the {@link JobDefinition}
      *               this will determine the {@link ResultType}'s that you will receive from the emitted {@link Result}'s
+     * @param replayLedger the completed steps of the run being resumed, or null when this is not a resume
      * @return a {@link Publisher} that when subscribed to will create the result for this {@link Step}
      */
-    Publisher<Result<?>> assemble(JobContext context, ResultOptions options);
+    Publisher<Result<?>> assemble(String stepPath, JobContext context, ResultOptions options, ReplayLedger replayLedger);
 
 }
