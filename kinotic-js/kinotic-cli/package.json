@@ -18,10 +18,10 @@
     ],
     "dependencies": {
         "@inquirer/prompts": "^8.3.2",
-        "@kinotic-ai/core": "^5.0.0-beta.2",
+        "@kinotic-ai/core": "^5.0.0-beta.3",
         "@kinotic-ai/idl": "^5.0.0-beta.0",
-        "@kinotic-ai/os-api": "^5.0.0-beta.3",
-        "@kinotic-ai/persistence": "^5.0.0-beta.2",
+        "@kinotic-ai/os-api": "^5.0.0-beta.4",
+        "@kinotic-ai/persistence": "^5.0.0-beta.3",
         "@kinotic-ai/spawn": "^5.0.0-beta.0",
         "@oclif/core": "^4.9.0",
         "c12": "^3.3.3",

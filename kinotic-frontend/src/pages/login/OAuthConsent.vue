@@ -48,10 +48,6 @@ import Button from 'primevue/button'
 import loginPageLeft from '@/assets/login-page-left.svg'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
-// The installed os-api type omits clientId, which the server does return; the field is
-// already added at the source, so this widening disappears at the next os-api publish.
-type PendingAuthorization = PendingOAuthAuthorization & { clientId: string }
-
 const oauthApproval = Kinotic.oauthApproval
 
 /**
@@ -61,7 +57,7 @@ const oauthApproval = Kinotic.oauthApproval
  */
 type Decision = 'approve' | 'deny'
 
-const pending = ref<PendingAuthorization | null>(null)
+const pending = ref<PendingOAuthAuthorization | null>(null)
 const failed = ref<string | null>(null)
 // which decision is in flight, so only the clicked button shows its spinner
 const deciding = ref<Decision | null>(null)
@@ -87,7 +83,7 @@ const clientHost = computed<string>(() => {
 onMounted(async () => {
   if (!requestId.value) return
   try {
-    pending.value = await oauthApproval.describe(requestId.value) as PendingAuthorization
+    pending.value = await oauthApproval.describe(requestId.value)
   } catch (err) {
     failed.value = err instanceof Error ? err.message : 'Could not load the authorization request'
   }

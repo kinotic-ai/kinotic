@@ -1,4 +1,4 @@
-import type {CredentialsResolver, ResolvedCredentials, ServerInfo} from '@kinotic-ai/core'
+import {buildServerUrl, type CredentialsResolver, type ResolvedCredentials, type ServerInfo} from '@kinotic-ai/core'
 import {createStateManager, type IStateManager} from './state/IStateManager'
 
 /** OAuth 2.0 token response returned by the server's token endpoint. */
@@ -22,12 +22,6 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
         body: new URLSearchParams(params),
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
     })
-}
-
-/** The gateway serves REST on the same host/port a connection targets. */
-export function restBaseUrl(server: ServerInfo): string {
-    return (server.useSSL ? 'https' : 'http') + '://' + server.host
-        + (server.port ? ':' + server.port : '')
 }
 
 /**
@@ -64,7 +58,8 @@ export class CliLoginCredentialsResolver implements CredentialsResolver {
             this.refreshToken = (await this.loadCredentialMap())[this.serverUrl] ?? null
         }
         if (this.refreshToken !== null) {
-            ret = {authHeaders: {Authorization: 'Bearer ' + await this.freshAccessToken(restBaseUrl(server))}}
+            // the gateway serves REST on the same host/port the connection targets
+            ret = {authHeaders: {Authorization: 'Bearer ' + await this.freshAccessToken(buildServerUrl(server, 'http'))}}
         }
         return ret
     }

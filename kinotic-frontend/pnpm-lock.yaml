@@ -15,17 +15,17 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.34(typescript@5.8.3))
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.2
-        version: 5.0.0-beta.2(typescript@5.8.3)
+        specifier: ^5.0.0-beta.3
+        version: 5.0.0-beta.3(typescript@5.8.3)
       '@kinotic-ai/idl':
         specifier: ^5.0.0-beta.0
         version: 5.0.0-beta.0(typescript@5.8.3)
       '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.3
-        version: 5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.4
+        version: 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3))(typescript@5.8.3)
       '@kinotic-ai/persistence':
-        specifier: ^5.0.0-beta.2
-        version: 5.0.0-beta.2(@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3))(typescript@5.8.3)
+        specifier: ^5.0.0-beta.3
+        version: 5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3))(typescript@5.8.3)
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -213,8 +213,8 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kinotic-ai/core@5.0.0-beta.2':
-    resolution: {integrity: sha512-ncFISVQm7sU0gk+aysFKr8JF63Hbq1pRV8Z8PH93qK2cZV7OR0U/AiwkynoLSAJwJ9fLOQ2dGHQlYY5ukDYzYQ==}
+  '@kinotic-ai/core@5.0.0-beta.3':
+    resolution: {integrity: sha512-Zb1z0GRcw/2CApnRGO/NJ7pyWdXXLu1rgND+DjFrcer1PDhkcdmtoNEFtL6qco4Tz62o9g5bY9EpjwqAAI8qYA==}
     peerDependencies:
       typescript: '*'
     peerDependenciesMeta:
@@ -229,19 +229,19 @@ packages:
       typescript:
         optional: true
 
-  '@kinotic-ai/os-api@5.0.0-beta.3':
-    resolution: {integrity: sha512-oA1ZrAO4O9n8YQdi0vfnmS8DoHFLGUQT11NpHGOfBg/fi4swKWY0Y1CSOl1sbPboWhFgO1QkU1ywHb2sXimVCQ==}
+  '@kinotic-ai/os-api@5.0.0-beta.4':
+    resolution: {integrity: sha512-OaaVi48MZIZ5IiRgd07J41fBFFHtfWnlRVh5Ok4k3DKEguvZ2cU7DEwr6cw2Hw+FburB6S0A6bCSbPlyzuWbZQ==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.2'
+      '@kinotic-ai/core': '>=5.0.0-beta.3'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
         optional: true
 
-  '@kinotic-ai/persistence@5.0.0-beta.2':
-    resolution: {integrity: sha512-1F6g563KYcCPed8nbhG7FuNqAvjp5VSxQvl8hJIHLp/RXHudwmL0NDgNWpf/bDXgJIXv3qNHeLSQn1D4e8D7/A==}
+  '@kinotic-ai/persistence@5.0.0-beta.3':
+    resolution: {integrity: sha512-go2coS+ZvJBNYq4o04kBHj6HEfV3Rp8X1SjuJxIl3Cse/LxWU/+/mE86lkeatnhvQgrBSp6swEic3XJb3pA5RQ==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.2'
+      '@kinotic-ai/core': '>=5.0.0-beta.3'
       typescript: '*'
     peerDependenciesMeta:
       typescript:
@@ -1514,7 +1514,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.0
 
-  '@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3)':
+  '@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -1538,18 +1538,18 @@ snapshots:
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/os-api@5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/os-api@5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.2(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.3(typescript@5.8.3)
       '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
-      '@kinotic-ai/persistence': 5.0.0-beta.2(@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3))(typescript@5.8.3)
+      '@kinotic-ai/persistence': 5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3))(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:
       typescript: 5.8.3
 
-  '@kinotic-ai/persistence@5.0.0-beta.2(@kinotic-ai/core@5.0.0-beta.2(typescript@5.8.3))(typescript@5.8.3)':
+  '@kinotic-ai/persistence@5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.3(typescript@5.8.3))(typescript@5.8.3)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.2(typescript@5.8.3)
+      '@kinotic-ai/core': 5.0.0-beta.3(typescript@5.8.3)
       '@kinotic-ai/idl': 5.0.0-beta.0(typescript@5.8.3)
       rxjs: 7.8.2
     optionalDependencies:

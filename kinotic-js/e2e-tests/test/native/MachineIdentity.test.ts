@@ -5,8 +5,6 @@ import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_ORGANIZATION_ID,
         buildConnectOptions,
         initKinoticClient,
-        kinoticHost,
-        kinoticPort,
         postForm,
         restBase,
         shutdownKinoticClient} from '../TestHelpers.js'
@@ -34,8 +32,7 @@ describe('Kinotic JS', () => {
         const machineKinotic = new KinoticSingleton()
         try {
             await machineKinotic.connect({
-                ...buildConnectOptions(kinoticHost(), kinoticPort(),
-                                       new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)),
+                ...buildConnectOptions(new BasicCredentialsResolver(clientId, clientSecret, organizationId, applicationId)),
                 maxConnectionAttempts: 1
             })
             await machineKinotic.disconnect()

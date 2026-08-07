@@ -1,4 +1,4 @@
-import type {ConnectOptions} from "@kinotic-ai/core";
+import type {ServerInfo} from "@kinotic-ai/core";
 import type {ToastServiceMethods} from "primevue/toastservice";
 
 /**
@@ -7,7 +7,7 @@ import type {ToastServiceMethods} from "primevue/toastservice";
  * resolution applies — the page's location, so a same-origin deployment (SPA served from
  * kinotic-server's webroot) and vite's dev proxy both work untouched.
  */
-export function serverOverrides(): Pick<ConnectOptions, 'host' | 'port' | 'useSSL'> {
+export function serverOverrides(): Partial<ServerInfo> {
     const host = import.meta.env.VITE_KINOTIC_HOST
     if (!host) return {}
     const port = import.meta.env.VITE_KINOTIC_PORT ? parseInt(import.meta.env.VITE_KINOTIC_PORT) : 58503

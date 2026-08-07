@@ -53,7 +53,7 @@ export class UserState implements IUserState {
             }
 
             try {
-                this.connectedInfo = await Kinotic.connect(serverOverrides())
+                this.connectedInfo = await Kinotic.connect({server: serverOverrides()})
             } catch (reason: any) {
                 this.connectedInfo = null
                 throw new Error(reason ? String(reason) : 'Session authentication failed')

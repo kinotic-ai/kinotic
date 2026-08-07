@@ -3,9 +3,7 @@ import { ChildProcess, execSync } from 'child_process';
 
 function adminConnectOptions(localPort: number): ConnectOptions {
     return {
-        host: 'localhost',
-        port: localPort,
-        useSSL: false,
+        server: {host: 'localhost', port: localPort, useSSL: false},
         maxConnectionAttempts: 5,
         sessionKeepAlive: SessionKeepAliveMode.NONE,
         // the seeded SYSTEM-scope admin: no organizationId/applicationId

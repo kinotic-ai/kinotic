@@ -1,4 +1,4 @@
-import {Kinotic, type ServerInfo} from '@kinotic-ai/core'
+import {buildServerUrl, Kinotic, type ServerInfo} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
@@ -6,7 +6,6 @@ import pTimeout from 'p-timeout'
 import {CliLoginCredentialsResolver,
         OAUTH_TOKEN_PATH,
         postForm,
-        restBaseUrl,
         type TokenResponse} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
 
@@ -44,7 +43,7 @@ export class CliAuthenticator {
         if (target === null) {
             return false
         }
-        const tokens = await this.deviceLogin(restBaseUrl(target))
+        const tokens = await this.deviceLogin(buildServerUrl(target, 'http'))
         if (tokens === null) {
             return false
         }
@@ -74,7 +73,7 @@ export class CliAuthenticator {
             // The resolver's bearer token rides the WebSocket upgrade headers, which needs
             // the header-capable ws WebSocket installed in a Node process.
             ensureNodeWebSocket()
-            await pTimeout(Kinotic.connect({...target, credentials: resolver}), {
+            await pTimeout(Kinotic.connect({server: target, credentials: resolver}), {
                 milliseconds: 60000,
                 message: 'Connection timeout trying to connect to the Kinotic Server'
             })

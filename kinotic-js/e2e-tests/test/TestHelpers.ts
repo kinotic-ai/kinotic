@@ -1,7 +1,7 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {BasicCredentialsResolver, type ConnectOptions, type CredentialsResolver, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode} from '@kinotic-ai/core'
+import {BasicCredentialsResolver, buildBrokerUrl, buildServerUrl, type ConnectOptions, type CredentialsResolver, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, type ServerInfo, SessionKeepAliveMode} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {
     ObjectC3Type,
@@ -71,14 +71,19 @@ export function kinoticPort(): number {
     return inject('KINOTIC_PORT') as number
 }
 
+/** The gateway under test as a {@link ServerInfo} — the suite always runs without TLS. */
+export function serverUnderTest(): ServerInfo {
+    return {host: kinoticHost(), port: kinoticPort(), useSSL: false}
+}
+
 /** REST base URL of the gateway under test. */
 export function restBase(): string {
-    return `http://${kinoticHost()}:${kinoticPort()}`
+    return buildServerUrl(serverUnderTest(), 'http')
 }
 
 /** STOMP broker URL of the gateway under test. */
 export function stompUrl(): string {
-    return `ws://${kinoticHost()}:${kinoticPort()}/v1`
+    return buildBrokerUrl(serverUnderTest())
 }
 
 /** POSTs an application/x-www-form-urlencoded body — the shape of every OAuth endpoint call. */
@@ -90,11 +95,9 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(host: string, port: number, credentials: CredentialsResolver): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver): ConnectOptions {
     return {
-        host,
-        port,
-        useSSL: false,
+        server: serverUnderTest(),
         sessionKeepAlive: SessionKeepAliveMode.NONE,
         credentials
     }
@@ -104,7 +107,7 @@ export async function initKinoticClient(): Promise<void> {
     try {
         console.log('Connecting to Kinotic at ' + kinoticHost())
 
-        await Kinotic.connect(buildConnectOptions(kinoticHost(), kinoticPort(),
+        await Kinotic.connect(buildConnectOptions(
             new BasicCredentialsResolver(E2E_ORG_USER_EMAIL, E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
@@ -135,7 +138,7 @@ export async function initKinoticAppClient(applicationId: string, tenantId: stri
     const appKinotic = new KinoticSingleton()
     appKinotic.use(OsApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectOptions(kinoticHost(), kinoticPort(),
+    await appKinotic.connect(buildConnectOptions(
         new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
                                      E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
