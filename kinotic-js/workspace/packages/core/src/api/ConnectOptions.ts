@@ -52,18 +52,6 @@ export function buildBrokerUrl(server: ServerInfo): string {
     return buildServerUrl(server, 'ws') + '/v1'
 }
 
-/**
- * Copies the server fields of resolved {@link ConnectOptions} into a {@link ServerInfo},
- * leaving credential material behind.
- */
-export function toServerInfo(options: ConnectOptions): ServerInfo {
-    const serverInfo = new ServerInfo()
-    serverInfo.host = options.host as string
-    serverInfo.port = options.port
-    serverInfo.useSSL = options.useSSL
-    return serverInfo
-}
-
 export enum SessionKeepAliveMode {
     NONE = 'NONE',
     ACTIVITY = 'ACTIVITY',
@@ -71,21 +59,20 @@ export enum SessionKeepAliveMode {
 }
 
 /**
- * Options for {@link IKinotic#connect}. Every field is optional: absent server fields resolve
- * from the environment (the {@code KINOTIC_SERVER_HOST} / {@code KINOTIC_SERVER_PORT} /
- * {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own location, then
- * {@code https://api.kinotic.com}), and absent {@link credentials} resolve through the
- * default {@link ChainedCredentialsResolver} (environment variables, then the browser
- * session).
+ * Options for {@link IKinotic#connect}. Every field is optional: absent {@link server}
+ * fields resolve from the environment (the {@code KINOTIC_SERVER_HOST} /
+ * {@code KINOTIC_SERVER_PORT} / {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own
+ * location, then {@code https://api.kinotic.com}), and absent {@link credentials} resolve
+ * through the default {@link ChainedCredentialsResolver} (environment variables, then the
+ * browser session).
  *
  * Authentication is performed during the WebSocket upgrade (handshake), not in the STOMP
  * CONNECT frame: the resolved credentials supply the upgrade headers, or none for
  * session-cookie auth.
  */
 export interface ConnectOptions {
-    host?: string
-    port?: number | null
-    useSSL?: boolean | null
+    /** The server to connect to; absent fields resolve from the environment. */
+    server?: Partial<ServerInfo>
 
     /**
      * Finds the credentials this connection authenticates with, consulted on every

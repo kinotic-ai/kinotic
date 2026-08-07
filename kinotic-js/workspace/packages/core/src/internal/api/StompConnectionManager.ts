@@ -1,4 +1,4 @@
-import {buildBrokerUrl, buildServerUrl, type ConnectOptions, type IWebSocket, type ServerInfo, SessionKeepAliveMode, toServerInfo} from '@/api/ConnectOptions'
+import {buildBrokerUrl, buildServerUrl, type ConnectOptions, type IWebSocket, type ServerInfo, SessionKeepAliveMode} from '@/api/ConnectOptions'
 import type {CredentialsResolver} from '@/api/security/CredentialsResolver'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
@@ -78,14 +78,14 @@ export class StompConnectionManager {
 
     public async activate(options: ConnectOptions): Promise<ConnectedInfo> {
         // Validate state and short circuit
-        if (!options?.host) {
+        if (!options?.server?.host) {
             throw new Error('No host provided')
         }
         if (this.rxStomp) {
             throw new Error('Stomp connection already active')
         }
 
-        const server: ServerInfo = toServerInfo(options)
+        const server: ServerInfo = options.server as ServerInfo
         const credentialsResolver: CredentialsResolver | undefined = options.credentials
 
         // The connection's auth mode is fixed for its life: a user factory owns the socket

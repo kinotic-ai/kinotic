@@ -58,17 +58,18 @@ export class Util {
      */
     public static resolveConnectOptions(options?: ConnectOptions): ConnectOptions {
         const opts = options ?? {}
+        const server = opts.server ?? {}
         const env = typeof process !== 'undefined' ? process.env : undefined
         const location = typeof window !== 'undefined' ? window.location : undefined
 
-        let host = opts.host ?? env?.KINOTIC_SERVER_HOST
+        let host = server.host ?? env?.KINOTIC_SERVER_HOST
         const hostFromLocation = host == null && location != null
         const hostDefaulted = host == null && location == null
         if (host == null) {
             host = location?.hostname ?? DEFAULT_HOST
         }
 
-        let useSSL = opts.useSSL
+        let useSSL = server.useSSL
         if (useSSL == null) {
             if (env?.KINOTIC_SERVER_USE_SSL != null) {
                 useSSL = env.KINOTIC_SERVER_USE_SSL === 'true'
@@ -80,7 +81,7 @@ export class Util {
             }
         }
 
-        let port = opts.port
+        let port = server.port
         if (port === undefined) {
             if (env?.KINOTIC_SERVER_PORT != null) {
                 port = Number(env.KINOTIC_SERVER_PORT)
@@ -94,9 +95,7 @@ export class Util {
 
         return {
             ...opts,
-            host,
-            port,
-            useSSL,
+            server: {host, port, useSSL},
             sessionKeepAlive: opts.sessionKeepAlive ?? SessionKeepAliveMode.ACTIVITY,
             credentials: opts.credentials
                 ?? new ChainedCredentialsResolver(new EnvCredentialsResolver(), new SessionCredentialsResolver())

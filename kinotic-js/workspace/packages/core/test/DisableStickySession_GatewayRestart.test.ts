@@ -13,7 +13,7 @@ describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         let container: StartedTestContainer
-        let connectOptions: ConnectOptions = {host: ""}
+        let connectOptions: ConnectOptions
 
         beforeAll(async () => {
             // Start the Kinotic Gateway container
@@ -27,13 +27,14 @@ describe('Kinotic JS', () => {
                 .start()
 
             // Create connect options without keeping the session alive after disconnect
-            connectOptions.host = container.getHost()
-            connectOptions.port = 58599
-            connectOptions.maxConnectionAttempts = 0
-            connectOptions.sessionKeepAlive = SessionKeepAliveMode.NONE
-            connectOptions.credentials = testCredentials()
+            connectOptions = {
+                server: {host: container.getHost(), port: 58599},
+                maxConnectionAttempts: 0,
+                sessionKeepAlive: SessionKeepAliveMode.NONE,
+                credentials: testCredentials()
+            }
 
-            console.log(`Kinotic Gateway running at ${connectOptions.host}:${connectOptions.port}`)
+            console.log(`Kinotic Gateway running at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
         }, 1000 * 60 * 10) // 10 minutes
 
         afterAll(async () => {
@@ -48,7 +49,7 @@ describe('Kinotic JS', () => {
             let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
                                                                 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
-            console.log(`Kinotic connected at ${connectOptions.host}:${connectOptions.port}`)
+            console.log(`Kinotic connected at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
             const testService = new TestService(continuum)
 

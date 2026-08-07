@@ -89,10 +89,12 @@ export function createConnectOptions(options: {
     ensureNodeWebSocket()
     const { sessionKeepAlive = SessionKeepAliveMode.ACTIVITY, authHeaders } = options
     return {
-        // @ts-ignore
-        host: inject('KINOTIC_HOST'),
-        // @ts-ignore
-        port: inject('KINOTIC_PORT'),
+        server: {
+            // @ts-ignore
+            host: inject('KINOTIC_HOST'),
+            // @ts-ignore
+            port: inject('KINOTIC_PORT')
+        },
         maxConnectionAttempts: 3,
         sessionKeepAlive,
         credentials: testCredentials(authHeaders)

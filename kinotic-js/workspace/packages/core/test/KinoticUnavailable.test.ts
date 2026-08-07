@@ -15,14 +15,12 @@ describe('Kinotic JS', () => {
     describe('Kinotic Unavailable Tests', () => {
 
         it('should fail fast on connection attempt', async () => {
-            const host: string = 'notavailable'
-            const port: number = 58503
             console.log(`Trying to Connecting to Unavailable Kinotic Gateway`)
-            const ci: ConnectOptions = {host: ""}
-            ci.host = host
-            ci.port = port
-            ci.maxConnectionAttempts = 3
-            ci.credentials = testCredentials()
+            const ci: ConnectOptions = {
+                server: {host: 'notavailable', port: 58503},
+                maxConnectionAttempts: 3,
+                credentials: testCredentials()
+            }
 
             // The reconnect-exhausted failure carries the underlying WS/DNS error as the Error cause
             // rather than concatenating its (environment-specific) text into the message.
@@ -39,7 +37,6 @@ describe('Kinotic JS', () => {
            {"timeout": 1000 * 60 * 3},
            async () => {
                let container: StartedTestContainer
-               let connectOptions: ConnectOptions = {host: ""}
 
                // Start the Kinotic Gateway container
                console.log('Starting Kinotic Gateway for sticky session gateway restart reconnection test')
@@ -52,18 +49,19 @@ describe('Kinotic JS', () => {
                    .start()
 
                // Create connect options with default activity-based session keep alive
-               connectOptions.host = container.getHost()
-               connectOptions.port = 58590
-               connectOptions.maxConnectionAttempts = 3
-               connectOptions.sessionKeepAlive = SessionKeepAliveMode.ACTIVITY
-               connectOptions.credentials = testCredentials()
-               console.log(`Kinotic Gateway running at ${connectOptions.host}:${connectOptions.port}`)
+               const connectOptions: ConnectOptions = {
+                   server: {host: container.getHost(), port: 58590},
+                   maxConnectionAttempts: 3,
+                   sessionKeepAlive: SessionKeepAliveMode.ACTIVITY,
+                   credentials: testCredentials()
+               }
+               console.log(`Kinotic Gateway running at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
                const continuum = new KinoticSingleton()
                let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
                                                                    'Failed to connect to Kinotic Gateway')
                validateConnectedInfo(connectedInfo)
-               console.log(`Kinotic Gateway started at ${connectOptions.host}:${connectOptions.port}`)
+               console.log(`Kinotic Gateway started at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
                const testService = new TestService(continuum)
 

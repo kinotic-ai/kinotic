@@ -1,4 +1,4 @@
-import {type ConnectOptions, ServerInfo, toServerInfo} from '@/api/ConnectOptions'
+import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
@@ -113,7 +113,8 @@ export class EventBus implements IEventBus {
                 this.cleanup()
 
                 const connectedInfo = await this.stompConnectionManager.activate(options)
-                this.serverInfo = toServerInfo(options)
+                // copy so the reported server never aliases the caller's options object
+                this.serverInfo = {...options.server} as ServerInfo
 
                 this.replyToCri = this.stompConnectionManager.replyToCri
 
