@@ -2,7 +2,7 @@ package org.kinotic.orchestrator.api.workload;
 
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Scope;
-import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.model.workload.Workload;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
