@@ -2,16 +2,15 @@ package org.kinotic.github.internal.api.services;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
 import javax.cache.expiry.CreatedExpiryPolicy;
 import javax.cache.expiry.Duration;
 import java.security.SecureRandom;
@@ -41,11 +40,14 @@ public class GitHubInstallStateService {
     private static final long TTL_MINUTES = 10;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    @Autowired(required = false)
-    private Ignite ignite;
+    private final Ignite ignite;
 
     private IgniteCache<String, StagedInstall> igniteCache;
     private Cache<String, StagedInstall> caffeineCache;
+
+    public GitHubInstallStateService(Ignite ignite) {
+        this.ignite = ignite;
+    }
 
     @PostConstruct
     public void start() {

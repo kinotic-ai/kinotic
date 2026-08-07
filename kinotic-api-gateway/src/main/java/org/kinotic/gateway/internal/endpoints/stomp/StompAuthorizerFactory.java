@@ -2,7 +2,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.domain.api.security.ZoneRules;
+import org.kinotic.domain.api.model.security.ZoneRules;
 import org.springframework.stereotype.Component;
 
 /**

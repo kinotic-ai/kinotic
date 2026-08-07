@@ -4,10 +4,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.security.ApplicationParticipant;
-import org.kinotic.domain.api.security.OrganizationParticipant;
-import org.kinotic.domain.api.security.ScopedParticipant;
-import org.kinotic.domain.api.security.SystemParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.ScopedParticipant;
+import org.kinotic.domain.api.model.security.SystemParticipant;
 
 /**
  * The hierarchy a job run executes on behalf of, recorded on the run so runs can be filtered

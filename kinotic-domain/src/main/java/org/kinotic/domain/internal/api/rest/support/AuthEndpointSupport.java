@@ -12,13 +12,14 @@ import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
-import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
-import org.kinotic.domain.api.model.iam.ParticipantIdentity;
-import org.kinotic.domain.api.model.iam.KinoticAudience;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
-import org.kinotic.domain.api.services.iam.OrgSignupOidcConfigurationService;
+import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.OidcProviderKind;
+import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.services.iam.KinoticJwtIssuer;
+import org.kinotic.domain.internal.api.services.security.KinoticJwtIssuer;
 import org.springframework.stereotype.Component;
 
 import io.vertx.core.Future;
@@ -35,7 +36,7 @@ import lombok.extern.slf4j.Slf4j;
  * browser-session establishment, redirect construction, JSON error/payload writing, the
  * standard "after-callback" flow, and absolute URL building.
  * Each individual handler delegates the boilerplate here so its body keeps only the
- * route-specific decisions (which config to start with, which ParticipantIdentity lookup to run).
+ * route-specific decisions (which config to start with, which UserParticipantIdentity lookup to run).
  */
 @Slf4j
 @Component
@@ -96,7 +97,7 @@ public class AuthEndpointSupport {
      * participant type follows the user's scope (org users get an OrganizationParticipant,
      * app users an ApplicationParticipant), which is what scopes their authority.
      */
-    public void establishSession(RoutingContext ctx, ParticipantIdentity user) {
+    public void establishSession(RoutingContext ctx, UserParticipantIdentity user) {
         Session session = ctx.session();
         // Rotate the session id on the privilege change so a pre-auth (possibly fixed)
         // id cannot be reused to ride the now-authenticated session.
@@ -108,7 +109,7 @@ public class AuthEndpointSupport {
     }
 
     /** Establishes the browser session for {@code user} and writes {@code 204 No Content}. */
-    public void respondSuccess(RoutingContext ctx, ParticipantIdentity user) {
+    public void respondSuccess(RoutingContext ctx, UserParticipantIdentity user) {
         establishSession(ctx, user);
         ctx.response().setStatusCode(204).end();
     }
@@ -120,7 +121,7 @@ public class AuthEndpointSupport {
      * from when there was one, otherwise the SPA root. No token travels in the URL — the browser
      * is authenticated by its session cookie.
      */
-    public void redirectSuccess(RoutingContext ctx, ParticipantIdentity user) {
+    public void redirectSuccess(RoutingContext ctx, UserParticipantIdentity user) {
         // read before establishSession, which regenerates the session id
         String returnPath = ctx.session().remove(RETURN_PATH_SESSION_KEY);
         establishSession(ctx, user);
@@ -201,20 +202,23 @@ public class AuthEndpointSupport {
     // ── Token issuance ────────────────────────────────────────────────────────
 
     /**
-     * Mints a Kinotic access-token JWT stamped for {@code audience}, carrying {@code user}'s
-     * {@code sub/email/organizationId/applicationId}. The {@code sub} is what every entry point
-     * resolves the caller's {@link org.kinotic.core.api.security.Participant} from, so the
-     * bearer acts as this user and no other.
+     * Mints a Kinotic access-token JWT stamped for {@code audience}, carrying the identity's
+     * {@code sub/organizationId/applicationId} (and {@code email} for a user). The {@code sub}
+     * is what every entry point resolves the caller's
+     * {@link org.kinotic.core.api.security.Participant} from, so the bearer acts as this
+     * identity and no other.
      */
-    private String mintAccessToken(ParticipantIdentity user, KinoticAudience audience) {
+    private String mintAccessToken(ParticipantIdentity identity, KinoticAudience audience) {
         JsonObject claims = new JsonObject()
-                .put("sub", user.getId())
-                .put("email", user.getEmail());
-        if (user.getOrganizationId() != null) {
-            claims.put("organizationId", user.getOrganizationId());
+                .put("sub", identity.getId());
+        if (identity instanceof UserParticipantIdentity user) {
+            claims.put("email", user.getEmail());
         }
-        if (user.getApplicationId() != null) {
-            claims.put("applicationId", user.getApplicationId());
+        if (identity.getOrganizationId() != null) {
+            claims.put("organizationId", identity.getOrganizationId());
+        }
+        if (identity.getApplicationId() != null) {
+            claims.put("applicationId", identity.getApplicationId());
         }
         return jwtIssuer.sign(claims, new JWTOptions().setExpiresInSeconds(ACCESS_TOKEN_TTL_SECONDS), audience);
     }
@@ -222,12 +226,12 @@ public class AuthEndpointSupport {
     /**
      * {@code 200 application/json} with an OAuth token pair stamped for {@code audience}: an
      * {@code access_token}, plus the {@code refresh_token} the client persists to mint future
-     * access tokens. Both act as {@code user}.
+     * access tokens. Both act as {@code identity}.
      */
-    public void respondTokenPair(RoutingContext ctx, ParticipantIdentity user, String refreshToken, KinoticAudience audience) {
+    public void respondTokenPair(RoutingContext ctx, ParticipantIdentity identity, String refreshToken, KinoticAudience audience) {
         String accessToken;
         try {
-            accessToken = mintAccessToken(user, audience);
+            accessToken = mintAccessToken(identity, audience);
         } catch (Exception e) {
             // Callers invoke this from a Future handler, where a throw never reaches the router's
             // failure handler and leaves the request unanswered until the client times out.
@@ -336,7 +340,7 @@ public class AuthEndpointSupport {
      * the authenticate call (already scope-aware where appropriate).
      */
     public void handlePasswordLogin(RoutingContext ctx,
-                                    BiFunction<String, String, CompletionStage<ParticipantIdentity>> authenticate) {
+                                    BiFunction<String, String, CompletionStage<UserParticipantIdentity>> authenticate) {
         JsonObject body = readJsonBody(ctx);
         String email = body.getString("email");
         String password = body.getString("password");
@@ -361,16 +365,16 @@ public class AuthEndpointSupport {
 
     /**
      * "After the IdP returned" composite flow used by every login callback: validates
-     * {@code sub} + {@code email_verified}, looks up the {@link ParticipantIdentity} via the
+     * {@code sub} + {@code email_verified}, looks up the {@link UserParticipantIdentity} via the
      * supplied function, and redirects success or error accordingly. Never creates
      * users — the signup path owns provisioning.
      *
-     * @param userLookup takes the OIDC {@code sub} claim and returns the ParticipantIdentity (or null).
+     * @param userLookup takes the OIDC {@code sub} claim and returns the UserParticipantIdentity (or null).
      */
     public void completeOidcLogin(RoutingContext ctx,
                                   BaseOidcConfiguration config,
                                   Map<String, Object> claims,
-                                  Function<String, CompletionStage<ParticipantIdentity>> userLookup) {
+                                  Function<String, CompletionStage<UserParticipantIdentity>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);

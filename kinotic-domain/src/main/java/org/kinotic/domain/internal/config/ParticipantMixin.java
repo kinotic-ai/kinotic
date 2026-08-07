@@ -2,9 +2,9 @@ package org.kinotic.domain.internal.config;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import org.kinotic.domain.api.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 
 /**
  * Jackson mixin that turns the {@link org.kinotic.core.api.security.Participant} interface

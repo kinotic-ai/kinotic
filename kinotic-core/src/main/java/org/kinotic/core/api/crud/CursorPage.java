@@ -1,6 +1,7 @@
 package org.kinotic.core.api.crud;
 
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * A {@link Page} that uses a cursor to track the current position in the result set.
@@ -22,5 +23,10 @@ public class CursorPage<T> extends Page<T> {
      */
     public String getCursor(){
         return cursor;
+    }
+
+    @Override
+    public <R> CursorPage<R> map(Function<? super T, ? extends R> mapper) {
+        return new CursorPage<>(getContent().stream().<R>map(mapper).toList(), cursor, getTotalElements());
     }
 }

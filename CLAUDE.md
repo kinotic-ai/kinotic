@@ -27,6 +27,14 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+## Branch and pull request workflow
+
+A merged pull request is finished — never stack new commits onto its history, and never reuse
+it to track follow-up work. When your PR merges, restart your working branch from the latest
+`develop` (keeping the same branch name, force-with-lease push) and open a **new** pull
+request for the next unit of work. If the branch carries unmerged commits, rebase them onto
+the new base instead of discarding them.
+
 ## Don't guess from names
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.

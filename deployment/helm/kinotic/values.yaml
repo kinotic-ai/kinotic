@@ -4,7 +4,7 @@ nameOverride: ""
 image:
   repository: kinoticai/kinotic-server
   pullPolicy: Always
-  tag: "4.2.0-SNAPSHOT"
+  tag: "5.0.0-SNAPSHOT"
   sha: ""
 
 resources: {}
@@ -14,7 +14,7 @@ migration:
   activeDeadlineSeconds: 300
   image:
     repository: kinoticai/kinotic-migration
-    tag: "4.2.0-SNAPSHOT"
+    tag: "5.0.0-SNAPSHOT"
     pullPolicy: Always
     sha: ""
 

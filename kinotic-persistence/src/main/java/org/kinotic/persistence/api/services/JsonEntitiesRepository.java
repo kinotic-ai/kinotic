@@ -10,7 +10,7 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;

@@ -1,7 +1,7 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
-import {GenericContainer, PullPolicy, type StartedTestContainer, Wait} from 'testcontainers'
+import {ConnectedInfo, type ConnectOptions, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {GenericContainer, type StartedTestContainer, Wait} from 'testcontainers'
 import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
@@ -13,7 +13,7 @@ describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         let container: StartedTestContainer
-        let connectionInfo: ConnectionInfo = new ConnectionInfo()
+        let connectionInfo: ConnectOptions = {host: ""}
 
         beforeAll(async () => {
             // Start the Kinotic Gateway container
@@ -22,7 +22,6 @@ describe('Kinotic JS', () => {
             container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                 .withExposedPorts({container: 58503, host: 58599})
                 .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
-                .withPullPolicy(PullPolicy.alwaysPull())
                 .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                 .withName('disable-sticky-session-reconnect-test')
                 .start()
@@ -65,7 +64,6 @@ describe('Kinotic JS', () => {
             container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                 .withExposedPorts({container: 58503, host: 58599})
                 .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
-                .withPullPolicy(PullPolicy.alwaysPull())
                 .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                 .withName('disable-sticky-session-reconnect-test')
                 .start()

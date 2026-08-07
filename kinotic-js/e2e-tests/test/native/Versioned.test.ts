@@ -18,7 +18,7 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
 const APP_ID = 'e2e-versioned'
 
 interface LocalTestContext {
@@ -78,14 +78,15 @@ describe('Kinotic JS', () => {
          expect(savedVehicle.version).toBeDefined()
 
          const loaded = await logFailure(entityService.findById(savedVehicle.id), 'Failed to find vehicle')
-         expect(savedVehicle.id).toEqual(loaded.id)
-         expect(savedVehicle.version).toEqual(loaded.version)
+         expect(loaded).not.toBeNull()
+         expect(savedVehicle.id).toEqual(loaded!.id)
+         expect(savedVehicle.version).toEqual(loaded!.version)
 
          // Count
          await expect(entityService.count()).resolves.toBe(1)
 
          // Delete
-         await expect(entityService.deleteById(loaded.id)).resolves.toBeNull()
+         await expect(entityService.deleteById(loaded!.id)).resolves.toBeNull()
      })
 
     it<LocalTestContext>('Test Optimistic Locking',

@@ -30,8 +30,11 @@ public class DeviceCodeGrant implements Identifiable<String> {
     /** Low-entropy, human-typed code shown by the CLI and entered in the browser. */
     private String userCode;
 
+    /** Optional device name the CLI supplied; becomes the label of the issued token family. */
+    private String deviceName;
+
     /**
-     * Id of the {@link org.kinotic.domain.api.model.iam.ParticipantIdentity} that approved the grant,
+     * Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant is still pending approval.
      */
     private String identityId;

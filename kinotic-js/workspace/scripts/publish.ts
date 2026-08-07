@@ -118,7 +118,9 @@ if (toPublish.length > 0) {
     for (const pkg of toPublish) {
         console.log(`\nPublishing ${pkg.name}@${pkg.version}...`)
 
-        const publishArgs = pkg.version.includes('beta') ? ['publish', '--tag', 'beta'] : ['publish']
+        // a -beta prerelease publishes under the beta dist-tag, so `latest` always points
+        // at a stable version
+        const publishArgs = pkg.version.includes('-beta.') ? ['publish', '--tag', 'beta'] : ['publish']
 
         const result = spawnSync('bun', publishArgs, { cwd: pkg.dir, stdio: 'inherit' })
 

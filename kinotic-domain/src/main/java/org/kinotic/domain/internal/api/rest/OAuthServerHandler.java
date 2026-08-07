@@ -7,12 +7,14 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.security.DelegateKind;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.domain.api.services.iam.DeviceCodeGrantService;
-import org.kinotic.domain.api.services.iam.OAuthAuthorizationService;
-import org.kinotic.domain.api.services.iam.RefreshTokenService;
+import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
+import org.kinotic.domain.api.services.security.OAuthAuthorizationService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.services.security.RefreshTokenService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
 
@@ -49,7 +51,11 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
      */
     private static final String CLI_CLIENT_ID = "kinotic-cli";
 
+    /** Display name of the CLI's delegate wherever the user's authorized clients are listed. */
+    private static final String CLI_DISPLAY_NAME = "Kinotic CLI";
+
     private final AuthEndpointSupport authEndpointSupport;
+    private final ParticipantIdentityService identityService;
     private final OAuthAuthorizationService oauthAuthorizationService;
     private final DeviceCodeGrantService deviceCodeGrantService;
     private final RefreshTokenService refreshTokenService;
@@ -146,7 +152,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_client");
             return;
         }
-        Future.fromCompletionStage(deviceCodeGrantService.start())
+        Future.fromCompletionStage(deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name")))
               .onSuccess(start -> {
                   // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
                   // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
@@ -199,11 +205,16 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                       case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
                       case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
                       case APPROVED -> Future.fromCompletionStage(
-                              refreshTokenService.issue(result.user().getId(), KinoticAudience.PUBLISHED_SERVICES))
-                              .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                      ctx, result.user(), refreshToken, KinoticAudience.PUBLISHED_SERVICES))
+                              identityService.findOrCreateDelegate(result.user(), DelegateKind.CLI,
+                                                                   CLI_CLIENT_ID, CLI_DISPLAY_NAME))
+                              .compose(delegate -> Future.fromCompletionStage(
+                                              refreshTokenService.issue(delegate.getId(),
+                                                                        delegate.getDelegateKind().getAudience(),
+                                                                        result.deviceName()))
+                                      .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
+                                              ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
                               .onFailure(err -> {
-                                  log.warn("Could not issue refresh token after device approval: {}", err.getMessage());
+                                  log.warn("Could not issue tokens after device approval: {}", err.getMessage());
                                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
                               });
                   }
@@ -220,10 +231,15 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
         Future.fromCompletionStage(oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier))
-              .compose(user -> Future.fromCompletionStage(
-                                             refreshTokenService.issue(user.getId(), KinoticAudience.MCP_TOOLS))
+              .compose(exchange -> Future.fromCompletionStage(
+                      identityService.findOrCreateDelegate(exchange.approver(), DelegateKind.MCP_CLIENT,
+                                                           exchange.clientId(), exchange.clientName())))
+              .compose(delegate -> Future.fromCompletionStage(
+                                             refreshTokenService.issue(delegate.getId(),
+                                                                       delegate.getDelegateKind().getAudience(),
+                                                                       null))
                                      .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                             ctx, user, refreshToken, KinoticAudience.MCP_TOOLS)))
+                                             ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
               .onFailure(err -> {
                   log.warn("OAuth code exchange failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
@@ -238,7 +254,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         }
         Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
               .onSuccess(rotation -> authEndpointSupport.respondTokenPair(
-                      ctx, rotation.user(), rotation.refreshToken(), rotation.audience()))
+                      ctx, rotation.identity(), rotation.refreshToken(), rotation.audience()))
               .onFailure(err -> {
                   log.warn("OAuth refresh token rotation failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");

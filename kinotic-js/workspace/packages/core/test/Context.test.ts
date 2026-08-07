@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { ConnectedInfo, Kinotic, Event, EventConstants, type IEvent } from "../src"
 import { TestServiceWithContext } from "./TestServiceWithContext"
-import { createConnectionInfo, logFailure, validateConnectedInfo } from "./TestHelper"
+import { createConnectOptions, logFailure, validateConnectedInfo } from "./TestHelper"
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
@@ -21,7 +21,7 @@ describe('Kinotic JS', () => {
         beforeAll(async () => {
             // Registers this client's service under ZONE; must be set before it is instantiated
             Kinotic.zonePrefix = ZONE
-            const connectionInfo = createConnectionInfo()
+            const connectionInfo = createConnectOptions()
             const connectedInfo: ConnectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"

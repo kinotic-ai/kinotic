@@ -1,8 +1,8 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {WebSocket} from 'ws'
-import {ConnectedInfo, Kinotic, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {ConnectedInfo, Kinotic, type ConnectOptions, KinoticSingleton, SessionKeepAliveMode} from '../src'
 import {TEST_SERVICE} from './ITestService'
-import { createConnectionInfo, logFailure, validateConnectedInfo } from './TestHelper'
+import { createConnectOptions, logFailure, validateConnectedInfo } from './TestHelper'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -10,12 +10,12 @@ Object.assign(global, { WebSocket})
 describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe('Disable Sticky Session Tests', () => {
-        let connectionInfo: ConnectionInfo
+        let connectionInfo: ConnectOptions
 
         beforeAll(async () => {
             console.log('Starting Kinotic Gateway for sticky session test')
 
-            connectionInfo = createConnectionInfo({ sessionKeepAlive: SessionKeepAliveMode.NONE })
+            connectionInfo = createConnectOptions({ sessionKeepAlive: SessionKeepAliveMode.NONE })
         }, 1000 * 60 * 10) // 10 minutes
 
         afterAll(async () => {

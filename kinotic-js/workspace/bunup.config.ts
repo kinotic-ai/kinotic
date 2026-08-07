@@ -5,8 +5,10 @@ import { defineWorkspace } from 'bunup'
 export default defineWorkspace(
 	[
 		{
+			// Library (".") plus the Node adapter ("./node") that installs a header-capable WebSocket.
 			name: 'core',
-			root: 'packages/core'
+			root: 'packages/core',
+			config: { entry: ['src/index.ts', 'src/node/index.ts'] }
 		},
 		{
 			name: 'idl',
