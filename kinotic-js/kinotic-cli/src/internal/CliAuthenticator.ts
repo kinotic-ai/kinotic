@@ -1,21 +1,17 @@
-import {Kinotic} from '@kinotic-ai/core'
+import {Kinotic, type ServerInfo} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {CliLoginCredentialsResolver, type TokenResponse} from './CliLoginCredentialsResolver'
+import {CliLoginCredentialsResolver,
+        OAUTH_TOKEN_PATH,
+        postForm,
+        restBaseUrl,
+        type TokenResponse} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
 
-/** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
-interface ServerTarget {
-    host: string
-    port: number
-    useSSL: boolean
-    restBaseUrl: string
-}
-
-/** Per-request timeout for REST calls to the Kinotic Server. */
-const FETCH_TIMEOUT_MS = 30_000
+/** The port a kinotic-server gateway (REST + STOMP) listens on when no TLS terminates in front. */
+const GATEWAY_PORT = 58503
 
 /** Identifies this CLI to the device grant, which serves only this pre-registered client. */
 const CLI_CLIENT_ID = 'kinotic-cli'
@@ -48,7 +44,7 @@ export class CliAuthenticator {
         if (target === null) {
             return false
         }
-        const tokens = await this.deviceLogin(target.restBaseUrl)
+        const tokens = await this.deviceLogin(restBaseUrl(target))
         if (tokens === null) {
             return false
         }
@@ -78,12 +74,7 @@ export class CliAuthenticator {
             // The resolver's bearer token rides the WebSocket upgrade headers, which needs
             // the header-capable ws WebSocket installed in a Node process.
             ensureNodeWebSocket()
-            await pTimeout(Kinotic.connect({
-                host: target.host,
-                port: target.port,
-                useSSL: target.useSSL,
-                credentials: resolver
-            }), {
+            await pTimeout(Kinotic.connect({...target, credentials: resolver}), {
                 milliseconds: 60000,
                 message: 'Connection timeout trying to connect to the Kinotic Server'
             })
@@ -96,7 +87,7 @@ export class CliAuthenticator {
     }
 
     /** Parses the server url into the host/port the gateway serves both REST and STOMP on. */
-    private parseServer(): ServerTarget | null {
+    private parseServer(): ServerInfo | null {
         const url = new URL(this.server)
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
             this.logger.log('Invalid server URL, only http and https are supported')
@@ -104,31 +95,24 @@ export class CliAuthenticator {
         }
         const useSSL = url.protocol === 'https:'
         // Locally the server url often points at the static web port; the gateway
-        // (REST + STOMP) always listens on 58503, so the port is overridden.
-        let port: number
+        // always listens on GATEWAY_PORT, so the port is overridden.
+        let port: number | null
         if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-            port = 58503
+            port = GATEWAY_PORT
         } else if (url.port) {
             port = Number(url.port)
         } else {
-            port = useSSL ? 443 : 58503
+            // https means the scheme default (omit the port); plain http off localhost
+            // still means the gateway port
+            port = useSSL ? null : GATEWAY_PORT
         }
-        return {
-            host: url.hostname,
-            port,
-            useSSL,
-            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port
-        }
+        return {host: url.hostname, port, useSSL}
     }
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
-    private async deviceLogin(restBaseUrl: string): Promise<TokenResponse | null> {
-        const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({client_id: CLI_CLIENT_ID}),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-        })
+    private async deviceLogin(baseUrl: string): Promise<TokenResponse | null> {
+        const startRes = await postForm(baseUrl + '/api/auth/oauth/device_authorization',
+                                        {client_id: CLI_CLIENT_ID})
         if (!startRes.ok) {
             this.logger.log('Could not start device authorization with the Kinotic Server.')
             return null
@@ -154,13 +138,9 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/auth/oauth/token', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-                                           device_code: start.device_code}),
-                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-            })
+            const tokenRes = await postForm(baseUrl + OAUTH_TOKEN_PATH,
+                                            {grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+                                             device_code: start.device_code})
             if (tokenRes.ok) {
                 return await tokenRes.json() as TokenResponse
             }
