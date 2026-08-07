@@ -257,7 +257,7 @@ public class JobResumeTest extends AbstractGrindTest {
             }));
 
         JobExecution firstRun = jobService.execute(builder.get(),
-                                                   org.kinotic.orchestrator.api.grind.JobOwner.ofApplication("org-1", "app-1"));
+                                                   org.kinotic.domain.api.model.grind.JobOwner.ofApplication("org-1", "app-1"));
         await(firstRun);
 
         shouldFail.set(false);

@@ -2,6 +2,7 @@
 
 package org.kinotic.orchestrator.api.grind;
 
+import org.kinotic.domain.api.model.grind.JobOwner;
 import reactor.core.publisher.Flux;
 
 /**

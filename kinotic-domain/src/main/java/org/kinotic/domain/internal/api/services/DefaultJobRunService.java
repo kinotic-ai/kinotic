@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.services;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.domain.api.model.grind.JobRun;
 import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.internal.api.repositories.JobRunRepository;
@@ -27,13 +28,9 @@ public class DefaultJobRunService extends AbstractCrudService<JobRun> implements
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
-                                                           String applicationId,
-                                                           String projectId,
-                                                           Pageable pageable) {
-        Validate.isTrue(organizationId != null || (applicationId == null && projectId == null),
-                        "applicationId and projectId require an organizationId");
-        return jobRunRepository.findAllForOwner(organizationId, applicationId, projectId, pageable);
+    public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
+        Validate.notNull(owner, "owner cannot be null");
+        return jobRunRepository.findAllForOwner(owner, pageable);
     }
 
     @Override

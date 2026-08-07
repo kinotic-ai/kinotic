@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
-import org.kinotic.orchestrator.api.grind.JobOwner;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.Result;
 import org.kinotic.orchestrator.api.grind.StepCompletion;
 import org.kinotic.orchestrator.api.grind.StepInfo;

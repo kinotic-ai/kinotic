@@ -14,7 +14,7 @@ import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.orchestrator.api.grind.DiagnosticLevel;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
-import org.kinotic.orchestrator.api.grind.JobOwner;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.JobService;
 import org.kinotic.orchestrator.api.grind.ReplayEntry;
 import org.kinotic.orchestrator.api.grind.ReplayLedger;

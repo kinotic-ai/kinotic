@@ -1,4 +1,4 @@
-package org.kinotic.orchestrator.api.grind;
+package org.kinotic.domain.api.model.grind;
 
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -11,8 +11,8 @@ import org.kinotic.domain.api.security.SystemParticipant;
 
 /**
  * The hierarchy a job run executes on behalf of, recorded on the run so runs can be filtered
- * by owner. A {@link JobDefinition} is a system-wide template; ownership is declared per
- * execution when the job is started. The platform itself is an owner too - {@link #system()} -
+ * by owner. A job definition is a system-wide template; ownership is declared per
+ * execution when the job is started and recorded on the {@link JobRun}. The platform itself is an owner too - {@link #system()} -
  * with no organization.
  */
 @Getter

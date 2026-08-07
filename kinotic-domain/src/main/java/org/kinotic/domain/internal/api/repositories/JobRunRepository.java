@@ -2,6 +2,7 @@ package org.kinotic.domain.internal.api.repositories;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.domain.api.model.grind.JobRun;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -23,18 +24,16 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
     }
 
     /**
-     * Returns the page of runs owned by the given hierarchy: all of an organization's runs,
-     * narrowed to an application and/or project when those ids are given. A null
-     * {@code organizationId} selects platform runs - those owned by no organization.
+     * Returns the page of runs owned by the given {@link JobOwner}: all of an organization's
+     * runs, narrowed to an application and/or project when the owner carries those ids. The
+     * system owner selects platform runs - those owned by no organization.
      */
-    public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
-                                                           String applicationId,
-                                                           String projectId,
-                                                           Pageable pageable) {
+    public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
-            organizationId != null ? termFilter("organizationId", organizationId) : missingFilter("organizationId"),
-            applicationId != null ? termFilter("applicationId", applicationId) : null,
-            projectId != null ? termFilter("projectId", projectId) : null)));
+            owner.getOrganizationId() != null ? termFilter("organizationId", owner.getOrganizationId())
+                                              : missingFilter("organizationId"),
+            owner.getApplicationId() != null ? termFilter("applicationId", owner.getApplicationId()) : null,
+            owner.getProjectId() != null ? termFilter("projectId", owner.getProjectId()) : null)));
     }
 
 }

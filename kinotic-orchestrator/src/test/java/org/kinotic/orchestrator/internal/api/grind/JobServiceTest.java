@@ -11,7 +11,7 @@ import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.security.DefaultSystemParticipant;
 import org.kinotic.orchestrator.api.grind.JobDefinition;
 import org.kinotic.orchestrator.api.grind.JobExecution;
-import org.kinotic.orchestrator.api.grind.JobOwner;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.grind.Task;
 import org.kinotic.orchestrator.api.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;

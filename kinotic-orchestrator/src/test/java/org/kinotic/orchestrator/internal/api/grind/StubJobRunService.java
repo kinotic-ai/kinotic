@@ -2,6 +2,7 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.domain.api.model.grind.JobRun;
 import org.kinotic.domain.api.services.JobRunService;
 
@@ -80,10 +81,7 @@ public class StubJobRunService implements JobRunService {
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findAllForOwner(String organizationId,
-                                                           String applicationId,
-                                                           String projectId,
-                                                           Pageable pageable) {
+    public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
         throw new UnsupportedOperationException();
     }
 }
