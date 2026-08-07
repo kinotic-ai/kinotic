@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/os-api",
-  "version": "5.0.0-beta.3",
+  "version": "5.0.0-beta.4",
   "type": "module",
   "files": [
     "dist"
@@ -32,7 +32,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.2"
+    "@kinotic-ai/core": ">=5.0.0-beta.3"
   },
   "dependencies": {
     "@kinotic-ai/idl": "workspace:*",

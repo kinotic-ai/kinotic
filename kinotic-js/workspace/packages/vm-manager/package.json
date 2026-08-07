@@ -34,7 +34,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.2",
+    "@kinotic-ai/core": ">=5.0.0-beta.3",
     "@kinotic-ai/os-api": ">=5.0.0-beta.3"
   },
   "dependencies": {
