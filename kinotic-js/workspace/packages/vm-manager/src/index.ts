@@ -5,7 +5,6 @@ import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrche
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { createCredentialsResolver } from '@/api/createCredentialsResolver'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
 import type { Workload } from '@kinotic-ai/os-api'
@@ -62,15 +61,12 @@ async function start() {
     // system zone. Must be set before DefaultVmManager is instantiated (@Publish registers there).
     Kinotic.zonePrefix = SYSTEM_ZONE
 
-    // Authentication happens during the WebSocket upgrade with the resolved credentials.
+    // Server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL
+    // and KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET (or KINOTIC_TOKEN).
     ensureNodeWebSocket()
-    await Kinotic.connect({
-        host: config.serverHost,
-        port: config.serverPort,
-        useSSL: config.serverUseSSL,
-        credentials: createCredentialsResolver(config)
-    })
-    console.log(`Connected to Kinotic server at ${config.serverHost}:${config.serverPort}`)
+    await Kinotic.connect()
+    const server = Kinotic.eventBus.serverInfo
+    console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(
         Kinotic.serviceProxy(`${SYSTEM_ZONE}~org.kinotic.orchestrator.api.workload.VmNodeOrchestrationService`)
@@ -128,4 +124,3 @@ export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/os-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'
-export { createCredentialsResolver } from '@/api/createCredentialsResolver'
