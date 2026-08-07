@@ -6,7 +6,6 @@ import org.kinotic.domain.api.model.security.OidcProviderKind;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
@@ -15,8 +14,6 @@ import java.util.Map;
  * Claim validation and PKCE helpers shared by the OIDC flows.
  */
 public final class OAuth2Util {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private OAuth2Util() {}
 
@@ -155,13 +152,6 @@ public final class OAuth2Util {
         }
 
         return false;
-    }
-
-    /** Generates a URL-safe base64 string from {@code byteLen} cryptographically random bytes. */
-    public static String randomUrlSafe(int byteLen) {
-        byte[] buf = new byte[byteLen];
-        SECURE_RANDOM.nextBytes(buf);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
     }
 
     /**

@@ -5,9 +5,11 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentityType;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
@@ -26,6 +28,7 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -258,6 +261,51 @@ public class DomainUtil {
         if (!ParticipantConstants.PARTICIPANT_TYPE_USER.equals(type)) {
             throw new IllegalArgumentException("Only a signed-in user may perform this action");
         }
+    }
+
+    /**
+     * Requires the calling participant to be an organization member. Guards the org-console
+     * management services (members, machines).
+     *
+     * @param securityContext the security context of the current call
+     * @return the calling organization participant
+     * @throws IllegalArgumentException if the caller is not an organization participant
+     */
+    public static OrganizationParticipant requireOrgParticipant(SecurityContext securityContext) {
+        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
+        return securityContext.requireParticipant(OrganizationParticipant.class);
+    }
+
+    /**
+     * Narrows a loaded identity to the expected subtype and confirms the caller owns it.
+     * Unknown ids, other subtypes, and identities of other owners all fail with the same
+     * message — no existence oracle.
+     *
+     * @param identity        the identity a lookup returned, possibly null
+     * @param type            the subtype the operation manages
+     * @param ownedByCaller   whether the identity belongs to the caller
+     * @param notFoundMessage the single failure message for every miss
+     * @return the identity narrowed to {@code type}
+     * @throws IllegalArgumentException with {@code notFoundMessage} on any miss
+     */
+    public static <T extends ParticipantIdentity> T requireOwned(ParticipantIdentity identity,
+                                                                 Class<T> type,
+                                                                 Predicate<T> ownedByCaller,
+                                                                 String notFoundMessage) {
+        if (!type.isInstance(identity) || !ownedByCaller.test(type.cast(identity))) {
+            throw new IllegalArgumentException(notFoundMessage);
+        }
+        return type.cast(identity);
+    }
+
+    /**
+     * Renders a structural scope for logs and error messages: {@code SYSTEM},
+     * {@code ORGANIZATION/<orgId>}, or {@code APPLICATION/<orgId>/<appId>}.
+     */
+    public static String describeScope(String organizationId, String applicationId) {
+        if (organizationId == null && applicationId == null) return "SYSTEM";
+        if (applicationId == null) return "ORGANIZATION/" + organizationId;
+        return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 
     private static Map<String, String> participantMetadata(ParticipantIdentity identity) {

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.security.DelegateKind;
 import org.kinotic.domain.api.model.security.KinoticAudience;
+import org.kinotic.domain.api.model.security.UserParticipantIdentity;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.DeviceCodeGrantService;
@@ -204,15 +205,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                       case SLOW_DOWN -> authEndpointSupport.respondError(ctx, 400, "slow_down");
                       case EXPIRED -> authEndpointSupport.respondError(ctx, 400, "expired_token");
                       case INVALID -> authEndpointSupport.respondError(ctx, 400, "invalid_grant");
-                      case APPROVED -> Future.fromCompletionStage(
-                              identityService.findOrCreateDelegate(result.user(), DelegateKind.CLI,
-                                                                   CLI_CLIENT_ID, CLI_DISPLAY_NAME))
-                              .compose(delegate -> Future.fromCompletionStage(
-                                              refreshTokenService.issue(delegate.getId(),
-                                                                        delegate.getDelegateKind().getAudience(),
-                                                                        result.deviceName()))
-                                      .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                              ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
+                      case APPROVED -> issueDelegateTokens(ctx, result.user(), DelegateKind.CLI,
+                                                           CLI_CLIENT_ID, CLI_DISPLAY_NAME, result.deviceName())
                               .onFailure(err -> {
                                   log.warn("Could not issue tokens after device approval: {}", err.getMessage());
                                   authEndpointSupport.respondError(ctx, 500, "Could not issue tokens");
@@ -231,19 +225,34 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
         Future.fromCompletionStage(oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier))
-              .compose(exchange -> Future.fromCompletionStage(
-                      identityService.findOrCreateDelegate(exchange.approver(), DelegateKind.MCP_CLIENT,
-                                                           exchange.clientId(), exchange.clientName())))
-              .compose(delegate -> Future.fromCompletionStage(
-                                             refreshTokenService.issue(delegate.getId(),
-                                                                       delegate.getDelegateKind().getAudience(),
-                                                                       null))
-                                     .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
-                                             ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
+              .compose(exchange -> issueDelegateTokens(ctx, exchange.approver(), DelegateKind.MCP_CLIENT,
+                                                       exchange.clientId(), exchange.clientName(), null))
               .onFailure(err -> {
                   log.warn("OAuth code exchange failed: {}", err.getMessage());
                   authEndpointSupport.respondError(ctx, 400, "invalid_grant");
               });
+    }
+
+    /**
+     * The tail every delegate-minting grant shares: find-or-create the approver's delegate for
+     * the client, issue a refresh token for the delegate kind's audience, and respond with the
+     * token pair.
+     */
+    private Future<Void> issueDelegateTokens(RoutingContext ctx,
+                                             UserParticipantIdentity approver,
+                                             DelegateKind kind,
+                                             String clientKey,
+                                             String clientName,
+                                             String sessionLabel) {
+        return Future.fromCompletionStage(
+                identityService.findOrCreateDelegate(approver, kind, clientKey, clientName))
+                .compose(delegate -> Future.fromCompletionStage(
+                                refreshTokenService.issue(delegate.getId(),
+                                                          delegate.getDelegateKind().getAudience(),
+                                                          sessionLabel))
+                        .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
+                                ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
+                .mapEmpty();
     }
 
     private void handleRefreshTokenGrant(RoutingContext ctx) {

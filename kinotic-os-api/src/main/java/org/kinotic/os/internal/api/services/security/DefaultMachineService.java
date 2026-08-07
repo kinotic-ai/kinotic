@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.os.api.services.security.MachineService;
 import org.springframework.stereotype.Component;
@@ -71,24 +72,15 @@ public class DefaultMachineService implements MachineService {
     }
 
     private OrganizationParticipant requireOrgParticipant() {
-        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
-        return securityContext.requireParticipant(OrganizationParticipant.class);
+        return DomainUtil.requireOrgParticipant(securityContext);
     }
 
-    /**
-     * Loads a machine of the participant's organization for inspection or mutation. Fails for
-     * unknown ids and for machines of other organizations with the same message — no
-     * existence oracle.
-     */
+    /** Loads a machine of the participant's organization for inspection or mutation. */
     private CompletableFuture<MachineParticipantIdentity> loadOwnedMachine(String machineId, OrganizationParticipant participant) {
         Validate.notBlank(machineId, "machineId is required");
         return identityService.findById(machineId)
-                .thenApply(identity -> {
-                    if (!(identity instanceof MachineParticipantIdentity machine)
-                            || !participant.getOrganizationId().equals(machine.getOrganizationId())) {
-                        throw new IllegalArgumentException("Machine not found.");
-                    }
-                    return machine;
-                });
+                .thenApply(identity -> DomainUtil.requireOwned(identity, MachineParticipantIdentity.class,
+                        machine -> participant.getOrganizationId().equals(machine.getOrganizationId()),
+                        "Machine not found."));
     }
 }

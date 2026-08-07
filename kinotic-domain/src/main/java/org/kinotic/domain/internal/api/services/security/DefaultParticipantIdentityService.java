@@ -27,6 +27,9 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class DefaultParticipantIdentityService extends AbstractCrudService<ParticipantIdentity> implements ParticipantIdentityService {
 
+    /** Bytes of entropy for a machine client secret — generated, never user-chosen. */
+    private static final int MACHINE_SECRET_BYTES = 32;
+
     private final ParticipantIdentityRepository identityRepository;
     private final IdentityCredentialRepository credentialRepository;
     private final ApplicationRepository applicationRepository;
@@ -104,7 +107,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     if (existing != null && !existing.getId().equals(entity.getId())) {
                         throw new IllegalArgumentException(
                                 "ParticipantIdentity with email " + entity.getEmail()
-                                        + " already exists in scope " + describeScope(entity));
+                                        + " already exists in scope "
+                                        + DomainUtil.describeScope(entity.getOrganizationId(), entity.getApplicationId()));
                     }
                 });
     }
@@ -125,10 +129,22 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 });
     }
 
-    private static String describeScope(ParticipantIdentity user) {
-        if (user.getOrganizationId() == null) return "SYSTEM";
-        if (user.getApplicationId() == null) return "ORGANIZATION/" + user.getOrganizationId();
-        return "APPLICATION/" + user.getOrganizationId() + "/" + user.getApplicationId();
+    /** Guards the query surface: applicationId is meaningful only inside an organization. */
+    private static void requireOrgWithApp(String organizationId, String applicationId) {
+        if (applicationId != null) {
+            Validate.notBlank(organizationId,
+                              "organizationId is required when applicationId is supplied");
+        }
+    }
+
+    /**
+     * Persists the hash of {@code secret} as the sole credential of the identity, replacing
+     * any prior one.
+     */
+    private CompletableFuture<IdentityCredential> saveCredential(String identityId, String secret) {
+        return credentialRepository.save(new IdentityCredential()
+                .setId(identityId)
+                .setSecretHash(DomainUtil.hashPassword(secret)));
     }
 
     @Override
@@ -155,10 +171,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                                          String applicationId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
-        if (applicationId != null) {
-            Validate.notBlank(organizationId,
-                              "organizationId is required when applicationId is supplied");
-        }
+        requireOrgWithApp(organizationId, applicationId);
         return identityRepository.findByOidcIdentity(oidcSubject, oidcConfigId, organizationId, applicationId);
     }
 
@@ -171,10 +184,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
     @Override
     public CompletableFuture<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
-        if (applicationId != null) {
-            Validate.notBlank(organizationId,
-                              "organizationId is required when applicationId is supplied");
-        }
+        requireOrgWithApp(organizationId, applicationId);
         return identityRepository.findUsersByScope(organizationId, applicationId, pageable);
     }
 
@@ -183,10 +193,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                                                           String organizationId,
                                                           String applicationId,
                                                           Pageable pageable) {
-        if (applicationId != null) {
-            Validate.notBlank(organizationId,
-                              "organizationId is required when applicationId is supplied");
-        }
+        requireOrgWithApp(organizationId, applicationId);
         return identityRepository.searchUsersByScope(searchText, organizationId, applicationId, pageable);
     }
 
@@ -213,10 +220,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(savedUser -> {
                     if (password != null) {
-                        IdentityCredential credential = new IdentityCredential()
-                                .setId(savedUser.getId())
-                                .setSecretHash(DomainUtil.hashPassword(password));
-                        return credentialRepository.save(credential).thenApply(c -> savedUser);
+                        return saveCredential(savedUser.getId(), password).thenApply(c -> savedUser);
                     }
                     return CompletableFuture.completedFuture(savedUser);
                 });
@@ -264,8 +268,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                         return CompletableFuture.failedFuture(
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
-                    credential.setSecretHash(DomainUtil.hashPassword(newPassword));
-                    return credentialRepository.save(credential).thenApply(c -> (Void) null);
+                    return saveCredential(identityId, newPassword).thenApply(c -> (Void) null);
                 });
     }
 
@@ -274,10 +277,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notNull(identityId, "identityId cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
 
-        IdentityCredential credential = new IdentityCredential()
-                .setId(identityId)
-                .setSecretHash(DomainUtil.hashPassword(newPassword));
-        return credentialRepository.save(credential).thenApply(c -> null);
+        return saveCredential(identityId, newPassword).thenApply(c -> null);
     }
 
     @Override
@@ -331,27 +331,19 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         machine.setEnabled(true);
         machine.setAuthType(AuthType.CLIENT_CREDENTIALS);
 
-        // 32 bytes of entropy — the secret is generated, never user-chosen, and shown only here
-        String clientSecret = DomainUtil.generateUrlSafeToken(32);
+        // the secret's plaintext exists only here — the caller sees it once, storage keeps a hash
+        String clientSecret = DomainUtil.generateUrlSafeToken(MACHINE_SECRET_BYTES);
 
         // sync so the console's immediate re-query lists the new machine
         return saveSync(machine)
                 .thenApply(MachineParticipantIdentity.class::cast)
-                .thenCompose(saved -> {
-                    IdentityCredential credential = new IdentityCredential()
-                            .setId(saved.getId())
-                            .setSecretHash(DomainUtil.hashPassword(clientSecret));
-                    return credentialRepository.save(credential)
-                                               .thenApply(c -> new MachineProvisionResult(saved, clientSecret));
-                });
+                .thenCompose(saved -> saveCredential(saved.getId(), clientSecret)
+                        .thenApply(c -> new MachineProvisionResult(saved, clientSecret)));
     }
 
     @Override
     public CompletableFuture<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
-        if (applicationId != null) {
-            Validate.notBlank(organizationId,
-                              "organizationId is required when applicationId is supplied");
-        }
+        requireOrgWithApp(organizationId, applicationId);
         return identityRepository.findMachinesByScope(organizationId, applicationId, pageable);
     }
 
@@ -363,11 +355,8 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     if (!(identity instanceof MachineParticipantIdentity)) {
                         throw new IllegalArgumentException("Machine not found.");
                     }
-                    String clientSecret = DomainUtil.generateUrlSafeToken(32);
-                    IdentityCredential credential = new IdentityCredential()
-                            .setId(identity.getId())
-                            .setSecretHash(DomainUtil.hashPassword(clientSecret));
-                    return credentialRepository.save(credential).thenApply(c -> clientSecret);
+                    String clientSecret = DomainUtil.generateUrlSafeToken(MACHINE_SECRET_BYTES);
+                    return saveCredential(identity.getId(), clientSecret).thenApply(c -> clientSecret);
                 });
     }
 

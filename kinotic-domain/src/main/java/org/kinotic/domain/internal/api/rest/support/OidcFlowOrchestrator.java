@@ -21,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
@@ -186,9 +187,9 @@ public class OidcFlowOrchestrator {
                                     String callbackUrl,
                                     String orgId,
                                     String inviteToken) {
-        String state = OAuth2Util.randomUrlSafe(32);
-        String nonce = OAuth2Util.randomUrlSafe(32);
-        String pkceVerifier = OAuth2Util.randomUrlSafe(64);
+        String state = DomainUtil.generateUrlSafeToken(32);
+        String nonce = DomainUtil.generateUrlSafeToken(32);
+        String pkceVerifier = DomainUtil.generateUrlSafeToken(64);
         String pkceChallenge = OAuth2Util.s256Challenge(pkceVerifier);
 
         Session session = ctx.session();

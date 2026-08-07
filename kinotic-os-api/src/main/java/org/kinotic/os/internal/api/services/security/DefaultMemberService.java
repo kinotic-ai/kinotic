@@ -11,6 +11,7 @@ import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.services.security.InviteService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.os.api.model.security.PendingInviteSummary;
 import org.kinotic.os.api.services.security.MemberService;
@@ -98,8 +99,7 @@ public class DefaultMemberService implements MemberService {
     }
 
     private OrganizationParticipant requireOrgParticipant() {
-        // ApplicationParticipant is a sibling type, so app end-users are rejected here.
-        return securityContext.requireParticipant(OrganizationParticipant.class);
+        return DomainUtil.requireOrgParticipant(securityContext);
     }
 
     /**
@@ -118,9 +118,8 @@ public class DefaultMemberService implements MemberService {
     }
 
     /**
-     * Loads a member of the participant's organization for mutation. Fails for unknown or
-     * foreign users (same message — no existence oracle) and rejects acting on the caller's
-     * own account, so an admin can't disable or remove themselves out of the org.
+     * Loads a member of the participant's organization for mutation. Rejects acting on the
+     * caller's own account, so an admin can't disable or remove themselves out of the org.
      */
     private CompletableFuture<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
         Validate.notBlank(identityId, "identityId is required");
@@ -129,15 +128,11 @@ public class DefaultMemberService implements MemberService {
                     new IllegalArgumentException("You cannot perform this action on your own account."));
         }
         return identityService.findById(identityId)
-                .thenApply(identity -> {
-                    // same message for a delegate id as for a foreign one — member management
-                    // operates on people; delegates are managed by their owner's revocation flow
-                    if (!(identity instanceof UserParticipantIdentity user)
-                            || !participant.getOrganizationId().equals(user.getOrganizationId())) {
-                        throw new IllegalArgumentException("Member not found.");
-                    }
-                    return user;
-                });
+                // a delegate id gets the same not-found as a foreign one — member management
+                // operates on people; delegates are managed by their owner's revocation flow
+                .thenApply(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
+                        user -> participant.getOrganizationId().equals(user.getOrganizationId()),
+                        "Member not found."));
     }
 
     private static PendingInviteSummary toSummary(PendingInvite invite) {
