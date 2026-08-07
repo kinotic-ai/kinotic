@@ -1,17 +1,9 @@
--- Fixture applications and APPLICATION-scope users for the kinotic-js e2e suites that act
--- through an application client. One application per suite: EntityDefinition ids derive from
+-- APPLICATION-scope users for the kinotic-js e2e suites that act through an application
+-- client. One applicationId per suite: EntityDefinition ids derive from
 -- organizationId.applicationId.entityName, so suites running in parallel need distinct
--- applications to avoid colliding on the same entity name. Password for every user: kinotic.
+-- applicationIds to avoid colliding on the same entity name. Password for every user: kinotic.
 -- Applies only when the migration app runs with the 'test' profile — the e2e compose stack
 -- sets it; a local stack must add it to seed these fixtures.
-
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-datastream', 'kinotic-test', 'e2e fixture application for the DataStream suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-admin-entity', 'kinotic-test', 'e2e fixture application for the AdminEntityService suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-named-query', 'kinotic-test', 'e2e fixture application for the NamedQuery suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-versioned', 'kinotic-test', 'e2e fixture application for the Versioned suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-entity-service', 'kinotic-test', 'e2e fixture application for the EntityService suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-admin-named-query', 'kinotic-test', 'e2e fixture application for the AdminNamedQuery suite') WITH REFRESH;
-INSERT INTO kinotic_application (id, organizationId, description) VALUES ('e2e-mcp', 'kinotic-test', 'e2e fixture application for the Mcp suite') WITH REFRESH;
 
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000003', 'USER', 'app-e2e-datastream-kinotic@test.local', 'e2e DataStream App User', 'LOCAL', 'kinotic-test', 'e2e-datastream', 'kinotic', true) WITH REFRESH;
 INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType, organizationId, applicationId, tenantId, enabled) VALUES ('00000000-0000-0000-0000-000000000004', 'USER', 'app-e2e-admin-entity-kinotic@test.local', 'e2e AdminEntityService App User', 'LOCAL', 'kinotic-test', 'e2e-admin-entity', 'kinotic', true) WITH REFRESH;

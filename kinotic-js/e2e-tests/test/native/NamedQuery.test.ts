@@ -17,7 +17,7 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
 const APP_ID = 'e2e-named-query'
 
 interface LocalTestContext {

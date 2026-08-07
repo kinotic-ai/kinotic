@@ -20,8 +20,8 @@ import {
 
 const TEST_ORG_ID = 'kinotic-test'
 const APP_TENANT = 'kinotic'
-// Fixed application seeded with its APPLICATION-scoped user by V5__e2e_app_fixtures; the
-// app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, which only exists for a seeded id.
+// Fixed id: the app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, an APPLICATION-scoped
+// user that V5__e2e_app_fixtures seeds only for this applicationId.
 const APP_ID = 'e2e-entity-service'
 
 interface LocalTestContext {
