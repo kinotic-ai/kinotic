@@ -10,12 +10,12 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Machine-identity management for the applications of the caller's organization, used by the
- * web app. A machine is a non-human API client of one application — it authenticates through
- * the client-credentials grant with the identity's id as {@code client_id} and a secret
- * issued here, and acts with that application's scope, exactly the position an application
- * end-user occupies. Every method derives the organization from the authenticated
- * participant: only org members may call, the application must belong to that organization,
- * and only its machines are visible or mutable.
+ * web app. A machine is a non-human API client of one application — it connects through the
+ * Kinotic client with the identity's id as {@code clientId} and a secret issued here, and
+ * acts with that application's scope, exactly the position an application end-user occupies.
+ * Every method derives the organization from the authenticated participant: only org members
+ * may call, the application must belong to that organization, and only its machines are
+ * visible or mutable.
  */
 @Publish
 public interface MachineService {
@@ -36,8 +36,8 @@ public interface MachineService {
 
     /**
      * Replaces the client secret of one of the caller's organization's machines, returning the
-     * new secret exactly once. The old secret stops working immediately; tokens the machine
-     * already holds run out on their own short TTL.
+     * new secret exactly once. The old secret stops working immediately; a connection the
+     * machine already holds lasts until it disconnects.
      *
      * @param machineId a machine belonging to the caller's organization
      */
@@ -45,8 +45,8 @@ public interface MachineService {
 
     /**
      * Enables or disables one of the caller's organization's machines. A disabled machine is
-     * cut off on its next request — token issuance and every authenticated call alike — and
-     * enabling it restores access with the same credential.
+     * cut off on its next connection, and enabling it restores access with the same
+     * credential.
      *
      * @param machineId a machine belonging to the caller's organization
      */

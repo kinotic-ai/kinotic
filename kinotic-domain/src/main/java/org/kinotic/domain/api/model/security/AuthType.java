@@ -18,8 +18,8 @@ public enum AuthType {
     DELEGATED,
 
     /**
-     * The RFC 6749 client-credentials grant with a provisioned secret; the authentication
-     * method of every MACHINE identity.
+     * A provisioned client id and secret presented as connection credentials; the
+     * authentication method of every MACHINE identity.
      */
     CLIENT_CREDENTIALS
 }

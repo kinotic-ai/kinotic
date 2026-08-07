@@ -120,9 +120,8 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
 
     /**
      * Provisions a machine identity, assigning id and dates, enabling it, and generating the
-     * client secret it authenticates with through the client-credentials grant. The identity's
-     * id is its OAuth {@code client_id}; the secret is returned in plaintext exactly once and
-     * stored only as a hash.
+     * client secret it connects with. The identity's id is its {@code clientId}; the secret is
+     * returned in plaintext exactly once and stored only as a hash.
      *
      * @param machine the unsaved machine carrying display name and scope
      * @return a future emitting the saved machine together with its one-time secret
@@ -146,12 +145,12 @@ public interface ParticipantIdentityService extends IdentifiableCrudService<Part
     CompletableFuture<String> rotateMachineSecret(String machineId);
 
     /**
-     * Authenticates a machine by client-credentials: the machine with the given id must exist,
+     * Authenticates a machine by its credentials: the machine with the given id must exist,
      * be enabled, and hold a credential matching {@code clientSecret}. Every failure — unknown
-     * id, wrong kind of identity, disabled, or wrong secret — fails the same way, so the token
-     * endpoint leaks nothing about which check missed.
+     * id, wrong kind of identity, disabled, or wrong secret — fails the same way, so callers
+     * leak nothing about which check missed.
      *
-     * @param machineId    the machine's id, presented as the OAuth {@code client_id}
+     * @param machineId    the machine's id, presented as the {@code clientId} credential
      * @param clientSecret the secret issued at provisioning
      * @return a future emitting the authenticated machine, failed for any invalid credential
      */

@@ -3,8 +3,8 @@ import { ParticipantIdentityType } from '@/api/model/security/ParticipantIdentit
 
 /**
  * A non-human principal with its own credential — a platform daemon or an external caller of
- * an organization's application API. Authenticates through the client-credentials grant: the
- * identity's id is the OAuth client_id, verified against the secret issued at provisioning.
+ * an organization's application API. Connects through the Kinotic client with the identity's
+ * id as clientId, verified against the secret issued at provisioning.
  */
 export class MachineParticipantIdentity extends ParticipantIdentity {
     public readonly type: ParticipantIdentityType.MACHINE = ParticipantIdentityType.MACHINE
