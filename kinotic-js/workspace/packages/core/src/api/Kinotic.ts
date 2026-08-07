@@ -1,5 +1,5 @@
 import type {ConnectOptions} from '@/api/ConnectOptions'
-import {resolveConnectOptions} from '@/internal/api/ConnectResolution'
+import {Util} from '@/internal/api/Util'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {EventBus} from '@/api/event/EventBus'
 import type {IEventBus} from '@/api/event/IEventBus'
@@ -103,7 +103,7 @@ export class KinoticSingleton implements IKinotic {
      * @return Promise containing the result of the initial connection attempt
      */
     connect(options?: ConnectOptions): Promise<ConnectedInfo> {
-        return this._eventBus.connect(resolveConnectOptions(options))
+        return this._eventBus.connect(Util.resolveConnectOptions(options))
     }
 
     /**
