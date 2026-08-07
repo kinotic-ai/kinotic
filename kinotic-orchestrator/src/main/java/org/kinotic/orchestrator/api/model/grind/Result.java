@@ -2,6 +2,8 @@
 
 package org.kinotic.orchestrator.api.model.grind;
 
+import org.kinotic.orchestrator.api.services.JobService;
+
 /**
  *
  * Created by Navid Mitchell on 3/19/20
@@ -25,7 +27,7 @@ public interface Result<T> {
      * For {@link ResultType#DIAGNOSTIC} the value will be a simple message describing something that happened
      * For {@link ResultType#PROGRESS} the value will be a {@link Progress} object
      * For {@link ResultType#EXCEPTION} the value will be a {@link Throwable} object
-     * For {@link ResultType#STEP_STARTED} the value will be the {@link Step} description
+     * For {@link ResultType#STEP_STARTED} the value will be the step description
      * For {@link ResultType#STEP_COMPLETED} the value will be a {@link StepCompletion} object
      * For {@link ResultType#STEP_FAILED} the value will be a {@link Throwable} object
      *

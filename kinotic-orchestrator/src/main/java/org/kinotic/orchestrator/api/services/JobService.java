@@ -7,6 +7,8 @@ import org.kinotic.orchestrator.api.model.grind.JobExecution;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.ResultOptions;
+import org.kinotic.orchestrator.api.model.grind.ResultType;
+import org.kinotic.orchestrator.api.model.grind.Task;
 import reactor.core.publisher.Flux;
 
 /**
