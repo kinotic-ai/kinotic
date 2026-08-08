@@ -12,8 +12,8 @@ import java.io.Serializable;
  * through the install round-trip via the {@code state} query parameter. After the
  * user finishes the install, the SPA presents the same {@code state} back to
  * {@code completeInstall()}, which atomically pops this record from the install-state
- * store. {@code intent} and {@code returnTo} let the SPA decide what to do after the
- * install completes (e.g. re-open the new-project sidebar).
+ * store. {@code returnTo} lets the SPA decide what to do after the install completes
+ * (e.g. re-open the new-project sidebar).
  *
  * <p>Implements {@link Serializable} so Ignite can ship the value across cluster nodes.
  */
@@ -21,7 +21,7 @@ import java.io.Serializable;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class StagedInstall {
+public class StagedInstall implements Serializable {
 
     private String organizationId;
 

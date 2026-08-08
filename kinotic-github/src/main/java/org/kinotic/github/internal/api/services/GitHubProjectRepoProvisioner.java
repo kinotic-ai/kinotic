@@ -1,7 +1,9 @@
 package org.kinotic.github.internal.api.services;
 
 import com.github.slugify.Slugify;
+import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,6 +67,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private static final String NPM_PACKAGE_VERSIONS_RESOURCE = "/spawn/npm-package-versions.properties";
     private static final Map<String, Object> NPM_PACKAGE_VERSIONS = loadNpmPackageVersions();
 
+    private final Vertx vertx;
     private final GitHubAppInstallationService installationService;
     private final GitHubApiClient apiClient;
     private final KinoticGithubProperties properties;
@@ -146,9 +149,9 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Future<Project> renderAndPush(String token, Project project, Buffer tarball) {
-        // Tarball parsing and the GraalJS render are CPU-bound and blocking, so
-        // they run off the calling thread.
-        return Future.fromCompletionStage(CompletableFuture.supplyAsync(() -> render(project, tarball)))
+        // Tarball parsing and the GraalJS render are CPU-bound and blocking, so they run on
+        // the worker pool. ordered=false lets concurrent project creations render in parallel.
+        return vertx.executeBlocking(() -> render(project, tarball), false)
                      .compose(baseline -> uploadBinaries(token, project, baseline))
                      .compose(entries -> apiClient.createTree(token, project.getRepoFullName(), entries))
                      .compose(treeSha -> apiClient.createCommit(token, project.getRepoFullName(),
@@ -186,23 +189,21 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Future<List<TreeEntry>> uploadBinaries(String token, Project project, RenderedBaseline baseline) {
-        List<TreeEntry> treeEntries = new ArrayList<>();
+        List<Future<TreeEntry>> entries = new ArrayList<>();
         // Rendered destinations are re-checked here: a property value can inject ../
         // into a path the source entry didn't contain, so it isn't covered by the
         // parse-time check on tarball entries.
         baseline.renderedFiles().forEach((path, content) ->
-                treeEntries.add(TreeEntry.text(RepoTreePath.requireContained(path), modeFor(path, baseline), content)));
+                entries.add(Future.succeededFuture(
+                        TreeEntry.text(RepoTreePath.requireContained(path), modeFor(path, baseline), content))));
 
-        List<Future<Void>> uploads = new ArrayList<>();
         baseline.binaryFiles().forEach((path, file) ->
-                uploads.add(apiClient.createBlob(token, project.getRepoFullName(), file.content())
-                                     .map(sha -> {
-                                         String mode = file.executable() ? TreeEntry.MODE_EXECUTABLE
-                                                                         : TreeEntry.MODE_FILE;
-                                         treeEntries.add(TreeEntry.blob(path, mode, sha));
-                                         return null;
-                                     })));
-        return Future.all(uploads).map(v -> treeEntries);
+                entries.add(apiClient.createBlob(token, project.getRepoFullName(), file.content())
+                                     .map(sha -> TreeEntry.blob(path,
+                                                                file.executable() ? TreeEntry.MODE_EXECUTABLE
+                                                                                  : TreeEntry.MODE_FILE,
+                                                                sha))));
+        return Future.all(entries).map(CompositeFuture::list);
     }
 
     /**

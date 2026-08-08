@@ -19,6 +19,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.HexFormat;
 
 /**
  * {@code POST /api/github/webhook}: HMAC-verifies the delivery, parses the JSON, and
@@ -44,7 +45,6 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
     private static final String HEADER_SIGNATURE = "X-Hub-Signature-256";
     private static final String SIGNATURE_PREFIX = "sha256=";
     private static final String HMAC_ALGO = "HmacSHA256";
-    private static final char[] HEX = "0123456789abcdef".toCharArray();
 
     /** GitHub's documented webhook ceiling — anything larger is rejected with 413. */
     private static final long WEBHOOK_BODY_LIMIT_BYTES = 25L * 1024 * 1024;
@@ -125,7 +125,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGO);
             mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGO));
-            expectedHex = toHex(mac.doFinal(rawBody));
+            expectedHex = HexFormat.of().formatHex(mac.doFinal(rawBody));
         } catch (Exception e) {
             return false;
         }
@@ -133,16 +133,6 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
         return MessageDigest.isEqual(
                 expectedHex.getBytes(StandardCharsets.US_ASCII),
                 received.getBytes(StandardCharsets.US_ASCII));
-    }
-
-    private String toHex(byte[] bytes) {
-        char[] out = new char[bytes.length * 2];
-        for (int i = 0; i < bytes.length; i++) {
-            int v = bytes[i] & 0xFF;
-            out[i * 2] = HEX[v >>> 4];
-            out[i * 2 + 1] = HEX[v & 0x0F];
-        }
-        return new String(out);
     }
 
     private GitHubWebhookEvent buildEvent(String eventType,
