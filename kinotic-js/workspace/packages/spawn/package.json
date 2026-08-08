@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/spawn",
-  "version": "5.0.0-beta.0",
+  "version": "5.0.0-beta.1",
   "type": "module",
   "files": [
     "dist"
@@ -32,6 +32,11 @@
     "./package.json": "./package.json"
   },
   "homepage": "https://github.com/kinotic-ai/kinotic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kinotic-ai/kinotic.git",
+    "directory": "kinotic-js/workspace/packages/spawn"
+  },
   "license": "Elastic License 2.0",
   "publishConfig": {
     "access": "public"
@@ -43,7 +48,7 @@
     "build:graal-spawn-renderer": "bun build ./src/graalSpawnRendererMain.ts --outfile ./dist/graal-spawn-renderer.js --format=iife --target=browser"
   },
   "dependencies": {
-    "liquidjs": "10.27.0",
+    "liquidjs": "10.28.0",
     "zod": "4.4.3"
   },
   "devDependencies": {
@@ -51,10 +56,5 @@
     "@types/node": "^25.3.2",
     "allure-bun": "^3.10.0",
     "typescript": "^5.9.3"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
   }
 }
