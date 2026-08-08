@@ -49,7 +49,7 @@
     },
     "packages/idl": {
       "name": "@kinotic-ai/idl",
-      "version": "5.0.0-beta.0",
+      "version": "5.0.0-beta.1",
       "devDependencies": {
         "@types/node": "^25.3.2",
         "@types/ws": "^8.18.1",

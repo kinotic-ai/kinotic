@@ -1,13 +1,17 @@
 {
     "name": "@kinotic-ai/kinotic-cli",
-    "version": "5.2.0-beta.1",
+    "version": "5.2.0-beta.2",
     "description": "Kinotic CLI provides the ability to build, deploy, and manage Kinotic applications that run on the Kinotic OS.",
     "author": "Kinotic Developers",
     "bin": {
         "kinotic": "./bin/run.js"
     },
     "homepage": "https://github.com/kinotic-ai/kinotic",
-    "repository": "https://github.com/kinotic-ai/kinotic",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/kinotic-ai/kinotic.git",
+        "directory": "kinotic-js/kinotic-cli"
+    },
     "license": "Elastic License 2.0",
     "main": "dist/index.js",
     "type": "module",
