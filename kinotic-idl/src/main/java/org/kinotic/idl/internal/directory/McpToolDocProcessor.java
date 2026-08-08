@@ -75,7 +75,7 @@ public class McpToolDocProcessor extends AbstractProcessor {
                 if (docComment != null) {
                     String description = mainDescription(docComment);
                     if (!description.isEmpty()) {
-                        // overloads collapse to one entry, matching IdlUtil.serviceFunctions
+                        // descriptions are looked up by function name, which is all a caller addresses
                         docs.put(((ExecutableElement) enclosed).getSimpleName().toString(), description);
                     }
                 }

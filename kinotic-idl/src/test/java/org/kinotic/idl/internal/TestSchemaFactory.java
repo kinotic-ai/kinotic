@@ -15,6 +15,7 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.utils.IdlUtil;
 import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.DefaultTestRenamedService;
 import org.kinotic.idl.internal.support.TestRenamedService;
@@ -259,15 +260,22 @@ public class TestSchemaFactory {
     }
 
     @Test
-    public void testOverloadedFunctionPublishesOnce() {
-        NamespaceDefinition namespaceDefinition =
-                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class)));
+    public void testOverloadedFunctionRejected() {
+        // a caller addresses a function by name alone, so neither find can be served
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                                                         () -> IdlUtil.serviceFunctions(TestOverloadedService.class));
 
-        ServiceDefinition service = findService(namespaceDefinition, TestOverloadedService.class);
-        // IdlUtil.serviceFunctions keeps one method per name, the same rule ReflectiveServiceDescriptor
-        // registers with, so the schema never advertises an overload the registry does not serve
-        Assertions.assertEquals(1, service.getFunctions().size());
-        findFunction(service, "find");
+        // both clashing declarations are named, so the developer can see what to change
+        Assertions.assertTrue(e.getMessage().contains("find(java.lang.String)"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("find(java.lang.String,int)"), e.getMessage());
+
+        // an overloaded service is unconvertible like any other, so it is omitted and the batch survives
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class),
+                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
+        findService(namespaceDefinition, OtherTestService.class);
     }
 
     @Test

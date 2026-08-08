@@ -27,9 +27,9 @@ public interface SchemaFactory {
     /**
      * Creates a {@link NamespaceDefinition} containing a {@link ServiceDefinition} for each given
      * {@link ServiceDeclaration}. The interface decides which functions the definition carries — one function
-     * per method name, overloading is not supported — and each function's parameter names, so the published
-     * names are the ones named-argument binding resolves at invocation. Generic bindings and annotations
-     * resolve against the implementation's most specific method.
+     * per method name, an interface that overloads one is rejected — and each function's parameter names, so
+     * the published names are the ones named-argument binding resolves at invocation. Generic bindings and
+     * annotations resolve against the implementation's most specific method.
      * All services are converted in one session, so complex types shared between services are converted once and
      * appear once in the returned namespace. Equal declarations convert once, and a service that fails to
      * convert is omitted from the result rather than failing the batch. Each definition's qualified name is the

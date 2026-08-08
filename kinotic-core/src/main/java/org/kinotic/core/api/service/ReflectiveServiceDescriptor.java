@@ -20,7 +20,7 @@ class ReflectiveServiceDescriptor implements ServiceDescriptor{
      * A {@link ServiceDescriptor} created using reflection
      * @param serviceIdentifier that should be used
      * @param serviceClass the class to introspect for methods to create {@link FunctionDescriptor}'s for
-     * @throws IllegalStateException if reflection fails
+     * @throws IllegalStateException if reflection fails, or if the class overloads a function name
      */
     public ReflectiveServiceDescriptor(ServiceIdentifier serviceIdentifier, Class<?> serviceClass) {
         this.serviceIdentifier = serviceIdentifier;

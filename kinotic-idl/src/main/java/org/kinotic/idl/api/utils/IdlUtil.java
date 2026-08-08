@@ -1,6 +1,5 @@
 package org.kinotic.idl.api.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.Name;
 import org.springframework.core.MethodParameter;
@@ -14,7 +13,6 @@ import java.util.Map;
 /**
  * Static helpers shared across IDL conversion and its consumers.
  */
-@Slf4j
 public final class IdlUtil {
 
     private IdlUtil() {
@@ -23,12 +21,13 @@ public final class IdlUtil {
     /**
      * Resolves the functions a service interface declares: every user-declared method keyed by function name.
      * A method that overrides an inherited one contributes a single function, resolved against the most
-     * specific declaration. Overloading is not supported; when a name carries more than one signature only
-     * one method is kept. Schema generation and service registration must both use this rule, so a published
+     * specific declaration. Schema generation and service registration must both use this rule, so a published
      * schema never carries a function the registry does not serve.
      *
      * @param serviceInterface the service interface to introspect
      * @return the interface's functions keyed by name
+     * @throws IllegalStateException if the interface overloads a function name, which a service cannot express
+     *                               because a function is addressed by name alone
      */
     public static Map<String, Method> serviceFunctions(Class<?> serviceInterface) {
         Map<String, Method> ret = new LinkedHashMap<>();
@@ -36,11 +35,14 @@ public final class IdlUtil {
         // kept for a name is the most specific declaration
         ReflectionUtils.doWithMethods(serviceInterface, method -> {
             Method existing = ret.putIfAbsent(method.getName(), method);
+            // Class.getDeclaredMethods promises no order, so keeping either signature would let a recompile
+            // silently swap which one the schema advertises and the registry serves
             if (existing != null && !sameSignature(existing, method, serviceInterface)) {
-                log.warn("{} has overloaded method {} overloading is not supported. \n {} will be ignored",
-                         serviceInterface.getName(),
-                         method.getName(),
-                         method.toGenericString());
+                throw new IllegalStateException(serviceInterface.getName() + " overloads function "
+                                                        + method.getName()
+                                                        + ", which is not supported because a function is addressed by name alone."
+                                                        + "\n " + existing.toGenericString()
+                                                        + "\n " + method.toGenericString());
             }
         }, ReflectionUtils.USER_DECLARED_METHODS);
         return ret;
