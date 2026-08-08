@@ -1,6 +1,9 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Page;
@@ -42,10 +45,22 @@ class DefaultGitHubAppInstallationServiceTest {
     private static final String APP_ID = "777";
     private static final long INSTALLATION_ID = 55L;
 
+    private static Vertx vertx;
+
     private GitHubAppInstallationRepository repository;
     private GitHubInstallStateService stateService;
     private GitHubApiClient apiClient;
     private DefaultGitHubAppInstallationService service;
+
+    @BeforeAll
+    static void createVertx() {
+        vertx = Vertx.vertx();
+    }
+
+    @AfterAll
+    static void closeVertx() {
+        vertx.close();
+    }
 
     @BeforeEach
     void setUp() {
@@ -91,7 +106,8 @@ class DefaultGitHubAppInstallationServiceTest {
                                                           stateService,
                                                           apiClient,
                                                           oidcConfigurationService,
-                                                          secretReferenceResolver);
+                                                          secretReferenceResolver,
+                                                          vertx);
     }
 
     @Test
