@@ -11,7 +11,9 @@ import type { Workload, VmProviderType } from '@kinotic-ai/os-api'
  * The {@link Scope} getter ensures this service registers with a scope equal to
  * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
-@Publish('kinotic-ai.vm-manager')
+// Published as 'VmManager', not the class name, so the address matches the orchestrator's
+// VmManagerProxy: srv://<nodeId>@system~kinotic-ai.vm-manager.VmManager
+@Publish('kinotic-ai.vm-manager', 'VmManager')
 export class DefaultVmManager implements IVmManager {
 
     public readonly nodeId: string
