@@ -104,6 +104,7 @@ public class TestSchemaFactory {
         NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestObjectCrudService.class, TestObjectCrudService.class)));
 
         ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
+        // save is redeclared with T substituted and findById is purely inherited, and each publishes once
         Assertions.assertEquals(2, crudService.getFunctions().size());
 
         // T and ID bind against TestObjectCrudService, so the inherited signatures convert concretely
@@ -114,6 +115,11 @@ public class TestSchemaFactory {
         Assertions.assertEquals(testObjectReference, save.getParameters().getFirst().getType());
         // -parameters retains the source names, so the interface carries "entity", not arg0
         Assertions.assertEquals("entity", save.getParameters().getFirst().getName());
+
+        // the redeclaration is the most specific declaration, so its Javadoc describes the function
+        McpToolC3Decorator redeclared = save.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(redeclared);
+        Assertions.assertEquals("Saves the given test object.", redeclared.getDescription());
 
         FunctionDefinition findById = findFunction(crudService, "findById");
         Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
