@@ -46,16 +46,5 @@
     "uuid": "^13.0.2",
     "ws": "^8.21.3"
   },
-  "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "overrides": {
-      "basic-ftp@5": "^5.2.1",
-      "brace-expansion@1": "^1.1.16",
-      "brace-expansion@2": "^2.1.2",
-      "brace-expansion@5": "^5.0.7",
-      "liquidjs@10": "^10.28.0",
-      "protobufjs@7": "^7.5.5",
-      "protobufjs@8": "^8.6.6"
-    }
-  }
+  "packageManager": "pnpm@10.33.0"
 }

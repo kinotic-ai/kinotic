@@ -1,5 +1,9 @@
 allowBuilds:
   esbuild: false
+# mocha caps these below their advisory floors (serialize-javascript ^6.0.2, diff ^7.0.0).
+overrides:
+  serialize-javascript: '^7.0.5'
+  diff: '^8.0.3'
 minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
 # First-party packages are trusted at any version, so a freshly published release
 # never blocks the build.
