@@ -94,7 +94,7 @@ variable "subdomain" {
 variable "frontend_path" {
   description = "Path to the built frontend dist/ folder"
   type        = string
-  default     = "../../../../kinotic-frontend/dist"
+  default     = "../../../../kinotic-frontend/apps/portal/dist"
 }
 
 # ── Outputs ───────────────────────────────────────────────────────────────────

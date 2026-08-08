@@ -40,11 +40,15 @@ node {
 }
 
 task deleteDist(type: Delete){
-    delete "${project.projectDir.parent}/kinotic-api-gateway/src/main/resources/webroot/", "${project.projectDir}/dist/"
+    delete "${project.projectDir.parent}/kinotic-api-gateway/src/main/resources/webroot/",
+           "${project.projectDir}/apps/portal/dist/",
+           "${project.projectDir}/apps/system/dist/"
 }
 
+// Only the portal is baked into the server (docker-compose serves it from webroot).
+// The system console's dist is deployed to its own static hosting, never into the jar.
 task copyDist(type: Copy){
-    from "${project.projectDir}/dist"
+    from "${project.projectDir}/apps/portal/dist"
     into "${project.projectDir.parent}/kinotic-api-gateway/src/main/resources/webroot"
     dependsOn 'pnpmBuild'
 }

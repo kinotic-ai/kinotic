@@ -18,12 +18,14 @@ Modern Vue.js 3 frontend with OIDC authentication, TypeScript, and Vite build sy
 5. **OIDC Integration**: Use oidc-client-ts library patterns
 
 ## Key Directories
+This is a pnpm workspace: `apps/portal` (OS dashboard), `apps/system` (operator console),
+`packages/common` (shared UI code). Within an app:
 - `src/pages/`: Page components with routing
 - `src/components/`: Reusable UI components
-- `src/states/`: Pinia stores for state management
-- `src/services/`: API and OIDC services
-- `src/theme/`: UI theme configuration
+- `src/states/`: Reactive state singletons
+- `src/services/`: API services
 - `src/layouts/`: Layout components
+The theme preset lives in `packages/common/src/theme/`.
 
 ## OIDC Configuration
 - Multiple provider support with conditional rendering
