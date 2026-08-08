@@ -32,6 +32,11 @@
     "./package.json": "./package.json"
   },
   "homepage": "https://github.com/kinotic-ai/kinotic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kinotic-ai/kinotic.git",
+    "directory": "kinotic-js/workspace/packages/spawn"
+  },
   "license": "Elastic License 2.0",
   "publishConfig": {
     "access": "public"
@@ -51,10 +56,5 @@
     "@types/node": "^25.3.2",
     "allure-bun": "^3.10.0",
     "typescript": "^5.9.3"
-  },
-  "peerDependenciesMeta": {
-    "typescript": {
-      "optional": true
-    }
   }
 }

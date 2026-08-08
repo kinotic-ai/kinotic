@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/vm-manager",
-  "version": "5.0.0-beta.3",
+  "version": "5.0.0-beta.4",
   "type": "module",
   "files": [
     "bin",
@@ -23,6 +23,11 @@
     "./package.json": "./package.json"
   },
   "homepage": "https://github.com/kinotic-ai/kinotic",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kinotic-ai/kinotic.git",
+    "directory": "kinotic-js/workspace/packages/vm-manager"
+  },
   "license": "Elastic License 2.0",
   "publishConfig": {
     "access": "public"
@@ -34,15 +39,15 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.3",
-    "@kinotic-ai/os-api": ">=5.0.0-beta.3"
+    "@kinotic-ai/core": ">=5.0.0-beta.4",
+    "@kinotic-ai/os-api": ">=5.0.0-beta.5"
   },
   "dependencies": {
-    "@boxlite-ai/boxlite": "^0.9.7",
-    "@kinotic-ai/core": "workspace:*",
-    "@kinotic-ai/os-api": "workspace:*"
+    "@boxlite-ai/boxlite": "^0.9.7"
   },
   "devDependencies": {
+    "@kinotic-ai/core": "workspace:*",
+    "@kinotic-ai/os-api": "workspace:*",
     "@types/bun": "^1.3.9",
     "typescript": "^5.9.3"
   }
