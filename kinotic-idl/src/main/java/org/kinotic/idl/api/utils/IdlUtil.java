@@ -1,9 +1,9 @@
 package org.kinotic.idl.api.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.annotations.Name;
 import org.springframework.core.MethodParameter;
+import org.springframework.core.ResolvableType;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Method;
@@ -13,7 +13,6 @@ import java.util.Map;
 /**
  * Static helpers shared across IDL conversion and its consumers.
  */
-@Slf4j
 public final class IdlUtil {
 
     private IdlUtil() {
@@ -21,25 +20,46 @@ public final class IdlUtil {
 
     /**
      * Resolves the functions a service interface declares: every user-declared method keyed by function name.
-     * Overloading is not supported; when a name is declared more than once only one method is kept. Schema
-     * generation and service registration must both use this rule, so a published schema never carries a
-     * function the registry does not serve.
+     * A method that overrides an inherited one contributes a single function, resolved against the most
+     * specific declaration. Schema generation and service registration must both use this rule, so a published
+     * schema never carries a function the registry does not serve.
      *
      * @param serviceInterface the service interface to introspect
      * @return the interface's functions keyed by name
+     * @throws IllegalStateException if the interface overloads a function name, which a service cannot express
+     *                               because a function is addressed by name alone
      */
     public static Map<String, Method> serviceFunctions(Class<?> serviceInterface) {
         Map<String, Method> ret = new LinkedHashMap<>();
+        // doWithMethods walks the interface's own methods before its super interfaces, so the first method
+        // kept for a name is the most specific declaration
         ReflectionUtils.doWithMethods(serviceInterface, method -> {
             Method existing = ret.putIfAbsent(method.getName(), method);
-            // a default method can be visited twice; only a genuinely different signature is an overload
-            if (existing != null && !existing.equals(method)) {
-                log.warn("{} has overloaded method {} overloading is not supported. \n {} will be ignored",
-                         serviceInterface.getName(),
-                         method.getName(),
-                         method.toGenericString());
+            // Class.getDeclaredMethods promises no order, so keeping either signature would let a recompile
+            // silently swap which one the schema advertises and the registry serves
+            if (existing != null && !sameSignature(existing, method, serviceInterface)) {
+                throw new IllegalStateException(serviceInterface.getName() + " overloads function "
+                                                        + method.getName()
+                                                        + ", which is not supported because a function is addressed by name alone."
+                                                        + "\n " + existing.toGenericString()
+                                                        + "\n " + method.toGenericString());
             }
         }, ReflectionUtils.USER_DECLARED_METHODS);
+        return ret;
+    }
+
+    /**
+     * Whether two same named methods are the same function of the given service interface, rather than an
+     * overload of one another.
+     */
+    private static boolean sameSignature(Method first, Method second, Class<?> serviceInterface) {
+        boolean ret = first.getParameterCount() == second.getParameterCount();
+        // both sides bind their type variables against serviceInterface, so an override that substitutes them
+        // (create(T) redeclared as create(EntityDefinition)) compares equal, as does a method visited twice
+        for (int i = 0; ret && i < first.getParameterCount(); i++) {
+            ret = ResolvableType.forMethodParameter(first, i, serviceInterface).toClass()
+                                .equals(ResolvableType.forMethodParameter(second, i, serviceInterface).toClass());
+        }
         return ret;
     }
 
