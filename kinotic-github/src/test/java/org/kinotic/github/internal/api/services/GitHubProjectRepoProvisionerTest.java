@@ -1,9 +1,11 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Project;
@@ -47,6 +49,12 @@ class GitHubProjectRepoProvisionerTest {
     private GitHubAppInstallationService installationService;
     private GitHubApiClient apiClient;
     private GitHubProjectRepoProvisioner provisioner;
+    private Vertx vertx;
+
+    @AfterEach
+    void tearDown() {
+        vertx.close();
+    }
 
     @BeforeEach
     void setUp() {
@@ -54,7 +62,8 @@ class GitHubProjectRepoProvisionerTest {
         apiClient = mock(GitHubApiClient.class);
         KinoticGithubProperties properties = new KinoticGithubProperties();
         properties.getGithub().setRepoTemplate("kinotic-ai/project-template");
-        provisioner = new GitHubProjectRepoProvisioner(installationService, apiClient,
+        vertx = Vertx.vertx();
+        provisioner = new GitHubProjectRepoProvisioner(vertx, installationService, apiClient,
                                                        properties, new GraalJsSpawnRenderer());
 
         GitHubAppInstallation install = new GitHubAppInstallation();

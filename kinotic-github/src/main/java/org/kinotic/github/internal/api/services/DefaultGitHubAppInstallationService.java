@@ -19,11 +19,10 @@ import java.util.Date;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Default impl: CRUD over the {@code kinotic_github_app_installation} index plus the
- * three install-flow methods ({@link #startInstall(String)},
- * {@link #completeInstall(long, String)}, {@link #findForCurrentOrg()}). Inherits
- * org-scope filtering from {@link AbstractOrganizationScopedService} so callers cannot read
- * or mutate installations belonging to other orgs.
+ * Default impl of the install round-trip over the {@code kinotic_github_app_installation}
+ * index. Inherits org-scope enforcement from {@link AbstractOrganizationScopedService} so a
+ * caller cannot read or mutate installations belonging to other orgs; only the operations
+ * {@link GitHubAppInstallationService} declares are reachable remotely.
  */
 @Slf4j
 @Component
@@ -72,7 +71,14 @@ public class DefaultGitHubAppInstallationService
             return CompletableFuture.failedFuture(new AuthorizationException(
                     "Install state does not belong to the current organization."));
         }
-        return apiClient.getInstallation(installationId)
+        return Future.fromCompletionStage(findForCurrentOrg())
+                .compose(existing -> existing == null
+                                     || Long.valueOf(installationId).equals(existing.getGithubInstallationId())
+                        ? apiClient.getInstallation(installationId)
+                        : Future.<InstallationDetails>failedFuture(new IllegalStateException(
+                                "This organization is already linked to GitHub installation "
+                                + existing.getGithubInstallationId()
+                                + ". Unlink it before linking another.")))
                 .compose(details -> persist(staged.getOrganizationId(), installationId, details))
                 .map(installation -> new GitHubInstallCompletion()
                         .setInstallation(installation)
@@ -102,7 +108,13 @@ public class DefaultGitHubAppInstallationService
     }
 
     @Override
-    public CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId) {
-        return installationRepository.findByGithubInstallationId(githubInstallationId, requireOrganizationId());
+    public CompletableFuture<Void> unlink() {
+        String orgId = requireOrganizationId();
+        return findForCurrentOrg().thenCompose(
+                // deleteByIdSync (not deleteById) so the row is gone from search before unlink
+                // resolves — the SPA reads it straight back via findForCurrentOrg(), a search.
+                installation -> installation == null
+                        ? CompletableFuture.<Void>completedFuture(null)
+                        : installationRepository.deleteByIdSync(installation.getId(), orgId));
     }
 }
