@@ -8,7 +8,7 @@
           v-for="provider in providers"
           :key="provider"
           :provider="provider"
-          :action="apiUrl('/api/auth/org/login/social/start/' + provider)"
+          :action="socialStartUrl(provider)"
           intent="sign-in"
         />
         <div class="login-divider"><span>or</span></div>
@@ -95,6 +95,17 @@ onMounted(async () => {
   await loadProviders()
   nextTick(() => focusEmailInput())
 })
+
+/**
+ * The gateway endpoint that starts a social login, carrying the router guard's `referer` so the
+ * gateway can send the browser back there. The password path navigates client side, but a social
+ * login leaves the SPA entirely and returns through a gateway redirect.
+ */
+function socialStartUrl(provider: string): string {
+  const url = apiUrl('/api/auth/org/login/social/start/' + provider)
+  const referer = route.query.referer as string | undefined
+  return referer ? `${url}?referer=${encodeURIComponent(referer)}` : url
+}
 
 /** Every auth flow (login, signup, invite) redirects here with ?error=<code> on failure. */
 function consumeUrlError() {

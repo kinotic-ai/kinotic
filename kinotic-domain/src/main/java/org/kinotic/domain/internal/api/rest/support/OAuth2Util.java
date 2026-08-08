@@ -2,11 +2,10 @@ package org.kinotic.domain.internal.api.rest.support;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
-import org.kinotic.domain.api.model.iam.OidcProviderKind;
+import org.kinotic.domain.api.model.security.OidcProviderKind;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Map;
@@ -15,8 +14,6 @@ import java.util.Map;
  * Claim validation and PKCE helpers shared by the OIDC flows.
  */
 public final class OAuth2Util {
-
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private OAuth2Util() {}
 
@@ -90,7 +87,7 @@ public final class OAuth2Util {
      *
      * <p><b>Apple gotcha:</b> the {@code email} claim is only present on the user's
      * <i>first</i> sign-in — subsequent tokens omit it entirely. We rely on the
-     * {@code (sub, configId)} key on {@link org.kinotic.domain.api.model.iam.IamUser} to
+     * {@code (sub, configId)} key on {@link org.kinotic.domain.api.model.security.ParticipantIdentity} to
      * recognise returning users by their stable Apple {@code sub}, so the missing email
      * on later sign-ins doesn't matter for login. Signup, however, requires email and
      * will simply fail-closed here on a non-first Apple flow (which would only happen
@@ -101,7 +98,7 @@ public final class OAuth2Util {
      *
      * <p>Returns {@code false} when the email is missing entirely (regardless of
      * provider) — a token without an email claim cannot drive an
-     * {@link org.kinotic.domain.api.model.iam.IamUser} lookup or creation.
+     * {@link org.kinotic.domain.api.model.security.ParticipantIdentity} lookup or creation.
      */
     public static boolean isEmailVerified(Map<String, Object> claims, OidcProviderKind provider) {
         if (claims == null) return false;
@@ -155,13 +152,6 @@ public final class OAuth2Util {
         }
 
         return false;
-    }
-
-    /** Generates a URL-safe base64 string from {@code byteLen} cryptographically random bytes. */
-    public static String randomUrlSafe(int byteLen) {
-        byte[] buf = new byte[byteLen];
-        SECURE_RANDOM.nextBytes(buf);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
     }
 
     /**

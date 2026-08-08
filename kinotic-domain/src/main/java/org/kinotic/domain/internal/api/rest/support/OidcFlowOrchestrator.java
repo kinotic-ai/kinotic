@@ -20,7 +20,8 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
-import org.kinotic.domain.api.model.iam.BaseOidcConfiguration;
+import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.rest.OidcErrorCodes;
 import org.springframework.stereotype.Component;
 
@@ -35,7 +36,7 @@ import java.util.function.Function;
  * Owns the OAuth 2.0 / OIDC flow shared by every handler that bounces the user out to
  * an IdP and back: state/nonce/PKCE generation, session storage, callback validation,
  * code exchange, claim extraction, issuer validation. Handlers compose it with their
- * own per-route config resolver — the orchestrator itself knows nothing about IamUser
+ * own per-route config resolver — the orchestrator itself knows nothing about ParticipantIdentity
  * provisioning, JWT minting, or which entity table the configuration came from.
  */
 @Slf4j
@@ -74,7 +75,7 @@ public class OidcFlowOrchestrator {
      * Validates the callback (state match, no IdP error), exchanges the code, and returns the
      * configuration along with the verified identity claims ({@code sub}, {@code email},
      * {@code email_verified}, {@code name}, …).
-     * The handler decides what to do with the claims (look up an IamUser, create a
+     * The handler decides what to do with the claims (look up a ParticipantIdentity, create a
      * {@code PendingSignUp}, etc.).
      *
      * <p>The session is consumed regardless of outcome — replay protection.
@@ -186,9 +187,9 @@ public class OidcFlowOrchestrator {
                                     String callbackUrl,
                                     String orgId,
                                     String inviteToken) {
-        String state = OAuth2Util.randomUrlSafe(32);
-        String nonce = OAuth2Util.randomUrlSafe(32);
-        String pkceVerifier = OAuth2Util.randomUrlSafe(64);
+        String state = DomainUtil.generateUrlSafeToken(32);
+        String nonce = DomainUtil.generateUrlSafeToken(32);
+        String pkceVerifier = DomainUtil.generateUrlSafeToken(64);
         String pkceChallenge = OAuth2Util.s256Challenge(pkceVerifier);
 
         Session session = ctx.session();

@@ -3,7 +3,7 @@ package org.kinotic.domain.internal.api.repositories;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.PendingInvite;
+import org.kinotic.domain.api.model.security.PendingInvite;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;

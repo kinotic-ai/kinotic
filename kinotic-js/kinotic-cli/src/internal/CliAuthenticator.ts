@@ -1,30 +1,16 @@
-import {BearerTokenAuthProvider, ConnectionInfo, createAuthenticatedWebSocketFactory, Kinotic} from '@kinotic-ai/core'
+import {buildServerUrl, Kinotic, type ServerInfo} from '@kinotic-ai/core'
+import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
 import pTimeout from 'p-timeout'
-import {createStateManager} from './state/IStateManager'
+import {CliLoginCredentialsResolver,
+        OAUTH_TOKEN_PATH,
+        postForm,
+        type TokenResponse} from './CliLoginCredentialsResolver'
 import {Logger} from './Logger'
 
-/** OAuth 2.0 token response returned by the device-authorization endpoints. */
-interface DeviceTokens {
-    access_token: string
-    refresh_token: string
-    expires_in?: number
-}
-
-/** Resolved gateway endpoints for a server url — REST and STOMP share the gateway host/port. */
-interface ServerTarget {
-    host: string
-    port: number
-    useSSL: boolean
-    restBaseUrl: string
-}
-
-/** State key the rotating refresh token is persisted under, keyed by server url. */
-const CREDENTIALS_KEY = 'kinotic-credentials'
-
-/** Per-request timeout for REST calls to the Kinotic Server. */
-const FETCH_TIMEOUT_MS = 30_000
+/** The port a kinotic-server gateway (REST + STOMP) listens on when no TLS terminates in front. */
+const GATEWAY_PORT = 58503
 
 /** Identifies this CLI to the device grant, which serves only this pre-registered client. */
 const CLI_CLIENT_ID = 'kinotic-cli'
@@ -32,14 +18,10 @@ const CLI_CLIENT_ID = 'kinotic-cli'
 /**
  * CLI authentication against a Kinotic server using the OAuth 2.0 Device Authorization Grant
  * (RFC 8628). {@link login} runs the interactive browser flow once and stores the refresh
- * token; {@link connect} uses that stored token to open an authenticated {@link Kinotic}
- * connection, refreshing the short-lived access token before every (re)connect.
+ * token; {@link connect} opens a {@link Kinotic} connection authenticated by a
+ * {@link CliLoginCredentialsResolver} backed by that stored token.
  */
 export class CliAuthenticator {
-
-    private refreshToken: string | null = null
-    private accessToken: string | null = null
-    private accessTokenExpiresAt = 0
 
     /**
      * @param server the server url to authenticate against
@@ -61,11 +43,11 @@ export class CliAuthenticator {
         if (target === null) {
             return false
         }
-        const tokens = await this.deviceLogin(target.restBaseUrl)
+        const tokens = await this.deviceLogin(buildServerUrl(target, 'http'))
         if (tokens === null) {
             return false
         }
-        await this.saveRefreshToken(tokens.refresh_token)
+        await new CliLoginCredentialsResolver(this.server, this.configDir).storeRefreshToken(tokens.refresh_token)
         return true
     }
 
@@ -81,25 +63,17 @@ export class CliAuthenticator {
             if (target === null) {
                 return false
             }
-            this.refreshToken = await this.loadRefreshToken()
-            if (this.refreshToken === null) {
+            const resolver = new CliLoginCredentialsResolver(this.server, this.configDir)
+            // Resolved once up front so a missing login gets its friendly message instead of
+            // the generic chain failure; the resolver caches the token for the connect below.
+            if (await resolver.resolve(target) === null) {
                 this.logger.log('Not logged in. Run `kinotic login` first.')
                 return false
             }
-
-            const connectionInfo = new ConnectionInfo()
-            connectionInfo.host = target.host
-            connectionInfo.port = target.port
-            connectionInfo.useSSL = target.useSSL
-            // The CLI is a Node client: core builds the broker URL and attaches the bearer
-            // token as a WebSocket upgrade header. The supplier refreshes the access token
-            // before each (re)connect, since core consults the provider on every connect.
-            connectionInfo.webSocketFactory = createAuthenticatedWebSocketFactory(
-                {host: target.host, port: target.port, useSSL: target.useSSL},
-                new BearerTokenAuthProvider(() => this.freshAccessToken(target.restBaseUrl)),
-            )
-
-            await pTimeout(Kinotic.connect(connectionInfo), {
+            // The resolver's bearer token rides the WebSocket upgrade headers, which needs
+            // the header-capable ws WebSocket installed in a Node process.
+            ensureNodeWebSocket()
+            await pTimeout(Kinotic.connect({server: target, credentials: resolver}), {
                 milliseconds: 60000,
                 message: 'Connection timeout trying to connect to the Kinotic Server'
             })
@@ -111,38 +85,8 @@ export class CliAuthenticator {
         }
     }
 
-    /**
-     * Returns a valid access token, refreshing it — and persisting the rotated refresh token —
-     * when it is absent or within 10s of expiry.
-     */
-    private async freshAccessToken(restBaseUrl: string): Promise<string> {
-        if (this.accessToken !== null && Date.now() < this.accessTokenExpiresAt - 10_000) {
-            return this.accessToken
-        }
-        // BearerTokenAuthProvider calls this on every reconnect, long after connect() checked
-        // the field, so the null case has to be caught here rather than posting "null" as the token
-        if (this.refreshToken === null) {
-            throw new Error('Not logged in. Run `kinotic login` first.')
-        }
-        const res = await fetch(restBaseUrl + '/api/auth/oauth/token', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: this.refreshToken}),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-        })
-        if (!res.ok) {
-            throw new Error('Session expired. Run `kinotic login` again.')
-        }
-        const tokens = await res.json() as DeviceTokens
-        this.refreshToken = tokens.refresh_token
-        this.accessToken = tokens.access_token
-        this.accessTokenExpiresAt = Date.now() + (tokens.expires_in ?? 60) * 1000
-        await this.saveRefreshToken(this.refreshToken)
-        return this.accessToken
-    }
-
     /** Parses the server url into the host/port the gateway serves both REST and STOMP on. */
-    private parseServer(): ServerTarget | null {
+    private parseServer(): ServerInfo | null {
         const url = new URL(this.server)
         if (url.protocol !== 'http:' && url.protocol !== 'https:') {
             this.logger.log('Invalid server URL, only http and https are supported')
@@ -150,31 +94,24 @@ export class CliAuthenticator {
         }
         const useSSL = url.protocol === 'https:'
         // Locally the server url often points at the static web port; the gateway
-        // (REST + STOMP) always listens on 58503, so the port is overridden.
-        let port: number
+        // always listens on GATEWAY_PORT, so the port is overridden.
+        let port: number | null
         if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
-            port = 58503
+            port = GATEWAY_PORT
         } else if (url.port) {
             port = Number(url.port)
         } else {
-            port = useSSL ? 443 : 58503
+            // https means the scheme default (omit the port); plain http off localhost
+            // still means the gateway port
+            port = useSSL ? null : GATEWAY_PORT
         }
-        return {
-            host: url.hostname,
-            port,
-            useSSL,
-            restBaseUrl: (useSSL ? 'https' : 'http') + '://' + url.hostname + ':' + port
-        }
+        return {host: url.hostname, port, useSSL}
     }
 
     /** Runs the RFC 8628 device flow: start, browser approval, then poll for tokens. */
-    private async deviceLogin(restBaseUrl: string): Promise<DeviceTokens | null> {
-        const startRes = await fetch(restBaseUrl + '/api/auth/oauth/device_authorization', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({client_id: CLI_CLIENT_ID}),
-            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-        })
+    private async deviceLogin(baseUrl: string): Promise<TokenResponse | null> {
+        const startRes = await postForm(baseUrl + '/api/auth/oauth/device_authorization',
+                                        {client_id: CLI_CLIENT_ID})
         if (!startRes.ok) {
             this.logger.log('Could not start device authorization with the Kinotic Server.')
             return null
@@ -200,15 +137,11 @@ export class CliAuthenticator {
         let intervalMs = Math.max(start.interval, 1) * 1000
         while (Date.now() < deadline) {
             await delay(intervalMs)
-            const tokenRes = await fetch(restBaseUrl + '/api/auth/oauth/token', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: new URLSearchParams({grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-                                           device_code: start.device_code}),
-                signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
-            })
+            const tokenRes = await postForm(baseUrl + OAUTH_TOKEN_PATH,
+                                            {grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+                                             device_code: start.device_code})
             if (tokenRes.ok) {
-                return await tokenRes.json() as DeviceTokens
+                return await tokenRes.json() as TokenResponse
             }
             const error = await readErrorCode(tokenRes)
             if (error === 'slow_down') {
@@ -220,25 +153,6 @@ export class CliAuthenticator {
         }
         this.logger.log('Device authorization timed out before it was approved.')
         return null
-    }
-
-    private async loadRefreshToken(): Promise<string | null> {
-        const stateManager = createStateManager(this.configDir)
-        if (!(await stateManager.containsState(CREDENTIALS_KEY))) {
-            return null
-        }
-        const credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
-        return credentials[this.server] ?? null
-    }
-
-    private async saveRefreshToken(refreshToken: string): Promise<void> {
-        const stateManager = createStateManager(this.configDir)
-        let credentials: Record<string, string> = {}
-        if (await stateManager.containsState(CREDENTIALS_KEY)) {
-            credentials = await stateManager.load<Record<string, string>>(CREDENTIALS_KEY)
-        }
-        credentials[this.server] = refreshToken
-        await stateManager.save(CREDENTIALS_KEY, credentials)
     }
 }
 

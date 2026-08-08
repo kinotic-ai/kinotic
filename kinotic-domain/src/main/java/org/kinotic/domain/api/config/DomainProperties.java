@@ -89,4 +89,16 @@ public class DomainProperties {
         return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
     }
 
+    /**
+     * Returns {@link OAuthProperties#getIssuerBaseUrl()} when set, otherwise falls back to
+     * {@link #resolveApiBaseUrl()}. Use this when publishing the OAuth 2.1 surface MCP hosts
+     * discover, which their backends reach directly rather than through the browser.
+     */
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
+    public String resolveIssuerBaseUrl() {
+        String issuerBaseUrl = oauth.getIssuerBaseUrl();
+        return (issuerBaseUrl != null && !issuerBaseUrl.isBlank()) ? issuerBaseUrl : resolveApiBaseUrl();
+    }
+
 }

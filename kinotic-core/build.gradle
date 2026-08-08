@@ -27,6 +27,9 @@ dependencies {
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
 
+    // XXHash128 for minting MCP tool names
+    implementation 'net.openhft:zero-allocation-hashing'
+
     // Apache Ignite
     implementation 'org.apache.ignite:ignite-core'
     implementation 'org.apache.ignite:ignite-calcite'

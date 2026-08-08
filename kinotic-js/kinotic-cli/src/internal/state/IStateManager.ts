@@ -23,6 +23,13 @@ export interface IStateManager {
      */
     load<T>(key: string): Promise<T>
 
+    /**
+     * Loads the state for the given key, or returns the given default when no state exists
+     * @param key the key to load the state for
+     * @param defaultValue the value to return when no state exists for the key
+     */
+    loadOrDefault<T>(key: string, defaultValue: T): Promise<T>
+
 }
 
 class DefaultStateManager implements IStateManager {
@@ -54,6 +61,10 @@ class DefaultStateManager implements IStateManager {
         }else{
             return Promise.reject('State not found for key: ' + key)
         }
+    }
+
+    async loadOrDefault<T>(key: string, defaultValue: T): Promise<T> {
+        return await this.containsState(key) ? this.load(key) : defaultValue
     }
 
     async save<T>(key: string, state: T): Promise<void> {

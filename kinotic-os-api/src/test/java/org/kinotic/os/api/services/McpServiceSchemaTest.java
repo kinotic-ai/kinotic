@@ -76,6 +76,73 @@ public class McpServiceSchemaTest {
         Assertions.assertEquals("Retrieves an entity by its id.", decorator.getDescription());
     }
 
+    @Test
+    public void inheritedCrudHintsResolveAcrossModules() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+
+        // ProjectService's bare @McpTool states no hints, so syncIndex serves the one @McpToolInfo states
+        // on CrudService in kinotic-core — a function ProjectService only inherits, and one whose name
+        // matches no rule, so nothing but the annotation can be the source
+        McpToolC3Decorator syncIndex = mcpTool(service, "syncIndex");
+        Assertions.assertTrue(syncIndex.isIdempotentHint());
+        Assertions.assertFalse(syncIndex.isReadOnlyHint());
+        Assertions.assertFalse(syncIndex.isDestructiveHint());
+
+        McpToolC3Decorator deleteById = mcpTool(service, "deleteById");
+        Assertions.assertTrue(deleteById.isDestructiveHint());
+        Assertions.assertTrue(deleteById.isIdempotentHint());
+        Assertions.assertFalse(deleteById.isReadOnlyHint());
+
+        // nothing states hints for a function ProjectService declares itself, so its name decides
+        McpToolC3Decorator createIfNotExist = mcpTool(service, "createProjectIfNotExist");
+        Assertions.assertTrue(createIfNotExist.isIdempotentHint());
+        Assertions.assertFalse(createIfNotExist.isDestructiveHint());
+        Assertions.assertEquals("Project Service Create Project If Not Exist", createIfNotExist.getTitle());
+    }
+
+    @Test
+    public void openWorldHintSeparatesFunctionsThatCallOut() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class)));
+
+        ServiceDefinition service = namespaceDefinition.getServices()
+                                                       .stream()
+                                                       .findFirst()
+                                                       .orElseThrow();
+
+        // MCP defaults openWorldHint to true, so every function that only touches the platform's own data
+        // has to say false for a host to read it as the closed-domain call it is
+        Assertions.assertFalse(mcpTool(service, "findByRepoFullName").isOpenWorldHint());
+        Assertions.assertFalse(mcpTool(service, "createProjectIfNotExist").isOpenWorldHint());
+        Assertions.assertFalse(mcpTool(service, "deleteById").isOpenWorldHint());
+
+        // retryRepoInitialization delegates to the repo provisioner, which reaches GitHub
+        McpToolC3Decorator retry = mcpTool(service, "retryRepoInitialization");
+        Assertions.assertTrue(retry.isOpenWorldHint());
+        // the @McpTool that states the open world states the rest of the hints too, matching what the
+        // function name implied on its own
+        Assertions.assertFalse(retry.isReadOnlyHint());
+        Assertions.assertFalse(retry.isDestructiveHint());
+        Assertions.assertFalse(retry.isIdempotentHint());
+    }
+
+    private static McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
+        McpToolC3Decorator ret = service.getFunctions()
+                                        .stream()
+                                        .filter(function -> function.getName().equals(functionName))
+                                        .findFirst()
+                                        .orElseThrow()
+                                        .findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
+        return ret;
+    }
+
     private static DefaultSchemaFactory schemaFactory() {
         List<ResolvableTypeConverter> converters = List.of(new ArrayTypeConverter(),
                                                            new BooleanTypeConverter(),

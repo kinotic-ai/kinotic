@@ -1,6 +1,6 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import org.kinotic.domain.api.model.iam.PendingVerification;
+import org.kinotic.domain.api.model.security.PendingVerification;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.Date;

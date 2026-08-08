@@ -5,7 +5,10 @@ kinotic:
       # Clients permitted to start an authorization-code flow, by Client ID Metadata Document URL.
       # Listing any client closes the endpoint to every client not listed.
       allowedClientIds:
+        # Claude Code
         - https://claude.ai/oauth/claude-code-client-metadata
+        # Claude web, desktop, and mobile custom connectors
+        - https://claude.ai/oauth/mcp-oauth-client-metadata
   github:
     appId: 3584018
     appSlug: kinotic-ai

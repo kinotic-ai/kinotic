@@ -13,7 +13,7 @@ on:
       - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
       - 'website/**'
-  # Nightly full run. This is what refreshes the 4.2.0-SNAPSHOT jars on Sonatype: the publish job
+  # Nightly full run. This is what refreshes the 5.0.0-SNAPSHOT jars on Sonatype: the publish job
   # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
   schedule:
     - cron: '0 7 * * *'
@@ -57,11 +57,17 @@ jobs:
       - name: Build migration image
         run: ./gradlew :kinotic-migration:bootBuildImage
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Stage migration image on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
           staged="ghcr.io/${{ github.repository_owner }}/kinotic-migration:sha-${{ github.sha }}"
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker tag "kinoticai/kinotic-migration:${version}" "$staged"
           docker push "$staged"
 
@@ -97,11 +103,17 @@ jobs:
       - name: Build server image
         run: ./gradlew :kinotic-server:bootBuildImage
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Stage server image on ghcr.io
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
           staged="ghcr.io/${{ github.repository_owner }}/kinotic-server:sha-${{ github.sha }}"
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker tag "kinoticai/kinotic-server:${version}" "$staged"
           docker push "$staged"
 
@@ -357,19 +369,36 @@ jobs:
     permissions:
       contents: read
       packages: read
+    env:
+      # Both registry logins and the promotion itself gate on this, so it is expressed once here
+      # rather than repeated on three steps. Deliberately independent of the publish job: a Sonatype
+      # outage should not hold back an image every suite has already validated. The ref guard keeps a
+      # workflow_dispatch run on some other branch from advancing the published tag to a build off
+      # that branch.
+      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      # Deliberately independent of the publish job: a Sonatype outage should not hold back an image
-      # every suite has already validated. The ref guard keeps a workflow_dispatch run on some other
-      # branch from advancing the published tag to a build off that branch.
+      - name: Log in to GitHub Container Registry
+        if: ${{ env.PROMOTE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ env.PROMOTE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
       - name: Promote validated images to Docker Hub
-        if: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+        if: ${{ env.PROMOTE == 'true' }}
         run: |
           version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
-          echo "${{ secrets.DOCKER_HUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
           for image in kinotic-migration kinotic-server; do
             staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
             docker pull "$staged"

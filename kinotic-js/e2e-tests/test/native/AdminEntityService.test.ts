@@ -5,6 +5,8 @@ import * as allure from "allure-js-commons";
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
     createTestPeopleWithTenantAndVerify,
     createTestPersonWithTenant,
@@ -16,9 +18,7 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
 const APP_ID = 'e2e-admin-entity'
 
 interface LocalTestContext {
@@ -88,15 +88,15 @@ describe('Kinotic JS', () => {
             await expect(entityService.syncIndex()).resolves.toBeNull()
 
             // Find the 1st person
-            const foundPerson: PersonWithTenant = await logFailure(adminEntityService.findById({entityId: savedPerson.id as string, tenantId: 'tenant01'}), 'Failed to find person')
+            const foundPerson = await logFailure(adminEntityService.findById({entityId: savedPerson.id as string, tenantId: 'tenant01'}), 'Failed to find person')
             expect(foundPerson).toBeDefined()
-            expect(foundPerson.id).toBe(savedPerson.id)
+            expect(foundPerson!.id).toBe(savedPerson.id)
 
             // Update the person
             // Find the 1st person
-            const foundPerson2: PersonWithTenant = await logFailure(adminEntityService.findById({entityId: savedPerson2.id as string, tenantId: 'tenant02'}), 'Failed to find person')
+            const foundPerson2 = await logFailure(adminEntityService.findById({entityId: savedPerson2.id as string, tenantId: 'tenant02'}), 'Failed to find person')
             expect(foundPerson2).toBeDefined()
-            expect(foundPerson2.id).toBe(savedPerson2.id)
+            expect(foundPerson2!.id).toBe(savedPerson2.id)
 
             // Count the people
             await expect(adminEntityService.count(['tenant01', 'tenant02'])).resolves.toBe(2)

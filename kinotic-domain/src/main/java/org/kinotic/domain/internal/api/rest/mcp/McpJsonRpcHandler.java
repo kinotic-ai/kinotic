@@ -12,12 +12,12 @@ import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.crud.Sort;
 import org.kinotic.core.api.directory.ServiceDirectory;
-import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.AuthenticationHandler;
-import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
+import org.kinotic.domain.api.model.security.ParticipantScope;
+import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.domain.internal.api.rest.mcp.model.*;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;
 import org.springframework.stereotype.Component;
@@ -25,6 +25,7 @@ import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.node.ObjectNode;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -43,6 +44,15 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
 
     private static final String LATEST_PROTOCOL_VERSION = "2025-11-25";
     private static final Set<String> SUPPORTED_PROTOCOL_VERSIONS = Set.of("2025-03-26", "2025-06-18", LATEST_PROTOCOL_VERSION);
+    private static final String SERVER_TITLE = "Kinotic OS";
+    private static final String WEBSITE_URL = "https://kinotic.ai";
+    private static final List<McpIcon> SERVER_ICONS = List.of(
+            new McpIcon().setSrc(WEBSITE_URL + "/favicon-96x96.png")
+                         .setMimeType("image/png")
+                         .setSizes(List.of("96x96")),
+            new McpIcon().setSrc(WEBSITE_URL + "/favicon.svg")
+                         .setMimeType("image/svg+xml")
+                         .setSizes(List.of("any")));
     private static final int TOOL_LIST_PAGE_SIZE = 1000;
 
     private static final int PARSE_ERROR = -32700;
@@ -63,7 +73,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         router.post(MCP_ROUTE).handler(this::armDiscoveryChallenge);
         // AuthenticationHandler pauses the request while authenticating, so it precedes the
         // BodyHandler. It also binds the Participant to the Vert.x context, which is where
-        // service invocation reads it from when a tool's method declares one.
+        // handlePost and service invocation read it from.
         router.post(MCP_ROUTE).handler(new AuthenticationHandler(securityService, securityContext));
         router.post(MCP_ROUTE).handler(BodyHandler.create().setBodyLimit(MAX_BODY_SIZE));
         router.post(MCP_ROUTE).handler(this::handlePost);
@@ -79,15 +89,17 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         ctx.addHeadersEndHandler(_ -> {
             if (ctx.response().getStatusCode() == 401) {
                 // points MCP hosts at the document that starts the OAuth discovery flow
+                // FIXME: shotgun surgery — one of five places that know the OAuth surface has its
+                // own base URL. See "OAuth base URL split" in docs/NavidNotes.md.
                 ctx.response().putHeader("WWW-Authenticate", "Bearer resource_metadata=\""
-                        + authEndpointSupport.absoluteUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
+                        + authEndpointSupport.issuerUrl("/.well-known/oauth-protected-resource/mcp") + "\"");
             }
         });
         ctx.next();
     }
 
     private void handlePost(RoutingContext ctx) {
-        Participant participant = ctx.get(EventConstants.SENDER_HEADER);
+        ScopedParticipant participant = securityContext.requireParticipant(ScopedParticipant.class);
         handle(ctx.body(), participant)
                 .onSuccess(response -> {
                     if (response == null) {
@@ -104,7 +116,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
     }
 
     // succeeds with null when the request was a notification and no response body must be sent
-    private Future<JsonRpcResponse> handle(RequestBody body, Participant participant) {
+    private Future<JsonRpcResponse> handle(RequestBody body, ScopedParticipant participant) {
         JsonRpcRequest request;
         try {
 
@@ -151,18 +163,21 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
                 .setProtocolVersion(SUPPORTED_PROTOCOL_VERSIONS.contains(requested) ? requested : LATEST_PROTOCOL_VERSION)
                 .setCapabilities(Map.of("tools", Map.of("listChanged", false)))
                 .setServerInfo(new McpServerInfo().setName("kinotic-api-gateway")
-                                                  .setVersion(version != null ? version : "unknown"));
+                                                  .setTitle(SERVER_TITLE)
+                                                  .setVersion(version != null ? version : "unknown")
+                                                  .setWebsiteUrl(WEBSITE_URL)
+                                                  .setIcons(SERVER_ICONS));
     }
 
-    private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, Participant participant) {
+    private Future<JsonRpcResponse> toolsList(Object id, ObjectNode params, ScopedParticipant participant) {
 
-        McpCallerScope scope = McpCallerScope.from(participant);
+        ParticipantScope callerScope = participant.getScope();
         String cursor = params.path("cursor").isString() ? params.get("cursor").asString() : null;
         CursorPageable pageable = Pageable.create(cursor, TOOL_LIST_PAGE_SIZE, Sort.by("id"));
 
         try {
             // the directory result IS the tools/list wire shape; the query already excluded the internal cri
-            return serviceDirectory.findMcpToolsCallableBy(scope.organizationId(), scope.applicationId(), pageable)
+            return serviceDirectory.findMcpToolsCallableBy(callerScope.organizationId(), callerScope.applicationId(), pageable)
                                    .map(tools -> JsonRpcResponse.result(id, tools));
 
         } catch (Exception e) {
@@ -171,7 +186,7 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
         }
     }
 
-    private Future<JsonRpcResponse> toolsCall(Object id, ObjectNode params, Participant participant) {
+    private Future<JsonRpcResponse> toolsCall(Object id, ObjectNode params, ScopedParticipant participant) {
 
         Future<JsonRpcResponse> ret;
         if (params.path("name").isString()) {

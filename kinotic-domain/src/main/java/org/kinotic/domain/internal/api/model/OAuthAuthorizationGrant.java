@@ -46,10 +46,10 @@ public class OAuthAuthorizationGrant implements Identifiable<String> {
     private String state;
 
     /**
-     * Id of the {@link org.kinotic.domain.api.model.iam.IamUser} that approved the grant,
+     * Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant awaits consent.
      */
-    private String userId;
+    private String identityId;
 
     /** SHA-256 hash of the authorization code; {@code null} until the grant is approved. */
     private String codeHash;

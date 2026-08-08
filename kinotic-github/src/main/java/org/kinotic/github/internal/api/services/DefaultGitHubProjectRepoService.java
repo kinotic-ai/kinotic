@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubRepoToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;

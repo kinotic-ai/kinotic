@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.iam.KinoticAudience;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.Date;
@@ -28,11 +28,18 @@ public class RefreshToken implements Identifiable<String> {
     /** SHA-256 hash of the refresh token. The plaintext is returned to the client once and never stored. */
     private String tokenHash;
 
-    /** Id of the {@link org.kinotic.domain.api.model.iam.IamUser} this token authenticates. */
-    private String userId;
+    /** Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} this token authenticates. */
+    private String identityId;
 
     /** Groups every token in one rotation lineage so that reuse can revoke the whole family. */
     private String familyId;
+
+    /**
+     * Optional human-readable label for the lineage, shown wherever the identity's sessions are
+     * listed — e.g. the device name the CLI supplied when the flow started. Preserved across
+     * rotation. Null when the client supplied none.
+     */
+    private String label;
 
     /**
      * The surface access tokens minted from this lineage are valid for. Fixed when the grant

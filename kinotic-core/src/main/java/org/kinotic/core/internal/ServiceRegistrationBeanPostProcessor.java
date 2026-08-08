@@ -10,7 +10,7 @@ import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.internal.utils.KinoticUtil;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +125,7 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                             String version = MetaUtil.getVersion(inter);
 
                             if (!StringUtils.isNotBlank(version)) {
-                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
+                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or in its package's package-info.java.");
                             }
 
                             // A service is addressable in its declared zone; with no declaration

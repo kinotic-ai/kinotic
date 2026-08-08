@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Marks a function as a Model Context Protocol tool.
  * A function carrying this decorator is exposed to LLM callers as an MCP tool, using {@link #description} as the
- * tool's LLM-facing contract and the three hints as MCP tool behavior annotations.
+ * tool's LLM-facing contract and the four hints as MCP tool behavior annotations.
  */
 @Getter
 @Setter
@@ -44,6 +44,11 @@ public final class McpToolC3Decorator extends C3Decorator {
      * Indicates repeated calls with the same arguments have no additional effect.
      */
     private boolean idempotentHint = false;
+
+    /**
+     * Indicates the tool reaches a system outside the platform, such as a third-party API.
+     */
+    private boolean openWorldHint = false;
 
     public McpToolC3Decorator() {
         this.targets = List.of(DecoratorTarget.FUNCTION);

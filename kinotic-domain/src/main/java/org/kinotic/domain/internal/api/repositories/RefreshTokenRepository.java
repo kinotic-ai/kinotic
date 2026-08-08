@@ -21,6 +21,14 @@ public class RefreshTokenRepository extends AbstractRepository<RefreshToken> {
         return findFirst(b -> b.query(termFilter("tokenHash", tokenHash)));
     }
 
+    /** Finds every unrevoked token of the given identity — one per live family. */
+    public CompletableFuture<List<RefreshToken>> findActiveByIdentityId(String identityId) {
+        return findAll(Pageable.ofSize(1000), b -> b.query(composeFilter(
+                termFilter("identityId", identityId),
+                termFilter("revoked", false))))
+                .thenApply(Page::getContent);
+    }
+
     /** Finds every token in the given rotation lineage. Used to revoke a family on reuse detection. */
     public CompletableFuture<List<RefreshToken>> findByFamilyId(String familyId) {
         return findAll(Pageable.ofSize(1000), b -> b.query(termFilter("familyId", familyId)))

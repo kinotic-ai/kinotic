@@ -88,6 +88,23 @@ const pageRoutes: RouteRecordRaw[] = [
   organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
+    path: '/authorized-access',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      label: 'Authorized access',
+      sidebar: { group: 'organization', section: 'Account', label: 'Authorized access', icon: 'pi-key', order: 10 } as SidebarItemMeta
+    } as RouteMeta,
+    children: [
+      {
+        name: 'authorized-access',
+        path: '',
+        component: () => import('@/pages/AuthorizedAccessPage.vue')
+      }
+    ]
+  },
+
+  {
     path: '/application/:applicationId',
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
@@ -115,6 +132,15 @@ const pageRoutes: RouteRecordRaw[] = [
           sidebar: { group: 'application', label: 'Members', icon: 'pi pi-users', order: 50 } as SidebarItemMeta
         } as RouteMeta,
         component: () => import('@/pages/MembersPage.vue'),
+        props: (route) => ({ applicationId: route.params.applicationId })
+      },
+      {
+        name: 'application-machines',
+        path: 'machines',
+        meta: {
+          sidebar: { group: 'application', label: 'Machines', icon: 'pi pi-server', order: 55 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/MachinesPage.vue'),
         props: (route) => ({ applicationId: route.params.applicationId })
       },
       {

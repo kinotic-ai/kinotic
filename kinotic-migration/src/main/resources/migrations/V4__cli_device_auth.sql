@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
     id KEYWORD,
     deviceCodeHash KEYWORD,
     userCode KEYWORD,
-    userId KEYWORD,
+    identityId KEYWORD,
+    deviceName KEYWORD NOT INDEXED,
     created DATE,
     expiresAt DATE,
     lastPolledAt DATE,
@@ -15,11 +16,16 @@ CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
 -- Rotating refresh tokens for CLI sessions. tokenHash is the SHA-256 of the refresh token —
 -- the plaintext lives only on the client. familyId groups a rotation lineage so presenting
 -- an already-rotated token (reuse) can revoke the whole family.
+-- audience is the surface access tokens minted from a lineage are valid for; rotation
+-- preserves it, so an MCP host's lineage can never mint a published-services token or the
+-- reverse.
 CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
     id KEYWORD,
     tokenHash KEYWORD,
-    userId KEYWORD,
+    identityId KEYWORD,
     familyId KEYWORD,
+    label KEYWORD NOT INDEXED,
+    audience KEYWORD,
     created DATE,
     expiresAt DATE,
     lastUsedAt DATE,

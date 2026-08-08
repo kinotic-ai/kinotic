@@ -6,10 +6,14 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.iam.IamUser;
-import org.kinotic.domain.api.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.ParticipantIdentityType;
+import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -17,10 +21,12 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -201,7 +207,7 @@ public class DomainUtil {
     }
 
     /**
-     * Builds the {@link Participant} security identity for an authenticated {@link IamUser}.
+     * Builds the {@link Participant} security identity for an authenticated {@link ParticipantIdentity}.
      * Returns the typed subtype that matches the user's structural scope:
      * <ul>
      *   <li>{@code organizationId == null} → {@link DefaultSystemParticipant}</li>
@@ -213,13 +219,8 @@ public class DomainUtil {
      * @param user the authenticated user
      * @return the typed participant for the given user
      */
-    public static Participant createParticipant(IamUser user) {
-        Map<String, String> metadata = Map.of(
-                ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, ParticipantConstants.PARTICIPANT_TYPE_USER,
-                "email", user.getEmail(),
-                "displayName", user.getDisplayName() != null ? user.getDisplayName() : user.getEmail(),
-                "authType", user.getAuthType().name()
-        );
+    public static Participant createParticipant(ParticipantIdentity user) {
+        Map<String, String> metadata = participantMetadata(user);
         if (user.getOrganizationId() == null) {
             return DefaultSystemParticipant.builder()
                                            .id(user.getId())
@@ -243,6 +244,82 @@ public class DomainUtil {
                                             .metadata(metadata)
                                             .roles(List.of())
                                             .build();
+    }
+
+    /**
+     * Requires the participant to be a person (participant type {@code user}), rejecting
+     * delegates and every other kind. Guards operations that grant or revoke authority —
+     * consent, delegate management — which only the human owner may perform.
+     *
+     * @param participant the calling participant
+     * @throws IllegalArgumentException if the participant is not a user
+     */
+    public static void requireUserParticipant(Participant participant) {
+        String type = participant.getMetadata().get(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY);
+        if (!ParticipantConstants.PARTICIPANT_TYPE_USER.equals(type)) {
+            throw new IllegalArgumentException("Only a signed-in user may perform this action");
+        }
+    }
+
+    /**
+     * Narrows a loaded identity to the expected subtype and confirms the caller owns it.
+     * Unknown ids, other subtypes, and identities of other owners all fail with the same
+     * message — no existence oracle.
+     *
+     * @param identity        the identity a lookup returned, possibly null
+     * @param type            the subtype the operation manages
+     * @param ownedByCaller   whether the identity belongs to the caller
+     * @param notFoundMessage the single failure message for every miss
+     * @return the identity narrowed to {@code type}
+     * @throws IllegalArgumentException with {@code notFoundMessage} on any miss
+     */
+    public static <T extends ParticipantIdentity> T requireOwned(ParticipantIdentity identity,
+                                                                 Class<T> type,
+                                                                 Predicate<T> ownedByCaller,
+                                                                 String notFoundMessage) {
+        if (!type.isInstance(identity) || !ownedByCaller.test(type.cast(identity))) {
+            throw new IllegalArgumentException(notFoundMessage);
+        }
+        return type.cast(identity);
+    }
+
+    /**
+     * Renders a structural scope for logs and error messages: {@code SYSTEM},
+     * {@code ORGANIZATION/<orgId>}, or {@code APPLICATION/<orgId>/<appId>}.
+     */
+    public static String describeScope(String organizationId, String applicationId) {
+        if (organizationId == null && applicationId == null) return "SYSTEM";
+        if (applicationId == null) return "ORGANIZATION/" + organizationId;
+        return "APPLICATION/" + organizationId + "/" + applicationId;
+    }
+
+    private static Map<String, String> participantMetadata(ParticipantIdentity identity) {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put(ParticipantConstants.PARTICIPANT_TYPE_METADATA_KEY, participantTypeFor(identity.getType()));
+        metadata.put("authType", identity.getAuthType().name());
+        switch (identity) {
+            case UserParticipantIdentity user -> {
+                metadata.put("email", user.getEmail());
+                metadata.put("displayName",
+                             user.getDisplayName() != null ? user.getDisplayName() : user.getEmail());
+            }
+            case DelegatingParticipantIdentity delegate -> {
+                metadata.put("onBehalfOf", delegate.getOwnerId());
+                metadata.put("displayName",
+                             delegate.getDisplayName() != null ? delegate.getDisplayName() : delegate.getId());
+            }
+            case MachineParticipantIdentity machine ->
+                    metadata.put("displayName", machine.getDisplayName());
+        }
+        return Map.copyOf(metadata);
+    }
+
+    private static String participantTypeFor(ParticipantIdentityType type) {
+        return switch (type) {
+            case USER -> ParticipantConstants.PARTICIPANT_TYPE_USER;
+            case DELEGATE -> ParticipantConstants.PARTICIPANT_TYPE_DELEGATE;
+            case MACHINE -> ParticipantConstants.PARTICIPANT_TYPE_MACHINE;
+        };
     }
 
 }

@@ -16,7 +16,7 @@
       </template>
 
       <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="statusSeverity(item)" />
+        <Tag :value="item.status" :severity="statusSeverity(item.status)" />
       </template>
 
       <template #item.authType="{ item }">
@@ -66,16 +66,17 @@ import {
   FunctionalIterablePage,
   Kinotic,
   Pageable,
-  type IDataSource,
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { IamUser, PendingInviteSummary } from '@kinotic-ai/os-api'
+import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 
 import CrudTable from '@/components/CrudTable.vue'
+import { statusSeverity, useCrudTablePage } from '@/components/useCrudTablePage'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
 import { KinoticStates } from '@/states'
+import DatetimeUtil from '@/util/DatetimeUtil'
 import { apiUrl, showErrorToast } from '@kinotic-ai/frontend-common'
 import { createDebug } from '@kinotic-ai/frontend-common'
 
@@ -117,20 +118,14 @@ const inviteEmail = ref('')
 const inviteDisplayName = ref('')
 const inviting = ref(false)
 const socialProviderKeys = ref<string[]>([])
-const tableSearch = ref('')
 
 const toast = useToast()
 const confirm = useConfirm()
 const userState = KinoticStates.getUserState()
 
-const crudTable = ref<InstanceType<typeof CrudTable>>()
+const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
-const dataSource = computed<IDataSource<DescriptiveIdentifiable>>(() => {
-  return {
-    findAll: (pageable: Pageable) => load(pageable, null),
-    search: (searchText: string, pageable: Pageable) => load(pageable, searchText)
-  }
-})
+const formatDate = DatetimeUtil.formatEpochDate
 
 const providersHint = computed<string>(() => {
   if (props.applicationId !== null) {
@@ -205,7 +200,7 @@ function toInviteRow(invite: PendingInviteSummary): MemberRow {
   }
 }
 
-function toMemberRow(user: IamUser): MemberRow {
+function toMemberRow(user: UserParticipantIdentity): MemberRow {
   return {
     id: user.id ?? '',
     email: user.email,
@@ -215,18 +210,6 @@ function toMemberRow(user: IamUser): MemberRow {
     created: user.created,
     enabled: user.enabled
   }
-}
-
-function statusSeverity(item: MemberRow): string {
-  switch (item.status) {
-    case 'Invited':  return 'info'
-    case 'Active':   return 'success'
-    case 'Disabled': return 'danger'
-  }
-}
-
-function formatDate(epochMillis: number | null): string {
-  return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
 }
 
 /** The server rejects self-disable/remove; hiding the buttons mirrors that rule. */
@@ -332,17 +315,4 @@ function confirmRemove(item: MemberRow) {
   })
 }
 
-async function run(action: () => Promise<void>, successMessage: string, failureMessage: string) {
-  try {
-    await action()
-    toast.add({ severity: 'success', summary: successMessage, life: 4000 })
-    refreshTable()
-  } catch (err) {
-    showErrorToast(toast, failureMessage, err, { life: 8000 })
-  }
-}
-
-function refreshTable() {
-  crudTable.value?.find()
-}
 </script>

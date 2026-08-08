@@ -5,7 +5,7 @@ import {toArray} from 'rxjs/operators'
 import {ConnectedInfo, Kinotic} from '../src'
 import {NON_EXISTENT_SERVICE} from './INonExistentService'
 import {TEST_SERVICE} from './ITestService'
-import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
+import {createConnectOptions, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -15,7 +15,7 @@ describe('Kinotic JS', () => {
     describe('Kinotic RPC Tests', () => {
 
         beforeAll(async () => {
-            const connectionInfo =  createConnectionInfo()
+            const connectionInfo =  createConnectOptions()
             let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo), 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
         }, 1000 * 60 * 10) // 10 minutes
@@ -62,11 +62,6 @@ describe('Kinotic JS', () => {
             expect(result.length).toBeGreaterThan(0)
         })
 
-        it('should get participant id from vert.x context via dispatch', async () => {
-            const result = await TEST_SERVICE.getParticipantIdFromContextViaDispatch()
-            expect(result).toBeDefined()
-            expect(result.length).toBeGreaterThan(0)
-        })
 
         it('should get participant id from vert.x context in executeBlocking', async () => {
             const result = await TEST_SERVICE.getParticipantIdFromContextInExecuteBlocking()
@@ -74,11 +69,6 @@ describe('Kinotic JS', () => {
             expect(result.length).toBeGreaterThan(0)
         })
 
-        it('should have participant parameter match context participant', async () => {
-            const result = await TEST_SERVICE.verifyParticipantParameterMatchesContext()
-            expect(result).toBeDefined()
-            expect(result.length).toBeGreaterThan(0)
-        })
 
         it('should get full participant with all fields from context', async () => {
             const result = await TEST_SERVICE.getFullParticipantFromContext()
@@ -90,7 +80,8 @@ describe('Kinotic JS', () => {
             expect(result.roles.length).toBeGreaterThan(0)
         })
 
-        it('should handle participant-only parameter method', async () => {
+
+        it('should inject the participant parameter when the caller sends no arguments', async () => {
             const result = await TEST_SERVICE.getParticipantOnlyParam()
             expect(result).toBeDefined()
             expect(result.id).toBeDefined()
@@ -111,15 +102,6 @@ describe('Kinotic JS', () => {
             expect(result.length).toBeGreaterThan(0)
         })
 
-        it('should return consistent participant id across repeated reads', async () => {
-            const results = await TEST_SERVICE.getParticipantIdRepeated(10)
-            expect(results).toBeDefined()
-            expect(results.length).toBe(10)
-            const firstId = results[0]
-            for (const id of results) {
-                expect(id).toBe(firstId)
-            }
-        })
 
         it('should match participant param and context with first-arg participant', async () => {
             const result = await TEST_SERVICE.participantFirstArgWithContext(' rocks')
@@ -155,15 +137,13 @@ describe('Kinotic JS', () => {
         })
 
         it('should maintain participant across mixed concurrent requests', async () => {
-            const [contextId, dispatchId, blockingId, monoId, fullParticipant] = await Promise.all([
+            const [contextId, blockingId, monoId, fullParticipant] = await Promise.all([
                 TEST_SERVICE.getParticipantIdFromContext(),
-                TEST_SERVICE.getParticipantIdFromContextViaDispatch(),
                 TEST_SERVICE.getParticipantIdFromContextInExecuteBlocking(),
                 TEST_SERVICE.getParticipantIdFromMonoChain(),
                 TEST_SERVICE.getFullParticipantFromContext(),
             ])
             expect(contextId).toBeDefined()
-            expect(contextId).toBe(dispatchId)
             expect(contextId).toBe(blockingId)
             expect('mono:' + contextId).toBe(monoId)
             expect(fullParticipant.id).toBe(contextId)

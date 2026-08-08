@@ -1,5 +1,7 @@
 package org.kinotic.core.api.crud;
 
+import org.kinotic.idl.api.annotations.McpToolInfo;
+
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -15,6 +17,7 @@ public interface CrudService<T, ID> {
      * @return {@link CompletableFuture} emitting the saved entity
      * @throws IllegalArgumentException in case the given {@literal entity} is {@literal null}
      */
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
     CompletableFuture<T> save(T entity);
 
     /**
@@ -25,6 +28,7 @@ public interface CrudService<T, ID> {
      * @return {@link CompletableFuture} emitting the saved entity after it is searchable
      * @throws IllegalArgumentException in case the given {@literal entity} is {@literal null}
      */
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
     CompletableFuture<T> saveSync(T entity);
 
     /**
@@ -34,6 +38,7 @@ public interface CrudService<T, ID> {
      * @return {@link CompletableFuture} emitting the entity with the given id or {@link CompletableFuture} emitting null if none found
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
+    @McpToolInfo(readOnlyHint = true)
     CompletableFuture<T> findById(ID id);
 
     /**
@@ -41,6 +46,7 @@ public interface CrudService<T, ID> {
      *
      * @return {@link CompletableFuture} emitting the number of entities
      */
+    @McpToolInfo(readOnlyHint = true)
     CompletableFuture<Long> count();
 
     /**
@@ -50,6 +56,7 @@ public interface CrudService<T, ID> {
      * @return {@link CompletableFuture} signaling when operation has completed
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
     CompletableFuture<Void> deleteById(ID id);
 
     /**
@@ -60,6 +67,7 @@ public interface CrudService<T, ID> {
      * @return {@link CompletableFuture} signaling when the deletion is visible to search
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
     CompletableFuture<Void> deleteByIdSync(ID id);
 
     /**
@@ -68,6 +76,7 @@ public interface CrudService<T, ID> {
      * @param pageable the page settings to be used
      * @return a page of entities
      */
+    @McpToolInfo(readOnlyHint = true)
     CompletableFuture<Page<T>> findAll(Pageable pageable);
 
     /**
@@ -77,6 +86,7 @@ public interface CrudService<T, ID> {
      * @param pageable the page settings to be used
      * @return a page of entities
      */
+    @McpToolInfo(readOnlyHint = true)
     CompletableFuture<Page<T>> search(String searchText, Pageable pageable);
 
     /**
@@ -85,5 +95,6 @@ public interface CrudService<T, ID> {
      *
      * @return {@link CompletableFuture} signaling when the index has been refreshed
      */
+    @McpToolInfo(idempotentHint = true)
     CompletableFuture<Void> syncIndex();
 }

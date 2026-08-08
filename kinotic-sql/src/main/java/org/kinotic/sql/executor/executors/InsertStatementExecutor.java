@@ -70,7 +70,7 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
 
                 // Index the document with optional refresh. When an "id" column is provided,
                 // use its value as the Elasticsearch _id so callers can look the document up
-                // by that same id later (e.g. IamCredentialStore#findById).
+                // by that same id later (e.g. IdentityCredentialRepository#findById).
                 Object idValue = document.get("id");
                 String documentId = idValue instanceof String s ? s : null;
                 return client.index(i -> {

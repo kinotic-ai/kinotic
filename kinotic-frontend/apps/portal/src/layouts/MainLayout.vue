@@ -7,7 +7,7 @@
             ]" style="background-color: #101010">
                 <div :class="[isCollapsed ? 'flex-col items-center justify-center gap-4' : 'flex-row']" class="mb-10 flex justify-between">
                     <RouterLink to="/">
-                        <img src="@/assets/sidebar-logo.svg" width="20" height="16" />
+                        <img src="@/assets/header-logo.svg" width="20" height="18" />
                     </RouterLink>
                     <Button class="!p-0" variant="link" @click="isCollapsed = !isCollapsed">
                         <img src="@/assets/collapse.svg" />

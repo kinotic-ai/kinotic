@@ -5,6 +5,8 @@ import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
     createSchema,
     createTestPeopleWithTenantAndVerify,
@@ -15,10 +17,8 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
-// Fixed application seeded with its APPLICATION-scoped user by V5__e2e_app_fixtures; the
-// app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, which only exists for a seeded id.
+// Fixed id: the app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, an APPLICATION-scoped
+// user that V5__e2e_app_fixtures seeds only for this applicationId.
 const APP_ID = 'e2e-admin-named-query'
 
 interface LocalTestContext {

@@ -31,18 +31,15 @@ export class Environment {
 }
 
 export async function loadEnvironment(dataDir: string): Promise<Environment>{
-    const stateManager = createStateManager(dataDir)
-    if(await stateManager.containsState(ENVIRONMENT_KEY)){
-        const jsonEnv = await stateManager.load<Environment>(ENVIRONMENT_KEY)
-        const ret = new Environment() // we do this to ensure that the object has the correct prototype
+    const jsonEnv = await createStateManager(dataDir).loadOrDefault<Environment | null>(ENVIRONMENT_KEY, null)
+    const ret = new Environment() // we do this to ensure that the object has the correct prototype
+    if(jsonEnv){
         if(jsonEnv.servers){
             ret.servers = jsonEnv.servers
         }
         ret.defaultServer = jsonEnv.defaultServer
-        return ret
-    }else {
-        return new Environment()
     }
+    return ret
 }
 
 export async function saveEnvironment(dataDir: string, environment: Environment): Promise<void> {

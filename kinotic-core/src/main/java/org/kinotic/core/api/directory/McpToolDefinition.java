@@ -19,7 +19,7 @@ import tools.jackson.databind.node.ObjectNode;
 public class McpToolDefinition {
 
     /**
-     * The MCP tool name: the service's qualified name (with {@code ~} as {@code .}) plus the function, unique
+     * The MCP tool name: the base 36 XXHash128 of the service's qualified name plus the function, unique
      * system wide. The {@link #title} carries the human-readable display name.
      */
     private String name;

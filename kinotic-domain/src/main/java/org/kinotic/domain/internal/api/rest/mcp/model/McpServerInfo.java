@@ -5,6 +5,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.util.List;
+
 /**
  * The serverInfo member of an MCP initialize result.
  */
@@ -16,5 +18,11 @@ public class McpServerInfo {
 
     private String name;
 
+    private String title;
+
     private String version;
+
+    private String websiteUrl;
+
+    private List<McpIcon> icons;
 }

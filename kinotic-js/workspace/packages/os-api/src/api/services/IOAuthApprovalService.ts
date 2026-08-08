@@ -5,7 +5,14 @@ import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
  * What the consent page shows about an OAuth authorization request awaiting approval.
  */
 export interface PendingOAuthAuthorization {
+    /** The name the client's metadata document claims. */
     clientName: string
+    /**
+     * The client's Client ID Metadata Document URL; its host is the domain the client had to
+     * control to serve that document, and is what the consent page identifies it by.
+     */
+    clientId: string
+    /** The requested scope, or null when the client requested none. */
     scope: string | null
 }
 
@@ -47,7 +54,7 @@ export class OAuthApprovalService implements IOAuthApprovalService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.iam.OAuthApprovalService`)
+        this.serviceProxy = kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.security.OAuthApprovalService`)
     }
 
     public describe(requestId: string): Promise<PendingOAuthAuthorization> {

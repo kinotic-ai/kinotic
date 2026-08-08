@@ -1,7 +1,7 @@
 package org.kinotic.persistence.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ApplicationParticipant;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.model.FastestType;

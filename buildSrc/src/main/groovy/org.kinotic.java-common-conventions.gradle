@@ -33,6 +33,14 @@ tasks.withType(AbstractArchiveTask).configureEach {
     reproducibleFileOrder = true
 }
 
+// Package.getImplementationVersion() reads this at runtime, e.g. the MCP initialize
+// result's serverInfo.version; without it the manifest carries no version at all
+tasks.withType(Jar).configureEach {
+    manifest {
+        attributes 'Implementation-Version': project.version
+    }
+}
+
 // Retain method parameter names in class files: the IDL converter reads them for service schemas
 // and MCP tool input schemas (IdlUtil.parameterName). KinoticJacksonConfig disables Jackson's
 // DETECT_PARAMETER_NAMES so the now-visible constructor names cannot change how value types
@@ -121,6 +129,7 @@ dependencyManagement {
         dependency "jakarta.json:jakarta.json-api:${jakartaJsonVersion}"
 
         dependency "net.openhft:chronicle-map:${chronicleMapVersion}"
+        dependency "net.openhft:zero-allocation-hashing:${zeroAllocationHashingVersion}"
 
         dependency "org.antlr:antlr4:${antlrVersion}"
         dependency "org.antlr:antlr4-runtime:${antlrVersion}"

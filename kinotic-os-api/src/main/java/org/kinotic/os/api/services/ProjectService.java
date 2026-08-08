@@ -31,7 +31,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * has the given {@code owner/repo} full name. Returns the empty list when no project in
      * that organization is backed by the repo.
      */
-    @McpTool(title = "Find Projects by GitHub Repo", readOnlyHint = true)
+    @McpTool(title = "Find by GitHub Repo", readOnlyHint = true)
     CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
 
     /**
@@ -45,6 +45,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * @return a {@link CompletableFuture} emitting the updated project
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
+    @McpTool(openWorldHint = true)
     CompletableFuture<Project> retryRepoInitialization(String projectId);
 
 }

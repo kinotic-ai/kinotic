@@ -71,17 +71,23 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
+-- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by
 -- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
 -- ORGANIZATION, both set = APPLICATION.
--- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
-CREATE TABLE IF NOT EXISTS kinotic_iam_user (
+-- Uniqueness rules (enforced in service layer): one USER per (email, organizationId,
+-- applicationId); one DELEGATE per (ownerId, clientKey).
+CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
+    type KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
+    ownerId KEYWORD,
+    clientKey KEYWORD,
+    delegateKind KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
     tenantId KEYWORD,
@@ -91,9 +97,9 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
 );
 
 -- IAM Credential: password hashes stored separately from user entities
-CREATE TABLE IF NOT EXISTS kinotic_iam_credential (
+CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     id KEYWORD,
-    passwordHash KEYWORD NOT INDEXED
+    secretHash KEYWORD NOT INDEXED
 );
 
 -- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization
@@ -229,4 +235,38 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     portMappings JSON NOT INDEXED,
     created DATE,
     updated DATE
+);
+
+-- Create the job_run table for the persistent history of grind job executions
+CREATE TABLE IF NOT EXISTS kinotic_job_run (
+    id KEYWORD,
+    name KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    version KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    error TEXT,
+    resumedFrom KEYWORD,
+    started DATE,
+    finished DATE
+);
+
+-- Create the task_record table for the per-step history of a job run
+CREATE TABLE IF NOT EXISTS kinotic_task_record (
+    id KEYWORD,
+    jobRunId KEYWORD,
+    stepPath KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    storeType KEYWORD,
+    dynamicSteps BOOLEAN,
+    resultName KEYWORD,
+    resultValueType KEYWORD,
+    resultValue JSON NOT INDEXED,
+    output TEXT,
+    error TEXT,
+    started DATE,
+    finished DATE
 );

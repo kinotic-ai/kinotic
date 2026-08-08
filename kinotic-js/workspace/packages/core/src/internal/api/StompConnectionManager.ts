@@ -1,5 +1,5 @@
-import {ConnectionInfo, type IWebSocket, SessionKeepAliveMode} from '@/api/ConnectionInfo'
-import {Util} from '@/internal/api/Util'
+import {buildBrokerUrl, buildServerUrl, type ConnectOptions, type IWebSocket, type ServerInfo, SessionKeepAliveMode} from '@/api/ConnectOptions'
+import type {CredentialsResolver} from '@/api/security/CredentialsResolver'
 import {EventConstants} from '@/api/event/IEventBus'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp'
@@ -19,7 +19,7 @@ export class StompConnectionManager {
 
     public lastWebsocketError: Event | null = null
     /**
-     * This will return true if a {@link ConnectionInfo#maxConnectionAttempts} threshold was set and was reached
+     * This will return true if a {@link ConnectOptions#maxConnectionAttempts} threshold was set and was reached
      */
     public maxConnectionAttemptsReached: boolean = false
     /**
@@ -68,31 +68,42 @@ export class StompConnectionManager {
 
     /**
      * Emits when the connection encounters an unrecoverable failure: a STOMP ERROR frame from
-     * the server (typically auth/handshake rejection) or an error thrown by the user-supplied
-     * {@link ConnectionInfo#webSocketFactory} (e.g. a token refresh failed). Long-running
-     * consumers should subscribe to react to terminal failures.
+     * the server (typically auth/handshake rejection) or a failure of credential resolution or
+     * the user-supplied {@link ConnectOptions#webSocketFactory} (e.g. a token refresh failed).
+     * Long-running consumers should subscribe to react to terminal failures.
      */
     public get fatalErrors(): Observable<Error> {
         return this._fatalErrors
     }
 
-    public activate(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
+    public async activate(options: ConnectOptions): Promise<ConnectedInfo> {
+        // Validate state and short circuit
+        if (!options?.server?.host) {
+            throw new Error('No host provided')
+        }
+        if (this.rxStomp) {
+            throw new Error('Stomp connection already active')
+        }
+
+        const server: ServerInfo = options.server as ServerInfo
+        const credentialsResolver: CredentialsResolver | undefined = options.credentials
+
+        // The connection's auth mode is fixed for its life: a user factory owns the socket
+        // outright; otherwise the initial resolution decides between upgrade-header auth and
+        // the browser session cookie. Per-attempt resolution below refreshes the headers.
+        let headerAuth = false
+        if (!options.webSocketFactory) {
+            if (!credentialsResolver) {
+                throw new Error('No credentials supplied and no default resolution applied')
+            }
+            const resolved = await credentialsResolver.resolve(server)
+            if (resolved === null) {
+                throw new Error('No Kinotic credentials found; consulted: ' + credentialsResolver.name)
+            }
+            headerAuth = resolved.authHeaders != null
+        }
+
         return new Promise((resolve, reject): void => {
-            // Validate state and short circuit
-            if(!connectionInfo){
-                reject('You must supply a valid connectionInfo object')
-                return
-            }
-
-            if (!(connectionInfo.host)) {
-                reject('No host provided')
-                return
-            }
-
-            if(this.rxStomp) {
-                reject('Stomp connection already active')
-                return
-            }
 
             // we reset most state here so, it will persist on a connection failure
             this.connectionAttempts = 0
@@ -100,41 +111,39 @@ export class StompConnectionManager {
             this.lastWebsocketError = null
             this.maxConnectionAttemptsReached = false
 
-            const url = Util.buildBrokerUrl(connectionInfo)
+            const url = buildBrokerUrl(server)
 
             this.rxStomp = new RxStomp()
 
-            // The webSocketFactory may be async (e.g. a Node client refreshing a token
-            // before each connect), but @stomp/stompjs only accepts a synchronous factory.
-            // So the socket is produced in beforeConnect — which stompjs awaits immediately
-            // before creating the socket — and handed back synchronously here.
+            // Sockets may be produced asynchronously (a user factory, or credential resolution
+            // refreshing a short-lived secret), but @stomp/stompjs only accepts a synchronous
+            // factory. So the socket is produced in beforeConnect — which stompjs awaits
+            // immediately before creating the socket — and handed back synchronously here.
             let preparedSocket: IWebSocket | null = null
-            const userWebSocketFactory = connectionInfo.webSocketFactory
+            const userWebSocketFactory = options.webSocketFactory
+            const usesPreparedSocket = userWebSocketFactory != null || headerAuth
 
             const stompConfig: RxStompConfig = {
                 brokerURL: url,
                 connectHeaders: {
-                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: connectionInfo.sessionKeepAlive
+                    [EventConstants.SESSION_KEEP_ALIVE_HEADER]: options.sessionKeepAlive ?? SessionKeepAliveMode.ACTIVITY
                 },
                 heartbeatIncoming: 120000,
                 heartbeatOutgoing: 30000,
                 reconnectDelay: this.INITIAL_RECONNECT_DELAY,
                 maxReconnectDelay: this.MAX_RECONNECT_DELAY,
                 reconnectTimeMode: ReconnectionTimeMode.EXPONENTIAL,
-                webSocketFactory: userWebSocketFactory ? () => preparedSocket as IWebSocket : undefined,
+                webSocketFactory: usesPreparedSocket ? () => preparedSocket as IWebSocket : undefined,
                 beforeConnect: async (): Promise<void> => {
 
-                    // Cookie-auth clients (browser, no webSocketFactory) can't read a rejected WS
+                    // Cookie-auth clients (browser, headerless credentials) can't read a rejected WS
                     // upgrade, so probe the session over a readable REST status first — same host as
                     // the socket, at the fixed SESSION_CHECK_PATH. A 401 means the cookie isn't (or is
                     // no longer) valid — not retriable, so fail fast: this rejects the initial connect
                     // and surfaces a fatal error on a later reconnect, instead of looping on an
                     // unauthenticated socket. Other statuses (incl. a server without the route) proceed.
-                    if(!userWebSocketFactory){
-                        const sessionCheckUrl = 'http' + (connectionInfo.useSSL ? 's' : '')
-                            + '://' + connectionInfo.host
-                            + (connectionInfo.port ? ':' + connectionInfo.port : '')
-                            + SESSION_CHECK_PATH
+                    if(!usesPreparedSocket){
+                        const sessionCheckUrl = buildServerUrl(server, 'http') + SESSION_CHECK_PATH
                         try {
                             const res = await fetch(sessionCheckUrl, { credentials: 'include' })
                             if(res.status === 401){
@@ -149,10 +158,10 @@ export class StompConnectionManager {
                     }
 
                     // If max connections are set, then make sure we have not exceeded that threshold
-                    if(connectionInfo?.maxConnectionAttempts){
+                    if(options?.maxConnectionAttempts){
                         this.connectionAttempts++
 
-                        if(this.connectionAttempts > connectionInfo.maxConnectionAttempts){
+                        if(this.connectionAttempts > options.maxConnectionAttempts){
                             this.maxConnectionAttemptsReached = true
                             // signalFatal rejects activate() via initialFailureSubscription on the initial-connect path.
                             await this.signalFatal(new Error(
@@ -173,6 +182,22 @@ export class StompConnectionManager {
                         } catch (e) {
                             await this.signalFatal(new Error('WebSocket factory failed', { cause: e }))
                         }
+                    } else if (headerAuth) {
+                        // resolved on every attempt so short-lived credentials refresh each connect
+                        try {
+                            const resolved = await credentialsResolver!.resolve(server)
+                            if (resolved?.authHeaders == null) {
+                                await this.signalFatal(new Error(
+                                    'Credentials resolver no longer supplies auth headers: ' + credentialsResolver!.name))
+                            } else {
+                                // The Node/Bun WebSocket accepts a `headers` option that the DOM lib typings omit.
+                                const WS = WebSocket as unknown as
+                                    new (url: string, opts: {headers: Record<string, string>}) => IWebSocket
+                                preparedSocket = new WS(url, {headers: resolved.authHeaders})
+                            }
+                        } catch (e) {
+                            await this.signalFatal(new Error('Credential resolution failed', { cause: e }))
+                        }
                     }
                 }
             }
@@ -186,8 +211,17 @@ export class StompConnectionManager {
             this.rxStomp.configure(stompConfig)
 
             // Handles Websocket Errors
-            this.rxStomp.webSocketErrors$.subscribe(value => {
+            this.rxStomp.webSocketErrors$.subscribe(async value => {
                 this.lastWebsocketError = value
+                // The attempt that just failed was the last the budget allows — report now
+                // instead of paying the reconnect delay before the next beforeConnect notices.
+                if (options?.maxConnectionAttempts && this.connectionAttempts >= options.maxConnectionAttempts) {
+                    this.maxConnectionAttemptsReached = true
+                    await this.signalFatal(new Error(
+                        'Max number of reconnection attempts reached',
+                        { cause: value ?? undefined }
+                    ))
+                }
             })
 
             // Forward STOMP ERROR frames as fatal errors. Server-issued ERROR frames close the

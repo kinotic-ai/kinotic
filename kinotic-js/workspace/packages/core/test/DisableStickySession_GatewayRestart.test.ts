@@ -1,19 +1,19 @@
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
-import {ConnectedInfo, ConnectionInfo, KinoticSingleton, SessionKeepAliveMode} from '../src'
-import {GenericContainer, PullPolicy, type StartedTestContainer, Wait} from 'testcontainers'
-import { authedWebSocketFactory, logFailure, validateConnectedInfo } from './TestHelper'
+import {ConnectedInfo, type ConnectOptions, KinoticSingleton, SessionKeepAliveMode} from '../src'
+import {ensureNodeWebSocket} from '../src/node'
+import {GenericContainer, type StartedTestContainer, Wait} from 'testcontainers'
+import { logFailure, testCredentials, validateConnectedInfo } from './TestHelper'
 import { TestService } from './ITestService'
 import {KINOTIC_DOCKER_IMAGE} from './TestHelper.js'
 
-// This is required when running Kinotic from node
-Object.assign(global, { WebSocket})
+// credential headers ride the WebSocket upgrade, which needs the header-capable ws WebSocket
+ensureNodeWebSocket()
 
 describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe('Disable Sticky Session Gateway Restart Reconnection Tests', () => {
         let container: StartedTestContainer
-        let connectionInfo: ConnectionInfo = new ConnectionInfo()
+        let connectOptions: ConnectOptions
 
         beforeAll(async () => {
             // Start the Kinotic Gateway container
@@ -22,19 +22,19 @@ describe('Kinotic JS', () => {
             container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                 .withExposedPorts({container: 58503, host: 58599})
                 .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
-                .withPullPolicy(PullPolicy.alwaysPull())
                 .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                 .withName('disable-sticky-session-reconnect-test')
                 .start()
 
-            // Create connection info without keeping the session alive after disconnect
-            connectionInfo.host = container.getHost()
-            connectionInfo.port = 58599
-            connectionInfo.maxConnectionAttempts = 0
-            connectionInfo.sessionKeepAlive = SessionKeepAliveMode.NONE
-            connectionInfo.webSocketFactory = authedWebSocketFactory(connectionInfo.host, connectionInfo.port)
+            // Create connect options without keeping the session alive after disconnect
+            connectOptions = {
+                server: {host: container.getHost(), port: 58599},
+                maxConnectionAttempts: 0,
+                sessionKeepAlive: SessionKeepAliveMode.NONE,
+                credentials: testCredentials()
+            }
 
-            console.log(`Kinotic Gateway running at ${connectionInfo.host}:${connectionInfo.port}`)
+            console.log(`Kinotic Gateway running at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
         }, 1000 * 60 * 10) // 10 minutes
 
         afterAll(async () => {
@@ -46,10 +46,10 @@ describe('Kinotic JS', () => {
 
             // First connection and RPC call
             const continuum = new KinoticSingleton()
-            let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectionInfo),
+            let connectedInfo: ConnectedInfo = await logFailure(continuum.connect(connectOptions),
                                                                 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
-            console.log(`Kinotic connected at ${connectionInfo.host}:${connectionInfo.port}`)
+            console.log(`Kinotic connected at ${connectOptions.server!.host}:${connectOptions.server!.port}`)
 
             const testService = new TestService(continuum)
 
@@ -65,7 +65,6 @@ describe('Kinotic JS', () => {
             container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
                 .withExposedPorts({container: 58503, host: 58599})
                 .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
-                .withPullPolicy(PullPolicy.alwaysPull())
                 .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
                 .withName('disable-sticky-session-reconnect-test')
                 .start()

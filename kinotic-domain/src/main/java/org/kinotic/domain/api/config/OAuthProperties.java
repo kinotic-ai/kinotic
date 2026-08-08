@@ -28,6 +28,20 @@ public class OAuthProperties {
     @NotEmpty
     private Set<String> allowedClientIds = Set.of();
 
+    /**
+     * Base URL this OAuth 2.1 surface is published under: the RFC 8414 issuer identifier, every
+     * endpoint its metadata advertises, and the RFC 9728 resource metadata for {@code /mcp}. An MCP
+     * host exchanges its authorization code from its own backend rather than from the browser, so
+     * this must be reachable from the internet — which is a different host than the browser uses
+     * whenever the gateway is only publicly reachable through a tunnel or a separate ingress.
+     * <p>
+     * When left null the platform falls back to {@code apiBaseUrl}, which is correct wherever the
+     * browser and the internet reach the gateway at the same URL.
+     */
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
+    private String issuerBaseUrl = null;
+
 
     /**
      * How long a validated client metadata document is reused before it is fetched again. Bounds

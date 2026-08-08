@@ -3,7 +3,7 @@ package org.kinotic.os.api.services;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Application;
-import org.kinotic.domain.api.model.iam.OidcConfiguration;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;

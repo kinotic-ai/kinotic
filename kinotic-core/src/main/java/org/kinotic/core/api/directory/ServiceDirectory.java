@@ -27,8 +27,8 @@ public interface ServiceDirectory {
      * @return a page of entries in the given scope
      */
     Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
-                                                                       String applicationId,
-                                                                       Pageable pageable);
+                                                            String applicationId,
+                                                            Pageable pageable);
 
     /**
      * Resolves the online MCP tool with the given name that the given scope may call, using the same visibility
@@ -39,8 +39,8 @@ public interface ServiceDirectory {
      * @return a {@link Future} completing with the callable tool carrying the name, or null when none does
      */
     Future<McpToolDefinition> findMcpToolByName(String toolName,
-                                                           String organizationId,
-                                                           String applicationId);
+                                                String organizationId,
+                                                String applicationId);
 
     /**
      * Returns the online MCP tools the given scope may call, mirroring the zone send rules enforced at call time:

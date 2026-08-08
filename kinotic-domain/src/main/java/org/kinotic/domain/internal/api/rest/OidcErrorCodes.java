@@ -27,16 +27,16 @@ public final class OidcErrorCodes {
     /** Auth code → token exchange at the IdP failed. Generic catch-all for callback failures not otherwise classified. */
     public static final String EXCHANGE_FAILED = "exchange_failed";
 
-    /** Verified IdP identity has no IamUser in the target scope — login refuses to auto-create. */
+    /** Verified IdP identity has no ParticipantIdentity in the target scope — login refuses to auto-create. */
     public static final String NO_ACCOUNT = "no_account";
 
-    /** Found IamUser but {@code enabled=false}. */
+    /** Found ParticipantIdentity but {@code enabled=false}. */
     public static final String ACCOUNT_DISABLED = "account_disabled";
 
-    /** IamUser lookup failed at the persistence layer — distinct from "not found". */
+    /** ParticipantIdentity lookup failed at the persistence layer — distinct from "not found". */
     public static final String LOOKUP_FAILED = "lookup_failed";
 
-    /** Signup callback found an existing IamUser for the IdP identity — caller should log in instead. */
+    /** Signup callback found an existing ParticipantIdentity for the IdP identity — caller should log in instead. */
     public static final String ACCOUNT_EXISTS = "account_exists";
 
     /** Signup failed during pending sign-up creation. */

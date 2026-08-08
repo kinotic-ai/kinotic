@@ -1,13 +1,13 @@
-import {Kinotic} from '@kinotic-ai/core'
+import {Kinotic, Pageable} from '@kinotic-ai/core'
+import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/os-api'
+import type {DelegatingParticipantIdentity} from '@kinotic-ai/os-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
 import {WebSocket} from 'ws'
-import {afterAll, beforeAll, describe, expect, inject, it} from 'vitest'
-import {initKinoticClient, shutdownKinoticClient} from '../TestHelpers.js'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {initKinoticClient, postForm, restBase, shutdownKinoticClient, stompUrl} from '../TestHelpers.js'
 
 const DEVICE_CODE_GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
-
-const OAUTH_APPROVAL_SERVICE = 'os-api~org.kinotic.os.api.services.iam.OAuthApprovalService'
 
 /**
  * Attempts the STOMP WebSocket upgrade with the given bearer token. Resolves with the HTTP status
@@ -42,9 +42,6 @@ function stompHandshake(url: string, token: string): Promise<number | 'open'> {
  */
 describe('Kinotic JS', () => {
 
-    const base = () => `http://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}`
-    const stompUrl = () => `ws://${inject('KINOTIC_HOST')}:${inject('KINOTIC_PORT')}/v1`
-
     beforeAll(async () => {
         await allure.suite('e2e-tests/native')
         await allure.subSuite('OAuthMcp')
@@ -57,7 +54,7 @@ describe('Kinotic JS', () => {
     }, 60000)
 
     it('challenges an unauthenticated request with OAuth discovery', async () => {
-        const response = await fetch(`${base()}/mcp`, {
+        const response = await fetch(`${restBase()}/mcp`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'})
@@ -66,11 +63,11 @@ describe('Kinotic JS', () => {
         expect(response.headers.get('WWW-Authenticate'))
             .toContain('resource_metadata="')
 
-        const resourceMetadata = await (await fetch(`${base()}/.well-known/oauth-protected-resource/mcp`)).json()
+        const resourceMetadata = await (await fetch(`${restBase()}/.well-known/oauth-protected-resource/mcp`)).json()
         expect(resourceMetadata.resource).toMatch(/\/mcp$/)
         expect(resourceMetadata.authorization_servers).toHaveLength(1)
 
-        const asMetadata = await (await fetch(`${base()}/.well-known/oauth-authorization-server`)).json()
+        const asMetadata = await (await fetch(`${restBase()}/.well-known/oauth-authorization-server`)).json()
         expect(asMetadata.authorization_endpoint).toMatch(/\/api\/auth\/oauth\/authorize$/)
         expect(asMetadata.token_endpoint).toMatch(/\/api\/auth\/oauth\/token$/)
         expect(asMetadata.code_challenge_methods_supported).toEqual(['S256'])
@@ -80,7 +77,7 @@ describe('Kinotic JS', () => {
     })
 
     it('refuses dynamic client registration', async () => {
-        const response = await fetch(`${base()}/api/auth/oauth/register`, {
+        const response = await fetch(`${restBase()}/api/auth/oauth/register`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({client_name: 'OAuth e2e', redirect_uris: ['https://example.com/cb']})
@@ -91,7 +88,7 @@ describe('Kinotic JS', () => {
     it('rejects a client_id that is not a usable metadata document URL', async () => {
         const challenge = createHash('sha256').update(randomBytes(48).toString('base64url')).digest('base64url')
         const authorize = (clientId: string) =>
-            fetch(`${base()}/api/auth/oauth/authorize`
+            fetch(`${restBase()}/api/auth/oauth/authorize`
                       + `?client_id=${encodeURIComponent(clientId)}`
                       + `&redirect_uri=${encodeURIComponent('http://localhost:33418/callback')}`
                       + `&response_type=code&code_challenge=${challenge}&code_challenge_method=S256`,
@@ -108,36 +105,25 @@ describe('Kinotic JS', () => {
     })
 
     it('rejects a device grant that does not name the pre-registered CLI client', async () => {
-        const anonymous = await fetch(`${base()}/api/auth/oauth/device_authorization`, {method: 'POST'})
+        const anonymous = await fetch(`${restBase()}/api/auth/oauth/device_authorization`, {method: 'POST'})
         expect(anonymous.status).toBe(400)
         expect((await anonymous.json()).error).toBe('invalid_client')
 
-        const unknown = await fetch(`${base()}/api/auth/oauth/device_authorization`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({client_id: 'some-other-client'})
-        })
+        const unknown = await postForm(`${restBase()}/api/auth/oauth/device_authorization`,
+                                       {client_id: 'some-other-client'})
         expect(unknown.status).toBe(400)
     })
 
     it('logs the CLI in through the device grant', async () => {
-        const start = await (await fetch(`${base()}/api/auth/oauth/device_authorization`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({client_id: 'kinotic-cli'})
-        })).json()
+        const start = await (await postForm(`${restBase()}/api/auth/oauth/device_authorization`,
+                                            {client_id: 'kinotic-cli', device_name: 'e2e-laptop'})).json()
         expect(start.user_code).toBeTruthy()
 
-        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP.
-        // Through the service proxy directly because the installed @kinotic-ai/os-api still
-        // exposes the pre-fold deviceApproval rather than oauthApproval.
-        await Kinotic.serviceProxy(OAUTH_APPROVAL_SERVICE).invoke('approveDevice', [start.user_code])
+        // the /device page approval, exactly as DeviceVerification.vue performs it over STOMP
+        await new OAuthApprovalService(Kinotic).approveDevice(start.user_code)
 
-        const tokenResponse = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: DEVICE_CODE_GRANT_TYPE, device_code: start.device_code})
-        })
+        const tokenResponse = await postForm(`${restBase()}/api/auth/oauth/token`,
+                                             {grant_type: DEVICE_CODE_GRANT_TYPE, device_code: start.device_code})
         expect(tokenResponse.status).toBe(200)
         expect(tokenResponse.headers.get('Cache-Control')).toBe('no-store')
         const tokens = await tokenResponse.json()
@@ -146,7 +132,7 @@ describe('Kinotic JS', () => {
 
         // The device grant's token carries aud=kinotic, but no entry point verifies the claim, so
         // it also calls MCP tools. Restoring the check (see docs/NavidNotes.md) makes this a 401.
-        const mcpResponse = await fetch(`${base()}/mcp`, {
+        const mcpResponse = await fetch(`${restBase()}/mcp`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json', Authorization: `Bearer ${tokens.access_token}`},
             body: JSON.stringify({jsonrpc: '2.0', id: 1, method: 'tools/list'})
@@ -154,22 +140,32 @@ describe('Kinotic JS', () => {
         expect(mcpResponse.status).toBe(200)
 
         // rotation re-mints a token with the same reach
-        const refreshed = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
-        })
+        const refreshed = await postForm(`${restBase()}/api/auth/oauth/token`,
+                                         {grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
         expect(refreshed.status).toBe(200)
         const rotated = await refreshed.json()
         expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe('open')
 
+        // the grant created a CLI delegate owned by the approving user, holding one labeled session
+        const delegateService = new DelegateService(Kinotic)
+        const delegates = await delegateService.findMyDelegates(Pageable.create(0, 25))
+        const cliDelegate: DelegatingParticipantIdentity | undefined =
+            delegates.content?.find(d => d.delegateKind === DelegateKind.CLI)
+        expect(cliDelegate).toBeDefined()
+        expect(cliDelegate!.enabled).toBe(true)
+        const sessions = await delegateService.findSessions(cliDelegate!.id!)
+        expect(sessions.length).toBeGreaterThan(0)
+        expect(sessions[0].label).toBe('e2e-laptop')
+
         // reusing the rotated-out token revokes the family
-        const reuse = await fetch(`${base()}/api/auth/oauth/token`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-            body: new URLSearchParams({grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
-        })
+        const reuse = await postForm(`${restBase()}/api/auth/oauth/token`,
+                                     {grant_type: 'refresh_token', refresh_token: tokens.refresh_token})
         expect(reuse.status).toBe(400)
         expect((await reuse.json()).error).toBe('invalid_grant')
+
+        // revoking the delegate rejects its unexpired access token at the next request
+        await delegateService.revokeDelegate(cliDelegate!.id!)
+        expect(await stompHandshake(stompUrl(), rotated.access_token)).toBe(401)
     }, 60000)
+
 })

@@ -27,6 +27,14 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+## Branch and pull request workflow
+
+A merged pull request is finished — never stack new commits onto its history, and never reuse
+it to track follow-up work. When your PR merges, restart your working branch from the latest
+`develop` (keeping the same branch name, force-with-lease push) and open a **new** pull
+request for the next unit of work. If the branch carries unmerged commits, rebase them onto
+the new base instead of discarding them.
+
 ## Don't guess from names
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
@@ -73,6 +81,8 @@ Don't create a new package or folder to hold a single file. Single-file folders 
 ***Give every top-level type its own file. Don't nest a class, enum, or record inside an interface — DTOs, result types, and enums that appear in an interface's method signatures belong in their own files in the same package, not inlined in the interface body. Nesting buries types, makes them awkward to import, and bloats the interface. The same applies to types nested inside a class purely for convenience.***
 
 ## Comments
+
+**IMPORTANT: Write comments the way you would explain the code to another developer.**
 
 Javadoc — block comments on classes, methods, fields, anything else — describes the contract from the caller's perspective: what something is for, what guarantees it makes, what the inputs and outputs mean. It should not document implementation details — how the class persists, which helper it delegates to, what bypass mechanism it uses internally — that's noise for someone using the API and rots when the implementation changes. Also they should not document what something does not do. Only what it does do. (Unless it is a security concern, Does not validate user) 
 

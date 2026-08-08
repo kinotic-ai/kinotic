@@ -4,7 +4,7 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -62,11 +62,6 @@ public class DefaultTestService implements ITestService{
         return requireParticipant().getId();
     }
 
-    @WithSpan
-    @Override
-    public String getParticipantIdFromContextViaDispatch() {
-        return internalGetParticipantId();
-    }
 
     @WithSpan
     @Override
@@ -82,24 +77,6 @@ public class DefaultTestService implements ITestService{
         return future;
     }
 
-    @WithSpan
-    @Override
-    public String verifyParticipantParameterMatchesContext(Participant participant) {
-        Participant fromContext = requireParticipant();
-        if (!participant.getId().equals(fromContext.getId())) {
-            throw new IllegalStateException("Participant parameter ID (" + participant.getId()
-                                            + ") does not match context ID (" + fromContext.getId() + ")");
-        }
-        String paramTenant = participant instanceof ApplicationParticipant app ? app.getTenantId() : null;
-        String ctxTenant = fromContext instanceof ApplicationParticipant app ? app.getTenantId() : null;
-        if (!Objects.equals(paramTenant, ctxTenant)) {
-            throw new IllegalStateException("Participant parameter tenantId does not match context tenantId");
-        }
-        if (!Objects.equals(participant.getRoles(), fromContext.getRoles())) {
-            throw new IllegalStateException("Participant parameter roles do not match context roles");
-        }
-        return participant.getId();
-    }
 
     @WithSpan
     @Override
@@ -110,13 +87,9 @@ public class DefaultTestService implements ITestService{
     @WithSpan
     @Override
     public Map<String, Object> getParticipantOnlyParam(Participant participant) {
-        // Also verify context matches
-        Participant fromContext = requireParticipant();
-        if (!participant.getId().equals(fromContext.getId())) {
-            throw new IllegalStateException("Participant-only param ID does not match context ID");
-        }
         return participantToMap(participant);
     }
+
 
     @WithSpan
     @Override
@@ -153,22 +126,6 @@ public class DefaultTestService implements ITestService{
         return future;
     }
 
-    @WithSpan
-    @Override
-    public List<String> getParticipantIdRepeated(int count) {
-        List<String> ids = new ArrayList<>(count);
-        String firstId = requireParticipant().getId();
-        ids.add(firstId);
-        for (int i = 1; i < count; i++) {
-            String id = requireParticipant().getId();
-            if (!firstId.equals(id)) {
-                throw new IllegalStateException("Participant ID changed during invocation at iteration " + i
-                                                + ": expected " + firstId + " got " + id);
-            }
-            ids.add(id);
-        }
-        return ids;
-    }
 
     @WithSpan
     @Override
@@ -206,9 +163,6 @@ public class DefaultTestService implements ITestService{
         }).toFuture();
     }
 
-    private String internalGetParticipantId() {
-        return requireParticipant().getId();
-    }
 
     private Participant requireParticipant() {
         Participant participant = securityContext.currentParticipant();
@@ -221,7 +175,7 @@ public class DefaultTestService implements ITestService{
     private Map<String, Object> participantToMap(Participant participant) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", participant.getId());
-        result.put("tenantId", participant instanceof ApplicationParticipant app ? app.getTenantId() : null);
+        result.put("tenantId", participant instanceof ScopedParticipant sp ? sp.getScope().tenantId() : null);
         result.put("roles", participant.getRoles());
         result.put("metadata", participant.getMetadata());
         return result;
