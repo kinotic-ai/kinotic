@@ -12,7 +12,7 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "5.0.0-beta.1",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
@@ -24,6 +24,7 @@
         "rxjs": "^7.8.2",
         "typescript-optional": "3.0.0-alpha.3",
         "uuid": "^13.0.0",
+        "ws": "^8.18.0",
       },
       "devDependencies": {
         "@opentelemetry/exporter-trace-otlp-grpc": "^0.214.0",
@@ -33,7 +34,7 @@
         "@opentelemetry/sdk-trace-node": "^2.6.1",
         "@types/node": "^25.6.0",
         "@types/uuid": "^11.0.0",
-        "@types/ws": "^8.18.1",
+        "@types/ws": "^8.18.0",
         "@vitest/coverage-v8": "^4.1.4",
         "@vitest/runner": "^4.1.4",
         "@vitest/ui": "^4.1.4",
@@ -60,7 +61,7 @@
     },
     "packages/os-api": {
       "name": "@kinotic-ai/os-api",
-      "version": "5.0.0-beta.2",
+      "version": "5.0.0-beta.5",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -73,12 +74,12 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.1",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
       },
     },
     "packages/persistence": {
       "name": "@kinotic-ai/persistence",
-      "version": "5.0.0-beta.1",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "rxjs": "^7.8.2",
@@ -90,7 +91,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.1",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
       },
     },
     "packages/spawn": {
@@ -109,7 +110,7 @@
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.1",
+      "version": "5.0.0-beta.3",
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.9.7",
         "@kinotic-ai/core": "workspace:*",
@@ -120,8 +121,8 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.1",
-        "@kinotic-ai/os-api": ">=5.0.0-beta.1",
+        "@kinotic-ai/core": ">=5.0.0-beta.3",
+        "@kinotic-ai/os-api": ">=5.0.0-beta.3",
       },
     },
   },

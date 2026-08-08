@@ -51,20 +51,13 @@ public class DefaultDelegateService implements DelegateService {
                 .thenCompose(saved -> refreshTokenService.revokeAllFor(delegateId));
     }
 
-    /**
-     * Loads a delegate of the calling user for inspection or mutation. Fails for unknown ids
-     * and for delegates of other users with the same message — no existence oracle.
-     */
+    /** Loads a delegate of the calling user for inspection or mutation. */
     private CompletableFuture<DelegatingParticipantIdentity> loadOwnedDelegate(String delegateId, Participant participant) {
         DomainUtil.requireUserParticipant(participant);
         Validate.notBlank(delegateId, "delegateId is required");
         return identityService.findById(delegateId)
-                .thenApply(identity -> {
-                    if (!(identity instanceof DelegatingParticipantIdentity delegate)
-                            || !participant.getId().equals(delegate.getOwnerId())) {
-                        throw new IllegalArgumentException("Delegate not found.");
-                    }
-                    return delegate;
-                });
+                .thenApply(identity -> DomainUtil.requireOwned(identity, DelegatingParticipantIdentity.class,
+                        delegate -> participant.getId().equals(delegate.getOwnerId()),
+                        "Delegate not found."));
     }
 }

@@ -18,6 +18,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 
 @Slf4j
 @Component
@@ -57,28 +58,16 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     public CompletableFuture<Void> revokeFamily(String identityId, String familyId) {
         Validate.notBlank(identityId, "identityId is required");
         Validate.notBlank(familyId, "familyId is required");
-        return refreshTokenRepository.findByFamilyId(familyId)
-                .thenCompose(tokens -> {
-                    // identity scoping over every row: a family id from another identity's
-                    // lineage revokes nothing
-                    CompletableFuture<?>[] saves = tokens.stream()
-                            .filter(t -> identityId.equals(t.getIdentityId()) && !t.isRevoked())
-                            .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
-                            .toArray(CompletableFuture[]::new);
-                    return CompletableFuture.allOf(saves);
-                });
+        // identity scoping over every row: a family id from another identity's
+        // lineage revokes nothing
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId),
+                              t -> identityId.equals(t.getIdentityId()));
     }
 
     @Override
     public CompletableFuture<Void> revokeAllFor(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
-        return refreshTokenRepository.findActiveByIdentityId(identityId)
-                .thenCompose(tokens -> {
-                    CompletableFuture<?>[] saves = tokens.stream()
-                            .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
-                            .toArray(CompletableFuture[]::new);
-                    return CompletableFuture.allOf(saves);
-                });
+        return revokeMatching(refreshTokenRepository.findActiveByIdentityId(identityId), t -> true);
     }
 
     @Override
@@ -129,15 +118,26 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 });
     }
 
+    // unscoped by design: reuse detection already proved the lineage compromised, so the
+    // whole family dies regardless of which identity its rows carry
     private CompletableFuture<Void> revokeFamily(String familyId) {
-        return refreshTokenRepository.findByFamilyId(familyId)
-                .thenCompose(tokens -> {
-                    CompletableFuture<?>[] saves = tokens.stream()
-                            .filter(t -> !t.isRevoked())
-                            .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
-                            .toArray(CompletableFuture[]::new);
-                    return CompletableFuture.allOf(saves);
-                });
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId), t -> true);
+    }
+
+    /**
+     * Marks every not-yet-revoked token in {@code tokens} that matches {@code scope} as
+     * revoked. The scope predicate is the security-relevant part of every revocation — each
+     * caller states its own.
+     */
+    private CompletableFuture<Void> revokeMatching(CompletableFuture<List<RefreshToken>> tokens,
+                                                   Predicate<RefreshToken> scope) {
+        return tokens.thenCompose(list -> {
+            CompletableFuture<?>[] saves = list.stream()
+                    .filter(t -> !t.isRevoked() && scope.test(t))
+                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                    .toArray(CompletableFuture[]::new);
+            return CompletableFuture.allOf(saves);
+        });
     }
 
     private CompletableFuture<Minted> mint(String identityId, String familyId, KinoticAudience audience, String label) {

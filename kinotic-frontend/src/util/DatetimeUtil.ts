@@ -32,6 +32,16 @@ public static formatRelativeDate(dateStr: string | number | Date): string {
     if (diffDays === 1) return '1 day ago'
     return `${diffDays} days ago`
 }
+/** Renders epoch millis as the locale date, or an em dash when absent. */
+public static formatEpochDate(epochMillis: number | null): string {
+    return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
+}
+
+/** Renders epoch millis as the locale date and time, or an em dash when absent. */
+public static formatEpochDateTime(epochMillis: number | null): string {
+    return epochMillis ? new Date(epochMillis).toLocaleString() : '—'
+}
+
 public static formatMonthDayYear(dateStr: string | number | Date): string {
     if (!dateStr) return ''
 

@@ -23,4 +23,10 @@ public class KinoticOrchestratorProperties extends KinoticProperties {
      */
     private OrchestratorProperties orchestrator = new OrchestratorProperties();
 
+    /**
+     * When true the orchestrator module is not loaded: no grind execution, no run
+     * recording, and no workload orchestration beans are registered.
+     */
+    private boolean disableOrchestrator = false;
+
 }

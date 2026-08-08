@@ -5,7 +5,7 @@ import {toArray} from 'rxjs/operators'
 import {ConnectedInfo, Kinotic} from '../src'
 import {NON_EXISTENT_SERVICE} from './INonExistentService'
 import {TEST_SERVICE} from './ITestService'
-import {createConnectionInfo, logFailure, validateConnectedInfo} from './TestHelper'
+import {createConnectOptions, logFailure, validateConnectedInfo} from './TestHelper'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
@@ -15,7 +15,7 @@ describe('Kinotic JS', () => {
     describe('Kinotic RPC Tests', () => {
 
         beforeAll(async () => {
-            const connectionInfo =  createConnectionInfo()
+            const connectionInfo =  createConnectOptions()
             let connectedInfo: ConnectedInfo = await logFailure(Kinotic.connect(connectionInfo), 'Failed to connect to Kinotic Gateway')
             validateConnectedInfo(connectedInfo)
         }, 1000 * 60 * 10) // 10 minutes

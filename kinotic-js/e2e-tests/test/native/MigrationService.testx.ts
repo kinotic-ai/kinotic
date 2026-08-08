@@ -4,16 +4,13 @@ import { ProjectMigrationService } from '@kinotic-ai/kinotic-cli/dist/internal/P
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import * as allure from 'allure-js-commons'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { WebSocket } from 'ws'
 import { writeFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
-import { 
+import {
     generateRandomString,
     initKinoticClient,
     shutdownKinoticClient
 } from '../TestHelpers.js'
-
-Object.assign(global, { WebSocket })
 
 interface LocalTestContext {
     project: Project

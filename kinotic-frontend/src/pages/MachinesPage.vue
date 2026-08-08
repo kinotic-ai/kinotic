@@ -20,7 +20,7 @@
       </template>
 
       <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="item.status === 'Active' ? 'success' : 'danger'" />
+        <Tag :value="item.status" :severity="statusSeverity(item.status)" />
       </template>
 
       <template #item.created="{ item }">
@@ -78,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
@@ -87,19 +87,14 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
-import {
-  FunctionalIterablePage,
-  Kinotic,
-  Pageable,
-  type IDataSource,
-  type IterablePage,
-  type Page
-} from '@kinotic-ai/core'
+import { Kinotic } from '@kinotic-ai/core'
 import type { MachineParticipantIdentity } from '@kinotic-ai/os-api'
 
 import CrudTable from '@/components/CrudTable.vue'
+import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@/components/useCrudTablePage'
 import type { CrudHeader } from '@/types/CrudHeader'
 import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
+import DatetimeUtil from '@/util/DatetimeUtil'
 import { showErrorToast } from '@/util/helpers'
 
 /** One table row — a machine API client of the application. */
@@ -123,7 +118,6 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false }
 ]
 
-const tableSearch = ref('')
 const createDialogVisible = ref(false)
 const machineName = ref('')
 const creating = ref(false)
@@ -134,32 +128,17 @@ const secretValue = ref('')
 
 const toast = useToast()
 const confirm = useConfirm()
-const crudTable = ref<InstanceType<typeof CrudTable>>()
 
-const dataSource = computed<IDataSource<DescriptiveIdentifiable>>(() => {
-  return {
-    findAll: (pageable: Pageable) => load(pageable, null),
-    // no server-side machine search; an org has few machines, so filtering the page suffices
-    search: (searchText: string, pageable: Pageable) => load(pageable, searchText)
-  }
-})
+// no server-side machine search; an org has few machines, so filtering the page suffices
+const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+  filteredPageLoader(
+    pageable => Kinotic.machines.findMachines(props.applicationId, pageable),
+    toRow,
+    row => [row.displayName, row.id]
+  )
+)
 
-async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
-  const machinesPage = await Kinotic.machines.findMachines(props.applicationId, pageable)
-  let rows = (machinesPage.content ?? []).map(machine => toRow(machine))
-  if (searchText) {
-    const needle = searchText.trim().toLowerCase()
-    rows = rows.filter(row =>
-      (row.displayName ?? '').toLowerCase().includes(needle) ||
-      row.id.toLowerCase().includes(needle))
-  }
-  const page: Page<DescriptiveIdentifiable> = {
-    content: rows,
-    totalElements: searchText ? rows.length : machinesPage.totalElements ?? rows.length,
-    cursor: undefined
-  }
-  return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
-}
+const formatDate = DatetimeUtil.formatEpochDate
 
 function toRow(machine: MachineParticipantIdentity): MachineRow {
   return {
@@ -276,21 +255,4 @@ function confirmRemove(item: MachineRow) {
   })
 }
 
-async function run(action: () => Promise<void>, successMessage: string, failureMessage: string) {
-  try {
-    await action()
-    toast.add({ severity: 'success', summary: successMessage, life: 4000 })
-    refreshTable()
-  } catch (err) {
-    showErrorToast(toast, failureMessage, err, { life: 8000 })
-  }
-}
-
-function refreshTable() {
-  crudTable.value?.find()
-}
-
-function formatDate(epochMillis: number | null): string {
-  return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
-}
 </script>

@@ -8,14 +8,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.domain.api.model.security.AuthType;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
+import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.internal.api.model.IdentityCredential;
-import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -58,7 +56,7 @@ import java.util.TreeMap;
 public class KinoticSecurityService implements SecurityService {
 
     private final ParticipantIdentityService identityService;
-    private final IdentityCredentialRepository credentialRepository;
+    private final LocalAuthenticationService localAuthenticationService;
     private final KinoticJwtIssuer jwtIssuer;
     private final Vertx vertx;
 
@@ -108,30 +106,27 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     /**
-     * Authenticates a user via email and password within the target scope.
+     * Authenticates a user via email and password within the target scope. Every failure —
+     * unknown email, wrong password, disabled account, non-local account — is the same
+     * generic error, matching the machine path: the upgrade headers get no account oracle.
      */
     private Future<Participant> authenticateEmailPassword(String organizationId,
                                                           String applicationId,
                                                           String email,
                                                           String password) {
-        if (email == null || password == null) {
+        if (email == null || email.isBlank() || password == null || password.isBlank()) {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
-        return Future.fromCompletionStage(identityService.findByEmail(email, organizationId, applicationId),
+        return Future.fromCompletionStage(localAuthenticationService.authenticateLocal(email, password,
+                                                                                       organizationId, applicationId),
                                           vertx.getOrCreateContext())
                      .compose(user -> {
                          Future<Participant> ret;
                          if (user == null) {
                              ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-                         } else if (!user.isEnabled()) {
-                             ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
-                         } else if (user.getAuthType() != AuthType.LOCAL) {
-                             ret = Future.failedFuture(new AuthenticationException("User is not a local account"));
                          } else {
-                             ret = Future.fromCompletionStage(credentialRepository.findById(user.getId()),
-                                                              vertx.getOrCreateContext())
-                                         .compose(credential -> verifyPasswordAndCreateParticipant(user, credential, password));
+                             ret = Future.succeededFuture(DomainUtil.createParticipant(user));
                          }
                          return ret;
                      });
@@ -164,20 +159,6 @@ public class KinoticSecurityService implements SecurityService {
                          return ret;
                      })
                      .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
-    }
-
-    private Future<Participant> verifyPasswordAndCreateParticipant(ParticipantIdentity user,
-                                                                   IdentityCredential credential,
-                                                                   String password) {
-        Future<Participant> ret;
-        if (credential == null) {
-            ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-        } else if (!DomainUtil.verifyPassword(password, credential.getSecretHash())) {
-            ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-        } else {
-            ret = Future.succeededFuture(DomainUtil.createParticipant(user));
-        }
-        return ret;
     }
 
     /**
@@ -222,8 +203,8 @@ public class KinoticSecurityService implements SecurityService {
                              // signed claims no longer describe the authority the record grants.
                              // The scopes stay in the log; the caller gets no ids back.
                              log.warn("JWT scope {} does not match scope {} of user {}",
-                                      describeScope(jwtOrgId, jwtAppId),
-                                      describeScope(identity.getOrganizationId(), identity.getApplicationId()),
+                                      DomainUtil.describeScope(jwtOrgId, jwtAppId),
+                                      DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
                                       sub);
                              ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
                          } else if (identity instanceof DelegatingParticipantIdentity delegate) {
@@ -253,11 +234,5 @@ public class KinoticSecurityService implements SecurityService {
                          }
                          return ret;
                      });
-    }
-
-    private static String describeScope(String organizationId, String applicationId) {
-        if (organizationId == null && applicationId == null) return "SYSTEM";
-        if (applicationId == null) return "ORGANIZATION/" + organizationId;
-        return "APPLICATION/" + organizationId + "/" + applicationId;
     }
 }

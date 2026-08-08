@@ -42,25 +42,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Kinotic } from '@kinotic-ai/core'
+import type { PendingOAuthAuthorization } from '@kinotic-ai/os-api'
 import Button from 'primevue/button'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import AuthPageShell from '@/components/auth/AuthPageShell.vue'
 
-interface PendingOAuthAuthorization {
-  clientName: string
-  clientId: string
-  scope: string | null
-}
-
-interface OAuthApprovalProxy {
-  describe(requestId: string): Promise<PendingOAuthAuthorization>
-  approve(requestId: string): Promise<string>
-  deny(requestId: string): Promise<string>
-}
-
-// typed locally until the installed @kinotic-ai/os-api ships the oauthApproval extension
-const oauthApproval = (Kinotic as unknown as { oauthApproval: OAuthApprovalProxy }).oauthApproval
+const oauthApproval = Kinotic.oauthApproval
 
 /**
  * The OAuth 2.1 consent page. The gateway's authorize endpoint sends the browser here

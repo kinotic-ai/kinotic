@@ -236,3 +236,37 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     created DATE,
     updated DATE
 );
+
+-- Create the job_run table for the persistent history of grind job executions
+CREATE TABLE IF NOT EXISTS kinotic_job_run (
+    id KEYWORD,
+    name KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    version KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    error TEXT,
+    resumedFrom KEYWORD,
+    started DATE,
+    finished DATE
+);
+
+-- Create the task_record table for the per-step history of a job run
+CREATE TABLE IF NOT EXISTS kinotic_task_record (
+    id KEYWORD,
+    jobRunId KEYWORD,
+    stepPath KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    storeType KEYWORD,
+    dynamicSteps BOOLEAN,
+    resultName KEYWORD,
+    resultValueType KEYWORD,
+    resultValue JSON NOT INDEXED,
+    output TEXT,
+    error TEXT,
+    started DATE,
+    finished DATE
+);

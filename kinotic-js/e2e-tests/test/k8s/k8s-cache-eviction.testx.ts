@@ -1,7 +1,7 @@
 import { Pageable } from '@kinotic-ai/core';
 import { IEntityService } from '@kinotic-ai/persistence';
 import { Kinotic as KineticOs } from '@kinotic-ai/os-api';
-import { WebSocket } from 'ws';
+import { ensureNodeWebSocket } from '@kinotic-ai/core/node';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createVehicleEntityDefinition, createTestVehicles } from '../TestHelpers';
 import { Vehicle } from '../domain/Vehicle';
@@ -15,8 +15,8 @@ import {
 import { K8sTestHelper } from './k8s-helper';
 import * as allure from 'allure-js-commons';
 
-// Make WebSocket available globally for continuum-client
-Object.assign(global, { WebSocket });
+// header-credential connects need a WebSocket constructor that accepts upgrade headers
+ensureNodeWebSocket();
 
 /**
  * K8s Cache Eviction Tests

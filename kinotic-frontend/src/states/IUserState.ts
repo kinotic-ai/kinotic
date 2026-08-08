@@ -2,7 +2,7 @@ import { ConnectedInfo, Kinotic } from '@kinotic-ai/core'
 import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
 import { reactive } from 'vue'
 import { createDebug } from '@/util/debug'
-import { apiUrl, createConnectionInfo } from '../util/helpers'
+import { apiUrl, serverOverrides } from '../util/helpers'
 
 const debug = createDebug('user-state')
 
@@ -53,7 +53,7 @@ export class UserState implements IUserState {
             }
 
             try {
-                this.connectedInfo = await Kinotic.connect(createConnectionInfo())
+                this.connectedInfo = await Kinotic.connect({server: serverOverrides()})
             } catch (reason: any) {
                 this.connectedInfo = null
                 throw new Error(reason ? String(reason) : 'Session authentication failed')

@@ -4,9 +4,10 @@ import {EntityDefinition} from '@kinotic-ai/os-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
 import {Alert} from '../domain/Alert.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createAlertEntityDefinitionIfNotExist,
     createTestAlert,
     createTestAlerts,
@@ -17,11 +18,6 @@ import {
     logFailure,
     shutdownKinoticClient
 } from '../TestHelpers.js'
-
-Object.assign(global, { WebSocket })
-
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
 // The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
 const APP_ID = 'e2e-datastream'
 
