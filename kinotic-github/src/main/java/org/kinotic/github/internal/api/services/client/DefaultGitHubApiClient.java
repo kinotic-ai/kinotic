@@ -2,12 +2,15 @@ package org.kinotic.github.internal.api.services.client;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
@@ -23,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
 /**
@@ -53,6 +55,29 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     private static final String USER_AGENT = "kinotic-platform";
     /** GitHub's per_page maximum for the /user/installations collection. */
     private static final int USER_INSTALLATIONS_PAGE_SIZE = 100;
+    /**
+     * Entry lifetime derived from the token GitHub actually issued rather than from an
+     * assumption about its lifetime, so an entry is gone by the time it drops below
+     * {@link #MIN_RETURNED_TOKEN_LIFETIME} and the loader mints a replacement.
+     */
+    private static final Expiry<TokenKey, GitHubToken> TOKEN_EXPIRY = new Expiry<>() {
+        @Override
+        public long expireAfterCreate(TokenKey key, GitHubToken token, long currentTime) {
+            Duration usableLife = Duration.between(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME),
+                                                   token.getExpiresAt());
+            return Math.max(0, usableLife.toNanos());
+        }
+
+        @Override
+        public long expireAfterUpdate(TokenKey key, GitHubToken token, long currentTime, long currentDuration) {
+            return expireAfterCreate(key, token, currentTime);
+        }
+
+        @Override
+        public long expireAfterRead(TokenKey key, GitHubToken token, long currentTime, long currentDuration) {
+            return currentDuration;
+        }
+    };
     private final GitHubAppJwtFactory jwtFactory;
     private final Vertx vertx;
     private AsyncLoadingCache<TokenKey, GitHubToken> tokenCache;
@@ -68,10 +93,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
         this.webClient = WebClient.create(vertx, new WebClientOptions()
                 .setSsl(true)
                 .setUserAgent(USER_AGENT));
-        // expireAfterWrite matches GitHub's 60-minute issued lifetime; the per-read
-        // freshness check below evicts entries earlier when they're about to die.
         this.tokenCache = Caffeine.newBuilder()
-                                  .expireAfterWrite(Duration.ofMinutes(50))
+                                  .expireAfter(TOKEN_EXPIRY)
                                   .maximumSize(10_000)
                                   .buildAsync((TokenKey key, Executor _) ->
                                                       mintToken(key.installationId(), key.repoId(), key.permissions())
@@ -201,12 +224,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                           String ref) {
         // The tarball endpoint 302s to codeload.github.com; followRedirects
         // handles the hop.
-        return webClient.get(API_PORT, API_HOST, "/repos/" + repoFullName + "/tarball/" + ref)
-                        .ssl(true)
+        return request(HttpMethod.GET, "/repos/" + repoFullName + "/tarball/" + ref, installationToken)
                         .followRedirects(true)
-                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + installationToken)
-                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
-                        .putHeader(API_VERSION_HEADER, API_VERSION)
                         .send()
                         .compose(resp -> {
                             if (resp.statusCode() == 200) {
@@ -253,12 +272,9 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     private Future<List<InstallationDetails>> fetchUserInstallationsPage(String userAccessToken,
                                                                          int page,
                                                                          List<InstallationDetails> collected) {
-        return webClient.get(API_PORT, API_HOST,
-                             "/user/installations?per_page=" + USER_INSTALLATIONS_PAGE_SIZE + "&page=" + page)
-                        .ssl(true)
-                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + userAccessToken)
-                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
-                        .putHeader(API_VERSION_HEADER, API_VERSION)
+        return request(HttpMethod.GET,
+                       "/user/installations?per_page=" + USER_INSTALLATIONS_PAGE_SIZE + "&page=" + page,
+                       userAccessToken)
                         .send()
                         .compose(resp -> {
                             if (resp.statusCode() != 200) {
@@ -289,18 +305,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     public Future<GitHubToken> getToken(long installationId,
                                         Long repoId,
                                         Map<String, String> permissions) {
-        TokenKey key = new TokenKey(installationId, repoId, permissions);
-        GitHubToken peek = tokenCache.synchronous().getIfPresent(key);
-        if (peek != null && !hasEnoughLife(peek)) {
-            tokenCache.synchronous().invalidate(key);
-        }
-        CompletableFuture<GitHubToken> loaded = tokenCache.get(key);
-        return Future.fromCompletionStage(loaded);
-    }
-
-
-    private boolean hasEnoughLife(GitHubToken token) {
-        return token.getExpiresAt().isAfter(Instant.now().plus(MIN_RETURNED_TOKEN_LIFETIME));
+        return Future.fromCompletionStage(tokenCache.get(new TokenKey(installationId, repoId, permissions)));
     }
 
     private GitHubApiException httpError(String op, HttpResponse<Buffer> resp) {
@@ -309,14 +314,18 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                               + (body != null ? " — " + body : ""));
     }
 
-    private Future<HttpResponse<Buffer>> jwtAuthedPost(String path, JsonObject body) {
-        String jwt = jwtFactory.getAppJwt();
-        return webClient.post(API_PORT, API_HOST, path)
+    /**
+     * Builds a request to the GitHub REST API carrying the standard Accept, API-version
+     * and bearer headers. {@code bearer} is an App JWT for the install-token endpoints,
+     * an installation token for repo operations, and a user access token for the
+     * user-installations lookup.
+     */
+    private HttpRequest<Buffer> request(HttpMethod method, String path, String bearer) {
+        return webClient.request(method, API_PORT, API_HOST, path)
                         .ssl(true)
-                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + jwt)
+                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + bearer)
                         .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
-                        .putHeader(API_VERSION_HEADER, API_VERSION)
-                        .sendJsonObject(body);
+                        .putHeader(API_VERSION_HEADER, API_VERSION);
     }
 
     private Future<GitHubToken> mintToken(long installationId,
@@ -331,7 +340,9 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
             permissions.forEach(perms::put);
             body.put("permissions", perms);
         }
-        return jwtAuthedPost("/app/installations/" + installationId + "/access_tokens", body)
+        return request(HttpMethod.POST, "/app/installations/" + installationId + "/access_tokens",
+                       jwtFactory.getAppJwt())
+                .sendJsonObject(body)
                 .compose(resp -> {
                     if (resp.statusCode() / 100 != 2) {
                         return Future.failedFuture(httpError("mintToken", resp));
@@ -350,11 +361,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
                                   String sha,
                                   boolean force) {
         JsonObject body = new JsonObject().put("sha", sha).put("force", force);
-        return webClient.patch(API_PORT, API_HOST, "/repos/" + repoFullName + "/git/refs/" + refName)
-                        .ssl(true)
-                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + installationToken)
-                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
-                        .putHeader(API_VERSION_HEADER, API_VERSION)
+        return request(HttpMethod.PATCH, "/repos/" + repoFullName + "/git/refs/" + refName, installationToken)
                         .sendJsonObject(body)
                         .compose(resp -> {
                             if (resp.statusCode() == 200) {
@@ -365,12 +372,7 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     private Future<HttpResponse<Buffer>> tokenAuthedPost(String path, String token, JsonObject body) {
-        return webClient.post(API_PORT, API_HOST, path)
-                        .ssl(true)
-                        .putHeader(HttpHeaders.AUTHORIZATION.toString(), "Bearer " + token)
-                        .putHeader(HttpHeaders.ACCEPT.toString(), ACCEPT)
-                        .putHeader(API_VERSION_HEADER, API_VERSION)
-                        .sendJsonObject(body);
+        return request(HttpMethod.POST, path, token).sendJsonObject(body);
     }
 
     /**

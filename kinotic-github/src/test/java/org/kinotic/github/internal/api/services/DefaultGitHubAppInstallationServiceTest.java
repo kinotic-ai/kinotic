@@ -3,6 +3,8 @@ package org.kinotic.github.internal.api.services;
 import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
@@ -51,6 +53,10 @@ class DefaultGitHubAppInstallationServiceTest {
         when(repository.getType()).thenReturn(GitHubAppInstallation.class);
         when(repository.saveSync(any(GitHubAppInstallation.class), anyString()))
                 .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
+        // Org not yet linked unless a test overrides this — completeInstall consults
+        // findForCurrentOrg (a findAll under the hood) before verifying ownership
+        when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
+                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(), 0L)));
 
         OrganizationParticipant participant = mock(OrganizationParticipant.class);
         when(participant.getOrganizationId()).thenReturn(CALLER_ORG);
@@ -132,6 +138,38 @@ class DefaultGitHubAppInstallationServiceTest {
         assertFailsWith(AuthorizationException.class,
                         service.completeInstall(INSTALLATION_ID, state, "good-code"));
         verify(repository, never()).saveSync(any(), anyString());
+    }
+
+    @Test
+    void rejectsBindingASecondInstallationWhileLinked() {
+        GitHubAppInstallation existing = new GitHubAppInstallation();
+        existing.setGithubInstallationId(66L);
+        when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
+                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(existing), 1L)));
+        String state = stage(CALLER_ORG, null);
+
+        assertFailsWith(IllegalStateException.class,
+                        service.completeInstall(INSTALLATION_ID, state, "good-code"));
+        verifyNoInteractions(apiClient);
+        verify(repository, never()).saveSync(any(), anyString());
+    }
+
+    @Test
+    void refreshesTheInstallationAlreadyBoundAfterReverifying() throws Exception {
+        GitHubAppInstallation existing = new GitHubAppInstallation();
+        existing.setGithubInstallationId(INSTALLATION_ID);
+        when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
+                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(existing), 1L)));
+        when(apiClient.listUserInstallations("user-token"))
+                .thenReturn(Future.succeededFuture(List.of(
+                        new InstallationDetails(INSTALLATION_ID, 777L, "acme", "Organization"))));
+        String state = stage(CALLER_ORG, null);
+
+        service.completeInstall(INSTALLATION_ID, state, "good-code").get();
+
+        // The refresh path still demands the ownership proof before re-persisting
+        verify(apiClient).listUserInstallations("user-token");
+        verify(repository).saveSync(any(GitHubAppInstallation.class), eq(CALLER_ORG));
     }
 
     @Test

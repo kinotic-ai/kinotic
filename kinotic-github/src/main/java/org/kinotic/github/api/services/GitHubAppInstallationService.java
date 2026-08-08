@@ -1,7 +1,6 @@
 package org.kinotic.github.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
 
@@ -20,9 +19,15 @@ import java.util.concurrent.CompletableFuture;
  *       so the SPA can drive the next-action UX.</li>
  * </ol>
  * Org-scoped via {@code OrganizationScoped} on {@link GitHubAppInstallation}.
+ * <p>
+ * The installation row is derived from GitHub rather than authored by a caller, so this
+ * interface declares its own operations instead of extending {@code IdentifiableCrudService}:
+ * every method a published interface reaches is remotely invokable, and an inherited
+ * {@code save} would let a caller bind an arbitrary GitHub installation id to their
+ * organization without completing the round-trip below.
  */
 @Publish
-public interface GitHubAppInstallationService extends IdentifiableCrudService<GitHubAppInstallation, String> {
+public interface GitHubAppInstallationService {
 
     /**
      * Stages a single-use {@code state} token bound to the caller's organization in
@@ -49,12 +54,17 @@ public interface GitHubAppInstallationService extends IdentifiableCrudService<Gi
      * installations of this App that GitHub reports the user can access. Returns the
      * persisted row plus the original returnTo so the SPA can drive the post-install
      * UX.
+     * <p>
+     * An organization holds one installation at a time. Re-completing for the installation
+     * already bound refreshes it; binding a second one requires {@link #unlink()} first, so
+     * {@link #findForCurrentOrg()} always has a single row to return.
      *
      * @param installationId the {@code installation_id} from GitHub's redirect
      * @param state          the single-use state token echoed by GitHub's redirect
      * @param code           the user-authorization code from GitHub's redirect
      * @throws IllegalStateException when the state is missing/expired/already consumed,
-     *                               or when {@code code} is absent
+     *                               when {@code code} is absent, or when the caller's org
+     *                               is already linked to a different installation
      * @throws org.kinotic.core.api.exceptions.AuthorizationException when the staged org
      *         doesn't match the caller's org, or when the authorizing GitHub user cannot
      *         access the claimed installation
@@ -62,16 +72,16 @@ public interface GitHubAppInstallationService extends IdentifiableCrudService<Gi
     CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
 
     /**
-     * Returns the (at-most-one) installation bound to the caller's organization, or
-     * {@code null} if GitHub is not yet linked. Drives the "linked / not linked"
-     * indicator in the org-settings UI.
+     * Returns the installation bound to the caller's organization, or {@code null} if
+     * GitHub is not yet linked. Drives the "linked / not linked" indicator in the
+     * org-settings UI.
      */
     CompletableFuture<GitHubAppInstallation> findForCurrentOrg();
 
     /**
-     * Looks up the installation with the given GitHub-side installation id within the
-     * current participant's organization. Returns {@code null} when the caller's org has not
-     * bound an installation with that id.
+     * Removes the caller's organization's GitHub link, waiting for the removal to be visible
+     * to {@link #findForCurrentOrg()} before completing. No-op when nothing is linked. The
+     * organization can link again through {@link #startInstall(String)}.
      */
-    CompletableFuture<GitHubAppInstallation> findByGithubInstallationId(long githubInstallationId);
+    CompletableFuture<Void> unlink();
 }

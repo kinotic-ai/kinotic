@@ -43,11 +43,11 @@ async function link(): Promise<void> {
 }
 
 async function unlink(): Promise<void> {
-  if (!installation.value?.id) return
+  if (!installation.value) return
   busy.value = true
   error.value = null
   try {
-    await installations.deleteById(installation.value.id)
+    await installations.unlink()
     installation.value = null
   } catch (e) {
     error.value = (e as Error).message
