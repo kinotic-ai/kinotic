@@ -33,20 +33,24 @@ function goToSettings() {
 onMounted(async () => {
   const installationIdParam = route.query.installation_id
   const stateParam = route.query.state
+  const codeParam = route.query.code
 
   const installationId = typeof installationIdParam === 'string' ? Number.parseInt(installationIdParam, 10) : NaN
   const stateValue = typeof stateParam === 'string' ? stateParam : null
+  const code = typeof codeParam === 'string' ? codeParam : null
 
-  // GitHub redirects the whole tab here after the install. Finalise the round-trip
-  // against the platform and bounce to the SPA-supplied returnTo.
-  if (!Number.isFinite(installationId) || !stateValue) {
+  // GitHub redirects the whole tab here after the install-plus-authorize round-trip
+  // (this route is the App's first callback URL). The code proves which GitHub user
+  // authorized; completeInstall exchanges it server-side to verify that user controls
+  // the claimed installation, then bounces to the SPA-supplied returnTo.
+  if (!Number.isFinite(installationId) || !stateValue || !code) {
     state.value = 'error'
     errorMessage.value = 'GitHub redirect was missing the expected parameters.'
     return
   }
 
   try {
-    const result = await Kinotic.githubAppInstallations.completeInstall(installationId, stateValue)
+    const result = await Kinotic.githubAppInstallations.completeInstall(installationId, stateValue, code)
     router.replace(result.returnTo ?? SETTINGS_PATH)
   } catch (e) {
     state.value = 'error'

@@ -18,11 +18,12 @@ export interface IGitHubAppInstallationService extends ICrudServiceProxy<GitHubA
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
-     * callback. Consumes the staged state, fetches the install details from GitHub,
-     * persists the {@link GitHubAppInstallation} row, and returns it along with the
-     * original intent and returnTo.
+     * callback. Consumes the staged state, exchanges the redirect's user-authorization
+     * code, and persists the {@link GitHubAppInstallation} row only when GitHub reports
+     * the authorizing user can access the claimed installation. Returns the row along
+     * with the original returnTo.
      */
-    completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion>
+    completeInstall(installationId: number, state: string, code: string): Promise<GitHubInstallCompletion>
 
     /**
      * Returns the (at-most-one) installation bound to the caller's organization, or
@@ -44,8 +45,8 @@ export class GitHubAppInstallationService extends CrudServiceProxy<GitHubAppInst
         return this.serviceProxy.invoke('startInstall', [returnTo])
     }
 
-    public completeInstall(installationId: number, state: string): Promise<GitHubInstallCompletion> {
-        return this.serviceProxy.invoke('completeInstall', [installationId, state])
+    public completeInstall(installationId: number, state: string, code: string): Promise<GitHubInstallCompletion> {
+        return this.serviceProxy.invoke('completeInstall', [installationId, state, code])
     }
 
     public findForCurrentOrg(): Promise<GitHubAppInstallation | null> {

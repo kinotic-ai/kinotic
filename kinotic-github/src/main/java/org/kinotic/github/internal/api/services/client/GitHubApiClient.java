@@ -9,8 +9,8 @@ import java.util.Map;
 
 /**
  * Single concentration point for GitHub REST API calls used by the platform: minting
- * installation access tokens, looking up install metadata, creating repos from a
- * template, creating tags / branches.
+ * installation access tokens, verifying install ownership at link time, creating
+ * repos from a template, creating tags / branches.
  */
 public interface GitHubApiClient {
 
@@ -104,10 +104,20 @@ public interface GitHubApiClient {
                                    String ref);
 
     /**
-     * Looks up the install metadata GitHub holds for {@code installationId}. Used at
-     * link time to capture the owning account's login + type for our own record.
+     * Exchanges a user-authorization {@code code} from an install redirect for a
+     * GitHub user access token. Authenticates with the App's OAuth credential
+     * ({@code clientId} + {@code clientSecret}); the returned token acts on behalf
+     * of the GitHub user who authorized in the browser.
      */
-    Future<InstallationDetails> getInstallation(long installationId);
+    Future<String> exchangeUserAccessCode(String clientId, String clientSecret, String code);
+
+    /**
+     * Lists every installation the user behind {@code userAccessToken} has explicit
+     * permission to access, paging through GitHub's collection so the returned list
+     * is complete. Each entry carries the App id it belongs to, so a caller can pin
+     * the check to this platform's App.
+     */
+    Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
 
     /**
      * Returns a cached or freshly-minted installation access token whose remaining
