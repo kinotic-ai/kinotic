@@ -1,0 +1,31 @@
+@import 'primeicons/primeicons.css';
+@import '@kinotic-ai/frontend-common/src/styles/auth-pages.css';
+
+@import "tailwindcss";
+@import "tailwindcss-primeui";
+
+/* Tailwind v4 skips node_modules during source detection; the shared workspace
+   package resolves through a symlink there, so scan it explicitly. */
+@source "../../../packages/common/src";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  --filter-home: brightness(0) saturate(100%) invert(46%) sepia(14%) saturate(612%) hue-rotate(176deg) brightness(94%) contrast(95%);
+}
+
+@layer components {
+  .btn-v4 {
+    @apply bg-indigo-900 text-white font-semibold px-4 py-2 rounded;
+  }
+}
+
+.custom-flow-controls .vue-flow__controls-button.vue-flow__controls-zoomout {
+  transform: rotate(90deg) !important;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}

@@ -54,6 +54,11 @@ public class CrudServiceTemplate {
 
     private static final long DEFAULT_PRIORITY = 500L;
 
+    // retry_on_conflict for partial updates. A conflict needs another write to land in the microseconds
+    // between the update's internal get and its reindex, so consuming all 5 would take sustained
+    // pathological contention on one document
+    private static final int UPDATE_CONFLICT_RETRIES = 5;
+
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
@@ -563,7 +568,8 @@ public class CrudServiceTemplate {
     /**
      * Applies a partial update to a document, merging only the given fields into the stored source and leaving
      * every other field untouched. With {@code upsert} true a missing document is created from the partial
-     * instead of failing.
+     * instead of failing. Safe under concurrency: a conflicting concurrent write is retried server-side, so the
+     * merge lands on the latest document version instead of failing with a version conflict.
      *
      * @param indexName name of the index containing the document
      * @param id        of the document to update
@@ -575,17 +581,21 @@ public class CrudServiceTemplate {
                                                  String id,
                                                  Map<String, Object> partial,
                                                  boolean upsert) {
+        // a doc merge carries no compare-and-set semantics, so retrying re-applies the same fields
+        // against the newest version and never loses a concurrent writer's fields
         return bindToContext(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
-                                                        .docAsUpsert(upsert),
+                                                        .docAsUpsert(upsert)
+                                                        .retryOnConflict(UPDATE_CONFLICT_RETRIES),
                                                   Map.class)
                                           .thenApply(response -> null));
     }
 
     /**
      * Merges the given fields into a document using {@link Refresh#WaitFor}, guaranteeing read-your-write
-     * semantics for subsequent queries.
+     * semantics for subsequent queries. Safe under concurrency: a conflicting concurrent write is retried
+     * server-side, so the merge lands on the latest document version instead of failing with a version conflict.
      *
      * @param indexName name of the index
      * @param id        of the document to update
@@ -601,6 +611,7 @@ public class CrudServiceTemplate {
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
+                                                        .retryOnConflict(UPDATE_CONFLICT_RETRIES)
                                                         .refresh(Refresh.WaitFor),
                                                   Map.class)
                                           .thenApply(response -> null));

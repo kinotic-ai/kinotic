@@ -17,9 +17,10 @@ DEPLOY_ONLY=false
 
 # Build
 if [[ "$DEPLOY_ONLY" == "false" ]]; then
-  echo "==> Building kinotic-frontend"
+  echo "==> Building kinotic-portal"
   cd "$FRONTEND_DIR"
   pnpm install
+  cd apps/portal
   pnpm build --mode azure
   echo "==> Build complete: $(du -sh dist | cut -f1)"
 fi
@@ -34,7 +35,7 @@ fi
 
 # Deploy
 echo "==> Deploying to Static Web App"
-cd "$FRONTEND_DIR"
+cd "$FRONTEND_DIR/apps/portal"
 npx @azure/static-web-apps-cli deploy dist \
   --deployment-token "$TOKEN" \
   --env production

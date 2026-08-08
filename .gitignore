@@ -1,8 +1,8 @@
 # Local frontend runtime config overrides (not for source control)
-kinotic-frontend/public/app-config.override.json
-kinotic-frontend/public/app-config.json.local
-kinotic-frontend/public/config/app-config.override.json
-kinotic-frontend/public/config/app-config.json.local
+kinotic-frontend/apps/portal/public/app-config.override.json
+kinotic-frontend/apps/portal/public/app-config.json.local
+kinotic-frontend/apps/portal/public/config/app-config.override.json
+kinotic-frontend/apps/portal/public/config/app-config.json.local
 # Local service config overrides (not for source control)
 structures-server/src/main/resources/application-local.yml
 

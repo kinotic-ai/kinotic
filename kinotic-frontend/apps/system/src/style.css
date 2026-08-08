@@ -1,0 +1,13 @@
+@import 'primeicons/primeicons.css';
+
+@import "tailwindcss";
+@import "tailwindcss-primeui";
+
+/* Tailwind v4 skips node_modules during source detection; the shared workspace
+   package resolves through a symlink there, so scan it explicitly. */
+@source "../../../packages/common/src";
+
+html,
+body {
+  overscroll-behavior: none;
+}
