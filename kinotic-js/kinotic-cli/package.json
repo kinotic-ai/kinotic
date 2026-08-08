@@ -51,12 +51,6 @@
         "tsx": "^4.23.10",
         "typescript": "^5.9.3"
     },
-    "pnpm": {
-        "overrides": {
-            "serialize-javascript": "^7.0.5",
-            "diff": "^8.0.3"
-        }
-    },
     "oclif": {
         "bin": "kinotic",
         "dirname": "kinotic",
