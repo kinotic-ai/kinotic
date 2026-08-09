@@ -12,9 +12,10 @@ import java.util.concurrent.CompletableFuture;
  * <ol>
  *   <li>{@link #startInstall(String)} — stages a single-use {@code state}
  *       token and returns the GitHub install URL the SPA navigates the browser to.</li>
- *   <li>{@link #completeInstall(long, String)} — called by the SPA's callback route
- *       once GitHub redirects the browser back; consumes the staged state, persists
- *       the installation row, and returns the SPA-supplied {@code returnTo}
+ *   <li>{@link #completeInstall(long, String, String)} — called by the SPA's callback
+ *       route once GitHub redirects the browser back; consumes the staged state,
+ *       verifies the authorizing GitHub user controls the claimed installation,
+ *       persists the installation row, and returns the SPA-supplied {@code returnTo}
  *       so the SPA can drive the next-action UX.</li>
  * </ol>
  * Org-scoped via {@code OrganizationScoped} on {@link GitHubAppInstallation}.
@@ -37,7 +38,7 @@ public interface GitHubAppInstallationService {
      * from the participant. The state expires after 10 minutes if unused.
      *
      * @param returnTo SPA route the user wants to land back on after the install
-     *                 completes; echoed back from {@link #completeInstall(long, String)}.
+     *                 completes; echoed back from {@link #completeInstall(long, String, String)}.
      *                 May carry query params (e.g. {@code /projects?openNewProject=1})
      *                 to signal "what to do on arrival" to the destination page. May be null.
      */
@@ -45,22 +46,26 @@ public interface GitHubAppInstallationService {
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
-     * callback. Consumes the staged {@code state} (must match what was minted by
-     * {@link #startInstall(String)} for the caller's org), fetches the install
-     * details from GitHub, and persists the {@link GitHubAppInstallation} row.
-     * Returns the persisted row plus the original returnTo so the SPA can drive
-     * the post-install UX.
+     * callback. Consumes the staged {@code state}, exchanges the redirect's {@code code}
+     * for the authorizing user's access token, and persists the installation only when
+     * GitHub reports that user can access it. Returns the persisted row plus the
+     * original returnTo so the SPA can drive the post-install UX.
      * <p>
      * An organization holds one installation at a time. Re-completing for the installation
      * already bound refreshes it; binding a second one requires {@link #unlink()} first, so
      * {@link #findForCurrentOrg()} always has a single row to return.
      *
+     * @param installationId the {@code installation_id} from GitHub's redirect
+     * @param state          the single-use state token echoed by GitHub's redirect
+     * @param code           the user-authorization code from GitHub's redirect
      * @throws IllegalStateException when the state is missing/expired/already consumed,
-     *                               when its staged org doesn't match the caller's org, or
-     *                               when the caller's org is already linked to a different
-     *                               installation
+     *                               when {@code code} is absent, or when the caller's org
+     *                               is already linked to a different installation
+     * @throws org.kinotic.core.api.exceptions.AuthorizationException when the staged org
+     *         doesn't match the caller's org, or when the authorizing GitHub user cannot
+     *         access the claimed installation
      */
-    CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state);
+    CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
 
     /**
      * Returns the installation bound to the caller's organization, or {@code null} if

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +50,11 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
      * multi-GB repo.
      */
     private static final Duration MIN_RETURNED_TOKEN_LIFETIME = Duration.ofMinutes(10);
+    /** User-authorization token exchange lives on github.com, not api.github.com. */
+    private static final String OAUTH_HOST = "github.com";
     private static final String USER_AGENT = "kinotic-platform";
+    /** GitHub's per_page maximum for the /user/installations collection. */
+    private static final int USER_INSTALLATIONS_PAGE_SIZE = 100;
     /**
      * Entry lifetime derived from the token GitHub actually issued rather than from an
      * assumption about its lifetime, so an entry is gone by the time it drops below
@@ -231,29 +236,77 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     }
 
     @Override
-    public Future<InstallationDetails> getInstallation(long installationId) {
-        return request(HttpMethod.GET, "/app/installations/" + installationId, jwtFactory.getAppJwt())
-                .send()
-                .compose(resp -> {
-                    if (resp.statusCode() / 100 != 2) {
-                        return Future.<JsonObject>failedFuture(httpError("getInstallation", resp));
-                    }
-                    return Future.succeededFuture(resp.bodyAsJsonObject());
-                })
-                .map(json -> {
-                    JsonObject account = json.getJsonObject("account");
-                    return new InstallationDetails(
-                            json.getLong("id"),
-                            account != null ? account.getString("login") : null,
-                            account != null ? account.getString("type") : null);
-                });
+    public Future<String> exchangeUserAccessCode(String clientId, String clientSecret, String code) {
+        JsonObject body = new JsonObject()
+                .put("client_id", clientId)
+                .put("client_secret", clientSecret)
+                .put("code", code);
+        return webClient.post(API_PORT, OAUTH_HOST, "/login/oauth/access_token")
+                        .ssl(true)
+                        .putHeader(HttpHeaders.ACCEPT.toString(), "application/json")
+                        .sendJsonObject(body)
+                        .compose(resp -> {
+                            if (resp.statusCode() != 200) {
+                                return Future.failedFuture(httpError("exchangeUserAccessCode", resp));
+                            }
+                            JsonObject json = resp.bodyAsJsonObject();
+                            // github.com reports exchange failures (e.g. bad_verification_code)
+                            // as a 200 with an "error" body, not a non-2xx status
+                            String error = json.getString("error");
+                            Future<String> ret;
+                            if (error != null) {
+                                ret = Future.failedFuture(new GitHubApiException(
+                                        "exchangeUserAccessCode failed: " + error));
+                            } else {
+                                ret = Future.succeededFuture(json.getString("access_token"));
+                            }
+                            return ret;
+                        });
+    }
+
+    @Override
+    public Future<List<InstallationDetails>> listUserInstallations(String userAccessToken) {
+        return fetchUserInstallationsPage(userAccessToken, 1, new ArrayList<>());
+    }
+
+    private Future<List<InstallationDetails>> fetchUserInstallationsPage(String userAccessToken,
+                                                                         int page,
+                                                                         List<InstallationDetails> collected) {
+        return request(HttpMethod.GET,
+                       "/user/installations?per_page=" + USER_INSTALLATIONS_PAGE_SIZE + "&page=" + page,
+                       userAccessToken)
+                        .send()
+                        .compose(resp -> {
+                            if (resp.statusCode() != 200) {
+                                return Future.failedFuture(httpError("listUserInstallations", resp));
+                            }
+                            JsonArray installations = resp.bodyAsJsonObject()
+                                                          .getJsonArray("installations", new JsonArray());
+                            for (int i = 0; i < installations.size(); i++) {
+                                JsonObject entry = installations.getJsonObject(i);
+                                JsonObject account = entry.getJsonObject("account");
+                                collected.add(new InstallationDetails(
+                                        entry.getLong("id"),
+                                        entry.getLong("app_id"),
+                                        account != null ? account.getString("login") : null,
+                                        account != null ? account.getString("type") : null));
+                            }
+                            Future<List<InstallationDetails>> ret;
+                            if (installations.size() < USER_INSTALLATIONS_PAGE_SIZE) {
+                                ret = Future.succeededFuture(collected);
+                            } else {
+                                ret = fetchUserInstallationsPage(userAccessToken, page + 1, collected);
+                            }
+                            return ret;
+                        });
     }
 
     @Override
     public Future<GitHubToken> getToken(long installationId,
                                         Long repoId,
                                         Map<String, String> permissions) {
-        return Future.fromCompletionStage(tokenCache.get(new TokenKey(installationId, repoId, permissions)));
+        return Future.fromCompletionStage(tokenCache.get(new TokenKey(installationId, repoId, permissions)),
+                                          vertx.getOrCreateContext());
     }
 
     private GitHubApiException httpError(String op, HttpResponse<Buffer> resp) {
@@ -264,8 +317,9 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
 
     /**
      * Builds a request to the GitHub REST API carrying the standard Accept, API-version
-     * and bearer headers. {@code bearer} is an App JWT for the install-token endpoints
-     * and an installation token for everything else.
+     * and bearer headers. {@code bearer} is an App JWT for the install-token endpoints,
+     * an installation token for repo operations, and a user access token for the
+     * user-installations lookup.
      */
     private HttpRequest<Buffer> request(HttpMethod method, String path, String bearer) {
         return webClient.request(method, API_PORT, API_HOST, path)

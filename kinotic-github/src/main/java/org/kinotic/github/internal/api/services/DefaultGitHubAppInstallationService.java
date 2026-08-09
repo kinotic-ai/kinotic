@@ -1,10 +1,14 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
+import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.security.OidcProviderKind;
+import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubAppInstallation;
@@ -16,6 +20,7 @@ import org.kinotic.github.internal.api.services.client.InstallationDetails;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -34,17 +39,26 @@ public class DefaultGitHubAppInstallationService
     private final KinoticGithubProperties properties;
     private final GitHubInstallStateService stateService;
     private final GitHubApiClient apiClient;
+    private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
+    private final SecretReferenceResolver secretReferenceResolver;
+    private final Vertx vertx;
 
     public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
                                                KinoticGithubProperties properties,
                                                GitHubInstallStateService stateService,
-                                               GitHubApiClient apiClient) {
+                                               GitHubApiClient apiClient,
+                                               OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
+                                               SecretReferenceResolver secretReferenceResolver,
+                                               Vertx vertx) {
         super(repository, securityContext);
         this.installationRepository = repository;
         this.properties = properties;
         this.stateService = stateService;
         this.apiClient = apiClient;
+        this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
+        this.secretReferenceResolver = secretReferenceResolver;
+        this.vertx = vertx;
     }
 
     @Override
@@ -60,7 +74,7 @@ public class DefaultGitHubAppInstallationService
     }
 
     @Override
-    public CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state) {
+    public CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state, String code) {
         String callerOrgId = requireOrganizationId();
         StagedInstall staged = stateService.consume(state);
         if (staged == null) {
@@ -71,10 +85,14 @@ public class DefaultGitHubAppInstallationService
             return CompletableFuture.failedFuture(new AuthorizationException(
                     "Install state does not belong to the current organization."));
         }
-        return Future.fromCompletionStage(findForCurrentOrg())
+        if (code == null || code.isBlank()) {
+            return CompletableFuture.failedFuture(new IllegalStateException(
+                    "Install redirect carried no user-authorization code. Please re-link GitHub."));
+        }
+        return Future.fromCompletionStage(findForCurrentOrg(), vertx.getOrCreateContext())
                 .compose(existing -> existing == null
                                      || Long.valueOf(installationId).equals(existing.getGithubInstallationId())
-                        ? apiClient.getInstallation(installationId)
+                        ? verifiedInstallation(installationId, code)
                         : Future.<InstallationDetails>failedFuture(new IllegalStateException(
                                 "This organization is already linked to GitHub installation "
                                 + existing.getGithubInstallationId()
@@ -84,6 +102,61 @@ public class DefaultGitHubAppInstallationService
                         .setInstallation(installation)
                         .setReturnTo(staged.getReturnTo()))
                 .toCompletionStage().toCompletableFuture();
+    }
+
+    private Future<InstallationDetails> verifiedInstallation(long installationId, String code) {
+        // The claimed id is browser-supplied and the App's own credentials resolve every
+        // installation, other customers' included — only the authorizing user's token
+        // proves which installations that user controls.
+        return userAccessToken(code)
+                .compose(apiClient::listUserInstallations)
+                .compose(installations -> requireAccessible(installations, installationId));
+    }
+
+    private Future<String> userAccessToken(String code) {
+        // Must exchange with the App's own OAuth credential (the github-platform sign-in
+        // row): /user/installations only reports installations of the app that minted the token.
+        return Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(OidcProviderKind.GITHUB),
+                                          vertx.getOrCreateContext())
+                     .compose(config -> {
+                         if (config == null) {
+                             return Future.failedFuture(new IllegalStateException(
+                                     "No enabled GitHub OAuth configuration exists to verify the install."));
+                         }
+                         return Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()),
+                                                           vertx.getOrCreateContext())
+                                      .compose(secret -> {
+                                          if (secret == null) {
+                                              return Future.failedFuture(new IllegalStateException(
+                                                      "GitHub OAuth client secret '" + config.getSecretNameRef()
+                                                              + "' could not be resolved."));
+                                          }
+                                          return apiClient.exchangeUserAccessCode(config.getClientId(), secret, code);
+                                      });
+                     });
+    }
+
+    private Future<InstallationDetails> requireAccessible(List<InstallationDetails> installations,
+                                                          long installationId) {
+        String appId = properties.getGithub().getAppId();
+        // app_id pin: a credential that is not this App's fails closed instead of
+        // vouching from another app's installation list
+        InstallationDetails match = installations.stream()
+                                                 .filter(details -> details.id() != null
+                                                         && details.id() == installationId
+                                                         && appId.equals(String.valueOf(details.appId())))
+                                                 .findFirst()
+                                                 .orElse(null);
+        Future<InstallationDetails> ret;
+        if (match == null) {
+            log.warn("GitHub install verification failed: installation {} is not accessible to the authorizing user",
+                     installationId);
+            ret = Future.failedFuture(new AuthorizationException(
+                    "The GitHub account that authorized this install does not have access to the requested installation."));
+        } else {
+            ret = Future.succeededFuture(match);
+        }
+        return ret;
     }
 
     private Future<GitHubAppInstallation> persist(String orgId, long installationId, InstallationDetails details) {
@@ -98,7 +171,7 @@ public class DefaultGitHubAppInstallationService
                 .setUpdated(now);
         // saveSync (not save) so the row is searchable before completeInstall resolves —
         // the SPA reads it straight back via findForCurrentOrg(), which is a search.
-        return Future.fromCompletionStage(saveSync(install));
+        return Future.fromCompletionStage(saveSync(install), vertx.getOrCreateContext());
     }
 
     @Override
