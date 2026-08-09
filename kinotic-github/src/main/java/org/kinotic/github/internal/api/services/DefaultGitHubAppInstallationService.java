@@ -89,9 +89,6 @@ public class DefaultGitHubAppInstallationService
             return CompletableFuture.failedFuture(new IllegalStateException(
                     "Install redirect carried no user-authorization code. Please re-link GitHub."));
         }
-        // Every fromCompletionStage in this chain carries the caller's Vert.x context so
-        // downstream steps — saveSync in particular, whose org enforcement reads the
-        // participant from a context-local — never run on a foreign completion thread.
         return Future.fromCompletionStage(findForCurrentOrg(), vertx.getOrCreateContext())
                 .compose(existing -> existing == null
                                      || Long.valueOf(installationId).equals(existing.getGithubInstallationId())

@@ -115,7 +115,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     }
 
     private Future<GitHubAppInstallation> requireInstallation() {
-        return Future.fromCompletionStage(installationService.findForCurrentOrg())
+        return Future.fromCompletionStage(installationService.findForCurrentOrg(), vertx.getOrCreateContext())
                      .compose(install -> install == null
                              ? Future.failedFuture(new IllegalStateException(
                                      "GitHub is not linked for this organization. "
@@ -143,8 +143,8 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                             // side; the tarball 404s until the copied content lands.
                             log.debug("Tarball of {} not ready yet ({} attempts left): {}",
                                       project.getRepoFullName(), attemptsLeft - 1, err.getMessage());
-                            return delay(TARBALL_RETRY_DELAY)
-                                    .compose(v -> downloadTarballWithRetry(token, project, attemptsLeft - 1));
+                            return vertx.timer(TARBALL_RETRY_DELAY.toMillis(), TimeUnit.MILLISECONDS)
+                                        .compose(v -> downloadTarballWithRetry(token, project, attemptsLeft - 1));
                         });
     }
 
@@ -262,13 +262,6 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         } catch (CharacterCodingException e) {
             return null;
         }
-    }
-
-    private static Future<Void> delay(Duration duration) {
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        CompletableFuture.delayedExecutor(duration.toMillis(), TimeUnit.MILLISECONDS)
-                         .execute(() -> future.complete(null));
-        return Future.fromCompletionStage(future);
     }
 
     private Project stamp(Project project, CreatedRepository repo) {

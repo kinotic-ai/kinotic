@@ -305,7 +305,8 @@ public class DefaultGitHubApiClient implements GitHubApiClient {
     public Future<GitHubToken> getToken(long installationId,
                                         Long repoId,
                                         Map<String, String> permissions) {
-        return Future.fromCompletionStage(tokenCache.get(new TokenKey(installationId, repoId, permissions)));
+        return Future.fromCompletionStage(tokenCache.get(new TokenKey(installationId, repoId, permissions)),
+                                          vertx.getOrCreateContext());
     }
 
     private GitHubApiException httpError(String op, HttpResponse<Buffer> resp) {
