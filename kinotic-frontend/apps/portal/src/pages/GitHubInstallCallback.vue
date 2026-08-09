@@ -39,10 +39,9 @@ onMounted(async () => {
   const stateValue = typeof stateParam === 'string' ? stateParam : null
   const code = typeof codeParam === 'string' ? codeParam : null
 
-  // GitHub redirects the whole tab here after the install-plus-authorize round-trip
-  // (this route is the App's first callback URL). The code proves which GitHub user
-  // authorized; completeInstall exchanges it server-side to verify that user controls
-  // the claimed installation, then bounces to the SPA-supplied returnTo.
+  // GitHub redirects the whole tab here (the App's first callback URL) with
+  // code + installation_id + state. completeInstall verifies ownership server-side;
+  // on success, bounce to the SPA-supplied returnTo.
   if (!Number.isFinite(installationId) || !stateValue || !code) {
     state.value = 'error'
     errorMessage.value = 'GitHub redirect was missing the expected parameters.'

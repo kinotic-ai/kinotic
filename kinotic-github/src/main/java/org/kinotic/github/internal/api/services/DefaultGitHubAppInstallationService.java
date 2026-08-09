@@ -104,30 +104,18 @@ public class DefaultGitHubAppInstallationService
                 .toCompletionStage().toCompletableFuture();
     }
 
-    /**
-     * Resolves the claimed installation to the entry GitHub reports as accessible to
-     * the user who authorized during this install round-trip, failing with
-     * {@link AuthorizationException} when the user cannot access it.
-     */
     private Future<InstallationDetails> verifiedInstallation(long installationId, String code) {
-        // The installation id arrives from the browser, so it is attacker-controlled, and
-        // the App's own credentials cannot vet it — the App can read every one of its
-        // installations, other customers' included. Only the authorizing user's own token
-        // scopes the lookup to installations that user actually controls.
+        // The claimed id is browser-supplied and the App's own credentials resolve every
+        // installation, other customers' included — only the authorizing user's token
+        // proves which installations that user controls.
         return userAccessToken(code)
                 .compose(apiClient::listUserInstallations)
                 .compose(installations -> requireAccessible(installations, installationId));
     }
 
-    /**
-     * Exchanges the install-time user-authorization code for the authorizing user's
-     * access token.
-     */
     private Future<String> userAccessToken(String code) {
-        // /user/installations only reports installations of the App that minted the user
-        // token, so the exchange must use the platform GitHub App's own OAuth credential —
-        // the same github-platform row that signs users in. A separate OAuth client could
-        // never attest to this App's installations.
+        // Must exchange with the App's own OAuth credential (the github-platform sign-in
+        // row): /user/installations only reports installations of the app that minted the token.
         return Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(OidcProviderKind.GITHUB),
                                           vertx.getOrCreateContext())
                      .compose(config -> {
@@ -151,9 +139,8 @@ public class DefaultGitHubAppInstallationService
     private Future<InstallationDetails> requireAccessible(List<InstallationDetails> installations,
                                                           long installationId) {
         String appId = properties.getGithub().getAppId();
-        // The app_id filter makes a mis-provisioned credential fail closed: if the
-        // github-platform row ever names an OAuth client that is not this App's, the
-        // listed installations cannot vouch for installs this platform mints tokens on.
+        // app_id pin: a credential that is not this App's fails closed instead of
+        // vouching from another app's installation list
         InstallationDetails match = installations.stream()
                                                  .filter(details -> details.id() != null
                                                          && details.id() == installationId

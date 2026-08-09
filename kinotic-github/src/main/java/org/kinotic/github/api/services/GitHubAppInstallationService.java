@@ -46,14 +46,10 @@ public interface GitHubAppInstallationService {
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
-     * callback. Consumes the staged {@code state} (must match what was minted by
-     * {@link #startInstall(String)} for the caller's org), then proves the claimed
-     * installation is controlled by the GitHub user who authorized in this browser:
-     * the {@code code} GitHub appended to the redirect is exchanged for that user's
-     * access token, and the installation is persisted only when it appears among the
-     * installations of this App that GitHub reports the user can access. Returns the
-     * persisted row plus the original returnTo so the SPA can drive the post-install
-     * UX.
+     * callback. Consumes the staged {@code state}, exchanges the redirect's {@code code}
+     * for the authorizing user's access token, and persists the installation only when
+     * GitHub reports that user can access it. Returns the persisted row plus the
+     * original returnTo so the SPA can drive the post-install UX.
      * <p>
      * An organization holds one installation at a time. Re-completing for the installation
      * already bound refreshes it; binding a second one requires {@link #unlink()} first, so

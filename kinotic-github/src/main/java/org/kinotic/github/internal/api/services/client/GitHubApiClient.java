@@ -104,18 +104,14 @@ public interface GitHubApiClient {
                                    String ref);
 
     /**
-     * Exchanges a user-authorization {@code code} from an install redirect for a
-     * GitHub user access token. Authenticates with the App's OAuth credential
-     * ({@code clientId} + {@code clientSecret}); the returned token acts on behalf
-     * of the GitHub user who authorized in the browser.
+     * Exchanges a user-authorization {@code code} from an install redirect for a GitHub
+     * user access token acting on behalf of the user who authorized in the browser.
      */
     Future<String> exchangeUserAccessCode(String clientId, String clientSecret, String code);
 
     /**
      * Lists every installation the user behind {@code userAccessToken} has explicit
-     * permission to access, paging through GitHub's collection so the returned list
-     * is complete. Each entry carries the App id it belongs to, so a caller can pin
-     * the check to this platform's App.
+     * permission to access, paging until GitHub's collection is exhausted.
      */
     Future<List<InstallationDetails>> listUserInstallations(String userAccessToken);
 
