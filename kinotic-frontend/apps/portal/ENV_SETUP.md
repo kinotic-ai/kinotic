@@ -7,11 +7,38 @@ This document explains how to configure the Continuum WebSocket connection using
 | Command | Environment | Use Case |
 |---------|-------------|----------|
 | `npm run dev` | `.env.development` | Local development with default settings |
+| `npm run dev:tunnel` | `.env.tunnel` | One-origin dev behind an ngrok tunnel (GitHub/OIDC callbacks) |
 | `npm run dev:kind` | `.env.kind` | Development against Kind cluster |
 | `npm run build` | `.env` | Production build |
 | `npm run build:kind` | `.env.kind` | Build for Kind cluster deployment |
 | `npm run preview` | Production build | Preview production build locally |
 | `npm run preview:kind` | Kind build | Preview kind build locally |
+
+## Tunnel Mode (ngrok + GitHub/OIDC callbacks)
+
+`pnpm dev:tunnel` serves the SPA and the backend from ONE origin: `.env.tunnel` clears
+`VITE_KINOTIC_HOST`, so `apiUrl()` and `Kinotic.connect()` go same-origin, and the vite
+proxy (`vite.config.ts` `server.proxy`) forwards `/api`, `/v1` (STOMP WebSocket),
+`/.well-known`, and `/mcp` to the local kinotic-server on 58503. Every external callback
+URL can then point at a single ngrok tunnel:
+
+```bash
+pnpm dev:tunnel          # vite on :5173, proxying the backend
+ngrok http 5173          # one public origin for SPA + API
+```
+
+Then:
+
+1. Point the GitHub App / OAuth callback and webhook URLs at the ngrok origin
+   (callbacks are under `/api/...`, so they ride the proxy to kinotic-server).
+2. Set the server's `kinotic.domain.appBaseUrl` to the ngrok origin (env var
+   `KINOTIC_DOMAIN_APPBASEURL=https://<id>.ngrok-free.app`, or edit
+   `application-development.yml`) — OIDC `redirect_uri`s and email links are built
+   server-side from it, and `apiBaseUrl` falls back to it, which is correct here since
+   SPA and API share the tunnel origin.
+
+The vite dev server accepts ngrok hostnames via `server.allowedHosts`
+(`.ngrok-free.app`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`).
 
 ## Quick Reference
 
