@@ -56,7 +56,7 @@ export default defineConfig(
             headers: {
                 'Cache-Control': 'no-store'
             },
-            allowedHosts: ['.ngrok-free.app', '.ngrok.app', '.ngrok.dev', '.ngrok.io'],
+            allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.dev', '.ngrok.io'],
             // One origin for SPA + backend, so a single ngrok tunnel to this dev server can
             // receive GitHub/OIDC callbacks: `pnpm dev:tunnel` clears VITE_KINOTIC_HOST, making
             // apiUrl() and Kinotic.connect() same-origin, and these routes forward to the local

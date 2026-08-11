@@ -38,7 +38,7 @@ Then:
    SPA and API share the tunnel origin.
 
 The vite dev server accepts ngrok hostnames via `server.allowedHosts`
-(`.ngrok-free.app`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`).
+(`.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`).
 
 ## Quick Reference
 

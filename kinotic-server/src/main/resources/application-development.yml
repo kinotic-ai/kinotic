@@ -5,20 +5,14 @@ kinotic:
     webhookSecret: "-"
     appPrivateKey: "-"
   domain:
-    # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
-    # appBaseUrl builds SPA links (verification emails, post-auth redirects) — the SPA's
-    # origin. apiBaseUrl builds the OAuth2/OIDC redirect_uris, which must land on the
-    # backend: the vite server has no /api proxy, so an IdP callback sent to 5173
-    # dead-ends in the SPA router. IdP callback URLs are registered against apiBaseUrl.
-    appBaseUrl: http://localhost:5173
-    apiBaseUrl: http://localhost:58503
-    oauth:
-      # An MCP host exchanges its authorization code from its own backend, which cannot reach
-      # localhost, so the OAuth surface is published on a tunnel to 58503 instead. Only the
-      # metadata, the endpoints it advertises and the /mcp resource document move — the OIDC
-      # redirect_uris stay on apiBaseUrl, so the IdP registrations above are unaffected.
-      # Set this to whichever tunnel is running, or comment it out to fall back to apiBaseUrl.
-      issuerBaseUrl: https://platinum-protector-thesis.ngrok-free.dev
+    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
+    # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With
+    # appBaseUrl on the tunnel origin, apiBaseUrl and oauth.issuerBaseUrl fall back to it,
+    # so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP surface all
+    # share the one origin. For plain localhost dev (pnpm dev, no tunnel) use instead:
+    #   appBaseUrl: http://localhost:5173
+    #   apiBaseUrl: http://localhost:58503
+    appBaseUrl: https://platinum-protector-thesis.ngrok-free.dev
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
