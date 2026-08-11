@@ -12,12 +12,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { Kinotic } from '@kinotic-ai/core'
+import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
 
 import ClusterInfoCard from '@/components/ClusterInfoCard.vue'
 import LogLevelCard from '@/components/LogLevelCard.vue'
 import PlatformStatsCard from '@/components/PlatformStatsCard.vue'
-import type { KinoticClusterInfo } from '@/domain/ClusterInfo'
-import { CLUSTER_INFO_SERVICE } from '@/services/KinoticClusterInfoService'
 
 // The cluster query is made once here; the cluster card renders it and the
 // log-level card offers its node ids as targets.
@@ -28,7 +28,7 @@ const nodeIds = computed(() => clusterInfo.value?.nodes.map(node => node.nodeId)
 
 onMounted(async () => {
   try {
-    clusterInfo.value = await CLUSTER_INFO_SERVICE.getClusterInfo()
+    clusterInfo.value = await Kinotic.clusterInfo.getClusterInfo()
   } catch (err) {
     clusterError.value = err instanceof Error ? err.message : 'Failed to load cluster info'
   }

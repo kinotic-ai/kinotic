@@ -53,7 +53,7 @@ import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import Tag from 'primevue/tag'
 
-import type { KinoticClusterInfo } from '@/domain/ClusterInfo'
+import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
 
 defineProps<{
   info: KinoticClusterInfo | null
