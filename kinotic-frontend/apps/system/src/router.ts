@@ -2,10 +2,6 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
     {
-        path: '/',
-        redirect: '/overview'
-    },
-    {
         path: '/login',
         meta: {
             authenticationRequired: false
@@ -13,9 +9,16 @@ const routes: RouteRecordRaw[] = [
         component: () => import('./pages/Login.vue')
     },
     {
-        name: 'overview',
-        path: '/overview',
-        component: () => import('./pages/Overview.vue')
+        path: '/',
+        component: () => import('./layouts/ConsoleLayout.vue'),
+        redirect: '/overview',
+        children: [
+            {
+                name: 'overview',
+                path: 'overview',
+                component: () => import('./pages/Overview.vue')
+            }
+        ]
     },
     {
         path: '/:catchAll(.*)',
