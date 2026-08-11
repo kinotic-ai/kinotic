@@ -17,11 +17,13 @@ import { DelegateService, type IDelegateService } from '@/api/services/IDelegate
 import { MachineService, type IMachineService } from '@/api/services/IMachineService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
+import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
     clusterInfo: IKinoticClusterInfoService
     organizations: IOrganizationService
+    systemOrganizations: ISystemOrganizationService
     projects: IProjectService
     logManager: ILogManager
     entityDefinitions: IEntityDefinitionService
@@ -44,6 +46,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             applications: new ApplicationService(kinotic),
             clusterInfo: new KinoticClusterInfoService(kinotic),
             organizations: new OrganizationService(kinotic),
+            systemOrganizations: new SystemOrganizationService(kinotic),
             projects: new ProjectService(kinotic),
             logManager: new LogManager(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),

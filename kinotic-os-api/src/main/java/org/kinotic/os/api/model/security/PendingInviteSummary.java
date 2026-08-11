@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.security.PendingInvite;
 
 import java.util.Date;
 
@@ -35,4 +36,19 @@ public class PendingInviteSummary {
 
     /** When the invitation stops being acceptable. */
     private Date expiresAt;
+
+    /**
+     * Builds the listing view of {@code invite}, carrying everything but the accept token.
+     */
+    public static PendingInviteSummary from(PendingInvite invite) {
+        return new PendingInviteSummary()
+                .setId(invite.getId())
+                .setEmail(invite.getEmail())
+                .setDisplayName(invite.getDisplayName())
+                .setApplicationId(invite.getApplicationId())
+                .setInvitedByName(invite.getInvitedByName())
+                .setCreated(invite.getCreated())
+                .setExpiresAt(invite.getExpiresAt());
+    }
 }
+
