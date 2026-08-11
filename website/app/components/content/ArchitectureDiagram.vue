@@ -80,7 +80,7 @@
       <text class="t-plane-p" x="416" y="238">OS CORE</text>
 
       <rect class="gw gw-os" x="430" y="250" width="360" height="112" rx="8"></rect>
-      <text class="t-name" x="610" y="273" text-anchor="middle">kinotic-org-server</text>
+      <text class="t-name" x="610" y="273" text-anchor="middle">kinotic-management-server</text>
       <text class="t-sub"  x="610" y="289" text-anchor="middle">public gateway</text>
       <line class="sep" x1="448" y1="298" x2="772" y2="298"></line>
       <text class="t-mono" x="610" y="315" text-anchor="middle">OrgSecurityService · org users · delegates · machines</text>

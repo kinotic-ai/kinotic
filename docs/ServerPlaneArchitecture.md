@@ -29,13 +29,16 @@ folded in below.
 ### 1. Three deployables, under one name
 
 **Kinotic OS** is the entire system described here — the brand's "Operating System for
-the Cloud" names the umbrella, so no single deployable claims the `os` name. Each server
-is named for the participant plane it serves. Names that describe the OS as a whole keep
-their `os` prefix (`os-api` — the OS's public API; `os-data` — the OS's own state).
+the Cloud" names the umbrella, so no single deployable claims the `os` name. Servers are
+named for what they are: the management plane (where the platform is operated), the
+system plane (the privileged core), and the application plane. Names that describe the
+OS as a whole keep their `os` prefix (`os-api` — the OS's public API; `os-data` — the
+OS's own state).
 
-- **`kinotic-org-server`** — the organization plane (today's `kinotic-server` module,
-  renamed). Public gateway. Assembles: core, domain, gateway, os-api, persistence,
-  github. Serves: portal SPA, CLI (device-grant delegates), MCP hosts, GitHub webhooks.
+- **`kinotic-management-server`** — the management plane (today's `kinotic-server`
+  module, renamed). Public gateway where the platform is operated. Assembles: core,
+  domain, gateway, os-api, persistence, github. Serves: portal SPA, CLI (device-grant
+  delegates), MCP hosts, GitHub webhooks — all ORGANIZATION-scope participants.
 - **`kinotic-system-server`** — the system plane. Gateway reachable from the internet only
   over VPN; reachable directly inside the Azure VNet. Assembles: core, domain, gateway,
   orchestrator, system services. Serves: `apps/system` SPA, system users, vm-manager
@@ -51,7 +54,7 @@ beans — each deployable wires its own.
 
 ### 2. Two buses, split along the trust gradient
 
-- **OS bus** (one Vert.x cluster): `kinotic-org-server` + `kinotic-system-server` +
+- **OS bus** (one Vert.x cluster): `kinotic-management-server` + `kinotic-system-server` +
   vm-manager nodes — together the **OS core**. Org-and-system traffic shares this bus,
   so the github → grind → workload chain is ordinary in-cluster invocation — no bridge,
   no polling.
@@ -66,7 +69,7 @@ beans — each deployable wires its own.
 
 - `KinoticSecurityService` is renamed `OrgSecurityService` — it was always the security
   service for org participants, and the rename puts the three siblings in one shape —
-  and moves out of kinotic-domain's blanket component scan into the `kinotic-org-server`
+  and moves out of kinotic-domain's blanket component scan into the `kinotic-management-server`
   deployable (resolving its standing FIXME). It keeps: org session cookie,
   email/password headers, machine client-credentials, Kinotic JWTs.
 - `SystemSecurityService` (new, system plane): Entra SSO sessions for system users and
@@ -98,18 +101,18 @@ same tenant trust used for system-user SSO. Consequences:
 
 kinotic-persistence's three app-api services (`JsonEntitiesRepository`,
 `AdminJsonEntitiesRepository`, `NamedQueriesService`) are assembled on **both**
-`kinotic-app-server` and `kinotic-org-server`. They are stateless over the shared entity ES,
+`kinotic-app-server` and `kinotic-management-server`. They are stateless over the shared entity ES,
 so the portal's entity browsing is served locally on the OS bus while app clients
 are served on the app bus. With separate buses this is required, not optional.
 
-### 6. GitHub module stays on the org plane; workers get tokens, never services
+### 6. GitHub module stays on the management plane; workers get tokens, never services
 
-Of kinotic-github's responsibilities, four pin to the org plane without tension: the
+Of kinotic-github's responsibilities, four pin to the management plane without tension: the
 webhook handler (GitHub must reach it from the internet; the system gateway is VPN'd),
 the install flow, the repo provisioner, and installation/repo state writes.
 
 The cross-cutting fifth — repo credentials for workloads — is handled at **dispatch
-time**: when the org plane dispatches a job, it mints the short-lived GitHub
+time**: when the management plane dispatches a job, it mints the short-lived GitHub
 installation token and passes it by **secret reference** (`SecretStorageService` /
 `SecretReferenceResolver`), which the vm node resolves at execution. Workers never call
 GitHub services; the credential is the entire interface. If a job class ever outlives
@@ -122,7 +125,7 @@ cross-plane call path.
 ### 7. Job pipeline and the narrow waist
 
 ```text
-GitHub → webhook handler (org plane) → JobDispatchService → grind engine
+GitHub → webhook handler (management plane) → JobDispatchService → grind engine
        → WorkloadOrchestrationService → VmManagerProxy(@Scope nodeId) → vm-manager → workload
 ```
 
@@ -130,7 +133,7 @@ All hops are on the OS bus. Although the shared bus makes the orchestration
 services directly reachable, the webhook and re-run paths go **only** through
 `JobDispatchService` — a deliberately narrow contract (roughly
 `dispatch(trigger, projectId, secretRefs) → jobRunId`, `watch(jobRunId) → stream`).
-The org plane reports that a job is warranted; the system plane owns what a job *is*.
+The management plane reports that a job is warranted; the system plane owns what a job *is*.
 This narrow waist is also the exit hatch: if the planes ever need physical separation
 (§ Alternatives), it is already the bridge contract.
 
@@ -213,7 +216,7 @@ flowchart TB
     end
 
     subgraph oscore["OS CORE"]
-      osgw["kinotic-org-server (public gateway)<br/>OrgSecurityService: org users · delegates · machine creds<br/>os-api zone · GitHub webhook · app-api (dual-hosted)"]
+      osgw["kinotic-management-server (public gateway)<br/>OrgSecurityService: org users · delegates · machine creds<br/>os-api zone · GitHub webhook · app-api (dual-hosted)"]
       vpn{{"VPN<br/>gateway"}}
       sysgw["kinotic-system-server — NO public listener<br/>SystemSecurityService: Entra SSO + workload identity ONLY<br/>system zone · orchestrator · system console"]
       pbus(["OS BUS — Vert.x cluster A · zone rules + supervisor RBAC"])
