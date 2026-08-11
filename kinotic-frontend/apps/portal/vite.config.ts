@@ -55,6 +55,20 @@ export default defineConfig(
             open: false,
             headers: {
                 'Cache-Control': 'no-store'
+            },
+            allowedHosts: ['.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.dev', '.ngrok.io'],
+            // One origin for SPA + backend, so a single ngrok tunnel to this dev server can
+            // receive GitHub/OIDC callbacks: `pnpm dev:tunnel` clears VITE_KINOTIC_HOST, making
+            // apiUrl() and Kinotic.connect() same-origin, and these routes forward to the local
+            // kinotic-server. In plain `pnpm dev` the app calls localhost:58503 directly and
+            // this proxy sits idle.
+            proxy: {
+                '/api': { target: 'http://localhost:58503', changeOrigin: true },
+                // STOMP WebSocket (ApiGatewayVertcleFactory.STOMP_WEBSOCKET_PATH)
+                '/v1': { target: 'http://localhost:58503', changeOrigin: true, ws: true },
+                // OAuth 2.1 metadata + MCP endpoint, so MCP hosts can use the tunnel too
+                '/.well-known': { target: 'http://localhost:58503', changeOrigin: true },
+                '/mcp': { target: 'http://localhost:58503', changeOrigin: true },
             }
         },
         build: {
