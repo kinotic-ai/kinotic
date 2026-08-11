@@ -71,12 +71,12 @@ import {
 } from '@kinotic-ai/core'
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 
-import CrudTable from '@/components/CrudTable.vue'
-import { statusSeverity, useCrudTablePage } from '@/components/useCrudTablePage'
-import type { CrudHeader } from '@/types/CrudHeader'
-import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
+import { CrudTable } from '@kinotic-ai/frontend-common'
+import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
+import type { CrudHeader } from '@kinotic-ai/frontend-common'
+import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 import { KinoticStates } from '@/states'
-import DatetimeUtil from '@/util/DatetimeUtil'
+import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { apiUrl, showErrorToast } from '@kinotic-ai/frontend-common'
 import { createDebug } from '@kinotic-ai/frontend-common'
 

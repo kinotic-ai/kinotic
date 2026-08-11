@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import CrudTable from "@/components/CrudTable.vue";
+import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
 import { Kinotic } from "@kinotic-ai/core";
 import {
@@ -8,13 +8,13 @@ import {
 } from "@kinotic-ai/os-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { onClickOutside } from "@vueuse/core";
-import type { CrudHeader } from "@/types/CrudHeader";
+import type { CrudHeader } from "@kinotic-ai/frontend-common";
 import type { Identifiable } from "@kinotic-ai/core";
 import { onMounted, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useToast } from "primevue/usetoast";
 import { showErrorToast } from "@kinotic-ai/frontend-common";
-import DatetimeUtil from "@/util/DatetimeUtil";
+import { DatetimeUtil } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 

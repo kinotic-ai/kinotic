@@ -12,7 +12,6 @@ declare module 'vue' {
     Breadcrumb: typeof import('./src/components/Breadcrumb.vue')['default']
     Button: typeof import('primevue/button')['default']
     CascadeSelect: typeof import('primevue/cascadeselect')['default']
-    CrudTable: typeof import('./src/components/CrudTable.vue')['default']
     DashboardWidgetCard: typeof import('./src/components/DashboardWidgetCard.vue')['default']
     Dialog: typeof import('primevue/dialog')['default']
     EntityDataViewModal: typeof import('./src/components/modals/EntityDataViewModal.vue')['default']

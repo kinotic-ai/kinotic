@@ -23,7 +23,7 @@ interface HeaderDef {
   [key: string]: any
 }
 
-import DatetimeUtil from '@/util/DatetimeUtil'
+import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 import { rowColors } from '@/util/rowColors'
 import {

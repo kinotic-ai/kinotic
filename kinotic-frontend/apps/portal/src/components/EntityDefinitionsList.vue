@@ -1,6 +1,6 @@
 <script lang="ts">
 import { defineComponent } from "vue";
-import CrudTable from "@/components/CrudTable.vue";
+import { CrudTable } from "@kinotic-ai/frontend-common";
 import EntityDataViewModal from "@/components/modals/EntityDataViewModal.vue";
 import EntityDefinitionItemModal from "@/components/modals/EntityDefinitionItemModal.vue";
 import Dialog from "primevue/dialog";
@@ -13,8 +13,8 @@ import type {
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { Kinotic } from "@kinotic-ai/core";
 import { EntityDefinition, type IEntityDefinitionService } from "@kinotic-ai/os-api";
-import type { CrudHeader } from "@/types/CrudHeader";
-import DatetimeUtil from "@/util/DatetimeUtil";
+import type { CrudHeader } from "@kinotic-ai/frontend-common";
+import { DatetimeUtil } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";
 
 const debug = createDebug("entityDefinitions-list");

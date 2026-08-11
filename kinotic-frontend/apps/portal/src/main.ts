@@ -1,7 +1,6 @@
 import './style.css'
 import './theme.css'
 import StyleClass from 'primevue/styleclass'
-import ConfirmationService from 'primevue/confirmationservice'
 import { createKinoticApp } from '@kinotic-ai/frontend-common'
 import router from '@/router'
 import { CONTINUUM_UI } from '@/IContinuumUI'
@@ -67,6 +66,5 @@ const app = createKinoticApp({
 CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
-app.use(ConfirmationService)
 KinoticStates.getApplicationState().initialize(router)
 app.mount('#app')

@@ -38,6 +38,7 @@ import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 const navItems = [
   { to: '/overview', label: 'Overview', icon: 'pi-objects-column' },
+  { to: '/organizations', label: 'Organizations', icon: 'pi-building' },
 ]
 
 const router = useRouter()

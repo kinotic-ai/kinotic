@@ -1,4 +1,5 @@
 import PrimeVue from 'primevue/config'
+import ConfirmationService from 'primevue/confirmationservice'
 import ToastService from 'primevue/toastservice'
 import { type App, type Component, createApp } from 'vue'
 import type { Router } from 'vue-router'
@@ -43,6 +44,8 @@ export function createKinoticApp({ root, router, sessionState }: KinoticAppOptio
     })
 
     app.use(ToastService)
+    // CrudTable's delete flow uses the confirm service, so every app hosting it needs this
+    app.use(ConfirmationService)
     app.use(router)
     return app
 }

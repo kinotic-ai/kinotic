@@ -58,7 +58,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
 import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 
-import DatetimeUtil from '@/util/DatetimeUtil'
+import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { EntityDefinitionUtil } from '@/util/EntityDefinitionUtil'
 import { createDebug } from '@kinotic-ai/frontend-common'
 
