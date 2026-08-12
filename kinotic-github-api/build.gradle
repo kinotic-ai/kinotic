@@ -1,0 +1,15 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+// Interfaces and DTOs only. A node that consumes the GitHub module's published services depends on
+// this artifact and gets an RPC proxy for them; kinotic-github holds the implementations and is
+// assembled only where the GitHub App itself is hosted.
+dependencies {
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
+
+    implementation 'io.vertx:vertx-core'
+
+    implementation 'io.projectreactor:reactor-core'
+}

@@ -1,7 +1,8 @@
-package org.kinotic.github.api.services;
+package org.kinotic.github.internal.api.services;
 
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
+import org.kinotic.github.api.services.GitHubProjectEventService;
 import reactor.core.publisher.Flux;
 
 import java.util.concurrent.CompletableFuture;

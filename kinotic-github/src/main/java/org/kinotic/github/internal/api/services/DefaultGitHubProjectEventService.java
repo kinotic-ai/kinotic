@@ -9,7 +9,6 @@ import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.SystemParticipant;
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.services.GitHubProjectEventService;
-import org.kinotic.github.api.services.GitHubWebhookEventService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 

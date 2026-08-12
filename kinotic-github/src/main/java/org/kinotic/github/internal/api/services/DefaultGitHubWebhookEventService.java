@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
-import org.kinotic.github.api.services.GitHubWebhookEventService;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
