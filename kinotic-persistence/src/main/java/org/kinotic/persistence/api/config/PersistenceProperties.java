@@ -18,11 +18,6 @@ public class PersistenceProperties {
     private String tenantIdFieldName = "tenantId";
 
     /**
-     * MCP server configuration
-     */
-    private Integer mcpPort = 3001;
-
-    /**
      * Cluster eviction configuration
      */
     private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
