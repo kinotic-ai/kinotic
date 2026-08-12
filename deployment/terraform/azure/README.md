@@ -6,14 +6,18 @@ Three separate terraform roots — **global** (persistent), **cluster** (disposa
 
 ```
 deployment/terraform/azure/
-├── global/                    # DNS, Entra ID — apply once, never destroy
+├── global/                    # DNS, Entra ID, Key Vault, email — apply once, never destroy
 │   ├── main.tf
+│   ├── email.tf
+│   ├── keyvault.tf
 │   └── terraform.tfvars
 ├── cluster/                   # AKS, K8s resources — destroy and rebuild freely
 │   ├── main.tf
 │   ├── helm.tf
 │   ├── tls.tf
 │   ├── dns.tf
+│   ├── email.tf
+│   ├── keyvault.tf
 │   ├── kinotic.tf
 │   ├── observability.tf
 │   ├── nodepools.tf
@@ -28,7 +32,7 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── deploy.sh
 │   └── terraform.tfvars
-├── modules/                   # Shared modules (identity, networking, aks, firecracker)
+├── modules/                   # Shared modules (aks, firecracker, identity, micro-vm-node, networking)
 ├── bootstrap-state.sh         # One-time state storage setup
 ├── OPS.md                     # Day-2 operations
 ├── TROUBLESHOOTING.md         # Common errors and fixes
@@ -146,6 +150,7 @@ terraform apply -var="beta_mode=false"
 | DNS zone (kinotic.ai) | `global/` | Permanent |
 | Entra ID App Registrations | `global/` | Permanent |
 | Azure Communication Services (email) | `global/` | Permanent |
+| Key Vault (platform secrets) | `global/` | Permanent |
 | AKS cluster + node pools | `cluster/` | Disposable |
 | VNet, subnet, identities | `cluster/` | Disposable |
 | cert-manager + TLS cert | `cluster/` | Disposable (re-issued on rebuild) |

@@ -85,29 +85,18 @@ kubectl describe certificate kinotic-tls -n kinotic
 
 ## Rebuild Without Touching DNS
 
-To destroy and recreate everything except the DNS zone:
+The DNS zone lives in the `global/` root (`azurerm_dns_zone.main` in `global/main.tf`), and
+`cluster/` only reads it through `terraform_remote_state`. Destroying the cluster therefore
+cannot touch the zone — no state surgery, no re-import:
 
 ```bash
-# 1. Remove DNS zone from state
-terraform state rm azurerm_dns_zone.main
-
-# 2. Destroy everything else
+cd cluster
 terraform destroy
-
-# 3. Follow the deploy-day guide (README.md) steps 5-6
-#    The DNS zone persists in rg-kinotic-global
-
-# 4. After AKS is up, import the DNS zone back
-terraform import azurerm_dns_zone.main \
-  /subscriptions/<sub-id>/resourceGroups/rg-kinotic-global/providers/Microsoft.Network/dnsZones/kinotic.ai
-
-# 5. Full apply
 terraform apply
 ```
 
-**Note:** The `terraform import` step requires AKS to exist (helm/kubernetes providers
-need a cluster). If import fails with provider errors, temporarily move `dns.tf` aside,
-import, then restore it.
+`cluster/dns.tf` re-creates the `api` A record against the new LoadBalancer IP on the way
+back up.
 
 ## Certificate Renewal
 
@@ -127,7 +116,7 @@ kubectl logs -l app.kubernetes.io/name=cert-manager -n cert-manager --tail=20
 |---|---|
 | Pod crash | Kubernetes auto-restarts. Check `kubectl describe pod` |
 | Node failure | AKS auto-repairs. ES PDB protects quorum |
-| AKS cluster loss | Rebuild via README.md steps 5-6. ES data on PVCs persists if PVs are Retain policy |
+| AKS cluster loss | Rebuild the `cluster/` root (README.md, "Teardown and Rebuild"). ES data on PVCs persists if PVs are Retain policy |
 | DNS zone deletion | Recreate zone, re-point NS at registrar. Same zone name = same NS records |
 | Cert expired | Delete certificate + challenges, re-apply via terraform |
 | State corruption | Re-import resources from Azure |

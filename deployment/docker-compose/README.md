@@ -12,7 +12,7 @@ workflow — they're built up from small `compose.*.yml` files using docker-comp
 | **IntelliJ-running kinotic-server, just ES + Kibana** | `docker compose -f compose.elasticsearch.yml -f compose.kibana.yml up -d` |
 | **IntelliJ + ES + run migrations once** | `docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up -d` |
 | **Full stack with OIDC via local Keycloak** | `docker compose -f compose.yml -f compose.keycloak.yml up -d` |
-| **Test runtime (no observability, ephemeral ES)** | `docker compose -f compose.kinotic-test.yml up -d` |
+| **Backing services for the kinotic-test suite** | `docker compose -f compose.kinotic-test.yml up -d` |
 
 `docker compose down` to stop. `docker compose down -v` to also wipe volumes (ES data).
 
@@ -30,11 +30,11 @@ the commit under test rather than whatever the published tag currently holds.
 | `compose.kibana.yml` | Kibana (depends on Elasticsearch) | `kinotic-kibana:5601` |
 | `compose.kinotic-migration.yml` | Runs `kinotic-migration` once against ES, then exits | One-shot job — `service_completed_successfully` is what kinotic-server waits on |
 | `compose.kinotic-server.yml` | The Kinotic server itself | `kinotic-server:9090/58503` (UI, STOMP) |
-| `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Mimir | `grafana:3000`, plus internal otel/tempo/mimir |
+| `compose-otel.yml` | OpenTelemetry collector + Grafana + Tempo + Loki + Mimir | `grafana:3000`, `loki:3100`, `tempo:3200`, `mimir:9009` |
 | `compose.gen-schemas.yml` | Load-generator container that pre-populates schemas | One-shot when `compose.yml` brings up the full stack |
 | `compose.keycloak.yml` | Local Keycloak as a platform OIDC provider (dev-only secret) | `keycloak:8888` — see `KEYCLOAK_HOSTS_SETUP.md` |
-| `compose.kinotic-test.yml` | Minimal: ES + migration + server with `SPRING_PROFILES_ACTIVE=test` | Used by integration tests |
-| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + server | Used by e2e tests in CI |
+| `compose.kinotic-test.yml` | Minimal: ES + migration only, no server | Backing services for the `kinotic-test` suite, which runs the server in-process |
+| `compose.kinotic-e2e-test.yml` | Elasticsearch + migration + server, on the `test,e2e-tests,compose` profiles | Used by e2e tests in CI |
 
 ## Common one-liners
 
@@ -57,8 +57,8 @@ docker compose up -d --force-recreate --no-deps kinotic-server
 # (5) Run only the migration container against an already-running ES, then exit
 docker compose -f compose.kinotic-migration.yml run --rm kinotic-migration
 
-# (6) Wipe all state and restart clean
-docker compose down -v && rm -rf ~/kinotic/elastic-data && docker compose up -d
+# (6) Wipe all state and restart clean (down -v drops the ES named volume)
+docker compose down -v && docker compose up -d
 ```
 
 ## Service URLs (when the full stack is up)
@@ -69,7 +69,7 @@ docker compose down -v && rm -rf ~/kinotic/elastic-data && docker compose up -d
 | STOMP | `ws://localhost:58503/v1` | Used by the SPA's `Kinotic.connect(...)` |
 | Elasticsearch | <http://localhost:9200> | `xpack.security.enabled=false` — local only |
 | Kibana | <http://localhost:5601> | |
-| Grafana | <http://localhost:3000> | When `compose-otel.yml` is included (admin/admin) |
+| Grafana | <http://localhost:3000> | When `compose-otel.yml` is included. Anonymous auth with the Admin role — no login |
 | Keycloak | <http://keycloak:8888> | When `compose.keycloak.yml` is included; requires `127.0.0.1 keycloak` in `/etc/hosts` per `KEYCLOAK_HOSTS_SETUP.md` |
 
 ## Try the auth flow (UI devs)
@@ -133,15 +133,19 @@ docker compose -f compose.elasticsearch.yml -f compose.kinotic-migration.yml up 
 docker compose ps kinotic-migration   # State: Exited (0)
 
 # 3. Run KinoticServerApplication in IntelliJ with profile `development`.
-#    application-development.yml already points kinotic.persistence at localhost:9200.
+#    application-development.yml already points the elastic connection at localhost:9200.
 ```
 
-Email is `enabled: false` in `application-development.yml`; verification links print to
-the IntelliJ console.
+`application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
+the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
+verification URL to the IntelliJ console instead — which is what the compose stack does via
+`KINOTIC_DOMAIN_EMAIL_ENABLED=false`.
 
-If you also run the Vite frontend (`pnpm dev` on `:5173`), it proxies `/api/*` to
-`http://localhost:9090` automatically — just set `KINOTIC_APPBASEURL=http://localhost:5173`
-on the IntelliJ run config so OIDC redirect URIs match what's registered with the IdP.
+If you also run the Vite frontend (`pnpm dev` on `:5173`), it calls the server directly at
+`localhost:58503` via `VITE_KINOTIC_HOST`/`VITE_KINOTIC_PORT` — see
+`kinotic-frontend/apps/portal/ENV_SETUP.md`. For flows where the IdP has to call back into
+your machine, use `pnpm dev:tunnel` and set `KINOTIC_DOMAIN_APPBASEURL` on the IntelliJ run
+config to the tunnel origin so OIDC redirect URIs match what's registered with the IdP.
 
 ## Storage paths
 

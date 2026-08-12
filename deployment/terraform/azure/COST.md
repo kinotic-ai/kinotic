@@ -1,6 +1,7 @@
 # Azure Cost Projection
 
-Estimated monthly costs for West US 2. Prices are approximate (pay-as-you-go).
+Estimated monthly costs for `centralus` (the `location` in `cluster/terraform.tfvars` and
+`global/terraform.tfvars`). Prices are approximate (pay-as-you-go).
 
 ## Azure Resource Inventory
 
@@ -28,6 +29,8 @@ Estimated monthly costs for West US 2. Prices are approximate (pay-as-you-go).
 | Loki Azure Blob Storage | Azure Blob (log chunks + rules) | **~$1-5/mo** |
 | Terraform State Storage | Azure Blob Storage (LRS) | **~$1/mo** |
 | Entra ID App Registration (Grafana) | Azure AD | Free |
+| Azure Key Vault (platform secrets) | Key Vault Standard | **~$1/mo** |
+| Azure Communication Services | Email | **Per-message** |
 
 ### Production Only (`beta_mode = false`)
 
@@ -49,7 +52,6 @@ Estimated monthly costs for West US 2. Prices are approximate (pay-as-you-go).
 | Resource | Azure Service | Estimated cost |
 |---|---|---|
 | Azure Container Registry (Basic) | ACR | $5/mo |
-| Azure Key Vault | Key Vault | ~$1/mo |
 | Azure Front Door / WAF | CDN + WAF | $175+/mo |
 
 ---
