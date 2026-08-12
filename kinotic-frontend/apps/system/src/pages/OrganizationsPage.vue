@@ -9,8 +9,10 @@
       :search="tableSearch"
       :is-show-add-new="false"
       :disable-modifications="true"
+      :enable-row-hover="true"
       empty-state-text="No organizations"
       @update:search="tableSearch = $event"
+      @on-row-click="openOrganization"
     >
       <template #item.id="{ item }">
         <span class="font-mono text-sm">{{ item.id }}</span>
@@ -28,6 +30,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import {
   CrudTable,
@@ -36,6 +39,12 @@ import {
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
+
+const router = useRouter()
+
+function openOrganization(row: DescriptiveIdentifiable) {
+  router.push({ name: 'organization-detail', params: { organizationId: row.id } })
+}
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },
