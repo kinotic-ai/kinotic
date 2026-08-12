@@ -98,13 +98,6 @@ public class EventConstants {
     public static final String REPLY_DESTINATION_SCHEME = "reply";
 
     /**
-     * Scheme for non-persistent broadcast events (no request/response, no acknowledgement).
-     * Used for republishing external system events (webhooks, etc.) onto the bus where
-     * any number of subscribers may listen on a CRI like {@code evt://github/push/<org>/<project>}.
-     */
-    public static final String EVENT_DESTINATION_SCHEME = "evt";
-
-    /**
      * Event data format that is pretty much a stomp frame.
      * The difference being the Destination is in place of the COMMAND portion. And there is no Destination header. Everything else is the same.
      */

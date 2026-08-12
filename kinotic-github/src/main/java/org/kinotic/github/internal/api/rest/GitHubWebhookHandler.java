@@ -12,7 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.github.api.config.KinoticGithubProperties;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
-import org.kinotic.github.api.services.GitHubWebhookEventService;
+import org.kinotic.github.internal.api.services.GitHubWebhookEventService;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;

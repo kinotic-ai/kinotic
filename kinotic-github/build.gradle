@@ -11,6 +11,8 @@ dependencies {
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
 
+    implementation 'io.projectreactor:reactor-core'
+
     implementation 'co.elastic.clients:elasticsearch-java'
 
     implementation 'org.apache.ignite:ignite-core'
