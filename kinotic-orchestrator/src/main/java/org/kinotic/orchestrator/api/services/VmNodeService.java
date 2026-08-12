@@ -1,6 +1,9 @@
 package org.kinotic.orchestrator.api.services;
 
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
 
 import java.util.concurrent.CompletableFuture;
@@ -9,6 +12,8 @@ import java.util.concurrent.CompletableFuture;
  * Service for managing {@link VmNode} entities.
  * Tracks available nodes in the cluster that can host workloads.
  */
+@Publish
+@Zone(DomainUtil.SYSTEM_ZONE)
 public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
 
     /**

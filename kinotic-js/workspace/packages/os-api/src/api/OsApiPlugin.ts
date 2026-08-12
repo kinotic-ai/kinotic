@@ -10,6 +10,8 @@ import { MigrationService, type IMigrationService } from '@/api/services/IMigrat
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
+import { WorkloadOrchestrationService, type IWorkloadOrchestrationService } from '@/api/services/IWorkloadOrchestrationService'
+import { LogService, type ILogService } from '@/api/services/ILogService'
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
 import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
@@ -34,6 +36,8 @@ export interface IOsApiExtension {
     dataInsights: IDataInsightsService
     vmNodes: IVmNodeService
     workloads: IWorkloadService
+    workloadOrchestration: IWorkloadOrchestrationService
+    logs: ILogService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
     oauthApproval: IOAuthApprovalService
@@ -58,6 +62,8 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             dataInsights: new DataInsightsService(kinotic),
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
+            workloadOrchestration: new WorkloadOrchestrationService(kinotic),
+            logs: new LogService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
             oauthApproval: new OAuthApprovalService(kinotic),

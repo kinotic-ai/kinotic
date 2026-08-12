@@ -40,6 +40,7 @@ const navItems = [
   { to: '/overview', label: 'Overview', icon: 'pi-objects-column' },
   { to: '/organizations', label: 'Organizations', icon: 'pi-building' },
   { to: '/service-directory', label: 'Service directory', icon: 'pi-sitemap' },
+  { to: '/nodes', label: 'Nodes & workloads', icon: 'pi-server' },
 ]
 
 const router = useRouter()
