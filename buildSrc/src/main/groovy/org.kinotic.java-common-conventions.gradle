@@ -139,7 +139,6 @@ dependencyManagement {
 
         dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-indexing:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"

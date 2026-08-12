@@ -56,8 +56,6 @@ host ports through NodePort services to the pods.
 
 ```
 localhost:443   ──> NodePort 30443 ──> kinotic-server (Vert.x TLS, Web UI)
-localhost:8080  ──> NodePort 30080 ──> kinotic-server (Vert.x TLS, OpenAPI)
-localhost:4000  ──> NodePort 30400 ──> kinotic-server (Vert.x TLS, GraphQL)
 localhost:58503 ──> NodePort 30503 ──> kinotic-server (Vert.x TLS, STOMP/WS)
 localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, when enabled)
 localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS)
@@ -79,8 +77,6 @@ localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS
 | Service | URL |
 |---------|-----|
 | Kinotic UI | https://localhost/ |
-| OpenAPI | https://localhost:8080/api/ |
-| GraphQL | https://localhost:4000/graphql/ |
 | WebSocket (STOMP) | wss://localhost:58503/v1 |
 | Keycloak Admin | https://localhost:8888/auth/admin |
 | Grafana | https://localhost:3000/ |
@@ -90,8 +86,6 @@ localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS
 | Service | URL |
 |---------|-----|
 | Kinotic UI | http://localhost:9090/ |
-| OpenAPI | http://localhost:8080/api/ |
-| GraphQL | http://localhost:4000/graphql/ |
 | WebSocket (STOMP) | ws://localhost:58503/v1 |
 | Grafana | http://localhost:3000/ |
 

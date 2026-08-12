@@ -40,8 +40,6 @@ resource "helm_release" "kinotic_server" {
       { name = "service.type", value = "NodePort" },
       { name = "service.nodePorts.ui", value = "30443" },
       { name = "service.nodePorts.uiDirect", value = "30090" },
-      { name = "service.nodePorts.openApi", value = "30080" },
-      { name = "service.nodePorts.graphql", value = "30400" },
       { name = "service.nodePorts.stomp", value = "30503" },
     ],
     # When Keycloak is enabled, add kubernetes-oidc profile and set oidc.enabled

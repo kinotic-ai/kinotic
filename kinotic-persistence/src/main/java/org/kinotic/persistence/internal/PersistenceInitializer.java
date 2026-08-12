@@ -5,8 +5,6 @@ import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -64,16 +62,5 @@ public class PersistenceInitializer {
                                       }
                                   }));
     }
-//
-//    @EventListener
-//    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
-//        log.info("Rest API listening on port {}", properties.getOpenApiPort());
-//        log.info("OpenApi Json available at http://localhost:{}/api-docs/[KINOTIC APPLICATION]/openapi.json",
-//                 properties.getOpenApiPort());
-//        log.info("GraphQL listening on port {}", properties.getGraphqlPort());
-//        log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
-//                 properties.getGraphqlPort(),
-//                 properties.getGraphqlPath());
-//    }
 
 }

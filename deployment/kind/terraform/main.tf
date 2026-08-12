@@ -62,18 +62,6 @@ resource "kind_cluster" "kinotic" {
         host_port      = 9090
         protocol       = "TCP"
       }
-      # OpenAPI
-      extra_port_mappings {
-        container_port = 30080
-        host_port      = 8080
-        protocol       = "TCP"
-      }
-      # GraphQL
-      extra_port_mappings {
-        container_port = 30400
-        host_port      = 4000
-        protocol       = "TCP"
-      }
       # STOMP / WebSocket
       extra_port_mappings {
         container_port = 30503
