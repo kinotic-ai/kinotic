@@ -329,6 +329,22 @@ These predate the split and should be fixed (or verified) before or alongside it
 4. **`ITestService` ships in kinotic-server's main sources** on the os-api zone. Confirm
    its gating, or move it out of main.
 
+## Deployment can lag the split
+
+The plane split is compute topology only — both worlds share the same data stores — so
+running today's single `kinotic-server` deployable remains a valid deployment of this
+architecture until customers or budget warrant more processes. Deferring creates no
+data-migration debt. Two disciplines keep the later split cheap while single-server:
+
+- Job/orchestration work goes through `JobDispatchService` only (§7) — never direct
+  calls into orchestration services, even though the single bus makes them reachable.
+- New services are written in their eventual plane homes per the inventory, so the
+  split stays "change assembly and deploy topology," not "untangle."
+
+When splitting, the planes can come up incrementally: management + system first — that
+is the security win (no public listener in front of orchestration) — with
+`kinotic-app-server` deployed when the first customer makes it real.
+
 ## Open items
 
 - `JobDispatchService` contract details (trigger shape, watch semantics, error model).
