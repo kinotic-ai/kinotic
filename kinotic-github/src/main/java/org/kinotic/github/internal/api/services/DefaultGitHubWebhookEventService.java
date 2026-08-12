@@ -1,10 +1,11 @@
 package org.kinotic.github.internal.api.services;
 
+import io.vertx.core.Context;
+import io.vertx.core.Vertx;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.event.Event;
-import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.github.api.services.GitHubWebhookEventService;
 import org.kinotic.domain.api.model.Project;
@@ -12,8 +13,9 @@ import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
 import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -22,8 +24,7 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Default impl: mutates installation state for management events, flips backing
  * projects to {@link RepositoryConnectionStatus#DISCONNECTED} when GitHub revokes
- * access, and republishes a slim envelope for repo events on
- * {@code evt://github/<eventType>/<orgId>/<projectId>}.
+ * access, and emits a {@link GitHubProjectEvent} per backing project for repo events.
  * <p>
  * Webhook deliveries have no Kinotic participant attached, so reads go through the
  * repositories' find-by-field finders (which need no org context, the search key is
@@ -38,11 +39,28 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class DefaultGitHubWebhookEventService implements GitHubWebhookEventService {
 
-    private static final String EVT_NAMESPACE = "github";
-
     private final GitHubAppInstallationRepository installationRepository;
     private final ProjectRepository projectRepository;
-    private final EventBusService eventBusService;
+    private final Vertx vertx;
+
+    // Hot sink shared by every events() subscriber; never terminates. Best-effort delivery keeps a
+    // slow subscriber from stalling the webhook handler, matching GitHub's at-most-once semantics.
+    private final Sinks.Many<GitHubProjectEvent> sink = Sinks.many().multicast().directBestEffort();
+
+    // One shared context every emission is delivered on: it serializes concurrent deliveries (Sinks
+    // reject concurrent emission) and keeps subscriber chains off the threads that complete the
+    // project lookup.
+    private Context deliveryContext;
+
+    @PostConstruct
+    void init() {
+        deliveryContext = vertx.getOrCreateContext();
+    }
+
+    @Override
+    public Flux<GitHubProjectEvent> events() {
+        return sink.asFlux();
+    }
 
     @Override
     public CompletableFuture<Void> process(GitHubWebhookEvent event) {
@@ -142,12 +160,20 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                         return;
                     }
                     for (Project project : projects) {
-                        String cri = EventConstants.EVENT_DESTINATION_SCHEME + "://" + EVT_NAMESPACE + "/"
-                                + event.getEventType()
-                                + "/" + project.getOrganizationId() + "/" + project.getId();
-                        byte[] payload = event.getPayload().encode().getBytes(StandardCharsets.UTF_8);
-                        eventBusService.send(Event.create(cri, payload));
+                        emit(new GitHubProjectEvent().setOrganizationId(project.getOrganizationId())
+                                                     .setProjectId(project.getId())
+                                                     .setWebhookEvent(event));
                     }
                 });
+    }
+
+    private void emit(GitHubProjectEvent event) {
+        deliveryContext.runOnContext(v -> {
+            Sinks.EmitResult result = sink.tryEmitNext(event);
+            if (result.isFailure() && result != Sinks.EmitResult.FAIL_ZERO_SUBSCRIBER) {
+                log.warn("Failed to emit {} event for project {}: {}",
+                         event.getWebhookEvent().getEventType(), event.getProjectId(), result);
+            }
+        });
     }
 }
