@@ -1,236 +1,43 @@
 # Environment Variable Setup Guide
 
-This document explains how to configure the Continuum WebSocket connection using environment variables.
+`VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT`, and `VITE_KINOTIC_USE_SSL` point the SPA at
+kinotic-server. Both the REST calls (`apiUrl()`) and the STOMP connect (`serverOverrides()`)
+read them, in `packages/common/src/util/helpers.ts`. An empty host resolves same-origin,
+which is what the vite dev proxy and the gateway-served production build both need.
 
-## Quick Commands
+| Command | Env files | SPA talks to |
+|---------|-----------|--------------|
+| `pnpm dev` | `.env` | `http://localhost:58503` |
+| `pnpm dev:tunnel` | `.env` + `.env.tunnel` | same origin, through the vite proxy |
+| `pnpm build` | `.env` | `http://localhost:58503` |
+| `pnpm build:dev` | `.env` | `http://localhost:58503` |
+| `pnpm build:kind` | `.env` + `.env.kind` | `https://localhost:58503` |
 
-| Command | Environment | Use Case |
-|---------|-------------|----------|
-| `npm run dev` | `.env.development` | Local development with default settings |
-| `npm run dev:tunnel` | `.env.tunnel` | One-origin dev behind an ngrok tunnel (GitHub/OIDC callbacks) |
-| `npm run dev:kind` | `.env.kind` | Development against Kind cluster |
-| `npm run build` | `.env` | Production build |
-| `npm run build:kind` | `.env.kind` | Build for Kind cluster deployment |
-| `npm run preview` | Production build | Preview production build locally |
-| `npm run preview:kind` | Kind build | Preview kind build locally |
+Only `VITE_`-prefixed vars reach client code, and the dev server must be restarted to pick
+up a change. Precedence is `.env` < `.env.<mode>` < `.env.local`; `.env.local` is gitignored
+for machine-specific overrides.
 
-## Tunnel Mode (ngrok + GitHub/OIDC callbacks)
+## Tunnel mode (ngrok + GitHub/OIDC callbacks)
 
-`pnpm dev:tunnel` serves the SPA and the backend from ONE origin: `.env.tunnel` clears
-`VITE_KINOTIC_HOST`, so `apiUrl()` and `Kinotic.connect()` go same-origin, and the vite
-proxy (`vite.config.ts` `server.proxy`) forwards `/api`, `/v1` (STOMP WebSocket),
-`/.well-known`, and `/mcp` to the local kinotic-server on 58503. Every external callback
-URL can then point at a single ngrok tunnel:
+`pnpm dev:tunnel` serves the SPA and the backend from ONE origin, so external callbacks
+reach a local server through a single tunnel. `.env.tunnel` clears `VITE_KINOTIC_HOST`, and
+`server.proxy` in `vite.config.ts` forwards `/api`, `/v1` (STOMP WebSocket), `/.well-known`,
+and `/mcp` to 58503.
 
 ```bash
 pnpm dev:tunnel          # vite on :5173, proxying the backend
 ngrok http 5173          # one public origin for SPA + API
 ```
 
-Then:
-
-1. Point the GitHub App / OAuth callback and webhook URLs at the ngrok origin
-   (callbacks are under `/api/...`, so they ride the proxy to kinotic-server).
-2. Set the server's `kinotic.domain.appBaseUrl` to the ngrok origin (env var
-   `KINOTIC_DOMAIN_APPBASEURL=https://<id>.ngrok-free.app`, or edit
-   `application-development.yml`) — OIDC `redirect_uri`s and email links are built
-   server-side from it, and `apiBaseUrl` falls back to it, which is correct here since
-   SPA and API share the tunnel origin.
-
-The vite dev server accepts ngrok hostnames via `server.allowedHosts`
-(`.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`).
-
-## Quick Reference
-
-### Default Ports
-- **Pod Internal Port**: 58503 (Continuum Stomp/WebSocket)
-- **Kind NodePort**: 30503 (Kubernetes NodePort range: 30000-32767)
-- **Kind Host Port**: 58503 (Mapped via kind-config.yaml)
-
-### Port Mapping Flow (Kind Cluster)
-```
-Development (npm run dev:kind):
-  Browser → localhost:58503 → kind control-plane:30503 → Service:58503 → Pod:58503
-  
-Production (served from structures-server in kind):
-  Browser → localhost:9090/index.html → WebSocket to localhost:58503 → NodePort:30503 → Service:58503 → Pod:58503
-```
-
-### Environment File Loading Order
-```
-Lowest Priority                                    Highest Priority
-    .env  →  .env.[mode]  →  .env.local  →  Command-line env vars
-    
-Examples:
-  npm run dev        → .env + .env.development + .env.local
-  npm run dev:kind   → .env + .env.kind + .env.local
-  npm run build      → .env + .env.production + .env.local (if exists)
-  npm run build:kind → .env + .env.kind + .env.local (if exists)
-```
-
-## Environment Files
-
-### `.env` (Production/Default)
-Used when the app is built and served from the structures-server.
-```bash
-VITE_CONTINUUM_HOST=
-VITE_CONTINUUM_PORT=58503
-VITE_CONTINUUM_USE_SSL=
-```
-
-### `.env.development` (Development)
-Used automatically when running `npm run dev`.
-```bash
-VITE_CONTINUUM_HOST=127.0.0.1
-VITE_CONTINUUM_PORT=58503
-VITE_CONTINUUM_USE_SSL=false
-```
-
-### `.env.kind` (Kind Cluster)
-Used when running `npm run dev:kind`.
-```bash
-VITE_CONTINUUM_HOST=127.0.0.1
-VITE_CONTINUUM_PORT=58503
-VITE_CONTINUUM_USE_SSL=false
-```
-
-### `.env.local` (Local Overrides)
-Create this file for personal/machine-specific settings. **This file is gitignored.**
-
-Copy from `.env.local.example`:
-```bash
-cp .env.local.example .env.local
-```
-
-## Common Scenarios
-
-### 1. Development with Kind Cluster (Default Setup)
-Use the host port mapping:
-```bash
-npm run dev
-# Connects to localhost:58503 (mapped to NodePort 30503)
-```
-
-Build for kind cluster:
-```bash
-npm run build:kind
-# Builds with .env.kind configuration
-```
-
-Preview the kind build:
-```bash
-npm run preview:kind
-# Previews the kind build locally
-```
-
-### 2. Direct NodePort Access (Testing)
-Connect directly to the NodePort:
-```bash
-# Create .env.local
-echo "VITE_CONTINUUM_PORT=30503" > .env.local
-npm run dev
-```
-
-### 3. Custom Port Configuration
-Override for different deployment:
-```bash
-# .env.local
-VITE_CONTINUUM_HOST=192.168.1.100
-VITE_CONTINUUM_PORT=8080
-VITE_CONTINUUM_USE_SSL=true
-```
-
-### 4. Production Deployment
-When served from structures-server, the app auto-detects the host and protocol:
-- Host: Detected from `window.location.hostname`
-- Port: Uses `VITE_CONTINUUM_PORT` or defaults to 58503
-- SSL: Auto-detected from `window.location.protocol`
-
-Build for production:
-```bash
-npm run build
-# Uses .env (production defaults)
-```
-
-## Why NodePort Can't Match Pod Port
-
-Kubernetes NodePorts must be in the range **30000-32767** by default. Since the pod uses port 58503 (outside this range), we need:
-- **NodePort**: 30503 (within allowed range)
-- **Pod Port**: 58503 (application default)
-- **Kind Host Mapping**: 58503 → 30503 (for convenience)
-
-## Troubleshooting
-
-### Connection Refused
-1. Check if the kind cluster is running: `kind get clusters`
-2. Verify port mappings: `kubectl get svc structures`
-3. Check logs: `kubectl logs -l app=structures-server`
-
-### Wrong Port
-1. Check which `.env` file is active
-2. Verify environment variables: Add `console.log(import.meta.env)` to your code
-3. Restart dev server after changing `.env` files
-
-### SSL Issues
-1. If using HTTPS in browser, you may need `VITE_CONTINUUM_USE_SSL=true`
-2. Check browser console for mixed content warnings
-
-## Vite Environment Variable Rules
-
-1. **Prefix**: Only variables starting with `VITE_` are exposed to client code
-2. **Access**: Use `import.meta.env.VITE_VARIABLE_NAME`
-3. **Priority**: `.env.local` > `.env.[mode]` > `.env`
-4. **String Values**: All env vars are strings (parse as needed)
-5. **Restart Required**: Dev server must be restarted after changing `.env` files
-
-### How Vite Modes Work
-
-When you specify `--mode kind`:
-1. Vite loads `.env` (base configuration)
-2. Then loads `.env.kind` (overwrites any duplicate keys)
-3. Then loads `.env.local` if it exists (highest priority, overwrites all)
-
-**Examples:**
-- `vite` → loads `.env` + `.env.development` (default mode for dev)
-- `vite --mode kind` → loads `.env` + `.env.kind`
-- `vite build` → loads `.env` + `.env.production` (default mode for build)
-- `vite build --mode kind` → loads `.env` + `.env.kind`
-
-**Note:** `.env.local` always takes precedence and is gitignored for machine-specific overrides.
-
-## Related Configuration Files
-
-- `kind-config.yaml`: Kind cluster port mappings
-- `helm-values.yaml`: Kubernetes service NodePort configuration
-- `vite.config.ts`: Vite build configuration
-- `src/vite-env.d.ts`: TypeScript type definitions for env vars
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Point the GitHub App callback and webhook URLs at the ngrok origin, then set the server's
+`kinotic.domain.appBaseUrl` to it (`KINOTIC_DOMAIN_APPBASEURL=https://<id>.ngrok-free.app`,
+or edit `application-development.yml`) — OIDC `redirect_uri`s and email links are built from
+it server-side, and `apiBaseUrl` falls back to it.
+
+The tunnel host must be allowed in two places:
+
+- `server.allowedHosts` in `vite.config.ts`, or vite answers `Blocked request`.
+- `kinotic.apiGateway.cors.allowedOriginPattern` in `application-development.yml`, or the
+  gateway answers `CORS Rejected - Invalid origin`. This applies even though the SPA and API
+  share the origin, because the social login forms POST and browsers send `Origin` on a POST
+  navigation.
