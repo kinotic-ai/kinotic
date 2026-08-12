@@ -3,7 +3,6 @@ plugins {
 }
 
 dependencies {
-    implementation project(':kinotic-github-api')
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
     implementation project(':kinotic-os-api')

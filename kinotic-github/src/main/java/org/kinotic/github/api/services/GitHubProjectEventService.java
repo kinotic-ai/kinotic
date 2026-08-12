@@ -1,6 +1,5 @@
 package org.kinotic.github.api.services;
 
-import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import reactor.core.publisher.Flux;
@@ -8,12 +7,8 @@ import reactor.core.publisher.Flux;
 /**
  * Live GitHub activity for the projects the authenticated participant may see: an organization
  * participant sees its own organization's projects, a system participant sees any.
- * <p>
- * Annotated {@link Proxy} as well as {@link Publish} so a node that hosts no implementation gets an
- * RPC proxy bean for this interface and can subscribe as if the service were local.
  */
 @Publish
-@Proxy
 public interface GitHubProjectEventService {
 
     /**

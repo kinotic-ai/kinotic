@@ -122,11 +122,6 @@ cross-plane call path.
 
 `GitHubProjectRepoService` stays unpublished.
 
-The module's interfaces and DTOs ship as their own artifact, `kinotic-github-api`, holding no
-implementations: an assembly that only consumes the GitHub module's published services depends
-on it, and its `@Proxy` interfaces resolve to RPC proxies against whichever node hosts
-kinotic-github.
-
 ### 7. Job pipeline and the narrow waist
 
 ```text
