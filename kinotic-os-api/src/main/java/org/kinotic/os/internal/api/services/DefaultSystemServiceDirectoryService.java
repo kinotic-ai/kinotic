@@ -22,16 +22,4 @@ public class DefaultSystemServiceDirectoryService implements SystemServiceDirect
         return serviceDirectory.findEntriesScopedTo(null, null, pageable)
                                .toCompletionStage().toCompletableFuture();
     }
-
-    @Override
-    public CompletableFuture<Void> verifyLiveness(String serviceAddress) {
-        return serviceDirectory.verifyLiveness(serviceAddress)
-                               .toCompletionStage().toCompletableFuture();
-    }
-
-    @Override
-    public CompletableFuture<Void> reconcileLiveness() {
-        return serviceDirectory.reconcileLiveness()
-                               .toCompletionStage().toCompletableFuture();
-    }
 }

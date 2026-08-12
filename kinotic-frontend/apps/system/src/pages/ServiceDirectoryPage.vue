@@ -1,10 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <div class="directory__header">
-      <h1 class="directory__title">Service directory</h1>
-      <Button label="Reconcile liveness" icon="pi pi-sync" severity="secondary" outlined
-              :loading="reconciling" @click="reconcile" />
-    </div>
+    <h1 class="directory__title">Service directory</h1>
 
     <CrudTable
       ref="crudTable"
@@ -13,7 +9,6 @@
       :search="tableSearch"
       :is-show-add-new="false"
       :disable-modifications="true"
-      :row-actions="rowActions"
       empty-state-text="No registered services"
       @update:search="tableSearch = $event"
     >
@@ -42,10 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
-import Button from 'primevue/button'
 import Tag from 'primevue/tag'
-import type { MenuItem } from 'primevue/menuitem'
 
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } from '@kinotic-ai/core'
 import type { ServiceDirectoryEntry } from '@kinotic-ai/os-api'
@@ -84,7 +76,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<ServiceDirectoryEnt
 }
 
 // findEntries has no server-side search, so filtering is client-side over the page
-const { crudTable, tableSearch, dataSource, run } = useCrudTablePage(
+const { crudTable, tableSearch, dataSource } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (entry: ServiceDirectoryEntry): DirectoryRow => ({
@@ -101,44 +93,12 @@ const { crudTable, tableSearch, dataSource, run } = useCrudTablePage(
     ))
 
 const formatDate = DatetimeUtil.formatDate
-const reconciling = ref(false)
-
-function rowActions(item: DirectoryRow): MenuItem[] {
-  return [
-    {
-      label: 'Verify liveness',
-      icon: 'pi pi-check-circle',
-      command: () => run(
-          () => Kinotic.systemServiceDirectory.verifyLiveness(item.serviceAddress),
-          'Liveness verified',
-          'Failed to verify liveness')
-    }
-  ]
-}
-
-async function reconcile() {
-  reconciling.value = true
-  try {
-    await run(
-        () => Kinotic.systemServiceDirectory.reconcileLiveness(),
-        'Liveness reconciled for all entries',
-        'Failed to reconcile liveness')
-  } finally {
-    reconciling.value = false
-  }
-}
 </script>
 
 <style scoped>
-.directory__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-}
-
 .directory__title {
   font-size: 1.4rem;
   font-weight: 600;
+  margin-bottom: 1.25rem;
 }
 </style>
