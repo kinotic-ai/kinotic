@@ -99,11 +99,16 @@
            isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-0'
          ]">
          <div class="py-1">
-           <button @click="handleLogout" 
-             :class="[
-               'flex w-full items-center px-4 py-2 text-left text-sm',
-               isDark ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-700 hover:bg-surface-100'
-             ]">
+           <RouterLink to="/account/profile" :class="avatarMenuItemClass" @click="avatarDropdownOpen = false">
+             <i class="pi pi-user mr-2"></i>
+             Profile
+           </RouterLink>
+           <RouterLink to="/account/connected-apps" :class="avatarMenuItemClass" @click="avatarDropdownOpen = false">
+             <i class="pi pi-link mr-2"></i>
+             Connected apps
+           </RouterLink>
+           <div :class="['my-1 border-t', isDark ? 'border-surface-800' : 'border-surface-200']"></div>
+           <button @click="handleLogout" :class="avatarMenuItemClass">
              <i class="pi pi-sign-out mr-2"></i>
              Logout
            </button>
@@ -192,6 +197,11 @@ const currentProjectName = computed(() => {
 });
 
 const isDark = darkMode;
+
+const avatarMenuItemClass = computed(() => [
+  'flex w-full items-center px-4 py-2 text-left text-sm',
+  isDark.value ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-700 hover:bg-surface-100'
+]);
 
 function toggleTheme() {
   toggleDark();

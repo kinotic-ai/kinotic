@@ -89,6 +89,7 @@ export * from '@/api/services/IMemberService'
 export * from '@/api/services/IInviteEmailTemplateService'
 export * from '@/api/services/IOAuthApprovalService'
 export * from '@/api/services/IDelegateService'
+export * from '@/api/services/IProfileService'
 export * from '@/api/services/IMachineService'
 export * from '@/api/services/IGitHubAppInstallationService'
 
