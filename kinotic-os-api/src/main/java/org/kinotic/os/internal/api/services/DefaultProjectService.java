@@ -88,7 +88,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         "Project " + projectId + " is not awaiting initialization retry (status "
                         + project.getRepoConnectionStatus() + ")"));
             }
-            return repoProvisioner.reinitialize(project).thenCompose(this::save);
+            return repoProvisioner.reinitialize(project).thenCompose(this::saveSync);
         });
     }
 
