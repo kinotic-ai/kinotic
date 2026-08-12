@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
- * Handles converting {@link EntityDefinition}s to various mappings. Such as ElasticSearch, OpenAPI, GraphQL.
+ * Handles converting {@link EntityDefinition}s to various mappings. Such as ElasticSearch.
  * Created by Navíd Mitchell 🤪on 5/11/23.
  */
 public interface EntityDefinitionConversionService {

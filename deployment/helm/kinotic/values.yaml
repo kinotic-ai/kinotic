@@ -63,8 +63,6 @@ kinotic:
   webServer:
     port: 9090
     enabled: true
-  openApiPort: 8080
-  graphqlPort: 4000
   restPort: 58504
   elastic:
     connections:
@@ -103,8 +101,6 @@ service:
   nodePorts:
     ui: null
     uiDirect: null
-    openApi: null
-    graphql: null
     stomp: null
   # External ports for LoadBalancer (remap external → internal)
   externalPorts:
