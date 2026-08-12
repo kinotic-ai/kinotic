@@ -11,7 +11,9 @@ import java.util.concurrent.CompletableFuture;
  * Resolves the delivery to a Kinotic Project, mutates installation state for management
  * events, and republishes repository events to subscribers of {@link #events()}.
  * <p>
- * Not {@code @Publish}ed — only the gateway's webhook handler invokes this, in-process.
+ * Not {@code @Publish}ed — {@link #process(GitHubWebhookEvent)} may only ever be called by the
+ * gateway's webhook handler, in-process. {@link GitHubProjectEventService} publishes the event
+ * stream to remote subscribers, scoped to the organization they belong to.
  */
 public interface GitHubWebhookEventService {
 
@@ -25,8 +27,9 @@ public interface GitHubWebhookEventService {
 
     /**
      * A hot stream of repository deliveries that resolved to a Kinotic Project, shared by every
-     * subscriber and carrying every organization's events — filter by
-     * {@link GitHubProjectEvent#getOrganizationId()} before exposing anything derived from it.
+     * subscriber and carrying <strong>every organization's</strong> events — anything reachable by a
+     * participant must filter by {@link GitHubProjectEvent#getOrganizationId()} first, the way
+     * {@link GitHubProjectEventService} does.
      * <p>
      * The stream never completes, and delivery is best-effort: a subscriber that can't keep up
      * loses events rather than applying backpressure to the webhook handler. Only deliveries

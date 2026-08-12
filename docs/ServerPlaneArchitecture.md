@@ -140,8 +140,8 @@ This narrow waist is also the exit hatch: if the planes ever need physical separ
 User-facing re-runs enter through a small os-api-zone service that verifies the caller's
 org owns the `JobRun` (read from shared ES) before forwarding. Live status streams over
 the bus (`watch`); shared ES serves only cold reads (history pages, ownership checks).
-The current `GitHubWebhookEventService.events()` fan-out (which has zero subscribers) is
-replaced by the explicit dispatch call. Webhook dispatch remains at-most-once, matching today's
+Job dispatch does not ride the `GitHubProjectEventService` fan-out (which has zero
+subscribers today) — it is the explicit dispatch call. Webhook dispatch remains at-most-once, matching today's
 semantics; a durable dispatch-outbox in ES is the designated upgrade if a lost event
 ever costs something.
 
