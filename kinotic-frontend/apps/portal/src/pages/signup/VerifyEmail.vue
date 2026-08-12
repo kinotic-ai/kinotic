@@ -3,12 +3,12 @@
     <div class="login-form">
       <!-- Password form -->
       <div class="login-form__step">
-        <div class="verify-header">
-          <span class="verify-icon-wrap verify-icon-wrap--primary">
-            <span class="pi pi-shield verify-header__icon"></span>
+        <div class="text-center mb-6">
+          <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
+            <span class="pi pi-shield text-[2rem] text-primary"></span>
           </span>
-          <h2 class="verify-title">Email verified</h2>
-          <p class="verify-text">Name your organization and set a password to finish.</p>
+          <h2 class="text-2xl font-semibold mb-2 text-center leading-tight">Email verified</h2>
+          <p class="mt-1 mb-6 leading-normal text-muted-color text-center">Name your organization and set a password to finish.</p>
         </div>
 
         <div class="login-field">
@@ -140,47 +140,3 @@ function displayAlert(text: string) {
   })
 }
 </script>
-
-<style scoped>
-.verify-header {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-
-.verify-icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 999px;
-  margin-bottom: 1.5rem;
-}
-
-.verify-icon-wrap--primary {
-  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
-}
-
-.verify-header__icon {
-  font-size: 2rem;
-}
-
-.verify-icon-wrap--primary .verify-header__icon {
-  color: var(--p-primary-color);
-}
-
-.verify-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 0.5rem;
-  text-align: center;
-  line-height: 1.25;
-}
-
-.verify-text {
-  margin: 0.25rem 0 1.5rem;
-  line-height: 1.5;
-  color: var(--p-text-muted-color);
-  text-align: center;
-}
-</style>

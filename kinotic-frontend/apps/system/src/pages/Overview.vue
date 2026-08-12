@@ -1,8 +1,8 @@
 <template>
-  <div class="overview">
-    <h1 class="overview__title">Overview</h1>
+  <div>
+    <h1 class="text-[1.4rem] font-semibold mb-5">Overview</h1>
 
-    <div class="overview__grid">
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(24rem,1fr))] gap-5 items-start">
       <ClusterInfoCard :info="clusterInfo" :error="clusterError" />
       <PlatformStatsCard />
       <LogLevelCard :node-ids="nodeIds" />
@@ -34,18 +34,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.overview__title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin-bottom: 1.25rem;
-}
-
-.overview__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr));
-  gap: 1.25rem;
-  align-items: start;
-}
-</style>

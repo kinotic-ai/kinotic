@@ -3,12 +3,12 @@
     <div class="login-form">
       <h2 class="signup-title">Create your organization</h2>
 
-      <p class="signup-subtitle">
+      <p class="mb-4 max-w-88 text-center leading-normal text-muted-color text-[0.9375rem]">
         Kinotic projects are backed by GitHub repositories, so your organization starts
         with your GitHub identity.
       </p>
 
-      <div class="signup-providers">
+      <div class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
         <SocialAuthButton
           provider="github"
           :action="apiUrl('/api/auth/org/signup/social/start/github')"
@@ -16,7 +16,7 @@
         />
       </div>
 
-      <div class="signup-footer-link">
+      <div class="text-center mt-4 text-sm">
         Already have an account? <router-link to="/login" class="login-link">Sign in</router-link>
       </div>
     </div>
@@ -28,28 +28,3 @@ import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SocialAuthButton from '@/components/SocialAuthButton.vue'
 </script>
-
-<style scoped>
-.signup-subtitle {
-  margin: 0 0 1rem;
-  max-width: 22rem;
-  text-align: center;
-  line-height: 1.5;
-  color: var(--p-text-muted-color);
-  font-size: 0.9375rem;
-}
-
-.signup-providers {
-  width: min(100%, 20rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0.5rem 0 1.5rem;
-}
-
-.signup-footer-link {
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.875rem;
-}
-</style>

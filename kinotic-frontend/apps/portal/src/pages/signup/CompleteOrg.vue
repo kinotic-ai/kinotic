@@ -1,10 +1,10 @@
 <template>
   <AuthPageShell>
     <div v-if="!token" class="login-form">
-      <div class="signup-error">
-        <span class="pi pi-exclamation-triangle signup-error__icon"></span>
+      <div class="text-center py-8">
+        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
         <h2 class="signup-title">Missing registration token</h2>
-        <p class="signup-success__text">
+        <p class="my-1 leading-normal">
           Open this page from the link your identity provider sent you, or
           <router-link to="/signup" class="login-link">start a new sign-up</router-link>.
         </p>
@@ -12,12 +12,12 @@
     </div>
 
     <div v-else-if="step === 'connect'" class="login-form">
-      <div class="connect-github">
-        <span class="connect-github__icon-wrap">
-          <span class="pi pi-github connect-github__icon"></span>
+      <div class="text-center pt-4 pb-2">
+        <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
+          <span class="pi pi-github text-[2rem] text-primary"></span>
         </span>
         <h2 class="signup-title">Your organization is ready</h2>
-        <p class="connect-github__text">
+        <p class="mx-auto mb-6 max-w-96 leading-normal">
           One more step: we'll send you back to GitHub to install the Kinotic app.
           Signing in proved who you are — installing the app authorizes repository
           access, so Kinotic can create and manage the GitHub repositories that back
@@ -184,43 +184,3 @@ function displayError(text: string) {
   toast.add({ severity: 'error', summary: 'Error', detail: text, life: 10000 })
 }
 </script>
-
-<style scoped>
-.signup-error {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.signup-error__icon {
-  font-size: 3rem;
-  color: var(--p-primary-500);
-  margin-bottom: 1rem;
-}
-
-.connect-github {
-  text-align: center;
-  padding: 1rem 0 0.5rem;
-}
-
-.connect-github__icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
-  margin-bottom: 1.5rem;
-}
-
-.connect-github__icon {
-  font-size: 2rem;
-  color: var(--p-primary-color);
-}
-
-.connect-github__text {
-  margin: 0 auto 1.5rem;
-  max-width: 24rem;
-  line-height: 1.5;
-}
-</style>

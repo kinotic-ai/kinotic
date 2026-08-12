@@ -2,24 +2,24 @@
   <Card>
     <template #title>Log level</template>
     <template #content>
-      <div class="loglevel-form">
+      <div class="flex flex-wrap items-center gap-3">
         <Select
           v-model="nodeId"
           :options="nodeIds"
           placeholder="Node"
-          class="loglevel-field"
+          class="min-w-48"
         />
         <InputText
           v-model="loggerName"
           placeholder="Logger name (e.g. org.kinotic)"
-          class="loglevel-field"
+          class="min-w-48"
           @keyup.enter="apply"
         />
         <Select
           v-model="level"
           :options="levels"
           placeholder="Level"
-          class="loglevel-field"
+          class="min-w-48"
         />
         <Button label="Apply" :disabled="!canApply" :loading="applying" @click="apply" />
       </div>
@@ -74,16 +74,3 @@ async function apply() {
   }
 }
 </script>
-
-<style scoped>
-.loglevel-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.loglevel-field {
-  min-width: 12rem;
-}
-</style>

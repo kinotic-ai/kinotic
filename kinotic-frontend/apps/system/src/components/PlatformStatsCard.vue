@@ -2,13 +2,13 @@
   <Card>
     <template #title>Platform</template>
     <template #content>
-      <div v-if="error" class="card-error">
+      <div v-if="error">
         <Message severity="error" :closable="false">{{ error }}</Message>
       </div>
-      <div v-else class="platform-stats">
-        <div class="platform-stat">
-          <span class="platform-stat__value">{{ organizationCount ?? '—' }}</span>
-          <span class="platform-stat__label">Organizations</span>
+      <div v-else class="flex gap-8">
+        <div class="flex flex-col gap-1">
+          <span class="text-2xl font-semibold">{{ organizationCount ?? '—' }}</span>
+          <span class="text-xs text-muted-color">Organizations</span>
         </div>
       </div>
     </template>
@@ -33,26 +33,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.platform-stats {
-  display: flex;
-  gap: 2rem;
-}
-
-.platform-stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.platform-stat__value {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.platform-stat__label {
-  font-size: 0.8rem;
-  color: var(--p-text-muted-color);
-}
-</style>

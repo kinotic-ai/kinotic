@@ -1,11 +1,11 @@
 <template>
-  <div class="org-detail">
-    <div class="org-detail__header">
+  <div>
+    <div class="flex items-center gap-3 mb-5">
       <Button icon="pi pi-arrow-left" severity="secondary" text aria-label="Back to organizations"
               @click="router.push({ name: 'organizations' })" />
       <div>
-        <h1 class="org-detail__title">{{ organization?.name ?? organizationId }}</h1>
-        <p class="org-detail__subtitle">
+        <h1 class="text-[1.4rem] font-semibold">{{ organization?.name ?? organizationId }}</h1>
+        <p class="text-sm text-muted-color mt-0.5">
           <span class="font-mono">{{ organizationId }}</span>
           <template v-if="organization?.description"> — {{ organization.description }}</template>
         </p>
@@ -70,23 +70,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.org-detail__header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.25rem;
-}
-
-.org-detail__title {
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.org-detail__subtitle {
-  font-size: 0.85rem;
-  color: var(--p-text-muted-color);
-  margin-top: 0.15rem;
-}
-</style>

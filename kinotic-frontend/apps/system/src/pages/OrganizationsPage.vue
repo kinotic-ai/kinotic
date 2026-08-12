@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <h1 class="orgs__title">Organizations</h1>
+    <h1 class="text-[1.4rem] font-semibold mb-5">Organizations</h1>
 
     <CrudTable
       ref="crudTable"
@@ -74,11 +74,3 @@ async function load(pageable: Pageable, searchText: string | null): Promise<Iter
 
 const formatDate = DatetimeUtil.formatEpochDate
 </script>
-
-<style scoped>
-.orgs__title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  margin-bottom: 1.25rem;
-}
-</style>
