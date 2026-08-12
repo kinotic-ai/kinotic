@@ -38,7 +38,13 @@ Then:
    SPA and API share the tunnel origin.
 
 The vite dev server accepts ngrok hostnames via `server.allowedHosts`
-(`.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`).
+(`.ngrok-free.app`, `.ngrok-free.dev`, `.ngrok.app`, `.ngrok.dev`, `.ngrok.io`), and
+kinotic-server accepts them as CORS origins via `kinotic.apiGateway.cors.allowedOriginPattern`
+in `application-development.yml`. Both lists are needed: the social login/signup buttons submit
+a form POST to `/api/auth/org/...`, and a browser sends `Origin` on a POST navigation even when
+it is same-origin, so the tunnel origin is CORS-checked even though the SPA and API share it. A
+tunnel host outside those patterns fails as a vite `Blocked request` (host) or a
+`{"error":"CORS Rejected - Invalid origin"}` 403 from the gateway (origin).
 
 ## Quick Reference
 

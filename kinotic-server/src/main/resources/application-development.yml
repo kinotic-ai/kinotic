@@ -30,7 +30,11 @@ kinotic:
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   apiGateway:
     cors:
-      allowedOriginPattern: "http:\\/\\/localhost:\\d+"
+      # Tunnel origins are listed alongside localhost because the social-login forms POST to
+      # /api/..., and browsers send Origin on a POST navigation even when it is same-origin,
+      # so the tunnel origin is CORS-checked despite SPA and API sharing it. Mirrors the
+      # vite dev server's server.allowedHosts.
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
       allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
