@@ -7,7 +7,7 @@
     @hide="stopTail"
     @show="opened"
   >
-    <div class="logs__toolbar">
+    <div class="flex items-center gap-3 mb-3">
       <ToggleButton
         v-model="following"
         on-label="Following"
@@ -18,14 +18,15 @@
       />
       <Button label="Reload history" icon="pi pi-refresh" severity="secondary" outlined size="small"
               :loading="loadingHistory" @click="loadHistory" />
-      <span class="logs__count">{{ lines.length }} lines</span>
-      <Message v-if="error" severity="error" :closable="false" class="logs__error">{{ error }}</Message>
+      <span class="text-xs text-muted-color">{{ lines.length }} lines</span>
+      <Message v-if="error" severity="error" :closable="false" class="flex-1">{{ error }}</Message>
     </div>
 
-    <div ref="scroller" class="logs__scroller" @scroll="onScroll">
-      <div v-if="lines.length === 0 && !loadingHistory" class="logs__empty">No log entries in the last hour</div>
-      <div v-for="(entry, index) in lines" :key="index" class="logs__line">
-        <span class="logs__timestamp">{{ formatTimestamp(entry.ts) }}</span>
+    <div ref="scroller" class="h-[60vh] overflow-y-auto p-3 rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
+         @scroll="onScroll">
+      <div v-if="lines.length === 0 && !loadingHistory" class="text-surface-400">No log entries in the last hour</div>
+      <div v-for="(entry, index) in lines" :key="index" class="flex gap-3 whitespace-pre-wrap break-all">
+        <span class="shrink-0 text-surface-500">{{ formatTimestamp(entry.ts) }}</span>
         <span>{{ entry.line }}</span>
       </div>
     </div>
@@ -170,48 +171,3 @@ function formatTimestamp(epochMillis: number): string {
   return new Date(epochMillis).toLocaleTimeString('en-US', { hour12: false })
 }
 </script>
-
-<style scoped>
-.logs__toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.logs__count {
-  font-size: 0.8rem;
-  color: var(--p-text-muted-color);
-}
-
-.logs__error {
-  flex: 1;
-}
-
-.logs__scroller {
-  height: 60vh;
-  overflow-y: auto;
-  padding: 0.75rem;
-  border-radius: 6px;
-  background: var(--p-surface-950);
-  color: var(--p-surface-200);
-  font-family: monospace;
-  font-size: 0.8rem;
-}
-
-.logs__empty {
-  color: var(--p-surface-400);
-}
-
-.logs__line {
-  display: flex;
-  gap: 0.75rem;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.logs__timestamp {
-  flex-shrink: 0;
-  color: var(--p-surface-500);
-}
-</style>

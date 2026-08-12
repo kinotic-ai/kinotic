@@ -1,54 +1,55 @@
 <template>
   <div class="flex flex-col">
-    <div class="nodes__header">
-      <h1 class="nodes__title">Nodes &amp; workloads</h1>
+    <div class="flex items-center justify-between mb-5">
+      <h1 class="text-[1.4rem] font-semibold">Nodes &amp; workloads</h1>
       <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
               :loading="loadingNodes" @click="refreshAll" />
     </div>
 
-    <Message v-if="nodesError" severity="error" :closable="false" class="nodes__error">{{ nodesError }}</Message>
+    <Message v-if="nodesError" severity="error" :closable="false" class="mb-4">{{ nodesError }}</Message>
 
-    <div v-else-if="nodes.length === 0 && !loadingNodes" class="nodes__empty">
+    <div v-else-if="nodes.length === 0 && !loadingNodes"
+         class="p-6 border border-dashed border-surface rounded-lg text-muted-color">
       No nodes have registered with the orchestrator
     </div>
 
-    <div v-else class="nodes__grid">
-      <div v-for="node in nodes" :key="node.id" class="node-card">
-        <div class="node-card__header">
-          <span class="node-card__name">{{ node.name }}</span>
+    <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
+      <div v-for="node in nodes" :key="node.id" class="flex flex-col gap-2 p-4 border border-surface rounded-lg">
+        <div class="flex items-center justify-between">
+          <span class="font-semibold">{{ node.name }}</span>
           <Tag :value="node.status" :severity="nodeSeverity(node.status)" />
         </div>
-        <div class="node-card__hostname font-mono">{{ node.hostname }}</div>
+        <div class="font-mono text-xs text-muted-color">{{ node.hostname }}</div>
 
-        <div class="node-card__capacity">
-          <div class="node-card__metric">
-            <div class="node-card__metric-label">
+        <div class="flex flex-col gap-2 mt-1">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
               <span>CPU</span>
               <span>{{ node.allocatedCpus }} / {{ node.totalCpus }} vCPU</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedCpus, node.totalCpus)" :show-value="false" class="node-card__bar" />
+            <ProgressBar :value="percentOf(node.allocatedCpus, node.totalCpus)" :show-value="false" class="!h-1.5" />
           </div>
-          <div class="node-card__metric">
-            <div class="node-card__metric-label">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
               <span>Memory</span>
               <span>{{ formatMb(node.allocatedMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" :show-value="false" class="node-card__bar" />
+            <ProgressBar :value="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" :show-value="false" class="!h-1.5" />
           </div>
-          <div class="node-card__metric">
-            <div class="node-card__metric-label">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
               <span>Disk</span>
               <span>{{ formatMb(node.allocatedDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedDiskMb, node.totalDiskMb)" :show-value="false" class="node-card__bar" />
+            <ProgressBar :value="percentOf(node.allocatedDiskMb, node.totalDiskMb)" :show-value="false" class="!h-1.5" />
           </div>
         </div>
 
-        <div class="node-card__last-seen">Last seen: {{ formatEpochDateTime(node.lastSeen) }}</div>
+        <div class="text-xs text-muted-color mt-1">Last seen: {{ formatEpochDateTime(node.lastSeen) }}</div>
       </div>
     </div>
 
-    <h2 class="nodes__subtitle">Workloads</h2>
+    <h2 class="text-lg font-semibold mt-6 mb-3">Workloads</h2>
 
     <CrudTable
       ref="crudTable"
@@ -282,88 +283,3 @@ function formatMb(mb: number): string {
 
 onMounted(loadNodes)
 </script>
-
-<style scoped>
-.nodes__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.25rem;
-}
-
-.nodes__title {
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.nodes__subtitle {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 1.5rem 0 0.75rem;
-}
-
-.nodes__error {
-  margin-bottom: 1rem;
-}
-
-.nodes__empty {
-  padding: 1.5rem;
-  border: 1px dashed var(--p-content-border-color);
-  border-radius: 8px;
-  color: var(--p-text-muted-color);
-}
-
-.nodes__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  gap: 1rem;
-}
-
-.node-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: 8px;
-}
-
-.node-card__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.node-card__name {
-  font-weight: 600;
-}
-
-.node-card__hostname {
-  font-size: 0.8rem;
-  color: var(--p-text-muted-color);
-}
-
-.node-card__capacity {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-top: 0.25rem;
-}
-
-.node-card__metric-label {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.8rem;
-  margin-bottom: 0.2rem;
-}
-
-.node-card__bar {
-  height: 6px;
-}
-
-.node-card__last-seen {
-  font-size: 0.75rem;
-  color: var(--p-text-muted-color);
-  margin-top: 0.25rem;
-}
-</style>
