@@ -22,23 +22,34 @@
       <Message v-if="error" severity="error" :closable="false" class="flex-1">{{ error }}</Message>
     </div>
 
-    <div ref="scroller" class="h-[60vh] overflow-y-auto p-3 rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
-         @scroll="onScroll">
-      <div v-if="lines.length === 0 && !loadingHistory" class="text-surface-400">No log entries in the last hour</div>
-      <div v-for="(entry, index) in lines" :key="index" class="flex gap-3 whitespace-pre-wrap break-all">
-        <span class="shrink-0 text-surface-500">{{ formatTimestamp(entry.ts) }}</span>
-        <span>{{ entry.line }}</span>
-      </div>
+    <div v-if="lines.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
+      <span v-if="!loadingHistory">No log entries in the last hour</span>
     </div>
+    <VirtualScroller
+      v-else
+      ref="scroller"
+      :items="lines"
+      :itemSize="LINE_HEIGHT_PX"
+      class="h-[60vh] rounded-md bg-surface-950 text-surface-200 font-mono text-xs"
+      @scroll="onScroll"
+    >
+      <template #item="{ item }">
+        <div class="flex gap-3 whitespace-pre px-3 h-5 items-center">
+          <span class="shrink-0 text-surface-500">{{ formatTimestamp(item.ts) }}</span>
+          <span>{{ item.line }}</span>
+        </div>
+      </template>
+    </VirtualScroller>
   </Dialog>
 </template>
 
 <script setup lang="ts">
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, ref, shallowRef, watch } from 'vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
 import ToggleButton from 'primevue/togglebutton'
+import VirtualScroller from 'primevue/virtualscroller'
 
 import { Kinotic } from '@kinotic-ai/core'
 
@@ -52,19 +63,23 @@ const visible = defineModel<boolean>('visible', { required: true })
 /** How far back the history query reaches, and its entry cap. */
 const HISTORY_WINDOW_MS = 60 * 60 * 1000
 const HISTORY_LIMIT = 1000
-/** Oldest lines are dropped past this to keep a long-running tail from growing the DOM unbounded. */
-const MAX_LINES = 2000
+// The VirtualScroller keeps the DOM viewport-sized regardless of buffer length, so the
+// cap only bounds heap and the per-frame concat cost of a long-running tail.
+const MAX_LINES = 25_000
+/** Fixed row height the VirtualScroller positions rows by; rows must render at exactly this height. */
+const LINE_HEIGHT_PX = 20
 
 interface LogLine {
   ts: number
   line: string
 }
 
-const lines = ref<LogLine[]>([])
+// shallowRef: lines are immutable once parsed, so per-line reactive proxies buy nothing
+const lines = shallowRef<LogLine[]>([])
 const following = ref(true)
 const loadingHistory = ref(false)
 const error = ref<string | null>(null)
-const scroller = ref<HTMLElement | null>(null)
+const scroller = ref<InstanceType<typeof VirtualScroller> | null>(null)
 // Auto-scroll only while the user is at the bottom; scrolling up pins the view in place
 let pinnedToBottom = true
 let tailSubscription: { unsubscribe(): void } | null = null
@@ -114,7 +129,8 @@ function startTail() {
       const frame = JSON.parse(decoder.decode(bytes))
       const fresh = parseStreams(frame?.streams)
       if (fresh.length > 0) {
-        lines.value = [...lines.value, ...fresh].slice(-MAX_LINES)
+        const merged = lines.value.concat(fresh)
+        lines.value = merged.length > MAX_LINES ? merged.slice(-MAX_LINES) : merged
         scrollToBottom()
       }
     },
@@ -149,21 +165,14 @@ watch(following, follow => {
   }
 })
 
-function onScroll() {
-  const el = scroller.value
-  if (el) {
-    pinnedToBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 10
-  }
+function onScroll(event: Event) {
+  const el = event.target as HTMLElement
+  pinnedToBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2 * LINE_HEIGHT_PX
 }
 
 function scrollToBottom() {
   if (pinnedToBottom) {
-    nextTick(() => {
-      const el = scroller.value
-      if (el) {
-        el.scrollTop = el.scrollHeight
-      }
-    })
+    nextTick(() => scroller.value?.scrollToIndex(lines.value.length - 1))
   }
 }
 
