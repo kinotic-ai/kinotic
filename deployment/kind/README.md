@@ -215,7 +215,7 @@ kubectl rollout restart deployment/kinotic-server -n kinotic
 **Port conflicts:**
 ```bash
 lsof -i :443
-lsof -i :8080
+lsof -i :9090
 lsof -i :58503
 ```
 

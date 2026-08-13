@@ -49,8 +49,6 @@ export async function setup(project: TestProject) {
         project.provide('KINOTIC_HOST', container.getHost())
         // @ts-ignore
         project.provide('KINOTIC_PORT', container.getMappedPort(58503))
-        // @ts-ignore
-        project.provide('KINOTIC_OPENAPI_PORT', container.getMappedPort(8080))
 
         console.log('Kinotic started.')
     }else{
@@ -58,8 +56,6 @@ export async function setup(project: TestProject) {
         project.provide('KINOTIC_HOST', '127.0.0.1')
         // @ts-ignore
         project.provide('KINOTIC_PORT', 58503)
-        // @ts-ignore
-        project.provide('KINOTIC_OPENAPI_PORT', 8080)
         console.log('Skipping Kinotic setup because VITE_USE_KINOTIC_DOCKER is false')
     }
 }
