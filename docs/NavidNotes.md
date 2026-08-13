@@ -224,6 +224,7 @@ We store a bunch of maps during decorator processing that will not be used. We n
   * Make sure this flag also affects if a JWT can be minted, basically will require the org or app id based on the allowed login hierarchy.
 * Make the Kinotic CLI and LLM plugins authenticate with credentials that are not an IamUser, but associated with one. We heed a new type of credentials for external programs to use, similar to an IamUser but a different thing. 
 * When we have a system UI, add support for setting the secrets for Github, Azure, and Google apps. I don't like the idea of doing it through a terminal where they end up having to be on a users machine and also in terminal history. 
+* Make sure @Publihed services only live in expected java modules. (We should add a gradle task to check this)
 
 
 # Kinotic CLI

@@ -131,7 +131,7 @@ async function onProjectSubmit(): Promise<void> {
 
 async function deleteProject(item: Project): Promise<void> {
   try {
-    await Kinotic.projects.deleteById(item.id!)
+    await Kinotic.projects.deleteByIdSync(item.id!)
     toast.add({ severity: 'success', summary: 'Project deleted', life: 4000 })
     refreshTable()
   } catch (err) {

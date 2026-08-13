@@ -100,8 +100,6 @@ dependencyManagement {
         dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
-        dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
-
         dependency "commons-io:commons-io:${commonsIoVersion}"
 
         // JWT and OIDC dependencies
@@ -121,7 +119,6 @@ dependencyManagement {
         dependency "io.vertx:vertx-reactive-streams:${vertxVersion}"
         dependency "io.vertx:vertx-web:${vertxVersion}"
         dependency "io.vertx:vertx-web-client:${vertxVersion}"
-        dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
 
         // Spring no longer uses javax annotations
         dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
@@ -142,7 +139,6 @@ dependencyManagement {
 
         dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
         dependency "org.apache.ignite:ignite-core:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-indexing:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
         dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
         dependency "org.apache.ignite:ignite-spring:${igniteVersion}"

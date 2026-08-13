@@ -88,18 +88,30 @@ const pageRoutes: RouteRecordRaw[] = [
   organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
-    path: '/authorized-access',
+    path: '/account',
+    redirect: '/account/profile',
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
       showInMainNav: false,
-      label: 'Authorized access',
-      sidebar: { group: 'organization', section: 'Account', label: 'Authorized access', icon: 'pi-key', order: 10 } as SidebarItemMeta
+      label: 'Account',
+      sidebarGroup: 'account'
     } as RouteMeta,
     children: [
       {
-        name: 'authorized-access',
-        path: '',
-        component: () => import('@/pages/AuthorizedAccessPage.vue')
+        name: 'account-profile',
+        path: 'profile',
+        meta: {
+          sidebar: { group: 'account', label: 'Profile', icon: 'pi-user', order: 10 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/ProfilePage.vue')
+      },
+      {
+        name: 'account-connected-apps',
+        path: 'connected-apps',
+        meta: {
+          sidebar: { group: 'account', label: 'Connected apps', icon: 'pi-link', order: 20 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/ConnectedAppsPage.vue')
       }
     ]
   },

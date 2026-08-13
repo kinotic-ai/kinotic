@@ -4,7 +4,8 @@ This project uses the [debug](https://github.com/debug-js/debug) library for dev
 
 ## Usage
 
-All console logging has been migrated to use the debug library with a `kinotic-ui:` namespace prefix.
+Loggers are created with `createDebug(name)` from `@kinotic-ai/frontend-common`, which
+prefixes every namespace with `kinotic-ui:`.
 
 ### Enable Logging
 
@@ -31,24 +32,37 @@ localStorage.removeItem('debug')
 
 ### Available Namespaces
 
-The following debug namespaces are available:
+`packages/common`:
 
-- `kinotic-ui:login` - Login and OIDC authentication flow
-- `kinotic-ui:entity-list` - Entity list operations
-- `kinotic-ui:application-list` - Application list operations
-- `kinotic-ui:user-state` - User authentication state management
-- `kinotic-ui:application-state` - Application state management
-- `kinotic-ui:data-insights` - Data insights visualization rendering
-- `kinotic-ui:saved-widgets` - Saved widgets loading and management
-- `kinotic-ui:saved-widget-item` - Individual widget rendering
-- `kinotic-ui:config` - Application configuration loading
+- `kinotic-ui:session-state` — auth/session state management
+
+`apps/portal`:
+
+- `kinotic-ui:continuum-ui` — connection bootstrap
+- `kinotic-ui:login` — login and OIDC authentication flow
+- `kinotic-ui:members` — organization member management
+- `kinotic-ui:application-list`, `kinotic-ui:application-sidebar`, `kinotic-ui:application-state`
+- `kinotic-ui:project-list`, `kinotic-ui:new-project-sidebar`
+- `kinotic-ui:project-entity-definitions-page`, `kinotic-ui:project-entity-definitions-table`
+- `kinotic-ui:entityDefinitions-list`, `kinotic-ui:entity-list`,
+  `kinotic-ui:entity-list-entityDefinitions`, `kinotic-ui:entity-list-old`
+- `kinotic-ui:crud-table`
+- `kinotic-ui:dashboard-view`, `kinotic-ui:dashboard-details`
+- `kinotic-ui:data-insights`, `kinotic-ui:saved-widgets`, `kinotic-ui:saved-widget-item`
+- `kinotic-ui:graphql-playground`, `kinotic-ui:openapi-playground`
+
+`apps/system`:
+
+- `kinotic-ui:system-login` — system console login
+
+To list the current set: `grep -rn "createDebug(" apps packages --include=*.ts --include=*.vue`.
 
 ### Adding Debug Logging to New Files
 
 1. Import the `createDebug` function:
 
 ```typescript
-import { createDebug } from '@/util/debug'
+import { createDebug } from '@kinotic-ai/frontend-common'
 ```
 
 2. Create a debug instance with your module name:
@@ -82,8 +96,9 @@ debug('User %s logged in at %d with profile: %O', user.email, Date.now(), user.p
 
 ## Benefits
 
-- **Zero performance impact in production** - Debug logging is compiled out if not enabled
+- **No output unless enabled** - a disabled namespace is a no-op function, so the arguments
+  are still evaluated but nothing is formatted or written
 - **Selective logging** - Enable only the modules you care about
 - **Color-coded output** - Each namespace gets a different color in the console
 - **Timestamp support** - Shows time elapsed between log calls
-- **Standard pattern** - Consistent with the kinotic-client-js library
+- **Standard pattern** - Consistent with the `@kinotic-ai/*` client packages

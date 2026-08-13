@@ -71,6 +71,17 @@ export interface ICrudServiceProxy<T extends Identifiable<string>> extends IEdit
     deleteById(id: string): Promise<void>
 
     /**
+     * Deletes the entity with the given id and waits for the deletion to be visible in search
+     * results before returning.
+     * Use this when you need read-your-write consistency immediately after deletion.
+     *
+     * @param id must not be {@literal null}.
+     * @return a {@link Promise} signaling when the deletion is visible to search.
+     * @throws IllegalArgumentException in case the given {@literal identity} is {@literal null}.
+     */
+    deleteByIdSync(id: string): Promise<void>
+
+    /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
      *
      * @param pageable the page settings to be used

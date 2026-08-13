@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
@@ -35,22 +36,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     @Override
     public CompletableFuture<Project> create(Project project) {
-        validateAndDeriveId(project);
-        // Fail fast on a known duplicate before provisioning a repo; the atomic super.create
-        // catches the race where another create lands between this check and the write.
-        return findById(project.getId())
-                .thenCompose(existing -> {
-                    if (existing != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "Project for id " + project.getId() + " already exists"));
-                    }
-                    return repoProvisioner.provision(project)
-                                          .thenCompose(super::create);
-                })
-                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
-                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "Project for id " + project.getId() + " already exists"))
-                        : CompletableFuture.failedFuture(ex));
+        return provisionAndWrite(project, super::create);
+    }
+
+    @Override
+    public CompletableFuture<Project> createSync(Project project) {
+        return provisionAndWrite(project, super::createSync);
     }
 
     @Override
@@ -97,8 +88,28 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         "Project " + projectId + " is not awaiting initialization retry (status "
                         + project.getRepoConnectionStatus() + ")"));
             }
-            return repoProvisioner.reinitialize(project).thenCompose(this::save);
+            return repoProvisioner.reinitialize(project).thenCompose(this::saveSync);
         });
+    }
+
+    private CompletableFuture<Project> provisionAndWrite(Project project,
+                                                         Function<Project, CompletableFuture<Project>> write) {
+        validateAndDeriveId(project);
+        // Fail fast on a known duplicate before provisioning a repo; the atomic write
+        // catches the race where another create lands between this check and it.
+        return findById(project.getId())
+                .thenCompose(existing -> {
+                    if (existing != null) {
+                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"));
+                    }
+                    return repoProvisioner.provision(project)
+                                          .thenCompose(write);
+                })
+                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
+                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"))
+                        : CompletableFuture.failedFuture(ex));
     }
 
     private void validateAndDeriveId(Project project) {
