@@ -84,8 +84,9 @@ async function handleSubmit(): Promise<void> {
         // Goes through the server-side ProjectRepoProvisioner, which creates the
         // backing GitHub repo from the configured template and stamps the repo
         // metadata on the project before persisting. Fails if a project with the
-        // derived id already exists.
-        const createdProject = await Kinotic.projects.create(project);
+        // derived id already exists. createSync so the list re-query the submit
+        // handler fires sees the new project rather than a pre-refresh index.
+        const createdProject = await Kinotic.projects.createSync(project);
 
         toast.add({
             severity: 'success',

@@ -28,8 +28,8 @@ correctly:
 `127.0.0.1 keycloak` makes the host machine resolve `keycloak` → 127.0.0.1, so the
 browser can reach the published Keycloak port (mapped at `127.0.0.1:8888`) using the
 same hostname kinotic-server uses internally. The JWT's `iss` claim will then exactly
-match the configured authority — `OAuth2AuthFactory.isIssuerValid` does a strict
-match — and the auth flow completes cleanly.
+match the configured authority — `OAuth2Util.isIssuerValid` does a strict match — and the
+auth flow completes cleanly.
 
 ## Verification
 
@@ -51,7 +51,7 @@ ping -c 1 keycloak
 
 If you get connection errors:
 1. **Verify hosts file**: `cat /etc/hosts | grep keycloak`
-2. **Check if Keycloak is running**: `curl -s http://keycloak:8888/auth/health/ready`
+2. **Check if Keycloak is running**: `curl -s http://keycloak:8888/auth/realms/test/.well-known/openid-configuration`
 3. **Restart your browser** after changing hosts file (some browsers cache DNS)
 4. **Flush DNS cache** if needed (`sudo dscacheutil -flushcache` on macOS)
 
