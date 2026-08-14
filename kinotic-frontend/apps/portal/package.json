@@ -16,7 +16,7 @@
     "@kinotic-ai/core": "^5.0.0-beta.5",
     "@kinotic-ai/frontend-common": "workspace:*",
     "@kinotic-ai/idl": "^5.0.0-beta.0",
-    "@kinotic-ai/os-api": "^5.0.0-beta.9",
+    "@kinotic-ai/os-api": "^5.0.0-beta.10",
     "@kinotic-ai/persistence": "^5.0.0-beta.3",
     "@mdi/js": "^7.4.47",
     "@primeuix/themes": "^2.0.3",
