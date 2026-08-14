@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CrudTable } from "@kinotic-ai/frontend-common";
 import ApplicationSidebar from "@/components/ApplicationSidebar.vue";
-import PageHeader from "@/components/PageHeader.vue";
+import { PageHeader } from "@kinotic-ai/frontend-common";
 import { Kinotic } from "@kinotic-ai/core";
 import {
   type IApplicationService,
@@ -135,7 +135,8 @@ async function deleteApplication(item: Application): Promise<void> {
 
 <template>
   <div :class="['application-list flex flex-col transition-colors', isDark ? 'application-list--dark text-surface-0' : 'text-surface-950']">
-    <PageHeader title="Applications" />
+    <PageHeader title="Applications"
+                description="The applications your organization builds and operates on Kinotic." />
     <CrudTable
       ref="crudTable"
       createNewButtonText="New application"

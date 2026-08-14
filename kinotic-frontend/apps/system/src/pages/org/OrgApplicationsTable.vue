@@ -1,4 +1,6 @@
 <template>
+  <div class="flex flex-col">
+  <PageHeader title="Applications" description="Applications owned by this organization." />
   <CrudTable
     ref="crudTable"
     :headers="headers"
@@ -21,6 +23,7 @@
       {{ item.updated ? formatDate(item.updated) : '—' }}
     </template>
   </CrudTable>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +32,7 @@ import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } fro
 import type { Application } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   filteredPageLoader,
   useCrudTablePage,

@@ -1,4 +1,6 @@
 <template>
+  <div class="flex flex-col">
+  <PageHeader title="Members" description="People with access to this organization." />
   <CrudTable
     ref="crudTable"
     :headers="headers"
@@ -25,6 +27,7 @@
       {{ item.created ? formatDate(item.created) : '—' }}
     </template>
   </CrudTable>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +44,7 @@ import {
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   statusSeverity,
   useCrudTablePage,

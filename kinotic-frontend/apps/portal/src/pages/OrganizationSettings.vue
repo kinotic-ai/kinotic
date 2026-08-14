@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import GitHubLinkStatus from '@/components/GitHubLinkStatus.vue'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 </script>
 
 <template>

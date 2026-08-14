@@ -1,6 +1,7 @@
 <template>
   <div :class="['saved-widgets-page', isDark ? 'text-surface-0' : 'text-surface-950']">
-    <PageHeader title="Saved Widgets" />
+    <PageHeader title="Saved Widgets"
+                description="Widgets saved from Data Insights, ready to reuse on dashboards." />
 
     <!-- Loading state -->
     <div v-if="loadingWidgets" class="flex justify-center py-12">
@@ -103,7 +104,7 @@ import { useToast } from 'primevue/usetoast'
 import { DataInsightsWidgetEntityRepository } from '@/services/DataInsightsWidgetEntityRepository'
 import type { DataInsightsWidget } from '@/domain/DataInsightsWidget'
 import SavedWidgetItem from '@/components/SavedWidgetItem.vue'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 

@@ -5,7 +5,7 @@ import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
 import { CrudTable } from '@kinotic-ai/frontend-common'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
@@ -190,7 +190,8 @@ watch(() => router.currentRoute.value.query.refresh, () => {
 
 <template>
   <div :class="['transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
-    <PageHeader :title="title" />
+    <PageHeader :title="title"
+                description="Dashboards built from this application's data." />
     
     <div class="h-[calc(100vh-140px)]">
       <CrudTable

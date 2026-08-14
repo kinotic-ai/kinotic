@@ -1,4 +1,6 @@
 <template>
+  <div class="flex flex-col">
+  <PageHeader title="Projects" description="The organization's projects, across all of its applications." />
   <CrudTable
     ref="crudTable"
     :headers="headers"
@@ -21,6 +23,7 @@
       {{ item.description || '—' }}
     </template>
   </CrudTable>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -29,6 +32,7 @@ import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } fro
 import type { Project } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   filteredPageLoader,
   useCrudTablePage,
   type CrudHeader

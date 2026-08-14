@@ -1,6 +1,7 @@
 <template>
   <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
-    <PageHeader title="Application settings" />
+    <PageHeader title="Application settings"
+                description="Name, description, and tenancy settings for this application." />
 
     <div class="application-settings__general-shell">
       <form @submit.prevent="saveSettings" class="application-settings__form">
@@ -52,7 +53,7 @@
 import { ref, defineProps, onMounted, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'

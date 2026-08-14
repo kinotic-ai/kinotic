@@ -69,7 +69,7 @@ import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 
 /** One table row — a client authorized to act on the signed-in user's behalf. */
 interface DelegateRow extends DescriptiveIdentifiable {
