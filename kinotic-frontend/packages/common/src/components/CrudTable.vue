@@ -210,10 +210,12 @@ const dataTablePt = computed(() => {
     header: {
       class: 'hidden'
     },
+    // The header row is sticky over the scrolling rows, so it carries the surface colour the
+    // shell sits on rather than being transparent — otherwise rows show through it.
     headerCell: {
       class: [
-        'bg-transparent px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
-        isDark.value ? 'border-surface-700 text-surface-100' : 'border-surface-200 text-surface-950'
+        'px-[14px] pb-[0.9rem] pt-4 text-sm font-semibold',
+        isDark.value ? 'bg-surface-900 border-surface-700 text-surface-100' : 'bg-surface-0 border-surface-200 text-surface-950'
       ]
     },
     bodyRow: {
@@ -376,8 +378,10 @@ defineExpose({ find, displayAlert });
 
 <template>
   <!-- flex-1 lets the table fill the remaining height when a page provides a flex column
-       chain down to here; in a plain block parent the flex classes are inert. -->
-  <div class="crud-table flex flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
+       chain down to here; in a plain block parent the flex classes are inert. min-h-0 runs
+       down that chain so the rows scroll inside the shell instead of stretching it past the
+       viewport, which would carry the paginator off screen. -->
+  <div class="crud-table flex min-h-0 flex-1 flex-col" :class="isDark ? 'crud-table--dark' : 'crud-table--light'" :style="{ '--row-hover-color': rowHoverColor }">
     <div class="crud-table__toolbar flex items-center justify-between mb-6 gap-4">
       <IconField class="crud-table__search w-[236px] max-w-sm">
         <InputIcon class="pi pi-search" />
@@ -423,11 +427,11 @@ defineExpose({ find, displayAlert });
       </div>
     </div>
 
-    <div class="mb-6 flex flex-1 flex-col">
-      <div v-if="isColumnView" class="flex flex-1 flex-col">
+    <div class="mb-6 flex min-h-0 flex-1 flex-col">
+      <div v-if="isColumnView" class="flex min-h-0 flex-1 flex-col">
         <div
           v-if="displayRows.length > 0"
-          class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
+          class="grid min-h-0 flex-1 auto-rows-min grid-cols-1 gap-4 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3"
         >
           <Card
             v-for="(item, index) in displayRows"
@@ -510,18 +514,24 @@ defineExpose({ find, displayAlert });
         />
       </div>
 
-      <div v-if="isBurgerView" class="flex flex-1 flex-col">
+      <div v-if="isBurgerView" class="flex min-h-0 flex-1 flex-col">
         <div
           :class="[
-            'crud-table__table-shell flex flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
+            'crud-table__table-shell flex min-h-0 flex-1 flex-col rounded-[14px] border px-4 py-2 transition-colors',
             isDark ? 'border-surface-700 bg-transparent text-surface-0 shadow-[0_0_0_1px_rgba(58,58,64,0.15)]' : 'border-surface-200 bg-transparent text-surface-950'
           ]"
         >
           <DataTable
-            :class="['crud-table__datatable', { 'crud-table__datatable--loading': loading }]"
+            :class="[
+              'crud-table__datatable',
+              { 'crud-table__datatable--loading': loading },
+              displayRows.length > 0 ? 'min-h-0 flex-1' : ''
+            ]"
             :pt="dataTablePt"
             :value="displayRows"
             dataKey="id"
+            scrollable
+            scrollHeight="flex"
             @row-click="onRowClick"
             sortMode="multiple"
             :rowClass="getRowClass"
@@ -577,12 +587,13 @@ defineExpose({ find, displayAlert });
             </Column>
           </DataTable>
 
-          <!-- Filler between the rows and the bottom border: absorbs leftover shell height
-               so the shell can stretch, and hosts the centered empty state. -->
+          <!-- Centered in the space under the header row, which the table leaves free only
+               when it has no rows to scroll. -->
           <div
+            v-if="!loading && items.length === 0"
             :class="['flex flex-1 items-center justify-center', isDark ? 'text-surface-400' : 'text-surface-500']"
           >
-            <span v-if="!loading && items.length === 0" class="py-20">{{ emptyStateText }}</span>
+            <span class="py-20">{{ emptyStateText }}</span>
           </div>
         </div>
 

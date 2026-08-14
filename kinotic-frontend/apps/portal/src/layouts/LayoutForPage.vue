@@ -32,10 +32,12 @@ const isFullWidth = computed(() => route.meta.fullWidth === true)
         >
             <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
                 <router-view v-if="isFullWidth" />
-                <!-- flex + flex-1 (rather than min-h-full on the page root) so short pages still
-                     stretch to the bottom of the viewport inside this auto-height wrapper. -->
-                <div v-else class="mx-auto flex min-h-full w-full max-w-[1200px] flex-col">
-                    <router-view class="flex-1" />
+                <!-- h-full (not min-h-full) gives the page a definite height to divide up, so a
+                     page that scrolls a region internally — a table keeping its paginator in
+                     place — can size that region. min-h-0 lets the page shrink to it; taller
+                     pages overflow and scroll in the wrapper above as before. -->
+                <div v-else class="mx-auto flex h-full w-full max-w-[1200px] flex-col">
+                    <router-view class="min-h-0 flex-1" />
                 </div>
             </div>
         </div>
