@@ -136,6 +136,36 @@ docker compose ps kinotic-migration   # State: Exited (0)
 #    application-development.yml already points the elastic connection at localhost:9200.
 ```
 
+### Traces, metrics, and logs in Grafana
+
+Add `compose-otel.yml` to bring up the collector and the Grafana stack next to Elasticsearch:
+
+```bash
+docker compose -f compose-otel.yml -f compose.elasticsearch.yml -f compose.kibana.yml up -d
+```
+
+The `KinoticServerApplication` run configuration (`.run/KinoticServerApplication.run.xml`)
+attaches `kinotic-server/src/main/resources/opentelemetry-javaagent.jar` and exports OTLP over
+gRPC to the collector on `localhost:4317` — the same agent and `OTEL_*` variables the
+kinotic-server container uses in `compose.kinotic-server.yml`, pointed at the host-published
+port instead of the compose network. The agent is what populates `GlobalOpenTelemetry`, so the
+`@WithSpan` methods throughout the codebase only produce spans when it's attached; without it
+the SDK is a no-op. `OTEL_METRIC_EXPORT_INTERVAL=15000` shortens the SDK's 60s default so
+metrics land in Grafana while you're still looking at the dashboard.
+
+Everything lands in Grafana at <http://localhost:3000> (anonymous Admin, no login):
+
+| Signal | Datasource | Where to look |
+|---|---|---|
+| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server` |
+| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server"}` — the OTLP→Prometheus translation maps `service.name` onto `job` |
+| Logs | Loki | Explore → Loki, `{service_name="kinotic-server"}` (tenant `kinotic-system`) |
+
+Spans and logs share the same `service.name` as the containerized server, so the same
+dashboards work either way. To run without the collector up, set `OTEL_SDK_DISABLED=true` in
+the run configuration's Environment variables — otherwise the agent retries the export and
+logs a connection failure every interval.
+
 `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
 the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
 verification URL to the IntelliJ console instead — which is what the compose stack does via
