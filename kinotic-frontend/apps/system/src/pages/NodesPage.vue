@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <div class="flex items-center justify-between mb-5">
-      <h1 class="text-[1.4rem] font-semibold">Nodes &amp; workloads</h1>
+      <h1 class="text-[1.4rem] font-semibold">Worker nodes</h1>
       <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
               :loading="loadingNodes" @click="refreshAll" />
     </div>
@@ -10,7 +10,7 @@
 
     <div v-else-if="nodes.length === 0 && !loadingNodes"
          class="p-6 border border-dashed border-surface rounded-lg text-muted-color">
-      No nodes have registered with the orchestrator
+      No worker nodes have registered with the orchestrator
     </div>
 
     <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">

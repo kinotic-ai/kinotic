@@ -31,10 +31,10 @@ const routes: RouteRecordRaw[] = [
                 meta: { sidebar: consoleSidebarItem('Organizations', 'pi-building', 20) }
             },
             {
-                name: 'nodes',
-                path: 'nodes',
+                name: 'worker-nodes',
+                path: 'worker-nodes',
                 component: () => import('./pages/NodesPage.vue'),
-                meta: { sidebar: consoleSidebarItem('Nodes & workloads', 'pi-server', 30) }
+                meta: { sidebar: consoleSidebarItem('Worker nodes', 'pi-server', 30) }
             },
             {
                 name: 'organization-detail',
