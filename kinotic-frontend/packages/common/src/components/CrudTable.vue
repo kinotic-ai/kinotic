@@ -25,10 +25,10 @@ import {
   Direction,
 } from "@kinotic-ai/core";
 
-import type { CrudHeader } from "@/types/CrudHeader";
-import type { DescriptiveIdentifiable } from "@/types/DescriptiveIdentifiable";
-import { createDebug } from "@kinotic-ai/frontend-common";
-import { isDark as darkMode } from '@kinotic-ai/frontend-common'
+import type { CrudHeader } from "../types/CrudHeader";
+import type { DescriptiveIdentifiable } from "../types/DescriptiveIdentifiable";
+import { createDebug } from "../util/debug";
+import { isDark as darkMode } from '../composables/useTheme'
 
 const debug = createDebug('crud-table');
 
@@ -470,7 +470,7 @@ defineExpose({ find, displayAlert });
                   "
                 >
                   <img
-                    src="@/assets/graphql.svg"
+                    src="../assets/graphql.svg"
                     alt="GraphQL"
                     class="w-5 h-5"
                   />
@@ -484,7 +484,7 @@ defineExpose({ find, displayAlert });
                   "
                 >
                   <img
-                    src="@/assets/scalar.svg"
+                    src="../assets/scalar.svg"
                     alt="OpenAPI"
                     class="w-5 h-5"
                   />

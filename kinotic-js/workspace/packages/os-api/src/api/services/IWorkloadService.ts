@@ -1,4 +1,4 @@
-import { OS_API_ZONE } from '@/api/PlatformZones'
+import { SYSTEM_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Workload } from '@/api/model/workload/Workload'
 
@@ -31,7 +31,7 @@ export interface IWorkloadService extends ICrudServiceProxy<Workload> {
 export class WorkloadServiceProxy extends CrudServiceProxy<Workload> implements IWorkloadService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${OS_API_ZONE}~org.kinotic.os.api.services.WorkloadService`))
+        super(kinotic.serviceProxy(`${SYSTEM_ZONE}~org.kinotic.orchestrator.api.services.WorkloadService`))
     }
 
     public async findAllForNode(nodeId: string, pageable: Pageable): Promise<IterablePage<Workload>> {

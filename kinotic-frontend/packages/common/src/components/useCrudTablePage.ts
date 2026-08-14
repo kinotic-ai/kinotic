@@ -7,9 +7,9 @@ import {
   type Page,
   type Pageable
 } from '@kinotic-ai/core'
-import CrudTable from '@/components/CrudTable.vue'
-import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import CrudTable from './CrudTable.vue'
+import type { DescriptiveIdentifiable } from '../types/DescriptiveIdentifiable'
+import { showErrorToast } from '../util/helpers'
 
 /** The load signature a CrudTable page supplies: one page of rows, optionally filtered. */
 export type PageLoader = (pageable: Pageable, searchText: string | null) => Promise<IterablePage<DescriptiveIdentifiable>>

@@ -26,6 +26,12 @@ export class Workload implements Identifiable<string> {
     public description?: string
 
     /**
+     * The id of the node this workload is deployed to, assigned by the orchestrator
+     * during deployment. Null until the workload has been placed.
+     */
+    public nodeId: string | null = null
+
+    /**
      * The Organization this workload runs on behalf of, and which may view its logs.
      * Null for platform workloads (SYSTEM scope).
      */

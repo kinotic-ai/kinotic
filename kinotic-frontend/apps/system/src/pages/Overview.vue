@@ -1,57 +1,127 @@
 <template>
-  <div class="overview">
-    <header class="overview__header">
-      <h1 class="overview__title">Kinotic System Console</h1>
-      <Button label="Sign out" severity="secondary" outlined :loading="loading" @click="handleLogout" />
-    </header>
+  <div>
+    <h1 class="text-[1.4rem] font-semibold mb-5">Overview</h1>
 
-    <p class="overview__subtitle">
-      Signed in as <strong>{{ participantId }}</strong>
-    </p>
+    <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
+
+    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+      <div v-for="stat in stats" :key="stat.label" class="flex flex-col gap-1 rounded-lg border border-surface p-4">
+        <span class="text-xs font-medium uppercase tracking-wide text-muted-color">{{ stat.label }}</span>
+        <span v-if="stat.tag" class="py-1">
+          <Tag :value="stat.value" :severity="stat.tag" />
+        </span>
+        <span v-else class="text-3xl font-semibold">{{ stat.value }}</span>
+        <span class="text-xs text-muted-color">{{ stat.description }}</span>
+      </div>
+    </div>
+
+    <div class="mt-6 rounded-lg border border-surface">
+      <div class="px-4 pt-4 pb-2">
+        <h2 class="text-base font-semibold">Server nodes</h2>
+        <p class="text-xs text-muted-color">
+          Every kinotic-server in the cluster. One node serves this console's connection.
+        </p>
+      </div>
+      <div class="overflow-x-auto px-4 pb-4">
+        <table class="w-full border-collapse text-sm">
+          <thead>
+            <tr>
+              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Node</th>
+              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Version</th>
+              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Join order</th>
+              <th class="border-b border-surface px-2 py-1.5"></th>
+              <th class="border-b border-surface px-2 py-1.5"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="node in clusterInfo?.nodes ?? []" :key="node.nodeId">
+              <td class="border-b border-surface px-2 py-1.5 font-mono text-xs">{{ node.nodeId }}</td>
+              <td class="border-b border-surface px-2 py-1.5">{{ node.version }}</td>
+              <td class="border-b border-surface px-2 py-1.5">{{ node.order }}</td>
+              <td class="border-b border-surface px-2 py-1.5">
+                <Tag v-if="node.local" severity="info" value="serving request" />
+              </td>
+              <td class="border-b border-surface px-2 py-1.5 text-right">
+                <Button label="Log level" icon="pi pi-sliders-h" severity="secondary" text size="small"
+                        @click="openLogLevel(node.nodeId)" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div v-if="!clusterError && (clusterInfo?.nodes ?? []).length === 0" class="py-6 text-center text-sm text-muted-color">
+          Loading cluster topology…
+        </div>
+      </div>
+    </div>
+
+    <LogLevelDialog v-if="logLevelNodeId" v-model:visible="logLevelVisible" :node-id="logLevelNodeId" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
 import Button from 'primevue/button'
+import Message from 'primevue/message'
+import Tag from 'primevue/tag'
 
-import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
+import { Kinotic } from '@kinotic-ai/core'
+import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
 
-const router = useRouter()
-const loading = ref(false)
+import LogLevelDialog from '@/components/LogLevelDialog.vue'
 
-const participantId = computed(() => SYSTEM_USER_STATE.connectedInfo?.participant?.id ?? 'unknown')
+const clusterInfo = ref<KinoticClusterInfo | null>(null)
+const clusterError = ref<string | null>(null)
+const organizationCount = ref<number | null>(null)
 
-async function handleLogout() {
-  loading.value = true
-  try {
-    await SYSTEM_USER_STATE.logout()
-  } finally {
-    loading.value = false
-    await router.push('/login')
+const logLevelNodeId = ref<string | null>(null)
+const logLevelVisible = ref(false)
+
+interface Stat {
+  label: string
+  value: string
+  description: string
+  tag?: string
+}
+
+const stats = computed<Stat[]>(() => [
+  {
+    label: 'Server nodes',
+    value: clusterInfo.value?.serverNodeCount?.toString() ?? '—',
+    description: 'kinotic-server instances in the cluster'
+  },
+  {
+    label: 'Cluster state',
+    value: clusterInfo.value?.clusterState ?? '—',
+    description: 'Whether the cluster is serving requests',
+    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary'
+  },
+  {
+    label: 'Topology version',
+    value: clusterInfo.value?.topologyVersion?.toString() ?? '—',
+    description: 'Increments each time a node joins or leaves'
+  },
+  {
+    label: 'Organizations',
+    value: organizationCount.value?.toString() ?? '—',
+    description: 'Organizations registered on the platform'
   }
+])
+
+function openLogLevel(nodeId: string) {
+  logLevelNodeId.value = nodeId
+  logLevelVisible.value = true
 }
+
+onMounted(async () => {
+  try {
+    clusterInfo.value = await Kinotic.clusterInfo.getClusterInfo()
+  } catch (err) {
+    clusterError.value = err instanceof Error ? err.message : 'Failed to load cluster info'
+  }
+  try {
+    organizationCount.value = await Kinotic.systemOrganizations.countOrganizations()
+  } catch {
+    // The tile shows an em dash; the count is cosmetic and must not block the page
+  }
+})
 </script>
-
-<style scoped>
-.overview {
-  padding: 2rem;
-}
-
-.overview__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.overview__title {
-  font-size: 1.5rem;
-  font-weight: 600;
-}
-
-.overview__subtitle {
-  margin-top: 0.75rem;
-  color: var(--p-text-muted-color);
-}
-</style>

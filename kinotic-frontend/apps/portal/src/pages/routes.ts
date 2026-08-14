@@ -1,6 +1,6 @@
 
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
-import type { SidebarItemMeta } from '@/types/SidebarItemMeta'
+import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 function organizationSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
   return { group: 'organization', section: 'Organization', label, icon, order }

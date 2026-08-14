@@ -2,7 +2,6 @@ import type { ILogManager } from '@/api/services/ILogManager'
 import { LogManager } from '@/api/services/LogManager'
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
-import { OrganizationService, type IOrganizationService } from '@/api/services/IOrganizationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
@@ -10,6 +9,8 @@ import { MigrationService, type IMigrationService } from '@/api/services/IMigrat
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { VmNodeServiceProxy, type IVmNodeService } from '@/api/services/IVmNodeService'
 import { WorkloadServiceProxy, type IWorkloadService } from '@/api/services/IWorkloadService'
+import { WorkloadOrchestrationService, type IWorkloadOrchestrationService } from '@/api/services/IWorkloadOrchestrationService'
+import { LogService, type ILogService } from '@/api/services/ILogService'
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
 import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
@@ -17,10 +18,13 @@ import { DelegateService, type IDelegateService } from '@/api/services/IDelegate
 import { ProfileService, type IProfileService } from '@/api/services/IProfileService'
 import { MachineService, type IMachineService } from '@/api/services/IMachineService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
+import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
+import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 
 export interface IOsApiExtension {
     applications: IApplicationService
-    organizations: IOrganizationService
+    clusterInfo: IKinoticClusterInfoService
+    systemOrganizations: ISystemOrganizationService
     projects: IProjectService
     logManager: ILogManager
     entityDefinitions: IEntityDefinitionService
@@ -29,6 +33,8 @@ export interface IOsApiExtension {
     dataInsights: IDataInsightsService
     vmNodes: IVmNodeService
     workloads: IWorkloadService
+    workloadOrchestration: IWorkloadOrchestrationService
+    logs: ILogService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
     oauthApproval: IOAuthApprovalService
@@ -42,7 +48,8 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
     install(kinotic: IKinotic): IOsApiExtension {
         return {
             applications: new ApplicationService(kinotic),
-            organizations: new OrganizationService(kinotic),
+            clusterInfo: new KinoticClusterInfoService(kinotic),
+            systemOrganizations: new SystemOrganizationService(kinotic),
             projects: new ProjectService(kinotic),
             logManager: new LogManager(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
@@ -51,6 +58,8 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             dataInsights: new DataInsightsService(kinotic),
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
+            workloadOrchestration: new WorkloadOrchestrationService(kinotic),
+            logs: new LogService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
             oauthApproval: new OAuthApprovalService(kinotic),

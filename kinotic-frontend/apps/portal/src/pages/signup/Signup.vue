@@ -4,7 +4,7 @@
       <h2 class="signup-title">Create your organization</h2>
 
       <!-- Social signup — IdP returns identity, then user picks an org name on /register -->
-      <div v-if="providers.length > 0" class="signup-providers">
+      <div v-if="providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
         <SocialAuthButton
           v-for="provider in providers"
           :key="provider"
@@ -45,25 +45,25 @@
         />
       </div>
 
-      <div class="signup-footer-link">
+      <div class="text-center mt-4 text-sm">
         Already have an account? <router-link to="/login" class="login-link">Sign in</router-link>
       </div>
     </div>
 
     <div v-else class="login-form">
-      <div class="signup-success">
-        <span class="signup-success__icon-wrap">
-          <span class="pi pi-envelope signup-success__icon"></span>
+      <div class="text-center pt-4 pb-2">
+        <span class="inline-flex items-center justify-center w-18 h-18 rounded-full mb-6 bg-[color-mix(in_srgb,var(--p-primary-color)_14%,transparent)]">
+          <span class="pi pi-envelope text-[2rem] text-primary"></span>
         </span>
-        <h2 class="signup-success__title">Check your email</h2>
-        <p class="signup-success__text">
+        <h2 class="text-2xl font-semibold mb-3 text-center">Check your email</h2>
+        <p class="my-1 leading-normal">
           We've sent a verification link to
         </p>
-        <p class="signup-success__email">{{ request.email }}</p>
-        <p class="signup-success__text">
+        <p class="mt-1 mb-4 font-semibold break-all">{{ request.email }}</p>
+        <p class="my-1 leading-normal">
           Click the link to name your organization and finish setting up.
         </p>
-        <p class="signup-success__text signup-success__text--muted">
+        <p class="mt-4 leading-normal text-muted-color text-sm">
           The link expires in 24 hours.
         </p>
       </div>
@@ -165,64 +165,3 @@ function displayAlert(text: string) {
   })
 }
 </script>
-
-<style scoped>
-.signup-footer-link {
-  text-align: center;
-  margin-top: 1rem;
-  font-size: 0.875rem;
-}
-
-.signup-success {
-  text-align: center;
-  padding: 1rem 0 0.5rem;
-}
-
-.signup-success__icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 4.5rem;
-  height: 4.5rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
-  margin-bottom: 1.5rem;
-}
-
-.signup-success__icon {
-  font-size: 2rem;
-  color: var(--p-primary-color);
-}
-
-.signup-success__title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
-  text-align: center;
-}
-
-.signup-success__text {
-  margin: 0.25rem 0;
-  line-height: 1.5;
-}
-
-.signup-success__email {
-  margin: 0.25rem 0 1rem;
-  font-weight: 600;
-  word-break: break-all;
-}
-
-.signup-success__text--muted {
-  margin-top: 1rem;
-  color: var(--p-text-muted-color);
-  font-size: 0.875rem;
-}
-
-.signup-providers {
-  width: min(100%, 20rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0.5rem 0 1.5rem;
-}
-</style>

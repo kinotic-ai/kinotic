@@ -1,17 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, getCurrentInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import CrudTable from '@/components/CrudTable.vue'
+import { CrudTable } from '@kinotic-ai/frontend-common'
 import EntityDefinitionItemModal from '@/components/modals/EntityDefinitionItemModal.vue'
 import EntityDataViewModal from '@/components/modals/EntityDataViewModal.vue'
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import { Kinotic } from '@kinotic-ai/core'
 import { EntityDefinition } from '@kinotic-ai/os-api'
-import type { CrudHeader } from '@/types/CrudHeader'
+import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import type { IterablePage, Pageable } from '@kinotic-ai/core'
-import DatetimeUtil from "@/util/DatetimeUtil"
+import { DatetimeUtil } from "@kinotic-ai/frontend-common"
 import { createDebug } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('project-entity-definitions-table');

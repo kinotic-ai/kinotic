@@ -59,7 +59,7 @@ public class DefaultMemberService implements MemberService {
                             .setInvitedByName(participantDisplayName(participant));
                     return inviteService.createInvite(invite);
                 })
-                .thenApply(DefaultMemberService::toSummary);
+                .thenApply(PendingInviteSummary::from);
     }
 
     @Override
@@ -87,7 +87,7 @@ public class DefaultMemberService implements MemberService {
                                                 applicationId,
                                                 pageable)
                 .thenApply(page -> new Page<>(page.getContent().stream()
-                                                  .map(DefaultMemberService::toSummary)
+                                                  .map(PendingInviteSummary::from)
                                                   .toList(),
                                               page.getTotalElements()));
     }
@@ -134,17 +134,6 @@ public class DefaultMemberService implements MemberService {
                 .thenApply(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
                         user -> participant.getOrganizationId().equals(user.getOrganizationId()),
                         "Member not found."));
-    }
-
-    private static PendingInviteSummary toSummary(PendingInvite invite) {
-        return new PendingInviteSummary()
-                .setId(invite.getId())
-                .setEmail(invite.getEmail())
-                .setDisplayName(invite.getDisplayName())
-                .setApplicationId(invite.getApplicationId())
-                .setInvitedByName(invite.getInvitedByName())
-                .setCreated(invite.getCreated())
-                .setExpiresAt(invite.getExpiresAt());
     }
 
     private static String participantDisplayName(OrganizationParticipant participant) {

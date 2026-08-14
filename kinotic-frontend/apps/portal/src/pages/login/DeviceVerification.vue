@@ -1,16 +1,16 @@
 <template>
   <AuthPageShell :art="loginBackgroundArt" :show-theme-toggle="false">
     <div class="login-form">
-      <div v-if="!userCode" class="device-message">
-        <span class="pi pi-exclamation-triangle device-message__icon"></span>
+      <div v-if="!userCode" class="text-center py-8">
+        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
         <h2 class="signup-title">Missing device code</h2>
         <p class="login-form__subtitle">
           Open the verification link shown in your command line.
         </p>
       </div>
 
-      <div v-else-if="approved" class="device-message">
-        <span class="pi pi-check-circle device-message__icon"></span>
+      <div v-else-if="approved" class="text-center py-8">
+        <span class="pi pi-check-circle text-5xl text-primary-500 mb-4"></span>
         <h2 class="signup-title">Device approved</h2>
         <p class="login-form__subtitle">
           You can close this tab and return to your command line.
@@ -22,7 +22,7 @@
         <p class="login-form__subtitle">
           Confirm this code matches the one shown in your command line.
         </p>
-        <div class="device-code">{{ userCode }}</div>
+        <div class="text-[2rem] font-bold tracking-[0.3em] text-center my-6">{{ userCode }}</div>
         <Button
           label="Approve"
           class="login-submit"
@@ -80,23 +80,3 @@ function displayError(text: string) {
 }
 </script>
 
-<style scoped>
-.device-message {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.device-message__icon {
-  font-size: 3rem;
-  color: var(--p-primary-500);
-  margin-bottom: 1rem;
-}
-
-.device-code {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: 0.3em;
-  text-align: center;
-  margin: 1.5rem 0;
-}
-</style>

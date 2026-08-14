@@ -7,16 +7,16 @@
     </div>
 
     <div v-else-if="phase === 'invalid'" class="login-form">
-      <div class="invite-message">
-        <span class="pi pi-exclamation-triangle invite-message__icon"></span>
+      <div class="text-center py-8">
+        <span class="pi pi-exclamation-triangle text-5xl text-primary-500 mb-4"></span>
         <h2 class="signup-title">Invitation unavailable</h2>
         <p class="login-form__subtitle">{{ invalidMessage }}</p>
       </div>
     </div>
 
     <div v-else-if="phase === 'appAccepted'" class="login-form">
-      <div class="invite-message">
-        <span class="pi pi-check-circle invite-message__icon invite-message__icon--success"></span>
+      <div class="text-center py-8">
+        <span class="pi pi-check-circle text-5xl text-[var(--p-green-500)] mb-4"></span>
         <h2 class="signup-title">You're all set</h2>
         <p class="login-form__subtitle">
           Your account for <strong>{{ acceptedApplicationId }}</strong> is ready.
@@ -32,7 +32,7 @@
         <strong>{{ details.applicationId || details.organizationName }}</strong><template v-if="details.applicationId">, provided by {{ details.organizationName }}</template>.
       </p>
 
-      <div v-if="details.providers.length > 0" class="invite-providers">
+      <div v-if="details.providers.length > 0" class="w-full max-w-80 flex flex-col gap-3 mt-2 mb-6">
         <SocialAuthButton
           v-for="provider in details.providers"
           :key="provider.id"
@@ -248,27 +248,3 @@ function errorCodeToMessage(code: string): string {
 
 </script>
 
-<style scoped>
-.invite-message {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.invite-message__icon {
-  font-size: 3rem;
-  color: var(--p-primary-500);
-  margin-bottom: 1rem;
-}
-
-.invite-message__icon--success {
-  color: var(--p-green-500);
-}
-
-.invite-providers {
-  width: min(100%, 20rem);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin: 0.5rem 0 1.5rem;
-}
-</style>

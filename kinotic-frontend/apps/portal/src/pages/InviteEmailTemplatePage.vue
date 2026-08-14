@@ -1,6 +1,6 @@
 <template>
   <div class="invite-email-page">
-    <h1 class="invite-email-page__title">Invitation email</h1>
+    <h1 class="text-xl font-semibold mb-4">Invitation email</h1>
 
     <div v-if="loading" class="flex justify-center py-12">
       <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
@@ -14,7 +14,7 @@
       <Button label="Customize" icon="pi pi-pencil" @click="startCustomizing" />
     </div>
 
-    <form v-else class="invite-email-page__form flex flex-col gap-4" @submit.prevent="save">
+    <form v-else class="max-w-4xl flex flex-col gap-4" @submit.prevent="save">
       <div class="flex flex-col gap-1">
         <label for="tpl-subject" class="text-sm font-medium">Subject</label>
         <InputText id="tpl-subject" v-model="subject" class="w-full" />
@@ -22,12 +22,12 @@
 
       <div class="flex flex-col gap-1">
         <label for="tpl-html" class="text-sm font-medium">HTML body</label>
-        <Textarea id="tpl-html" v-model="htmlBody" class="w-full invite-email-page__source" rows="14" />
+        <Textarea id="tpl-html" v-model="htmlBody" class="w-full font-mono text-sm" rows="14" />
       </div>
 
       <div class="flex flex-col gap-1">
         <label for="tpl-text" class="text-sm font-medium">Plain-text body</label>
-        <Textarea id="tpl-text" v-model="textBody" class="w-full invite-email-page__source" rows="8" />
+        <Textarea id="tpl-text" v-model="textBody" class="w-full font-mono text-sm" rows="8" />
       </div>
 
       <p class="text-sm text-muted-color m-0">
@@ -175,19 +175,3 @@ async function revert() {
 
 </script>
 
-<style scoped>
-.invite-email-page__title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0 0 1rem;
-}
-
-.invite-email-page__form {
-  max-width: 56rem;
-}
-
-.invite-email-page__source {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
-}
-</style>

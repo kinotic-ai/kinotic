@@ -60,11 +60,11 @@ import { Kinotic } from '@kinotic-ai/core'
 import { DelegateKind } from '@kinotic-ai/os-api'
 import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/os-api'
 
-import CrudTable from '@/components/CrudTable.vue'
-import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@/components/useCrudTablePage'
-import type { CrudHeader } from '@/types/CrudHeader'
-import type { DescriptiveIdentifiable } from '@/types/DescriptiveIdentifiable'
-import DatetimeUtil from '@/util/DatetimeUtil'
+import { CrudTable } from '@kinotic-ai/frontend-common'
+import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
+import type { CrudHeader } from '@kinotic-ai/frontend-common'
+import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /** One table row — a client authorized to act on the signed-in user's behalf. */
