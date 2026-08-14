@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <h1 class="text-[1.4rem] font-semibold mb-5">Organizations</h1>
+    <PageHeader title="Organizations" description="Every organization registered on the platform." />
 
     <CrudTable
       ref="crudTable"
@@ -34,6 +34,7 @@ import { useRouter } from 'vue-router'
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   useCrudTablePage,
   type CrudHeader,

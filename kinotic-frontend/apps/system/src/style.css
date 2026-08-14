@@ -7,6 +7,10 @@
    package resolves through a symlink there, so scan it explicitly. */
 @source "../../../packages/common/src";
 
+/* useTheme toggles .dark on <html> and PrimeVue's darkModeSelector follows it. Tailwind v4
+   defaults dark: to prefers-color-scheme, so bind it to the class instead. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 html,
 body {
   overscroll-behavior: none;

@@ -5,6 +5,12 @@ function consoleSidebarItem(label: string, icon: string, order: number): Sidebar
     return { group: 'console', label, icon, order }
 }
 
+// The sidebar swaps to this group while drilled into an organization, mirroring the
+// portal's organization sidebar; the header's organization switcher carries the context
+function organizationSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
+    return { group: 'organization', section: 'Organization', label, icon, order }
+}
+
 const routes: RouteRecordRaw[] = [
     {
         path: '/login',
@@ -39,10 +45,28 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'organization-detail',
                 path: 'organizations/:organizationId',
-                component: () => import('./pages/OrganizationDetailPage.vue'),
+                redirect: to => ({ name: 'org-applications', params: to.params })
+            },
+            {
+                name: 'org-applications',
+                path: 'organizations/:organizationId/applications',
+                component: () => import('./pages/org/OrgApplicationsTable.vue'),
                 props: true,
-                // Detail page: shows the console sidebar without being an item in it
-                meta: { sidebarGroup: 'console' }
+                meta: { sidebar: organizationSidebarItem('Applications', 'pi-th-large', 10) }
+            },
+            {
+                name: 'org-projects',
+                path: 'organizations/:organizationId/projects',
+                component: () => import('./pages/org/OrgProjectsTable.vue'),
+                props: true,
+                meta: { sidebar: organizationSidebarItem('Projects', 'pi-folder', 20) }
+            },
+            {
+                name: 'org-members',
+                path: 'organizations/:organizationId/members',
+                component: () => import('./pages/org/OrgMembersTable.vue'),
+                props: true,
+                meta: { sidebar: organizationSidebarItem('Members', 'pi-users', 30) }
             }
         ]
     },

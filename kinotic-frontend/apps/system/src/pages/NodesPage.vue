@@ -1,10 +1,12 @@
 <template>
   <div class="flex flex-col">
-    <div class="flex items-center justify-between mb-5">
-      <h1 class="text-[1.4rem] font-semibold">Worker nodes</h1>
-      <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
-              :loading="loadingNodes" @click="refreshAll" />
-    </div>
+    <PageHeader title="Worker nodes"
+                description="VmManager nodes that host workloads, and the capacity each has left.">
+      <template #actions>
+        <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
+                :loading="loadingNodes" @click="refreshAll" />
+      </template>
+    </PageHeader>
 
     <Message v-if="nodesError" severity="error" :closable="false" class="mb-4">{{ nodesError }}</Message>
 
@@ -106,6 +108,7 @@ import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page
 import { VmNodeStatus, WorkloadStatus, type VmNode, type Workload } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   useCrudTablePage,
   type CrudHeader,

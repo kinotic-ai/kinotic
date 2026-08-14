@@ -74,7 +74,7 @@ import {
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'

@@ -94,7 +94,7 @@ import { useToast } from 'primevue/usetoast'
 
 import { AuthType } from '@kinotic-ai/os-api'
 import { DatetimeUtil, showErrorToast, statusSeverity } from '@kinotic-ai/frontend-common'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
 
 /** One read-only fact about the account, rendered as a column of the identity card's footer. */

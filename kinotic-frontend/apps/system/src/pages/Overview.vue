@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-[1.4rem] font-semibold mb-5">Overview</h1>
+    <PageHeader title="Overview" description="Cluster health and platform totals at a glance." />
 
     <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
 
@@ -74,6 +74,8 @@ import Tag from 'primevue/tag'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
+
+import { PageHeader } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 

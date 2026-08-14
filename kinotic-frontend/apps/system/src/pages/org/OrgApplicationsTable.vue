@@ -1,4 +1,6 @@
 <template>
+  <div class="flex flex-col">
+  <PageHeader title="Applications" description="Applications owned by this organization." />
   <CrudTable
     ref="crudTable"
     :headers="headers"
@@ -21,13 +23,16 @@
       {{ item.updated ? formatDate(item.updated) : '—' }}
     </template>
   </CrudTable>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } from '@kinotic-ai/core'
 import type { Application } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   filteredPageLoader,
   useCrudTablePage,
@@ -51,7 +56,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<Application>> {
 }
 
 // findApplications has no server-side search, so filtering is client-side over the page
-const { crudTable, tableSearch, dataSource } = useCrudTablePage(
+const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (app: Application) => ({ id: app.id ?? '', name: app.name, description: app.description, updated: app.updated }),
@@ -59,4 +64,8 @@ const { crudTable, tableSearch, dataSource } = useCrudTablePage(
     ))
 
 const formatDate = DatetimeUtil.formatEpochDate
+
+// The header's organization switcher navigates in place, so the router reuses this
+// component instance; refetch when the target organization changes
+watch(() => props.organizationId, () => refreshTable())
 </script>

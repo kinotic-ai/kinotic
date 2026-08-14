@@ -1,4 +1,6 @@
 <template>
+  <div class="flex flex-col">
+  <PageHeader title="Members" description="People with access to this organization." />
   <CrudTable
     ref="crudTable"
     :headers="headers"
@@ -25,9 +27,11 @@
       {{ item.created ? formatDate(item.created) : '—' }}
     </template>
   </CrudTable>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import Tag from 'primevue/tag'
 
 import {
@@ -40,6 +44,7 @@ import {
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 import {
   CrudTable,
+  PageHeader,
   DatetimeUtil,
   statusSeverity,
   useCrudTablePage,
@@ -70,7 +75,7 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false }
 ]
 
-const { crudTable, tableSearch, dataSource } = useCrudTablePage(load)
+const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
@@ -130,4 +135,8 @@ function toMemberRow(user: UserParticipantIdentity): MemberRow {
     created: user.created
   }
 }
+
+// The header's organization switcher navigates in place, so the router reuses this
+// component instance; refetch when the target organization changes
+watch(() => props.organizationId, () => refreshTable())
 </script>

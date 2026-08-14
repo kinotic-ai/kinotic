@@ -94,7 +94,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import type { MachineParticipantIdentity } from '@kinotic-ai/os-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'

@@ -2,7 +2,7 @@
 import { useRoute } from 'vue-router'
 import { computed, watch } from 'vue'
 import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitionsTable.vue'
-import PageHeader from '@/components/PageHeader.vue'
+import { PageHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { createDebug } from '@kinotic-ai/frontend-common'
 
@@ -23,7 +23,8 @@ watch(applicationId, (newId) => {
 
 <template>
   <div class="flex flex-col">
-    <PageHeader :title="projectId" />
+    <PageHeader :title="projectId"
+                description="The entity definitions that make up this project's data model." />
     <ProjectEntityDefinitionsTable :key="`${applicationId}-${projectId}`" :applicationId="applicationId" />
   </div>
 </template>

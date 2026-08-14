@@ -110,7 +110,7 @@ const searchTextOrg = ref('')
 
 const isDark = darkMode
 
-const isOrgDetailPage = computed(() => route.name === 'organization-detail')
+const isOrgDetailPage = computed(() => typeof route.params.organizationId === 'string')
 const currentOrgId = computed(() => route.params.organizationId as string | undefined)
 
 const currentOrgName = computed(() => {
@@ -160,7 +160,8 @@ function selectOrg(org: Organization) {
   orgDropdownOpen.value = false
   searchTextOrg.value = ''
   if (org.id && org.id !== currentOrgId.value) {
-    router.push({ name: 'organization-detail', params: { organizationId: org.id } })
+    // Stay on the same section (applications/projects/members) for the newly selected org
+    router.push({ name: (route.name as string) ?? 'organization-detail', params: { organizationId: org.id } })
   }
 }
 
