@@ -45,7 +45,14 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'organization-detail',
                 path: 'organizations/:organizationId',
-                redirect: to => ({ name: 'org-applications', params: to.params })
+                redirect: to => ({ name: 'org-dashboard', params: to.params })
+            },
+            {
+                name: 'org-dashboard',
+                path: 'organizations/:organizationId/dashboard',
+                component: () => import('./pages/org/OrgDashboard.vue'),
+                props: true,
+                meta: { sidebar: organizationSidebarItem('Dashboard', 'pi-objects-column', 5) }
             },
             {
                 name: 'org-applications',

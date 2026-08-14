@@ -5,21 +5,7 @@
     <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
 
     <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-      <component
-        :is="stat.to ? RouterLink : 'div'"
-        v-for="stat in stats"
-        :key="stat.label"
-        :to="stat.to"
-        class="flex flex-col gap-1 rounded-lg border border-surface p-4"
-        :class="stat.to ? 'cursor-pointer text-color no-underline transition-colors hover:bg-emphasis' : ''"
-      >
-        <span class="text-xs font-medium uppercase tracking-wide text-muted-color">{{ stat.label }}</span>
-        <span v-if="stat.tag" class="py-1">
-          <Tag :value="stat.value" :severity="stat.tag" />
-        </span>
-        <span v-else class="text-3xl font-semibold">{{ stat.value }}</span>
-        <span class="text-xs text-muted-color">{{ stat.description }}</span>
-      </component>
+      <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
     </div>
 
     <div class="mt-6 rounded-lg border border-surface">
@@ -67,7 +53,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
@@ -78,6 +63,7 @@ import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
+import StatTile from '@/components/StatTile.vue'
 
 const clusterInfo = ref<KinoticClusterInfo | null>(null)
 const clusterError = ref<string | null>(null)
