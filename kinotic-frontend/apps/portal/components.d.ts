@@ -30,8 +30,6 @@ declare module 'vue' {
     GitHubLinkStatus: typeof import('./src/components/GitHubLinkStatus.vue')['default']
     Glitch: typeof import('./src/components/Glitch.vue')['default']
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
-    IconField: typeof import('primevue/iconfield')['default']
-    InputIcon: typeof import('primevue/inputicon')['default']
     NewProjectSidebar: typeof import('./src/components/NewProjectSidebar.vue')['default']
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']
     ProjectEntityDefinitionsTable: typeof import('./src/components/ProjectEntityDefinitionsTable.vue')['default']
