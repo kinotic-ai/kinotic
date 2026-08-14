@@ -57,6 +57,9 @@ const props = withDefaults(defineProps<{
   enableRowHover?: boolean
   defaultPageSize?: number
   transparentDarkCards?: boolean
+  // Fills the first load with placeholder rows. Worth it only where the fetch is slow
+  // enough to be worth previewing — against a fast one the placeholder is a flash.
+  showLoadingSkeleton?: boolean
   // When set, each row gets an ellipsis button opening a popup menu with these
   // items. Rows for which the function returns an empty array get no button.
   rowActions?: (item: any) => MenuItem[]
@@ -80,6 +83,7 @@ const props = withDefaults(defineProps<{
   enableRowHover: true,
   defaultPageSize: 10,
   transparentDarkCards: false,
+  showLoadingSkeleton: false,
 });
 
 const emit = defineEmits<{
@@ -134,8 +138,12 @@ const hasRowMenu = computed<boolean>(() => {
 });
 
 /** True while a fetch is in flight and there are no rows to keep on screen. */
-const showSkeleton = computed<boolean>(() => {
+const isInitialLoad = computed<boolean>(() => {
   return loading.value && items.value.length === 0;
+});
+
+const showSkeleton = computed<boolean>(() => {
+  return props.showLoadingSkeleton && isInitialLoad.value;
 });
 
 // One placeholder per row the page holds, so the loading state occupies the same height a
@@ -152,7 +160,7 @@ const displayRows = computed<DescriptiveIdentifiable[]>(() => {
 // The paginator disables itself at a count of zero, so a real count would switch it out of
 // its greyed-out state on arrival. Standing in a full page keeps it enabled throughout.
 const displayTotal = computed<number>(() => {
-  return showSkeleton.value ? options.value.rows : totalItems.value;
+  return isInitialLoad.value ? options.value.rows : totalItems.value;
 });
 
 function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
@@ -506,7 +514,7 @@ defineExpose({ find, displayAlert });
           </Card>
         </div>
         <div
-          v-else
+          v-else-if="!loading"
           :class="['flex flex-1 flex-col items-center justify-center py-20', isDark ? 'text-surface-400' : 'text-surface-500']"
         >
           <p class="text-sm">{{ emptyStateText }}</p>
