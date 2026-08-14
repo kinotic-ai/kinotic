@@ -1,5 +1,6 @@
 <template>
-  <AuthPageShell>
+  <!-- The all-mint mark separates this login from the portal's at a glance -->
+  <AuthPageShell :logo="systemLogo">
     <div class="login-form">
       <div class="login-form__step">
         <IconField class="login-field">
@@ -45,6 +46,8 @@ import IconField from 'primevue/iconfield'
 import { useToast } from 'primevue/usetoast'
 
 import { AuthPageShell, createDebug, postCredentials } from '@kinotic-ai/frontend-common'
+
+import systemLogo from '@/assets/system-login-logo.svg'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
 const debug = createDebug('system-login')
