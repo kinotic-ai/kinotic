@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col">
     <div class="flex items-center justify-between mb-5">
-      <h1 class="text-[1.4rem] font-semibold">Worker nodes</h1>
+      <h1 class="text-2xl font-semibold">Worker nodes</h1>
       <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
               :loading="loadingNodes" @click="refreshAll" />
     </div>

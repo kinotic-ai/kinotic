@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h1 class="text-[1.4rem] font-semibold mb-5">Overview</h1>
+    <h1 class="text-2xl font-semibold mb-5">Overview</h1>
 
     <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
 

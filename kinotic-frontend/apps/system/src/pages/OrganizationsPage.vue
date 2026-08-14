@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <h1 class="text-[1.4rem] font-semibold mb-5">Organizations</h1>
+    <h1 class="text-2xl font-semibold mb-5">Organizations</h1>
 
     <CrudTable
       ref="crudTable"
