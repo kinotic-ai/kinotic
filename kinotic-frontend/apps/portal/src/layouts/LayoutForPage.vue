@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import SideBar from '@/components/SideBar.vue'
+import { SideBar } from '@kinotic-ai/frontend-common'
 import Header from './Header.vue'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 

@@ -2,7 +2,6 @@ import type { ILogManager } from '@/api/services/ILogManager'
 import { LogManager } from '@/api/services/LogManager'
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
-import { OrganizationService, type IOrganizationService } from '@/api/services/IOrganizationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
@@ -25,7 +24,6 @@ import { SystemOrganizationService, type ISystemOrganizationService } from '@/ap
 export interface IOsApiExtension {
     applications: IApplicationService
     clusterInfo: IKinoticClusterInfoService
-    organizations: IOrganizationService
     systemOrganizations: ISystemOrganizationService
     projects: IProjectService
     logManager: ILogManager
@@ -51,7 +49,6 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
         return {
             applications: new ApplicationService(kinotic),
             clusterInfo: new KinoticClusterInfoService(kinotic),
-            organizations: new OrganizationService(kinotic),
             systemOrganizations: new SystemOrganizationService(kinotic),
             projects: new ProjectService(kinotic),
             logManager: new LogManager(kinotic),

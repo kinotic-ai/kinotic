@@ -57,8 +57,8 @@ const { crudTable, tableSearch, dataSource } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const orgs = searchText
-      ? await Kinotic.organizations.search(searchText, pageable)
-      : await Kinotic.organizations.findAll(pageable)
+      ? await Kinotic.systemOrganizations.searchOrganizations(searchText, pageable)
+      : await Kinotic.systemOrganizations.findOrganizations(pageable)
   const page: Page<DescriptiveIdentifiable> = {
     content: (orgs.content ?? []).map(org => ({
       id: org.id ?? '',

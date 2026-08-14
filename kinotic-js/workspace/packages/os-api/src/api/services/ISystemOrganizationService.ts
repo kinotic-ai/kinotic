@@ -1,6 +1,7 @@
 import { SYSTEM_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 import { Application } from '@/api/model/Application'
+import { Organization } from '@/api/model/Organization'
 import { Project } from '@/api/model/Project'
 import type { PendingInviteSummary } from '@/api/model/security/PendingInviteSummary'
 import type { UserParticipantIdentity } from '@/api/model/security/UserParticipantIdentity'
@@ -11,6 +12,15 @@ import type { UserParticipantIdentity } from '@/api/model/security/UserParticipa
  * instead of resolving it from the caller's scope.
  */
 export interface ISystemOrganizationService {
+
+    findOrganizations(pageable: Pageable): Promise<Page<Organization>>
+
+    searchOrganizations(searchText: string, pageable: Pageable): Promise<Page<Organization>>
+
+    /** Resolves null when no organization has the given id. */
+    findOrganizationById(organizationId: string): Promise<Organization | null>
+
+    countOrganizations(): Promise<number>
 
     findApplications(organizationId: string, pageable: Pageable): Promise<Page<Application>>
 
@@ -31,6 +41,22 @@ export class SystemOrganizationService implements ISystemOrganizationService {
 
     constructor(kinotic: IKinotic) {
         this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_ZONE}~org.kinotic.os.api.services.SystemOrganizationService`)
+    }
+
+    public findOrganizations(pageable: Pageable): Promise<Page<Organization>> {
+        return this.serviceProxy.invoke('findOrganizations', [pageable])
+    }
+
+    public searchOrganizations(searchText: string, pageable: Pageable): Promise<Page<Organization>> {
+        return this.serviceProxy.invoke('searchOrganizations', [searchText, pageable])
+    }
+
+    public findOrganizationById(organizationId: string): Promise<Organization | null> {
+        return this.serviceProxy.invoke('findOrganizationById', [organizationId])
+    }
+
+    public countOrganizations(): Promise<number> {
+        return this.serviceProxy.invoke('countOrganizations', [])
     }
 
     public findApplications(organizationId: string, pageable: Pageable): Promise<Page<Application>> {

@@ -2,10 +2,10 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import SidebarItem from './SidebarItem.vue'
-import type { SidebarItemMeta } from '@/types/SidebarItemMeta'
-import strCollapse from '@/assets/str-collapse.svg'
-import strExpand from '@/assets/str-expand.svg'
-import { isDark as darkMode } from '@kinotic-ai/frontend-common'
+import type { SidebarItemMeta } from '../types/SidebarItemMeta'
+import strCollapse from '../assets/str-collapse.svg'
+import strExpand from '../assets/str-expand.svg'
+import { isDark as darkMode } from '../composables/useTheme'
 
 const COLLAPSE_KEY = 'sidebar-collapsed'
 

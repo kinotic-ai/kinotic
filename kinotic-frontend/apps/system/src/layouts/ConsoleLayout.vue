@@ -1,59 +1,38 @@
-<template>
-  <div class="flex flex-col min-h-screen">
-    <header class="flex items-center justify-between px-5 py-3 border-b border-surface">
-      <span class="font-semibold">Kinotic System Console</span>
-      <div class="flex items-center gap-3">
-        <span class="text-sm text-muted-color">{{ participantId }}</span>
-        <Button label="Sign out" severity="secondary" text size="small" :loading="signingOut" @click="handleLogout" />
-      </div>
-    </header>
-
-    <div class="flex flex-1">
-      <nav class="flex flex-col gap-1 w-52 px-2 py-4 border-r border-surface">
-        <router-link
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
-          class="flex items-center gap-2 px-3 py-2 rounded-md text-color no-underline hover:bg-emphasis"
-          active-class="bg-highlight"
-        >
-          <span :class="['pi', item.icon, 'text-sm']" aria-hidden="true"></span>
-          <span>{{ item.label }}</span>
-        </router-link>
-      </nav>
-
-      <main class="flex-1 p-6">
-        <router-view />
-      </main>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
+import { SideBar } from '@kinotic-ai/frontend-common'
+import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
-import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
+import Header from './Header.vue'
 
-const navItems = [
-  { to: '/overview', label: 'Overview', icon: 'pi-objects-column' },
-  { to: '/organizations', label: 'Organizations', icon: 'pi-building' },
-  { to: '/nodes', label: 'Nodes & workloads', icon: 'pi-server' },
-]
+const sidebarRef = ref<InstanceType<typeof SideBar> | null>(null)
 
-const router = useRouter()
-const signingOut = ref(false)
+const isSidebarCollapsed = computed(() => {
+    return sidebarRef.value?.collapsed ?? false
+})
 
-const participantId = computed(() => SYSTEM_USER_STATE.connectedInfo?.participant?.id ?? '')
-
-async function handleLogout() {
-  signingOut.value = true
-  try {
-    await SYSTEM_USER_STATE.logout()
-  } finally {
-    signingOut.value = false
-    await router.push('/login')
-  }
-}
+const isDark = computed(() => darkMode.value)
 </script>
+
+<template>
+    <div :class="['h-screen w-screen transition-colors', isDark ? 'bg-surface-900' : 'bg-surface-0']">
+        <div class="fixed top-0 left-0 right-0 z-50 h-[64px]">
+            <Header />
+        </div>
+        <SideBar ref="sidebarRef" />
+        <div
+            :class="[
+                'pt-[64px] h-full transition-all duration-300',
+                isSidebarCollapsed ? 'pl-[64px]' : 'pl-[256px]'
+            ]"
+        >
+            <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+                <!-- flex + flex-1 (rather than min-h-full on the page root) so short pages still
+                     stretch to the bottom of the viewport inside this auto-height wrapper. -->
+                <div class="mx-auto flex min-h-full w-full max-w-[1200px] flex-col">
+                    <router-view class="flex-1" />
+                </div>
+            </div>
+        </div>
+    </div>
+</template>

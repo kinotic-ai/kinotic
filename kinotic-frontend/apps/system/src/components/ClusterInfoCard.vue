@@ -24,6 +24,7 @@
           </div>
         </div>
 
+        <div class="overflow-x-auto">
         <table class="w-full border-collapse text-sm">
           <thead>
             <tr>
@@ -42,6 +43,7 @@
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </template>
   </Card>

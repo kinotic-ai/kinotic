@@ -64,7 +64,7 @@ const error = ref<string | null>(null)
 
 onMounted(async () => {
   try {
-    organization.value = await Kinotic.organizations.findById(props.organizationId)
+    organization.value = await Kinotic.systemOrganizations.findOrganizationById(props.organizationId)
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load organization'
   }

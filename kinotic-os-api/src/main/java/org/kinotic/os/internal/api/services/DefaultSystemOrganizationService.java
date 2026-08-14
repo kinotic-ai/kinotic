@@ -4,8 +4,10 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.services.security.InviteService;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
@@ -24,6 +26,27 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     private final ProjectRepository projectRepository;
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
+    private final OrganizationService organizationService;
+
+    @Override
+    public CompletableFuture<Page<Organization>> findOrganizations(Pageable pageable) {
+        return organizationService.findAll(pageable);
+    }
+
+    @Override
+    public CompletableFuture<Page<Organization>> searchOrganizations(String searchText, Pageable pageable) {
+        return organizationService.search(searchText, pageable);
+    }
+
+    @Override
+    public CompletableFuture<Organization> findOrganizationById(String organizationId) {
+        return organizationService.findById(organizationId);
+    }
+
+    @Override
+    public CompletableFuture<Long> countOrganizations() {
+        return organizationService.count();
+    }
 
     @Override
     public CompletableFuture<Page<Application>> findApplications(String organizationId, Pageable pageable) {

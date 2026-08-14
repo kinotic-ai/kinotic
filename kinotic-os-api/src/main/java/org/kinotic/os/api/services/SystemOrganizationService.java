@@ -5,6 +5,7 @@ import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
+import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -20,6 +21,38 @@ import java.util.concurrent.CompletableFuture;
 @Publish
 @Zone(DomainUtil.SYSTEM_ZONE)
 public interface SystemOrganizationService {
+
+    /**
+     * Returns every organization on the platform.
+     *
+     * @param pageable the page settings to use
+     * @return a page of {@link Organization}s
+     */
+    CompletableFuture<Page<Organization>> findOrganizations(Pageable pageable);
+
+    /**
+     * Searches every organization on the platform.
+     *
+     * @param searchText the text to match organizations against
+     * @param pageable the page settings to use
+     * @return a page of matching {@link Organization}s
+     */
+    CompletableFuture<Page<Organization>> searchOrganizations(String searchText, Pageable pageable);
+
+    /**
+     * Returns the organization with the given id, or null if none exists.
+     *
+     * @param organizationId the id of the organization to return
+     * @return the {@link Organization}, or null when not found
+     */
+    CompletableFuture<Organization> findOrganizationById(String organizationId);
+
+    /**
+     * Counts every organization on the platform.
+     *
+     * @return the number of organizations
+     */
+    CompletableFuture<Long> countOrganizations();
 
     /**
      * Returns the applications owned by the given organization.

@@ -42,8 +42,6 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     SavedWidgetItem: typeof import('./src/components/SavedWidgetItem.vue')['default']
     SetPasswordFields: typeof import('./src/components/SetPasswordFields.vue')['default']
-    SideBar: typeof import('./src/components/SideBar.vue')['default']
-    SidebarItem: typeof import('./src/components/SidebarItem.vue')['default']
     SideNav: typeof import('./src/components/SideNav.vue')['default']
     SocialAuthButton: typeof import('./src/components/SocialAuthButton.vue')['default']
     Tag: typeof import('primevue/tag')['default']

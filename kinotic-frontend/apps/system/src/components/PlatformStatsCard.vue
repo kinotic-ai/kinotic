@@ -27,7 +27,7 @@ const error = ref<string | null>(null)
 
 onMounted(async () => {
   try {
-    organizationCount.value = await Kinotic.organizations.count()
+    organizationCount.value = await Kinotic.systemOrganizations.countOrganizations()
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load platform stats'
   }
