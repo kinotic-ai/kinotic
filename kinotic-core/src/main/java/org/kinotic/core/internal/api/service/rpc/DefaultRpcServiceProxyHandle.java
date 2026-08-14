@@ -140,7 +140,15 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                     }
                 })
                 .exceptionHandler(throwable -> log.error("Reply Event listener error", throwable))
-                .endHandler(v -> log.error("Should not happen! Reply Event listener stopped for some reason!!"));
+                // Vert.x invokes the end handler on every unregistration, including the one release() performs.
+                // release() sets released before unregistering, so reaching the log means something other than
+                // release() unregistered the consumer and no in-flight response can be correlated any more.
+                .endHandler(_ -> {
+                    if(!released.get()){
+                        log.warn("Reply event listener for {} was unregistered without a call to release()",
+                                 serviceClass.getName());
+                    }
+                });
     }
 
     @Override

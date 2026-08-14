@@ -30,9 +30,9 @@ public interface EventConsumer {
     EventConsumer exceptionHandler(Handler<Throwable> handler);
 
     /**
-     * Sets a handler that is called when the event stream ends.
-     * Under normal operation this should not occur.
-     * @param handler the handler called on stream end
+     * Sets a handler that is called when this consumer is unregistered, whether by a call to {@link #unregister()}
+     * or by the underlying event bus closing.
+     * @param handler the handler called on unregistration
      * @return this for fluent usage
      */
     EventConsumer endHandler(Handler<Void> handler);

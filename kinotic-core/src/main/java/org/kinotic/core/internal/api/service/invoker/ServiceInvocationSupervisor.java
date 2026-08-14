@@ -110,9 +110,14 @@ public class ServiceInvocationSupervisor {
                         return null;
                     }))
                     .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                    // Vert.x invokes the end handler on every unregistration, including the one stop() performs.
+                    // stop() clears active before unregistering, so a successful CAS here means something other
+                    // than stop() unregistered the consumer and this supervisor is no longer serving invocations.
                     .endHandler(_ -> {
-                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
-                        active.set(false);
+                        if(active.compareAndSet(true, false)){
+                            log.warn("Event listener for {} was unregistered without a call to stop(), supervisor is now inactive",
+                                     serviceDescriptor.serviceIdentifier().cri());
+                        }
                     });
 
             return methodInvocationEventConsumer.completion();
