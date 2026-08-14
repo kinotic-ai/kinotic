@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="flex flex-col">
     <div class="flex items-center gap-3 mb-5">
       <Button icon="pi pi-arrow-left" severity="secondary" text aria-label="Back to organizations"
               @click="router.push({ name: 'organizations' })" />
@@ -14,20 +14,22 @@
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
-    <Tabs v-else value="applications">
+    <!-- The flex chain from ConsoleLayout runs through the tabs so each table's flex-1
+         shell fills the viewport height regardless of row count, like every list page. -->
+    <Tabs v-else value="applications" class="flex flex-1 flex-col">
       <TabList>
         <Tab value="applications">Applications</Tab>
         <Tab value="projects">Projects</Tab>
         <Tab value="members">Members</Tab>
       </TabList>
-      <TabPanels>
-        <TabPanel value="applications">
+      <TabPanels class="flex flex-1 flex-col">
+        <TabPanel value="applications" class="flex flex-1 flex-col">
           <OrgApplicationsTable :organization-id="organizationId" />
         </TabPanel>
-        <TabPanel value="projects">
+        <TabPanel value="projects" class="flex flex-1 flex-col">
           <OrgProjectsTable :organization-id="organizationId" />
         </TabPanel>
-        <TabPanel value="members">
+        <TabPanel value="members" class="flex flex-1 flex-col">
           <OrgMembersTable :organization-id="organizationId" />
         </TabPanel>
       </TabPanels>
