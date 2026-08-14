@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Overview" description="Cluster health and platform totals at a glance." />
+    <PageHeader title="Dashboard" description="Cluster health and platform totals at a glance." />
 
     <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
 
