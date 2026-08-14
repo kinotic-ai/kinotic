@@ -1,5 +1,7 @@
 <template>
   <div class="flex flex-col">
+    <PageHeader title="Members" :description="membersDescription" />
+
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -72,6 +74,7 @@ import {
 import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
+import PageHeader from '@/components/PageHeader.vue'
 import { statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
@@ -126,6 +129,12 @@ const userState = KinoticStates.getUserState()
 const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
+
+const membersDescription = computed<string>(() => {
+  return props.applicationId !== null
+      ? 'Everyone with access to this application, including pending invitations.'
+      : 'Everyone in your organization, including pending invitations.'
+})
 
 const providersHint = computed<string>(() => {
   if (props.applicationId !== null) {

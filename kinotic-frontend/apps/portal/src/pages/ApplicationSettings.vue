@@ -1,6 +1,6 @@
 <template>
   <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
-    <h1 class="application-settings__title">Application settings</h1>
+    <PageHeader title="Application settings" />
 
     <div class="application-settings__general-shell">
       <form @submit.prevent="saveSettings" class="application-settings__form">
@@ -52,6 +52,7 @@
 import { ref, defineProps, onMounted, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
+import PageHeader from '@/components/PageHeader.vue'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -140,19 +141,10 @@ const saveSettings = async () => {
   color: #101010;
 }
 
-.application-settings__title {
-  margin: 0 0 1.25rem;
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.application-settings--dark .application-settings__title,
 .application-settings--dark .application-settings__label {
   color: #ffffff;
 }
 
-.application-settings--light .application-settings__title,
 .application-settings--light .application-settings__label {
   color: #101010;
 }

@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectList from '@/components/ProjectList.vue'
 import EntityDefinitionsList from '@/components/EntityDefinitionsList.vue'
+import PageHeader from '@/components/PageHeader.vue'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
@@ -75,12 +76,7 @@ isInitialized.value = true
   <!-- The flex column chain down through the tabs lets the CrudTable shell stretch to the
        bottom of the viewport, keeping its paginator in a fixed position. -->
   <div :class="['flex flex-col transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
-    <div class="flex justify-between items-center mb-6 h-[58px]">
-      <div>
-        <h1 :class="['mb-3 text-2xl font-semibold', isDark ? 'text-white' : 'text-surface-950']">{{ applicationId }}</h1>
-        <span :class="[isDark ? 'text-surface-400' : 'text-surface-600']">{{ projectsCount }} projects, {{ entityDefinitionsCount }} entities</span>
-      </div>
-    </div>
+    <PageHeader :title="applicationId" :description="`${projectsCount} projects, ${entityDefinitionsCount} entities`" />
 
     <Tabs class="flex-1" :value="activeTab" @update:value="activeTab = $event">
       <TabList>

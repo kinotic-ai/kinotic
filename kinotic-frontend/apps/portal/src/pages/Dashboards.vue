@@ -5,6 +5,7 @@ import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { DashboardEntityRepository } from '@/services/DashboardEntityRepository'
 import { Dashboard } from '@/domain/Dashboard'
 import { CrudTable } from '@kinotic-ai/frontend-common'
+import PageHeader from '@/components/PageHeader.vue'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import { useToast } from 'primevue/usetoast'
@@ -189,9 +190,7 @@ watch(() => router.currentRoute.value.query.refresh, () => {
 
 <template>
   <div :class="['transition-colors', isDark ? 'text-surface-0' : 'text-surface-950']">
-    <div :class="['mb-6 flex items-center justify-between border-b pb-6', isDark ? 'border-surface-800' : 'border-surface-200']">
-      <h1 :class="['text-2xl font-semibold', isDark ? 'text-surface-0' : 'text-surface-950']">{{ title }}</h1>
-    </div>
+    <PageHeader :title="title" />
     
     <div class="h-[calc(100vh-140px)]">
       <CrudTable

@@ -12,7 +12,7 @@ defineProps<{
 </script>
 
 <template>
-  <header class="mb-8 flex flex-wrap items-start justify-between gap-4">
+  <header class="mb-6 flex flex-wrap items-start justify-between gap-4">
     <div class="min-w-0">
       <h1 class="text-2xl font-semibold tracking-tight text-surface-950 dark:text-surface-0">{{ title }}</h1>
       <p v-if="description" class="mt-2 max-w-[640px] text-sm text-surface-500 dark:text-surface-400">
