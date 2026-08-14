@@ -18,7 +18,7 @@
         </span>
         <h2 class="signup-title">Your organization is ready</h2>
         <p class="connect-github__text">
-          One more step: we'll send you back to GitHub to install the Kinotic app.
+          Almost there! One quick trip to GitHub to install the Kinotic app — then your projects will have a home.
         </p>
         <ul class="connect-github__points">
           <li>Signing in proved who you are — installing the app is what authorizes repository access.</li>
