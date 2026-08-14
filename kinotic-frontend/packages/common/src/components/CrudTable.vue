@@ -12,6 +12,7 @@ import Menu from "primevue/menu";
 import type { MenuItem } from "primevue/menuitem";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
+import Skeleton from "primevue/skeleton";
 import { useToast } from "primevue/usetoast";
 import { useConfirm } from "primevue/useconfirm";
 
@@ -30,6 +31,9 @@ import { createDebug } from "../util/debug";
 import { isDark as darkMode } from '../composables/useTheme'
 
 const debug = createDebug('crud-table');
+
+/** Wide enough for the ellipsis button plus the body cell padding. */
+const ROW_MENU_COLUMN_WIDTH = '4.5rem';
 
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
@@ -91,7 +95,7 @@ const route = useRoute()
 
 function getRowClass() {
   return {
-    "dynamic-hover": props.enableRowHover,
+    "dynamic-hover": props.enableRowHover && !showSkeleton.value,
     "transition-all": true,
   };
 }
@@ -125,6 +129,22 @@ function toggleRowMenu(event: Event, itemId: string): void {
 
 const hasRowMenu = computed<boolean>(() => {
   return !!props.rowActions || props.isShowDelete;
+});
+
+/** True while a fetch is in flight and there are no rows to keep on screen. */
+const showSkeleton = computed<boolean>(() => {
+  return loading.value && items.value.length === 0;
+});
+
+// One placeholder per row the page holds, so the loading state occupies the same height a
+// full page of rows will.
+const skeletonRows = computed<DescriptiveIdentifiable[]>(() => {
+  return Array.from({ length: options.value.rows }, (_, index) => ({ id: `skeleton-${index}` }));
+});
+
+/** What the table and the card grid iterate: the loaded rows, or placeholders while they load. */
+const displayRows = computed<DescriptiveIdentifiable[]>(() => {
+  return showSkeleton.value ? skeletonRows.value : items.value;
 });
 
 function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
@@ -181,8 +201,11 @@ const dataTablePt = computed(() => {
     tableContainer: {
       class: 'bg-transparent'
     },
+    // table-fixed keeps the columns sized from the header widths alone. Under the default
+    // auto layout the browser measures the loaded rows, so every column jumps once the
+    // first page arrives — the headers visibly reflow.
     table: {
-      class: 'bg-transparent border-separate border-spacing-0'
+      class: 'bg-transparent border-separate border-spacing-0 table-fixed'
     },
     header: {
       class: 'hidden'
@@ -257,6 +280,9 @@ function onRowClick(event: {
   data: Identifiable<string>;
   index: number;
 }) {
+  if (showSkeleton.value) {
+    return;
+  }
   emit("onRowClick", { ...event.data });
 }
 
@@ -400,14 +426,15 @@ defineExpose({ find, displayAlert });
     <div class="mb-6 flex flex-1 flex-col">
       <div v-if="isColumnView" class="flex flex-1 flex-col">
         <div
-          v-if="items.length > 0"
+          v-if="displayRows.length > 0"
           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           <Card
-            v-for="(item, index) in items"
+            v-for="(item, index) in displayRows"
             :key="item.id || index"
             :class="[
-              'relative flex h-[170px] cursor-pointer flex-col justify-between border transition-shadow',
+              'relative flex h-[170px] flex-col justify-between border transition-shadow',
+              showSkeleton ? '' : 'cursor-pointer',
               isDark
                 ? [
                     transparentDarkCards ? 'border-surface-700 bg-transparent text-surface-0 shadow-none' : 'border-surface-700 bg-surface-900 text-surface-0 shadow-none',
@@ -418,17 +445,19 @@ defineExpose({ find, displayAlert });
             @click="handleCardClick(item, index)"
           >
             <template #title>
-              <h3 :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
+              <Skeleton v-if="showSkeleton" height="1.25rem" width="55%" />
+              <h3 v-else :class="isDark ? 'text-surface-0 font-semibold' : ''">{{ item?.id }}</h3>
             </template>
 
             <template #content>
-              <p :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-surface-400' : 'text-surface-500']">
+              <Skeleton v-if="showSkeleton" height="0.875rem" width="85%" />
+              <p v-else :class="['max-h-[46px] overflow-hidden text-sm [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]', isDark ? 'text-surface-400' : 'text-surface-500']">
                 {{ item?.description }}
               </p>
             </template>
 
             <template #footer>
-              <div class="flex p-5 gap-4 absolute bottom-0 left-0">
+              <div v-if="!showSkeleton" class="flex p-5 gap-4 absolute bottom-0 left-0">
                 <Button
                   severity="secondary"
                   text
@@ -491,7 +520,7 @@ defineExpose({ find, displayAlert });
           <DataTable
             :class="['crud-table__datatable', { 'crud-table__datatable--loading': loading }]"
             :pt="dataTablePt"
-            :value="items"
+            :value="displayRows"
             dataKey="id"
             @row-click="onRowClick"
             sortMode="multiple"
@@ -503,31 +532,30 @@ defineExpose({ find, displayAlert });
               :field="col.field"
               :header="col.header"
               :sortable="col.sortable !== false"
+              :style="{ width: col.width }"
               :headerStyle="col.centered ? { textAlign: 'center' } : {}"
             >
               <template #body="slotProps">
-                <div
-                  v-if="col.centered"
-                  class="flex items-center justify-center w-full min-h-[48px]"
-                >
-                  <slot :name="`item.${col.field}`" :item="slotProps.data">
-                    {{ slotProps.data[col.field] }}
-                  </slot>
-                </div>
-                <template v-else>
-                  <div class="flex min-h-[48px] items-center">
+                <div :class="['flex min-h-[48px] items-center', col.centered ? 'w-full justify-center' : '']">
+                  <Skeleton v-if="showSkeleton" height="0.875rem" width="60%" />
+                  <!-- min-w-0 lets this shrink below its min-content width, so a long
+                       unbreakable value wraps inside the column instead of spilling into
+                       the next one. Wrapping the slot rather than the flex row itself keeps
+                       badges and buttons at their natural width. -->
+                  <div v-else class="min-w-0 break-words">
                     <slot :name="`item.${col.field}`" :item="slotProps.data">
                       {{ slotProps.data[col.field] }}
                     </slot>
                   </div>
-                </template>
+                </div>
               </template>
             </Column>
 
-            <Column v-if="hasRowMenu" header="">
+            <Column v-if="hasRowMenu" header="" :style="{ width: ROW_MENU_COLUMN_WIDTH }">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
-                  <template v-if="rowMenuItems(slotProps.data).length > 0">
+                  <Skeleton v-if="showSkeleton" shape="circle" size="1.25rem" />
+                  <template v-else-if="rowMenuItems(slotProps.data).length > 0">
                     <Button
                       icon="pi pi-ellipsis-v"
                       @click.stop="(event) => toggleRowMenu(event, slotProps.data.id)"

@@ -67,12 +67,12 @@ export default defineComponent({
       showPublishModal: false,
       showUnpublishModal: false,
       entityDefinitionTableHeaders: [
-        { field: "name", header: "Entity name", sortable: true },
-        { field: "projectId", header: "Project", sortable: true },
-        { field: "description", header: "Description", sortable: false },
-        { field: "created", header: "Created", sortable: false },
-        { field: "updated", header: "Updated", sortable: false },
-        { field: "published", header: "Status", sortable: false, centered: true },
+        { field: "name", header: "Entity name", sortable: true, width: "19%" },
+        { field: "projectId", header: "Project", sortable: true, width: "16%" },
+        { field: "description", header: "Description", sortable: false, width: "26%" },
+        { field: "created", header: "Created", sortable: false, width: "13%" },
+        { field: "updated", header: "Updated", sortable: false, width: "13%" },
+        { field: "published", header: "Status", sortable: false, centered: true, width: "13%" },
       ] as CrudHeader[],
     };
   },

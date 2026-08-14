@@ -18,11 +18,14 @@
         </span>
         <h2 class="signup-title">Your organization is ready</h2>
         <p class="mx-auto mb-6 max-w-96 leading-normal">
-          One more step: we'll send you back to GitHub to install the Kinotic app.
-          Signing in proved who you are — installing the app authorizes repository
-          access, so Kinotic can create and manage the GitHub repositories that back
-          your projects.
+          Almost there! One quick trip to GitHub to install the Kinotic app — then your projects will have a home.
         </p>
+        <h3 class="mx-auto mb-2 max-w-104 text-left text-[0.95rem] font-semibold">Why the extra trip?</h3>
+        <ul class="mx-auto mb-6 max-w-104 list-disc pl-5 text-left leading-normal space-y-2">
+          <li>Signing in proved who you are — installing the app is what authorizes repository access.</li>
+          <li>Kinotic uses that access to create and manage the GitHub repositories that back your projects.</li>
+          <li>Heads up: GitHub may ask you to confirm access — a code emailed to you (subject "Sudo email verification code") or your usual two-factor prompt. That's a standard GitHub security check.</li>
+        </ul>
         <Button
           label="Continue to GitHub"
           icon="pi pi-arrow-right"

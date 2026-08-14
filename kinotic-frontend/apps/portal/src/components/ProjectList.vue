@@ -33,12 +33,12 @@ const selectedProjectId = ref<string | null>(null)
 const isInitialized = ref(false)
 
 const projectTableHeaders: CrudHeader[] = [
-  { field: 'name', header: 'Project Name', sortable: true },
-  { field: 'repoConnectionStatus', header: 'Repository', sortable: false },
-  { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true },
-  { field: 'description', header: 'Description', sortable: false },
-  { field: 'created', header: 'Created', sortable: false },
-  { field: 'updated', header: 'Updated', sortable: false }
+  { field: 'name', header: 'Project Name', sortable: true, width: '19%' },
+  { field: 'repoConnectionStatus', header: 'Repository', sortable: false, width: '17%' },
+  { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true, width: '15%' },
+  { field: 'description', header: 'Description', sortable: false, width: '21%' },
+  { field: 'created', header: 'Created', sortable: false, width: '14%' },
+  { field: 'updated', header: 'Updated', sortable: false, width: '14%' }
 ]
 
 // Ids of projects whose repository initialization is currently being retried,
