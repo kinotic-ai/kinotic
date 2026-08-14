@@ -4,7 +4,7 @@
 
     <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
 
-    <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+    <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
       <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
     </div>
 
@@ -68,6 +68,7 @@ import StatTile from '@/components/StatTile.vue'
 const clusterInfo = ref<KinoticClusterInfo | null>(null)
 const clusterError = ref<string | null>(null)
 const organizationCount = ref<number | null>(null)
+const workerNodeCount = ref<number | null>(null)
 
 const logLevelNodeId = ref<string | null>(null)
 const logLevelVisible = ref(false)
@@ -99,6 +100,12 @@ const stats = computed<Stat[]>(() => [
     description: 'Increments each time a node joins or leaves'
   },
   {
+    label: 'Worker nodes',
+    value: workerNodeCount.value?.toString() ?? '—',
+    description: 'VmManager nodes available to host workloads',
+    to: '/worker-nodes'
+  },
+  {
     label: 'Organizations',
     value: organizationCount.value?.toString() ?? '—',
     description: 'Organizations registered on the platform',
@@ -121,6 +128,11 @@ onMounted(async () => {
     organizationCount.value = await Kinotic.systemOrganizations.countOrganizations()
   } catch {
     // The tile shows an em dash; the count is cosmetic and must not block the page
+  }
+  try {
+    workerNodeCount.value = await Kinotic.vmNodes.count()
+  } catch {
+    // Same em-dash fallback as the organization count
   }
 })
 </script>
