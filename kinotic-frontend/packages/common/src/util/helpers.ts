@@ -52,3 +52,17 @@ export function showErrorToast(toast: ToastServiceMethods,
         life: opts.life ?? 5000
     })
 }
+
+/**
+ * Up to two uppercase initials standing in for an avatar image, from the display name or,
+ * when it is blank, the email's local part. Empty when neither is available.
+ */
+export function avatarInitials(displayName?: string | null, email?: string | null): string {
+    const name = displayName?.trim() ?? ''
+    const source = name.length > 0 ? name : (email?.split('@')[0] ?? '')
+    return source.split(/[\s._-]+/)
+                 .filter(part => part.length > 0)
+                 .slice(0, 2)
+                 .map(part => part.charAt(0).toUpperCase())
+                 .join('')
+}
