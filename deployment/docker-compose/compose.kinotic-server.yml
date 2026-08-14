@@ -42,6 +42,10 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
+      # jvm.buffer.* and jvm.system.cpu.* are Development-stability metrics the agent gates
+      # behind this flag. Direct buffers matter here — Vert.x and Netty allocate off-heap
+      # against MaxDirectMemorySize.
+      OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY: "true"
       SPRING_PROFILES_ACTIVE: development,compose
       KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9090"
       KINOTIC_DOMAIN_EMAIL_ENABLED: "false"

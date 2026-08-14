@@ -151,20 +151,67 @@ kinotic-server container uses in `compose.kinotic-server.yml`, pointed at the ho
 port instead of the compose network. The agent is what populates `GlobalOpenTelemetry`, so the
 `@WithSpan` methods throughout the codebase only produce spans when it's attached; without it
 the SDK is a no-op. `OTEL_METRIC_EXPORT_INTERVAL=15000` shortens the SDK's 60s default so
-metrics land in Grafana while you're still looking at the dashboard.
+metrics land in Grafana while you're still looking at the dashboard, and
+`OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY=true` adds the `jvm.buffer.*`
+and `jvm.system.cpu.*` metrics the agent otherwise withholds as Development-stability.
 
-Everything lands in Grafana at <http://localhost:3000> (anonymous Admin, no login):
+Grafana is at <http://localhost:3000> (anonymous Admin, no login) and opens on the **Kinotic
+Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a live
+log panel, all provisioned from `dashboards/kinotic-server.json`. Beyond it:
 
 | Signal | Datasource | Where to look |
 |---|---|---|
 | Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server` |
-| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server"}` — the OTLP→Prometheus translation maps `service.name` onto `job` |
+| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server"}` |
 | Logs | Loki | Explore → Loki, `{service_name="kinotic-server"}` (tenant `kinotic-system`) |
 
-Spans and logs share the same `service.name` as the containerized server, so the same
-dashboards work either way. To run without the collector up, set `OTEL_SDK_DISABLED=true` in
-the run configuration's Environment variables — otherwise the agent retries the export and
-logs a connection failure every interval.
+Grafana 12 preinstalls the Drilldown apps (Metrics, Logs, Traces) and downloads them from
+grafana.com on first start — the **Drilldown** nav section needs no configuration beyond the
+datasources above, and the `grafana-data` volume keeps them across container recreates.
+
+### How the signals name themselves
+
+Each backend renames OTel attributes on ingest, which is what makes a copy-pasted query match
+nothing. The rules that matter:
+
+- **Mimir** folds `service.name` into the `job` label and `service.instance.id` into
+  `instance`; every other resource attribute lands on the `target_info` metric. Instrument
+  attributes keep their names with `.` → `_` (`jvm.memory.type` → `jvm_memory_type`).
+- **Metric names carry unit suffixes** (`jvm.memory.used` → `jvm_memory_used_bytes`,
+  `http.server.request.duration` → `http_server_request_duration_seconds_bucket`) because
+  `mimir.yml` sets `otel_metric_suffixes_enabled: true`. Mimir defaults that off, which stores
+  bare `jvm_memory_used` and leaves every stock dashboard empty.
+- **Tempo's metrics-generator** writes its own series to Mimir — `traces_spanmetrics_calls_total`
+  and `traces_spanmetrics_latency_bucket`, labelled `service`, `span_name`, `span_kind`,
+  `status_code`. These only exist because `tempo.yml` enables the processors under `overrides`;
+  the `metrics_generator.processor` block alone does nothing.
+- **Loki** promotes `service.name` to the `service_name` index label and keeps `trace_id` /
+  `span_id` as structured metadata, which is what the Tempo link on each log line matches.
+
+To see what's actually stored rather than what should be:
+
+```bash
+curl -s 'http://localhost:9009/prometheus/api/v1/label/__name__/values' | jq -r '.data[]' | grep -E 'jvm|http|traces_'
+curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/labels' | jq
+```
+
+### Correlation between signals
+
+- **Log → trace**: expand a log line in Explore or the dashboard's log panel; the `TraceID`
+  derived field links into Tempo. It matches the `trace_id` structured-metadata key, not the
+  line text — OTLP log records carry the trace context as metadata, so a body regex finds
+  nothing.
+- **Metric → trace**: exemplar dots on the p95 latency panel jump to the trace behind the
+  sample. Requires `max_global_exemplars_per_user` above 0 in `mimir.yml` — Mimir's default of
+  `0` disables exemplar ingestion outright, unlike the series limits where `0` means unlimited.
+- **Trace → logs / metrics**: a span in Tempo has *Logs for this span* and the span-metrics
+  queries wired through `tracesToLogsV2` / `tracesToMetrics`.
+- **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
+  `service-graphs` processor writing `traces_service_graph_*` into Mimir.
+
+To run without the collector up, set `OTEL_SDK_DISABLED=true` in the run configuration's
+Environment variables — otherwise the agent retries the export and logs a connection failure
+every interval.
 
 `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
 the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the

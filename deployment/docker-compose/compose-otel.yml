@@ -55,9 +55,17 @@ services:
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # Land on the server dashboard instead of the empty stock home page
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/kinotic-server.json
     volumes:
       - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./dashboards:/var/lib/grafana/dashboards
+      # Grafana 12 downloads the Drilldown apps on first start; keeping /var/lib/grafana
+      # means a container recreate doesn't re-fetch them (and works offline afterwards).
+      - grafana-data:/var/lib/grafana
 
 volumes:
   tempo-data:
   mimir-data:
+  grafana-data:
