@@ -1,5 +1,6 @@
 import { Kinotic } from '@kinotic-ai/core'
 import type { UserParticipantIdentity } from '@kinotic-ai/os-api'
+import { avatarInitials } from '@kinotic-ai/frontend-common'
 import { reactive } from 'vue'
 
 /**
@@ -26,13 +27,7 @@ export class ProfileState implements IProfileState {
     private inFlight: Promise<void> | null = null
 
     public get initials(): string {
-        const name = this.profile?.displayName?.trim() ?? ''
-        const source = name.length > 0 ? name : (this.profile?.email?.split('@')[0] ?? '')
-        return source.split(/[\s._-]+/)
-                     .filter(part => part.length > 0)
-                     .slice(0, 2)
-                     .map(part => part.charAt(0).toUpperCase())
-                     .join('')
+        return avatarInitials(this.profile?.displayName, this.profile?.email)
     }
 
     public load(): Promise<void> {

@@ -56,7 +56,7 @@
 
       <div ref="avatarDropdownRef" class="relative">
         <button class="flex items-center" @click="avatarDropdownOpen = !avatarDropdownOpen">
-          <img src="@/assets/avatar.png" class="h-8 w-8 cursor-pointer rounded-full hover:opacity-80" alt="Account" />
+          <Avatar :label="initials" shape="circle" class="cursor-pointer hover:opacity-80" />
         </button>
 
         <div v-if="avatarDropdownOpen"
@@ -86,13 +86,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import Avatar from 'primevue/avatar'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Organization, UserParticipantIdentity } from '@kinotic-ai/os-api'
-import { isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
+import { avatarInitials, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
 
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
 
@@ -124,6 +125,8 @@ const filteredOrganizations = computed(() => {
       ? organizations.value.filter(org => org.name.toLowerCase().includes(needle) || (org.id ?? '').includes(needle))
       : organizations.value
 })
+
+const initials = computed(() => avatarInitials(profile.value?.displayName, profile.value?.email))
 
 const profileName = computed(() => profile.value?.displayName ?? 'System operator')
 const profileDetail = computed(() => profile.value?.email ?? SYSTEM_USER_STATE.connectedInfo?.participant?.id ?? '')
