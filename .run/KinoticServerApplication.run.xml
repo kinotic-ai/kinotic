@@ -16,7 +16,7 @@
       <env name="OTEL_EXPORTER_OTLP_PROTOCOL" value="grpc" />
       <env name="OTEL_TRACES_EXPORTER" value="otlp" />
       <env name="OTEL_METRICS_EXPORTER" value="otlp" />
-      <env name="OTEL_LOGS_EXPORTER" value="otlp" />
+      <env name="OTEL_LOGS_EXPORTER" value="none" />
       <env name="OTEL_METRIC_EXPORT_INTERVAL" value="15000" />
       <env name="OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY" value="true" />
     </envs>

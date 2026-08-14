@@ -155,9 +155,17 @@ metrics land in Grafana while you're still looking at the dashboard, and
 `OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY=true` adds the `jvm.buffer.*`
 and `jvm.system.cpu.*` metrics the agent otherwise withholds as Development-stability.
 
+Logs are the exception: the run configuration sets `OTEL_LOGS_EXPORTER=none`, so an
+IntelliJ-run server's logs stay in the IDE console and out of Loki's `kinotic-system` tenant,
+which is where `LogService` reads platform workload logs. The kinotic-server container still
+ships its logs (`OTEL_LOGS_EXPORTER=otlp` in `compose.kinotic-server.yml`) — flip the run
+config to `otlp` to match it.
+
 Grafana is at <http://localhost:3000> (anonymous Admin, no login) and opens on the **Kinotic
-Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a live
-log panel, all provisioned from `dashboards/kinotic-server.json`. Beyond it:
+Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a log
+panel, all provisioned from `dashboards/kinotic-server.json`. The log panel and the log-linked
+correlations below follow the logs, so they fill in for the containerized server and stay
+empty when you run from IntelliJ. Beyond the dashboard:
 
 | Signal | Datasource | Where to look |
 |---|---|---|
