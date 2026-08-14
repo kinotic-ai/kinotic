@@ -20,10 +20,11 @@
         <p class="connect-github__text">
           Almost there! One quick trip to GitHub to install the Kinotic app — then your projects will have a home.
         </p>
+        <h3 class="connect-github__why">Why the extra trip?</h3>
         <ul class="connect-github__points">
           <li>Signing in proved who you are — installing the app is what authorizes repository access.</li>
           <li>Kinotic uses that access to create and manage the GitHub repositories that back your projects.</li>
-          <li>GitHub may ask you to confirm access first — a code emailed to you (subject "Sudo email verification code") or your usual two-factor prompt. That's a standard GitHub security check.</li>
+          <li>Heads up: GitHub may ask you to confirm access — a code emailed to you (subject "Sudo email verification code") or your usual two-factor prompt. That's a standard GitHub security check.</li>
         </ul>
         <Button
           label="Continue to GitHub"
@@ -224,6 +225,14 @@ function displayError(text: string) {
   margin: 0 auto 1.5rem;
   max-width: 24rem;
   line-height: 1.5;
+}
+
+.connect-github__why {
+  margin: 0 auto 0.5rem;
+  max-width: 26rem;
+  text-align: left;
+  font-size: 0.95rem;
+  font-weight: 600;
 }
 
 /* Bullets read left-aligned inside the centered card */
