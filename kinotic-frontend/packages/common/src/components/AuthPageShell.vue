@@ -46,18 +46,14 @@ const props = withDefaults(defineProps<{
   /** Overrides the theme-aware background art when set. */
   art?: string | null
 
-  /** Overrides the theme-aware brand mark in both themes when set. */
-  logo?: string | null
-
   showThemeToggle?: boolean
 }>(), {
   art: null,
-  logo: null,
   showThemeToggle: true,
 })
 
 const backgroundArt = computed(() => props.art ?? (darkMode.value ? loginBgDark : loginBgLight))
-const brandMark = computed(() => props.logo ?? (darkMode.value ? loginPageLogo : loginPageLogoLight))
+const brandMark = computed(() => darkMode.value ? loginPageLogo : loginPageLogoLight)
 const isDark = darkMode
 function toggleTheme() { toggleDark() }
 </script>
