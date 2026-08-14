@@ -1,5 +1,8 @@
 <template>
   <div class="flex flex-col">
+    <PageHeader title="Machines"
+                description="Non-human callers that connect to this application's API with their own client id and secret." />
+
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -91,6 +94,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import type { MachineParticipantIdentity } from '@kinotic-ai/os-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
+import PageHeader from '@/components/PageHeader.vue'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'

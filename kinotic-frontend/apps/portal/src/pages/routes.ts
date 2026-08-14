@@ -6,6 +6,10 @@ function organizationSidebarItem(label: string, icon: string, order: number): Si
   return { group: 'organization', section: 'Organization', label, icon, order }
 }
 
+function accountSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
+  return { group: 'account', section: 'Account', label, icon, order }
+}
+
 function organizationPlaceholderRoute(path: string, name: string, title: string, description: string,
                                       icon: string, order: number): RouteRecordRaw {
   return {
@@ -101,7 +105,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'account-profile',
         path: 'profile',
         meta: {
-          sidebar: { group: 'account', label: 'Profile', icon: 'pi-user', order: 10 } as SidebarItemMeta
+          sidebar: accountSidebarItem('Profile', 'pi-user', 10)
         } as RouteMeta,
         component: () => import('@/pages/ProfilePage.vue')
       },
@@ -109,7 +113,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'account-connected-apps',
         path: 'connected-apps',
         meta: {
-          sidebar: { group: 'account', label: 'Connected apps', icon: 'pi-link', order: 20 } as SidebarItemMeta
+          sidebar: accountSidebarItem('Connected apps', 'pi-link', 20)
         } as RouteMeta,
         component: () => import('@/pages/ConnectedAppsPage.vue')
       }

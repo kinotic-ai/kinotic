@@ -32,6 +32,7 @@ declare module 'vue' {
     GlobalObjectNode: typeof import('./src/components/nodes/GlobalObjectNode.vue')['default']
     NewProjectSidebar: typeof import('./src/components/NewProjectSidebar.vue')['default']
     ObjectNode: typeof import('./src/components/nodes/ObjectNode.vue')['default']
+    PageHeader: typeof import('./src/components/PageHeader.vue')['default']
     ProjectEntityDefinitionsTable: typeof import('./src/components/ProjectEntityDefinitionsTable.vue')['default']
     ProjectList: typeof import('./src/components/ProjectList.vue')['default']
     PropertyType: typeof import('./src/components/entity-definitions/flow-components/PropertyType.vue')['default']

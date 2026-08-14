@@ -1,6 +1,6 @@
 <template>
   <div class="invite-email-page">
-    <h1 class="text-xl font-semibold mb-4">Invitation email</h1>
+    <PageHeader title="Invitation email" />
 
     <div v-if="loading" class="flex justify-center py-12">
       <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
@@ -67,6 +67,7 @@ import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/os-api'
+import PageHeader from '@/components/PageHeader.vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /**
