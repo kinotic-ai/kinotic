@@ -612,7 +612,7 @@ defineExpose({ find, displayAlert });
           :totalRecords="displayTotal"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
-          class="justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
+          class="border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
         />
       </div>
     </div>
@@ -652,6 +652,13 @@ defineExpose({ find, displayAlert });
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
+}
+
+/* Anchors the rows-per-page select to the table's right edge, so the page buttons grow
+   leftward as the record count arrives rather than pushing the select sideways. Two class
+   selectors to outweigh the theme's own centring on .p-paginator. */
+.crud-table .p-paginator {
+  justify-content: flex-end;
 }
 
 .crud-table--light .crud-table__view-switcher.p-selectbutton {
