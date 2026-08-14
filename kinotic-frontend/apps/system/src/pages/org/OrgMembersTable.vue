@@ -28,6 +28,7 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import Tag from 'primevue/tag'
 
 import {
@@ -70,7 +71,7 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false }
 ]
 
-const { crudTable, tableSearch, dataSource } = useCrudTablePage(load)
+const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
@@ -130,4 +131,8 @@ function toMemberRow(user: UserParticipantIdentity): MemberRow {
     created: user.created
   }
 }
+
+// The header's organization switcher navigates in place, so the router reuses this
+// component instance; refetch when the target organization changes
+watch(() => props.organizationId, () => refreshTable())
 </script>
