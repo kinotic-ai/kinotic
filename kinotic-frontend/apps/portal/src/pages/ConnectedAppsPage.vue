@@ -1,5 +1,8 @@
 <template>
   <div class="flex flex-col">
+    <PageHeader title="Connected apps"
+                description="Clients you have authorized to act on your behalf. Revoking one signs it out everywhere." />
+
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -66,6 +69,7 @@ import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
+import PageHeader from '@/components/PageHeader.vue'
 
 /** One table row — a client authorized to act on the signed-in user's behalf. */
 interface DelegateRow extends DescriptiveIdentifiable {
