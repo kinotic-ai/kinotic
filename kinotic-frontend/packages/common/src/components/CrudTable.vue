@@ -149,6 +149,12 @@ const displayRows = computed<DescriptiveIdentifiable[]>(() => {
   return showSkeleton.value ? skeletonRows.value : items.value;
 });
 
+// The paginator disables itself at a count of zero, so a real count would switch it out of
+// its greyed-out state on arrival. Standing in a full page keeps it enabled throughout.
+const displayTotal = computed<number>(() => {
+  return showSkeleton.value ? options.value.rows : totalItems.value;
+});
+
 function rowMenuItems(item: DescriptiveIdentifiable): MenuItem[] {
   const menuItems = props.rowActions ? [...props.rowActions(item)] : [];
   if (props.isShowDelete) {
@@ -508,7 +514,7 @@ defineExpose({ find, displayAlert });
 
         <Paginator
           :rows="options.rows"
-          :totalRecords="totalItems"
+          :totalRecords="displayTotal"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
           class="mt-auto pt-4"
@@ -603,10 +609,10 @@ defineExpose({ find, displayAlert });
           v-if="showPagination"
           :rows="options.rows"
           :first="options.first"
-          :totalRecords="totalItems"
+          :totalRecords="displayTotal"
           :rowsPerPageOptions="paginationOptions"
           @page="onPaginatorPage"
-          class="justify-end border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
+          class="border-0 bg-transparent px-0 pb-[0.875rem] pt-3 shadow-none"
         />
       </div>
     </div>
@@ -646,6 +652,13 @@ defineExpose({ find, displayAlert });
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
+}
+
+/* Anchors the rows-per-page select to the table's right edge, so the page buttons grow
+   leftward as the record count arrives rather than pushing the select sideways. Two class
+   selectors to outweigh the theme's own centring on .p-paginator. */
+.crud-table .p-paginator {
+  justify-content: flex-end;
 }
 
 .crud-table--light .crud-table__view-switcher.p-selectbutton {
