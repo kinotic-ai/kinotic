@@ -5,8 +5,8 @@ import type { AvatarDesignTokens } from '@primeuix/themes/types/avatar';
         width: "2rem",
         height: "2rem",
         fontSize: "1rem",
-        background: "{content.border.color}",
-        color: "{content.color}",
+        background: "{primary.100}",
+        color: "{primary.700}",
         borderRadius: "{content.border.radius}"
     },
     icon: {
