@@ -22,13 +22,13 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/',
         component: () => import('./layouts/ConsoleLayout.vue'),
-        redirect: '/overview',
+        redirect: '/dashboard',
         children: [
             {
-                name: 'overview',
-                path: 'overview',
-                component: () => import('./pages/Overview.vue'),
-                meta: { sidebar: consoleSidebarItem('Overview', 'pi-objects-column', 10) }
+                name: 'dashboard',
+                path: 'dashboard',
+                component: () => import('./pages/Dashboard.vue'),
+                meta: { sidebar: consoleSidebarItem('Dashboard', 'pi-objects-column', 10) }
             },
             {
                 name: 'organizations',
@@ -45,14 +45,23 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'organization-detail',
                 path: 'organizations/:organizationId',
-                redirect: to => ({ name: 'org-dashboard', params: to.params })
+                redirect: to => ({ name: 'org-overview', params: to.params })
             },
             {
-                name: 'org-dashboard',
+                // Navigation-only record: gives the organization sidebar a sectionless
+                // Dashboard entry, above the Organization heading, leading back to the
+                // system dashboard
+                name: 'org-to-dashboard',
                 path: 'organizations/:organizationId/dashboard',
-                component: () => import('./pages/org/OrgDashboard.vue'),
+                redirect: { name: 'dashboard' },
+                meta: { sidebar: { group: 'organization', label: 'Dashboard', icon: 'pi-objects-column', order: 1 } satisfies SidebarItemMeta }
+            },
+            {
+                name: 'org-overview',
+                path: 'organizations/:organizationId/overview',
+                component: () => import('./pages/org/OrgOverview.vue'),
                 props: true,
-                meta: { sidebar: organizationSidebarItem('Dashboard', 'pi-objects-column', 5) }
+                meta: { sidebar: organizationSidebarItem('Overview', 'pi-chart-bar', 5) }
             },
             {
                 name: 'org-applications',
@@ -79,7 +88,7 @@ const routes: RouteRecordRaw[] = [
     },
     {
         path: '/:catchAll(.*)',
-        redirect: '/overview'
+        redirect: '/dashboard'
     }
 ]
 

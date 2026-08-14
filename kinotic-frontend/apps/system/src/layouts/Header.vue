@@ -1,7 +1,7 @@
 <template>
   <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-800 bg-surface-950 px-6">
     <div class="flex items-center gap-3 text-white">
-      <RouterLink to="/overview" class="flex items-center gap-2">
+      <RouterLink to="/dashboard" class="flex items-center gap-2">
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
       <span class="text-lg text-surface-600">/</span>

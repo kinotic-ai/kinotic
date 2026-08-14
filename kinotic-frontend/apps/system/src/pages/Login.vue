@@ -76,7 +76,7 @@ async function handleSubmit() {
     await postCredentials('/api/auth/system/login', email.value, password.value)
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await SYSTEM_USER_STATE.login()
-    const referer = (route.query.referer as string | undefined) || '/overview'
+    const referer = (route.query.referer as string | undefined) || '/dashboard'
     await router.push(referer)
   } catch (err) {
     debug('Login failed: %O', err)

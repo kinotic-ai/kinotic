@@ -1,6 +1,6 @@
 <template>
   <div>
-    <PageHeader title="Dashboard" description="The organization at a glance." />
+    <PageHeader title="Overview" description="The organization at a glance." />
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
