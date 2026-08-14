@@ -35,11 +35,6 @@ const debug = createDebug('crud-table');
 /** Wide enough for the ellipsis button plus the body cell padding. */
 const ROW_MENU_COLUMN_WIDTH = '4.5rem';
 
-// The row count is unknown until the page resolves, so the placeholder is capped short
-// enough to sit inside the table shell at any page size rather than growing it and
-// pushing the paginator down.
-const MAX_SKELETON_ROWS = 5;
-
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
   // Dashboard, ...) and IDataSource's type parameter is invariant.
@@ -141,9 +136,10 @@ const showSkeleton = computed<boolean>(() => {
   return loading.value && items.value.length === 0;
 });
 
+// One placeholder per row the page holds, so the loading state occupies the same height a
+// full page of rows will.
 const skeletonRows = computed<DescriptiveIdentifiable[]>(() => {
-  const count = Math.min(options.value.rows, MAX_SKELETON_ROWS);
-  return Array.from({ length: count }, (_, index) => ({ id: `skeleton-${index}` }));
+  return Array.from({ length: options.value.rows }, (_, index) => ({ id: `skeleton-${index}` }));
 });
 
 /** What the table and the card grid iterate: the loaded rows, or placeholders while they load. */
