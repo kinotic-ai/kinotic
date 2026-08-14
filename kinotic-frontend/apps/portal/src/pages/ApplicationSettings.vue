@@ -26,7 +26,7 @@
           <div class="application-settings__field">
             <label class="application-settings__label">Tenant per user</label>
             <div class="flex items-center gap-3">
-              <ToggleSwitch v-model="tenantPerUser" />
+              <ToggleSwitch v-model="tenantPerUser" class="shrink-0" />
               <span class="text-sm text-muted-color">
                 Each user of this application gets their own isolated tenant.
                 Applies to users created after enabling.
