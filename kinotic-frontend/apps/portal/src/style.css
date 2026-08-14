@@ -4,6 +4,11 @@
 @import "tailwindcss";
 @import "tailwindcss-primeui";
 
+/* useTheme toggles .dark on <html> and PrimeVue's darkModeSelector follows it. Tailwind v4
+   resolves dark: against prefers-color-scheme, which the in-app toggle cannot drive, so bind
+   the variant to the same class — otherwise components and utilities switch independently. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tailwind v4 skips node_modules during source detection; the shared workspace
    package resolves through a symlink there, so scan it explicitly. */
 @source "../../../packages/common/src";
