@@ -5,7 +5,7 @@
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
       <span class="text-lg text-surface-600">/</span>
-      <span class="text-sm font-medium text-surface-300">System Console</span>
+      <span class="text-sm font-medium text-surface-300">System</span>
 
       <template v-if="isOrgDetailPage">
         <span class="text-lg text-surface-600">/</span>
