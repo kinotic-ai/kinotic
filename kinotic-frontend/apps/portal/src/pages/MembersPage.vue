@@ -106,11 +106,11 @@ const props = withDefaults(defineProps<{
 })
 
 const headers: CrudHeader[] = [
-  { field: 'email', header: 'Email', sortable: false },
-  { field: 'displayName', header: 'Name', sortable: false },
-  { field: 'status', header: 'Status', sortable: false },
-  { field: 'authType', header: 'Auth type', sortable: false },
-  { field: 'created', header: 'Created', sortable: false }
+  { field: 'email', header: 'Email', sortable: false, width: '30%' },
+  { field: 'displayName', header: 'Name', sortable: false, width: '22%' },
+  { field: 'status', header: 'Status', sortable: false, width: '14%' },
+  { field: 'authType', header: 'Auth type', sortable: false, width: '16%' },
+  { field: 'created', header: 'Created', sortable: false, width: '18%' }
 ]
 
 const inviteDialogVisible = ref(false)

@@ -36,11 +36,11 @@ const crudTable = ref<InstanceType<typeof CrudTable>>()
 const projectId = computed<string>(() => route.params.projectId as string)
 
 const entityDefinitionTableHeaders: CrudHeader[] = [
-  { field: 'name', header: 'Entity Name', sortable: true },
-  { field: 'description', header: 'Description', sortable: false },
-  { field: 'created', header: 'Created', sortable: false },
-  { field: 'updated', header: 'Updated', sortable: false },
-  { field: 'published', header: 'Status', sortable: false, centered: true }
+  { field: 'name', header: 'Entity Name', sortable: true, width: '23%' },
+  { field: 'description', header: 'Description', sortable: false, width: '35%' },
+  { field: 'created', header: 'Created', sortable: false, width: '14%' },
+  { field: 'updated', header: 'Updated', sortable: false, width: '14%' },
+  { field: 'published', header: 'Status', sortable: false, centered: true, width: '14%' }
 ]
 
 const searchText = ref<string>('')

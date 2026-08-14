@@ -105,10 +105,10 @@ const dashboardDataSource: IDataSource<Dashboard> = {
 
 
 const tableHeaders = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'description', header: 'Description', sortable: true },
-  { field: 'created', header: 'Created', sortable: true },
-  { field: 'updated', header: 'Updated', sortable: true }
+  { field: 'name', header: 'Name', sortable: true, width: '26%' },
+  { field: 'description', header: 'Description', sortable: true, width: '40%' },
+  { field: 'created', header: 'Created', sortable: true, width: '17%' },
+  { field: 'updated', header: 'Updated', sortable: true, width: '17%' }
 ]
 
 const openDeleteModal = (dashboard: Dashboard) => {
