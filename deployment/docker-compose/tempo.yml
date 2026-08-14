@@ -38,11 +38,28 @@ metrics_generator:
     remote_write:
       - url: http://mimir:9009/api/v1/push
         send_exemplars: true
+  # Required by local-blocks, which writes the spans it keeps for TraceQL metrics here.
+  traces_storage:
+    path: /var/tempo/generator/traces
   processor:
     service_graphs: {}
     span_metrics:
+      # Attribute names from the stable HTTP semconv the 2.x agent emits — http.method and
+      # http.status_code were the pre-1.0 names and produce empty labels against it.
       dimensions:
-        - service.name
-        - service.namespace
-        - http.method
-        - http.status_code
+        - http.request.method
+        - http.response.status_code
+      # Adds the job/instance labels, so span metrics join against the OTLP metrics Mimir
+      # stores (where service.name becomes job) instead of living in a separate label space.
+      enable_target_info: true
+    # Records all spans rather than server spans only, so TraceQL metrics cover client and
+    # internal spans too. Note the key is local_blocks here but local-blocks in overrides.
+    local_blocks:
+      filter_server_spans: false
+
+# The generator only runs the processors a tenant is enabled for, and the block above is
+# inert without this — the reason serviceMap, nodeGraph, and span metrics stayed empty.
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks]

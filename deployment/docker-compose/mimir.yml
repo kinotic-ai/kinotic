@@ -19,9 +19,16 @@ ingester:
 limits:
   ingestion_rate: 10000
   ingestion_burst_size: 20000
+  # 0 means unlimited for the series limits, but 0 means DISABLED for exemplars — leaving it
+  # at the default silently breaks the metric-to-trace links the Mimir datasource declares.
   max_global_series_per_user: 0
   max_global_series_per_metric: 0
-  max_global_exemplars_per_user: 0
+  max_global_exemplars_per_user: 100000
+  # Store OTLP metrics under their Prometheus-convention names (jvm_memory_used_bytes,
+  # http_server_request_duration_seconds_bucket). Mimir defaults this off, which strips the
+  # unit and _total suffixes and leaves every stock dashboard and PromQL example matching
+  # nothing.
+  otel_metric_suffixes_enabled: true
 
 compactor:
   compaction_interval: 10m
