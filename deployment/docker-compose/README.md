@@ -144,28 +144,11 @@ Add `compose-otel.yml` to bring up the collector and the Grafana stack next to E
 docker compose -f compose-otel.yml -f compose.elasticsearch.yml -f compose.kibana.yml up -d
 ```
 
-The `KinoticServerApplication` run configuration (`.run/KinoticServerApplication.run.xml`)
-attaches `kinotic-server/src/main/resources/opentelemetry-javaagent.jar` and exports OTLP over
-gRPC to the collector on `localhost:4317` — the same agent and `OTEL_*` variables the
-kinotic-server container uses in `compose.kinotic-server.yml`, pointed at the host-published
-port instead of the compose network. The agent is what populates `GlobalOpenTelemetry`, so the
-`@WithSpan` methods throughout the codebase only produce spans when it's attached; without it
-the SDK is a no-op. `OTEL_METRIC_EXPORT_INTERVAL=15000` shortens the SDK's 60s default so
-metrics land in Grafana while you're still looking at the dashboard, and
-`OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY=true` adds the `jvm.buffer.*`
-and `jvm.system.cpu.*` metrics the agent otherwise withholds as Development-stability.
-
-Logs are the exception: the run configuration sets `OTEL_LOGS_EXPORTER=none`, so an
-IntelliJ-run server's logs stay in the IDE console and out of Loki's `kinotic-system` tenant,
-which is where `LogService` reads platform workload logs. The kinotic-server container still
-ships its logs (`OTEL_LOGS_EXPORTER=otlp` in `compose.kinotic-server.yml`) — flip the run
-config to `otlp` to match it.
+The `KinoticServerApplication` run configuration exports to the collector on `localhost:4317`.
 
 Grafana is at <http://localhost:3000> (anonymous Admin, no login) and opens on the **Kinotic
 Server** dashboard — JVM, HTTP RED metrics, span rates from the traces themselves, and a log
-panel, all provisioned from `dashboards/kinotic-server.json`. The log panel and the log-linked
-correlations below follow the logs, so they fill in for the containerized server and stay
-empty when you run from IntelliJ. Beyond the dashboard:
+panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboard:
 
 | Signal | Datasource | Where to look |
 |---|---|---|
@@ -216,10 +199,6 @@ curl -s -H 'X-Scope-OrgID: kinotic-system' 'http://localhost:3100/loki/api/v1/la
   queries wired through `tracesToLogsV2` / `tracesToMetrics`.
 - **Service graph**: Tempo's *Service Graph* tab and the node graph come from the
   `service-graphs` processor writing `traces_service_graph_*` into Mimir.
-
-To run without the collector up, set `OTEL_SDK_DISABLED=true` in the run configuration's
-Environment variables — otherwise the agent retries the export and logs a connection failure
-every interval.
 
 `application-development.yml` currently has `kinotic.domain.email.enabled: true`, pointed at
 the real ACS endpoint. Set it to `false` to have `EmailService` skip the send and log the
