@@ -31,6 +31,9 @@ import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('crud-table');
 
+/** Wide enough for the ellipsis button plus the body cell padding. */
+const ROW_MENU_COLUMN_WIDTH = '4.5rem';
+
 const props = withDefaults(defineProps<{
   // any: parents bind entity-specific IDataSource implementations (EntityDefinition,
   // Dashboard, ...) and IDataSource's type parameter is invariant.
@@ -181,8 +184,11 @@ const dataTablePt = computed(() => {
     tableContainer: {
       class: 'bg-transparent'
     },
+    // table-fixed keeps the columns sized from the header widths alone. Under the default
+    // auto layout the browser measures the loaded rows, so every column jumps once the
+    // first page arrives — the headers visibly reflow.
     table: {
-      class: 'bg-transparent border-separate border-spacing-0'
+      class: 'bg-transparent border-separate border-spacing-0 table-fixed'
     },
     header: {
       class: 'hidden'
@@ -503,28 +509,25 @@ defineExpose({ find, displayAlert });
               :field="col.field"
               :header="col.header"
               :sortable="col.sortable !== false"
+              :style="{ width: col.width }"
               :headerStyle="col.centered ? { textAlign: 'center' } : {}"
             >
               <template #body="slotProps">
-                <div
-                  v-if="col.centered"
-                  class="flex items-center justify-center w-full min-h-[48px]"
-                >
-                  <slot :name="`item.${col.field}`" :item="slotProps.data">
-                    {{ slotProps.data[col.field] }}
-                  </slot>
-                </div>
-                <template v-else>
-                  <div class="flex min-h-[48px] items-center">
+                <div :class="['flex min-h-[48px] items-center', col.centered ? 'w-full justify-center' : '']">
+                  <!-- min-w-0 lets this shrink below its min-content width, so a long
+                       unbreakable value wraps inside the column instead of spilling into
+                       the next one. Wrapping the slot rather than the flex row itself keeps
+                       badges and buttons at their natural width. -->
+                  <div class="min-w-0 break-words">
                     <slot :name="`item.${col.field}`" :item="slotProps.data">
                       {{ slotProps.data[col.field] }}
                     </slot>
                   </div>
-                </template>
+                </div>
               </template>
             </Column>
 
-            <Column v-if="hasRowMenu" header="">
+            <Column v-if="hasRowMenu" header="" :style="{ width: ROW_MENU_COLUMN_WIDTH }">
               <template #body="slotProps">
                 <div class="flex min-h-[48px] w-full items-center justify-center">
                   <template v-if="rowMenuItems(slotProps.data).length > 0">
