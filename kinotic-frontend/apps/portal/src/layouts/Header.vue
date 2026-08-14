@@ -90,7 +90,7 @@
 
          <div ref="avatarDropdownRef" class="relative">
        <button @click="toggleAvatarDropdown" class="flex items-center">
-         <img src="@/assets/avatar.png" class="h-8 w-8 rounded-full cursor-pointer hover:opacity-80" />
+         <Avatar :label="PROFILE_STATE.initials" shape="circle" class="cursor-pointer hover:opacity-80" />
        </button>
        
        <div v-if="avatarDropdownOpen" 
@@ -123,13 +123,17 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
+import { PROFILE_STATE } from '@/states/IProfileState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic } from '@kinotic-ai/core';
 import type { Application, Project } from '@kinotic-ai/os-api';
+import Avatar from 'primevue/avatar';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';
 import InputIcon from 'primevue/inputicon';
-import { isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
+import { createDebug, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
+
+const debug = createDebug('header');
 
 const emit = defineEmits<{
   (e: 'application-changed', app: Application): void
@@ -161,6 +165,7 @@ const avatarDropdownRef = ref<HTMLElement>();
 
 onMounted(() => {
   updateRouteState();
+  PROFILE_STATE.load().catch(error => debug('Failed to load profile: %O', error));
   loadApplicationsIfNeeded();
   if (!APPLICATION_STATE.currentApplication) {
     tryAutoSelectAppAndProject();

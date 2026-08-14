@@ -44,39 +44,28 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useToast } from 'primevue/usetoast'
 
-import { Kinotic } from '@kinotic-ai/core'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
+import { PROFILE_STATE } from '@/states/IProfileState'
 
 const toast = useToast()
 
-const email = ref('')
 const displayName = ref('')
-const savedDisplayName = ref('')
 const loading = ref(true)
 const saving = ref(false)
+
+const email = computed(() => PROFILE_STATE.profile?.email ?? '')
+const savedDisplayName = computed(() => PROFILE_STATE.profile?.displayName ?? '')
+const initials = computed(() => PROFILE_STATE.initials)
 
 const canSave = computed(() => !loading.value
                               && displayName.value.trim().length > 0
                               && displayName.value.trim() !== savedDisplayName.value)
 
-/** Up to two initials, taken from the display name or, when there is none, the email's local part. */
-const initials = computed(() => {
-  const name = savedDisplayName.value.trim()
-  const source = name.length > 0 ? name : (email.value.split('@')[0] ?? '')
-  return source.split(/[\s._-]+/)
-               .filter(part => part.length > 0)
-               .slice(0, 2)
-               .map(part => part.charAt(0).toUpperCase())
-               .join('')
-})
-
 onMounted(load)
 
 async function load() {
   try {
-    const profile = await Kinotic.profile.findMyProfile()
-    email.value = profile.email
-    savedDisplayName.value = profile.displayName ?? ''
+    await PROFILE_STATE.load()
     displayName.value = savedDisplayName.value
   } catch (err) {
     showErrorToast(toast, 'Failed to load your profile', err, { life: 8000 })
@@ -89,8 +78,7 @@ async function save() {
   if (!canSave.value) return
   saving.value = true
   try {
-    const profile = await Kinotic.profile.updateDisplayName(displayName.value.trim())
-    savedDisplayName.value = profile.displayName ?? ''
+    await PROFILE_STATE.updateDisplayName(displayName.value.trim())
     displayName.value = savedDisplayName.value
     toast.add({ severity: 'success', summary: 'Profile saved', life: 5000 })
   } catch (err) {
