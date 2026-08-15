@@ -1,13 +1,11 @@
 package org.kinotic.core.internal.api.service.invoker;
 
 import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.StatusCode;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
-import io.opentelemetry.context.propagation.TextMapGetter;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -22,6 +20,7 @@ import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.FunctionDescriptor;
 import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
+import org.kinotic.core.internal.api.service.RpcTelemetry;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -36,9 +35,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,31 +51,6 @@ public class ServiceInvocationSupervisor {
     private static final Logger log = LoggerFactory.getLogger(ServiceInvocationSupervisor.class);
 
     private static final String INSTRUMENTATION_NAME = "org.kinotic.core.service-invoker";
-    private static final String RPC_SYSTEM_VALUE = "kinotic";
-    private static final AttributeKey<String> RPC_SYSTEM = AttributeKey.stringKey("rpc.system");
-    private static final AttributeKey<String> RPC_SERVICE = AttributeKey.stringKey("rpc.service");
-    private static final AttributeKey<String> RPC_METHOD = AttributeKey.stringKey("rpc.method");
-
-    /**
-     * Reads the W3C trace context a caller wrote into the event headers. The Kinotic client injects
-     * traceparent/tracestate on every send, and the STOMP endpoint turns every frame header into
-     * {@link Metadata}, so the caller's span arrives here intact.
-     */
-    private static final TextMapGetter<Metadata> METADATA_GETTER = new TextMapGetter<>() {
-        @Override
-        public Iterable<String> keys(Metadata carrier) {
-            List<String> ret = new ArrayList<>(carrier.size());
-            for (Map.Entry<String, String> entry : carrier) {
-                ret.add(entry.getKey());
-            }
-            return ret;
-        }
-
-        @Override
-        public String get(Metadata carrier, String key) {
-            return carrier != null ? carrier.get(key) : null;
-        }
-    };
 
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
@@ -393,7 +365,7 @@ public class ServiceInvocationSupervisor {
     private Span startInvocationSpan(Event<byte[]> incomingEvent){
         io.opentelemetry.context.Context parent = propagator.extract(io.opentelemetry.context.Context.current(),
                                                                      incomingEvent.metadata(),
-                                                                     METADATA_GETTER);
+                                                                     RpcTelemetry.METADATA_GETTER);
         // The path is the method id, carrying the leading / the method map is keyed by
         String methodName = incomingEvent.cri().path().substring(1);
         String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
@@ -401,9 +373,9 @@ public class ServiceInvocationSupervisor {
         return tracer.spanBuilder(serviceName + "/" + methodName)
                      .setParent(parent)
                      .setSpanKind(SpanKind.SERVER)
-                     .setAttribute(RPC_SYSTEM, RPC_SYSTEM_VALUE)
-                     .setAttribute(RPC_SERVICE, serviceName)
-                     .setAttribute(RPC_METHOD, methodName)
+                     .setAttribute(RpcTelemetry.RPC_SYSTEM, RpcTelemetry.SYSTEM_VALUE)
+                     .setAttribute(RpcTelemetry.RPC_SERVICE, serviceName)
+                     .setAttribute(RpcTelemetry.RPC_METHOD, methodName)
                      .startSpan();
     }
 

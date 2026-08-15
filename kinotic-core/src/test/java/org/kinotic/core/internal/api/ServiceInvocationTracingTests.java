@@ -82,6 +82,24 @@ public class ServiceInvocationTracingTests {
     }
 
     /**
+     * A proxy invocation is the platform calling itself, so both halves belong to one trace rather
+     * than the callee starting its own.
+     */
+    @Test
+    public void proxyInvocationLinksClientAndServerSpans(){
+        StepVerifier.create(rpcTestServiceProxy.getMonoWithValue())
+                    .expectNextCount(1)
+                    .expectComplete()
+                    .verify();
+
+        SpanData clientSpan = awaitSpanFor("getMonoWithValue", SpanKind.CLIENT);
+        SpanData serverSpan = awaitSpanFor("getMonoWithValue", SpanKind.SERVER);
+
+        Assertions.assertEquals(clientSpan.getTraceId(), serverSpan.getTraceId());
+        Assertions.assertEquals(clientSpan.getSpanId(), serverSpan.getParentSpanId());
+    }
+
+    /**
      * The Kinotic client injects W3C trace context on every send, so an invocation that arrives with a
      * traceparent must continue that trace rather than start a new one.
      */
@@ -122,16 +140,25 @@ public class ServiceInvocationTracingTests {
     }
 
     private SpanData awaitSpanFor(String methodName){
-        Awaitility.await()
-                  .atMost(Duration.ofSeconds(10))
-                  .until(() -> !spansFor(methodName).isEmpty());
-        return spansFor(methodName).getFirst();
+        return awaitSpanFor(methodName, SpanKind.SERVER);
     }
 
-    private List<SpanData> spansFor(String methodName){
+    /**
+     * A proxy invocation produces a client and a server span for the same method, so the kind is what
+     * separates the two halves of the call.
+     */
+    private SpanData awaitSpanFor(String methodName, SpanKind kind){
+        Awaitility.await()
+                  .atMost(Duration.ofSeconds(10))
+                  .until(() -> !spansFor(methodName, kind).isEmpty());
+        return spansFor(methodName, kind).getFirst();
+    }
+
+    private List<SpanData> spansFor(String methodName, SpanKind kind){
         return spanExporter.getFinishedSpanItems()
                            .stream()
-                           .filter(span -> methodName.equals(span.getAttributes().get(RPC_METHOD)))
+                           .filter(span -> methodName.equals(span.getAttributes().get(RPC_METHOD))
+                                   && span.getKind() == kind)
                            .toList();
     }
 

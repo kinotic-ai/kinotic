@@ -124,7 +124,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   eventBusService,
                                                   securityContext,
                                                   vertx,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry);
     }
 
     @Override
@@ -140,7 +141,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   eventBusService,
                                                   securityContext,
                                                   vertx,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry);
     }
 
     @Override

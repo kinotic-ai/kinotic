@@ -8,6 +8,8 @@ import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
 import { receivesContext } from '@/api/KinoticDecorators'
+import opentelemetry, { context, propagation, trace, SpanKind, SpanStatusCode, type Span, type Tracer } from '@opentelemetry/api'
+import info from '../../../package.json' with { type: 'json' }
 
 /**
  * Handles invoking services registered with Kinoitc in TypeScript.
@@ -27,6 +29,7 @@ export class ServiceInvocationSupervisor {
     // Subscription for the address the service is addressable by
     private methodSubscription: Subscription | null = null
     private readonly methodMap: Record<string, (...args: any[]) => any>
+    private readonly tracer: Tracer
 
     constructor(
         serviceIdentifier: ServiceIdentifier,
@@ -54,6 +57,7 @@ export class ServiceInvocationSupervisor {
         this.returnValueConverter = options.returnValueConverter || new BasicReturnValueConverter()
 
         this.methodMap = this.buildMethodMap(serviceInstance)
+        this.tracer = opentelemetry.trace.getTracer('kinotic.server', info.version)
     }
 
     public isActive(): boolean {
@@ -171,46 +175,94 @@ export class ServiceInvocationSupervisor {
         }
 
         const methodName = path;
-        const args = this.argumentResolver.resolveArguments(event)
-        const injectContext = receivesContext(this.serviceInstance, methodName);
+        const span = this.startInvocationSpan(event, methodName)
 
-        // Create context using interceptor
-        let context: ServiceContext = {};
-        const interceptor = this.interceptorProvider();
-        if (interceptor) {
-            try {
-                context = await interceptor.intercept(event, context);
-            } catch (e) {
-                this.log.error(`Interceptor failed to create context for event: ${JSON.stringify(event)}`, e)
-                this.handleException(event, new Error("Internal server error"))
-                return
-            }
-        }
-
-        // A @Context method takes the context as its final parameter, appended after caller args
-        if (injectContext) {
-            args.push(context);
-        }
-
-        const expectedArgsCount = handlerMethod.length
-        if (args.length !== expectedArgsCount) {
-            throw new Error(`Argument count mismatch for method ${path}: expected ${expectedArgsCount}, got ${args.length}`)
-        }
-
-        let result: any
         try {
-            result = handlerMethod(...args)
-            if (result instanceof Promise) {
-                result.then(
-                    (resolved) => this.processMethodInvocationResult(event, resolved),
-                    (error) => this.handleException(event, error)
-                )
-            } else {
-                this.processMethodInvocationResult(event, result)
+            const args = this.argumentResolver.resolveArguments(event)
+            const injectContext = receivesContext(this.serviceInstance, methodName);
+
+            // Create context using interceptor
+            let serviceContext: ServiceContext = {};
+            const interceptor = this.interceptorProvider();
+            if (interceptor) {
+                try {
+                    serviceContext = await interceptor.intercept(event, serviceContext);
+                } catch (e) {
+                    this.log.error(`Interceptor failed to create context for event: ${JSON.stringify(event)}`, e)
+                    this.handleException(event, new Error("Internal server error"))
+                    this.failSpan(span, e)
+                    return
+                }
+            }
+
+            // A @Context method takes the context as its final parameter, appended after caller args
+            if (injectContext) {
+                args.push(serviceContext);
+            }
+
+            const expectedArgsCount = handlerMethod.length
+            if (args.length !== expectedArgsCount) {
+                throw new Error(`Argument count mismatch for method ${path}: expected ${expectedArgsCount}, got ${args.length}`)
+            }
+
+            let result: any
+            try {
+                // Runs the method under the span so anything it calls, including invocations of other
+                // services, is recorded as part of this one
+                result = context.with(trace.setSpan(context.active(), span), () => handlerMethod(...args))
+                if (result instanceof Promise) {
+                    // The method has not finished yet, so the span ends with the promise
+                    result.then(
+                        (resolved) => {
+                            this.processMethodInvocationResult(event, resolved)
+                            span.end()
+                        },
+                        (error) => {
+                            this.handleException(event, error)
+                            this.failSpan(span, error)
+                        }
+                    )
+                } else {
+                    this.processMethodInvocationResult(event, result)
+                    span.end()
+                }
+            } catch (e) {
+                this.handleException(event, e)
+                this.failSpan(span, e)
             }
         } catch (e) {
-            this.handleException(event, e)
+            this.failSpan(span, e)
+            throw e
         }
+    }
+
+    /**
+     * Starts the span covering one service method invocation, continuing the caller's trace when the
+     * incoming event carries one.
+     */
+    private startInvocationSpan(event: IEvent, methodName: string): Span {
+        const carrier: Record<string, string> = {}
+        for (const [key, value] of event.headers.entries()) {
+            carrier[key] = value
+        }
+
+        const serviceName = this.serviceIdentifier.qualifiedName()
+        return this.tracer.startSpan(`${serviceName}/${methodName}`,
+                                     {
+                                         kind: SpanKind.SERVER,
+                                         attributes: {
+                                             'rpc.system': 'kinotic',
+                                             'rpc.service': serviceName,
+                                             'rpc.method': methodName
+                                         }
+                                     },
+                                     propagation.extract(context.active(), carrier))
+    }
+
+    private failSpan(span: Span, error: any): void {
+        span.recordException(error)
+        span.setStatus({ code: SpanStatusCode.ERROR })
+        span.end()
     }
 
     private processMethodInvocationResult(event: IEvent, result: any): void {

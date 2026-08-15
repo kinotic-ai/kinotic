@@ -3,6 +3,12 @@
 
 package org.kinotic.core.internal.api.service.rpc;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.ReplyException;
@@ -17,6 +23,7 @@ import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.core.internal.api.service.RpcTelemetry;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,6 +49,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
     private static final Logger log = LoggerFactory.getLogger(DefaultRpcServiceProxyHandle.class);
 
+    private static final String INSTRUMENTATION_NAME = "org.kinotic.core.rpc-proxy";
+
     private final ServiceIdentifier serviceIdentifier;
     private final String nodeName;
     private final Class<T> serviceClass;
@@ -50,6 +59,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final EventBusService eventBusService;
     private final SecurityContext securityContext;
+    private final TextMapPropagator propagator;
+    private final Tracer tracer;
     private final Vertx vertx;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
@@ -70,7 +81,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         EventBusService eventBusService,
                                         SecurityContext securityContext,
                                         Vertx vertx,
-                                        ClassLoader classLoader) {
+                                        ClassLoader classLoader,
+                                        OpenTelemetry openTelemetry) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
@@ -81,6 +93,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
+        Validate.notNull(openTelemetry, "openTelemetry must not be null");
 
         this.serviceIdentifier = serviceIdentifier;
         this.nodeName = nodeName;
@@ -90,6 +103,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
         this.securityContext = securityContext;
+        this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
+        this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
         this.vertx = vertx;
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
@@ -154,6 +169,27 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     @Override
     public T getService() {
         return serviceProxy;
+    }
+
+    /**
+     * Starts the span covering one outbound service invocation. It ends when the invocation settles,
+     * which {@link TracingRpcReturnValueHandler} decides.
+     * @param method being invoked on the remote service
+     * @param scope the scope the invocation is routed to, or null when the service is not scoped
+     * @return a started {@link Span}
+     */
+    private Span startInvocationSpan(Method method, String scope){
+        String serviceName = serviceIdentifier.qualifiedName();
+        Span ret = tracer.spanBuilder(serviceName + "/" + method.getName())
+                         .setSpanKind(SpanKind.CLIENT)
+                         .setAttribute(RpcTelemetry.RPC_SYSTEM, RpcTelemetry.SYSTEM_VALUE)
+                         .setAttribute(RpcTelemetry.RPC_SERVICE, serviceName)
+                         .setAttribute(RpcTelemetry.RPC_METHOD, method.getName())
+                         .startSpan();
+        if(scope != null){
+            ret.setAttribute("kinotic.scope", scope);
+        }
+        return ret;
     }
 
     @Override
@@ -226,8 +262,11 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             byte[] argumentData = rpcArgumentConverter.convert(method, args);
             String correlationId = UUID.randomUUID().toString();
 
+            Span span = startInvocationSpan(method, scope);
+
             // Now create response handler and store, so we can propagate response in replyMessageConsumer
-            RpcReturnValueHandler handler = rpcReturnValueHandlerFactory.createReturnValueHandler(method, args);
+            RpcReturnValueHandler handler = new TracingRpcReturnValueHandler(
+                    rpcReturnValueHandlerFactory.createReturnValueHandler(method, args), span);
             responseMap.put(correlationId, handler);
 
             // Create Event to be sent to remote end to cause service invocation
@@ -235,6 +274,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             metadata.put(EventConstants.REPLY_TO_HEADER, handlerCRI.raw());
             metadata.put(EventConstants.CORRELATION_ID_HEADER, correlationId);
             metadata.put(EventConstants.CONTENT_TYPE_HEADER, rpcArgumentConverter.producesContentType());
+
+            // Carries this span to the remote end, which continues the trace instead of starting one
+            propagator.inject(Context.current().with(span), metadata, RpcTelemetry.METADATA_SETTER);
 
             // TODO: use version string to determine how specific the invocation has to be like npm semantics ^1.0.0 ect
             CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
