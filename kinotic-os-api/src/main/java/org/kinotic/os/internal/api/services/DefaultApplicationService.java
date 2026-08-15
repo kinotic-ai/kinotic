@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Component;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class DefaultApplicationService extends AbstractOrganizationScopedService<Application> implements ApplicationService {
@@ -34,13 +34,13 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Application> createApplicationIfNotExist(String name, String description) {
+    public Future<Application> createApplicationIfNotExist(String name, String description) {
         String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
         return findById(applicationId)
-                .thenCompose(application -> {
+                .compose(application -> {
                     if(application != null){
-                        return CompletableFuture.completedFuture(application);
+                        return Future.succeededFuture(application);
                     }else{
                         Application newApplication = new Application(name, description);
                         newApplication.setOrganizationId(organizationId);
@@ -50,38 +50,39 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public CompletableFuture<Application> create(Application entity) {
+    public Future<Application> create(Application entity) {
         // Force the id to derive from the name; beforeSave mints it from the slug.
         entity.setId(null);
         return failOnDuplicateName(super.create(entity), entity);
     }
 
     @Override
-    public CompletableFuture<Application> createSync(Application entity) {
+    public Future<Application> createSync(Application entity) {
         entity.setId(null);
         return failOnDuplicateName(super.createSync(entity), entity);
     }
 
     // The caller supplied a name, not the derived id an AlreadyExistsException would reference
-    private static CompletableFuture<Application> failOnDuplicateName(CompletableFuture<Application> created,
-                                                                      Application entity) {
-        return created.exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
-                ? CompletableFuture.failedFuture(new AlreadyExistsException(
+    private static Future<Application> failOnDuplicateName(Future<Application> created,
+                                                           Application entity) {
+        return created.recover(ex -> AlreadyExistsException.isCause(ex)
+                ? Future.failedFuture(new AlreadyExistsException(
                         "An application named '" + entity.getName() + "' already exists"))
-                : CompletableFuture.failedFuture(ex));
+                : Future.failedFuture(ex));
     }
 
     @Override
-    protected CompletableFuture<Void> beforeDelete(String id) {
-        return projectService.countForApplication(id).thenAccept(count -> {
+    protected Future<Void> beforeDelete(String id) {
+        return projectService.countForApplication(id).compose(count -> {
             if(count > 0){
                 throw new IllegalStateException("Cannot delete an application with projects in it.");
             }
+            return Future.succeededFuture();
         });
     }
 
     @Override
-    protected CompletableFuture<Void> beforeSave(Application entity) {
+    protected Future<Void> beforeSave(Application entity) {
         Validate.notNull(entity.getName(), "Application name cannot be null");
 
         if (entity.getId() == null) {
@@ -90,18 +91,18 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
         // Validate only; re-minting an update's id would silently write a new document
         DomainUtil.validateApplicationId(entity.getId());
         entity.setUpdated(new Date());
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
+    public Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId) {
         Validate.notNull(applicationId, "applicationId cannot be null");
         return findById(applicationId)
-                .thenCompose(application -> {
+                .compose(application -> {
                     Validate.notNull(application, "Application not found: %s", applicationId);
                     List<String> ids = application.getOidcConfigurationIds();
                     if (ids == null || ids.isEmpty()) {
-                        return CompletableFuture.completedFuture(Collections.emptyList());
+                        return Future.succeededFuture(Collections.emptyList());
                     }
                     return oidcConfigurationService.findEnabledByIds(ids, application.getOrganizationId());
                 });

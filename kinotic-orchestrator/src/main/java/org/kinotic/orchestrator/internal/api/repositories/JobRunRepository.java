@@ -1,5 +1,6 @@
 package org.kinotic.orchestrator.internal.api.repositories;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
@@ -7,8 +8,6 @@ import org.kinotic.orchestrator.api.model.grind.JobRun;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class JobRunRepository extends AbstractRepository<JobRun> {
@@ -20,7 +19,7 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
     /**
      * Returns the page of runs recorded for the given job name.
      */
-    public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
+    public Future<Page<JobRun>> findByName(String name, Pageable pageable) {
         return findAll(pageable, b -> b.query(termFilter("name", name)));
     }
 
@@ -29,7 +28,7 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
      * runs, narrowed to an application and/or project when the owner carries those ids. The
      * system owner selects platform runs - those owned by no organization.
      */
-    public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
+    public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
             owner.getOrganizationId() != null ? termFilter("organizationId", owner.getOrganizationId())
                                               : missingFilter("organizationId"),

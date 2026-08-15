@@ -75,13 +75,13 @@ public class JobRunRecorder {
         jobRun.setOrganizationId(organizationId)
               .setApplicationId(applicationId)
               .setProjectId(projectId);
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
     }
 
     public void runStarted() {
         jobRun.setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
     }
 
     public void record(Result<?> result) {
@@ -98,14 +98,14 @@ public class JobRunRecorder {
         TaskRecord record = recordsByPath.get(stepPath);
         if(record != null){
             record.setDynamicSteps(true);
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
         }
     }
 
     public void runCompleted() {
         jobRun.setStatus(ExecutionStatus.COMPLETED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
     }
 
     public void runFailed(Throwable throwable) {
@@ -113,14 +113,14 @@ public class JobRunRecorder {
         jobRun.setStatus(ExecutionStatus.FAILED)
               .setError(throwable.toString())
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
     }
 
     public void runCancelled() {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
         jobRun.setStatus(ExecutionStatus.CANCELLED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
     }
 
     private void stepStarted(String stepPath, String description) {
@@ -131,7 +131,7 @@ public class JobRunRecorder {
                                             .setStatus(ExecutionStatus.RUNNING)
                                             .setStarted(new Date());
         recordsByPath.put(stepPath, record);
-        enqueue(() -> taskRecordService.save(record));
+        enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
     }
 
     private void stepCompleted(String stepPath, StepCompletion completion) {
@@ -176,7 +176,7 @@ public class JobRunRecorder {
                              + completion.getStoredValue().getClass().getName() + " is not serializable", e);
                 }
             }
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
         }
     }
 
@@ -189,7 +189,7 @@ public class JobRunRecorder {
         record.setStatus(ExecutionStatus.FAILED)
               .setError(message)
               .setFinished(new Date());
-        enqueue(() -> taskRecordService.save(record));
+        enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
         throw new IllegalStateException(message, cause);
     }
 
@@ -201,7 +201,7 @@ public class JobRunRecorder {
             record.setStatus(ExecutionStatus.FAILED)
                   .setError(throwable.toString())
                   .setFinished(new Date());
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
         }
     }
 
@@ -214,7 +214,7 @@ public class JobRunRecorder {
             if(record.getStatus() == ExecutionStatus.RUNNING){
                 record.setStatus(status)
                       .setFinished(new Date());
-                enqueue(() -> taskRecordService.save(record));
+                enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
             }
         }
     }

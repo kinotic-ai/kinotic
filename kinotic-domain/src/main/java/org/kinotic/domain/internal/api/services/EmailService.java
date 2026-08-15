@@ -138,6 +138,7 @@ public class EmailService {
         }
         return inviteEmailTemplateRepository.findByApplication(invite.getApplicationId(),
                                                                invite.getOrganizationId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(template -> {
                     if (template == null) {
                         return send(invite.getEmail(), toName, defaultSubject,

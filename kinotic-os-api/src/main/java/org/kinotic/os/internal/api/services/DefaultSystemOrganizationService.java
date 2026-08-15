@@ -30,39 +30,40 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
 
     @Override
     public CompletableFuture<Page<Organization>> findOrganizations(Pageable pageable) {
-        return organizationService.findAll(pageable);
+        return organizationService.findAll(pageable).toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Page<Organization>> searchOrganizations(String searchText, Pageable pageable) {
-        return organizationService.search(searchText, pageable);
+        return organizationService.search(searchText, pageable).toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Organization> findOrganizationById(String organizationId) {
-        return organizationService.findById(organizationId);
+        return organizationService.findById(organizationId).toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Long> countOrganizations() {
-        return organizationService.count();
+        return organizationService.count().toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Page<Application>> findApplications(String organizationId, Pageable pageable) {
-        return applicationRepository.findAll(organizationId, pageable);
+        return applicationRepository.findAll(organizationId, pageable).toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Page<Project>> findProjects(String organizationId, Pageable pageable) {
-        return projectRepository.findAll(organizationId, pageable);
+        return projectRepository.findAll(organizationId, pageable).toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String organizationId,
                                                                         String applicationId,
                                                                         Pageable pageable) {
-        return identityService.findUsersByScope(organizationId, applicationId, pageable);
+        return identityService.findUsersByScope(organizationId, applicationId, pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -70,7 +71,8 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
                                                                           String organizationId,
                                                                           String applicationId,
                                                                           Pageable pageable) {
-        return identityService.searchUsersByScope(searchText, organizationId, applicationId, pageable);
+        return identityService.searchUsersByScope(searchText, organizationId, applicationId, pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override

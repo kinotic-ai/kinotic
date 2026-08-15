@@ -122,7 +122,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                      objectMapper);
 
         Flux<Result<?>> results =
-            Flux.defer(() -> Mono.fromFuture(() -> jobRunService.findById(jobRunId))
+            Flux.defer(() -> Mono.fromFuture(() -> jobRunService.findById(jobRunId).toCompletionStage().toCompletableFuture())
                                  .switchIfEmpty(Mono.error(() -> new IllegalArgumentException("No JobRun found with id " + jobRunId)))
                                  .flatMapMany(originalRun -> {
                                      Flux<Result<?>> ret;
@@ -190,6 +190,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private CompletableFuture<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
         return taskRecordService.findAllForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
+                                .toCompletionStage().toCompletableFuture()
                                 .thenCompose(recordPage -> {
                                     for(TaskRecord record : recordPage.getContent()){
                                         if(record.getStatus() == ExecutionStatus.COMPLETED){

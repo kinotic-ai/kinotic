@@ -244,8 +244,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                                              String clientKey,
                                              String clientName,
                                              String sessionLabel) {
-        return Future.fromCompletionStage(
-                identityService.findOrCreateDelegate(approver, kind, clientKey, clientName))
+        return identityService.findOrCreateDelegate(approver, kind, clientKey, clientName)
                 .compose(delegate -> Future.fromCompletionStage(
                                 refreshTokenService.issue(delegate.getId(),
                                                           delegate.getDelegateKind().getAudience(),

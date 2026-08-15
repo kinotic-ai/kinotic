@@ -26,7 +26,8 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     public CompletableFuture<UserParticipantIdentity> authenticateLocal(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
-        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email));
+        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email)
+                                                                    .toCompletionStage().toCompletableFuture());
     }
 
     @Override
@@ -39,7 +40,8 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
         if (applicationId != null) {
             Validate.notBlank(organizationId, "organizationId is required when applicationId is supplied");
         }
-        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email, organizationId, applicationId));
+        return verifyMatchingUser(password, () -> identityRepository.findByEmail(email, organizationId, applicationId)
+                                                                    .toCompletionStage().toCompletableFuture());
     }
 
     private CompletableFuture<UserParticipantIdentity> verifyMatchingUser(String password,
@@ -51,6 +53,7 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
                 return CompletableFuture.completedFuture(null);
             }
             return credentialRepository.findById(user.getId())
+                                  .toCompletionStage().toCompletableFuture()
                                   .thenApply(credential -> {
                                       if (credential == null
                                               || !DomainUtil.verifyPassword(password, credential.getSecretHash())) {

@@ -25,10 +25,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -67,11 +65,11 @@ class DefaultGitHubAppInstallationServiceTest {
         repository = mock(GitHubAppInstallationRepository.class);
         when(repository.getType()).thenReturn(GitHubAppInstallation.class);
         when(repository.saveSync(any(GitHubAppInstallation.class), anyString()))
-                .thenAnswer(invocation -> CompletableFuture.completedFuture(invocation.getArgument(0)));
+                .thenAnswer(invocation -> Future.succeededFuture(invocation.getArgument(0)));
         // Org not yet linked unless a test overrides this — completeInstall consults
         // findForCurrentOrg (a findAll under the hood) before verifying ownership
         when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
-                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(), 0L)));
+                .thenReturn(Future.succeededFuture(new Page<>(List.of(), 0L)));
 
         OrganizationParticipant participant = mock(OrganizationParticipant.class);
         when(participant.getOrganizationId()).thenReturn(CALLER_ORG);
@@ -90,7 +88,7 @@ class DefaultGitHubAppInstallationServiceTest {
         credential.setSecretNameRef("github-platform");
         OrgSignupOidcConfigurationService oidcConfigurationService = mock(OrgSignupOidcConfigurationService.class);
         when(oidcConfigurationService.findEnabledByProvider(OidcProviderKind.GITHUB))
-                .thenReturn(CompletableFuture.completedFuture(credential));
+                .thenReturn(Future.succeededFuture(credential));
 
         SecretReferenceResolver secretReferenceResolver = mock(SecretReferenceResolver.class);
         when(secretReferenceResolver.resolve("github-platform"))
@@ -111,14 +109,14 @@ class DefaultGitHubAppInstallationServiceTest {
     }
 
     @Test
-    void bindsAnInstallationTheAuthorizingUserControls() throws Exception {
+    void bindsAnInstallationTheAuthorizingUserControls() {
         when(apiClient.listUserInstallations("user-token"))
                 .thenReturn(Future.succeededFuture(List.of(
                         new InstallationDetails(11L, 777L, "personal", "User"),
                         new InstallationDetails(INSTALLATION_ID, 777L, "acme", "Organization"))));
         String state = stage(CALLER_ORG, "/projects?openNewProject=1");
 
-        GitHubInstallCompletion completion = service.completeInstall(INSTALLATION_ID, state, "good-code").get();
+        GitHubInstallCompletion completion = service.completeInstall(INSTALLATION_ID, state, "good-code").await();
 
         assertEquals("/projects?openNewProject=1", completion.getReturnTo());
         ArgumentCaptor<GitHubAppInstallation> captor = ArgumentCaptor.forClass(GitHubAppInstallation.class);
@@ -161,7 +159,7 @@ class DefaultGitHubAppInstallationServiceTest {
         GitHubAppInstallation existing = new GitHubAppInstallation();
         existing.setGithubInstallationId(66L);
         when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
-                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(existing), 1L)));
+                .thenReturn(Future.succeededFuture(new Page<>(List.of(existing), 1L)));
         String state = stage(CALLER_ORG, null);
 
         assertFailsWith(IllegalStateException.class,
@@ -171,17 +169,17 @@ class DefaultGitHubAppInstallationServiceTest {
     }
 
     @Test
-    void refreshesTheInstallationAlreadyBoundAfterReverifying() throws Exception {
+    void refreshesTheInstallationAlreadyBoundAfterReverifying() {
         GitHubAppInstallation existing = new GitHubAppInstallation();
         existing.setGithubInstallationId(INSTALLATION_ID);
         when(repository.findAll(eq(CALLER_ORG), any(Pageable.class)))
-                .thenReturn(CompletableFuture.completedFuture(new Page<>(List.of(existing), 1L)));
+                .thenReturn(Future.succeededFuture(new Page<>(List.of(existing), 1L)));
         when(apiClient.listUserInstallations("user-token"))
                 .thenReturn(Future.succeededFuture(List.of(
                         new InstallationDetails(INSTALLATION_ID, 777L, "acme", "Organization"))));
         String state = stage(CALLER_ORG, null);
 
-        service.completeInstall(INSTALLATION_ID, state, "good-code").get();
+        service.completeInstall(INSTALLATION_ID, state, "good-code").await();
 
         // The refresh path still demands the ownership proof before re-persisting
         verify(apiClient).listUserInstallations("user-token");
@@ -223,8 +221,7 @@ class DefaultGitHubAppInstallationServiceTest {
     }
 
     private static void assertFailsWith(Class<? extends Throwable> expected,
-                                        CompletableFuture<GitHubInstallCompletion> future) {
-        ExecutionException failure = assertThrows(ExecutionException.class, future::get);
-        assertInstanceOf(expected, failure.getCause());
+                                        Future<GitHubInstallCompletion> future) {
+        assertThrows(expected, future::await);
     }
 }

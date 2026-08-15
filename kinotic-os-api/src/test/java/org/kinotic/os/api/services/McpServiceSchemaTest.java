@@ -31,10 +31,14 @@ import org.kinotic.idl.internal.directory.jdk.ShortTypeConverter;
 import org.kinotic.idl.internal.directory.jdk.StringTypeConverter;
 import org.kinotic.idl.internal.directory.jdk.URITypeConverter;
 import org.kinotic.idl.internal.directory.jdk.VoidTypeConverter;
+import io.vertx.core.Future;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.ReactiveTypeDescriptor;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Verifies every MCP-exposed os-api service converts to a ServiceDefinition with the same converter set
@@ -162,16 +166,23 @@ public class McpServiceSchemaTest {
                                                            new URITypeConverter(),
                                                            new VoidTypeConverter(),
                                                            new TokenBufferTypeConverter(),
-                                                           new ReactiveTypeConverter(sharedRegistryProvider()));
+                                                           new ReactiveTypeConverter(registryProvider()));
         return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
     }
 
-    // resolves to the shared ReactiveAdapterRegistry, as ReactiveTypeConverter falls back to outside a Spring context
-    private static ObjectProvider<ReactiveAdapterRegistry> sharedRegistryProvider() {
+    // a registry carrying the Vert.x Future adapter DefaultKinotic registers at startup, so the
+    // converter set here matches what the server wires — the shared registry alone cannot convert
+    // the Future returns the CRUD interfaces declare
+    private static ObjectProvider<ReactiveAdapterRegistry> registryProvider() {
+        ReactiveAdapterRegistry registry = new ReactiveAdapterRegistry();
+        registry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
+                                                                                 (Supplier<Future<?>>) Future::succeededFuture),
+                                      source -> Mono.fromCompletionStage(((Future<?>) source).toCompletionStage()),
+                                      publisher -> Future.fromCompletionStage(Mono.from(publisher).toFuture()));
         return new ObjectProvider<>() {
             @Override
             public ReactiveAdapterRegistry getIfAvailable() {
-                return null;
+                return registry;
             }
         };
     }

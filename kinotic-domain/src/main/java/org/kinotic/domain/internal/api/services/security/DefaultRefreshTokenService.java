@@ -47,6 +47,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         Validate.notBlank(identityId, "identityId is required");
         Date now = new Date();
         return refreshTokenRepository.findActiveByIdentityId(identityId)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(tokens -> tokens.stream()
                         .filter(t -> t.getExpiresAt().after(now))
                         .map(t -> new DelegateSession(t.getFamilyId(), t.getLabel(),
@@ -60,20 +61,24 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         Validate.notBlank(familyId, "familyId is required");
         // identity scoping over every row: a family id from another identity's
         // lineage revokes nothing
-        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId),
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId)
+                                                    .toCompletionStage().toCompletableFuture(),
                               t -> identityId.equals(t.getIdentityId()));
     }
 
     @Override
     public CompletableFuture<Void> revokeAllFor(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
-        return revokeMatching(refreshTokenRepository.findActiveByIdentityId(identityId), t -> true);
+        return revokeMatching(refreshTokenRepository.findActiveByIdentityId(identityId)
+                                                    .toCompletionStage().toCompletableFuture(),
+                              t -> true);
     }
 
     @Override
     public CompletableFuture<RefreshTokenRotation> rotate(String token) {
         Validate.notBlank(token, "token is required");
         return refreshTokenRepository.findByTokenHash(DomainUtil.sha256Hex(token))
+                                     .toCompletionStage().toCompletableFuture()
                                      .thenCompose(this::rotateExisting);
     }
 
@@ -98,6 +103,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
             return CompletableFuture.failedFuture(new IllegalStateException("Refresh token has no audience"));
         }
         return identityRepository.findById(current.getIdentityId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(identity -> {
                     if (identity == null || !identity.isEnabled()) {
                         return CompletableFuture.failedFuture(
@@ -112,6 +118,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
                                 return refreshTokenRepository.saveSync(current)
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenApply(v -> new RefreshTokenRotation(identity, minted.plaintext(),
                                                                                   current.getAudience()));
                             });
@@ -121,7 +128,9 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     // unscoped by design: reuse detection already proved the lineage compromised, so the
     // whole family dies regardless of which identity its rows carry
     private CompletableFuture<Void> revokeFamily(String familyId) {
-        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId), t -> true);
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId)
+                                                    .toCompletionStage().toCompletableFuture(),
+                              t -> true);
     }
 
     /**
@@ -134,7 +143,8 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         return tokens.thenCompose(list -> {
             CompletableFuture<?>[] saves = list.stream()
                     .filter(t -> !t.isRevoked() && scope.test(t))
-                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true))
+                                                    .toCompletionStage().toCompletableFuture())
                     .toArray(CompletableFuture[]::new);
             return CompletableFuture.allOf(saves);
         });
@@ -153,7 +163,9 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 .setCreated(now)
                 .setExpiresAt(new Date(now.getTime() + TOKEN_TTL_MS))
                 .setRevoked(false);
-        return refreshTokenRepository.saveSync(record).thenApply(saved -> new Minted(record, plaintext));
+        return refreshTokenRepository.saveSync(record)
+                                     .toCompletionStage().toCompletableFuture()
+                                     .thenApply(saved -> new Minted(record, plaintext));
     }
 
     /** A persisted {@link RefreshToken} paired with its plaintext, which exists only at mint time. */

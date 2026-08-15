@@ -69,7 +69,9 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                             .setState(state)
                             .setCreated(now)
                             .setExpiresAt(new Date(now.getTime() + REQUEST_TTL_MS));
-                    return grantRepository.saveSync(grant).thenApply(OAuthAuthorizationGrant::getId);
+                    return grantRepository.saveSync(grant)
+                                          .toCompletionStage().toCompletableFuture()
+                                          .thenApply(OAuthAuthorizationGrant::getId);
                 });
     }
 
@@ -92,6 +94,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                          // the code's own, shorter expiry replaces the consent window
                          .setExpiresAt(new Date(System.currentTimeMillis() + CODE_TTL_MS));
                     return grantRepository.saveSync(grant)
+                                          .toCompletionStage().toCompletableFuture()
                                           .thenApply(saved -> redirectUrl(grant, "code", code));
                 });
     }
@@ -100,6 +103,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     public CompletableFuture<String> deny(String requestId) {
         return loadPendingGrant(requestId)
                 .thenCompose(grant -> grantRepository.deleteById(grant.getId())
+                                                     .toCompletionStage().toCompletableFuture()
                                                      .thenApply(v -> redirectUrl(grant, "error", "access_denied")));
     }
 
@@ -113,13 +117,16 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeVerifier, "code_verifier is required");
         return grantRepository.findByCodeHash(DomainUtil.sha256Hex(code))
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(grant -> {
                     if (grant == null) {
                         return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown authorization code"));
                     }
                     // consume the grant before judging it, so a failed exchange burns the code too.
                     // the delete must wait for the index refresh: findByCodeHash is a search
-                    return grantRepository.deleteByIdSync(grant.getId()).thenCompose(v -> {
+                    return grantRepository.deleteByIdSync(grant.getId())
+                                          .toCompletionStage().toCompletableFuture()
+                                          .thenCompose(v -> {
                         if (grant.getExpiresAt().before(new Date())) {
                             return CompletableFuture.failedFuture(new IllegalArgumentException("Authorization code has expired"));
                         }
@@ -183,12 +190,14 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     private CompletableFuture<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {
         Validate.notBlank(requestId, "requestId is required");
         return grantRepository.findById(requestId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(grant -> {
                     if (grant == null) {
                         return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown authorization request"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {
                         return grantRepository.deleteById(grant.getId())
+                                .toCompletionStage().toCompletableFuture()
                                 .thenCompose(v -> CompletableFuture.failedFuture(
                                         new IllegalArgumentException("Authorization request has expired")));
                     }
@@ -202,6 +211,7 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
 
     private CompletableFuture<UserParticipantIdentity> loadEnabledUser(String identityId) {
         return identityRepository.findById(identityId)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(UserParticipantIdentity.class::cast)
                 .thenCompose(user -> (user == null || !user.isEnabled())
                         ? CompletableFuture.failedFuture(new IllegalArgumentException("User is not available"))

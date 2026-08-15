@@ -305,7 +305,7 @@ public class AuthEndpointSupport {
 
         String returnPath = safeReturnPath(ctx.request().getParam("referer"));
 
-        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
+        orgSignupOidcConfigurationService.findEnabledByProvider(providerKind)
               .compose(config -> {
                   if (config == null) {
                       respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
@@ -374,7 +374,7 @@ public class AuthEndpointSupport {
     public void completeOidcLogin(RoutingContext ctx,
                                   BaseOidcConfiguration config,
                                   Map<String, Object> claims,
-                                  Function<String, CompletionStage<UserParticipantIdentity>> userLookup) {
+                                  Function<String, Future<UserParticipantIdentity>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
@@ -384,7 +384,7 @@ public class AuthEndpointSupport {
             redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
-        Future.fromCompletionStage(userLookup.apply(sub))
+        userLookup.apply(sub)
               .onSuccess(user -> {
                   if (user == null) {
                       redirectError(ctx, OidcErrorCodes.NO_ACCOUNT);

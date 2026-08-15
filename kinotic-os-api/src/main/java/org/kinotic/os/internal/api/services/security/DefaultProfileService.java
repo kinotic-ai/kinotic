@@ -26,7 +26,8 @@ public class DefaultProfileService implements ProfileService {
     public CompletableFuture<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant) {
         Validate.notBlank(displayName, "displayName is required");
         return loadCallingUser(participant)
-                .thenCompose(user -> identityService.save(user.setDisplayName(displayName)))
+                .thenCompose(user -> identityService.save(user.setDisplayName(displayName))
+                                                    .toCompletionStage().toCompletableFuture())
                 .thenApply(UserParticipantIdentity.class::cast);
     }
 
@@ -34,6 +35,7 @@ public class DefaultProfileService implements ProfileService {
     private CompletableFuture<UserParticipantIdentity> loadCallingUser(Participant participant) {
         DomainUtil.requireUserParticipant(participant);
         return identityService.findById(participant.getId())
+                              .toCompletionStage().toCompletableFuture()
                               .thenApply(identity -> {
                                   // a session outlives its row when an admin removes the member mid-session
                                   if (!(identity instanceof UserParticipantIdentity user)) {

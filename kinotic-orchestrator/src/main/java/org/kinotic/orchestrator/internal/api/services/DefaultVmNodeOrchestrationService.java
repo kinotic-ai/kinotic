@@ -65,6 +65,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(registration.getId(), "Node id cannot be null");
 
         return vmNodeService.findById(registration.getId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(existing -> {
                     if (existing != null) {
                         existing.setHostname(registration.getHostname())
@@ -74,7 +75,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 .setTotalDiskMb(registration.getTotalDiskMb())
                                 .setStatus(VmNodeStatus.ONLINE);
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
-                        return vmNodeService.saveSync(existing);
+                        return vmNodeService.saveSync(existing).toCompletionStage().toCompletableFuture();
                     } else {
                         VmNode node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
                         node.setTotalCpus(registration.getTotalCpus());
@@ -82,7 +83,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node.setTotalDiskMb(registration.getTotalDiskMb());
                         node.setStatus(VmNodeStatus.ONLINE);
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
-                        return vmNodeService.saveSync(node);
+                        return vmNodeService.saveSync(node).toCompletionStage().toCompletableFuture();
                     }
                 });
     }
@@ -92,6 +93,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(nodeId, "Node id cannot be null");
 
         return vmNodeService.findById(nodeId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(node -> {
                     if (node == null) {
                         return CompletableFuture.failedFuture(
@@ -102,7 +104,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         log.info("VmNode {} came back online", nodeId);
                         node.setStatus(VmNodeStatus.ONLINE);
                     }
-                    return vmNodeService.saveSync(node);
+                    return vmNodeService.saveSync(node).toCompletionStage().toCompletableFuture();
                 });
     }
 
@@ -118,6 +120,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     private CompletableFuture<Workload> applyStatusReport(String nodeId, WorkloadStatusReport report) {
         return workloadService.findById(report.getWorkloadId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(workload -> {
                     if (workload == null) {
                         // Destroyed since the node recorded the status — stale report
@@ -138,7 +141,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     log.info("Workload {} status {} -> {} per report from node {}",
                              report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
                     workload.setStatus(report.getStatus());
-                    return workloadService.saveSync(workload);
+                    return workloadService.saveSync(workload).toCompletionStage().toCompletableFuture();
                 });
     }
 
@@ -147,6 +150,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(nodeId, "Node id cannot be null");
 
         return workloadService.countForNode(nodeId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(count -> {
                     if (count > 0) {
                         return CompletableFuture.failedFuture(
@@ -154,13 +158,14 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                         + "Destroy all workloads on node " + nodeId + " first."));
                     }
                     log.info("Deregistering VmNode: {}", nodeId);
-                    return vmNodeService.deleteById(nodeId);
+                    return vmNodeService.deleteById(nodeId).toCompletionStage().toCompletableFuture();
                 });
     }
 
     @Override
     public CompletableFuture<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
-        return vmNodeService.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
+        return vmNodeService.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb)
+                            .toCompletionStage().toCompletableFuture();
     }
 
     /**
@@ -174,6 +179,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
             Date cutoffDate = new Date(cutoff);
 
             vmNodeService.findAll(Pageable.create(0, 500, null))
+                    .toCompletionStage().toCompletableFuture()
                     .thenAccept(page -> {
                         for (VmNode node : page.getContent()) {
                             if (node.getStatus() == VmNodeStatus.ONLINE
@@ -185,6 +191,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
                                 node.setStatus(VmNodeStatus.OFFLINE);
                                 vmNodeService.saveSync(node)
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenCompose(offlineNode -> markNodeWorkloadsFailed(offlineNode.getId()))
                                         .exceptionally(error -> {
                                             log.error("Error handling offline node {}", node.getId(), error);
@@ -204,6 +211,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     private CompletableFuture<Void> markNodeWorkloadsFailed(String nodeId) {
         return workloadService.findAllForNode(nodeId, Pageable.create(0, 500, null))
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(page -> {
                     CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
                     for (Workload workload : page.getContent()) {
@@ -213,7 +221,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 log.warn("Marking workload {} as FAILED due to node {} going offline",
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
-                                return workloadService.saveSync(workload).thenApply(w -> null);
+                                return workloadService.saveSync(workload)
+                                                      .toCompletionStage().toCompletableFuture()
+                                                      .thenApply(w -> null);
                             });
                         }
                     }

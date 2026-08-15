@@ -32,7 +32,8 @@ public class DefaultMemberService implements MemberService {
     public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         // scope-composed query: a foreign or unknown application matches nothing
-        return identityService.findUsersByScope(participant.getOrganizationId(), applicationId, pageable);
+        return identityService.findUsersByScope(participant.getOrganizationId(), applicationId, pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -41,7 +42,8 @@ public class DefaultMemberService implements MemberService {
         return identityService.searchUsersByScope(searchText,
                                                   participant.getOrganizationId(),
                                                   applicationId,
-                                                  pageable);
+                                                  pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -67,7 +69,8 @@ public class DefaultMemberService implements MemberService {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
                 // saveSync so the console's immediate re-query sees the change
-                .thenCompose(user -> identityService.saveSync(user.setEnabled(enabled)))
+                .thenCompose(user -> identityService.saveSync(user.setEnabled(enabled))
+                                                    .toCompletionStage().toCompletableFuture())
                 .thenApply(u -> null);
     }
 
@@ -77,7 +80,8 @@ public class DefaultMemberService implements MemberService {
         return loadOwnedMember(identityId, participant)
                 // Cascades the IdentityCredential; sync so the console's immediate re-query
                 // no longer shows the member.
-                .thenCompose(user -> identityService.deleteByIdSync(user.getId()));
+                .thenCompose(user -> identityService.deleteByIdSync(user.getId())
+                                                    .toCompletionStage().toCompletableFuture());
     }
 
     @Override
@@ -113,7 +117,8 @@ public class DefaultMemberService implements MemberService {
         if (applicationId == null) {
             ret = CompletableFuture.completedFuture(null);
         } else {
-            ret = applicationRepository.requireById(applicationId, organizationId);
+            ret = applicationRepository.requireById(applicationId, organizationId)
+                                       .toCompletionStage().toCompletableFuture();
         }
         return ret;
     }
@@ -129,6 +134,7 @@ public class DefaultMemberService implements MemberService {
                     new IllegalArgumentException("You cannot perform this action on your own account."));
         }
         return identityService.findById(identityId)
+                .toCompletionStage().toCompletableFuture()
                 // a delegate id gets the same not-found as a foreign one — member management
                 // operates on people; delegates are managed by their owner's revocation flow
                 .thenApply(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,

@@ -24,7 +24,7 @@ class DefaultApplicationServiceTest {
     void mintsIdFromSlugifiedName() {
         Application application = new Application("Orders App", "desc");
 
-        service.beforeSave(application).join();
+        service.beforeSave(application).await();
 
         assertEquals("orders-app", application.getId());
         assertNotNull(application.getUpdated());
@@ -35,7 +35,7 @@ class DefaultApplicationServiceTest {
         Application application = new Application("Orders App", "desc");
         application.setId("orders-app-v2");
 
-        service.beforeSave(application).join();
+        service.beforeSave(application).await();
 
         assertEquals("orders-app-v2", application.getId());
     }

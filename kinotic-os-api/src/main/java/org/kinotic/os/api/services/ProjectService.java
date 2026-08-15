@@ -1,12 +1,12 @@
 package org.kinotic.os.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * CRUD service for {@link Project} entities, with application-scoped queries
@@ -22,9 +22,9 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      *
      * @param project the project to create; the id is auto-derived from the application id
      *                and slugified name if not set
-     * @return a {@link CompletableFuture} emitting the created or existing project
+     * @return a {@link Future} emitting the created or existing project
      */
-    CompletableFuture<Project> createProjectIfNotExist(Project project);
+    Future<Project> createProjectIfNotExist(Project project);
 
     /**
      * Looks up projects in the current participant's organization whose backing GitHub repo
@@ -32,7 +32,7 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * that organization is backed by the repo.
      */
     @McpTool(title = "Find by GitHub Repo", readOnlyHint = true)
-    CompletableFuture<List<Project>> findByRepoFullName(String repoFullName);
+    Future<List<Project>> findByRepoFullName(String repoFullName);
 
     /**
      * Re-runs repository initialization for a project left
@@ -42,10 +42,10 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      * baseline is committed.
      *
      * @param projectId id of the project to retry
-     * @return a {@link CompletableFuture} emitting the updated project
+     * @return a {@link Future} emitting the updated project
      * @throws IllegalStateException when the project is not awaiting an initialization retry
      */
     @McpTool(openWorldHint = true)
-    CompletableFuture<Project> retryRepoInitialization(String projectId);
+    Future<Project> retryRepoInitialization(String projectId);
 
 }

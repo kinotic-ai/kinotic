@@ -37,12 +37,14 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(displayName, "Display name is required");
 
         return pendingSignUpRepository.findByEmail(email)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(existing -> {
                     if (existing != null) {
                         return CompletableFuture.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    return identityService.findFirstOrgUserByEmail(email);
+                    return identityService.findFirstOrgUserByEmail(email)
+                                          .toCompletionStage().toCompletableFuture();
                 })
                 .thenCompose(existingUser -> {
                     if (existingUser != null) {
@@ -60,6 +62,7 @@ public class DefaultSignUpService implements SignUpService {
                             .setCreated(now)
                             .setExpiresAt(new Date(now.getTime() + LOCAL_TTL_MS));
                     return pendingSignUpRepository.save(pending)
+                            .toCompletionStage().toCompletableFuture()
                             .thenCompose(saved -> emailService.sendVerificationEmail(email, displayName, token));
                 });
     }
@@ -76,7 +79,8 @@ public class DefaultSignUpService implements SignUpService {
                .setVerificationToken(UUID.randomUUID().toString())
                .setCreated(now)
                .setExpiresAt(new Date(now.getTime() + OIDC_TTL_MS));
-        return pendingSignUpRepository.saveSync(pending);
+        return pendingSignUpRepository.saveSync(pending)
+                                      .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -86,8 +90,10 @@ public class DefaultSignUpService implements SignUpService {
         Validate.notBlank(password, "Password is required");
 
         return pendingSignUpRepository.findValidByToken(token)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), password)
                         .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .toCompletionStage().toCompletableFuture()
                                 .thenApply(v -> savedAdmin)));
     }
 
@@ -95,8 +101,10 @@ public class DefaultSignUpService implements SignUpService {
     public CompletableFuture<UserParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
         return pendingSignUpRepository.findValidByToken(token)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
                         .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .toCompletionStage().toCompletableFuture()
                                 .thenApply(v -> savedAdmin)));
     }
 
@@ -108,12 +116,16 @@ public class DefaultSignUpService implements SignUpService {
     private CompletableFuture<UserParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, UserParticipantIdentity admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
         return organizationService.create(org)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(savedOrg -> {
                     admin.setOrganizationId(savedOrg.getId());
                     return identityService.createUser(admin, password)
+                            .toCompletionStage().toCompletableFuture()
                             .thenCompose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
-                                return organizationService.save(savedOrg).thenApply(o -> savedAdmin);
+                                return organizationService.save(savedOrg)
+                                                          .toCompletionStage().toCompletableFuture()
+                                                          .thenApply(o -> savedAdmin);
                             });
                 });
     }

@@ -26,7 +26,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Unauthenticated invitation-accept routes — the complete invite flow, self-contained. The
@@ -71,12 +70,11 @@ public class InviteHandler implements SuppliesGatewayRoutes {
 
         Future.fromCompletionStage(inviteService.getValidInvite(token))
               .compose(invite -> {
-                  Future<String> orgName = Future.fromCompletionStage(
-                          organizationService.findById(invite.getOrganizationId()))
+                  Future<String> orgName = organizationService.findById(invite.getOrganizationId())
                           .map(org -> org == null ? null : org.getName());
-                  Future<List<BaseOidcConfiguration>> providers = Future.fromCompletionStage(
+                  Future<List<BaseOidcConfiguration>> providers =
                           oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
-                                                                      invite.getApplicationId()));
+                                                                      invite.getApplicationId());
                   return Future.all(orgName, providers)
                                .map(v -> new JsonObject()
                                        .put("email", invite.getEmail())
@@ -242,9 +240,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * carries the accept token on the session and returns to {@link #handleOidcCallback}.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
-        return Future.fromCompletionStage(
-                             oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
-                                                                         invite.getApplicationId()))
+        return oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
+                                                            invite.getApplicationId())
                      .compose(offered -> {
                          BaseOidcConfiguration chosen = offered.stream()
                                                               .filter(c -> configId.equals(c.getId()))
@@ -265,25 +262,27 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * Resolves the callback's config, which may live in either table: platform social
      * configs (unscoped) or org SSO / app configs (org-scoped by the flow session's orgId).
      */
-    private CompletableFuture<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
+    private Future<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
         // Searching both tables by bare id is safe: we only get here after the orchestrator
         // matched the path's configId against the flow session, and that session value was
         // written by handleOidcStart, which only accepts configs the invite's target scope
         // offers. So whatever this finds is a config the start leg already approved (ids
         // are per-row UUIDs, so the same id cannot exist in both tables).
         return orgSignupOidcConfigurationService.findById(configId)
-                .thenCompose(social -> {
+                .compose(social -> {
+                    Future<BaseOidcConfiguration> ret;
                     if (social != null) {
-                        return CompletableFuture.<BaseOidcConfiguration>completedFuture(social);
+                        ret = Future.succeededFuture(social);
+                    } else if (orgId == null) {
+                        // Invite flows always stash an orgId; this guard only turns a corrupted
+                        // session into config_not_found instead of a repository exception.
+                        ret = Future.succeededFuture(null);
+                    } else {
+                        // The cast widens the future's element type — Future is invariant.
+                        ret = oidcConfigurationRepository.findById(configId, orgId)
+                                                         .map(c -> (BaseOidcConfiguration) c);
                     }
-                    // Invite flows always stash an orgId; this guard only turns a corrupted
-                    // session into config_not_found instead of a repository exception.
-                    if (orgId == null) {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    // The cast widens the future's element type — CompletableFuture is invariant.
-                    return oidcConfigurationRepository.findById(configId, orgId)
-                                                      .thenApply(c -> (BaseOidcConfiguration) c);
+                    return ret;
                 });
     }
 

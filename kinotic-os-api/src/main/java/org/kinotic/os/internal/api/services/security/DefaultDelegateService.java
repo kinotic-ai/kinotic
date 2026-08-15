@@ -26,7 +26,8 @@ public class DefaultDelegateService implements DelegateService {
     @Override
     public CompletableFuture<Page<DelegatingParticipantIdentity>> findMyDelegates(Pageable pageable, Participant participant) {
         DomainUtil.requireUserParticipant(participant);
-        return identityService.findDelegatesByOwner(participant.getId(), pageable);
+        return identityService.findDelegatesByOwner(participant.getId(), pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -45,7 +46,8 @@ public class DefaultDelegateService implements DelegateService {
     @Override
     public CompletableFuture<Void> revokeDelegate(String delegateId, Participant participant) {
         return loadOwnedDelegate(delegateId, participant)
-                .thenCompose(delegate -> identityService.saveSync(delegate.setEnabled(false)))
+                .thenCompose(delegate -> identityService.saveSync(delegate.setEnabled(false))
+                                                        .toCompletionStage().toCompletableFuture())
                 // authentication already rejects a disabled delegate; ending its sessions too
                 // keeps the session list truthful and stops rotations at the token endpoint
                 .thenCompose(saved -> refreshTokenService.revokeAllFor(delegateId));
@@ -56,6 +58,7 @@ public class DefaultDelegateService implements DelegateService {
         DomainUtil.requireUserParticipant(participant);
         Validate.notBlank(delegateId, "delegateId is required");
         return identityService.findById(delegateId)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(identity -> DomainUtil.requireOwned(identity, DelegatingParticipantIdentity.class,
                         delegate -> participant.getId().equals(delegate.getOwnerId()),
                         "Delegate not found."));

@@ -2,6 +2,8 @@ package org.kinotic.persistence.internal.sample;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jspecify.annotations.Nullable;
 import org.kinotic.core.api.utils.KinoticUtil;
@@ -24,7 +26,6 @@ import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/1/23.
@@ -54,6 +55,7 @@ public class TestDataService {
 
     private final ApplicationService applicationService;
     private final EntityDefinitionService entityDefinitionService;
+    private final Vertx vertx;
 
     private final AsyncLoadingCache<String, List<Person>> peopleCache;
 
@@ -61,10 +63,12 @@ public class TestDataService {
                            EntityDefinitionService entityDefinitionService,
                            ResourceLoader resourceLoader,
                            ObjectMapper objectMapper,
-                           DefaultCaffeineCacheFactory cacheFactory) {
+                           DefaultCaffeineCacheFactory cacheFactory,
+                           Vertx vertx) {
 
         this.applicationService = applicationService;
         this.entityDefinitionService = entityDefinitionService;
+        this.vertx = vertx;
 
         peopleCache = cacheFactory.<String, List<Person>>newBuilder()
                               .name("peopleCache")
@@ -90,28 +94,30 @@ public class TestDataService {
 
     /**
      * Creates a {@link Car} {@link EntityDefinition} if it does not exist.
-     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
+     * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
-    public CompletableFuture<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
+    public Future<Pair<EntityDefinition, Boolean>> createCarEntityDefinitionIfNotExists(String structureNameSuffix){
         String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
                                                                       SAMPLE_APP_ID,
                                                                       "Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
-                                      .thenCompose(structure -> {
+                                      .compose(structure -> {
+                                   Future<Pair<EntityDefinition, Boolean>> ret;
                                    if(structure != null){
-                                       return CompletableFuture.completedFuture(Pair.of(structure, false));
+                                       ret = Future.succeededFuture(Pair.of(structure, false));
                                    }else{
-                                       return createCarEntityDefinition(structureNameSuffix).thenApply(saved -> Pair.of(saved, true));
+                                       ret = createCarEntityDefinition(structureNameSuffix).map(saved -> Pair.of(saved, true));
                                    }
+                                   return ret;
                                });
     }
 
     /**
      * Creates a {@link Car} {@link EntityDefinition} and publishes it.
      * @param structureNameSuffix if not null will be appended to the structure name.
-     * @return a {@link CompletableFuture} that will return the {@link EntityDefinition} that was created.
+     * @return a {@link Future} that will return the {@link EntityDefinition} that was created.
      */
-    public CompletableFuture<EntityDefinition> createCarEntityDefinition(String structureNameSuffix) {
+    public Future<EntityDefinition> createCarEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Car"+(structureNameSuffix != null ? structureNameSuffix : ""));
         structure.setOrganizationId(SAMPLE_ORG_ID);
@@ -124,9 +130,9 @@ public class TestDataService {
         structure.setSchema(carType);
 
         return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
-                               .thenCompose(v -> entityDefinitionService.create(structure)
-                                                                        .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
-                                                                                                                     .thenApply(published -> saved)));
+                               .compose(v -> entityDefinitionService.create(structure)
+                                                                    .compose(saved -> entityDefinitionService.publish(saved.getId())
+                                                                                                             .map(saved)));
     }
 
 
@@ -170,34 +176,36 @@ public class TestDataService {
         return ret;
     }
 
-    public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(){
+    public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(){
         return createPersonEntityDefinitionIfNotExists(null);
     }
 
     /**
      * Creates a person structure if it does not exist.
-     * @return a {@link CompletableFuture} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
+     * @return a {@link Future} that will return a {@link Pair} of the {@link EntityDefinition} and a {@link Boolean} indicating if the structure was created.
      */
-    public CompletableFuture<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
+    public Future<Pair<EntityDefinition, Boolean>> createPersonEntityDefinitionIfNotExists(String structureNameSuffix){
         String structureId = PersistenceUtil.createEntityDefinitionId(SAMPLE_ORG_ID,
                                                                       SAMPLE_APP_ID,
                                                                       "Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         return entityDefinitionService.findById(structureId)
-                                      .thenCompose(structure -> {
+                                      .compose(structure -> {
+                                   Future<Pair<EntityDefinition, Boolean>> ret;
                                    if(structure != null){
-                                       return CompletableFuture.completedFuture(Pair.of(structure, false));
+                                       ret = Future.succeededFuture(Pair.of(structure, false));
                                    }else{
-                                       return createPersonEntityDefinition(structureNameSuffix).thenApply(saved -> Pair.of(saved, true));
+                                       ret = createPersonEntityDefinition(structureNameSuffix).map(saved -> Pair.of(saved, true));
                                    }
+                                   return ret;
                                });
     }
 
     /**
      * Creates a {@link Person} {@link EntityDefinition} and publishes it.
      * @param structureNameSuffix if not null will be appended to the structure name.
-     * @return a {@link CompletableFuture} that will return the {@link EntityDefinition} that was created.
+     * @return a {@link Future} that will return the {@link EntityDefinition} that was created.
      */
-    public CompletableFuture<EntityDefinition> createPersonEntityDefinition(String structureNameSuffix) {
+    public Future<EntityDefinition> createPersonEntityDefinition(String structureNameSuffix) {
         EntityDefinition structure = new EntityDefinition();
         structure.setName("Person"+(structureNameSuffix != null ? structureNameSuffix : ""));
         structure.setOrganizationId(SAMPLE_ORG_ID);
@@ -210,65 +218,70 @@ public class TestDataService {
         structure.setSchema(personType);
 
         return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
-                               .thenCompose(v -> entityDefinitionService.create(structure)
-                                                                        .thenCompose(saved -> entityDefinitionService.publish(saved.getId())
-                                                                                                                     .thenApply(published -> saved)));
+                               .compose(v -> entityDefinitionService.create(structure)
+                                                                    .compose(saved -> entityDefinitionService.publish(saved.getId())
+                                                                                                             .map(saved)));
     }
 
     /**
-     * @return a {@link CompletableFuture} that will return a random {@link Person} from the cache.
+     * @return a {@link Future} that will return a random {@link Person} from the cache.
      */
-    public CompletableFuture<Person> createTestPerson() {
-        return peopleCache.get(PEOPLE_KEY).thenApply(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
+    public Future<Person> createTestPerson() {
+        return loadPeople(PEOPLE_KEY).map(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
     }
 
     /**
-     * @return a {@link CompletableFuture} that will return a random {@link Person} with the id populated, from the cache.
+     * @return a {@link Future} that will return a random {@link Person} with the id populated, from the cache.
      */
-    public CompletableFuture<Person> createTestPersonWithId() {
-        return peopleCache.get(PEOPLE_WITH_ID_KEY).thenApply(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
+    public Future<Person> createTestPersonWithId() {
+        return loadPeople(PEOPLE_WITH_ID_KEY).map(people -> people.get(KinoticUtil.getRandomNumberInRange(people.size() - 1)));
     }
 
     /**
-     * Creates a {@link CompletableFuture} that will return a {@link List} of static {@link Person} from the cache.
+     * Creates a {@link Future} that will return a {@link List} of static {@link Person} from the cache.
      * Each call will return the exact same {@link List} of {@link Person}.
      * @param numberToCreate the number of {@link Person} to create.
-     * @return a {@link CompletableFuture} that will return a {@link List} of random {@link Person} from the cache.
+     * @return a {@link Future} that will return a {@link List} of random {@link Person} from the cache.
      */
-    public CompletableFuture<List<Person>> createTestPeople(int numberToCreate) {
-        return getPeopleCompletableFuture(numberToCreate, false, PEOPLE_KEY);
+    public Future<List<Person>> createTestPeople(int numberToCreate) {
+        return getPeopleFuture(numberToCreate, false, PEOPLE_KEY);
     }
 
     /**
-     * Creates a {@link CompletableFuture} that will return a {@link List} of static {@link Person} with the id populated, from the cache.
+     * Creates a {@link Future} that will return a {@link List} of static {@link Person} with the id populated, from the cache.
      * Each call will return the exact same {@link List} of {@link Person}.
      * @param numberToCreate the number of {@link Person} with the id populated, to create.
-     * @return a {@link CompletableFuture} that will return a {@link List} of random {@link Person} with the id populated, from the cache.
+     * @return a {@link Future} that will return a {@link List} of random {@link Person} with the id populated, from the cache.
      */
-    public CompletableFuture<List<Person>> createTestPeopleWithId(int numberToCreate) {
-        return getPeopleCompletableFuture(numberToCreate, false, PEOPLE_WITH_ID_KEY);
+    public Future<List<Person>> createTestPeopleWithId(int numberToCreate) {
+        return getPeopleFuture(numberToCreate, false, PEOPLE_WITH_ID_KEY);
     }
 
     /**
      * @param numberToCreate the number of random {@link Person} to create.
-     * @return a {@link CompletableFuture} that will return a {@link List} of random {@link Person} from the cache.
+     * @return a {@link Future} that will return a {@link List} of random {@link Person} from the cache.
      */
-    public CompletableFuture<List<Person>> createRandomTestPeople(int numberToCreate) {
-        return getPeopleCompletableFuture(numberToCreate, true, PEOPLE_KEY);
+    public Future<List<Person>> createRandomTestPeople(int numberToCreate) {
+        return getPeopleFuture(numberToCreate, true, PEOPLE_KEY);
     }
 
     /**
      * @param numberToCreate the number of random {@link Person} with the id populated, to create.
-     * @return a {@link CompletableFuture} that will return a {@link List} of random {@link Person} with the id populated, from the cache.
+     * @return a {@link Future} that will return a {@link List} of random {@link Person} with the id populated, from the cache.
      */
-    public CompletableFuture<List<Person>> createRandomTestPeopleWithId(int numberToCreate) {
-        return getPeopleCompletableFuture(numberToCreate, true, PEOPLE_WITH_ID_KEY);
+    public Future<List<Person>> createRandomTestPeopleWithId(int numberToCreate) {
+        return getPeopleFuture(numberToCreate, true, PEOPLE_WITH_ID_KEY);
     }
 
-    private CompletableFuture<List<Person>> getPeopleCompletableFuture(int numberToCreate,
-                                                                       boolean random,
-                                                                       String peopleKey) {
-        return peopleCache.get(peopleKey).thenApply(people -> {
+    // Caffeine loads on its own executor, so bind the completion back to the calling Vert.x context
+    private Future<List<Person>> loadPeople(String peopleKey) {
+        return Future.fromCompletionStage(peopleCache.get(peopleKey), vertx.getOrCreateContext());
+    }
+
+    private Future<List<Person>> getPeopleFuture(int numberToCreate,
+                                                 boolean random,
+                                                 String peopleKey) {
+        return loadPeople(peopleKey).map(people -> {
             int size = people.size();
             if(!random && size < numberToCreate){
                 throw new IllegalArgumentException("Cannot create "+numberToCreate+" people, a max of "+size+" are available." +
@@ -291,7 +304,7 @@ public class TestDataService {
         public PeopleCacheLoader(ResourceLoader resourceLoader,
                                  ObjectMapper objectMapper) {
 
-            this.resourceLoader = resourceLoader instanceof PathMatchingResourcePatternResolver 
+            this.resourceLoader = resourceLoader instanceof PathMatchingResourcePatternResolver
             ? (PathMatchingResourcePatternResolver) resourceLoader : new PathMatchingResourcePatternResolver(resourceLoader);
             this.objectMapper = objectMapper;
         }

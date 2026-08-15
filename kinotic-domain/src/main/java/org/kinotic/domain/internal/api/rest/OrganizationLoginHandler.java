@@ -66,7 +66,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(identityService.findByEmail(email))
+        identityService.findByEmail(email)
               .compose(user -> resolveSsoOrPassword(ctx, user))
               .onFailure(err -> {
                   log.warn("Login lookup failed for {}: {}", email, err.getMessage());
@@ -80,7 +80,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
      * even when several configs share a kind.
      */
     private void handleProviders(RoutingContext ctx) {
-        Future.fromCompletionStage(orgSignupOidcConfigurationService.findAllEnabled())
+        orgSignupOidcConfigurationService.findAllEnabled()
               .onSuccess(configs -> {
                   JsonArray providers = new JsonArray();
                   Set<String> seen = new LinkedHashSet<>();
@@ -171,7 +171,7 @@ public class OrganizationLoginHandler implements SuppliesGatewayRoutes {
         }
 
         String orgId = user.getOrganizationId();
-        return Future.fromCompletionStage(oidcConfigurationService.findOrgLoginConfig(orgId))
+        return oidcConfigurationService.findOrgLoginConfig(orgId)
                      .compose(match -> {
                          if (match == null) {
                              // Org has no enabled SSO config — fall back to password (which will

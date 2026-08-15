@@ -2,6 +2,7 @@ package org.kinotic.os.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.AfterAll;
@@ -24,7 +25,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -150,7 +150,9 @@ class DefaultLogServiceTest {
         try {
             return result.get(10, TimeUnit.SECONDS);
         } catch (ExecutionException e) {
-            throw unwrap(e.getCause());
+            // get() already peels the single CompletionException layer minted by
+            // DefaultLogService's internal CF chain, so the cause is the raw failure
+            throw e.getCause();
         }
     }
 
@@ -161,13 +163,6 @@ class DefaultLogServiceTest {
         } catch (Throwable error) {
             return error;
         }
-    }
-
-    private static Throwable unwrap(Throwable error) {
-        while (error instanceof CompletionException && error.getCause() != null) {
-            error = error.getCause();
-        }
-        return error;
     }
 
     private static class RecordingLokiClient implements LokiClient {
@@ -210,69 +205,71 @@ class DefaultLogServiceTest {
         }
 
         @Override
-        public CompletableFuture<Workload> findById(String id) {
+        public Future<Workload> findById(String id) {
             // Completes on another thread like the real ES-backed service, so any
             // SecurityContext read after this hop loses the Vert.x context and fails
-            return CompletableFuture.supplyAsync(() -> workloads.get(id));
+            Promise<Workload> promise = Promise.promise();
+            new Thread(() -> promise.complete(workloads.get(id))).start();
+            return promise.future();
         }
 
         @Override
-        public CompletableFuture<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
+        public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Long> countForNode(String nodeId) {
+        public Future<Long> countForNode(String nodeId) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Workload> create(Workload entity) {
+        public Future<Workload> create(Workload entity) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Workload> createSync(Workload entity) {
+        public Future<Workload> createSync(Workload entity) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Workload> save(Workload entity) {
+        public Future<Workload> save(Workload entity) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Workload> saveSync(Workload entity) {
+        public Future<Workload> saveSync(Workload entity) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Long> count() {
+        public Future<Long> count() {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Void> deleteById(String id) {
+        public Future<Void> deleteById(String id) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Void> deleteByIdSync(String id) {
+        public Future<Void> deleteByIdSync(String id) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Page<Workload>> findAll(Pageable pageable) {
+        public Future<Page<Workload>> findAll(Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Page<Workload>> search(String searchText, Pageable pageable) {
+        public Future<Page<Workload>> search(String searchText, Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Void> syncIndex() {
+        public Future<Void> syncIndex() {
             throw new UnsupportedOperationException();
         }
     }

@@ -1,8 +1,7 @@
 package org.kinotic.domain.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.api.model.Project;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provisions the backing source-control repository for a {@link Project} during
@@ -20,7 +19,7 @@ public interface ProjectRepoProvisioner {
      *
      * @throws IllegalStateException when prerequisites aren't met (e.g. GitHub not linked)
      */
-    CompletableFuture<Project> provision(Project project);
+    Future<Project> provision(Project project);
 
     /**
      * Re-runs initialization against the already-created repository named by
@@ -31,5 +30,5 @@ public interface ProjectRepoProvisioner {
      * by {@link #provision(Project)}. The returned future fails when initialization
      * fails again, leaving the persisted status unchanged.
      */
-    CompletableFuture<Project> reinitialize(Project project);
+    Future<Project> reinitialize(Project project);
 }

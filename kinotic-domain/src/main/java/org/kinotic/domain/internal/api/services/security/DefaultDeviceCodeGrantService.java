@@ -60,6 +60,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                 .setIntervalSeconds(POLL_INTERVAL_SECONDS);
 
         return deviceCodeGrantRepository.saveSync(grant)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(saved -> new DeviceCodeGrantStart(deviceCode, userCode, expiresAt, POLL_INTERVAL_SECONDS));
     }
 
@@ -67,6 +68,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     public CompletableFuture<DeviceCodePollResult> poll(String deviceCode) {
         Validate.notBlank(deviceCode, "deviceCode is required");
         return deviceCodeGrantRepository.findByDeviceCodeHash(DomainUtil.sha256Hex(deviceCode))
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenCompose(this::evaluatePoll);
     }
 
@@ -77,13 +79,16 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
         Date now = new Date();
         if (grant.getExpiresAt().before(now)) {
             return deviceCodeGrantRepository.deleteById(grant.getId())
+                    .toCompletionStage().toCompletableFuture()
                     .thenApply(v -> new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
             // Approved — hand back the user and consume the grant so it cannot be replayed.
             return identityRepository.findById(grant.getIdentityId())
+                    .toCompletionStage().toCompletableFuture()
                     .thenApply(UserParticipantIdentity.class::cast)
                     .thenCompose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
+                            .toCompletionStage().toCompletableFuture()
                             .thenApply(v -> (user == null || !user.isEnabled())
                                     ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
                                     : new DeviceCodePollResult(PollStatus.APPROVED, user, grant.getDeviceName())));
@@ -93,6 +98,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
         }
         grant.setLastPolledAt(now);
         return deviceCodeGrantRepository.saveSync(grant)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(v -> new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null, null));
     }
 
@@ -101,6 +107,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
         Validate.notBlank(userCode, "userCode is required");
         Validate.notBlank(identityId, "identityId is required");
         return deviceCodeGrantRepository.findByUserCode(normalizeUserCode(userCode))
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(grant -> {
                     if (grant == null) {
                         return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown user code"));
@@ -114,7 +121,9 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                                 new IllegalArgumentException("Device authorization request has already been approved"));
                     }
                     grant.setIdentityId(identityId);
-                    return deviceCodeGrantRepository.saveSync(grant).thenApply(v -> null);
+                    return deviceCodeGrantRepository.saveSync(grant)
+                                                    .toCompletionStage().toCompletableFuture()
+                                                    .thenApply(v -> null);
                 });
     }
 

@@ -29,12 +29,14 @@ public class DefaultMachineService implements MachineService {
         Validate.notBlank(displayName, "displayName is required");
         OrganizationParticipant participant = requireOrgParticipant();
         return applicationRepository.requireById(applicationId, participant.getOrganizationId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(app -> {
                     MachineParticipantIdentity machine = new MachineParticipantIdentity();
                     machine.setDisplayName(displayName)
                            .setOrganizationId(participant.getOrganizationId())
                            .setApplicationId(applicationId);
-                    return identityService.createMachine(machine);
+                    return identityService.createMachine(machine)
+                                          .toCompletionStage().toCompletableFuture();
                 });
     }
 
@@ -43,14 +45,16 @@ public class DefaultMachineService implements MachineService {
         Validate.notBlank(applicationId, "applicationId is required");
         OrganizationParticipant participant = requireOrgParticipant();
         // scope-composed query: a foreign or unknown application matches nothing
-        return identityService.findMachinesByScope(participant.getOrganizationId(), applicationId, pageable);
+        return identityService.findMachinesByScope(participant.getOrganizationId(), applicationId, pageable)
+                              .toCompletionStage().toCompletableFuture();
     }
 
     @Override
     public CompletableFuture<String> rotateSecret(String machineId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMachine(machineId, participant)
-                .thenCompose(machine -> identityService.rotateMachineSecret(machine.getId()));
+                .thenCompose(machine -> identityService.rotateMachineSecret(machine.getId())
+                                                       .toCompletionStage().toCompletableFuture());
     }
 
     @Override
@@ -58,7 +62,8 @@ public class DefaultMachineService implements MachineService {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMachine(machineId, participant)
                 // saveSync so the console's immediate re-query sees the change
-                .thenCompose(machine -> identityService.saveSync(machine.setEnabled(enabled)))
+                .thenCompose(machine -> identityService.saveSync(machine.setEnabled(enabled))
+                                                       .toCompletionStage().toCompletableFuture())
                 .thenApply(m -> null);
     }
 
@@ -68,7 +73,8 @@ public class DefaultMachineService implements MachineService {
         return loadOwnedMachine(machineId, participant)
                 // Cascades the IdentityCredential; sync so the console's immediate re-query
                 // no longer shows the machine.
-                .thenCompose(machine -> identityService.deleteByIdSync(machine.getId()));
+                .thenCompose(machine -> identityService.deleteByIdSync(machine.getId())
+                                                       .toCompletionStage().toCompletableFuture());
     }
 
     private OrganizationParticipant requireOrgParticipant() {
@@ -80,6 +86,7 @@ public class DefaultMachineService implements MachineService {
     private CompletableFuture<MachineParticipantIdentity> loadOwnedMachine(String machineId, OrganizationParticipant participant) {
         Validate.notBlank(machineId, "machineId is required");
         return identityService.findById(machineId)
+                .toCompletionStage().toCompletableFuture()
                 .thenApply(identity -> DomainUtil.requireOwned(identity, MachineParticipantIdentity.class,
                         machine -> participant.getOrganizationId().equals(machine.getOrganizationId()),
                         "Machine not found."));

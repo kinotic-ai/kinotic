@@ -1,6 +1,8 @@
 package org.kinotic.test.support.kinotic;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
@@ -16,7 +18,6 @@ import org.springframework.test.context.ContextConfiguration;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
@@ -92,24 +93,18 @@ public abstract class KinoticTestBase {
      * {@link #TEST_ORG_ID} from the current participant. This lets tests exercise scoped
      * services without authenticating through the gateway.
      */
-    protected <T> CompletableFuture<T> runAsOrganization(Supplier<CompletableFuture<T>> supplier) {
-        CompletableFuture<T> result = new CompletableFuture<>();
+    protected <T> Future<T> runAsOrganization(Supplier<Future<T>> supplier) {
+        Promise<T> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
             securityContext.setParticipant(context, TEST_ORGANIZATION_PARTICIPANT);
             try {
-                supplier.get().whenComplete((value, error) -> {
-                    if (error != null) {
-                        result.completeExceptionally(error);
-                    } else {
-                        result.complete(value);
-                    }
-                });
+                supplier.get().onComplete(promise);
             } catch (Throwable t) {
-                // a service that throws synchronously would otherwise leave result uncompleted, hanging the test
-                result.completeExceptionally(t);
+                // a service that throws synchronously would otherwise leave the promise uncompleted, hanging the test
+                promise.fail(t);
             }
         });
-        return result;
+        return promise.future();
     }
 }

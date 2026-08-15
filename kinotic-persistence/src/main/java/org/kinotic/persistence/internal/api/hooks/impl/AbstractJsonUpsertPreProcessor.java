@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
+import io.vertx.core.Future;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
@@ -21,7 +22,6 @@ import org.kinotic.persistence.internal.api.services.EntityHolder;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * This class was created to make the extraction of needed data as performant as possible
@@ -54,8 +54,8 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
     }
 
     @Override
-    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
-        return doProcess(entity, context, false).thenApply(list -> {
+    public Future<EntityHolder<RawJson>> process(T entity, EntityContext context) {
+        return doProcess(entity, context, false).map(list -> {
             if(list.size() != 1){
                 throw new IllegalStateException("Expected exactly one entity to be returned, got " + list.size());
             }
@@ -64,7 +64,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
     }
 
     @Override
-    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
+    public Future<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
         return doProcess(entities, context, true);
     }
 
@@ -77,7 +77,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
      * @param context the context of the entity
      * @return a new {@link RawJson} with the appropriate decorators applied
      */
-    private CompletableFuture<List<EntityHolder<RawJson>>> doProcess(T json, EntityContext context, boolean processArray){
+    private Future<List<EntityHolder<RawJson>>> doProcess(T json, EntityContext context, boolean processArray){
         Deque<String> jsonPathStack = new ArrayDeque<>();
         List<EntityHolder<RawJson>> ret = new ArrayList<>();
         List<String> tenantsSelected = new ArrayList<>();
@@ -264,10 +264,10 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                 context.setTenantSelection(tenantsSelected);
             }
 
-            return CompletableFuture.completedFuture(ret);
+            return Future.succeededFuture(ret);
 
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
     }
 

@@ -47,11 +47,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
                     // Persist the workload and update node resource allocation
                     return workloadService.saveSync(workload)
+                            .toCompletionStage().toCompletableFuture()
                             .thenCompose(savedWorkload -> {
                                 node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
                                 node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
                                 node.setAllocatedDiskMb(node.getAllocatedDiskMb() + savedWorkload.getDiskSizeMb());
                                 return vmNodeService.saveSync(node)
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenApply(updatedNode -> savedWorkload);
                             })
                             .thenCompose(savedWorkload ->
@@ -60,13 +62,14 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         .thenCompose(startedWorkload -> {
                                             // VmManager started the workload, mark as RUNNING
                                             startedWorkload.setStatus(WorkloadStatus.RUNNING);
-                                            return workloadService.saveSync(startedWorkload);
+                                            return workloadService.saveSync(startedWorkload).toCompletionStage().toCompletableFuture();
                                         })
                                         .exceptionallyCompose(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
                                             savedWorkload.setStatus(WorkloadStatus.FAILED);
                                             return workloadService.saveSync(savedWorkload)
+                                                    .toCompletionStage().toCompletableFuture()
                                                     .thenCompose(failed -> CompletableFuture.failedFuture(error));
                                         })
                             );
@@ -78,6 +81,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(workload -> {
                     if (workload == null) {
                         return CompletableFuture.failedFuture(
@@ -89,19 +93,20 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     workload.setStatus(WorkloadStatus.STARTING);
-                    return workloadService.saveSync(workload);
+                    return workloadService.saveSync(workload).toCompletionStage().toCompletableFuture();
                 })
                 .thenCompose(workload ->
                     vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
                             .thenCompose(restarted -> {
                                 restarted.setStatus(WorkloadStatus.RUNNING);
-                                return workloadService.saveSync(restarted);
+                                return workloadService.saveSync(restarted).toCompletionStage().toCompletableFuture();
                             })
                             .exceptionallyCompose(error -> {
                                 log.error("Failed to restart workload {} on node {}",
                                           workloadId, workload.getNodeId(), error);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenCompose(failed -> CompletableFuture.failedFuture(error));
                             })
                 );
@@ -112,6 +117,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(workload -> {
                     if (workload == null) {
                         return CompletableFuture.failedFuture(
@@ -119,13 +125,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     workload.setStatus(WorkloadStatus.STOPPING);
-                    return workloadService.saveSync(workload);
+                    return workloadService.saveSync(workload).toCompletionStage().toCompletableFuture();
                 })
                 .thenCompose(workload ->
                     vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
                             .thenCompose(v -> {
                                 workload.setStatus(WorkloadStatus.STOPPED);
-                                return workloadService.saveSync(workload);
+                                return workloadService.saveSync(workload).toCompletionStage().toCompletableFuture();
                             })
                 )
                 .thenApply(workload -> null);
@@ -136,6 +142,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(workload -> {
                     if (workload == null) {
                         return CompletableFuture.failedFuture(
@@ -147,17 +154,18 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                             .thenCompose(v ->
                                 // Free allocated resources on the node
                                 vmNodeService.findById(workload.getNodeId())
+                                        .toCompletionStage().toCompletableFuture()
                                         .thenCompose(node -> {
                                             if (node != null) {
                                                 node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
                                                 node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
                                                 node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
-                                                return vmNodeService.saveSync(node);
+                                                return vmNodeService.saveSync(node).toCompletionStage().toCompletableFuture();
                                             }
                                             return CompletableFuture.completedFuture(node);
                                         })
                             )
-                            .thenCompose(node -> workloadService.deleteById(workloadId));
+                            .thenCompose(node -> workloadService.deleteById(workloadId).toCompletionStage().toCompletableFuture());
                 });
     }
 }

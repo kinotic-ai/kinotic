@@ -68,7 +68,7 @@ public class DefaultLogService implements LogService {
         if (participant == null) {
             throw new IllegalStateException("No Participant is bound to the current Vert.x context");
         }
-        return workloadService.findById(workloadId).thenApply(workload -> {
+        return workloadService.findById(workloadId).toCompletionStage().toCompletableFuture().thenApply(workload -> {
             if (workload == null) {
                 throw new IllegalArgumentException("Workload not found: " + workloadId);
             }

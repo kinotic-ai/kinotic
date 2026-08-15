@@ -146,19 +146,18 @@ public class KinoticSecurityService implements SecurityService {
             return Future.failedFuture(new AuthenticationException(
                     "clientId and clientSecret headers are required for credential authentication"));
         }
-        return Future.fromCompletionStage(identityService.verifyMachineCredentials(clientId, clientSecret),
-                                          vertx.getOrCreateContext())
-                     .compose(machine -> {
-                         Future<Participant> ret;
-                         if ((organizationId != null && !organizationId.equals(machine.getOrganizationId()))
-                                 || (applicationId != null && !applicationId.equals(machine.getApplicationId()))) {
-                             ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
-                         } else {
-                             ret = Future.succeededFuture(DomainUtil.createParticipant(machine));
-                         }
-                         return ret;
-                     })
-                     .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
+        return identityService.verifyMachineCredentials(clientId, clientSecret)
+                              .compose(machine -> {
+                                  Future<Participant> ret;
+                                  if ((organizationId != null && !organizationId.equals(machine.getOrganizationId()))
+                                          || (applicationId != null && !applicationId.equals(machine.getApplicationId()))) {
+                                      ret = Future.failedFuture(new AuthenticationException("Invalid credentials"));
+                                  } else {
+                                      ret = Future.succeededFuture(DomainUtil.createParticipant(machine));
+                                  }
+                                  return ret;
+                              })
+                              .recover(err -> Future.failedFuture(new AuthenticationException("Invalid credentials")));
     }
 
     /**
@@ -189,50 +188,49 @@ public class KinoticSecurityService implements SecurityService {
     }
 
     private Future<Participant> resolveParticipant(String sub, String jwtOrgId, String jwtAppId) {
-        return Future.fromCompletionStage(identityService.findById(sub), vertx.getOrCreateContext())
-                     .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
-                     .compose(identity -> {
-                         Future<Participant> ret;
-                         if (identity == null) {
-                             ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
-                         } else if (!identity.isEnabled()) {
-                             ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
-                         } else if (!Objects.equals(identity.getOrganizationId(), jwtOrgId)
-                                 || !Objects.equals(identity.getApplicationId(), jwtAppId)) {
-                             // the user was moved or re-scoped after the token was minted, so the
-                             // signed claims no longer describe the authority the record grants.
-                             // The scopes stay in the log; the caller gets no ids back.
-                             log.warn("JWT scope {} does not match scope {} of user {}",
-                                      DomainUtil.describeScope(jwtOrgId, jwtAppId),
-                                      DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
-                                      sub);
-                             ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
-                         } else if (identity instanceof DelegatingParticipantIdentity delegate) {
-                             // a delegate wields its owner's authority, so revoking the owner
-                             // revokes every delegate on the next request, with no cascade to miss
-                             ret = requireEnabledOwner(delegate)
-                                     .map(v -> DomainUtil.createParticipant(delegate));
-                         } else {
-                             ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
-                         }
-                         return ret;
-                     });
+        return identityService.findById(sub)
+                              .recover(err -> Future.failedFuture(new AuthenticationException("User lookup failed", err)))
+                              .compose(identity -> {
+                                  Future<Participant> ret;
+                                  if (identity == null) {
+                                      ret = Future.failedFuture(new AuthenticationException("No user for sub " + sub));
+                                  } else if (!identity.isEnabled()) {
+                                      ret = Future.failedFuture(new AuthenticationException("User account is disabled"));
+                                  } else if (!Objects.equals(identity.getOrganizationId(), jwtOrgId)
+                                          || !Objects.equals(identity.getApplicationId(), jwtAppId)) {
+                                      // the user was moved or re-scoped after the token was minted, so the
+                                      // signed claims no longer describe the authority the record grants.
+                                      // The scopes stay in the log; the caller gets no ids back.
+                                      log.warn("JWT scope {} does not match scope {} of user {}",
+                                               DomainUtil.describeScope(jwtOrgId, jwtAppId),
+                                               DomainUtil.describeScope(identity.getOrganizationId(), identity.getApplicationId()),
+                                               sub);
+                                      ret = Future.failedFuture(new AuthenticationException("JWT scope does not match user scope"));
+                                  } else if (identity instanceof DelegatingParticipantIdentity delegate) {
+                                      // a delegate wields its owner's authority, so revoking the owner
+                                      // revokes every delegate on the next request, with no cascade to miss
+                                      ret = requireEnabledOwner(delegate)
+                                              .map(v -> DomainUtil.createParticipant(delegate));
+                                  } else {
+                                      ret = Future.succeededFuture(DomainUtil.createParticipant(identity));
+                                  }
+                                  return ret;
+                              });
     }
 
     private Future<Void> requireEnabledOwner(DelegatingParticipantIdentity delegate) {
-        return Future.fromCompletionStage(identityService.findById(delegate.getOwnerId()),
-                                          vertx.getOrCreateContext())
-                     .recover(err -> Future.failedFuture(new AuthenticationException("Owner lookup failed", err)))
-                     .compose(owner -> {
-                         Future<Void> ret;
-                         if (owner == null || !owner.isEnabled()) {
-                             log.warn("Delegate {} rejected: owner {} is missing or disabled",
-                                      delegate.getId(), delegate.getOwnerId());
-                             ret = Future.failedFuture(new AuthenticationException("Delegate owner is not available"));
-                         } else {
-                             ret = Future.succeededFuture();
-                         }
-                         return ret;
-                     });
+        return identityService.findById(delegate.getOwnerId())
+                              .recover(err -> Future.failedFuture(new AuthenticationException("Owner lookup failed", err)))
+                              .compose(owner -> {
+                                  Future<Void> ret;
+                                  if (owner == null || !owner.isEnabled()) {
+                                      log.warn("Delegate {} rejected: owner {} is missing or disabled",
+                                               delegate.getId(), delegate.getOwnerId());
+                                      ret = Future.failedFuture(new AuthenticationException("Delegate owner is not available"));
+                                  } else {
+                                      ret = Future.succeededFuture();
+                                  }
+                                  return ret;
+                              });
     }
 }

@@ -43,6 +43,7 @@ public class DefaultInviteService implements InviteService {
         invite.setEmail(DomainUtil.normalizeEmail(invite.getEmail()));
 
         return organizationService.findById(invite.getOrganizationId())
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(org -> {
                     if (org == null) {
                         return CompletableFuture.<Organization>failedFuture(
@@ -61,6 +62,7 @@ public class DefaultInviteService implements InviteService {
                     // saveSync because the console re-queries pending invites as soon as this
                     // returns — a plain save races the ES index refresh and the new row is missed.
                     return pendingInviteRepository.saveSync(invite)
+                            .toCompletionStage().toCompletableFuture()
                             .thenCompose(saved -> emailService.sendInviteEmail(saved, org.getName())
                                                               .thenApply(v -> saved));
                 });
@@ -76,9 +78,11 @@ public class DefaultInviteService implements InviteService {
     private CompletableFuture<Void> checkEmailAvailable(PendingInvite invite) {
         CompletableFuture<UserParticipantIdentity> existingUser = invite.getApplicationId() == null
                 ? identityService.findFirstOrgUserByEmail(invite.getEmail())
+                                 .toCompletionStage().toCompletableFuture()
                 : identityService.findByEmail(invite.getEmail(),
                                              invite.getOrganizationId(),
-                                             invite.getApplicationId());
+                                             invite.getApplicationId())
+                                 .toCompletionStage().toCompletableFuture();
         return existingUser
                 .thenCompose(user -> {
                     if (user != null) {
@@ -89,7 +93,8 @@ public class DefaultInviteService implements InviteService {
                     }
                     return pendingInviteRepository.findByEmailAndScope(invite.getEmail(),
                                                                        invite.getOrganizationId(),
-                                                                       invite.getApplicationId());
+                                                                       invite.getApplicationId())
+                                                  .toCompletionStage().toCompletableFuture();
                 })
                 .thenCompose(pending -> {
                     if (pending != null) {
@@ -103,7 +108,8 @@ public class DefaultInviteService implements InviteService {
     @Override
     public CompletableFuture<PendingInvite> getValidInvite(String token) {
         Validate.notBlank(token, "token is required");
-        return pendingInviteRepository.findValidByToken(token);
+        return pendingInviteRepository.findValidByToken(token)
+                                      .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -112,6 +118,7 @@ public class DefaultInviteService implements InviteService {
         Validate.notBlank(password, "password is required");
 
         return pendingInviteRepository.findValidByToken(token)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(invite -> acceptInvite(invite, password, displayName, null, null));
     }
 
@@ -126,6 +133,7 @@ public class DefaultInviteService implements InviteService {
         Validate.notBlank(verifiedEmail, "verifiedEmail is required");
 
         return pendingInviteRepository.findValidByToken(token)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(invite -> {
                     if (!invite.getEmail().equals(DomainUtil.normalizeEmail(verifiedEmail))) {
                         return CompletableFuture.failedFuture(new InviteEmailMismatchException(
@@ -158,7 +166,9 @@ public class DefaultInviteService implements InviteService {
                 .setOidcConfigId(oidcConfigId);
         }
         return identityService.createUser(user, password)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(saved -> pendingInviteRepository.deleteById(invite.getId())
+                                                             .toCompletionStage().toCompletableFuture()
                                                              .thenApply(v -> saved));
     }
 
@@ -167,7 +177,8 @@ public class DefaultInviteService implements InviteService {
                                                                      String applicationId,
                                                                      Pageable pageable) {
         Validate.notBlank(organizationId, "organizationId is required");
-        return pendingInviteRepository.findByScope(organizationId, applicationId, pageable);
+        return pendingInviteRepository.findByScope(organizationId, applicationId, pageable)
+                                      .toCompletionStage().toCompletableFuture();
     }
 
     @Override
@@ -176,6 +187,7 @@ public class DefaultInviteService implements InviteService {
         Validate.notBlank(organizationId, "organizationId is required");
 
         return pendingInviteRepository.findById(inviteId)
+                .toCompletionStage().toCompletableFuture()
                 .thenCompose(invite -> {
                     // The repository deleteById is unscoped; this load-and-assert is the
                     // security boundary keeping one org from cancelling another's invites.
@@ -185,7 +197,8 @@ public class DefaultInviteService implements InviteService {
                                 new IllegalArgumentException("Invitation not found."));
                     }
                     // Sync delete so the console's immediate re-query no longer sees the row.
-                    return pendingInviteRepository.deleteByIdSync(inviteId);
+                    return pendingInviteRepository.deleteByIdSync(inviteId)
+                                                  .toCompletionStage().toCompletableFuture();
                 });
     }
 }
