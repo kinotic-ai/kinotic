@@ -21,6 +21,9 @@ export class VmManagerConfig {
     /** KINOTIC_VM_LOGS_DIR — base directory holding each workload's log dir mounted into its guest. */
     readonly vmLogsDir: string = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
 
+    /** BOXLITE_HOME — boxlite's store for box records and guest rootfs disks. */
+    readonly boxliteHome: string = process.env.BOXLITE_HOME ?? path.join(os.homedir(), '.boxlite')
+
     /** Workload state persisted for recovery across vm-manager restarts. Fixed location, not per-environment. */
     readonly vmStateDir: string = path.join(os.homedir(), '.kinotic', 'vm-state')
 

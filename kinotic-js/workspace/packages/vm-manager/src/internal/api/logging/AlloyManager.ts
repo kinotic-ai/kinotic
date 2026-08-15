@@ -35,6 +35,8 @@ export class AlloyManager {
     private child: ChildProcess | null = null
     private lastConfig: string | null = null
     private stopping = false
+    // Serializes applyTargets and stop against each other; see the note in applyTargets
+    private pending: Promise<void> = Promise.resolve()
 
     constructor(options: AlloyManagerOptions) {
         this.options = options
@@ -47,6 +49,37 @@ export class AlloyManager {
      * config as needed. No-op when Alloy is running and the config is unchanged.
      */
     async applyTargets(targets: LogTarget[]): Promise<void> {
+        // start() is async and leaves this.child null while the binary downloads and
+        // spawns, so concurrent callers would each spawn an Alloy — the loser of the
+        // race then holds LISTEN_ADDR as an orphan the pid file no longer names.
+        // Queueing every mutation of the process behind the previous one is what keeps
+        // the child/config state coherent.
+        return this.enqueue(() => this.applyTargetsInternal(targets))
+    }
+
+    /**
+     * Stops the Alloy process, escalating to SIGKILL if it ignores SIGTERM.
+     */
+    async stop(): Promise<void> {
+        // Set outside the queue so a start already waiting to run sees it and skips
+        this.stopping = true
+        return this.enqueue(() => this.stopInternal())
+    }
+
+    // A rejected operation must not poison the queue for the ones behind it, so the
+    // chain swallows failures while the caller still receives its own
+    private enqueue(operation: () => Promise<void>): Promise<void> {
+        const result = this.pending.then(operation, operation)
+        this.pending = result.catch(() => {})
+        return result
+    }
+
+    private async applyTargetsInternal(targets: LogTarget[]): Promise<void> {
+        // A workload operation racing shutdown would otherwise respawn Alloy after stop
+        if (this.stopping) {
+            return
+        }
+
         const config = this.generateConfig(targets)
         if (config === this.lastConfig && this.child) {
             return
@@ -63,11 +96,7 @@ export class AlloyManager {
         }
     }
 
-    /**
-     * Stops the Alloy process, escalating to SIGKILL if it ignores SIGTERM.
-     */
-    async stop(): Promise<void> {
-        this.stopping = true
+    private async stopInternal(): Promise<void> {
         const child = this.child
         if (!child) {
             return

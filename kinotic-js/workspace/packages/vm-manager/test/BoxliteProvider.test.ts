@@ -22,6 +22,20 @@ describe('buildBoxOptions', () => {
         ])
     })
 
+    it('rounds the workload disk size up to whole GB for the guest rootfs', () => {
+        const w = workload()
+        w.diskSizeMb = 1536
+
+        expect(buildBoxOptions(w, '/logs/wl-1').diskSizeGb).toBe(2)
+    })
+
+    it('leaves the boxlite rootfs default when no disk size is declared', () => {
+        const w = workload()
+        w.diskSizeMb = 0
+
+        expect('diskSizeGb' in buildBoxOptions(w, '/logs/wl-1')).toBeFalse()
+    })
+
     it('keeps image defaults by omitting undeclared entrypoint and cmd', () => {
         const options = buildBoxOptions(workload(), '/logs/wl-1')
 

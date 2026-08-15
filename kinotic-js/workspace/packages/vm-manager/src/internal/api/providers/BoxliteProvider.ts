@@ -36,7 +36,8 @@ export interface ActiveVm {
 /**
  * Builds the boxlite options for a workload. The given host log directory is always mounted
  * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
- * declares them, so an empty value keeps the image default.
+ * declares them, so an empty value keeps the image default. The workload's disk size caps
+ * the guest rootfs, which grows sparsely up to that cap.
  */
 export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
     // Silently binding to all interfaces when a specific one was requested would be a
@@ -50,6 +51,9 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         name: workload.id!,
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
+        // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
+        // disk than it asked for, and leave the boxlite default when nothing was asked
+        ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
         env: workload.environment,
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
         // CMD is suppressed unless the workload declares its own cmd
