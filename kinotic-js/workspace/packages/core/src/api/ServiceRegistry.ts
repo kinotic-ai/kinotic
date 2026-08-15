@@ -131,10 +131,7 @@ class ServiceProxy implements IServiceProxy {
         }
         this.serviceIdentifier = serviceIdentifier
         this.serviceRegistry = serviceRegistry
-        this.tracer = opentelemetry.trace.getTracer(
-            'kinotic.client',
-            info.version
-        )
+        this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
     }
 
     invoke(methodIdentifier: string,

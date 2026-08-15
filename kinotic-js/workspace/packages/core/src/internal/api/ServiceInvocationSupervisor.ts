@@ -57,7 +57,9 @@ export class ServiceInvocationSupervisor {
         this.returnValueConverter = options.returnValueConverter || new BasicReturnValueConverter()
 
         this.methodMap = this.buildMethodMap(serviceInstance)
-        this.tracer = opentelemetry.trace.getTracer('kinotic.server', info.version)
+        // Names the instrumentation scope, which is the library emitting the span rather than the
+        // application being traced. The application identifies itself through the SDK's resource.
+        this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
     }
 
     public isActive(): boolean {
