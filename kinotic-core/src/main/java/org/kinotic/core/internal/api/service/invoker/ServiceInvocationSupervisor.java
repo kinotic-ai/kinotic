@@ -1,5 +1,14 @@
 package org.kinotic.core.internal.api.service.invoker;
 
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapGetter;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -27,7 +36,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -42,6 +53,33 @@ public class ServiceInvocationSupervisor {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceInvocationSupervisor.class);
 
+    private static final String INSTRUMENTATION_NAME = "org.kinotic.core.service-invoker";
+    private static final String RPC_SYSTEM_VALUE = "kinotic";
+    private static final AttributeKey<String> RPC_SYSTEM = AttributeKey.stringKey("rpc.system");
+    private static final AttributeKey<String> RPC_SERVICE = AttributeKey.stringKey("rpc.service");
+    private static final AttributeKey<String> RPC_METHOD = AttributeKey.stringKey("rpc.method");
+
+    /**
+     * Reads the W3C trace context a caller wrote into the event headers. The Kinotic client injects
+     * traceparent/tracestate on every send, and the STOMP endpoint turns every frame header into
+     * {@link Metadata}, so the caller's span arrives here intact.
+     */
+    private static final TextMapGetter<Metadata> METADATA_GETTER = new TextMapGetter<>() {
+        @Override
+        public Iterable<String> keys(Metadata carrier) {
+            List<String> ret = new ArrayList<>(carrier.size());
+            for (Map.Entry<String, String> entry : carrier) {
+                ret.add(entry.getKey());
+            }
+            return ret;
+        }
+
+        @Override
+        public String get(Metadata carrier, String key) {
+            return carrier != null ? carrier.get(key) : null;
+        }
+    };
+
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
     private final ArgumentResolver argumentResolver;
@@ -52,6 +90,8 @@ public class ServiceInvocationSupervisor {
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
+    private final TextMapPropagator propagator;
+    private final Tracer tracer;
     private final Vertx vertx;
 
 
@@ -67,7 +107,8 @@ public class ServiceInvocationSupervisor {
                                        EventBusService eventBusService,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
-                                       SecurityContext securityContext) {
+                                       SecurityContext securityContext,
+                                       OpenTelemetry openTelemetry) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
         Validate.notNull(instanceProvider, "FunctionInstanceProvider must not be null");
@@ -78,6 +119,7 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(reactiveAdapterRegistry, "reactiveAdapterRegistry must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(openTelemetry, "openTelemetry must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
         this.argumentResolver = argumentResolver;
@@ -87,6 +129,8 @@ public class ServiceInvocationSupervisor {
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
+        this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
+        this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
 
         this.methodMap = buildMethodMap(serviceDescriptor, instanceProvider);
     }
@@ -264,21 +308,34 @@ public class ServiceInvocationSupervisor {
                     }
                 }
 
-                Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+                Span span = startInvocationSpan(incomingEvent);
+                // Making the span current is what nests everything the service method touches —
+                // Elasticsearch calls, outbound HTTP, @WithSpan methods — underneath this invocation.
+                try (Scope ignored = span.makeCurrent()) {
 
-                // separate try catch since we do not want to log invocation errors
-                Object result = null;
-                boolean error = false;
-                try {
-                    // Invoke the method and then handle the result
-                    result = handlerMethod.invoke(arguments);
+                    Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+
+                    // separate try catch since we do not want to log invocation errors
+                    Object result = null;
+                    boolean error = false;
+                    try {
+                        // Invoke the method and then handle the result
+                        result = handlerMethod.invoke(arguments);
+                    } catch (Exception e) {
+                        error = true;
+                        failSpan(span, e);
+                        handleException(incomingEvent.metadata(), e);
+                    }
+
+                    if (!error) {
+                        // A reactive result is still in flight here, so the span ends with the result
+                        // rather than with this method.
+                        processMethodInvocationResult(incomingEvent, handlerMethod, result, span);
+                    }
+
                 } catch (Exception e) {
-                    error = true;
-                    handleException(incomingEvent.metadata(), e);
-                }
-
-                if (!error) {
-                    processMethodInvocationResult(incomingEvent, handlerMethod, result);
+                    failSpan(span, e);
+                    throw e;
                 }
 
         } else {
@@ -286,7 +343,7 @@ public class ServiceInvocationSupervisor {
         }
     }
 
-    private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result){
+    private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result, Span span){
 
         Metadata incomingMetadata = incomingEvent.metadata();
 
@@ -295,13 +352,14 @@ public class ServiceInvocationSupervisor {
         if(reactiveAdapter == null){
 
             convertAndSend(incomingMetadata, handlerMethod, result);
+            span.end();
 
         }else{
 
             if(!reactiveAdapter.isMultiValue()){
 
                 Publisher<?> publisher = reactiveAdapter.toPublisher(result);
-                publisher.subscribe(new SingleValueSubscriber(incomingMetadata, handlerMethod, incomingEvent));
+                publisher.subscribe(new SingleValueSubscriber(incomingMetadata, handlerMethod, incomingEvent, span));
 
             }else{
 
@@ -318,12 +376,41 @@ public class ServiceInvocationSupervisor {
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
                     Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI);
 
-                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus, incomingEvent.cri().raw());
+                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus, incomingEvent.cri().raw(), span);
                     flux.subscribe(streamSubscriber);
                     return streamSubscriber;
                 });
             }
         }
+    }
+
+    /**
+     * Starts the span covering one service method invocation, continuing the caller's trace when the
+     * incoming event carries a trace context.
+     * @param incomingEvent the invocation request, whose metadata may carry the caller's trace context
+     * @return a started {@link Span} the caller is responsible for ending
+     */
+    private Span startInvocationSpan(Event<byte[]> incomingEvent){
+        io.opentelemetry.context.Context parent = propagator.extract(io.opentelemetry.context.Context.current(),
+                                                                     incomingEvent.metadata(),
+                                                                     METADATA_GETTER);
+        // The path is the method id, carrying the leading / the method map is keyed by
+        String methodName = incomingEvent.cri().path().substring(1);
+        String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
+
+        return tracer.spanBuilder(serviceName + "/" + methodName)
+                     .setParent(parent)
+                     .setSpanKind(SpanKind.SERVER)
+                     .setAttribute(RPC_SYSTEM, RPC_SYSTEM_VALUE)
+                     .setAttribute(RPC_SERVICE, serviceName)
+                     .setAttribute(RPC_METHOD, methodName)
+                     .startSpan();
+    }
+
+    private void failSpan(Span span, Throwable throwable){
+        span.recordException(throwable);
+        span.setStatus(StatusCode.ERROR);
+        span.end();
     }
 
     private void sendCompletionEvent(Metadata incomingMetadata){
@@ -361,12 +448,14 @@ public class ServiceInvocationSupervisor {
         private final Metadata incomingMetadata;
         private final HandlerMethod handlerMethod;
         private final Event<byte[]> incomingEvent;
+        private final Span span;
         private boolean valueReceived = false;
 
-        public SingleValueSubscriber(Metadata incomingMetadata, HandlerMethod handlerMethod, Event<byte[]> incomingEvent) {
+        public SingleValueSubscriber(Metadata incomingMetadata, HandlerMethod handlerMethod, Event<byte[]> incomingEvent, Span span) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.incomingEvent = incomingEvent;
+            this.span = span;
         }
 
         @Override
@@ -388,6 +477,7 @@ public class ServiceInvocationSupervisor {
                           t);
             }
             handleException(incomingMetadata, t);
+            failSpan(span, t);
         }
 
         @Override
@@ -395,6 +485,7 @@ public class ServiceInvocationSupervisor {
             if(!valueReceived){
                 convertAndSend(incomingMetadata, handlerMethod, null);
             }
+            span.end();
         }
     }
 
@@ -449,16 +540,19 @@ public class ServiceInvocationSupervisor {
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
         private final String originCri;
+        private final Span span;
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
                                 Flux<ListenerStatus> replyListenerStatus,
-                                String originCri) {
+                                String originCri,
+                                Span span) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
             this.originCri = originCri;
+            this.span = span;
         }
 
         public void processControlEvent(Event<byte[]> incomingEvent){
@@ -485,6 +579,9 @@ public class ServiceInvocationSupervisor {
         protected void hookFinally(@NonNull SignalType type) {
             log.trace("Stream Cleanup Now");
 
+            // Covers every terminal signal the stream can end on, cancellation included
+            span.end();
+
             replyListenerStatusSubscriber.cancel();
 
             String correlationId = incomingMetadata.get(EventConstants.CORRELATION_ID_HEADER);
@@ -508,6 +605,9 @@ public class ServiceInvocationSupervisor {
                 log.trace("Stream Error",throwable);
             }
             handleException(incomingMetadata, throwable);
+            // hookFinally ends the span, this only marks why it ended
+            span.recordException(throwable);
+            span.setStatus(StatusCode.ERROR);
         }
 
         @Override
