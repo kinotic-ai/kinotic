@@ -8,7 +8,9 @@
       <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
     </div>
 
-    <div class="mt-6 flex flex-col gap-2 rounded-lg border border-surface p-4">
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+    <WorkloadStateCard description="The organization's workloads, by state." :organization-id="organizationId" />
+    <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
       <h2 class="text-base font-semibold">Details</h2>
       <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
         <dt class="text-muted-color">Id</dt>
@@ -18,6 +20,7 @@
         <dt class="text-muted-color">Created</dt>
         <dd>{{ formatEpochDate(organization?.created ?? null) }}</dd>
       </dl>
+    </div>
     </div>
   </div>
 </template>
@@ -31,6 +34,7 @@ import type { Organization } from '@kinotic-ai/os-api'
 import { DatetimeUtil, PageHeader } from '@kinotic-ai/frontend-common'
 
 import StatTile from '@/components/StatTile.vue'
+import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 
 const props = defineProps<{
   organizationId: string
