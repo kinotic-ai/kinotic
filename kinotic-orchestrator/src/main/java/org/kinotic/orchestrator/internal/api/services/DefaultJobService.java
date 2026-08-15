@@ -5,8 +5,12 @@ package org.kinotic.orchestrator.internal.api.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
+import org.kinotic.orchestrator.api.model.grind.JobProgressEvent;
+import org.kinotic.orchestrator.api.model.grind.JobProgressEventType;
+import org.kinotic.orchestrator.api.model.grind.Progress;
 import org.kinotic.orchestrator.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.model.grind.TaskRecord;
 import org.kinotic.orchestrator.api.services.JobRunService;
@@ -37,6 +41,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  *
@@ -52,6 +58,13 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final JobRunService jobRunService;
     private final TaskRecordService taskRecordService;
     private final ObjectMapper objectMapper;
+    private final Kinotic kinotic;
+
+    /**
+     * The runs currently executing on this node, keyed by run id, which {@link #watch(String)}
+     * attaches observers to. A run is entered when it starts and removed when it terminates.
+     */
+    private final Map<String, JobExecution> executingRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
@@ -71,7 +84,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public JobExecution execute(JobDefinition jobDefinition) {
-        return execute(jobDefinition, null, new ResultOptions(DiagnosticLevel.NONE, false));
+        return execute(jobDefinition, null, recordedDefaults());
     }
 
     @Override
@@ -81,7 +94,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public JobExecution execute(JobDefinition jobDefinition, JobOwner owner) {
-        return execute(jobDefinition, owner, new ResultOptions(DiagnosticLevel.NONE, false));
+        return execute(jobDefinition, owner, recordedDefaults());
     }
 
     @Override
@@ -91,6 +104,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notNull(options, "Options Must not be null");
 
         JobRunRecorder recorder = new JobRunRecorder(UUID.randomUUID().toString(),
+                                                     kinotic.serverInfo().getNodeId(),
                                                      jobDefinition,
                                                      owner,
                                                      null,
@@ -103,7 +117,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     @Override
     public JobExecution resume(String jobRunId, JobDefinition jobDefinition) {
-        return resume(jobRunId, jobDefinition, new ResultOptions(DiagnosticLevel.NONE, false));
+        return resume(jobRunId, jobDefinition, recordedDefaults());
     }
 
     @Override
@@ -114,6 +128,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         Validate.notNull(options, "Options Must not be null");
 
         JobRunRecorder recorder = new JobRunRecorder(UUID.randomUUID().toString(),
+                                                     kinotic.serverInfo().getNodeId(),
                                                      jobDefinition,
                                                      null,
                                                      jobRunId,
@@ -151,6 +166,25 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     @Override
+    public Flux<JobProgressEvent> watch(String jobRunId) {
+        Validate.notBlank(jobRunId, "jobRunId Must not be blank");
+        return Flux.defer(() -> {
+            JobExecution execution = executingRuns.get(jobRunId);
+            Flux<JobProgressEvent> ret;
+            if(execution == null){
+                ret = Flux.empty();
+            }else{
+                // An observer follows the run, it does not own its outcome: a failure ends the
+                // watch normally and is read from the run's terminal status and error instead
+                ret = execution.getResults()
+                               .mapNotNull(DefaultJobService::toProgressEvent)
+                               .onErrorResume(throwable -> Flux.empty());
+            }
+            return ret;
+        });
+    }
+
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = (ConfigurableApplicationContext) applicationContext;
     }
@@ -168,14 +202,63 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private JobExecution executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
-        Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> recorder.runStarted())
+        String jobRunId = recorder.getJobRunId();
+        // The registration hooks need the JobExecution assembled from this very Flux. Nothing
+        // subscribes while JobExecution is being constructed, so the holder is always filled
+        // before the hooks can read it.
+        AtomicReference<JobExecution> registration = new AtomicReference<>();
+
+        Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> {
+                                              // Entered only once the run starts, so an observer
+                                              // can never be the subscriber that starts it
+                                              executingRuns.put(jobRunId, registration.get());
+                                              recorder.runStarted();
+                                          })
                                           .doOnNext(recorder::record)
                                           .doOnError(recorder::runFailed)
                                           .doOnCancel(recorder::runCancelled)
-                                          .doOnComplete(recorder::runCompleted);
+                                          .doOnComplete(recorder::runCompleted)
+                                          .doFinally(signalType -> executingRuns.remove(jobRunId));
 
         // JobExecution multicasts, so these hooks see one subscription no matter how many subscribers attach
-        return new JobExecution(recorder.getJobRunId(), recorded);
+        JobExecution ret = new JobExecution(jobRunId, recorded);
+        registration.set(ret);
+        return ret;
+    }
+
+    /**
+     * Translates a {@link Result} into the event a watcher receives, or null for the result types
+     * that carry nothing a watcher can use: VALUE and NOOP hold the job's own domain objects, and
+     * DIAGNOSTIC and EXCEPTION repeat what the step lifecycle events already report.
+     */
+    private static JobProgressEvent toProgressEvent(Result<?> result) {
+        String stepPath = result.getStepInfo().path();
+        return switch(result.getResultType()){
+            case STEP_STARTED -> new JobProgressEvent().setType(JobProgressEventType.STEP_STARTED)
+                                                       .setStepPath(stepPath)
+                                                       .setDescription((String) result.getValue());
+            case STEP_COMPLETED -> new JobProgressEvent().setType(JobProgressEventType.STEP_COMPLETED)
+                                                         .setStepPath(stepPath);
+            case STEP_FAILED -> new JobProgressEvent().setType(JobProgressEventType.STEP_FAILED)
+                                                      .setStepPath(stepPath)
+                                                      .setMessage(String.valueOf(result.getValue()));
+            case PROGRESS -> {
+                Progress progress = (Progress) result.getValue();
+                yield new JobProgressEvent().setType(JobProgressEventType.STEP_PROGRESS)
+                                            .setStepPath(stepPath)
+                                            .setPercentageComplete(progress.getPercentageComplete())
+                                            .setMessage(progress.getMessage());
+            }
+            default -> null;
+        };
+    }
+
+    /**
+     * The options a recorded run uses when the caller names none. Progress results are on because
+     * {@link #watch(String)} exists to deliver them, and they are never written to a record.
+     */
+    private static ResultOptions recordedDefaults() {
+        return new ResultOptions(DiagnosticLevel.NONE, true);
     }
 
     /**

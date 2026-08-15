@@ -73,6 +73,12 @@ public class JobRun implements Identifiable<String> {
     private String resumedFrom;
 
     /**
+     * The id of the cluster node executing this run, which is the node holding the run's live
+     * result stream. A live subscription must be routed to this node to reach that stream.
+     */
+    private String nodeId;
+
+    /**
      * When the run started executing.
      */
     private Date started;

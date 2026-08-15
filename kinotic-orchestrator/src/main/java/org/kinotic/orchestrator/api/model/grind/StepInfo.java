@@ -2,6 +2,10 @@
 
 package org.kinotic.orchestrator.api.model.grind;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.stream.Collectors;
+
 /**
  * The sequence of steps that have been executed to get to a specific {@link Result}
  *
@@ -38,5 +42,20 @@ public class StepInfo {
 
     public StepInfo getAncestor() {
         return ancestor;
+    }
+
+    /**
+     * The position of this step within the run's step tree, as the {@code /} separated
+     * sequence numbers from the root {@link JobDefinition} down to this step
+     * @return the step path, such as {@code 0/2/1}
+     */
+    public String path() {
+        Deque<Integer> sequences = new ArrayDeque<>();
+        for(StepInfo info = this; info != null; info = info.getAncestor()){
+            sequences.addFirst(info.getSequence());
+        }
+        return sequences.stream()
+                        .map(String::valueOf)
+                        .collect(Collectors.joining("/"));
     }
 }

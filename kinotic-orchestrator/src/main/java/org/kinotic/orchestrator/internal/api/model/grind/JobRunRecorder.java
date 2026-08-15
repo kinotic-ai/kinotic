@@ -11,17 +11,13 @@ import org.kinotic.orchestrator.api.model.grind.JobDefinition;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.StepCompletion;
-import org.kinotic.orchestrator.api.model.grind.StepInfo;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.ArrayDeque;
 import java.util.Date;
-import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Writes the {@link JobRun} and {@link TaskRecord}s for one job execution as its
@@ -41,6 +37,7 @@ public class JobRunRecorder {
     private CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
 
     public JobRunRecorder(String jobRunId,
+                          String nodeId,
                           JobDefinition jobDefinition,
                           JobOwner owner,
                           String resumedFrom,
@@ -55,7 +52,8 @@ public class JobRunRecorder {
                                   .setName(jobDefinition.getName())
                                   .setVersion(jobDefinition.getVersion())
                                   .setDescription(jobDefinition.getDescription())
-                                  .setResumedFrom(resumedFrom);
+                                  .setResumedFrom(resumedFrom)
+                                  .setNodeId(nodeId);
         if(owner != null){
             jobRun.setOrganizationId(owner.getOrganizationId())
                   .setApplicationId(owner.getApplicationId())
@@ -85,11 +83,12 @@ public class JobRunRecorder {
     }
 
     public void record(Result<?> result) {
+        String stepPath = result.getStepInfo().path();
         switch(result.getResultType()){
-            case STEP_STARTED -> stepStarted(pathOf(result), (String) result.getValue());
-            case STEP_COMPLETED -> stepCompleted(pathOf(result), (StepCompletion) result.getValue());
-            case STEP_FAILED -> stepFailed(pathOf(result), (Throwable) result.getValue());
-            case DYNAMIC_STEPS -> stepProducedDynamicSteps(pathOf(result));
+            case STEP_STARTED -> stepStarted(stepPath, (String) result.getValue());
+            case STEP_COMPLETED -> stepCompleted(stepPath, (StepCompletion) result.getValue());
+            case STEP_FAILED -> stepFailed(stepPath, (Throwable) result.getValue());
+            case DYNAMIC_STEPS -> stepProducedDynamicSteps(stepPath);
             default -> { }
         }
     }
@@ -217,16 +216,6 @@ public class JobRunRecorder {
                 enqueue(() -> taskRecordService.save(record));
             }
         }
-    }
-
-    private String pathOf(Result<?> result) {
-        Deque<Integer> sequences = new ArrayDeque<>();
-        for(StepInfo info = result.getStepInfo(); info != null; info = info.getAncestor()){
-            sequences.addFirst(info.getSequence());
-        }
-        return sequences.stream()
-                        .map(String::valueOf)
-                        .collect(Collectors.joining("/"));
     }
 
     private synchronized void enqueue(Supplier<CompletableFuture<?>> writeOperation) {

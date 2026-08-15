@@ -5,6 +5,7 @@ package org.kinotic.orchestrator.api.services;
 import org.kinotic.orchestrator.api.model.grind.JobDefinition;
 import org.kinotic.orchestrator.api.model.grind.JobExecution;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
+import org.kinotic.orchestrator.api.model.grind.JobProgressEvent;
 import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.ResultOptions;
 import org.kinotic.orchestrator.api.model.grind.ResultType;
@@ -102,5 +103,21 @@ public interface JobService {
      * @return the prepared {@link JobExecution}
      */
     JobExecution resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
+
+    /**
+     * Follows the live progress of a run executing on this node, for an observer that did not
+     * start it. Every subscriber receives the run's events from the beginning, so a subscription
+     * made mid-run still sees the steps that already finished, and the stream completes when the
+     * run reaches a terminal status.
+     *
+     * Only the node executing the run holds its result stream, recorded as
+     * {@link org.kinotic.orchestrator.api.model.grind.JobRun#getNodeId()}. A run that is not
+     * executing here - it finished, never started, or is running on another node - yields an
+     * empty stream, leaving the run's {@link org.kinotic.orchestrator.api.model.grind.TaskRecord}s
+     * as the account of what happened.
+     * @param jobRunId the id of the run to follow
+     * @return a {@link Flux} of the run's {@link JobProgressEvent}s
+     */
+    Flux<JobProgressEvent> watch(String jobRunId);
 
 }

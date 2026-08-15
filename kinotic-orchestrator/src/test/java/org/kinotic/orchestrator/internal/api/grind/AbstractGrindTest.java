@@ -2,6 +2,7 @@ package org.kinotic.orchestrator.internal.api.grind;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.kinotic.core.api.ServerInfo;
 import org.kinotic.orchestrator.api.model.grind.JobExecution;
 import org.kinotic.orchestrator.api.model.grind.ResultType;
 import org.kinotic.orchestrator.internal.api.services.DefaultJobService;
@@ -23,6 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public abstract class AbstractGrindTest {
 
+    /** The node these tests execute runs on, recorded on every {@code JobRun} they produce. */
+    protected static final String TEST_NODE_ID = "test-node-id";
+
     protected AnnotationConfigApplicationContext appCtx;
     protected StubJobRunService runs;
     protected StubTaskRecordService records;
@@ -36,7 +40,7 @@ public abstract class AbstractGrindTest {
         runs = new StubJobRunService();
         records = new StubTaskRecordService();
         objectMapper = new ObjectMapper();
-        jobService = new DefaultJobService(runs, records, objectMapper);
+        jobService = new DefaultJobService(runs, records, objectMapper, () -> new ServerInfo(TEST_NODE_ID, "test-node"));
         jobService.setApplicationContext(appCtx);
     }
 
