@@ -29,21 +29,21 @@
               <span>CPU</span>
               <span>{{ node.allocatedCpus }} / {{ node.totalCpus }} vCPU</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedCpus, node.totalCpus)" :show-value="false" class="!h-1.5" />
+            <CapacityBar :pct="percentOf(node.allocatedCpus, node.totalCpus)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Memory</span>
               <span>{{ formatMb(node.allocatedMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" :show-value="false" class="!h-1.5" />
+            <CapacityBar :pct="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Disk</span>
               <span>{{ formatMb(node.allocatedDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
             </div>
-            <ProgressBar :value="percentOf(node.allocatedDiskMb, node.totalDiskMb)" :show-value="false" class="!h-1.5" />
+            <CapacityBar :pct="percentOf(node.allocatedDiskMb, node.totalDiskMb)" />
           </div>
         </div>
 
@@ -99,7 +99,6 @@
 import { onMounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import ProgressBar from 'primevue/progressbar'
 import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
@@ -109,12 +108,14 @@ import { VmNodeStatus, WorkloadStatus, type VmNode, type Workload } from '@kinot
 import {
   CrudTable,
   PageHeader,
+  formatMb,
   DatetimeUtil,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
 
+import CapacityBar from '@/components/CapacityBar.vue'
 import WorkloadLogsDialog from '@/components/WorkloadLogsDialog.vue'
 
 interface WorkloadRow extends DescriptiveIdentifiable {
@@ -280,9 +281,6 @@ function percentOf(allocated: number, total: number): number {
   return total > 0 ? Math.round((allocated / total) * 100) : 0
 }
 
-function formatMb(mb: number): string {
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
-}
 
 onMounted(loadNodes)
 </script>
