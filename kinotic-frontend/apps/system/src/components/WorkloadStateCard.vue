@@ -12,15 +12,8 @@
     </div>
     <template v-else>
       <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
-      <div class="h-8 w-full">
+      <div class="h-16 w-full">
         <VChart style="height: 100%; width: 100%;" :option="chartOption" autoresize />
-      </div>
-      <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-        <div v-for="seg in segments" :key="seg.label" class="flex items-center gap-1.5 text-sm">
-          <span class="h-2.5 w-2.5 rounded-full" :style="{ background: seg.color }" />
-          <span class="text-muted-color">{{ seg.label }}</span>
-          <span class="font-medium">{{ seg.count }}</span>
-        </div>
       </div>
     </template>
   </div>
@@ -83,18 +76,35 @@ const total = computed(() => segments.value.reduce((sum, seg) => sum + seg.count
 // The legend stays in HTML below the chart, where it can carry the counts.
 const chartOption = computed(() => {
   const surface = isDark.value ? '#171717' : '#ffffff'
+  // The preset's muted text tokens, so legend text matches the card captions
+  const mutedText = isDark.value ? '#A1A1AA' : '#71717A'
   return {
     animationDuration: 300,
-    grid: { left: 0, right: 0, top: 0, bottom: 0 },
+    grid: { left: 0, right: 0, top: 6, bottom: 30 },
     xAxis: { type: 'value', show: false, max: total.value },
     yAxis: { type: 'category', show: false, data: [''] },
     tooltip: { trigger: 'item', confine: true },
-    series: segments.value.filter(seg => seg.count > 0).map(seg => ({
+    legend: {
+      bottom: 0,
+      left: 0,
+      icon: 'circle',
+      itemWidth: 10,
+      itemHeight: 10,
+      itemGap: 16,
+      textStyle: { color: mutedText },
+      // The legend carries the counts; clicking a state toggles it out of the bar
+      formatter: (name: string) => {
+        const seg = segments.value.find(s => s.label === name)
+        return `${name}  ${seg?.count ?? 0}`
+      }
+    },
+    // Zero-count states carry null data: nothing draws, but the state stays in the legend
+    series: segments.value.map(seg => ({
       name: seg.label,
       type: 'bar',
       stack: 'states',
       barWidth: 12,
-      data: [seg.count],
+      data: [seg.count > 0 ? seg.count : null],
       itemStyle: { color: seg.color, borderColor: surface, borderWidth: 1, borderRadius: 2 }
     }))
   }
