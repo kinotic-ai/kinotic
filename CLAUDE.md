@@ -115,6 +115,16 @@ One version per artifact across every module, one place to bump it. A literal ve
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
 
+## Keep migrations in sync with persisted entities
+
+Every entity stored through an Elasticsearch-backed Repository gets its index mapping from the
+migration DDL in `kinotic-migration/src/main/resources/migrations/`, and mappings are strict — an
+entity field missing from its CREATE TABLE fails the first save of that entity at runtime.
+Whenever you change a persisted entity's fields, update its table in the same change (edit the
+CREATE TABLE in place while the version is -SNAPSHOT — see above). For DDL syntax and column
+types, see `website/content/01.apps/09.reference/02.migration-sql-grammar.md` or the
+`kinotic-sql` module.
+
 ## Keep docs in sync with code
 
 When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
