@@ -17,7 +17,7 @@ dependencies {
     implementation 'io.vertx:vertx-grpcio-client'
     
     // Chronicle Queue for buffering
-    implementation 'net.openhft:chronicle-queue:5.27ea11'
+    implementation 'net.openhft:chronicle-queue'
     
     // OpenTelemetry Protocol dependencies
     implementation 'io.opentelemetry.proto:opentelemetry-proto'

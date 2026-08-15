@@ -9,7 +9,7 @@
       <option name="environmentVariables" />
     </selectedOptions>
     <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.server.KinoticServerApplication" />
-    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-server/src/main/resources/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
+    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-server/build/otel-agent/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
     <envs>
       <env name="OTEL_SERVICE_NAME" value="kinotic-server" />
       <env name="OTEL_EXPORTER_OTLP_ENDPOINT" value="http://localhost:4317" />
@@ -19,6 +19,7 @@
       <env name="OTEL_LOGS_EXPORTER" value="none" />
       <env name="OTEL_METRIC_EXPORT_INTERVAL" value="15000" />
       <env name="OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY" value="true" />
+      <env name="OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING" value="localhost:9200=elasticsearch" />
     </envs>
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
@@ -37,6 +38,7 @@
       <option name="useCurrentConnection" value="false" />
     </extension>
     <method v="2">
+      <option name="Gradle.BeforeRunTask" enabled="true" tasks="otelAgentJar" externalProjectPath="$PROJECT_DIR$/kinotic-server" vmOptions="" scriptParameters="" />
       <option name="Make" enabled="true" />
     </method>
   </configuration>

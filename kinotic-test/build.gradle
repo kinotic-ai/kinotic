@@ -26,8 +26,6 @@ dependencies {
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
 
-	testImplementation 'com.github.dasniko:testcontainers-keycloak'
-
 	// PersistenceInitializer injects HealthChecks (normally provided by the api-gateway module,
 	// which this module doesn't depend on). KinoticTestBeansConfiguration supplies it for tests.
 	testImplementation 'io.vertx:vertx-health-check'
@@ -38,8 +36,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
 	testImplementation 'org.springframework.security:spring-security-oauth2-client'
 
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
+	testImplementation 'org.testcontainers:testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-elasticsearch'
 }
 
 test {

@@ -84,6 +84,7 @@ dependencyManagement {
     imports {
         mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
+        mavenBom "net.openhft:chronicle-bom:${chronicleBomVersion}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
         mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
@@ -97,7 +98,6 @@ dependencyManagement {
         dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
-        dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
@@ -124,9 +124,6 @@ dependencyManagement {
         dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
         // must be overridden for the elastic client
         dependency "jakarta.json:jakarta.json-api:${jakartaJsonVersion}"
-
-        dependency "net.openhft:chronicle-map:${chronicleMapVersion}"
-        dependency "net.openhft:zero-allocation-hashing:${zeroAllocationHashingVersion}"
 
         dependency "org.antlr:antlr4:${antlrVersion}"
         dependency "org.antlr:antlr4-runtime:${antlrVersion}"

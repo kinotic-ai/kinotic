@@ -178,6 +178,19 @@ nothing. The rules that matter:
   the `metrics_generator.processor` block alone does nothing.
 - **Loki** promotes `service.name` to the `service_name` index label and keeps `trace_id` /
   `span_id` as structured metadata, which is what the Tempo link on each log line matches.
+- **Span names come from semconv, not from the code**: `get` / `index` / `search` are
+  Elasticsearch endpoint ids, and a bare `GET` / `PUT` / `POST` is an HTTP span with no route
+  template. Each Elasticsearch call therefore appears twice — the client span and its transport
+  child. `peer.service` and `db.system` are what identify the far end, and Tempo resolves them
+  into virtual nodes on the service graph.
+
+`mimir.yml` and `tempo.yml` are bind-mounted, so editing them does not change the container
+spec and `docker compose up -d` leaves the old config running. Restart those services
+explicitly after a change:
+
+```bash
+docker compose -f compose-otel.yml restart mimir tempo
+```
 
 To see what's actually stored rather than what should be:
 
