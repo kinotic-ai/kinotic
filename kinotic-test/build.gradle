@@ -38,8 +38,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-jackson-test'
 	testImplementation 'org.springframework.security:spring-security-oauth2-client'
 
-	testImplementation "org.testcontainers:testcontainers:${testContainersVersion}"
-	testImplementation "org.testcontainers:testcontainers-elasticsearch:${testContainersVersion}"
+	testImplementation 'org.testcontainers:testcontainers'
+	testImplementation 'org.testcontainers:testcontainers-elasticsearch'
 }
 
 test {

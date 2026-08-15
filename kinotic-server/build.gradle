@@ -10,6 +10,15 @@ sourceSets {
     }
 }
 
+configurations {
+    otelAgent {
+        canBeResolved = true
+        canBeConsumed = false
+        // The agent is a self-contained shaded jar; only the single artifact is wanted
+        transitive = false
+    }
+}
+
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
@@ -30,12 +39,24 @@ dependencies {
 
 	implementation 'tools.jackson.core:jackson-databind'
 
+	// The agent version tracks the instrumentation BOM version
+	otelAgent "io.opentelemetry.javaagent:opentelemetry-javaagent:${otelInstrumentationBomVersion}"
 }
 
 tasks.named('processResources') {
-	dependsOn ":kinotic-frontend:copyDist"
+	// kinotic-frontend is excluded from the build when CLAUDE_CLOUD_COMPILE=true
+	if (findProject(':kinotic-frontend') != null) {
+		dependsOn ":kinotic-frontend:copyDist"
+	}
+	// Embed the agent as BOOT-INF/classes/opentelemetry-javaagent.jar, the path the
+	// docker-compose -javaagent arguments point at
+	from(configurations.otelAgent) {
+		rename { 'opentelemetry-javaagent.jar' }
+	}
 }
 
 tasks.named('sourcesJar') {
-	dependsOn ":kinotic-frontend:copyDist"
+	if (findProject(':kinotic-frontend') != null) {
+		dependsOn ":kinotic-frontend:copyDist"
+	}
 }
