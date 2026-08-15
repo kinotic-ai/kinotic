@@ -64,7 +64,6 @@ public class ServiceInvocationTracingTests {
         Assertions.assertEquals(SpanKind.SERVER, span.getKind());
         Assertions.assertEquals("kinotic", span.getAttributes().get(RPC_SYSTEM));
         Assertions.assertEquals("getMonoWithValue", span.getAttributes().get(RPC_METHOD));
-        // Short enough to read in a trace list, while rpc.service keeps the addressable name
         Assertions.assertEquals("RpcTestService/getMonoWithValue", span.getName());
         Assertions.assertTrue(span.getAttributes().get(RPC_SERVICE).endsWith("RpcTestService"),
                               "rpc.service must carry the fully qualified name");

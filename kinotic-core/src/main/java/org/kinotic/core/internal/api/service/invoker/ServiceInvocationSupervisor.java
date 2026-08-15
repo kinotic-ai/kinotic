@@ -369,9 +369,6 @@ public class ServiceInvocationSupervisor {
         // The path is the method id, carrying the leading / the method map is keyed by
         String methodName = incomingEvent.cri().path().substring(1);
         String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
-        // Named for the simple service name: the zone and package are identical across a node's
-        // services, so a fully qualified name pushes the only distinguishing part out of view in a
-        // trace list. The full name stays on rpc.service.
         return tracer.spanBuilder(serviceDescriptor.serviceIdentifier().name() + "/" + methodName)
                      .setParent(parent)
                      .setSpanKind(SpanKind.SERVER)
