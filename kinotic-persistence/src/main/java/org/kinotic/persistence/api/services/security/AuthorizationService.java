@@ -1,8 +1,7 @@
 package org.kinotic.persistence.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.persistence.api.model.EntityContext;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * The {@link AuthorizationService} is responsible for authorizing a given action
@@ -11,7 +10,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface AuthorizationService<T> {
 
-    CompletableFuture<Void> authorize(T operationIdentifier,
-                                      EntityContext entityContext);
+    Future<Void> authorize(T operationIdentifier,
+                           EntityContext entityContext);
 
 }

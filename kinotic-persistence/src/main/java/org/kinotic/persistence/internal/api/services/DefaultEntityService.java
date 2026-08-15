@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
@@ -35,7 +36,6 @@ import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
@@ -58,7 +58,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Void> bulkSave(T entities, EntityContext context) {
+    public <T> Future<Void> bulkSave(T entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_SAVE,
                              context,
@@ -97,7 +97,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Void> bulkUpdate(T entities, EntityContext context) {
+    public <T> Future<Void> bulkUpdate(T entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_UPDATE,
                              context,
@@ -133,70 +133,70 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public CompletableFuture<Long> count(EntityContext context) {
+    public Future<Long> count(EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.COUNT, context))
-                .thenCompose(un -> crudServiceTemplate
+                .compose(un -> authService.authorize(EntityOperation.COUNT, context))
+                .compose(un -> crudServiceTemplate
                         .count(entityDefinition.getItemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDefinition, null, builder, context)));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Long> countByQuery(String query, EntityContext context) {
+    public Future<Long> countByQuery(String query, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
-                .thenCompose(un -> crudServiceTemplate
+                .compose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
+                .compose(un -> crudServiceTemplate
                         .count(entityDefinition.getItemIndex(),
                                builder -> readPreProcessor.beforeCount(entityDefinition, query, builder, context)));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(String id, EntityContext context) {
+    public Future<Void> deleteById(String id, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
-                .thenApply(un -> composeId(id, context))
-                .thenCompose(composedId -> crudServiceTemplate
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
+                .map(un -> composeId(id, context))
+                .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDefinition.getItemIndex(),
                                     composedId,
                                     builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
-                        .thenApply(deleteResponse -> null));
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(TenantSpecificId id, EntityContext context) {
+    public Future<Void> deleteById(TenantSpecificId id, EntityContext context) {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
-                .thenApply(un -> composeId(id))
-                .thenCompose(composedId -> crudServiceTemplate
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
+                .map(un -> composeId(id))
+                .compose(composedId -> crudServiceTemplate
                         .deleteById(entityDefinition.getItemIndex(),
                                     composedId,
                                     builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
-                        .thenApply(deleteResponse -> null));
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteByQuery(String query, EntityContext context) {
+    public Future<Void> deleteByQuery(String query, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
-                .thenCompose(un -> crudServiceTemplate
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
+                .compose(un -> crudServiceTemplate
                         .deleteByQuery(entityDefinition.getItemIndex(),
                                        builder -> readPreProcessor.beforeDeleteByQuery(entityDefinition, query, builder, context))
-                        .thenApply(deleteResponse -> null));
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
+    public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
-                .thenCompose(un -> {
+                .compose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
+                .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
@@ -238,87 +238,87 @@ public class DefaultEntityService implements EntityService {
                                             builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context));
                         }
                     }
-                }).thenApply(createParanoidCheck(context, "FindAll"));
+                }).map(createParanoidCheck(context, "FindAll"));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> findById(String id, Class<T> type, EntityContext context) {
+    public <T> Future<T> findById(String id, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
-                .thenApply(un -> composeId(id, context))
-                .thenCompose(composedId -> doFindById(composedId, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
+                .map(un -> composeId(id, context))
+                .compose(composedId -> doFindById(composedId, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> findById(TenantSpecificId id, Class<T> type, EntityContext context) {
+    public <T> Future<T> findById(TenantSpecificId id, Class<T> type, EntityContext context) {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
-                .thenApply(un -> composeId(id))
-                .thenCompose(composedId -> doFindById(composedId, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
+                .map(un -> composeId(id))
+                .compose(composedId -> doFindById(composedId, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
+    public <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
-                .thenApply(un -> composeIds(ids, context))
-                .thenCompose(composedIds -> doFindByIds(composedIds, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
+                .map(un -> composeIds(ids, context))
+                .compose(composedIds -> doFindByIds(composedIds, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context) {
+    public <T> Future<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context) {
         return  validate_ComposeIds_AddTenantsToContext(ids, context)
-                .thenCompose(composedIds
+                .compose(composedIds
                                      -> authService.authorize(EntityOperation.FIND_BY_IDS, context)
-                                                   .thenCompose(v -> doFindByIds(composedIds, type, context)));
+                                                   .compose(v -> doFindByIds(composedIds, type, context)));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> namedQuery(String queryName,
-                                                     ParameterHolder parameterHolder,
-                                                     Class<T> type,
-                                                     EntityContext context) {
+    public <T> Future<List<T>> namedQuery(String queryName,
+                                          ParameterHolder parameterHolder,
+                                          Class<T> type,
+                                          EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQuery(entityDefinition,
+                .compose(unused -> namedQueriesService.executeNamedQuery(entityDefinition,
+                                                                         queryName,
+                                                                         parameterHolder,
+                                                                         type,
+                                                                         context));
+    }
+
+    @WithSpan
+    @Override
+    public <T> Future<Page<T>> namedQueryPage(String queryName,
+                                              ParameterHolder parameterHolder,
+                                              Pageable pageable,
+                                              Class<T> type,
+                                              EntityContext context) {
+        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
+        return validateContext(context)
+                .compose(unused -> namedQueriesService.executeNamedQueryPage(entityDefinition,
                                                                              queryName,
                                                                              parameterHolder,
+                                                                             pageable,
                                                                              type,
                                                                              context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> namedQueryPage(String queryName,
-                                                         ParameterHolder parameterHolder,
-                                                         Pageable pageable,
-                                                         Class<T> type,
-                                                         EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQueryPage(entityDefinition,
-                                                                                 queryName,
-                                                                                 parameterHolder,
-                                                                                 pageable,
-                                                                                 type,
-                                                                                 context));
-    }
-
-    @WithSpan
-    @Override
-    public <T> CompletableFuture<T> save(T entity, EntityContext context) {
+    public <T> Future<T> save(T entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.SAVE,
                          context,
-                         entityHolder -> esAsyncClient.index(i -> {
+                         entityHolder -> crudServiceTemplate.toFuture(esAsyncClient.index(i -> {
                              i.routing(entityHolder.tenantId())
                               .index(entityDefinition.getItemIndex())
                               .id(entityHolder.getDocumentId())
@@ -344,18 +344,18 @@ public class DefaultEntityService implements EntityService {
                              }
 
                              return i;
-                         }).thenApply(indexResponse -> postProcessSaveOrUpdate(entity,
-                                                                               entityHolder,
-                                                                               indexResponse.primaryTerm(),
-                                                                               indexResponse.seqNo())));
+                         })).map(indexResponse -> postProcessSaveOrUpdate(entity,
+                                                                          entityHolder,
+                                                                          indexResponse.primaryTerm(),
+                                                                          indexResponse.seqNo())));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
+    public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.SEARCH, context))
-                .thenCompose(un -> {
+                .compose(un -> authService.authorize(EntityOperation.SEARCH, context))
+                .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
@@ -409,21 +409,19 @@ public class DefaultEntityService implements EntityService {
                                                                                      context));
                         }
                     }
-                }).thenApply(createParanoidCheck(context, "Search"));
+                }).map(createParanoidCheck(context, "Search"));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> syncIndex(EntityContext context) {
+    public Future<Void> syncIndex(EntityContext context) {
         return authService.authorize(EntityOperation.SYNC_INDEX, context)
-                          .thenCompose(un -> esAsyncClient.indices().refresh(
-                                  b -> b.index(entityDefinition.getItemIndex())))
-                          .thenApply(unused -> null);
+                          .compose(un -> crudServiceTemplate.syncIndex(entityDefinition.getItemIndex()));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> update(T entity, EntityContext context) {
+    public <T> Future<T> update(T entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.UPDATE,
                          context,
@@ -451,8 +449,8 @@ public class DefaultEntityService implements EntityService {
                                  return u;
                              });
 
-                             return esAsyncClient.update(request, entityHolder.entity().getClass())
-                                                 .thenApply(updateResponse ->
+                             return crudServiceTemplate.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
+                                                       .map(updateResponse ->
                                                                     postProcessSaveOrUpdate(entity,
                                                                                             entityHolder,
                                                                                             updateResponse.primaryTerm(),
@@ -554,7 +552,7 @@ public class DefaultEntityService implements EntityService {
         };
     }
 
-    private <T> CompletableFuture<T> doFindById(String id, Class<T> type, EntityContext context) {
+    private <T> Future<T> doFindById(String id, Class<T> type, EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
             if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
@@ -596,9 +594,9 @@ public class DefaultEntityService implements EntityService {
         }
     }
 
-    private <T> CompletableFuture<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
-                                                       Class<T> type,
-                                                       EntityContext context) {
+    private <T> Future<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
+                                            Class<T> type,
+                                            EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
             if(entityDefinition.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
@@ -637,52 +635,52 @@ public class DefaultEntityService implements EntityService {
         }
     }
 
-    private <T> CompletableFuture<T> doPersist(T entity,
-                                               EntityOperation operation,
-                                               EntityContext context,
-                                               Function<EntityHolder<?>, CompletableFuture<T>> persistLogic){
+    private <T> Future<T> doPersist(T entity,
+                                    EntityOperation operation,
+                                    EntityContext context,
+                                    Function<EntityHolder<?>, Future<T>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
         if(entityDefinition.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
-                    .thenCompose(un -> delegatingUpsertPreProcessor.process(entity, context))
-                    .thenCompose(entityHolder ->
+                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+                    .compose(entityHolder ->
                                          authService.authorize(operation, context)
-                                                    .thenCompose(un -> persistLogic.apply(entityHolder)));
+                                                    .compose(un -> persistLogic.apply(entityHolder)));
         }else{
             return validateContext(context)
-                    .thenCompose(un -> authService.authorize(operation, context))
-                    .thenCompose(un -> delegatingUpsertPreProcessor.process(entity, context))
-                    .thenCompose(persistLogic);
+                    .compose(un -> authService.authorize(operation, context))
+                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+                    .compose(persistLogic);
         }
     }
 
-    private <T> CompletableFuture<Void> doPersistBulk(T entities,
-                                                      EntityOperation operation,
-                                                      EntityContext context,
-                                                      Function<EntityHolder<?>, BulkOperation> persistLogic){
+    private <T> Future<Void> doPersistBulk(T entities,
+                                           EntityOperation operation,
+                                           EntityContext context,
+                                           Function<EntityHolder<?>, BulkOperation> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
         if(entityDefinition.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
-                    .thenCompose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
-                    .thenCompose(entityList ->
+                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+                    .compose(entityList ->
                                          authService.authorize(operation, context)
-                                                    .thenCompose(un -> doPersistBulkLogic(entityList, persistLogic)))
-                    .thenApply(unused -> null);
+                                                    .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
+                    .mapEmpty();
         }else {
             return validateContext(context)
-                    .thenCompose(un -> authService.authorize(operation, context))
-                    .thenCompose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
-                    .thenCompose(list -> doPersistBulkLogic(list, persistLogic))
-                    .thenApply(un -> null);
+                    .compose(un -> authService.authorize(operation, context))
+                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+                    .compose(list -> doPersistBulkLogic(list, persistLogic))
+                    .mapEmpty();
         }
     }
 
-    private CompletableFuture<BulkResponse> doPersistBulkLogic(List<EntityHolder<Object>> list,
-                                                               Function<EntityHolder<?>, BulkOperation> persistLogic) {
+    private Future<BulkResponse> doPersistBulkLogic(List<EntityHolder<Object>> list,
+                                                    Function<EntityHolder<?>, BulkOperation> persistLogic) {
 
         BulkRequest.Builder br = new BulkRequest.Builder();
 
@@ -692,12 +690,12 @@ public class DefaultEntityService implements EntityService {
         }
 
         if(bulkOperations.isEmpty()){
-            return CompletableFuture.failedFuture(new IllegalArgumentException("No items found to create bulk request for"));
+            return Future.failedFuture(new IllegalArgumentException("No items found to create bulk request for"));
         }
 
         br.operations(bulkOperations);
 
-        return esAsyncClient.bulk(br.build()).thenCompose(bulkResponse -> {
+        return crudServiceTemplate.toFuture(esAsyncClient.bulk(br.build())).compose(bulkResponse -> {
             if (bulkResponse.errors()) {
                 StringBuilder builder = new StringBuilder();
                 for (BulkResponseItem item : bulkResponse.items()) {
@@ -707,9 +705,9 @@ public class DefaultEntityService implements EntityService {
                     }
                 }
                 String errorMessage = !builder.isEmpty() ? builder.toString() : "Unknown error occurred during bulk operation";
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + errorMessage));
+                return Future.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + errorMessage));
             } else {
-                return CompletableFuture.completedFuture(bulkResponse);
+                return Future.succeededFuture(bulkResponse);
             }
         });
     }
@@ -829,7 +827,7 @@ public class DefaultEntityService implements EntityService {
         return entity;
     }
 
-    private CompletableFuture<Void> validateContext(final EntityContext context){
+    private Future<Void> validateContext(final EntityContext context){
         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
             if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
 
@@ -837,30 +835,30 @@ public class DefaultEntityService implements EntityService {
                 if (ObjectUtils.isNotEmpty(context.getTenantSelection())
                         && !entityDefinition.isMultiTenantSelectionEnabled()) {
 
-                    return CompletableFuture.failedFuture(
+                    return Future.failedFuture(
                             new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
                                     entityDefinition.getName()))
                     );
                 } else {
-                    return CompletableFuture.completedFuture(null);
+                    return Future.succeededFuture();
                 }
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
             }
         }else if(ObjectUtils.isNotEmpty(context.getTenantSelection())){
             // This check is here since continuum will allow any published service to be called.
             // So someone could call the admin service even though it is not enabled for this EntityDefinition
             // Multitenant access can only be enabled if MultiTenancyType.SHARED
-            return CompletableFuture.failedFuture(
+            return Future.failedFuture(
                     new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
                             entityDefinition.getName()))
             );
         }else{
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
     }
 
-    private CompletableFuture<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
+    private Future<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
         if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
                 && entityDefinition.isMultiTenantSelectionEnabled()){
 
@@ -879,13 +877,13 @@ public class DefaultEntityService implements EntityService {
                 }
 
                 entityContext.setTenantSelection(tenants);
-                return CompletableFuture.completedFuture(ret);
+                return Future.succeededFuture(ret);
 
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
             }
         }else{
-            return CompletableFuture.failedFuture(
+            return Future.failedFuture(
                     new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
                             entityDefinition.getName()))
             );

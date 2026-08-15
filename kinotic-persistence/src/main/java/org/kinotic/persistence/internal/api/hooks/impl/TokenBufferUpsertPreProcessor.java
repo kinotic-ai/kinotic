@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
@@ -13,7 +14,6 @@ import tools.jackson.core.JsonParser;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navíd Mitchell 🤪 on 2/10/25.
@@ -35,13 +35,13 @@ public class TokenBufferUpsertPreProcessor extends AbstractJsonUpsertPreProcesso
 
     @WithSpan
     @Override
-    public CompletableFuture<EntityHolder<RawJson>> process(TokenBuffer entity, EntityContext context) {
+    public Future<EntityHolder<RawJson>> process(TokenBuffer entity, EntityContext context) {
         return super.process(entity, context);
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(TokenBuffer entities, EntityContext context) {
+    public Future<List<EntityHolder<RawJson>>> processArray(TokenBuffer entities, EntityContext context) {
         return super.processArray(entities, context);
     }
 }

@@ -1,11 +1,6 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-
+import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.persistence.api.model.*;
@@ -19,6 +14,11 @@ import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEval
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyEvaluatorWithoutOperation;
 import org.kinotic.persistence.internal.api.services.security.graphos.SharedPolicyManager;
 import org.kinotic.persistence.internal.utils.PersistenceUtil;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class EntityDefinitionPolicyAuthorizationService implements AuthorizationService<EntityOperation> {
 
@@ -66,7 +66,7 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
     }
 
     @Override
-    public CompletableFuture<Void> authorize(EntityOperation operation, EntityContext entityContext) {
+    public Future<Void> authorize(EntityOperation operation, EntityContext entityContext) {
         try {
             PolicyEvaluator evaluator = operationEvaluators.get(operation);
             // if no operation policy use the
@@ -74,16 +74,17 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
                 evaluator = sharedEvaluator;
             }
 
-            return evaluator.evaluatePolicies(entityContext).thenCompose(result -> {
+            return evaluator.evaluatePolicies(entityContext).compose(result -> {
 
+                Future<Void> ret;
                 // Check if the operation is allowed i.e. findAll, save
                 if(!result.operationAllowed()){
 
-                    return CompletableFuture.failedFuture(new AuthorizationException("Operation %s not allowed.".formatted(operation)));
+                    ret = Future.failedFuture(new AuthorizationException("Operation %s not allowed.".formatted(operation)));
 
                 } else if (!result.entityAllowed()) { // Check if access to the entity is allowed
 
-                    return CompletableFuture.failedFuture(new AuthorizationException("%s Entity access not allowed.".formatted(
+                    ret = Future.failedFuture(new AuthorizationException("%s Entity access not allowed.".formatted(
                             entityDefinitionId)));
 
                 } else { // Check if access to the individual fields are allowed
@@ -95,17 +96,18 @@ public class EntityDefinitionPolicyAuthorizationService implements Authorization
                         }
                     }
                     if(!deniedFields.isEmpty()){
-                        return CompletableFuture.failedFuture(new AuthorizationException("%s Fields %s access not allowed.".formatted(
+                        ret = Future.failedFuture(new AuthorizationException("%s Fields %s access not allowed.".formatted(
                                 entityDefinitionId, deniedFields)));
                     }else{
-                        return CompletableFuture.completedFuture(null);
+                        ret = Future.succeededFuture();
                     }
 
                 }
+                return ret;
             });
 
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
     }
 

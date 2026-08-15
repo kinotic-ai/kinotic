@@ -54,7 +54,8 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         if(statements.length == 1){
             QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDefinition, statements[0], namedQuery);
             AuthorizationService<NamedQueryOperation> authorizationService =
-                    authorizationServiceFactory.createNamedQueryAuthorizationService(namedQuery).join();
+                    authorizationServiceFactory.createNamedQueryAuthorizationService(namedQuery)
+                                               .toCompletionStage().toCompletableFuture().join();
             return new ParameterProcessorExecutor(entityDefinition,
                                                   namedQuery,
                                                   new PreAuthorizationExecutor(authorizationService, queryExecutor));

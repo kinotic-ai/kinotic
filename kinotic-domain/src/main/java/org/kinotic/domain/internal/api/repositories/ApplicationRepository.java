@@ -1,11 +1,10 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class ApplicationRepository extends AbstractOrganizationScopedRepository<Application> {
@@ -23,10 +22,10 @@ public class ApplicationRepository extends AbstractOrganizationScopedRepository<
      * @param organizationId the organization it must belong to
      * @return a future emitting the application, failed when it is not in the organization
      */
-    public CompletableFuture<Application> requireById(String applicationId, String organizationId) {
+    public Future<Application> requireById(String applicationId, String organizationId) {
         Validate.notBlank(applicationId, "applicationId cannot be blank");
         return findById(applicationId, organizationId)
-                .thenApply(app -> {
+                .map(app -> {
                     if (app == null) {
                         throw new IllegalArgumentException("Application not found: " + applicationId);
                     }

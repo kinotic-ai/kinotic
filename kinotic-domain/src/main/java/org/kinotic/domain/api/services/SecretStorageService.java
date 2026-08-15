@@ -1,8 +1,9 @@
 package org.kinotic.domain.api.services;
 
+import io.vertx.core.Future;
+
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides secure secret storage with scope-based isolation.
@@ -19,7 +20,7 @@ public interface SecretStorageService {
      * @param value       the secret value to store
      * @return a future that completes when the secret has been persisted
      */
-    CompletableFuture<Void> setSecret(String secretScope, String key, String value);
+    Future<Void> setSecret(String secretScope, String key, String value);
 
     /**
      * Retrieves a secret value for the given scope and key.
@@ -28,7 +29,7 @@ public interface SecretStorageService {
      * @param key         the logical key identifying the secret within the scope
      * @return a future containing the secret value, or {@code null} if not found
      */
-    CompletableFuture<String> getSecret(String secretScope, String key);
+    Future<String> getSecret(String secretScope, String key);
 
     /**
      * Deletes a secret for the given scope and key.
@@ -37,7 +38,7 @@ public interface SecretStorageService {
      * @param key         the logical key identifying the secret within the scope
      * @return a future that completes when the secret has been deleted
      */
-    CompletableFuture<Void> deleteSecret(String secretScope, String key);
+    Future<Void> deleteSecret(String secretScope, String key);
 
     /**
      * Stores multiple secrets within a single scope.
@@ -46,7 +47,7 @@ public interface SecretStorageService {
      * @param secrets     a map of logical key to secret value
      * @return a future that completes when all secrets have been persisted
      */
-    CompletableFuture<Void> setSecrets(String secretScope, Map<String, String> secrets);
+    Future<Void> setSecrets(String secretScope, Map<String, String> secrets);
 
     /**
      * Retrieves multiple secrets within a single scope.
@@ -55,7 +56,7 @@ public interface SecretStorageService {
      * @param keys        the logical keys identifying the secrets within the scope
      * @return a future containing a map of logical key to secret value (keys not found are omitted)
      */
-    CompletableFuture<Map<String, String>> getSecrets(String secretScope, Set<String> keys);
+    Future<Map<String, String>> getSecrets(String secretScope, Set<String> keys);
 
     /**
      * Deletes multiple secrets within a single scope.
@@ -64,5 +65,5 @@ public interface SecretStorageService {
      * @param keys        the logical keys identifying the secrets to delete
      * @return a future that completes when all secrets have been deleted
      */
-    CompletableFuture<Void> deleteSecrets(String secretScope, Set<String> keys);
+    Future<Void> deleteSecrets(String secretScope, Set<String> keys);
 }

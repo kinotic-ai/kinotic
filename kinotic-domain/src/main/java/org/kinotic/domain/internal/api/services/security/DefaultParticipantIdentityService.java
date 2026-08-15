@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -21,8 +22,8 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class DefaultParticipantIdentityService extends AbstractCrudService<ParticipantIdentity> implements ParticipantIdentityService {
@@ -44,7 +45,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    protected CompletableFuture<Void> beforeSave(ParticipantIdentity entity) {
+    protected Future<Void> beforeSave(ParticipantIdentity entity) {
         validateScopeFields(entity);
         if (entity.getId() == null) {
             entity.setId(UUID.randomUUID().toString());
@@ -71,7 +72,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                 Validate.isTrue(machine.getAuthType() == AuthType.CLIENT_CREDENTIALS,
                                 "MACHINE authType must be CLIENT_CREDENTIALS");
                 // the machine's id is its client_id, so uniqueness is the id's own
-                yield CompletableFuture.completedFuture(null);
+                yield Future.succeededFuture();
             }
         };
     }
@@ -101,15 +102,16 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
      * {@code (email, organizationId, applicationId)}. Self-id is excluded so updating an
      * existing user doesn't trip on its own row.
      */
-    private CompletableFuture<Void> enforceUniqueEmailInScope(UserParticipantIdentity entity) {
+    private Future<Void> enforceUniqueEmailInScope(UserParticipantIdentity entity) {
         return findByEmail(entity.getEmail(), entity.getOrganizationId(), entity.getApplicationId())
-                .thenAccept(existing -> {
+                .compose(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
                         throw new IllegalArgumentException(
                                 "ParticipantIdentity with email " + entity.getEmail()
                                         + " already exists in scope "
                                         + DomainUtil.describeScope(entity.getOrganizationId(), entity.getApplicationId()));
                     }
+                    return Future.succeededFuture();
                 });
     }
 
@@ -118,14 +120,15 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
      * {@code (ownerId, clientKey)}. Self-id is excluded so updating an existing delegate
      * doesn't trip on its own row.
      */
-    private CompletableFuture<Void> enforceUniqueClientKeyForOwner(DelegatingParticipantIdentity entity) {
+    private Future<Void> enforceUniqueClientKeyForOwner(DelegatingParticipantIdentity entity) {
         return identityRepository.findByOwnerAndClientKey(entity.getOwnerId(), entity.getClientKey())
-                .thenAccept(existing -> {
+                .compose(existing -> {
                     if (existing != null && !existing.getId().equals(entity.getId())) {
                         throw new IllegalArgumentException(
                                 "DELEGATE with clientKey " + entity.getClientKey()
                                         + " already exists for owner " + entity.getOwnerId());
                     }
+                    return Future.succeededFuture();
                 });
     }
 
@@ -141,34 +144,34 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
      * Persists the hash of {@code secret} as the sole credential of the identity, replacing
      * any prior one.
      */
-    private CompletableFuture<IdentityCredential> saveCredential(String identityId, String secret) {
+    private Future<IdentityCredential> saveCredential(String identityId, String secret) {
         return credentialRepository.save(new IdentityCredential()
                 .setId(identityId)
                 .setSecretHash(DomainUtil.hashPassword(secret)));
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
+    public Future<UserParticipantIdentity> findByEmail(String email, String organizationId, String applicationId) {
         return identityRepository.findByEmail(email, organizationId, applicationId);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findFirstOrgUserByEmail(String email) {
+    public Future<UserParticipantIdentity> findFirstOrgUserByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return identityRepository.findFirstOrgUserByEmail(email);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findByEmail(String email) {
+    public Future<UserParticipantIdentity> findByEmail(String email) {
         Validate.notBlank(email, "email cannot be blank");
         return identityRepository.findByEmail(email);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
-                                                         String oidcConfigId,
-                                                         String organizationId,
-                                                         String applicationId) {
+    public Future<UserParticipantIdentity> findByOidcIdentity(String oidcSubject,
+                                                              String oidcConfigId,
+                                                              String organizationId,
+                                                              String applicationId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         requireOrgWithApp(organizationId, applicationId);
@@ -176,29 +179,29 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
+    public Future<UserParticipantIdentity> findOrgUserByOidcIdentity(String oidcSubject, String oidcConfigId) {
         Validate.notBlank(oidcSubject, "oidcSubject cannot be blank");
         Validate.notBlank(oidcConfigId, "oidcConfigId cannot be blank");
         return identityRepository.findOrgUserByOidcIdentity(oidcSubject, oidcConfigId);
     }
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
+    public Future<Page<UserParticipantIdentity>> findUsersByScope(String organizationId, String applicationId, Pageable pageable) {
         requireOrgWithApp(organizationId, applicationId);
         return identityRepository.findUsersByScope(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> searchUsersByScope(String searchText,
-                                                          String organizationId,
-                                                          String applicationId,
-                                                          Pageable pageable) {
+    public Future<Page<UserParticipantIdentity>> searchUsersByScope(String searchText,
+                                                                    String organizationId,
+                                                                    String applicationId,
+                                                                    Pageable pageable) {
         requireOrgWithApp(organizationId, applicationId);
         return identityRepository.searchUsersByScope(searchText, organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password) {
+    public Future<UserParticipantIdentity> createUser(UserParticipantIdentity user, String password) {
         Validate.notNull(user.getEmail(), "UserParticipantIdentity email cannot be null");
         validateScopeFields(user);
 
@@ -216,13 +219,13 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         }
 
         return applyTenantPolicy(user)
-                .thenCompose(this::save)
-                .thenApply(UserParticipantIdentity.class::cast)
-                .thenCompose(savedUser -> {
+                .compose(this::save)
+                .map(UserParticipantIdentity.class::cast)
+                .compose(savedUser -> {
                     if (password != null) {
-                        return saveCredential(savedUser.getId(), password).thenApply(c -> savedUser);
+                        return saveCredential(savedUser.getId(), password).map(savedUser);
                     }
-                    return CompletableFuture.completedFuture(savedUser);
+                    return Future.succeededFuture(savedUser);
                 });
     }
 
@@ -234,12 +237,12 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
      * createUser accepts caller-supplied ids of any shape; a dedicated UUID keeps tenant
      * identity decoupled from id semantics.
      */
-    private CompletableFuture<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
+    private Future<UserParticipantIdentity> applyTenantPolicy(UserParticipantIdentity user) {
         if (user.getApplicationId() == null || user.getTenantId() != null) {
-            return CompletableFuture.completedFuture(user);
+            return Future.succeededFuture(user);
         }
         return applicationRepository.findById(user.getApplicationId(), user.getOrganizationId())
-                .thenApply(app -> {
+                .map(app -> {
                     if (app == null) {
                         throw new IllegalArgumentException(
                                 "Application " + user.getApplicationId() + " not found in organization "
@@ -253,38 +256,38 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
 //    @Override // commented off the interface — kept for the eventual user-management UI
-    public CompletableFuture<Void> changePassword(String identityId, String currentPassword, String newPassword) {
+    public Future<Void> changePassword(String identityId, String currentPassword, String newPassword) {
         Validate.notNull(identityId, "identityId cannot be null");
         Validate.notNull(currentPassword, "currentPassword cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
 
         return credentialRepository.findById(identityId)
-                .thenCompose(credential -> {
+                .compose(credential -> {
                     if (credential == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("No credential found for user " + identityId));
                     }
                     if (!DomainUtil.verifyPassword(currentPassword, credential.getSecretHash())) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Current password is incorrect"));
                     }
-                    return saveCredential(identityId, newPassword).thenApply(c -> (Void) null);
+                    return saveCredential(identityId, newPassword).mapEmpty();
                 });
     }
 
 //    @Override
-    public CompletableFuture<Void> resetPassword(String identityId, String newPassword) {
+    public Future<Void> resetPassword(String identityId, String newPassword) {
         Validate.notNull(identityId, "identityId cannot be null");
         Validate.notNull(newPassword, "newPassword cannot be null");
 
-        return saveCredential(identityId, newPassword).thenApply(c -> null);
+        return saveCredential(identityId, newPassword).mapEmpty();
     }
 
     @Override
-    public CompletableFuture<DelegatingParticipantIdentity> findOrCreateDelegate(UserParticipantIdentity owner,
-                                                                                 DelegateKind kind,
-                                                                                 String clientKey,
-                                                                                 String displayName) {
+    public Future<DelegatingParticipantIdentity> findOrCreateDelegate(UserParticipantIdentity owner,
+                                                                      DelegateKind kind,
+                                                                      String clientKey,
+                                                                      String displayName) {
         Validate.notNull(owner, "owner is required");
         Validate.notBlank(owner.getId(), "owner id is required");
         Validate.notNull(kind, "kind is required");
@@ -292,7 +295,7 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
         Validate.notBlank(displayName, "displayName is required");
 
         return identityRepository.findByOwnerAndClientKey(owner.getId(), clientKey)
-                .thenCompose(existing -> {
+                .compose(existing -> {
                     DelegatingParticipantIdentity delegate;
                     if (existing != null) {
                         delegate = existing;
@@ -313,17 +316,17 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
                     delegate.setEnabled(true);
                     // sync so the (ownerId, clientKey) uniqueness search sees this write before
                     // the next approval of the same client can run
-                    return saveSync(delegate).thenApply(DelegatingParticipantIdentity.class::cast);
+                    return saveSync(delegate).map(DelegatingParticipantIdentity.class::cast);
                 });
     }
 
     @Override
-    public CompletableFuture<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
+    public Future<Page<DelegatingParticipantIdentity>> findDelegatesByOwner(String ownerId, Pageable pageable) {
         return identityRepository.findDelegatesByOwner(ownerId, pageable);
     }
 
     @Override
-    public CompletableFuture<MachineProvisionResult> createMachine(MachineParticipantIdentity machine) {
+    public Future<MachineProvisionResult> createMachine(MachineParticipantIdentity machine) {
         Validate.notNull(machine, "machine is required");
 
         Date now = new Date();
@@ -336,43 +339,43 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
 
         // sync so the console's immediate re-query lists the new machine
         return saveSync(machine)
-                .thenApply(MachineParticipantIdentity.class::cast)
-                .thenCompose(saved -> saveCredential(saved.getId(), clientSecret)
-                        .thenApply(c -> new MachineProvisionResult(saved, clientSecret)));
+                .map(MachineParticipantIdentity.class::cast)
+                .compose(saved -> saveCredential(saved.getId(), clientSecret)
+                        .map(new MachineProvisionResult(saved, clientSecret)));
     }
 
     @Override
-    public CompletableFuture<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
+    public Future<Page<MachineParticipantIdentity>> findMachinesByScope(String organizationId, String applicationId, Pageable pageable) {
         requireOrgWithApp(organizationId, applicationId);
         return identityRepository.findMachinesByScope(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<String> rotateMachineSecret(String machineId) {
+    public Future<String> rotateMachineSecret(String machineId) {
         Validate.notBlank(machineId, "machineId is required");
         return findById(machineId)
-                .thenCompose(identity -> {
+                .compose(identity -> {
                     if (!(identity instanceof MachineParticipantIdentity)) {
                         throw new IllegalArgumentException("Machine not found.");
                     }
                     String clientSecret = DomainUtil.generateUrlSafeToken(MACHINE_SECRET_BYTES);
-                    return saveCredential(identity.getId(), clientSecret).thenApply(c -> clientSecret);
+                    return saveCredential(identity.getId(), clientSecret).map(clientSecret);
                 });
     }
 
     @Override
-    public CompletableFuture<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret) {
+    public Future<MachineParticipantIdentity> verifyMachineCredentials(String machineId, String clientSecret) {
         Validate.notBlank(machineId, "machineId is required");
         Validate.notBlank(clientSecret, "clientSecret is required");
 
         return findById(machineId)
-                .thenCompose(identity -> {
+                .compose(identity -> {
                     // one generic failure for every miss — no oracle for which check failed
                     if (!(identity instanceof MachineParticipantIdentity machine) || !machine.isEnabled()) {
                         throw new IllegalArgumentException("Invalid client credentials");
                     }
                     return credentialRepository.findById(machine.getId())
-                            .thenApply(credential -> {
+                            .map(credential -> {
                                 if (credential == null
                                         || !DomainUtil.verifyPassword(clientSecret, credential.getSecretHash())) {
                                     throw new IllegalArgumentException("Invalid client credentials");
@@ -383,18 +386,18 @@ public class DefaultParticipantIdentityService extends AbstractCrudService<Parti
     }
 
     @Override
-    protected CompletableFuture<Void> beforeDelete(String id) {
+    protected Future<Void> beforeDelete(String id) {
         // Cascade the IdentityCredential. Credential lookups are by id (realtime GETs), so the
         // credential delete never needs to wait for search visibility.
         // Delegates owned by the deleted identity go with it — a delegate must not outlive
         // the authority it wields (resolveParticipant would reject it anyway; this is hygiene).
         return credentialRepository.deleteById(id)
-                .thenCompose(v -> identityRepository.findDelegatesByOwner(id, Pageable.create(0, 1000, Sort.by("created"))))
-                .thenCompose(delegates -> {
-                    CompletableFuture<?>[] deletes = delegates.getContent().stream()
+                .compose(v -> identityRepository.findDelegatesByOwner(id, Pageable.create(0, 1000, Sort.by("created"))))
+                .compose(delegates -> {
+                    List<Future<Void>> deletes = delegates.getContent().stream()
                             .map(delegate -> deleteById(delegate.getId()))
-                            .toArray(CompletableFuture[]::new);
-                    return CompletableFuture.allOf(deletes);
+                            .toList();
+                    return Future.all(deletes).mapEmpty();
                 });
     }
 

@@ -83,7 +83,7 @@ public class OidcFlowOrchestrator {
      * @param configResolver loads the config for this route, scoped by the {@code orgId}
      *                       recovered from the flow session (or {@code null} when the flow
      *                       stashed none — non-org-scoped routes ignore the argument). Must
-     *                       return a {@link CompletableFuture} resolving to {@code null} when
+     *                       return a {@link Future} resolving to {@code null} when
      *                       the config is unknown; a config that is no longer enabled is
      *                       rejected here, so the resolver need not check it.
      */
@@ -91,7 +91,7 @@ public class OidcFlowOrchestrator {
             RoutingContext ctx,
             String pathConfigId,
             String callbackUrl,
-            Function<String, CompletableFuture<C>> configResolver) {
+            Function<String, Future<C>> configResolver) {
 
         String code = ctx.request().getParam("code");
         String state = ctx.request().getParam("state");
@@ -114,7 +114,7 @@ public class OidcFlowOrchestrator {
             return Future.failedFuture(new OidcCallbackException(OidcErrorCodes.STATE_MISMATCH));
         }
 
-        return Future.fromCompletionStage(configResolver.apply(flowSession.orgId()))
+        return configResolver.apply(flowSession.orgId())
                      .compose(config -> {
                          // Re-checked here rather than in each resolver: a config disabled while the
                          // user was at the IdP must not complete the flow it started.
@@ -439,8 +439,9 @@ public class OidcFlowOrchestrator {
         CompletableFuture<OAuth2Auth> cached =
                 oauth2AuthCache.get(key,
                                     (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
-                                                                             .thenCompose(secret -> createOAuth2Auth(config, secret)
-                                                                                     .toCompletionStage()));
+                                                                             .compose(secret -> createOAuth2Auth(config, secret))
+                                                                             .toCompletionStage()
+                                                                             .toCompletableFuture());
         return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
                      .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
     }

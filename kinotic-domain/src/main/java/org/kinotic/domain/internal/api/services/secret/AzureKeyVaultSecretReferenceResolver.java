@@ -5,14 +5,14 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.security.keyvault.secrets.SecretAsyncClient;
 import com.azure.security.keyvault.secrets.SecretClientBuilder;
 import com.azure.security.keyvault.secrets.models.KeyVaultSecret;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Resolves named secrets from the platform Azure Key Vault. Authenticates via
@@ -31,31 +31,30 @@ import java.util.concurrent.CompletableFuture;
 public class AzureKeyVaultSecretReferenceResolver implements SecretReferenceResolver {
 
     private final SecretAsyncClient client;
+    private final Vertx vertx;
 
-    public AzureKeyVaultSecretReferenceResolver(KinoticDomainProperties properties) {
+    public AzureKeyVaultSecretReferenceResolver(KinoticDomainProperties properties, Vertx vertx) {
         String vaultUrl = properties.getDomain().getSecretStorage().getAzure().getVaultUrl();
         log.info("Resolving named secrets from Azure Key Vault at {}", vaultUrl);
         this.client = new SecretClientBuilder()
                 .vaultUrl(vaultUrl)
                 .credential(new DefaultAzureCredentialBuilder().build())
                 .buildAsyncClient();
-    }
-
-    AzureKeyVaultSecretReferenceResolver(SecretAsyncClient client) {
-        this.client = client;
+        this.vertx = vertx;
     }
 
     @Override
-    public CompletableFuture<String> resolve(String secretName) {
+    public Future<String> resolve(String secretName) {
         if (secretName == null || secretName.isBlank()) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
-        return client.getSecret(secretName)
-                     .map(KeyVaultSecret::getValue)
-                     .onErrorResume(ResourceNotFoundException.class, e -> {
-                         log.debug("Secret '{}' not found in Key Vault", secretName);
-                         return Mono.empty();
-                     })
-                     .toFuture();
+        return Future.fromCompletionStage(client.getSecret(secretName)
+                                                .map(KeyVaultSecret::getValue)
+                                                .onErrorResume(ResourceNotFoundException.class, e -> {
+                                                    log.debug("Secret '{}' not found in Key Vault", secretName);
+                                                    return Mono.empty();
+                                                })
+                                                .toFuture(),
+                                          vertx.getOrCreateContext());
     }
 }

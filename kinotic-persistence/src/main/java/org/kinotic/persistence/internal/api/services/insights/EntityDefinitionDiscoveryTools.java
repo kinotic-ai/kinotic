@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.api.services.insights;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -14,7 +15,6 @@ import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Spring AI Tools for discovering and analyzing EntityDefinition schemas.
@@ -55,8 +55,8 @@ public class EntityDefinitionDiscoveryTools {
         try {
             // Get all published EntityDefinitions for the application
             Pageable pageable = Pageable.ofSize(100); // Get up to 100 EntityDefinitions
-            CompletableFuture<Page<EntityDefinition>> entityDefinitionFuture = entityDefinitionService.findAllPublishedForApplication(applicationId, pageable);
-            Page<EntityDefinition> entityDefinitionPage = entityDefinitionFuture.join();
+            Future<Page<EntityDefinition>> entityDefinitionFuture = entityDefinitionService.findAllPublishedForApplication(applicationId, pageable);
+            Page<EntityDefinition> entityDefinitionPage = entityDefinitionFuture.toCompletionStage().toCompletableFuture().join();
             
             if (entityDefinitionPage.getContent().isEmpty()) {
                 return String.format("No published EntityDefinitions found for application: %s", applicationId);
@@ -106,8 +106,8 @@ public class EntityDefinitionDiscoveryTools {
         }
         
         try {
-            CompletableFuture<EntityDefinition> future = entityDefinitionService.findById(entityDefinitionId);
-            EntityDefinition entityDefinition = future.join();
+            Future<EntityDefinition> future = entityDefinitionService.findById(entityDefinitionId);
+            EntityDefinition entityDefinition = future.toCompletionStage().toCompletableFuture().join();
             if (entityDefinition == null) {
                 return String.format("EntityDefinition not found: %s", entityDefinitionId);
             }
@@ -154,8 +154,8 @@ public class EntityDefinitionDiscoveryTools {
         try {
             // Get all published EntityDefinitions and filter by name/description
             Pageable pageable = Pageable.ofSize(100);
-            CompletableFuture<Page<EntityDefinition>> future = entityDefinitionService.findAllPublishedForApplication(applicationId, pageable);
-            Page<EntityDefinition> entityDefinitionPage = future.join();
+            Future<Page<EntityDefinition>> future = entityDefinitionService.findAllPublishedForApplication(applicationId, pageable);
+            Page<EntityDefinition> entityDefinitionPage = future.toCompletionStage().toCompletableFuture().join();
             
             List<EntityDefinition> matchingEntityDefinitions = entityDefinitionPage.getContent().stream()
                                                                             .filter(entityDefinition ->

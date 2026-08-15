@@ -1,8 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * In-process service for verifying email + password and resolving the matching
@@ -21,7 +20,7 @@ public interface LocalAuthenticationService {
      * <p>Used by the org-login token endpoint, which intentionally accepts both
      * ORGANIZATION-scope users and the SYSTEM-scope dev admin.
      */
-    CompletableFuture<UserParticipantIdentity> authenticateLocal(String email, String password);
+    Future<UserParticipantIdentity> authenticateLocal(String email, String password);
 
     /**
      * Scope-restricted variant of {@link #authenticateLocal(String, String)}: only
@@ -35,7 +34,7 @@ public interface LocalAuthenticationService {
      *   <li>both set → APPLICATION</li>
      * </ul>
      */
-    CompletableFuture<UserParticipantIdentity> authenticateLocal(String email, String password,
-                                                 String organizationId, String applicationId);
+    Future<UserParticipantIdentity> authenticateLocal(String email, String password,
+                                                      String organizationId, String applicationId);
 }
 

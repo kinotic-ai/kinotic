@@ -1,11 +1,10 @@
 package org.kinotic.domain.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Extends {@link IdentifiableCrudService} with queries scoped to an application.
@@ -21,17 +20,17 @@ public interface ApplicationScopedCrudService<T extends Identifiable<ID>, ID> ex
      * Returns the number of entities that belong to the given application.
      *
      * @param applicationId the application to count entities for
-     * @return a {@link CompletableFuture} emitting the count
+     * @return a {@link Future} emitting the count
      */
-    CompletableFuture<Long> countForApplication(String applicationId);
+    Future<Long> countForApplication(String applicationId);
 
     /**
      * Returns a {@link Page} of entities that belong to the given application.
      *
      * @param applicationId the application to find entities for
      * @param pageable      the paging parameters
-     * @return a {@link CompletableFuture} emitting a page of entities
+     * @return a {@link Future} emitting a page of entities
      */
-    CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable);
+    Future<Page<T>> findAllForApplication(String applicationId, Pageable pageable);
 
 }

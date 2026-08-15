@@ -1,7 +1,6 @@
 package org.kinotic.domain.internal.api;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
@@ -24,54 +23,46 @@ import java.util.Set;
 public class ElasticServiceDirectoryStrategy implements ServiceDirectoryStrategy {
 
     private final ServiceDirectoryEntryRepository repository;
-    private final Vertx vertx;
 
     @Override
     public Future<Void> upsertEntry(ServiceDirectoryEntry entry) {
-        return Future.fromCompletionStage(repository.upsertEntry(entry),
-                                          vertx.getOrCreateContext());
+        return repository.upsertEntry(entry);
     }
 
     @Override
     public Future<Void> setOnline(String entryId, boolean online, Instant when) {
-        return Future.fromCompletionStage(repository.setOnline(entryId, online, when),
-                                          vertx.getOrCreateContext());
+        return repository.setOnline(entryId, online, when);
     }
 
     @Override
     public Future<Void> setOnlineByAddress(String serviceAddress, boolean online, Instant when) {
-        return Future.fromCompletionStage(repository.setOnlineByAddress(serviceAddress, online, when),
-                                          vertx.getOrCreateContext());
+        return repository.setOnlineByAddress(serviceAddress, online, when);
     }
 
     @Override
     public Future<Void> reconcileLiveness(Set<String> activeAddresses, Instant when) {
-        return Future.fromCompletionStage(repository.reconcileLiveness(activeAddresses, when),
-                                          vertx.getOrCreateContext());
+        return repository.reconcileLiveness(activeAddresses, when);
     }
 
     @Override
     public Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
                                                                    String applicationId,
                                                                    Pageable pageable) {
-        return Future.fromCompletionStage(repository.findEntriesScopedTo(organizationId, applicationId, pageable),
-                                          vertx.getOrCreateContext());
+        return repository.findEntriesScopedTo(organizationId, applicationId, pageable);
     }
 
     @Override
     public Future<McpToolDefinition> findMcpToolByName(String toolName,
                                                        String organizationId,
                                                        String applicationId) {
-        return Future.fromCompletionStage(repository.findMcpToolByName(toolName, organizationId, applicationId),
-                                          vertx.getOrCreateContext());
+        return repository.findMcpToolByName(toolName, organizationId, applicationId);
     }
 
     @Override
     public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
                                                                 String applicationId,
                                                                 CursorPageable pageable) {
-        return Future.fromCompletionStage(repository.findMcpToolsCallableBy(organizationId, applicationId, pageable),
-                                          vertx.getOrCreateContext());
+        return repository.findMcpToolsCallableBy(organizationId, applicationId, pageable);
     }
 
 }

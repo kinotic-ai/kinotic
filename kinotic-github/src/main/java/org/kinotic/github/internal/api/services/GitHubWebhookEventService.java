@@ -1,11 +1,10 @@
 package org.kinotic.github.internal.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.github.api.services.GitHubProjectEventService;
 import reactor.core.publisher.Flux;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Internal-only service the gateway's webhook handler calls after HMAC verification.
@@ -24,7 +23,7 @@ public interface GitHubWebhookEventService {
      * can't find a backing project. There is no platform-side delivery dedup —
      * GitHub may redeliver, and subscribers must be idempotent.
      */
-    CompletableFuture<Void> process(GitHubWebhookEvent event);
+    Future<Void> process(GitHubWebhookEvent event);
 
     /**
      * A hot stream of repository deliveries that resolved to a Kinotic Project, shared by every

@@ -1,12 +1,12 @@
 package org.kinotic.domain.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DelegateSession;
 import org.kinotic.domain.api.model.security.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.RefreshTokenRotation;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Issues and rotates refresh tokens for OAuth client sessions. Tokens are stored only as hashes;
@@ -25,7 +25,7 @@ public interface RefreshTokenService {
      *                   shown wherever the identity's sessions are listed
      * @return the plaintext refresh token — available only here, the server stores only its hash
      */
-    CompletableFuture<String> issue(String identityId, KinoticAudience audience, String label);
+    Future<String> issue(String identityId, KinoticAudience audience, String label);
 
     /**
      * Validates and rotates a refresh token: the presented token is revoked and a fresh one
@@ -35,13 +35,13 @@ public interface RefreshTokenService {
      *
      * @param token the plaintext refresh token presented by the client
      */
-    CompletableFuture<RefreshTokenRotation> rotate(String token);
+    Future<RefreshTokenRotation> rotate(String token);
 
     /**
      * Lists the identity's live sessions — one per family whose current token is unrevoked
      * and unexpired.
      */
-    CompletableFuture<List<DelegateSession>> findActiveSessions(String identityId);
+    Future<List<DelegateSession>> findActiveSessions(String identityId);
 
     /**
      * Revokes every token in the given family, ending that session; future rotations of it
@@ -51,10 +51,10 @@ public interface RefreshTokenService {
      * @param identityId id of the identity the family authenticates
      * @param familyId   the family to revoke
      */
-    CompletableFuture<Void> revokeFamily(String identityId, String familyId);
+    Future<Void> revokeFamily(String identityId, String familyId);
 
     /**
      * Revokes every live family of the given identity, ending all of its sessions.
      */
-    CompletableFuture<Void> revokeAllFor(String identityId);
+    Future<Void> revokeAllFor(String identityId);
 }

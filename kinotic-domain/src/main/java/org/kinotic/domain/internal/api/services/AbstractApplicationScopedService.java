@@ -1,13 +1,12 @@
 package org.kinotic.domain.internal.api.services;
 
-import org.kinotic.domain.api.services.ApplicationScopedCrudService;
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.ApplicationScoped;
+import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
-
-import java.util.concurrent.CompletableFuture;
 
 public abstract class AbstractApplicationScopedService<T extends ApplicationScoped<String>>
         extends AbstractOrganizationScopedService<T>
@@ -22,12 +21,12 @@ public abstract class AbstractApplicationScopedService<T extends ApplicationScop
     }
 
     @Override
-    public CompletableFuture<Long> countForApplication(String applicationId) {
+    public Future<Long> countForApplication(String applicationId) {
         return applicationRepository.countForApplication(applicationId, requireOrganizationId());
     }
 
     @Override
-    public CompletableFuture<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
+    public Future<Page<T>> findAllForApplication(String applicationId, Pageable pageable) {
         return applicationRepository.findAllForApplication(applicationId, requireOrganizationId(), pageable);
     }
 

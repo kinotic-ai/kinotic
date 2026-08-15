@@ -4,7 +4,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -305,7 +304,7 @@ public class AuthEndpointSupport {
 
         String returnPath = safeReturnPath(ctx.request().getParam("referer"));
 
-        Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(providerKind))
+        orgSignupOidcConfigurationService.findEnabledByProvider(providerKind)
               .compose(config -> {
                   if (config == null) {
                       respondError(ctx, 400, "Unknown or disabled platform provider: " + provider);
@@ -340,7 +339,7 @@ public class AuthEndpointSupport {
      * the authenticate call (already scope-aware where appropriate).
      */
     public void handlePasswordLogin(RoutingContext ctx,
-                                    BiFunction<String, String, CompletionStage<UserParticipantIdentity>> authenticate) {
+                                    BiFunction<String, String, Future<UserParticipantIdentity>> authenticate) {
         JsonObject body = readJsonBody(ctx);
         String email = body.getString("email");
         String password = body.getString("password");
@@ -348,7 +347,7 @@ public class AuthEndpointSupport {
             respondError(ctx, 400, "email and password are required");
             return;
         }
-        Future.fromCompletionStage(authenticate.apply(email, password))
+        authenticate.apply(email, password)
               .onSuccess(user -> {
                   if (user == null) {
                       // Generic 401 — covers unknown email, wrong password, OIDC user, disabled.
@@ -374,7 +373,7 @@ public class AuthEndpointSupport {
     public void completeOidcLogin(RoutingContext ctx,
                                   BaseOidcConfiguration config,
                                   Map<String, Object> claims,
-                                  Function<String, CompletionStage<UserParticipantIdentity>> userLookup) {
+                                  Function<String, Future<UserParticipantIdentity>> userLookup) {
         String sub = OAuth2Util.stringClaim(claims, "sub");
         if (sub == null) {
             redirectError(ctx, OidcErrorCodes.INVALID_TOKEN);
@@ -384,7 +383,7 @@ public class AuthEndpointSupport {
             redirectError(ctx, OidcErrorCodes.EMAIL_NOT_VERIFIED);
             return;
         }
-        Future.fromCompletionStage(userLookup.apply(sub))
+        userLookup.apply(sub)
               .onSuccess(user -> {
                   if (user == null) {
                       redirectError(ctx, OidcErrorCodes.NO_ACCOUNT);

@@ -1,13 +1,12 @@
 package org.kinotic.domain.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Thin {@link IdentifiableCrudService} delegating to an {@link AbstractRepository}. Use this as
@@ -23,23 +22,23 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
     protected final AbstractRepository<T> repository;
 
     @Override
-    public CompletableFuture<Long> count() {
+    public Future<Long> count() {
         return repository.count();
     }
 
     @Override
-    public CompletableFuture<T> findById(String id) {
+    public Future<T> findById(String id) {
         return repository.findById(id);
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return beforeDelete(id).thenCompose(v -> repository.deleteById(id));
+    public Future<Void> deleteById(String id) {
+        return beforeDelete(id).compose(v -> repository.deleteById(id));
     }
 
     @Override
-    public CompletableFuture<Void> deleteByIdSync(String id) {
-        return beforeDelete(id).thenCompose(v -> repository.deleteByIdSync(id));
+    public Future<Void> deleteByIdSync(String id) {
+        return beforeDelete(id).compose(v -> repository.deleteByIdSync(id));
     }
 
     /**
@@ -48,33 +47,33 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * Override to validate the delete or cascade dependent data; the delete proceeds when
      * the returned future completes.
      */
-    protected CompletableFuture<Void> beforeDelete(String id) {
-        return CompletableFuture.completedFuture(null);
+    protected Future<Void> beforeDelete(String id) {
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Page<T>> findAll(Pageable pageable) {
+    public Future<Page<T>> findAll(Pageable pageable) {
         return repository.findAll(pageable);
     }
 
     @Override
-    public CompletableFuture<T> save(T value) {
-        return beforeSave(value).thenCompose(v -> repository.save(value));
+    public Future<T> save(T value) {
+        return beforeSave(value).compose(v -> repository.save(value));
     }
 
     @Override
-    public CompletableFuture<T> saveSync(T value) {
-        return beforeSave(value).thenCompose(v -> repository.saveSync(value));
+    public Future<T> saveSync(T value) {
+        return beforeSave(value).compose(v -> repository.saveSync(value));
     }
 
     @Override
-    public CompletableFuture<T> create(T value) {
-        return beforeSave(value).thenCompose(v -> repository.create(value));
+    public Future<T> create(T value) {
+        return beforeSave(value).compose(v -> repository.create(value));
     }
 
     @Override
-    public CompletableFuture<T> createSync(T value) {
-        return beforeSave(value).thenCompose(v -> repository.createSync(value));
+    public Future<T> createSync(T value) {
+        return beforeSave(value).compose(v -> repository.createSync(value));
     }
 
     /**
@@ -83,17 +82,17 @@ public abstract class AbstractCrudService<T extends Identifiable<String>> implem
      * path and not the others. Override to validate and prepare the entity (defaults, ids,
      * timestamps); the write proceeds when the returned future completes.
      */
-    protected CompletableFuture<Void> beforeSave(T entity) {
-        return CompletableFuture.completedFuture(null);
+    protected Future<Void> beforeSave(T entity) {
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+    public Future<Page<T>> search(String searchText, Pageable pageable) {
         return repository.search(searchText, pageable);
     }
 
     @Override
-    public CompletableFuture<Void> syncIndex() {
+    public Future<Void> syncIndex() {
         return repository.syncIndex();
     }
 }

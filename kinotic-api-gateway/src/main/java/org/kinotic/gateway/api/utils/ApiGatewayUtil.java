@@ -17,7 +17,6 @@ import org.kinotic.gateway.api.config.CorsProperties;
 import org.kinotic.gateway.api.config.SslProperties;
 
 import java.util.Set;
-import java.util.concurrent.CompletionException;
 
 /**
  * Helpers for the Vert.x HTTP servers and routers fronted by the api-gateway: CORS handling,
@@ -101,12 +100,6 @@ public final class ApiGatewayUtil {
         int statusCode = context.statusCode();
 
         if(throwable != null){
-
-            if(throwable instanceof CompletionException){
-                if(throwable.getCause() != null) {
-                    throwable = throwable.getCause();
-                }
-            }
 
             errorMessage = throwable.getMessage();
 

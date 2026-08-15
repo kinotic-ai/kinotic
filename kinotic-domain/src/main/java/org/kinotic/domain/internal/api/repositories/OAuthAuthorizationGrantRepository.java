@@ -1,10 +1,9 @@
 package org.kinotic.domain.internal.api.repositories;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.internal.api.model.OAuthAuthorizationGrant;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class OAuthAuthorizationGrantRepository extends AbstractRepository<OAuthAuthorizationGrant> {
@@ -14,7 +13,7 @@ public class OAuthAuthorizationGrantRepository extends AbstractRepository<OAuthA
     }
 
     /** Finds the grant whose authorization code hashes to {@code codeHash}, or {@code null} if none matches. */
-    public CompletableFuture<OAuthAuthorizationGrant> findByCodeHash(String codeHash) {
+    public Future<OAuthAuthorizationGrant> findByCodeHash(String codeHash) {
         return findFirst(b -> b.query(termFilter("codeHash", codeHash)));
     }
 }

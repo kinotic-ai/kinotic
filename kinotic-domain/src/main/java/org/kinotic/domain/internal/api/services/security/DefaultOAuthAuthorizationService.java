@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -21,7 +22,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -42,19 +42,19 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<String> createAuthorizationRequest(String clientId,
-                                                                String redirectUri,
-                                                                String codeChallenge,
-                                                                String scope,
-                                                                String resource,
-                                                                String state) {
+    public Future<String> createAuthorizationRequest(String clientId,
+                                                     String redirectUri,
+                                                     String codeChallenge,
+                                                     String scope,
+                                                     String resource,
+                                                     String state) {
         Validate.notBlank(clientId, "client_id is required");
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeChallenge, "code_challenge is required");
         return clientMetadataDocumentService.resolve(clientId)
-                .thenCompose(client -> {
+                .compose(client -> {
                     if (!matchesRegisteredRedirectUri(client.getRedirectUris(), redirectUri)) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("redirect_uri is not registered for this client"));
                     }
                     Date now = new Date();
@@ -69,42 +69,43 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
                             .setState(state)
                             .setCreated(now)
                             .setExpiresAt(new Date(now.getTime() + REQUEST_TTL_MS));
-                    return grantRepository.saveSync(grant).thenApply(OAuthAuthorizationGrant::getId);
+                    return grantRepository.saveSync(grant)
+                                          .map(OAuthAuthorizationGrant::getId);
                 });
     }
 
     @Override
-    public CompletableFuture<PendingOAuthAuthorization> findPending(String requestId) {
+    public Future<PendingOAuthAuthorization> findPending(String requestId) {
         return loadPendingGrant(requestId)
-                .thenApply(grant -> new PendingOAuthAuthorization(grant.getClientName(),
-                                                                  grant.getClientId(),
-                                                                  grant.getScope()));
+                .map(grant -> new PendingOAuthAuthorization(grant.getClientName(),
+                                                            grant.getClientId(),
+                                                            grant.getScope()));
     }
 
     @Override
-    public CompletableFuture<String> approve(String requestId, String identityId) {
+    public Future<String> approve(String requestId, String identityId) {
         Validate.notBlank(identityId, "identityId is required");
         return loadPendingGrant(requestId)
-                .thenCompose(grant -> {
+                .compose(grant -> {
                     String code = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
                     grant.setIdentityId(identityId)
                          .setCodeHash(DomainUtil.sha256Hex(code))
                          // the code's own, shorter expiry replaces the consent window
                          .setExpiresAt(new Date(System.currentTimeMillis() + CODE_TTL_MS));
                     return grantRepository.saveSync(grant)
-                                          .thenApply(saved -> redirectUrl(grant, "code", code));
+                                          .map(redirectUrl(grant, "code", code));
                 });
     }
 
     @Override
-    public CompletableFuture<String> deny(String requestId) {
+    public Future<String> deny(String requestId) {
         return loadPendingGrant(requestId)
-                .thenCompose(grant -> grantRepository.deleteById(grant.getId())
-                                                     .thenApply(v -> redirectUrl(grant, "error", "access_denied")));
+                .compose(grant -> grantRepository.deleteById(grant.getId())
+                                                 .map(redirectUrl(grant, "error", "access_denied")));
     }
 
     @Override
-    public CompletableFuture<CodeExchangeResult> exchangeCode(String code,
+    public Future<CodeExchangeResult> exchangeCode(String code,
                                                    String clientId,
                                                    String redirectUri,
                                                    String codeVerifier) {
@@ -113,27 +114,28 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         Validate.notBlank(redirectUri, "redirect_uri is required");
         Validate.notBlank(codeVerifier, "code_verifier is required");
         return grantRepository.findByCodeHash(DomainUtil.sha256Hex(code))
-                .thenCompose(grant -> {
+                .compose(grant -> {
                     if (grant == null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown authorization code"));
+                        return Future.failedFuture(new IllegalArgumentException("Unknown authorization code"));
                     }
                     // consume the grant before judging it, so a failed exchange burns the code too.
                     // the delete must wait for the index refresh: findByCodeHash is a search
-                    return grantRepository.deleteByIdSync(grant.getId()).thenCompose(v -> {
+                    return grantRepository.deleteByIdSync(grant.getId())
+                                          .compose(v -> {
                         if (grant.getExpiresAt().before(new Date())) {
-                            return CompletableFuture.failedFuture(new IllegalArgumentException("Authorization code has expired"));
+                            return Future.failedFuture(new IllegalArgumentException("Authorization code has expired"));
                         }
                         if (!grant.getClientId().equals(clientId) || !grant.getRedirectUri().equals(redirectUri)) {
-                            return CompletableFuture.failedFuture(
+                            return Future.failedFuture(
                                     new IllegalArgumentException("Authorization code was not issued to this client"));
                         }
                         if (!OAuth2Util.s256Challenge(codeVerifier).equals(grant.getCodeChallenge())) {
-                            return CompletableFuture.failedFuture(new IllegalArgumentException("PKCE verification failed"));
+                            return Future.failedFuture(new IllegalArgumentException("PKCE verification failed"));
                         }
                         return loadEnabledUser(grant.getIdentityId())
-                                .thenApply(approver -> new CodeExchangeResult(approver,
-                                                                              grant.getClientId(),
-                                                                              grant.getClientName()));
+                                .map(approver -> new CodeExchangeResult(approver,
+                                                                        grant.getClientId(),
+                                                                        grant.getClientName()));
                     });
                 });
     }
@@ -180,32 +182,32 @@ public class DefaultOAuthAuthorizationService implements OAuthAuthorizationServi
         return ret;
     }
 
-    private CompletableFuture<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {
+    private Future<OAuthAuthorizationGrant> loadPendingGrant(String requestId) {
         Validate.notBlank(requestId, "requestId is required");
         return grantRepository.findById(requestId)
-                .thenCompose(grant -> {
+                .compose(grant -> {
                     if (grant == null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown authorization request"));
+                        return Future.failedFuture(new IllegalArgumentException("Unknown authorization request"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {
                         return grantRepository.deleteById(grant.getId())
-                                .thenCompose(v -> CompletableFuture.failedFuture(
+                                .compose(v -> Future.failedFuture(
                                         new IllegalArgumentException("Authorization request has expired")));
                     }
                     if (grant.getIdentityId() != null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Authorization request has already been decided"));
                     }
-                    return CompletableFuture.completedFuture(grant);
+                    return Future.succeededFuture(grant);
                 });
     }
 
-    private CompletableFuture<UserParticipantIdentity> loadEnabledUser(String identityId) {
+    private Future<UserParticipantIdentity> loadEnabledUser(String identityId) {
         return identityRepository.findById(identityId)
-                .thenApply(UserParticipantIdentity.class::cast)
-                .thenCompose(user -> (user == null || !user.isEnabled())
-                        ? CompletableFuture.failedFuture(new IllegalArgumentException("User is not available"))
-                        : CompletableFuture.completedFuture(user));
+                .map(UserParticipantIdentity.class::cast)
+                .compose(user -> (user == null || !user.isEnabled())
+                        ? Future.failedFuture(new IllegalArgumentException("User is not available"))
+                        : Future.succeededFuture(user));
     }
 
     private static String redirectUrl(OAuthAuthorizationGrant grant, String parameter, String value) {

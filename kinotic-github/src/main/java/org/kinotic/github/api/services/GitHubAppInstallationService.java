@@ -1,10 +1,9 @@
 package org.kinotic.github.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.github.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Service the frontend uses to drive GitHub-linking from the existing Kinotic
@@ -42,7 +41,7 @@ public interface GitHubAppInstallationService {
      *                 May carry query params (e.g. {@code /projects?openNewProject=1})
      *                 to signal "what to do on arrival" to the destination page. May be null.
      */
-    CompletableFuture<String> startInstall(String returnTo);
+    Future<String> startInstall(String returnTo);
 
     /**
      * Finalises the install once GitHub has redirected the browser back to the SPA
@@ -65,19 +64,19 @@ public interface GitHubAppInstallationService {
      *         doesn't match the caller's org, or when the authorizing GitHub user cannot
      *         access the claimed installation
      */
-    CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
+    Future<GitHubInstallCompletion> completeInstall(long installationId, String state, String code);
 
     /**
      * Returns the installation bound to the caller's organization, or {@code null} if
      * GitHub is not yet linked. Drives the "linked / not linked" indicator in the
      * org-settings UI.
      */
-    CompletableFuture<GitHubAppInstallation> findForCurrentOrg();
+    Future<GitHubAppInstallation> findForCurrentOrg();
 
     /**
      * Removes the caller's organization's GitHub link, waiting for the removal to be visible
      * to {@link #findForCurrentOrg()} before completing. No-op when nothing is linked. The
      * organization can link again through {@link #startInstall(String)}.
      */
-    CompletableFuture<Void> unlink();
+    Future<Void> unlink();
 }

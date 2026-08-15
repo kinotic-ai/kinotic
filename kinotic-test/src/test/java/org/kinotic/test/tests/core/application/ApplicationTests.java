@@ -22,16 +22,16 @@ public class ApplicationTests extends KinoticTestBase {
 		Application test = new Application("Test App", "Testing This Application");
 		test.setOrganizationId(TEST_ORG_ID);
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.save(test))))
+		StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> applicationService.save(test)).toCompletionStage()))
 					.expectNextMatches(application -> application.getId().equals("test-app") && application.getUpdated() != null)
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById(test.getId()))))
+		StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> applicationService.deleteById(test.getId())).toCompletionStage()))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.findById(test.getId()))))
+		StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> applicationService.findById(test.getId())).toCompletionStage()))
 					.expectComplete()
 					.verify();
 	}
@@ -41,13 +41,13 @@ public class ApplicationTests extends KinoticTestBase {
 		Application test = new Application("Slugs. And Snails!", "Testing id derivation");
 		test.setOrganizationId(TEST_ORG_ID);
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.create(test))))
+		StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> applicationService.create(test)).toCompletionStage()))
 					.expectNextMatches(application -> application.getId().equals("slugs-and-snails")
 							&& application.getName().equals("Slugs. And Snails!"))
 					.expectComplete()
 					.verify();
 
-		StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> applicationService.deleteById("slugs-and-snails"))))
+		StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> applicationService.deleteById("slugs-and-snails")).toCompletionStage()))
 					.expectComplete()
 					.verify();
 	}

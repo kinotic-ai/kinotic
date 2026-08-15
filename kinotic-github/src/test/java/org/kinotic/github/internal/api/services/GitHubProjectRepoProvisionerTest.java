@@ -26,7 +26,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,7 +69,7 @@ class GitHubProjectRepoProvisionerTest {
         install.setGithubInstallationId(42L);
         install.setAccountLogin("acme");
         when(installationService.findForCurrentOrg())
-                .thenReturn(CompletableFuture.completedFuture(install));
+                .thenReturn(Future.succeededFuture(install));
         when(apiClient.getToken(eq(42L), isNull(), eq(GitHubApiClient.CREATE_REPOSITORY)))
                 .thenReturn(Future.succeededFuture(new GitHubToken("install-token", Instant.now().plusSeconds(3600))));
         when(apiClient.getToken(eq(42L), eq(99L), eq(GitHubApiClient.WRITE_CONTENTS)))
@@ -93,7 +92,7 @@ class GitHubProjectRepoProvisionerTest {
         when(apiClient.downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main")))
                 .thenReturn(Future.succeededFuture(templateTarball()));
 
-        Project project = provisioner.provision(project()).get();
+        Project project = provisioner.provision(project()).await();
 
         assertEquals("acme/demo", project.getRepoFullName());
         assertEquals(99L, project.getRepoId());
@@ -139,7 +138,7 @@ class GitHubProjectRepoProvisionerTest {
                 .thenReturn(Future.failedFuture(new GitHubApiException("downloadTarball failed: HTTP 404")))
                 .thenReturn(Future.succeededFuture(templateTarball()));
 
-        Project project = provisioner.provision(project()).get();
+        Project project = provisioner.provision(project()).await();
 
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
         verify(apiClient, times(2)).downloadTarball(eq("repo-token"), eq("acme/demo"), eq("main"));
@@ -154,7 +153,7 @@ class GitHubProjectRepoProvisionerTest {
 
         // provision succeeds even though initialization failed: the repo was created,
         // so the project is adopted with a retryable status rather than orphaned.
-        Project project = provisioner.provision(project()).get();
+        Project project = provisioner.provision(project()).await();
 
         assertEquals("acme/demo", project.getRepoFullName());
         assertEquals(99L, project.getRepoId());
@@ -172,7 +171,7 @@ class GitHubProjectRepoProvisionerTest {
         failed.setRepoDefaultBranch("main");
         failed.setRepoConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
 
-        Project project = provisioner.reinitialize(failed).get();
+        Project project = provisioner.reinitialize(failed).await();
 
         assertEquals(RepositoryConnectionStatus.CONNECTED, project.getRepoConnectionStatus());
         verify(apiClient, never()).createRepoFromTemplate(anyString(), anyString(), anyString(),
