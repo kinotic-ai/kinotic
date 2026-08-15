@@ -249,7 +249,9 @@ export class ServiceInvocationSupervisor {
         }
 
         const serviceName = this.serviceIdentifier.qualifiedName()
-        return this.tracer.startSpan(`${serviceName}/${methodName}`,
+        // Named for the simple service name: the zone and namespace repeat across every service, so
+        // a fully qualified name pushes the method out of view in a trace list. rpc.service keeps it.
+        return this.tracer.startSpan(`${this.serviceIdentifier.name}/${methodName}`,
                                      {
                                          kind: SpanKind.SERVER,
                                          attributes: {

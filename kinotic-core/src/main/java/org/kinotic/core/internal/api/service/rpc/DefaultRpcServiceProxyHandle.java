@@ -180,7 +180,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
      */
     private Span startInvocationSpan(Method method, String scope){
         String serviceName = serviceIdentifier.qualifiedName();
-        Span ret = tracer.spanBuilder(serviceName + "/" + method.getName())
+        // Simple name here, fully qualified on rpc.service — see ServiceInvocationSupervisor
+        Span ret = tracer.spanBuilder(serviceIdentifier.name() + "/" + method.getName())
                          .setSpanKind(SpanKind.CLIENT)
                          .setAttribute(TelemetryUtil.RPC_SYSTEM, TelemetryUtil.SYSTEM_VALUE)
                          .setAttribute(TelemetryUtil.RPC_SERVICE, serviceName)
