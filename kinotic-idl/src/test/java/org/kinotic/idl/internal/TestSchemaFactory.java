@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.AsyncC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.EnumC3Type;
@@ -20,10 +21,15 @@ import org.kinotic.idl.internal.support.BrokenTestService;
 import org.kinotic.idl.internal.support.DefaultTestRenamedService;
 import org.kinotic.idl.internal.support.TestRenamedService;
 import org.kinotic.idl.internal.support.OtherTestService;
+import org.kinotic.idl.internal.support.TestAddress;
+import org.kinotic.idl.internal.support.TestCollidingPageService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestNamedHintService;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestOverloadedService;
+import org.kinotic.idl.internal.support.TestPage;
+import org.kinotic.idl.internal.support.TestPagedService;
+import org.kinotic.idl.internal.support.TestRawPageService;
 import org.kinotic.idl.internal.support.TestService;
 import org.kinotic.idl.internal.support.TestStatus;
 import org.kinotic.idl.internal.support.TestSweptService;
@@ -80,17 +86,7 @@ public class TestSchemaFactory {
 
         // an enum property converts as an EnumC3Type with the constant names, not through the
         // PojoTypeConverter catch-all (which would introspect Enum internals and fail on Class<E>)
-        ObjectC3Type testObject = (ObjectC3Type) namespaceDefinition.getComplexC3Types()
-                                                                    .stream()
-                                                                    .filter(type -> type.getName().equals("TestObject"))
-                                                                    .findFirst()
-                                                                    .orElseThrow();
-        C3Type statusType = testObject.getProperties()
-                                      .stream()
-                                      .filter(property -> property.getName().equals("status"))
-                                      .findFirst()
-                                      .orElseThrow()
-                                      .getType();
+        C3Type statusType = findProperty(findComplexType(namespaceDefinition, "TestObject"), "status");
         Assertions.assertEquals(new EnumC3Type().setNamespace(TestStatus.class.getPackageName())
                                                 .setName(TestStatus.class.getSimpleName())
                                                 .setValues(List.of("ACTIVE", "RETIRED")),
@@ -136,6 +132,52 @@ public class TestSchemaFactory {
         // nothing declares findById a tool but TestObjectCrudService's type-level sweep, so its name decides
         Assertions.assertTrue(inherited.isReadOnlyHint());
         Assertions.assertFalse(inherited.isDestructiveHint());
+    }
+
+    @Test
+    public void testGenericInstantiationsMonomorphize() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestPagedService.class, TestPagedService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestPagedService.class);
+
+        // each instantiation publishes as its own concrete type named for its type argument, so the two
+        // pages coexist instead of colliding on the raw name "TestPage"
+        String namespace = TestPage.class.getPackageName();
+        Assertions.assertEquals(new AsyncC3Type(new ReferenceC3Type(namespace + ".TestObjectTestPage")),
+                                findFunction(service, "findObjects").getReturnType());
+        Assertions.assertEquals(new ReferenceC3Type(namespace + ".TestAddressTestPage"),
+                                findFunction(service, "findAddresses").getReturnType());
+
+        // TestObjectTestPage, TestAddressTestPage, TestObject, TestAddress
+        Assertions.assertEquals(4, namespaceDefinition.getComplexC3Types().size());
+
+        // the structure is bound to the same instantiation the name states
+        Assertions.assertEquals(new ArrayC3Type(new ReferenceC3Type(TestObject.class.getName())),
+                                findProperty(findComplexType(namespaceDefinition, "TestObjectTestPage"), "content"));
+        Assertions.assertEquals(new ArrayC3Type(new ReferenceC3Type(TestAddress.class.getName())),
+                                findProperty(findComplexType(namespaceDefinition, "TestAddressTestPage"), "content"));
+    }
+
+    @Test
+    public void testGenericArgumentNameCollisionRejected() {
+        // both functions' returns monomorphize to "TestObjectTestPage" in the same namespace — one per
+        // argument package — with different content types, so conversion fails and the service is omitted
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestCollidingPageService.class, TestCollidingPageService.class),
+                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
+        findService(namespaceDefinition, OtherTestService.class);
+    }
+
+    @Test
+    public void testRawGenericRejected() {
+        // a raw TestPage leaves T unresolved, and an open signature cannot be described to a wire consumer
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRawPageService.class, TestRawPageService.class)));
+
+        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
     }
 
     @Test
@@ -295,6 +337,23 @@ public class TestSchemaFactory {
         McpToolC3Decorator ret = findFunction(service, functionName).findDecorator(McpToolC3Decorator.class);
         Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
         return ret;
+    }
+
+    private ObjectC3Type findComplexType(NamespaceDefinition namespaceDefinition, String name) {
+        return (ObjectC3Type) namespaceDefinition.getComplexC3Types()
+                                                 .stream()
+                                                 .filter(type -> type.getName().equals(name))
+                                                 .findFirst()
+                                                 .orElseThrow();
+    }
+
+    private C3Type findProperty(ObjectC3Type objectC3Type, String name) {
+        return objectC3Type.getProperties()
+                           .stream()
+                           .filter(property -> property.getName().equals(name))
+                           .findFirst()
+                           .orElseThrow()
+                           .getType();
     }
 
     private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {

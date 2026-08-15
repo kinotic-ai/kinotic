@@ -46,7 +46,7 @@ public class PojoTypeConverter implements GenericTypeConverter {
 
         ObjectC3Type ret = new ObjectC3Type();
         ret.setNamespace(rawClass.getPackage().getName());
-        ret.setName(rawClass.getSimpleName());
+        ret.setName(monomorphicName(resolvableType, rawClass));
 
         PropertyDescriptor[] descriptors = BeanUtils.getPropertyDescriptors(rawClass);
 
@@ -66,6 +66,34 @@ public class PojoTypeConverter implements GenericTypeConverter {
             }
         }
         return ret;
+    }
+
+    /**
+     * The C3 name for the given instantiation. C3 has no generics, so each instantiation of a generic class
+     * publishes as its own concrete type, named by prefixing the resolved type arguments' simple names onto
+     * the raw class's simple name: {@code Page<Organization>} is named "OrganizationPage" and
+     * {@code CursorPage<Person>} "PersonCursorPage", with nested instantiations named recursively. A
+     * non-generic class keeps its simple name.
+     * @param resolvableType the instantiation being converted
+     * @param rawClass the raw class of {@code resolvableType}
+     * @return the name for the {@link ObjectC3Type}
+     * @throws IllegalStateException if a type argument does not resolve to a class, since a signature with an
+     *         open type variable cannot be described to a wire consumer
+     */
+    private String monomorphicName(ResolvableType resolvableType, Class<?> rawClass) {
+        StringBuilder name = new StringBuilder();
+        for (ResolvableType typeArgument : resolvableType.getGenerics()) {
+            Class<?> argumentClass = typeArgument.resolve();
+            if (argumentClass == null) {
+                throw new IllegalStateException("Cannot convert " + resolvableType + ": type argument '"
+                        + typeArgument.getType() + "' of " + rawClass.getName()
+                        + " does not resolve to a class, so it cannot be described to a wire consumer");
+            }
+            name.append(monomorphicName(typeArgument, argumentClass));
+        }
+        // an array class's simple name is bracketed ("Foo[]"), which cannot appear in a type name
+        name.append(rawClass.getSimpleName().replace("[]", "Array"));
+        return name.toString();
     }
 
     private boolean ignorePropertyDescriptor(PropertyDescriptor descriptor){
