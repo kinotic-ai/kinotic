@@ -20,8 +20,8 @@ import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.FunctionDescriptor;
 import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
-import org.kinotic.core.internal.api.service.RpcTelemetry;
 import org.kinotic.core.internal.utils.EventUtil;
+import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -365,7 +365,7 @@ public class ServiceInvocationSupervisor {
     private Span startInvocationSpan(Event<byte[]> incomingEvent){
         io.opentelemetry.context.Context parent = propagator.extract(io.opentelemetry.context.Context.current(),
                                                                      incomingEvent.metadata(),
-                                                                     RpcTelemetry.METADATA_GETTER);
+                                                                     TelemetryUtil.METADATA_GETTER);
         // The path is the method id, carrying the leading / the method map is keyed by
         String methodName = incomingEvent.cri().path().substring(1);
         String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
@@ -373,9 +373,9 @@ public class ServiceInvocationSupervisor {
         return tracer.spanBuilder(serviceName + "/" + methodName)
                      .setParent(parent)
                      .setSpanKind(SpanKind.SERVER)
-                     .setAttribute(RpcTelemetry.RPC_SYSTEM, RpcTelemetry.SYSTEM_VALUE)
-                     .setAttribute(RpcTelemetry.RPC_SERVICE, serviceName)
-                     .setAttribute(RpcTelemetry.RPC_METHOD, methodName)
+                     .setAttribute(TelemetryUtil.RPC_SYSTEM, TelemetryUtil.SYSTEM_VALUE)
+                     .setAttribute(TelemetryUtil.RPC_SERVICE, serviceName)
+                     .setAttribute(TelemetryUtil.RPC_METHOD, methodName)
                      .startSpan();
     }
 

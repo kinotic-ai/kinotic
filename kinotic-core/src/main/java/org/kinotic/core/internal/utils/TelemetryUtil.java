@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.service;
+package org.kinotic.core.internal.utils;
 
 import io.opentelemetry.api.common.AttributeKey;
 import io.opentelemetry.context.propagation.TextMapGetter;
@@ -15,7 +15,7 @@ import java.util.Map;
  *
  * Created by Claude on 2026-08-15.
  */
-public class RpcTelemetry {
+public class TelemetryUtil {
 
     /**
      * Identifies the RPC system in span attributes. The Kinotic client reports the same value for

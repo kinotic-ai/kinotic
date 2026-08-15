@@ -23,8 +23,8 @@ import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.core.internal.api.service.RpcTelemetry;
 import org.kinotic.core.internal.utils.MetaUtil;
+import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ReflectionUtils;
@@ -182,9 +182,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         String serviceName = serviceIdentifier.qualifiedName();
         Span ret = tracer.spanBuilder(serviceName + "/" + method.getName())
                          .setSpanKind(SpanKind.CLIENT)
-                         .setAttribute(RpcTelemetry.RPC_SYSTEM, RpcTelemetry.SYSTEM_VALUE)
-                         .setAttribute(RpcTelemetry.RPC_SERVICE, serviceName)
-                         .setAttribute(RpcTelemetry.RPC_METHOD, method.getName())
+                         .setAttribute(TelemetryUtil.RPC_SYSTEM, TelemetryUtil.SYSTEM_VALUE)
+                         .setAttribute(TelemetryUtil.RPC_SERVICE, serviceName)
+                         .setAttribute(TelemetryUtil.RPC_METHOD, method.getName())
                          .startSpan();
         if(scope != null){
             ret.setAttribute("kinotic.scope", scope);
@@ -276,7 +276,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             metadata.put(EventConstants.CONTENT_TYPE_HEADER, rpcArgumentConverter.producesContentType());
 
             // Carries this span to the remote end, which continues the trace instead of starting one
-            propagator.inject(Context.current().with(span), metadata, RpcTelemetry.METADATA_SETTER);
+            propagator.inject(Context.current().with(span), metadata, TelemetryUtil.METADATA_SETTER);
 
             // TODO: use version string to determine how specific the invocation has to be like npm semantics ^1.0.0 ect
             CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
