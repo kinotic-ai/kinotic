@@ -11,13 +11,9 @@
       No workloads
     </div>
     <template v-else>
-      <div class="flex h-3 gap-[2px] overflow-hidden rounded">
-        <div
-          v-for="seg in segments.filter(s => s.count > 0)"
-          :key="seg.label"
-          :style="{ width: (seg.count / total * 100) + '%', background: seg.color }"
-          :title="`${seg.label}: ${seg.count}`"
-        />
+      <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
+      <div class="h-8 w-full">
+        <VChart style="height: 100%; width: 100%;" :option="chartOption" autoresize />
       </div>
       <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1">
         <div v-for="seg in segments" :key="seg.label" class="flex items-center gap-1.5 text-sm">
@@ -33,10 +29,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
+import VChart from 'vue-echarts'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus } from '@kinotic-ai/os-api'
 import { isDark } from '@kinotic-ai/frontend-common'
+
+import '@/charts'
 
 type StatusBucket = 'running' | 'starting' | 'stopping' | 'stopped' | 'failed'
 
@@ -79,6 +78,27 @@ const segments = computed(() => STATUS_SERIES.map(series => ({
 })))
 
 const total = computed(() => segments.value.reduce((sum, seg) => sum + seg.count, 0))
+
+// One stacked horizontal bar; the surface-colored border draws the gap between segments.
+// The legend stays in HTML below the chart, where it can carry the counts.
+const chartOption = computed(() => {
+  const surface = isDark.value ? '#171717' : '#ffffff'
+  return {
+    animationDuration: 300,
+    grid: { left: 0, right: 0, top: 0, bottom: 0 },
+    xAxis: { type: 'value', show: false, max: total.value },
+    yAxis: { type: 'category', show: false, data: [''] },
+    tooltip: { trigger: 'item', confine: true },
+    series: segments.value.filter(seg => seg.count > 0).map(seg => ({
+      name: seg.label,
+      type: 'bar',
+      stack: 'states',
+      barWidth: 12,
+      data: [seg.count],
+      itemStyle: { color: seg.color, borderColor: surface, borderWidth: 1, borderRadius: 2 }
+    }))
+  }
+})
 
 async function load() {
   const next: Record<StatusBucket, number> = { running: 0, starting: 0, stopping: 0, stopped: 0, failed: 0 }
