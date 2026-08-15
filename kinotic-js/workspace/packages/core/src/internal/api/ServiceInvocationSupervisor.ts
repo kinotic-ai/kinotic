@@ -249,7 +249,7 @@ export class ServiceInvocationSupervisor {
         }
 
         const serviceName = this.serviceIdentifier.qualifiedName()
-        return this.tracer.startSpan(`${serviceName}/${methodName}`,
+        return this.tracer.startSpan(`${this.serviceIdentifier.name}/${methodName}`,
                                      {
                                          kind: SpanKind.SERVER,
                                          attributes: {

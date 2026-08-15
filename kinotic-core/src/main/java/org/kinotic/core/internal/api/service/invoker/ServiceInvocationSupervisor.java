@@ -369,8 +369,7 @@ public class ServiceInvocationSupervisor {
         // The path is the method id, carrying the leading / the method map is keyed by
         String methodName = incomingEvent.cri().path().substring(1);
         String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
-
-        return tracer.spanBuilder(serviceName + "/" + methodName)
+        return tracer.spanBuilder(serviceDescriptor.serviceIdentifier().name() + "/" + methodName)
                      .setParent(parent)
                      .setSpanKind(SpanKind.SERVER)
                      .setAttribute(TelemetryUtil.RPC_SYSTEM, TelemetryUtil.SYSTEM_VALUE)
