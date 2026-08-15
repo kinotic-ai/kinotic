@@ -1,7 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -58,7 +57,6 @@ public class KinoticSecurityService implements SecurityService {
     private final ParticipantIdentityService identityService;
     private final LocalAuthenticationService localAuthenticationService;
     private final KinoticJwtIssuer jwtIssuer;
-    private final Vertx vertx;
 
     @Override
     public Future<Participant> authenticate(Map<String, String> authenticationInfo) {
@@ -118,9 +116,7 @@ public class KinoticSecurityService implements SecurityService {
             return Future.failedFuture(new AuthenticationException("clientId and clientSecret headers are required for credential authentication"));
         }
 
-        return Future.fromCompletionStage(localAuthenticationService.authenticateLocal(email, password,
-                                                                                       organizationId, applicationId),
-                                          vertx.getOrCreateContext())
+        return localAuthenticationService.authenticateLocal(email, password, organizationId, applicationId)
                      .compose(user -> {
                          Future<Participant> ret;
                          if (user == null) {

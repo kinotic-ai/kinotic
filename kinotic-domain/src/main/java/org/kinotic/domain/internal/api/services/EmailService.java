@@ -14,6 +14,8 @@ import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
 import com.github.jknack.handlebars.context.MapValueResolver;
 import com.github.jknack.handlebars.io.ClassPathTemplateLoader;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
@@ -62,6 +64,7 @@ public class EmailService {
 
     private final KinoticDomainProperties properties;
     private final InviteEmailTemplateRepository inviteEmailTemplateRepository;
+    private final Vertx vertx;
 
     private volatile EmailClient emailClient;
 
@@ -73,15 +76,15 @@ public class EmailService {
      * @param verificationToken the token to include in the verification URL
      * @return a future that completes once the send has finished (or fails if ACS rejects it)
      */
-    public CompletableFuture<Void> sendVerificationEmail(String email,
-                                                         String displayName,
-                                                         String verificationToken) {
+    public Future<Void> sendVerificationEmail(String email,
+                                              String displayName,
+                                              String verificationToken) {
         String verificationUrl = properties.getDomain().getAppBaseUrl() + VERIFICATION_PATH + verificationToken;
 
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; verification URL for {} <{}>: {}",
                     displayName, email, verificationUrl);
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
 
         Map<String, Object> variables = Map.of("displayName", displayName,
@@ -103,14 +106,14 @@ public class EmailService {
      * @param organizationName display name of the inviting organization
      * @return a future that completes once the send has finished (or fails if ACS rejects it)
      */
-    public CompletableFuture<Void> sendInviteEmail(PendingInvite invite, String organizationName) {
+    public Future<Void> sendInviteEmail(PendingInvite invite, String organizationName) {
         String acceptUrl = properties.getDomain().getAppBaseUrl() + INVITE_PATH + invite.getVerificationToken();
         String toName = invite.getDisplayName() != null ? invite.getDisplayName() : invite.getEmail();
 
         if (!properties.getDomain().getEmail().isEnabled()) {
             log.warn("Email sending is disabled; invite accept URL for {} <{}>: {}",
                     toName, invite.getEmail(), acceptUrl);
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
 
         long expiresInDays = Math.max(1, Math.round(
@@ -138,8 +141,7 @@ public class EmailService {
         }
         return inviteEmailTemplateRepository.findByApplication(invite.getApplicationId(),
                                                                invite.getOrganizationId())
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(template -> {
+                .compose(template -> {
                     if (template == null) {
                         return send(invite.getEmail(), toName, defaultSubject,
                                     render(INVITE_HTML, variables),
@@ -203,11 +205,11 @@ public class EmailService {
         }
     }
 
-    private CompletableFuture<Void> send(String toEmail,
-                                         String toName,
-                                         String subject,
-                                         String htmlBody,
-                                         String textBody) {
+    private Future<Void> send(String toEmail,
+                              String toName,
+                              String subject,
+                              String htmlBody,
+                              String textBody) {
         EmailClient client = getOrBuildEmailClient();
 
         EmailMessage message = new EmailMessage()
@@ -217,7 +219,7 @@ public class EmailService {
                 .setBodyHtml(htmlBody)
                 .setBodyPlainText(textBody);
 
-        return CompletableFuture.supplyAsync(() -> {
+        return Future.fromCompletionStage(CompletableFuture.supplyAsync(() -> {
             SyncPoller<EmailSendResult, EmailSendResult> poller = client.beginSend(message);
             poller.waitForCompletion(properties.getDomain().getEmail().getSendTimeout());
             EmailSendResult result = poller.getFinalResult();
@@ -228,7 +230,7 @@ public class EmailService {
             }
             throw new IllegalStateException("Azure Communication Services rejected the send: status="
                     + result.getStatus() + " messageId=" + result.getId());
-        });
+        }), vertx.getOrCreateContext());
     }
 
     /**

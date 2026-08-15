@@ -1,5 +1,6 @@
 package org.kinotic.orchestrator.internal.api.model.grind;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
 import org.kinotic.orchestrator.api.model.grind.JobRun;
@@ -18,7 +19,6 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Deque;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -38,7 +38,7 @@ public class JobRunRecorder {
 
     private final Map<String, TaskRecord> recordsByPath = new ConcurrentHashMap<>();
     // Persistence calls are chained so writes for the same document can never race each other
-    private CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
+    private Future<Void> writeChain = Future.succeededFuture();
 
     public JobRunRecorder(String jobRunId,
                           JobDefinition jobDefinition,
@@ -75,13 +75,13 @@ public class JobRunRecorder {
         jobRun.setOrganizationId(organizationId)
               .setApplicationId(applicationId)
               .setProjectId(projectId);
-        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     public void runStarted() {
         jobRun.setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
-        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     public void record(Result<?> result) {
@@ -98,14 +98,14 @@ public class JobRunRecorder {
         TaskRecord record = recordsByPath.get(stepPath);
         if(record != null){
             record.setDynamicSteps(true);
-            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+            enqueue(() -> taskRecordService.save(record));
         }
     }
 
     public void runCompleted() {
         jobRun.setStatus(ExecutionStatus.COMPLETED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     public void runFailed(Throwable throwable) {
@@ -113,14 +113,14 @@ public class JobRunRecorder {
         jobRun.setStatus(ExecutionStatus.FAILED)
               .setError(throwable.toString())
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     public void runCancelled() {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
         jobRun.setStatus(ExecutionStatus.CANCELLED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun).toCompletionStage().toCompletableFuture());
+        enqueue(() -> jobRunService.save(jobRun));
     }
 
     private void stepStarted(String stepPath, String description) {
@@ -131,7 +131,7 @@ public class JobRunRecorder {
                                             .setStatus(ExecutionStatus.RUNNING)
                                             .setStarted(new Date());
         recordsByPath.put(stepPath, record);
-        enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+        enqueue(() -> taskRecordService.save(record));
     }
 
     private void stepCompleted(String stepPath, StepCompletion completion) {
@@ -176,7 +176,7 @@ public class JobRunRecorder {
                              + completion.getStoredValue().getClass().getName() + " is not serializable", e);
                 }
             }
-            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+            enqueue(() -> taskRecordService.save(record));
         }
     }
 
@@ -189,7 +189,7 @@ public class JobRunRecorder {
         record.setStatus(ExecutionStatus.FAILED)
               .setError(message)
               .setFinished(new Date());
-        enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+        enqueue(() -> taskRecordService.save(record));
         throw new IllegalStateException(message, cause);
     }
 
@@ -201,7 +201,7 @@ public class JobRunRecorder {
             record.setStatus(ExecutionStatus.FAILED)
                   .setError(throwable.toString())
                   .setFinished(new Date());
-            enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+            enqueue(() -> taskRecordService.save(record));
         }
     }
 
@@ -214,7 +214,7 @@ public class JobRunRecorder {
             if(record.getStatus() == ExecutionStatus.RUNNING){
                 record.setStatus(status)
                       .setFinished(new Date());
-                enqueue(() -> taskRecordService.save(record).toCompletionStage().toCompletableFuture());
+                enqueue(() -> taskRecordService.save(record));
             }
         }
     }
@@ -229,14 +229,14 @@ public class JobRunRecorder {
                         .collect(Collectors.joining("/"));
     }
 
-    private synchronized void enqueue(Supplier<CompletableFuture<?>> writeOperation) {
-        writeChain = writeChain.thenCompose(v -> writeOperation.get()
-                                                               .handle((r, t) -> {
-                                                                   if(t != null){
-                                                                       log.warn("Failed to persist record for run {}", jobRunId, t);
-                                                                   }
-                                                                   return null;
-                                                               }));
+    private synchronized void enqueue(Supplier<Future<?>> writeOperation) {
+        writeChain = writeChain.compose(v -> writeOperation.get()
+                                                           .transform(ar -> {
+                                                               if(ar.failed()){
+                                                                   log.warn("Failed to persist record for run {}", jobRunId, ar.cause());
+                                                               }
+                                                               return Future.succeededFuture();
+                                                           }));
     }
 
 }

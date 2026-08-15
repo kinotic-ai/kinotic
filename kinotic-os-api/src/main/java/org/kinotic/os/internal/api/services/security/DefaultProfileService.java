@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
@@ -9,8 +10,6 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.os.api.services.security.ProfileService;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CompletableFuture;
-
 @Component
 @RequiredArgsConstructor
 public class DefaultProfileService implements ProfileService {
@@ -18,25 +17,23 @@ public class DefaultProfileService implements ProfileService {
     private final ParticipantIdentityService identityService;
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> findMyProfile(Participant participant) {
+    public Future<UserParticipantIdentity> findMyProfile(Participant participant) {
         return loadCallingUser(participant);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant) {
+    public Future<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant) {
         Validate.notBlank(displayName, "displayName is required");
         return loadCallingUser(participant)
-                .thenCompose(user -> identityService.save(user.setDisplayName(displayName))
-                                                    .toCompletionStage().toCompletableFuture())
-                .thenApply(UserParticipantIdentity.class::cast);
+                .compose(user -> identityService.save(user.setDisplayName(displayName)))
+                .map(UserParticipantIdentity.class::cast);
     }
 
     /** Loads the identity behind the calling participant. */
-    private CompletableFuture<UserParticipantIdentity> loadCallingUser(Participant participant) {
+    private Future<UserParticipantIdentity> loadCallingUser(Participant participant) {
         DomainUtil.requireUserParticipant(participant);
         return identityService.findById(participant.getId())
-                              .toCompletionStage().toCompletableFuture()
-                              .thenApply(identity -> {
+                              .map(identity -> {
                                   // a session outlives its row when an admin removes the member mid-session
                                   if (!(identity instanceof UserParticipantIdentity user)) {
                                       throw new IllegalArgumentException("Profile not found.");

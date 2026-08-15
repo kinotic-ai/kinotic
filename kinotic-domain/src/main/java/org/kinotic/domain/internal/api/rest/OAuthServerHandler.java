@@ -128,9 +128,8 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        Future.fromCompletionStage(
-                      oauthAuthorizationService.createAuthorizationRequest(clientId, redirectUri, codeChallenge,
-                                                                           scope, resource, state))
+        oauthAuthorizationService.createAuthorizationRequest(clientId, redirectUri, codeChallenge,
+                                                             scope, resource, state)
               .onSuccess(requestId -> ctx.response()
                                          .setStatusCode(302)
                                          .putHeader("Location", authEndpointSupport.appUrl("/oauth/consent?request_id="
@@ -153,7 +152,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_client");
             return;
         }
-        Future.fromCompletionStage(deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name")))
+        deviceCodeGrantService.start(ctx.request().getFormAttribute("device_name"))
               .onSuccess(start -> {
                   // /device is a kinotic-frontend SPA route (DeviceVerification.vue), not a gateway
                   // route — hence appBaseUrl (SPA origin), not apiBaseUrl. The signed-in browser
@@ -198,7 +197,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        Future.fromCompletionStage(deviceCodeGrantService.poll(deviceCode))
+        deviceCodeGrantService.poll(deviceCode)
               .onSuccess(result -> {
                   switch (result.status()) {
                       case AUTHORIZATION_PENDING -> authEndpointSupport.respondError(ctx, 400, "authorization_pending");
@@ -224,7 +223,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
         String clientId = ctx.request().getFormAttribute("client_id");
         String redirectUri = ctx.request().getFormAttribute("redirect_uri");
         String codeVerifier = ctx.request().getFormAttribute("code_verifier");
-        Future.fromCompletionStage(oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier))
+        oauthAuthorizationService.exchangeCode(code, clientId, redirectUri, codeVerifier)
               .compose(exchange -> issueDelegateTokens(ctx, exchange.approver(), DelegateKind.MCP_CLIENT,
                                                        exchange.clientId(), exchange.clientName(), null))
               .onFailure(err -> {
@@ -245,10 +244,9 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
                                              String clientName,
                                              String sessionLabel) {
         return identityService.findOrCreateDelegate(approver, kind, clientKey, clientName)
-                .compose(delegate -> Future.fromCompletionStage(
-                                refreshTokenService.issue(delegate.getId(),
-                                                          delegate.getDelegateKind().getAudience(),
-                                                          sessionLabel))
+                .compose(delegate -> refreshTokenService.issue(delegate.getId(),
+                                                               delegate.getDelegateKind().getAudience(),
+                                                               sessionLabel)
                         .onSuccess(refreshToken -> authEndpointSupport.respondTokenPair(
                                 ctx, delegate, refreshToken, delegate.getDelegateKind().getAudience())))
                 .mapEmpty();
@@ -260,7 +258,7 @@ public class OAuthServerHandler implements SuppliesGatewayRoutes {
             authEndpointSupport.respondError(ctx, 400, "invalid_request");
             return;
         }
-        Future.fromCompletionStage(refreshTokenService.rotate(refreshToken))
+        refreshTokenService.rotate(refreshToken)
               .onSuccess(rotation -> authEndpointSupport.respondTokenPair(
                       ctx, rotation.identity(), rotation.refreshToken(), rotation.audience()))
               .onFailure(err -> {

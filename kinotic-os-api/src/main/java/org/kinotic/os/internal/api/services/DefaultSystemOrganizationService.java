@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -16,8 +17,6 @@ import org.kinotic.os.api.model.security.PendingInviteSummary;
 import org.kinotic.os.api.services.SystemOrganizationService;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CompletableFuture;
-
 @Component
 @RequiredArgsConstructor
 public class DefaultSystemOrganizationService implements SystemOrganizationService {
@@ -29,57 +28,55 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     private final OrganizationService organizationService;
 
     @Override
-    public CompletableFuture<Page<Organization>> findOrganizations(Pageable pageable) {
-        return organizationService.findAll(pageable).toCompletionStage().toCompletableFuture();
+    public Future<Page<Organization>> findOrganizations(Pageable pageable) {
+        return organizationService.findAll(pageable);
     }
 
     @Override
-    public CompletableFuture<Page<Organization>> searchOrganizations(String searchText, Pageable pageable) {
-        return organizationService.search(searchText, pageable).toCompletionStage().toCompletableFuture();
+    public Future<Page<Organization>> searchOrganizations(String searchText, Pageable pageable) {
+        return organizationService.search(searchText, pageable);
     }
 
     @Override
-    public CompletableFuture<Organization> findOrganizationById(String organizationId) {
-        return organizationService.findById(organizationId).toCompletionStage().toCompletableFuture();
+    public Future<Organization> findOrganizationById(String organizationId) {
+        return organizationService.findById(organizationId);
     }
 
     @Override
-    public CompletableFuture<Long> countOrganizations() {
-        return organizationService.count().toCompletionStage().toCompletableFuture();
+    public Future<Long> countOrganizations() {
+        return organizationService.count();
     }
 
     @Override
-    public CompletableFuture<Page<Application>> findApplications(String organizationId, Pageable pageable) {
-        return applicationRepository.findAll(organizationId, pageable).toCompletionStage().toCompletableFuture();
+    public Future<Page<Application>> findApplications(String organizationId, Pageable pageable) {
+        return applicationRepository.findAll(organizationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<Project>> findProjects(String organizationId, Pageable pageable) {
-        return projectRepository.findAll(organizationId, pageable).toCompletionStage().toCompletableFuture();
+    public Future<Page<Project>> findProjects(String organizationId, Pageable pageable) {
+        return projectRepository.findAll(organizationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String organizationId,
-                                                                        String applicationId,
-                                                                        Pageable pageable) {
-        return identityService.findUsersByScope(organizationId, applicationId, pageable)
-                              .toCompletionStage().toCompletableFuture();
+    public Future<Page<UserParticipantIdentity>> findMembers(String organizationId,
+                                                             String applicationId,
+                                                             Pageable pageable) {
+        return identityService.findUsersByScope(organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText,
-                                                                          String organizationId,
-                                                                          String applicationId,
-                                                                          Pageable pageable) {
-        return identityService.searchUsersByScope(searchText, organizationId, applicationId, pageable)
-                              .toCompletionStage().toCompletableFuture();
+    public Future<Page<UserParticipantIdentity>> searchMembers(String searchText,
+                                                               String organizationId,
+                                                               String applicationId,
+                                                               Pageable pageable) {
+        return identityService.searchUsersByScope(searchText, organizationId, applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<PendingInviteSummary>> findPendingInvites(String organizationId,
-                                                                            String applicationId,
-                                                                            Pageable pageable) {
+    public Future<Page<PendingInviteSummary>> findPendingInvites(String organizationId,
+                                                                 String applicationId,
+                                                                 Pageable pageable) {
         return inviteService.findPendingInvites(organizationId, applicationId, pageable)
-                            .thenApply(page -> page.map(PendingInviteSummary::from));
+                            .map(page -> page.map(PendingInviteSummary::from));
     }
 }

@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
@@ -17,8 +18,6 @@ import org.kinotic.os.api.model.security.PendingInviteSummary;
 import org.kinotic.os.api.services.security.MemberService;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CompletableFuture;
-
 @Component
 @RequiredArgsConstructor
 public class DefaultMemberService implements MemberService {
@@ -29,29 +28,27 @@ public class DefaultMemberService implements MemberService {
     private final ApplicationRepository applicationRepository;
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
+    public Future<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         // scope-composed query: a foreign or unknown application matches nothing
-        return identityService.findUsersByScope(participant.getOrganizationId(), applicationId, pageable)
-                              .toCompletionStage().toCompletableFuture();
+        return identityService.findUsersByScope(participant.getOrganizationId(), applicationId, pageable);
     }
 
     @Override
-    public CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
+    public Future<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return identityService.searchUsersByScope(searchText,
                                                   participant.getOrganizationId(),
                                                   applicationId,
-                                                  pageable)
-                              .toCompletionStage().toCompletableFuture();
+                                                  pageable);
     }
 
     @Override
-    public CompletableFuture<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId) {
+    public Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId) {
         Validate.notBlank(email, "email is required");
         OrganizationParticipant participant = requireOrgParticipant();
         return requireOwnedApplication(applicationId, participant.getOrganizationId())
-                .thenCompose(app -> {
+                .compose(app -> {
                     PendingInvite invite = new PendingInvite()
                             .setEmail(email)
                             .setDisplayName(displayName)
@@ -61,43 +58,41 @@ public class DefaultMemberService implements MemberService {
                             .setInvitedByName(participantDisplayName(participant));
                     return inviteService.createInvite(invite);
                 })
-                .thenApply(PendingInviteSummary::from);
+                .map(PendingInviteSummary::from);
     }
 
     @Override
-    public CompletableFuture<Void> setMemberEnabled(String identityId, boolean enabled) {
+    public Future<Void> setMemberEnabled(String identityId, boolean enabled) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
                 // saveSync so the console's immediate re-query sees the change
-                .thenCompose(user -> identityService.saveSync(user.setEnabled(enabled))
-                                                    .toCompletionStage().toCompletableFuture())
-                .thenApply(u -> null);
+                .compose(user -> identityService.saveSync(user.setEnabled(enabled)))
+                .mapEmpty();
     }
 
     @Override
-    public CompletableFuture<Void> removeMember(String identityId) {
+    public Future<Void> removeMember(String identityId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return loadOwnedMember(identityId, participant)
                 // Cascades the IdentityCredential; sync so the console's immediate re-query
                 // no longer shows the member.
-                .thenCompose(user -> identityService.deleteByIdSync(user.getId())
-                                                    .toCompletionStage().toCompletableFuture());
+                .compose(user -> identityService.deleteByIdSync(user.getId()));
     }
 
     @Override
-    public CompletableFuture<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable) {
+    public Future<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable) {
         OrganizationParticipant participant = requireOrgParticipant();
         return inviteService.findPendingInvites(participant.getOrganizationId(),
                                                 applicationId,
                                                 pageable)
-                .thenApply(page -> new Page<>(page.getContent().stream()
-                                                  .map(PendingInviteSummary::from)
-                                                  .toList(),
-                                              page.getTotalElements()));
+                .map(page -> new Page<>(page.getContent().stream()
+                                            .map(PendingInviteSummary::from)
+                                            .toList(),
+                                        page.getTotalElements()));
     }
 
     @Override
-    public CompletableFuture<Void> cancelInvite(String inviteId) {
+    public Future<Void> cancelInvite(String inviteId) {
         OrganizationParticipant participant = requireOrgParticipant();
         return inviteService.cancelInvite(inviteId, participant.getOrganizationId());
     }
@@ -112,13 +107,12 @@ public class DefaultMemberService implements MemberService {
      * application must exist in the participant's org. Completes with null for an org-member
      * invite (no applicationId).
      */
-    private CompletableFuture<Application> requireOwnedApplication(String applicationId, String organizationId) {
-        CompletableFuture<Application> ret;
+    private Future<Application> requireOwnedApplication(String applicationId, String organizationId) {
+        Future<Application> ret;
         if (applicationId == null) {
-            ret = CompletableFuture.completedFuture(null);
+            ret = Future.succeededFuture();
         } else {
-            ret = applicationRepository.requireById(applicationId, organizationId)
-                                       .toCompletionStage().toCompletableFuture();
+            ret = applicationRepository.requireById(applicationId, organizationId);
         }
         return ret;
     }
@@ -127,17 +121,16 @@ public class DefaultMemberService implements MemberService {
      * Loads a member of the participant's organization for mutation. Rejects acting on the
      * caller's own account, so an admin can't disable or remove themselves out of the org.
      */
-    private CompletableFuture<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
+    private Future<UserParticipantIdentity> loadOwnedMember(String identityId, OrganizationParticipant participant) {
         Validate.notBlank(identityId, "identityId is required");
         if (identityId.equals(participant.getId())) {
-            return CompletableFuture.failedFuture(
+            return Future.failedFuture(
                     new IllegalArgumentException("You cannot perform this action on your own account."));
         }
         return identityService.findById(identityId)
-                .toCompletionStage().toCompletableFuture()
                 // a delegate id gets the same not-found as a foreign one — member management
                 // operates on people; delegates are managed by their owner's revocation flow
-                .thenApply(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
+                .map(identity -> DomainUtil.requireOwned(identity, UserParticipantIdentity.class,
                         user -> participant.getOrganizationId().equals(user.getOrganizationId()),
                         "Member not found."));
     }

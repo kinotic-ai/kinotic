@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -16,7 +17,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -32,23 +32,21 @@ public class DefaultSignUpService implements SignUpService {
     private final EmailService emailService;
 
     @Override
-    public CompletableFuture<Void> initiateLocalSignUp(String email, String displayName) {
+    public Future<Void> initiateLocalSignUp(String email, String displayName) {
         Validate.notBlank(email, "Email is required");
         Validate.notBlank(displayName, "Display name is required");
 
         return pendingSignUpRepository.findByEmail(email)
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(existing -> {
+                .compose(existing -> {
                     if (existing != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        return Future.failedFuture(new IllegalArgumentException(
                                 "A sign-up is already pending for this email. Check your inbox for the verification link."));
                     }
-                    return identityService.findFirstOrgUserByEmail(email)
-                                          .toCompletionStage().toCompletableFuture();
+                    return identityService.findFirstOrgUserByEmail(email);
                 })
-                .thenCompose(existingUser -> {
+                .compose(existingUser -> {
                     if (existingUser != null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        return Future.failedFuture(new IllegalArgumentException(
                                 "An account with this email already exists."));
                     }
                     String token = UUID.randomUUID().toString();
@@ -62,13 +60,12 @@ public class DefaultSignUpService implements SignUpService {
                             .setCreated(now)
                             .setExpiresAt(new Date(now.getTime() + LOCAL_TTL_MS));
                     return pendingSignUpRepository.save(pending)
-                            .toCompletionStage().toCompletableFuture()
-                            .thenCompose(saved -> emailService.sendVerificationEmail(email, displayName, token));
+                            .compose(saved -> emailService.sendVerificationEmail(email, displayName, token));
                 });
     }
 
     @Override
-    public CompletableFuture<PendingSignUp> createOidcPending(PendingSignUp pending) {
+    public Future<PendingSignUp> createOidcPending(PendingSignUp pending) {
         Validate.notBlank(pending.getOidcSubject(), "oidcSubject is required");
         Validate.notBlank(pending.getOidcConfigId(), "oidcConfigId is required");
         Validate.notBlank(pending.getEmail(), "email is required");
@@ -79,33 +76,28 @@ public class DefaultSignUpService implements SignUpService {
                .setVerificationToken(UUID.randomUUID().toString())
                .setCreated(now)
                .setExpiresAt(new Date(now.getTime() + OIDC_TTL_MS));
-        return pendingSignUpRepository.saveSync(pending)
-                                      .toCompletionStage().toCompletableFuture();
+        return pendingSignUpRepository.saveSync(pending);
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
+    public Future<UserParticipantIdentity> completeLocalSignUp(String token, String orgName, String orgDescription, String password) {
         Validate.notBlank(token, "Verification token is required");
         Validate.notBlank(orgName, "Organization name is required");
         Validate.notBlank(password, "Password is required");
 
         return pendingSignUpRepository.findValidByToken(token)
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), password)
-                        .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
-                                .toCompletionStage().toCompletableFuture()
-                                .thenApply(v -> savedAdmin)));
+                .compose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), password)
+                        .compose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .map(savedAdmin)));
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
+    public Future<UserParticipantIdentity> completeOidcWithNewOrg(String token, String orgName, String orgDescription) {
         Validate.notBlank(orgName, "Organization name is required");
         return pendingSignUpRepository.findValidByToken(token)
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
-                        .thenCompose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
-                                .toCompletionStage().toCompletableFuture()
-                                .thenApply(v -> savedAdmin)));
+                .compose(pending -> createOrgWithAdmin(orgName, orgDescription, newUser(pending), null)
+                        .compose(savedAdmin -> pendingSignUpRepository.deleteById(pending.getId())
+                                .map(savedAdmin)));
     }
 
     /**
@@ -113,19 +105,16 @@ public class DefaultSignUpService implements SignUpService {
      * member and creator. The admin (and its credential, when {@code password} is non-null) is
      * created through {@link ParticipantIdentityService#createUser} so member creation has a single code path.
      */
-    private CompletableFuture<UserParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, UserParticipantIdentity admin, String password) {
+    private Future<UserParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, UserParticipantIdentity admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
         return organizationService.create(org)
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(savedOrg -> {
+                .compose(savedOrg -> {
                     admin.setOrganizationId(savedOrg.getId());
                     return identityService.createUser(admin, password)
-                            .toCompletionStage().toCompletableFuture()
-                            .thenCompose(savedAdmin -> {
+                            .compose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
                                 return organizationService.save(savedOrg)
-                                                          .toCompletionStage().toCompletableFuture()
-                                                          .thenApply(o -> savedAdmin);
+                                                          .map(savedAdmin);
                             });
                 });
     }

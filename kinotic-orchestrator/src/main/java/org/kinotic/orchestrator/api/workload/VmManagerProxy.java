@@ -1,11 +1,11 @@
 package org.kinotic.orchestrator.api.workload;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Proxy interface for communicating with a VmManager instance running on a specific node.
@@ -24,7 +24,7 @@ public interface VmManagerProxy {
      * @param workload the workload configuration to start
      * @return a future that will complete with the started workload
      */
-    CompletableFuture<Workload> startWorkload(@Scope String nodeId, Workload workload);
+    Future<Workload> startWorkload(@Scope String nodeId, Workload workload);
 
     /**
      * Restarts a stopped workload in place on the VmManager running on the given node.
@@ -34,7 +34,7 @@ public interface VmManagerProxy {
      * @param workloadId the id of the workload to restart
      * @return a future that will complete with the restarted workload
      */
-    CompletableFuture<Workload> restartWorkload(@Scope String nodeId, String workloadId);
+    Future<Workload> restartWorkload(@Scope String nodeId, String workloadId);
 
     /**
      * Stops a running workload on the VmManager running on the given node.
@@ -42,7 +42,7 @@ public interface VmManagerProxy {
      * @param workloadId the id of the workload to stop
      * @return a future that will complete when the workload has been stopped
      */
-    CompletableFuture<Void> stopWorkload(@Scope String nodeId, String workloadId);
+    Future<Void> stopWorkload(@Scope String nodeId, String workloadId);
 
     /**
      * Destroys a workload on the VmManager running on the given node.
@@ -50,7 +50,7 @@ public interface VmManagerProxy {
      * @param workloadId the id of the workload to destroy
      * @return a future that will complete when the workload has been destroyed
      */
-    CompletableFuture<Void> destroyWorkload(@Scope String nodeId, String workloadId);
+    Future<Void> destroyWorkload(@Scope String nodeId, String workloadId);
 
     /**
      * Gets the current state of a workload from the VmManager running on the given node.
@@ -58,13 +58,13 @@ public interface VmManagerProxy {
      * @param workloadId the id of the workload
      * @return a future that will complete with the workload
      */
-    CompletableFuture<Workload> getWorkload(@Scope String nodeId, String workloadId);
+    Future<Workload> getWorkload(@Scope String nodeId, String workloadId);
 
     /**
      * Lists all workloads managed by the VmManager running on the given node.
      * @param nodeId the id of the node to route to
      * @return a future that will complete with the list of workloads
      */
-    CompletableFuture<List<Workload>> listWorkloads(@Scope String nodeId);
+    Future<List<Workload>> listWorkloads(@Scope String nodeId);
 
 }

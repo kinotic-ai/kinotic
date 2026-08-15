@@ -20,7 +20,6 @@ import java.net.URI;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -60,10 +59,10 @@ public class ClientMetadataDocumentService {
      * is set to something displayable.
      *
      * @param clientId the {@code client_id} from the authorization request
-     * @return a {@link CompletableFuture} emitting the validated document, failing when the
+     * @return a {@link Future} emitting the validated document, failing when the
      *         client_id is not permitted or the document is unreachable or invalid
      */
-    public CompletableFuture<ClientMetadataDocument> resolve(String clientId) {
+    public Future<ClientMetadataDocument> resolve(String clientId) {
         Future<ClientMetadataDocument> ret;
         try {
             URI uri = validateClientIdUrl(clientId);
@@ -79,7 +78,7 @@ public class ClientMetadataDocumentService {
         } catch (IllegalArgumentException e) {
             ret = Future.failedFuture(e);
         }
-        return ret.toCompletionStage().toCompletableFuture();
+        return ret;
     }
 
     /**

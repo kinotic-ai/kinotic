@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,8 +18,6 @@ import org.kinotic.os.api.services.LogService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Default {@link LogService} that authorizes access through the workload record — an
@@ -44,31 +43,29 @@ public class DefaultLogService implements LogService {
     @Override
     public Flux<Buffer> tail(String workloadId) {
         // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
-        CompletableFuture<Workload> authorized = authorizedWorkload(workloadId);
-        return Mono.fromFuture(authorized)
+        Future<Workload> authorized = authorizedWorkload(workloadId);
+        return Mono.fromCompletionStage(authorized.toCompletionStage())
                    .flatMapMany(workload -> lokiClient.tail(tenantFor(workload), logQlFor(workload)));
     }
 
     @Override
-    public CompletableFuture<Buffer> history(LogQuery query) {
+    public Future<Buffer> history(LogQuery query) {
         Validate.notNull(query, "LogQuery cannot be null");
         return authorizedWorkload(query.getWorkloadId())
-                .thenCompose(workload -> lokiClient.queryRange(tenantFor(workload),
-                                                               logQlFor(workload),
-                                                               query.getStart(),
-                                                               query.getEnd(),
-                                                               query.getLimit())
-                                                   .toCompletionStage()
-                                                   .toCompletableFuture());
+                .compose(workload -> lokiClient.queryRange(tenantFor(workload),
+                                                           logQlFor(workload),
+                                                           query.getStart(),
+                                                           query.getEnd(),
+                                                           query.getLimit()));
     }
 
-    private CompletableFuture<Workload> authorizedWorkload(String workloadId) {
+    private Future<Workload> authorizedWorkload(String workloadId) {
         Validate.notBlank(workloadId, "workloadId cannot be blank");
         Participant participant = securityContext.currentParticipant();
         if (participant == null) {
             throw new IllegalStateException("No Participant is bound to the current Vert.x context");
         }
-        return workloadService.findById(workloadId).toCompletionStage().toCompletableFuture().thenApply(workload -> {
+        return workloadService.findById(workloadId).map(workload -> {
             if (workload == null) {
                 throw new IllegalArgumentException("Workload not found: " + workloadId);
             }

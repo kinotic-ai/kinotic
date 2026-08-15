@@ -60,18 +60,16 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
             String displayName = body.getString("displayName");
 
             signUpService.initiateLocalSignUp(email, displayName)
-                    .thenAccept(v -> ctx.response()
+                    .onSuccess(v -> ctx.response()
                             .setStatusCode(200)
                             .putHeader("Content-Type", "application/json")
                             .end(new JsonObject().put("message", "Verification email sent. Please check your inbox.").encode()))
-                    .exceptionally(ex -> {
-                        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                        log.warn("Sign-up failed: {}", cause.getMessage());
+                    .onFailure(ex -> {
+                        log.warn("Sign-up failed: {}", ex.getMessage());
                         ctx.response()
                            .setStatusCode(400)
                            .putHeader("Content-Type", "application/json")
-                           .end(new JsonObject().put("error", cause.getMessage()).encode());
-                        return null;
+                           .end(new JsonObject().put("error", ex.getMessage()).encode());
                     });
         } catch (Exception e) {
             log.error("Failed to parse sign-up request", e);
@@ -97,15 +95,13 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
             String password = body.getString("password");
 
             signUpService.completeLocalSignUp(token, orgName, orgDescription, password)
-                    .thenAccept(user -> authEndpointSupport.respondSuccess(ctx, user))
-                    .exceptionally(ex -> {
-                        Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                        log.warn("Sign-up completion failed: {}", cause.getMessage());
+                    .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
+                    .onFailure(ex -> {
+                        log.warn("Sign-up completion failed: {}", ex.getMessage());
                         ctx.response()
                            .setStatusCode(400)
                            .putHeader("Content-Type", "application/json")
-                           .end(new JsonObject().put("error", cause.getMessage()).encode());
-                        return null;
+                           .end(new JsonObject().put("error", ex.getMessage()).encode());
                     });
         } catch (Exception e) {
             log.error("Failed to parse sign-up completion request", e);
@@ -173,15 +169,14 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
                   pending.setOidcConfigId(config.getId());
                   pending.setEmail(email);
                   pending.setDisplayName(displayName);
-                  return Future.fromCompletionStage(signUpService.createOidcPending(pending));
+                  return signUpService.createOidcPending(pending);
               })
               .onSuccess(pending -> redirectToCompleteOrg(ctx, pending.getVerificationToken()))
               .onFailure(ex -> {
-                  Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                  if (cause instanceof AccountExistsException) {
+                  if (ex instanceof AccountExistsException) {
                       authEndpointSupport.redirectError(ctx, OidcErrorCodes.ACCOUNT_EXISTS);
                   } else {
-                      log.warn("Signup resolution failed: {}", cause.getMessage());
+                      log.warn("Signup resolution failed: {}", ex.getMessage());
                       authEndpointSupport.redirectError(ctx, OidcErrorCodes.SIGNUP_FAILED);
                   }
               });
@@ -207,12 +202,9 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(signUpService.completeOidcWithNewOrg(token, orgName, orgDescription))
+        signUpService.completeOidcWithNewOrg(token, orgName, orgDescription)
               .onSuccess(user -> authEndpointSupport.respondSuccess(ctx, user))
-              .onFailure(ex -> {
-                  Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                  authEndpointSupport.respondError(ctx, 400, cause.getMessage());
-              });
+              .onFailure(ex -> authEndpointSupport.respondError(ctx, 400, ex.getMessage()));
     }
 
     private String callbackUrl(String configId) {

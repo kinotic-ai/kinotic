@@ -1,7 +1,6 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -40,7 +39,6 @@ public class DefaultGitHubAppInstallationService
     private final GitHubApiClient apiClient;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final SecretReferenceResolver secretReferenceResolver;
-    private final Vertx vertx;
 
     public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
@@ -48,8 +46,7 @@ public class DefaultGitHubAppInstallationService
                                                GitHubInstallStateService stateService,
                                                GitHubApiClient apiClient,
                                                OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
-                                               SecretReferenceResolver secretReferenceResolver,
-                                               Vertx vertx) {
+                                               SecretReferenceResolver secretReferenceResolver) {
         super(repository, securityContext);
         this.installationRepository = repository;
         this.properties = properties;
@@ -57,7 +54,6 @@ public class DefaultGitHubAppInstallationService
         this.apiClient = apiClient;
         this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
         this.secretReferenceResolver = secretReferenceResolver;
-        this.vertx = vertx;
     }
 
     @Override
@@ -120,8 +116,7 @@ public class DefaultGitHubAppInstallationService
                         return Future.failedFuture(new IllegalStateException(
                                 "No enabled GitHub OAuth configuration exists to verify the install."));
                     }
-                    return Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()),
-                                                      vertx.getOrCreateContext())
+                    return secretReferenceResolver.resolve(config.getSecretNameRef())
                             .compose(secret -> {
                                 if (secret == null) {
                                     return Future.failedFuture(new IllegalStateException(

@@ -68,7 +68,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.getValidInvite(token))
+        inviteService.getValidInvite(token)
               .compose(invite -> {
                   Future<String> orgName = organizationService.findById(invite.getOrganizationId())
                           .map(org -> org == null ? null : org.getName());
@@ -106,7 +106,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.acceptLocalInvite(token, password, displayName))
+        inviteService.acceptLocalInvite(token, password, displayName)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the payload
@@ -138,13 +138,12 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.getValidInvite(token))
+        inviteService.getValidInvite(token)
               .compose(invite -> startFlowForInvite(ctx, invite, configId, token))
               .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
               .onFailure(err -> {
-                  Throwable cause = err.getCause() != null ? err.getCause() : err;
-                  log.warn("Invite OIDC start failed for config {}: {}", configId, cause.getMessage());
-                  String code = cause instanceof OidcCallbackException oce
+                  log.warn("Invite OIDC start failed for config {}: {}", configId, err.getMessage());
+                  String code = err instanceof OidcCallbackException oce
                           ? oce.getErrorCode() : OidcErrorCodes.INVITE_INVALID;
                   redirectInviteError(ctx, code, token);
               });
@@ -162,8 +161,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                 orgId -> resolveCallbackConfig(pathConfigId, orgId))
                 .onSuccess(result -> completeOidcAccept(ctx, result))
                 .onFailure(ex -> {
-                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                    String code = cause instanceof OidcCallbackException oce
+                    String code = ex instanceof OidcCallbackException oce
                             ? oce.getErrorCode() : OidcErrorCodes.EXCHANGE_FAILED;
                     redirectInviteError(ctx, code, null);
                 });
@@ -205,7 +203,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.acceptOidcInvite(token, sub, result.config().getId(), email))
+        inviteService.acceptOidcInvite(token, sub, result.config().getId(), email)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the redirect
@@ -221,13 +219,12 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                   }
               })
               .onFailure(err -> {
-                  Throwable cause = err.getCause() != null ? err.getCause() : err;
-                  if (cause instanceof InviteEmailMismatchException) {
+                  if (err instanceof InviteEmailMismatchException) {
                       // The invite is NOT consumed on mismatch — keep the token so the
                       // invitee can retry with another provider or a password.
                       redirectInviteError(ctx, OidcErrorCodes.EMAIL_MISMATCH, token);
                   } else {
-                      log.warn("Invite acceptance failed: {}", cause.getMessage());
+                      log.warn("Invite acceptance failed: {}", err.getMessage());
                       redirectInviteError(ctx, OidcErrorCodes.INVITE_INVALID, null);
                   }
               });
@@ -309,11 +306,10 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * surface those as 400s and keep everything else generic.
      */
     private void respondInviteFailure(RoutingContext ctx, Throwable err, String genericMessage) {
-        Throwable cause = err.getCause() != null ? err.getCause() : err;
-        if (cause instanceof IllegalArgumentException) {
-            authEndpointSupport.respondError(ctx, 400, cause.getMessage());
+        if (err instanceof IllegalArgumentException) {
+            authEndpointSupport.respondError(ctx, 400, err.getMessage());
         } else {
-            log.warn("{}: {}", genericMessage, cause.getMessage());
+            log.warn("{}: {}", genericMessage, err.getMessage());
             authEndpointSupport.respondError(ctx, 500, genericMessage);
         }
     }

@@ -1,12 +1,11 @@
 package org.kinotic.os.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
 import org.kinotic.os.api.model.security.PendingInviteSummary;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Member management for the caller's organization and its applications, used by the web app. Every
@@ -19,13 +18,13 @@ import java.util.concurrent.CompletableFuture;
 public interface MemberService {
 
     /** Lists the members of the scope. */
-    CompletableFuture<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
+    Future<Page<UserParticipantIdentity>> findMembers(String applicationId, Pageable pageable);
 
     /**
      * Searches the scope's members by free text over email and display name. Blank
      * {@code searchText} is equivalent to {@link #findMembers}.
      */
-    CompletableFuture<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
+    Future<Page<UserParticipantIdentity>> searchMembers(String searchText, String applicationId, Pageable pageable);
 
     /**
      * Invites someone into the scope by email. Sends the invitation email and returns the
@@ -36,23 +35,23 @@ public interface MemberService {
      * @param displayName optional display name for the invitee
      * @param applicationId the application to invite into, or null for an org-member invite
      */
-    CompletableFuture<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId);
+    Future<PendingInviteSummary> inviteMember(String email, String displayName, String applicationId);
 
     /**
      * Enables or disables a member of the caller's organization. Disabling gates future
      * logins; established sessions last until they expire. Callers cannot disable themselves.
      */
-    CompletableFuture<Void> setMemberEnabled(String identityId, boolean enabled);
+    Future<Void> setMemberEnabled(String identityId, boolean enabled);
 
     /**
      * Permanently removes a member of the caller's organization, including any stored
      * credential. Callers cannot remove themselves.
      */
-    CompletableFuture<Void> removeMember(String identityId);
+    Future<Void> removeMember(String identityId);
 
     /** Lists the scope's live (unexpired) pending invitations. */
-    CompletableFuture<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);
+    Future<Page<PendingInviteSummary>> findPendingInvites(String applicationId, Pageable pageable);
 
     /** Cancels a pending invitation belonging to the caller's organization. */
-    CompletableFuture<Void> cancelInvite(String inviteId);
+    Future<Void> cancelInvite(String inviteId);
 }

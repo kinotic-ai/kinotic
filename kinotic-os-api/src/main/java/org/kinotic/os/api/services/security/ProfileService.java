@@ -1,10 +1,9 @@
 package org.kinotic.os.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * The signed-in user's own account details, read and edited from the web app's account
@@ -15,7 +14,7 @@ import java.util.concurrent.CompletableFuture;
 public interface ProfileService {
 
     /** Returns the calling user's identity. */
-    CompletableFuture<UserParticipantIdentity> findMyProfile(Participant participant);
+    Future<UserParticipantIdentity> findMyProfile(Participant participant);
 
     /**
      * Sets the calling user's display name, the name shown wherever they appear in the
@@ -23,5 +22,5 @@ public interface ProfileService {
      *
      * @param displayName the name to show, required
      */
-    CompletableFuture<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant);
+    Future<UserParticipantIdentity> updateDisplayName(String displayName, Participant participant);
 }

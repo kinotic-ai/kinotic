@@ -24,8 +24,6 @@ import reactor.core.publisher.Flux;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
@@ -112,7 +110,8 @@ class DefaultLogServiceTest {
 
     @Test
     void tailResolvesTheWorkloadTenantAndQuery() throws Throwable {
-        callAs(ACME_USER, () -> service.tail("wl-acme").collectList().toFuture());
+        callAs(ACME_USER, () -> Future.fromCompletionStage(service.tail("wl-acme").collectList().toFuture(),
+                                                           vertx.getOrCreateContext()));
 
         assertEquals("acme", lokiClient.tenant);
         assertEquals("{workload_id=\"wl-acme\"}", lokiClient.query);
@@ -130,33 +129,22 @@ class DefaultLogServiceTest {
      * Runs the call on a Vert.x context with the given participant bound, mirroring how the
      * gateway invokes published services.
      */
-    private <T> T callAs(Participant participant, Supplier<CompletableFuture<T>> call) throws Throwable {
-        CompletableFuture<T> result = new CompletableFuture<>();
+    private <T> T callAs(Participant participant, Supplier<Future<T>> call) throws Throwable {
+        Promise<T> result = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(unused -> {
             securityContext.setParticipant(context, participant);
             try {
-                call.get().whenComplete((value, error) -> {
-                    if (error != null) {
-                        result.completeExceptionally(error);
-                    } else {
-                        result.complete(value);
-                    }
-                });
+                call.get().onComplete(result);
             } catch (Throwable error) {
-                result.completeExceptionally(error);
+                result.fail(error);
             }
         });
-        try {
-            return result.get(10, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            // get() already peels the single CompletionException layer minted by
-            // DefaultLogService's internal CF chain, so the cause is the raw failure
-            throw e.getCause();
-        }
+        // await rethrows a failed future's raw cause, so failureOf sees the unwrapped exception
+        return result.future().await(10, TimeUnit.SECONDS);
     }
 
-    private <T> Throwable failureOf(Participant participant, Supplier<CompletableFuture<T>> call) {
+    private <T> Throwable failureOf(Participant participant, Supplier<Future<T>> call) {
         try {
             callAs(participant, call);
             return null;

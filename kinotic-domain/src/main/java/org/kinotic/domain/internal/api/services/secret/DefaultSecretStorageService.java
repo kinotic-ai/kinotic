@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.secret;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.services.SecretStorageService;
 import org.springframework.stereotype.Component;
@@ -7,7 +8,6 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Component
@@ -18,25 +18,25 @@ public class DefaultSecretStorageService implements SecretStorageService {
     private final SecretStorageBackend secretStorageBackend;
 
     @Override
-    public CompletableFuture<Void> setSecret(String secretScope, String key, String value) {
+    public Future<Void> setSecret(String secretScope, String key, String value) {
         String derivedName = secretNameDeriver.derive(secretScope, key);
         return secretStorageBackend.setSecret(derivedName, value);
     }
 
     @Override
-    public CompletableFuture<String> getSecret(String secretScope, String key) {
+    public Future<String> getSecret(String secretScope, String key) {
         String derivedName = secretNameDeriver.derive(secretScope, key);
         return secretStorageBackend.getSecret(derivedName);
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecret(String secretScope, String key) {
+    public Future<Void> deleteSecret(String secretScope, String key) {
         String derivedName = secretNameDeriver.derive(secretScope, key);
         return secretStorageBackend.deleteSecret(derivedName);
     }
 
     @Override
-    public CompletableFuture<Void> setSecrets(String secretScope, Map<String, String> secrets) {
+    public Future<Void> setSecrets(String secretScope, Map<String, String> secrets) {
         Map<String, String> derived = secrets.entrySet()
                                              .stream()
                                              .collect(Collectors.toMap(
@@ -46,14 +46,14 @@ public class DefaultSecretStorageService implements SecretStorageService {
     }
 
     @Override
-    public CompletableFuture<Map<String, String>> getSecrets(String secretScope, Set<String> keys) {
+    public Future<Map<String, String>> getSecrets(String secretScope, Set<String> keys) {
         Map<String, String> derivedToOriginal = keys.stream()
                                                     .collect(Collectors.toMap(
                                                             k -> secretNameDeriver.derive(secretScope, k),
                                                             k -> k));
 
         return secretStorageBackend.getSecrets(List.copyOf(derivedToOriginal.keySet()))
-                                   .thenApply(derivedResults ->
+                                   .map(derivedResults ->
                                            derivedResults.entrySet()
                                                          .stream()
                                                          .collect(Collectors.toMap(
@@ -62,7 +62,7 @@ public class DefaultSecretStorageService implements SecretStorageService {
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecrets(String secretScope, Set<String> keys) {
+    public Future<Void> deleteSecrets(String secretScope, Set<String> keys) {
         List<String> derivedNames = keys.stream()
                                         .map(k -> secretNameDeriver.derive(secretScope, k))
                                         .toList();

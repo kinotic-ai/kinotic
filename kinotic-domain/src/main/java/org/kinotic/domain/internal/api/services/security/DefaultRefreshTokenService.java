@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -17,7 +18,6 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 
 @Slf4j
@@ -35,20 +35,19 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<String> issue(String identityId, KinoticAudience audience, String label) {
+    public Future<String> issue(String identityId, KinoticAudience audience, String label) {
         Validate.notBlank(identityId, "identityId is required");
         Validate.notNull(audience, "audience is required");
         return mint(identityId, UUID.randomUUID().toString(), audience, StringUtils.trimToNull(label))
-                .thenApply(Minted::plaintext);
+                .map(Minted::plaintext);
     }
 
     @Override
-    public CompletableFuture<List<DelegateSession>> findActiveSessions(String identityId) {
+    public Future<List<DelegateSession>> findActiveSessions(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
         Date now = new Date();
         return refreshTokenRepository.findActiveByIdentityId(identityId)
-                .toCompletionStage().toCompletableFuture()
-                .thenApply(tokens -> tokens.stream()
+                .map(tokens -> tokens.stream()
                         .filter(t -> t.getExpiresAt().after(now))
                         .map(t -> new DelegateSession(t.getFamilyId(), t.getLabel(),
                                                       t.getCreated(), t.getExpiresAt()))
@@ -56,80 +55,74 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
     }
 
     @Override
-    public CompletableFuture<Void> revokeFamily(String identityId, String familyId) {
+    public Future<Void> revokeFamily(String identityId, String familyId) {
         Validate.notBlank(identityId, "identityId is required");
         Validate.notBlank(familyId, "familyId is required");
         // identity scoping over every row: a family id from another identity's
         // lineage revokes nothing
-        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId)
-                                                    .toCompletionStage().toCompletableFuture(),
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId),
                               t -> identityId.equals(t.getIdentityId()));
     }
 
     @Override
-    public CompletableFuture<Void> revokeAllFor(String identityId) {
+    public Future<Void> revokeAllFor(String identityId) {
         Validate.notBlank(identityId, "identityId is required");
-        return revokeMatching(refreshTokenRepository.findActiveByIdentityId(identityId)
-                                                    .toCompletionStage().toCompletableFuture(),
+        return revokeMatching(refreshTokenRepository.findActiveByIdentityId(identityId),
                               t -> true);
     }
 
     @Override
-    public CompletableFuture<RefreshTokenRotation> rotate(String token) {
+    public Future<RefreshTokenRotation> rotate(String token) {
         Validate.notBlank(token, "token is required");
         return refreshTokenRepository.findByTokenHash(DomainUtil.sha256Hex(token))
-                                     .toCompletionStage().toCompletableFuture()
-                                     .thenCompose(this::rotateExisting);
+                                     .compose(this::rotateExisting);
     }
 
-    private CompletableFuture<RefreshTokenRotation> rotateExisting(RefreshToken current) {
+    private Future<RefreshTokenRotation> rotateExisting(RefreshToken current) {
         if (current == null) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown refresh token"));
+            return Future.failedFuture(new IllegalArgumentException("Unknown refresh token"));
         }
         if (current.isRevoked()) {
             // Reuse of an already-rotated token — the lineage is compromised; revoke it entirely.
             log.warn("Refresh token reuse detected for family {}; revoking the whole family", current.getFamilyId());
             return revokeFamily(current.getFamilyId())
-                    .thenCompose(v -> CompletableFuture.failedFuture(
+                    .compose(v -> Future.failedFuture(
                             new IllegalArgumentException("Refresh token reuse detected")));
         }
         if (current.getExpiresAt().before(new Date())) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("Refresh token has expired"));
+            return Future.failedFuture(new IllegalArgumentException("Refresh token has expired"));
         }
         if (current.getAudience() == null) {
             // mint() stamps every lineage, so this is a corrupted record; failing beats guessing an
             // audience, which would hand the replacement a surface the lineage never covered
             log.error("Refresh token {} in family {} has no audience", current.getId(), current.getFamilyId());
-            return CompletableFuture.failedFuture(new IllegalStateException("Refresh token has no audience"));
+            return Future.failedFuture(new IllegalStateException("Refresh token has no audience"));
         }
         return identityRepository.findById(current.getIdentityId())
-                .toCompletionStage().toCompletableFuture()
-                .thenCompose(identity -> {
+                .compose(identity -> {
                     if (identity == null || !identity.isEnabled()) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Refresh token identity is missing or disabled"));
                     }
                     // Mint the replacement before revoking the current token so a failure mid-rotation
                     // never leaves the client without a usable token.
                     return mint(current.getIdentityId(), current.getFamilyId(), current.getAudience(),
                                 current.getLabel())
-                            .thenCompose(minted -> {
+                            .compose(minted -> {
                                 current.setRevoked(true)
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
                                 return refreshTokenRepository.saveSync(current)
-                                        .toCompletionStage().toCompletableFuture()
-                                        .thenApply(v -> new RefreshTokenRotation(identity, minted.plaintext(),
-                                                                                  current.getAudience()));
+                                        .map(new RefreshTokenRotation(identity, minted.plaintext(),
+                                                                      current.getAudience()));
                             });
                 });
     }
 
     // unscoped by design: reuse detection already proved the lineage compromised, so the
     // whole family dies regardless of which identity its rows carry
-    private CompletableFuture<Void> revokeFamily(String familyId) {
-        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId)
-                                                    .toCompletionStage().toCompletableFuture(),
+    private Future<Void> revokeFamily(String familyId) {
+        return revokeMatching(refreshTokenRepository.findByFamilyId(familyId),
                               t -> true);
     }
 
@@ -138,19 +131,18 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
      * revoked. The scope predicate is the security-relevant part of every revocation — each
      * caller states its own.
      */
-    private CompletableFuture<Void> revokeMatching(CompletableFuture<List<RefreshToken>> tokens,
-                                                   Predicate<RefreshToken> scope) {
-        return tokens.thenCompose(list -> {
-            CompletableFuture<?>[] saves = list.stream()
+    private Future<Void> revokeMatching(Future<List<RefreshToken>> tokens,
+                                        Predicate<RefreshToken> scope) {
+        return tokens.compose(list -> {
+            List<Future<RefreshToken>> saves = list.stream()
                     .filter(t -> !t.isRevoked() && scope.test(t))
-                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true))
-                                                    .toCompletionStage().toCompletableFuture())
-                    .toArray(CompletableFuture[]::new);
-            return CompletableFuture.allOf(saves);
+                    .map(t -> refreshTokenRepository.saveSync(t.setRevoked(true)))
+                    .toList();
+            return Future.all(saves).mapEmpty();
         });
     }
 
-    private CompletableFuture<Minted> mint(String identityId, String familyId, KinoticAudience audience, String label) {
+    private Future<Minted> mint(String identityId, String familyId, KinoticAudience audience, String label) {
         String plaintext = DomainUtil.generateUrlSafeToken(TOKEN_BYTES);
         Date now = new Date();
         RefreshToken record = new RefreshToken()
@@ -164,8 +156,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                 .setExpiresAt(new Date(now.getTime() + TOKEN_TTL_MS))
                 .setRevoked(false);
         return refreshTokenRepository.saveSync(record)
-                                     .toCompletionStage().toCompletableFuture()
-                                     .thenApply(saved -> new Minted(record, plaintext));
+                                     .map(new Minted(record, plaintext));
     }
 
     /** A persisted {@link RefreshToken} paired with its plaintext, which exists only at mint time. */

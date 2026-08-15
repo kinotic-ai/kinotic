@@ -4,7 +4,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
@@ -340,7 +339,7 @@ public class AuthEndpointSupport {
      * the authenticate call (already scope-aware where appropriate).
      */
     public void handlePasswordLogin(RoutingContext ctx,
-                                    BiFunction<String, String, CompletionStage<UserParticipantIdentity>> authenticate) {
+                                    BiFunction<String, String, Future<UserParticipantIdentity>> authenticate) {
         JsonObject body = readJsonBody(ctx);
         String email = body.getString("email");
         String password = body.getString("password");
@@ -348,7 +347,7 @@ public class AuthEndpointSupport {
             respondError(ctx, 400, "email and password are required");
             return;
         }
-        Future.fromCompletionStage(authenticate.apply(email, password))
+        authenticate.apply(email, password)
               .onSuccess(user -> {
                   if (user == null) {
                       // Generic 401 — covers unknown email, wrong password, OIDC user, disabled.

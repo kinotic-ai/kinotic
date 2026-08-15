@@ -1,9 +1,6 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.crud.Page;
@@ -24,7 +21,6 @@ import org.kinotic.github.internal.api.services.client.InstallationDetails;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,22 +39,10 @@ class DefaultGitHubAppInstallationServiceTest {
     private static final String APP_ID = "777";
     private static final long INSTALLATION_ID = 55L;
 
-    private static Vertx vertx;
-
     private GitHubAppInstallationRepository repository;
     private GitHubInstallStateService stateService;
     private GitHubApiClient apiClient;
     private DefaultGitHubAppInstallationService service;
-
-    @BeforeAll
-    static void createVertx() {
-        vertx = Vertx.vertx();
-    }
-
-    @AfterAll
-    static void closeVertx() {
-        vertx.close();
-    }
 
     @BeforeEach
     void setUp() {
@@ -92,7 +76,7 @@ class DefaultGitHubAppInstallationServiceTest {
 
         SecretReferenceResolver secretReferenceResolver = mock(SecretReferenceResolver.class);
         when(secretReferenceResolver.resolve("github-platform"))
-                .thenReturn(CompletableFuture.completedFuture("client-secret"));
+                .thenReturn(Future.succeededFuture("client-secret"));
 
         apiClient = mock(GitHubApiClient.class);
         when(apiClient.exchangeUserAccessCode("client-id", "client-secret", "good-code"))
@@ -104,8 +88,7 @@ class DefaultGitHubAppInstallationServiceTest {
                                                           stateService,
                                                           apiClient,
                                                           oidcConfigurationService,
-                                                          secretReferenceResolver,
-                                                          vertx);
+                                                          secretReferenceResolver);
     }
 
     @Test

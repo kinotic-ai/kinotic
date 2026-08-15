@@ -439,8 +439,9 @@ public class OidcFlowOrchestrator {
         CompletableFuture<OAuth2Auth> cached =
                 oauth2AuthCache.get(key,
                                     (id, executor) -> secretReferenceResolver.resolve(config.getSecretNameRef())
-                                                                             .thenCompose(secret -> createOAuth2Auth(config, secret)
-                                                                                     .toCompletionStage()));
+                                                                             .compose(secret -> createOAuth2Auth(config, secret))
+                                                                             .toCompletionStage()
+                                                                             .toCompletableFuture());
         return Future.fromCompletionStage(cached, vertx.getOrCreateContext())
                      .onFailure(err -> log.error("Failed to initialize OAuth2Auth for config {}", config.getId(), err));
     }
