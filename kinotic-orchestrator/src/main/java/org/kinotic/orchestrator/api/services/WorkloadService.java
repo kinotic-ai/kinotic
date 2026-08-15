@@ -1,11 +1,9 @@
 package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 
 import java.util.concurrent.CompletableFuture;
@@ -15,7 +13,6 @@ import java.util.concurrent.CompletableFuture;
  * Tracks all workloads that have been deployed across the cluster.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
 public interface WorkloadService extends IdentifiableCrudService<Workload, String> {
 
     /**

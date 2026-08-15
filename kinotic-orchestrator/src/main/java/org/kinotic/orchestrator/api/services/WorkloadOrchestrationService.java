@@ -1,10 +1,7 @@
 package org.kinotic.orchestrator.api.services;
 
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orchestrator.api.model.workload.Workload;
-import org.kinotic.orchestrator.api.services.WorkloadService;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -18,7 +15,6 @@ import java.util.concurrent.CompletableFuture;
  * For querying workloads (findById, findAll, search) use {@link WorkloadService} directly.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
 public interface WorkloadOrchestrationService {
 
     /**
