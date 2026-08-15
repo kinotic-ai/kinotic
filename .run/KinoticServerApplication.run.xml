@@ -19,6 +19,7 @@
       <env name="OTEL_LOGS_EXPORTER" value="none" />
       <env name="OTEL_METRIC_EXPORT_INTERVAL" value="15000" />
       <env name="OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY" value="true" />
+      <env name="OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING" value="localhost:9200=elasticsearch" />
     </envs>
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />

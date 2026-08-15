@@ -42,7 +42,11 @@ metrics_generator:
   traces_storage:
     path: /var/tempo/generator/traces
   processor:
-    service_graphs: {}
+    # Elasticsearch and other backends have no spans of their own, so they show up as virtual
+    # nodes resolved from peer.service/db.system on the client span. The label marks them as
+    # inferred rather than instrumented.
+    service_graphs:
+      enable_virtual_node_label: true
     span_metrics:
       # Attribute names from the stable HTTP semconv the 2.x agent emits — http.method and
       # http.status_code were the pre-1.0 names and produce empty labels against it.
