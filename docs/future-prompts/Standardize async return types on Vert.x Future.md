@@ -1,158 +1,174 @@
-# Standardize the platform's async return type on `io.vertx.core.Future`
+# Standardize async return types on `io.vertx.core.Future`
 
-Current-state claims below were measured against `develop` at `bf6270e` ("Raise first-party
-floors after publish", 2026-08). Re-grep before acting on any of them — counts drift.
+Every number below was measured against `develop` at `c6eb14d` ("Console: mint login art marks
+the system login", 2026-08). Re-grep before acting — they drift.
 
-**STOP AT EVERY PHASE BOUNDARY.** When a phase is complete (implemented, tested, committed,
-pushed), report what was done and wait for Navid's explicit approval before starting the next.
-No preparatory work belonging to a later phase while waiting.
+**STOP AT EVERY UNIT BOUNDARY.** When a unit is complete (implemented, tested, committed,
+pushed), report and wait for Navid's explicit approval before starting the next.
 
-## Objective
+## Goal
 
-Replace `CompletableFuture` with `io.vertx.core.Future` in the platform's service and
-repository contracts, so one async type flows from the Elasticsearch boundary up through
-repositories, services, and REST handlers. Conversion stays only where an external library
-forces it.
+`CrudService` / `IdentifiableCrudService` join the `Future` side of kinotic-core's SPIs, and
+the `CompletableFuture` → `Future` conversion plus its Vert.x context binding collapse into a
+single function at the Elasticsearch client.
 
-## Why
+The goal is **core internal consistency**, not "fewer conversions". Fewer conversions is a
+consequence.
 
-Two independent reasons, both measured rather than assumed.
+## Why this and not something else
 
-**1. The seams are numerous and almost all one removable shape.** 70 `fromCompletionStage`
-/ `toCompletionStage` sites across the tree:
+kinotic-core already declares its SPIs in two async types, split by consumer:
 
 ```
-kinotic-domain 41   kinotic-github 11   kinotic-core 8
-kinotic-persistence 7   kinotic-os-api 1   kinotic-telemetry 1   kinotic-test 1
+api/security/SecurityService.java            Future 1   CompletableFuture 0
+api/directory/ServiceDirectoryStrategy.java  Future 7   CompletableFuture 0
+api/crud/CrudService.java                    Future 0   CompletableFuture 9
+api/crud/IdentifiableCrudService.java        Future 0   CompletableFuture 2
 ```
 
-In `kinotic-domain`, roughly 40 of the 41 are the same pattern — a Vert.x-native caller
-(a `RoutingContext` handler, or an interface declared in core that already returns `Future`)
-wrapping a service or repository that returns `CompletableFuture`. `InviteHandler`,
-`OAuthServerHandler`, `OrganizationLoginHandler`, `OrganizationSignupHandler`,
-`ApplicationLoginHandler`, `AuthEndpointSupport`, and `OidcFlowOrchestrator` account for ~28;
-`ElasticServiceDirectoryStrategy` and `KinoticSecurityService` for ~11. All of them disappear
-when the callee returns `Future`.
+All 66 conversion seams sit on that fault line:
 
-**2. The codebase is already hand-compensating for the context loss.** 17 of the 70 seams
-pass an explicit context so the continuation lands back on the right Vert.x context:
+```
+kinotic-domain 41   kinotic-github 12   kinotic-core 8
+kinotic-persistence 2   kinotic-os-api 1   kinotic-telemetry 1   kinotic-test 1
+of which 18 pass an explicit Vert.x context to compensate for context loss
+```
+
+The split is historical: the data stack was built when Structures was meant to stay Vert.x
+agnostic. That goal was abandoned when the project moved to Kinotic's direction, so nothing
+defends the `CompletableFuture` zone any more — it is residue, not a boundary.
+
+**Do not justify this as a correctness fix.** `CrudServiceTemplate.bindToContext` already
+re-binds ES continuations to the caller's Vert.x context specifically so
+`SecurityContext.currentParticipant()` survives, and coverage is effectively complete
+(`saveSync`→`save`, `createSync`→`create`, `deleteByIdSync`→`deleteById`, `findFirst`→`search`
+all inherit it). `syncIndex` is the only public method that returns unbound, and nothing reads
+a participant after an index refresh. The safety argument is about making the invariant
+structural rather than remembered — not about fixing live bugs.
+
+## The single conversion point
+
+This is what "closer to the ES surface" means concretely:
 
 ```java
-// KinoticSecurityService.java:192
-return Future.fromCompletionStage(identityService.findById(sub), vertx.getOrCreateContext())
+// now — a helper that must be remembered, 20 call sites across 16 public methods,
+// and syncIndex forgot it
+private <T> CompletableFuture<T> bindToContext(CompletableFuture<T> original) {
+    Context ctx = Vertx.currentContext();
+    if (ctx == null) return original;
+    CompletableFuture<T> bound = new CompletableFuture<>();
+    original.whenComplete((result, err) -> ctx.runOnContext(v -> { … }));
+    return bound;
+}
+
+// after — the conversion IS the return type, so omitting it does not compile
+private <T> Future<T> toFuture(CompletableFuture<T> es) {
+    Promise<T> promise = Promise.promise();      // captures the calling Vert.x context
+    es.whenComplete((r, err) -> { if (err != null) promise.fail(err); else promise.complete(r); });
+    return promise.future();                     // continuations emit on that context
+}
 ```
 
-This matters because `SecurityContext` stores the authenticated participant in a Vert.x
-`ContextLocal` (`SecurityContext.java:22-34`), so a continuation that resumes off-context
-cannot read it. `Future` dispatches continuations on the context that created the promise and
-gives that for free; `CompletableFuture` runs dependents on whichever thread completed the
-stage and makes no such guarantee.
+**Verify this before anything else:** that `Promise.promise()` created on a Vert.x context
+dispatches `onComplete` handlers back onto it when completed from a foreign thread, and that
+off-context it degrades the way `bindToContext`'s `ctx == null` branch does. The whole design
+rests on it. Write a throwaway test with a `CompletableFuture` completed from a plain
+`Thread`, assert `Vertx.currentContext()` inside the continuation.
 
-Be honest about the size of this second benefit: a sweep of all 49 participant-read call
-sites found **no direct violation** in production code — the only deeply-nested reads are in
-`kinotic-server`'s `DefaultTestService`, which exercises the invariant on purpose. The
-discipline is currently held by convention plus those 17 manual context passes. So this is
-preventive, not a bug fix. The one latent instance found is indirect and ungreppable:
-`DefaultGitHubProjectRepoService.resolve` calls `installationService.findForCurrentOrg()`
-(which reads the participant internally) from inside a `thenCompose` callback that runs after
-an Elasticsearch round-trip. It is unpublished today (`// @Publish TODO`), so it has never
-fired. Indirect reads of that shape are what a structural guarantee prevents and a convention
-does not.
+## Unit 1 — the data stack (one commit)
 
-**3. The wire contract does not change.** Both gates already accept `Future` from a
-`@Publish`ed method:
-
-```java
-// DefaultKinotic.java:80 — registered reactive type, so schema generation emits AsyncC3Type<T>
-reactiveAdapterRegistry.registerReactiveType(
-        ReactiveTypeDescriptor.singleOptionalValue(Future.class, …), …)
 ```
-```
-kinotic-core/…/api/service/rpc/types/VertxFutureRpcReturnValueHandler.java   // runtime dispatch
+CrudServiceTemplate                 16 public methods, 20 bindToContext sites → toFuture
+repository subclasses               20 classes
+CrudService / IdentifiableCrudService  (kinotic-core)
+service subclasses                  16 classes
+persistence entity API              JsonEntitiesRepository 15, AdminJsonEntitiesRepository 10
 ```
 
-`ReactiveTypeConverter` resolves any registered adapter to `AsyncC3Type`/`StreamC3Type`, so a
-method returning `Future<T>` produces the same C3 schema — and therefore the same generated
-TypeScript — as `CompletableFuture<T>`. No SDK republish is forced by the type change itself.
+`kinotic-persistence` is **in** this unit, not a later decision. It depends on
+`:kinotic-core` and `:kinotic-domain`, and `DefaultEntityService`, `DefaultEntityDefinitionService`,
+`EntityServiceCache`, `EntityDefinitionRepository`, and `NamedQueriesDefinitionRepository` all
+ride `CrudServiceTemplate`. When the template returns `Future`, the entity API either flips or
+grows conversions — there is no third option, so flip it.
 
-**4. It is free right now and expensive later.** `kinoticVersion` is a `-SNAPSHOT` with
-nothing released, so per the root `CLAUDE.md` these contracts can be reshaped without
-deprecation shims. That stops being true at the first release.
+**Do this as one commit, not staged by layer.** Splitting repositories from services forces a
+temporary `.toCompletionStage().toCompletableFuture()` into every delegating method of
+`AbstractOrganizationScopedService`, which silently re-introduces `CompletionException`
+wrapping across all 16 service classes, then removes it again. That is two invisible behavior
+changes in opposite directions, and it puts a tree on `develop` that compiles, passes most
+tests, and propagates errors like neither the before nor the after state. The rename mapping
+is type-directed, so the compiler enumerates every site; the size is effort, not risk.
 
-## What stays `CompletableFuture`
+## Unit 2 — the auth satellites
 
-Do not chase these to zero — a conversion at an external boundary is correct, it is
-conversion scattered through business logic that is not.
+Not CrudService-derived, so Unit 1 does not reach them, and they are where the rest of the
+handler seams live (`InviteHandler` 7, `OAuthServerHandler` 7):
 
-- The Elasticsearch Java client's async API (`co.elastic.clients`).
-- Caffeine's `AsyncLoadingCache` (e.g. `DefaultGitHubApiClient`'s token cache).
-- Any Spring API that returns `CompletableFuture`.
+```
+domain/api/services/security/InviteService              6
+domain/api/services/SecretStorageService                6
+domain/api/services/security/RefreshTokenService        5
+domain/api/services/security/OAuthAuthorizationService  5
+domain/api/services/security/SignUpService              4
+domain/api/services/security/DeviceCodeGrantService     3
+domain/api/services/security/LocalAuthenticationService 2
+os/api/services/SystemOrganizationService               9
+os/api/services/security/MemberService                  7
+os/api/services/security/MachineService                 5
+os/api/services/security/OAuthApprovalService           4
+os/api/services/security/DelegateService                4
+```
 
-`kinotic-persistence` is a judgment call worth making explicitly before Phase 2: it holds 504
-`CompletableFuture` references but only 7 seams, meaning it is internally consistent and is
-mostly *not* paying the conversion tax. Decide whether it migrates or stays the adapter layer
-that converts once at the ES boundary. Migrating it is the largest single chunk of work in the
-whole effort and buys the fewest seams.
+`SecurityService` itself needs nothing — it is already `Future`.
+
+`kinotic-orchestrator`'s `VmManagerProxy` (6), `VmNodeOrchestrationService` (5), and
+`WorkloadOrchestrationService` (4) are the same shape and can ride along or follow.
+
+## Explicitly out of scope
+
+`kinotic-sql`, `kinotic-idl`, and `kinotic-util` have zero Vert.x in their `build.gradle`,
+zero `io.vertx` imports, and no project dependencies at all. `kinotic-sql` has no `CrudService`
+contact; its `CompletableFuture` usage is its own `StatementExecutor` stack. `kinotic-idl`'s
+two references are javadoc.
+
+Leave them alone. The end state is not one async type in the repo — it is two, cleanly
+separated by module boundary instead of interleaved on every path from a handler to
+Elasticsearch. These three stay Vert.x-free islands nothing converts across. Do not "finish
+the job" here.
 
 ## The hazard that will not fail to compile
 
-Failure semantics differ, silently:
+`CompletableFuture` wraps failures propagated through a chain in `CompletionException`; a
+direct `completeExceptionally` is not wrapped. Vert.x `Future` always hands the raw cause to
+`recover` / `otherwise` / `onFailure`. Every site that inspects, `instanceof`-checks, unwraps,
+or formats a `Throwable` can change behavior while still compiling — including log lines and
+error responses built from `err.getMessage()`.
 
-- `CompletableFuture` wraps a failure propagated through a chain in `CompletionException`
-  (a direct `completeExceptionally` is not wrapped).
-- Vert.x `Future` always hands the raw cause to `recover` / `otherwise` / `onFailure`.
-
-This has already leaked into handler code, complete with an explanatory comment:
+It has already leaked into handler code once, with a comment naming it:
 
 ```java
-// McpJsonRpcHandler.java:201
-.otherwise(throwable -> {
-    // a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
-    Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
+// McpJsonRpcHandler.java — a defensive unwrap that becomes dead code after the migration
+// a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
+Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
 ```
 
-Every site that inspects, `instanceof`-checks, unwraps, or formats a `Throwable` can change
-behavior while still compiling. Defensive unwraps like the one above become dead code and
-should be deleted, not left in place. Phase 4 exists for this and must not be folded into an
-earlier phase.
+Sweep for these as the last step of each unit and delete the unwraps rather than leaving them.
+Add a test wherever a specific exception type drives a response code.
 
-Also note the method-name mapping is not purely mechanical: `thenApply`→`map`,
-`thenCompose`→`compose`, `thenAccept`→`onSuccess`, `exceptionally`→`otherwise`/`recover`,
-`CompletableFuture.allOf`→`Future.all`, `completedFuture`→`succeededFuture`,
-`failedFuture` keeps its name. `Future.all` returns `CompositeFuture`, whose `list()` yields
-the results — it is not a drop-in for `allOf`'s `Void`.
-
-## Phases
-
-**Phase 0 — prove the contract is unchanged.** Flip exactly one published service end to end
-(`GitHubAppInstallationService` is a good candidate: four methods, one consumer, already
-audited). Generate the C3 schema and the TypeScript before and after and diff them. If they
-differ, stop and re-plan — every later phase assumes they do not.
-
-**Phase 1 — the bottom boundary.** Convert once, in one place: `CrudServiceTemplate` and the
-repository base classes (`AbstractRepository`, `AbstractOrganizationScopedRepository`) expose
-`Future` and absorb the Elasticsearch client's `CompletableFuture` internally. Nothing above
-changes yet; the seams move down rather than disappearing, and the tree still builds.
-
-**Phase 2 — the service contracts.** `CrudService` / `IdentifiableCrudService` in
-`kinotic-core`, then `AbstractOrganizationScopedService` and the concrete services in domain,
-os-api, github, orchestrator, and sql. This is the fulcrum: it flips five modules at once and
-is the phase most likely to need splitting. Take the persistence decision above before
-starting.
-
-**Phase 3 — delete the seams.** The REST handlers and strategies now wrap `Future` in
-`Future` — remove the `fromCompletionStage` calls and the 17 manual `getOrCreateContext()`
-passes. This is where the payoff lands; expect the seam count to drop from 70 to whatever the
-external boundaries genuinely require, and record that number.
-
-**Phase 4 — error-semantics sweep.** Audit every `otherwise` / `recover` / `onFailure` /
-`whenComplete` that touches a `Throwable`, delete now-unnecessary `CompletionException`
-unwrapping, and check log/response messages that formatted `err.getMessage()` — those strings
-change. Add a test anywhere a specific exception type drives a response code.
+Method mapping is not purely mechanical: `thenApply`→`map`, `thenCompose`→`compose`,
+`thenAccept`→`onSuccess`, `exceptionally`→`otherwise`/`recover`, `completedFuture`→
+`succeededFuture`, `failedFuture` unchanged. `CompletableFuture.allOf`→`Future.all`, which
+returns `CompositeFuture` — use `.map(CompositeFuture::list)` when results are needed; it is
+not a drop-in for `allOf`'s `Void`.
 
 ## Verifying
 
-`kinotic-github` is a useful canary throughout: it is small (11 seams, 57 references), has
-real tests that exercise a genuine async chain (`GitHubProjectRepoProvisionerTest`), and sits
-between domain contracts above and a Vert.x-native client below, so it exercises both
-directions of the change.
+The published wire contract does not change: the RPC invoker ships return-value handler
+factories for `CompletableFuture`, `Future`, `Mono`, and `Flux`, and `DefaultKinotic` registers
+`Future` with the `ReactiveAdapterRegistry`, so `ReactiveTypeConverter` emits the same
+`AsyncC3Type<T>` and therefore the same generated TypeScript. Prove it rather than assume it —
+generate the C3 schema for one published service before and after and diff.
+
+`kinotic-github` is a useful canary: small, real async chains under test
+(`GitHubProjectRepoProvisionerTest`), and it sits between domain contracts above and a
+Vert.x-native client below.
