@@ -43,6 +43,15 @@ dependencies {
 	otelAgent "io.opentelemetry.javaagent:opentelemetry-javaagent:${otelInstrumentationBomVersion}"
 }
 
+// Places the resolved agent at a stable, project-relative path under the name the -javaagent
+// arguments use. Kept separate from processResources so launching the server from the IDE
+// does not drag in the frontend build.
+tasks.register('otelAgentJar', Sync) {
+	from configurations.otelAgent
+	rename { 'opentelemetry-javaagent.jar' }
+	into layout.buildDirectory.dir('otel-agent')
+}
+
 tasks.named('processResources') {
 	// kinotic-frontend is excluded from the build when CLAUDE_CLOUD_COMPILE=true
 	if (findProject(':kinotic-frontend') != null) {
@@ -50,9 +59,7 @@ tasks.named('processResources') {
 	}
 	// Embed the agent as BOOT-INF/classes/opentelemetry-javaagent.jar, the path the
 	// docker-compose -javaagent arguments point at
-	from(configurations.otelAgent) {
-		rename { 'opentelemetry-javaagent.jar' }
-	}
+	from(tasks.named('otelAgentJar'))
 }
 
 tasks.named('sourcesJar') {
