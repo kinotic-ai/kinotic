@@ -23,9 +23,7 @@
               <span class="text-muted-color">{{ row.label }}</span>
               <span>{{ row.text }}</span>
             </div>
-            <div class="h-3 rounded bg-surface-200 dark:bg-surface-800" :title="`${row.pct}% allocated`">
-              <div class="h-full rounded" :style="{ width: row.pct + '%', background: capacityColor }" />
-            </div>
+            <CapacityBar :pct="row.pct" />
           </div>
         </div>
       </div>
@@ -85,8 +83,9 @@ import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/os-api'
 
-import { PageHeader, formatMb, isDark } from '@kinotic-ai/frontend-common'
+import { PageHeader, formatMb } from '@kinotic-ai/frontend-common'
 
+import CapacityBar from '@/components/CapacityBar.vue'
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
 import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
@@ -96,8 +95,6 @@ const clusterError = ref<string | null>(null)
 const organizationCount = ref<number | null>(null)
 const workerNodeCount = ref<number | null>(null)
 const workerNodes = ref<VmNode[]>([])
-
-const capacityColor = computed(() => isDark.value ? '#38BDF8' : '#0EA5E9')
 
 const capacityRows = computed(() => {
   const total = { cpus: 0, memoryMb: 0, diskMb: 0 }
