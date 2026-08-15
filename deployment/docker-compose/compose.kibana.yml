@@ -1,6 +1,6 @@
 services:
   kinotic-kibana:
-    image: docker.elastic.co/kibana/kibana:9.2.4
+    image: docker.elastic.co/kibana/kibana:9.5.1
     container_name: kinotic-kibana
     depends_on:
       kinotic-elasticsearch:
