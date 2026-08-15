@@ -219,20 +219,29 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     lastSeen DATE
 );
 
--- Create the workload table for tracking deployed workloads
+-- Create the workload table for tracking deployed workloads.
+-- organizationId/applicationId encode who the workload runs on behalf of (both null = platform
+-- workload); the mapping is strict, so every Workload entity field must be declared here.
 CREATE TABLE IF NOT EXISTS kinotic_workload (
     id KEYWORD,
     name KEYWORD,
     description TEXT,
     nodeId KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     providerType KEYWORD,
     image KEYWORD,
     vcpus INTEGER,
     memoryMb INTEGER,
     diskSizeMb INTEGER,
+    detached BOOLEAN,
+    autoRemove BOOLEAN,
     status KEYWORD,
     environment JSON NOT INDEXED,
     portMappings JSON NOT INDEXED,
+    volumeMounts JSON NOT INDEXED,
+    entrypoint KEYWORD NOT INDEXED,
+    cmd KEYWORD NOT INDEXED,
     created DATE,
     updated DATE
 );
