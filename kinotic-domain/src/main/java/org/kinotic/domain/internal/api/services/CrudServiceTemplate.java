@@ -810,8 +810,8 @@ public class CrudServiceTemplate {
                                 return esAsyncClient.indices()
                                                     .getIndexTemplate(builder -> builder.name(templateName))
                                                     .thenCompose(response -> {
-                                                        IndexTemplate existingTemplate = response.indexTemplates().getFirst()
-                                                                                                 .indexTemplate();
+                                                        IndexTemplateWithRollover existingTemplate = response.indexTemplates().getFirst()
+                                                                                                             .indexTemplate();
 
                                                         if (existingTemplate == null) {
                                                             return CompletableFuture.failedFuture(
@@ -832,7 +832,7 @@ public class CrudServiceTemplate {
 
                                                                                 // Apply existing settings and new mappings
                                                                                 builder.template(t -> {
-                                                                                    IndexTemplateSummary template = existingTemplate.template();
+                                                                                    IndexTemplateSummaryWithRollover template = existingTemplate.template();
                                                                                     if (template != null && template.settings() != null) {
                                                                                         t.settings(template.settings());
                                                                                     }
