@@ -98,7 +98,6 @@ dependencyManagement {
         dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
 
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
-        dependency "com.github.dasniko:testcontainers-keycloak:${testcontainersKeycloakVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
