@@ -95,16 +95,23 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
         return vmNodeService.findById(nodeId)
                 .compose(node -> {
+                    Future<VmNode> ret;
                     if (node == null) {
-                        return Future.failedFuture(
+                        ret = Future.failedFuture(
                                 new IllegalArgumentException("Node not registered: " + nodeId));
-                    }
-                    node.setLastSeen(new Date());
-                    if (node.getStatus() == VmNodeStatus.OFFLINE) {
+                    } else if (node.getStatus() == VmNodeStatus.OFFLINE) {
                         log.info("VmNode {} came back online", nodeId);
                         node.setStatus(VmNodeStatus.ONLINE);
+                        // findAvailableNode selects on status with a search, so the recovered node
+                        // has to be refreshed into the index before it can be scheduled onto
+                        ret = vmNodeService.saveSync(node);
+                    } else {
+                        // lastSeen is stamped by DefaultVmNodeService.beforeSave. Only checkNodeHealth
+                        // reads it, via a search against a heartbeatTimeoutSeconds cutoff, so a
+                        // refresh wait costs the caller the index refresh interval and buys nothing.
+                        ret = vmNodeService.save(node);
                     }
-                    return vmNodeService.saveSync(node);
+                    return ret;
                 });
     }
 
