@@ -109,6 +109,7 @@ import { VmNodeStatus, WorkloadStatus, type VmNode, type Workload } from '@kinot
 import {
   CrudTable,
   PageHeader,
+  formatMb,
   DatetimeUtil,
   useCrudTablePage,
   type CrudHeader,
@@ -280,9 +281,6 @@ function percentOf(allocated: number, total: number): number {
   return total > 0 ? Math.round((allocated / total) * 100) : 0
 }
 
-function formatMb(mb: number): string {
-  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
-}
 
 onMounted(loadNodes)
 </script>
