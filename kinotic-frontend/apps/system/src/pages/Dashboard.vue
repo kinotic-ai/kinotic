@@ -8,6 +8,29 @@
       <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
     </div>
 
+    <div class="mt-6 grid gap-4 lg:grid-cols-2">
+      <div class="rounded-lg border border-surface p-4">
+        <h2 class="text-base font-semibold">Worker capacity</h2>
+        <p class="mb-4 text-xs text-muted-color">
+          Allocated versus total across every worker node.
+        </p>
+        <div v-if="workerNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+          No worker nodes registered
+        </div>
+        <div v-else class="flex flex-col gap-3">
+          <div v-for="row in capacityRows" :key="row.label">
+            <div class="mb-1 flex justify-between text-sm">
+              <span class="text-muted-color">{{ row.label }}</span>
+              <span>{{ row.text }}</span>
+            </div>
+            <CapacityBar :pct="row.pct" />
+          </div>
+        </div>
+      </div>
+
+      <WorkloadStateCard description="Every workload on the platform, by state." view-all-to="/worker-nodes" />
+    </div>
+
     <div class="mt-6 rounded-lg border border-surface">
       <div class="px-4 pt-4 pb-2">
         <h2 class="text-base font-semibold">Server nodes</h2>
@@ -57,18 +80,40 @@ import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
-import { Kinotic } from '@kinotic-ai/core'
-import type { KinoticClusterInfo } from '@kinotic-ai/os-api'
+import { Kinotic, Pageable } from '@kinotic-ai/core'
+import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/os-api'
 
-import { PageHeader } from '@kinotic-ai/frontend-common'
+import { PageHeader, formatMb } from '@kinotic-ai/frontend-common'
 
+import CapacityBar from '@/components/CapacityBar.vue'
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
-import StatTile from '@/components/StatTile.vue'
+import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
+import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 
 const clusterInfo = ref<KinoticClusterInfo | null>(null)
 const clusterError = ref<string | null>(null)
 const organizationCount = ref<number | null>(null)
 const workerNodeCount = ref<number | null>(null)
+const workerNodes = ref<VmNode[]>([])
+
+const capacityRows = computed(() => {
+  const total = { cpus: 0, memoryMb: 0, diskMb: 0 }
+  const used = { cpus: 0, memoryMb: 0, diskMb: 0 }
+  for (const node of workerNodes.value) {
+    total.cpus += node.totalCpus
+    total.memoryMb += node.totalMemoryMb
+    total.diskMb += node.totalDiskMb
+    used.cpus += node.allocatedCpus
+    used.memoryMb += node.allocatedMemoryMb
+    used.diskMb += node.allocatedDiskMb
+  }
+  const pct = (allocated: number, all: number) => all > 0 ? Math.round((allocated / all) * 100) : 0
+  return [
+    { label: 'CPU', text: `${used.cpus} / ${total.cpus} vCPU`, pct: pct(used.cpus, total.cpus) },
+    { label: 'Memory', text: `${formatMb(used.memoryMb)} / ${formatMb(total.memoryMb)}`, pct: pct(used.memoryMb, total.memoryMb) },
+    { label: 'Disk', text: `${formatMb(used.diskMb)} / ${formatMb(total.diskMb)}`, pct: pct(used.diskMb, total.diskMb) }
+  ]
+})
 
 const logLevelNodeId = ref<string | null>(null)
 const logLevelVisible = ref(false)
@@ -80,36 +125,48 @@ interface Stat {
   tag?: string
   /** Route the tile navigates to on click; unset renders a static tile. */
   to?: string
+  icon?: string
+  accent?: StatTileAccent
 }
 
 const stats = computed<Stat[]>(() => [
   {
     label: 'Server nodes',
     value: clusterInfo.value?.serverNodeCount?.toString() ?? '—',
-    description: 'kinotic-server instances in the cluster'
+    description: 'kinotic-server instances in the cluster',
+    icon: 'pi-server',
+    accent: 'sky'
   },
   {
     label: 'Cluster state',
     value: clusterInfo.value?.clusterState ?? '—',
     description: 'Whether the cluster is serving requests',
-    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary'
+    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary',
+    icon: 'pi-shield',
+    accent: clusterInfo.value && !clusterInfo.value.active ? 'red' : 'green'
   },
   {
     label: 'Topology version',
     value: clusterInfo.value?.topologyVersion?.toString() ?? '—',
-    description: 'Increments each time a node joins or leaves'
+    description: 'Increments each time a node joins or leaves',
+    icon: 'pi-sync',
+    accent: 'violet'
   },
   {
     label: 'Worker nodes',
     value: workerNodeCount.value?.toString() ?? '—',
     description: 'VmManager nodes available to host workloads',
-    to: '/worker-nodes'
+    to: '/worker-nodes',
+    icon: 'pi-box',
+    accent: 'amber'
   },
   {
     label: 'Organizations',
     value: organizationCount.value?.toString() ?? '—',
     description: 'Organizations registered on the platform',
-    to: '/organizations'
+    to: '/organizations',
+    icon: 'pi-building',
+    accent: 'teal'
   }
 ])
 
@@ -130,9 +187,12 @@ onMounted(async () => {
     // The tile shows an em dash; the count is cosmetic and must not block the page
   }
   try {
-    workerNodeCount.value = await Kinotic.vmNodes.count()
+    // One fetch feeds the worker tile and the capacity card
+    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100))
+    workerNodes.value = page.content ?? []
+    workerNodeCount.value = page.totalElements ?? workerNodes.value.length
   } catch {
-    // Same em-dash fallback as the organization count
+    // Same em-dash fallback as the organization count; the capacity card shows its empty state
   }
 })
 </script>

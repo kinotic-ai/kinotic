@@ -1,6 +1,6 @@
 package org.kinotic.core.api.secret;
 
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.Future;
 
 /**
  * Resolves a named secret from external storage (typically Azure Key Vault) by its
@@ -16,5 +16,5 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface SecretReferenceResolver {
 
-    CompletableFuture<String> resolve(String secretName);
+    Future<String> resolve(String secretName);
 }

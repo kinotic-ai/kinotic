@@ -57,13 +57,10 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         String orgId = ctx.pathParam("orgId");
         String appId = ctx.pathParam("appId");
         oidcConfigurationService.findEnabledForScope(orgId, appId)
-              .whenComplete((configs, err) -> {
-                  if (err != null) {
-                      log.warn("Failed to list app providers for {}/{}: {}", orgId, appId, err.getMessage());
-                      authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
-                      return;
-                  }
-                  authEndpointSupport.respondProvidersList(ctx, configs);
+              .onSuccess(configs -> authEndpointSupport.respondProvidersList(ctx, configs))
+              .onFailure(err -> {
+                  log.warn("Failed to list app providers for {}/{}: {}", orgId, appId, err.getMessage());
+                  authEndpointSupport.respondError(ctx, 500, "Failed to list providers");
               });
     }
 
@@ -82,7 +79,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(identityService.findByEmail(email, orgId, appId))
+        identityService.findByEmail(email, orgId, appId)
               .compose(user -> resolveSsoOrPassword(ctx, orgId, appId, user))
               .onFailure(err -> {
                   log.warn("App login lookup failed for {}/{}/{}: {}", orgId, appId, email, err.getMessage());
@@ -98,7 +95,7 @@ public class ApplicationLoginHandler implements SuppliesGatewayRoutes {
         }
 
         String configId = user.getOidcConfigId();
-        return Future.fromCompletionStage(oidcConfigurationRepository.findById(configId, orgId))
+        return oidcConfigurationRepository.findById(configId, orgId)
                      .compose(match -> {
                          if (match == null || !match.isEnabled()) {
                              return authEndpointSupport.respondPasswordPath(ctx);

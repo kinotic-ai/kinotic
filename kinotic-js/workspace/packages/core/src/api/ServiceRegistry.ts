@@ -131,10 +131,7 @@ class ServiceProxy implements IServiceProxy {
         }
         this.serviceIdentifier = serviceIdentifier
         this.serviceRegistry = serviceRegistry
-        this.tracer = opentelemetry.trace.getTracer(
-            'kinoitc.client',
-            info.version
-        )
+        this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
     }
 
     invoke(methodIdentifier: string,
@@ -148,9 +145,9 @@ class ServiceProxy implements IServiceProxy {
             },
             async (span) => {
                 if (scope) {
-                    span.setAttribute('kinoitc.scope', scope)
+                    span.setAttribute('kinotic.scope', scope)
                 }
-                span.setAttribute('rpc.system', 'kinoitc')
+                span.setAttribute('rpc.system', 'kinotic')
                 span.setAttribute('rpc.service', this.serviceIdentifier)
                 span.setAttribute('rpc.method', methodIdentifier)
 

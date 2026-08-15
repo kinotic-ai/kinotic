@@ -53,4 +53,6 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    // Collects the spans ServiceInvocationSupervisor produces, in place of the agent's SDK
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
 }

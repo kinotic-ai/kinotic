@@ -31,7 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,7 +52,10 @@ import java.util.concurrent.TimeUnit;
  * Alongside the project's own values, the render context carries a version range for
  * every published {@code @kinotic-ai} npm package, keyed by the spawn global a template
  * pins it through ({@code kinoticCoreVersion}, {@code kinoticCliVersion}, ...), so a
- * provisioned project depends on the package versions this server ships with.
+ * provisioned project depends on the package versions this server ships with. The
+ * OpenTelemetry ranges those packages are built against travel the same way
+ * ({@code otelSdkNodeVersion}, ...), so a project exports its telemetry through an SDK
+ * that matches the API the platform emits spans with.
  */
 @Slf4j
 @Component
@@ -74,7 +76,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private final GraalJsSpawnRenderer spawnRenderer;
 
     @Override
-    public CompletableFuture<Project> provision(Project project) {
+    public Future<Project> provision(Project project) {
         Validate.notBlank(project.getName(), "Project name must not be blank");
         String repoName = toRepoName(project.getName());
         return requireInstallation().compose(install -> {
@@ -101,26 +103,25 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
                                 p.setRepoConnectionStatus(RepositoryConnectionStatus.INITIALIZATION_FAILED);
                                 return Future.succeededFuture(p);
                             }));
-        }).toCompletionStage().toCompletableFuture();
+        });
     }
 
     @Override
-    public CompletableFuture<Project> reinitialize(Project project) {
+    public Future<Project> reinitialize(Project project) {
         Validate.notNull(project.getRepoId(), "Project repoId must be set to reinitialize");
         Validate.notBlank(project.getRepoFullName(), "Project repoFullName must be set to reinitialize");
         Validate.notBlank(project.getRepoDefaultBranch(), "Project repoDefaultBranch must be set to reinitialize");
         return requireInstallation()
-                .compose(install -> initializeRepo(install.getGithubInstallationId(), project))
-                .toCompletionStage().toCompletableFuture();
+                .compose(install -> initializeRepo(install.getGithubInstallationId(), project));
     }
 
     private Future<GitHubAppInstallation> requireInstallation() {
-        return Future.fromCompletionStage(installationService.findForCurrentOrg(), vertx.getOrCreateContext())
-                     .compose(install -> install == null
-                             ? Future.failedFuture(new IllegalStateException(
-                                     "GitHub is not linked for this organization. "
-                                     + "Link GitHub before creating a project."))
-                             : Future.succeededFuture(install));
+        return installationService.findForCurrentOrg()
+                .compose(install -> install == null
+                        ? Future.failedFuture(new IllegalStateException(
+                                "GitHub is not linked for this organization. "
+                                + "Link GitHub before creating a project."))
+                        : Future.succeededFuture(install));
     }
 
     /**

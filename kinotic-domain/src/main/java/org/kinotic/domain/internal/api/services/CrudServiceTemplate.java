@@ -24,6 +24,7 @@ import co.elastic.clients.json.JsonpMapperBase;
 import co.elastic.clients.transport.JsonEndpoint;
 import co.elastic.clients.transport.endpoints.EndpointWithResponseMapperAttr;
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.*;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -93,9 +95,9 @@ public class CrudServiceTemplate {
      *
      * @param dataStreamName name of the data stream to append to
      * @param document       the document to append
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     * @return a {@link Future} that will complete with the {@link IndexResponse}
      */
-    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName, T document) {
+    public <T> Future<IndexResponse> appendToDataStream(String dataStreamName, T document) {
         return appendToDataStream(dataStreamName, document, null);
     }
 
@@ -107,12 +109,12 @@ public class CrudServiceTemplate {
      * @param dataStreamName  name of the data stream to append to
      * @param document        the document to append
      * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     * @return a {@link Future} that will complete with the {@link IndexResponse}
      */
-    public <T> CompletableFuture<IndexResponse> appendToDataStream(String dataStreamName,
+    public <T> Future<IndexResponse> appendToDataStream(String dataStreamName,
                                                                    T document,
                                                                    Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
             builder.index(dataStreamName).opType(OpType.Create).document(document);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -139,11 +141,11 @@ public class CrudServiceTemplate {
      *
      * @param indexName       name of the index to count
      * @param builderConsumer to customize the {@link CountRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the number of documents in the index
+     * @return a {@link Future} that will complete with the number of documents in the index
      */
-    public CompletableFuture<Long> count(String indexName,
+    public Future<Long> count(String indexName,
                                          Consumer<CountRequest.Builder> builderConsumer) {
-        return bindToContext(esAsyncClient.count(builder -> {
+        return toFuture(esAsyncClient.count(builder -> {
                                                 builder.index(indexName);
                                                 if (builderConsumer != null) {
                                                     builderConsumer.accept(builder);
@@ -161,10 +163,10 @@ public class CrudServiceTemplate {
      * @param indexName name of the index
      * @param id        id the document must be created under
      * @param document  the document to index
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     * @return a {@link Future} completing with the {@link IndexResponse}, or failing
      *         with {@link AlreadyExistsException} if the id is already taken
      */
-    public <T> CompletableFuture<IndexResponse> create(String indexName,
+    public <T> Future<IndexResponse> create(String indexName,
                                                        String id,
                                                        T document) {
         return create(indexName, id, document, null);
@@ -179,31 +181,31 @@ public class CrudServiceTemplate {
      * @param id              id the document must be created under
      * @param document        the document to index
      * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse}, or failing
+     * @return a {@link Future} completing with the {@link IndexResponse}, or failing
      *         with {@link AlreadyExistsException} if the id is already taken
      */
-    public <T> CompletableFuture<IndexResponse> create(String indexName,
+    public <T> Future<IndexResponse> create(String indexName,
                                                        String id,
                                                        T document,
                                                        Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
                     builder.index(indexName).id(id).document(document).opType(OpType.Create);
                     if (builderConsumer != null) {
                         builderConsumer.accept(builder);
                     }
                     return builder;
                 }))
-                .exceptionallyCompose(throwable -> isVersionConflict(throwable)
-                        ? CompletableFuture.failedFuture(new AlreadyExistsException(
+                .recover(throwable -> isVersionConflict(throwable)
+                        ? Future.failedFuture(new AlreadyExistsException(
                                 "A document with id '" + id + "' already exists in index '" + indexName + "'"))
-                        : CompletableFuture.<IndexResponse>failedFuture(throwable));
+                        : Future.failedFuture(throwable));
     }
 
     /**
      * Creates a data stream
      */
-    public CompletableFuture<Void> createDataStream(String dataStreamName) {
-        return bindToContext(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
+    public Future<Void> createDataStream(String dataStreamName) {
+        return toFuture(esAsyncClient.indices().createDataStream(builder -> builder.name(dataStreamName))
                                           .thenApply(response -> null));
     }
 
@@ -213,12 +215,12 @@ public class CrudServiceTemplate {
      * @param indexName       name of the index to create
      * @param failIfExists    if true will fail with an exception if the index already exists
      * @param mappings        the mappings to use for the index, or null if no mappings are needed
-     * @return a {@link CompletableFuture} that will complete when the index has been created
+     * @return a {@link Future} that will complete when the index has been created
      */
-    public CompletableFuture<Void> createIndex(String indexName,
+    public Future<Void> createIndex(String indexName,
                                                boolean failIfExists,
                                                Map<String, Property> mappings) {
-        return bindToContext(esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
                                     return esAsyncClient.indices()
@@ -254,9 +256,9 @@ public class CrudServiceTemplate {
      * @param indexPattern the pattern to match the index names
      * @param dataStreamVisibility the visibility of the data stream or null if not a data stream
      * @param mappings the mappings to use for the index, or null if no mappings are needed
-     * @return a {@link CompletableFuture} that will complete when the index template has been created
+     * @return a {@link Future} that will complete when the index template has been created
      */
-    public CompletableFuture<Void> createIndexTemplate(String templateName,
+    public Future<Void> createIndexTemplate(String templateName,
                                                        String indexPattern,
                                                        DataStreamVisibility dataStreamVisibility,
                                                        Map<String, Property> mappings) {
@@ -272,9 +274,9 @@ public class CrudServiceTemplate {
      * @param dataRetention the data stream lifecycle retention period, or null for no managed lifecycle;
      *                      Elasticsearch deletes data older than this from the stream's backing indices
      * @param mappings the mappings to use for the index, or null if no mappings are needed
-     * @return a {@link CompletableFuture} that will complete when the index template has been created
+     * @return a {@link Future} that will complete when the index template has been created
      */
-    public CompletableFuture<Void> createIndexTemplate(String templateName,
+    public Future<Void> createIndexTemplate(String templateName,
                                                        String indexPattern,
                                                        DataStreamVisibility dataStreamVisibility,
                                                        Duration dataRetention,
@@ -286,7 +288,7 @@ public class CrudServiceTemplate {
             throw new IllegalArgumentException(
                     "dataRetention can only be set for data stream templates (dataStreamVisibility must be non-null)");
         }
-        return bindToContext(esAsyncClient.indices().putIndexTemplate(builder -> {
+        return toFuture(esAsyncClient.indices().putIndexTemplate(builder -> {
             builder.name(templateName)
                    .indexPatterns(List.of(indexPattern))
                    .priority(DEFAULT_PRIORITY)
@@ -323,11 +325,11 @@ public class CrudServiceTemplate {
      * @param id              id the document must be created under
      * @param document        the document to index
      * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} completing with the {@link IndexResponse} after the
+     * @return a {@link Future} completing with the {@link IndexResponse} after the
      *         document is searchable, or failing with {@link AlreadyExistsException} if the id
      *         is already taken
      */
-    public <T> CompletableFuture<IndexResponse> createSync(String indexName,
+    public <T> Future<IndexResponse> createSync(String indexName,
                                                            String id,
                                                            T document,
                                                            Consumer<IndexRequest.Builder<T>> builderConsumer) {
@@ -345,12 +347,12 @@ public class CrudServiceTemplate {
      * @param indexName       name of the index to delete from
      * @param id              of the document to delete
      * @param builderConsumer to customize the {@link DeleteRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link DeleteResponse}
+     * @return a {@link Future} that will complete with the {@link DeleteResponse}
      */
-    public CompletableFuture<DeleteResponse> deleteById(String indexName,
+    public Future<DeleteResponse> deleteById(String indexName,
                                                         String id,
                                                         Consumer<DeleteRequest.Builder> builderConsumer) {
-        return bindToContext(esAsyncClient.delete(builder -> {
+        return toFuture(esAsyncClient.delete(builder -> {
             builder.index(indexName).id(id);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -366,9 +368,9 @@ public class CrudServiceTemplate {
      * @param indexName       name of the index to delete from
      * @param id              of the document to delete
      * @param builderConsumer to customize the {@link DeleteRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link DeleteResponse}
+     * @return a {@link Future} that will complete with the {@link DeleteResponse}
      */
-    public CompletableFuture<DeleteResponse> deleteByIdSync(String indexName,
+    public Future<DeleteResponse> deleteByIdSync(String indexName,
                                                             String id,
                                                             Consumer<DeleteRequest.Builder> builderConsumer) {
         return deleteById(indexName, id, builder -> {
@@ -384,11 +386,11 @@ public class CrudServiceTemplate {
      *
      * @param indexName       name of the index to delete from
      * @param builderConsumer to customize the {@link DeleteRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link DeleteResponse}
+     * @return a {@link Future} that will complete with the {@link DeleteResponse}
      */
-    public CompletableFuture<DeleteByQueryResponse> deleteByQuery(String indexName,
+    public Future<DeleteByQueryResponse> deleteByQuery(String indexName,
                                                                   Consumer<DeleteByQueryRequest.Builder> builderConsumer) {
-        return bindToContext(esAsyncClient.deleteByQuery(builder -> {
+        return toFuture(esAsyncClient.deleteByQuery(builder -> {
             builder.index(indexName);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -400,8 +402,8 @@ public class CrudServiceTemplate {
     /**
      * Deletes a data stream
      */
-    public CompletableFuture<Void> deleteDataStream(String dataStreamName) {
-        return bindToContext(esAsyncClient.indices()
+    public Future<Void> deleteDataStream(String dataStreamName) {
+        return toFuture(esAsyncClient.indices()
                                           .deleteDataStream(builder -> builder.name(dataStreamName))
                                           .thenApply(response -> null));
     }
@@ -410,10 +412,10 @@ public class CrudServiceTemplate {
      * Deletes an index.
      *
      * @param indexName name of the index to delete
-     * @return a {@link CompletableFuture} that will complete when the index has been deleted
+     * @return a {@link Future} that will complete when the index has been deleted
      */
-    public CompletableFuture<Void> deleteIndex(String indexName) {
-        return bindToContext(esAsyncClient.indices()
+    public Future<Void> deleteIndex(String indexName) {
+        return toFuture(esAsyncClient.indices()
                                           .delete(builder -> builder.index(indexName))
                                           .thenApply(response -> null));
     }
@@ -421,8 +423,8 @@ public class CrudServiceTemplate {
     /**
      * Deletes an index template
      */
-    public CompletableFuture<Void> deleteIndexTemplate(String templateName) {
-        return bindToContext(esAsyncClient.indices()
+    public Future<Void> deleteIndexTemplate(String templateName) {
+        return toFuture(esAsyncClient.indices()
                                           .deleteIndexTemplate(builder -> builder.name(templateName))
                                           .thenApply(response -> null));
     }
@@ -439,9 +441,9 @@ public class CrudServiceTemplate {
      * @param id              of the document to return
      * @param type            of the document to return
      * @param builderConsumer to customize the {@link GetRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the document
+     * @return a {@link Future} that will complete with the document
      */
-    public <T> CompletableFuture<T> findById(String indexName,
+    public <T> Future<T> findById(String indexName,
                                              String id,
                                              Class<T> type,
                                              Consumer<GetRequest.Builder> builderConsumer){
@@ -456,9 +458,9 @@ public class CrudServiceTemplate {
      * @param type            of the document to return
      * @param builderConsumer to customize the {@link GetRequest}, or null if no customization is needed
      * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link CompletableFuture} that will complete with the document
+     * @return a {@link Future} that will complete with the document
      */
-    public <T, R> CompletableFuture<R> findById(String indexName,
+    public <T, R> Future<R> findById(String indexName,
                                                 String id,
                                                 Class<T> type,
                                                 Consumer<GetRequest.Builder> builderConsumer,
@@ -479,7 +481,7 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        return bindToContext(esAsyncClient._transport()
+        return toFuture(esAsyncClient._transport()
                                           .performRequestAsync(builder.build(),
                                                                endpoint,
                                                                esAsyncClient._transportOptions())
@@ -498,11 +500,11 @@ public class CrudServiceTemplate {
      * Issues a search with {@code size=1} and returns the single hit, or {@code null} if none.
      * Convenience for "find by unique key" lookups.
      */
-    public <T> CompletableFuture<T> findFirst(String indexName,
+    public <T> Future<T> findFirst(String indexName,
                                               Class<T> type,
                                               Consumer<SearchRequest.Builder> builderConsumer) {
         return search(indexName, Pageable.create(0, 1, Sort.unsorted()), type, builderConsumer)
-                .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+                .map(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     /** Matches documents where {@code field} is absent (the inverse of {@link #existsFilter}). */
@@ -516,9 +518,9 @@ public class CrudServiceTemplate {
      * @param type of the document to return
      * @param builderConsumer to customize the {@link MgetRequest}, or null if no customization is needed
      * @param resultMapper to map the {@link GetResult} to the desired type or null if the source should be returned directly
-     * @return a {@link CompletableFuture} that will complete with the documents requested
+     * @return a {@link Future} that will complete with the documents requested
      */
-    public <T, R> CompletableFuture<List<R>> multiGet(List<MultiGetOperation> getOperations,
+    public <T, R> Future<List<R>> multiGet(List<MultiGetOperation> getOperations,
                                                       Class<T> type,
                                                       Consumer<MgetRequest.Builder> builderConsumer,
                                                       Function<GetResult<T>, R> resultMapper){
@@ -537,7 +539,7 @@ public class CrudServiceTemplate {
             builderConsumer.accept(builder);
         }
 
-        return bindToContext(esAsyncClient._transport()
+        return toFuture(esAsyncClient._transport()
                                           .performRequestAsync(builder.build(),
                                                                endpoint,
                                                                esAsyncClient._transportOptions())
@@ -575,15 +577,15 @@ public class CrudServiceTemplate {
      * @param id        of the document to update
      * @param partial   the fields to merge into the document
      * @param upsert    true to create the document from {@code partial} when it does not exist
-     * @return a {@link CompletableFuture} that will complete when the update is applied
+     * @return a {@link Future} that will complete when the update is applied
      */
-    public CompletableFuture<Void> partialUpdate(String indexName,
+    public Future<Void> partialUpdate(String indexName,
                                                  String id,
                                                  Map<String, Object> partial,
                                                  boolean upsert) {
         // a doc merge carries no compare-and-set semantics, so retrying re-applies the same fields
         // against the newest version and never loses a concurrent writer's fields
-        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+        return toFuture(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
@@ -601,13 +603,13 @@ public class CrudServiceTemplate {
      * @param id        of the document to update
      * @param partial   the fields to merge into the document
      * @param upsert    true to create the document from {@code partial} when it does not exist
-     * @return a {@link CompletableFuture} that will complete when the update is applied
+     * @return a {@link Future} that will complete when the update is applied
      */
-    public CompletableFuture<Void> partialUpdateSync(String indexName,
+    public Future<Void> partialUpdateSync(String indexName,
                                                      String id,
                                                      Map<String, Object> partial,
                                                      boolean upsert) {
-        return bindToContext(esAsyncClient.update(u -> u.index(indexName)
+        return toFuture(esAsyncClient.update(u -> u.index(indexName)
                                                         .id(id)
                                                         .doc(partial)
                                                         .docAsUpsert(upsert)
@@ -624,13 +626,13 @@ public class CrudServiceTemplate {
      * @param id              of the document to index
      * @param document        to index
      * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     * @return a {@link Future} that will complete with the {@link IndexResponse}
      */
-    public <T> CompletableFuture<IndexResponse> save(String indexName,
+    public <T> Future<IndexResponse> save(String indexName,
                                                      String id,
                                                      T document,
                                                      Consumer<IndexRequest.Builder<T>> builderConsumer) {
-        return bindToContext(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
+        return toFuture(esAsyncClient.index((IndexRequest.Builder<T> builder) -> {
             builder.index(indexName).id(id).document(document);
             if (builderConsumer != null) {
                 builderConsumer.accept(builder);
@@ -647,9 +649,9 @@ public class CrudServiceTemplate {
      * @param id              of the document to index
      * @param document        to index
      * @param builderConsumer to customize the {@link IndexRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with the {@link IndexResponse}
+     * @return a {@link Future} that will complete with the {@link IndexResponse}
      */
-    public <T> CompletableFuture<IndexResponse> saveSync(String indexName,
+    public <T> Future<IndexResponse> saveSync(String indexName,
                                                          String id,
                                                          T document,
                                                          Consumer<IndexRequest.Builder<T>> builderConsumer) {
@@ -671,9 +673,9 @@ public class CrudServiceTemplate {
      * @param pageable        to use for the search
      * @param type            of the documents to return
      * @param builderConsumer to customize the {@link SearchRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with a {@link Page} of documents
+     * @return a {@link Future} that will complete with a {@link Page} of documents
      */
-    public <T> CompletableFuture<Page<T>> search(String indexName,
+    public <T> Future<Page<T>> search(String indexName,
                                                  Pageable pageable,
                                                  Class<T> type,
                                                  Consumer<SearchRequest.Builder> builderConsumer){
@@ -691,15 +693,15 @@ public class CrudServiceTemplate {
      * @param type            of the documents to return
      * @param builderConsumer to customize the {@link SearchRequest}, or null if no customization is needed
      * @param hitMapper       to map the {@link Hit} to the desired type or null if the source should be returned directly
-     * @return a {@link CompletableFuture} that will complete with a {@link Page} of documents
+     * @return a {@link Future} that will complete with a {@link Page} of documents
      */
-    public <T,R> CompletableFuture<Page<R>> search(String indexName,
+    public <T,R> Future<Page<R>> search(String indexName,
                                                    Pageable pageable,
                                                    Class<T> type,
                                                    Consumer<SearchRequest.Builder> builderConsumer,
                                                    Function<Hit<T>, R> hitMapper) {
 
-        return bindToContext(searchFullResponse(indexName, pageable, type, builderConsumer)
+        return toFuture(searchFullResponse(indexName, pageable, type, builderConsumer)
                 .thenApply(response -> {
 
                     HitsMetadata<T> hitsMetadata = response.hits();
@@ -741,10 +743,10 @@ public class CrudServiceTemplate {
                 }));
     }
 
-    public CompletableFuture<Void> syncIndex(String indexName) {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(_ -> null);
+    public Future<Void> syncIndex(String indexName) {
+        return toFuture(esAsyncClient.indices()
+                                     .refresh(b -> b.index(indexName)))
+                .mapEmpty();
     }
 
     /** Builds a {@code term} query for {@code field} equal to {@code value}. */
@@ -767,9 +769,9 @@ public class CrudServiceTemplate {
         return TermQuery.of(t -> t.field(field).value(value))._toQuery();
     }
 
-    public CompletableFuture<Void> updateIndexMapping(String indexName,
+    public Future<Void> updateIndexMapping(String indexName,
                                                       Map<String, Property> mappings) {
-        return bindToContext(esAsyncClient.indices().exists(builder -> builder.index(indexName))
+        return toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
                                 if (exists.value()) {
                                     return esAsyncClient.indices()
@@ -792,13 +794,13 @@ public class CrudServiceTemplate {
     /**
      * Updates an existing index template
      */
-    public CompletableFuture<Void> updateIndexTemplate(String templateName,
+    public Future<Void> updateIndexTemplate(String templateName,
                                                        Map<String, Property> mappings) {
         Validate.notNull(templateName, "templateName cannot be null");
         Validate.notNull(mappings, "mappings cannot be null");
         Validate.notEmpty(mappings, "mappings cannot be empty");
 
-        return bindToContext(esAsyncClient.indices()
+        return toFuture(esAsyncClient.indices()
                             .existsIndexTemplate(builder -> builder.name(templateName))
                             .thenCompose(exists -> {
                                 if (!exists.value()) {
@@ -877,30 +879,39 @@ public class CrudServiceTemplate {
     }
 
     /**
-     * Binds the continuations of the given {@link CompletableFuture} back to the Vert.x context
-     * that is current at the moment this method is invoked. Any downstream {@code thenCompose} /
-     * {@code thenApply} / {@code whenComplete} attached by the caller will then run on that
-     * context, which means {@code Vertx.currentContext()} — and by extension
+     * Converts a {@link CompletableFuture} produced by an asynchronous client (the Elasticsearch
+     * client, a Caffeine loader) into a {@link Future} whose handlers are dispatched on the Vert.x
+     * context that is current at the moment this method is invoked. Any {@code compose} /
+     * {@code map} / {@code onComplete} attached by the caller will then run on that context, which
+     * means {@code Vertx.currentContext()} — and by extension
      * {@link org.kinotic.core.api.security.SecurityContext#currentParticipant()} —
-     * will be observable across the Elasticsearch async boundary.
+     * will be observable across the client's async boundary. Failures are delivered as the
+     * raw cause, never wrapped in {@link CompletionException}.
      * <p>
-     * When invoked outside of any Vert.x context, the original future is returned unchanged so
+     * When invoked outside of any Vert.x context, handlers run on the completing thread so
      * non-Vert.x callers still work.
      */
-    private <T> CompletableFuture<T> bindToContext(CompletableFuture<T> original) {
-        Context ctx = Vertx.currentContext();
-        if (ctx == null) {
-            return original;
-        }
-        CompletableFuture<T> bound = new CompletableFuture<>();
-        original.whenComplete((result, err) -> ctx.runOnContext(v -> {
+    public <T> Future<T> toFuture(CompletableFuture<T> es) {
+        // a failure that crossed a dependent stage arrives CompletionException-wrapped; strip it here
+        // so every Vert.x consumer sees the raw cause. A bare Promise.promise() would not re-dispatch
+        // onto the context, so the context-bound fromCompletionStage overload is required.
+        CompletableFuture<T> unwrapped = new CompletableFuture<>();
+        es.whenComplete((result, err) -> {
             if (err != null) {
-                bound.completeExceptionally(err);
+                unwrapped.completeExceptionally(err instanceof CompletionException && err.getCause() != null
+                                                        ? err.getCause() : err);
             } else {
-                bound.complete(result);
+                unwrapped.complete(result);
             }
-        }));
-        return bound;
+        });
+        Context ctx = Vertx.currentContext();
+        Future<T> ret;
+        if (ctx != null) {
+            ret = Future.fromCompletionStage(unwrapped, ctx);
+        } else {
+            ret = Future.fromCompletionStage(unwrapped);
+        }
+        return ret;
     }
 
     private <T> JsonpDeserializer<T> getDeserializer(Class<T> type) {
@@ -926,7 +937,7 @@ public class CrudServiceTemplate {
      * @param pageable        to use for the search
      * @param type            of the documents to return
      * @param builderConsumer to customize the {@link SearchRequest}, or null if no customization is needed
-     * @return a {@link CompletableFuture} that will complete with a {@link SearchResponse} of documents
+     * @return a {@link Future} that will complete with a {@link SearchResponse} of documents
      */
     private <T> CompletableFuture<SearchResponse<T>> searchFullResponse(String indexName,
                                                                         Pageable pageable,

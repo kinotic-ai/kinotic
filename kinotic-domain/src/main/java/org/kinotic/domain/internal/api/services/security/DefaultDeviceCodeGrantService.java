@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -18,7 +19,6 @@ import org.springframework.stereotype.Component;
 import java.security.SecureRandom;
 import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -44,7 +44,7 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<DeviceCodeGrantStart> start(String deviceName) {
+    public Future<DeviceCodeGrantStart> start(String deviceName) {
         Date now = new Date();
         String deviceCode = DomainUtil.generateUrlSafeToken(DEVICE_CODE_BYTES);
         String userCode = generateUserCode();
@@ -60,61 +60,62 @@ public class DefaultDeviceCodeGrantService implements DeviceCodeGrantService {
                 .setIntervalSeconds(POLL_INTERVAL_SECONDS);
 
         return deviceCodeGrantRepository.saveSync(grant)
-                .thenApply(saved -> new DeviceCodeGrantStart(deviceCode, userCode, expiresAt, POLL_INTERVAL_SECONDS));
+                .map(new DeviceCodeGrantStart(deviceCode, userCode, expiresAt, POLL_INTERVAL_SECONDS));
     }
 
     @Override
-    public CompletableFuture<DeviceCodePollResult> poll(String deviceCode) {
+    public Future<DeviceCodePollResult> poll(String deviceCode) {
         Validate.notBlank(deviceCode, "deviceCode is required");
         return deviceCodeGrantRepository.findByDeviceCodeHash(DomainUtil.sha256Hex(deviceCode))
-                                        .thenCompose(this::evaluatePoll);
+                                        .compose(this::evaluatePoll);
     }
 
-    private CompletableFuture<DeviceCodePollResult> evaluatePoll(DeviceCodeGrant grant) {
+    private Future<DeviceCodePollResult> evaluatePoll(DeviceCodeGrant grant) {
         if (grant == null) {
-            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null));
+            return Future.succeededFuture(new DeviceCodePollResult(PollStatus.INVALID, null, null));
         }
         Date now = new Date();
         if (grant.getExpiresAt().before(now)) {
             return deviceCodeGrantRepository.deleteById(grant.getId())
-                    .thenApply(v -> new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
+                    .map(new DeviceCodePollResult(PollStatus.EXPIRED, null, null));
         }
         if (grant.getIdentityId() != null) {
             // Approved — hand back the user and consume the grant so it cannot be replayed.
             return identityRepository.findById(grant.getIdentityId())
-                    .thenApply(UserParticipantIdentity.class::cast)
-                    .thenCompose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
-                            .thenApply(v -> (user == null || !user.isEnabled())
+                    .map(UserParticipantIdentity.class::cast)
+                    .compose(user -> deviceCodeGrantRepository.deleteById(grant.getId())
+                            .map(user == null || !user.isEnabled()
                                     ? new DeviceCodePollResult(PollStatus.INVALID, null, null)
                                     : new DeviceCodePollResult(PollStatus.APPROVED, user, grant.getDeviceName())));
         }
         if (polledTooSoon(grant, now)) {
-            return CompletableFuture.completedFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));
+            return Future.succeededFuture(new DeviceCodePollResult(PollStatus.SLOW_DOWN, null, null));
         }
         grant.setLastPolledAt(now);
         return deviceCodeGrantRepository.saveSync(grant)
-                .thenApply(v -> new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null, null));
+                .map(new DeviceCodePollResult(PollStatus.AUTHORIZATION_PENDING, null, null));
     }
 
     @Override
-    public CompletableFuture<Void> approve(String userCode, String identityId) {
+    public Future<Void> approve(String userCode, String identityId) {
         Validate.notBlank(userCode, "userCode is required");
         Validate.notBlank(identityId, "identityId is required");
         return deviceCodeGrantRepository.findByUserCode(normalizeUserCode(userCode))
-                .thenCompose(grant -> {
+                .compose(grant -> {
                     if (grant == null) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("Unknown user code"));
+                        return Future.failedFuture(new IllegalArgumentException("Unknown user code"));
                     }
                     if (grant.getExpiresAt().before(new Date())) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Device authorization request has expired"));
                     }
                     if (grant.getIdentityId() != null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Device authorization request has already been approved"));
                     }
                     grant.setIdentityId(identityId);
-                    return deviceCodeGrantRepository.saveSync(grant).thenApply(v -> null);
+                    return deviceCodeGrantRepository.saveSync(grant)
+                                                    .mapEmpty();
                 });
     }
 

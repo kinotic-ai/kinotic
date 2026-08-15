@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class DefaultInviteEmailTemplateService extends AbstractApplicationScopedService<InviteEmailTemplate>
@@ -33,13 +33,13 @@ public class DefaultInviteEmailTemplateService extends AbstractApplicationScoped
     }
 
     @Override
-    public CompletableFuture<InviteEmailTemplate> findByApplication(String applicationId) {
+    public Future<InviteEmailTemplate> findByApplication(String applicationId) {
         Validate.notBlank(applicationId, "applicationId is required");
         return inviteEmailTemplateRepository.findByApplication(applicationId, requireOrganizationId());
     }
 
     @Override
-    public CompletableFuture<InviteEmailTemplate> save(InviteEmailTemplate entity) {
+    public Future<InviteEmailTemplate> save(InviteEmailTemplate entity) {
         Validate.notBlank(entity.getApplicationId(), "applicationId is required");
         Validate.notBlank(entity.getSubject(), "subject is required");
         Validate.notBlank(entity.getHtmlBody(), "htmlBody is required");
@@ -51,21 +51,15 @@ public class DefaultInviteEmailTemplateService extends AbstractApplicationScoped
         // Fails at save rather than at the next send.
         emailService.validateInviteTemplate(entity.getSubject(), entity.getHtmlBody(), entity.getTextBody());
 
-        return applicationRepository.findById(entity.getApplicationId(), organizationId)
-                .thenCompose(app -> {
-                    if (app == null) {
-                        return CompletableFuture.<InviteEmailTemplate>failedFuture(
-                                new IllegalArgumentException("Application not found: " + entity.getApplicationId()));
-                    }
-                    return inviteEmailTemplateRepository.findByApplication(entity.getApplicationId(), organizationId);
-                })
-                .thenCompose(existing -> {
+        return applicationRepository.requireById(entity.getApplicationId(), organizationId)
+                .compose(_ -> inviteEmailTemplateRepository.findByApplication(entity.getApplicationId(), organizationId))
+                .compose(existing -> {
                     // At most one template per application: a new save adopts the existing row's
                     // id so edits update in place instead of creating a duplicate.
                     if (entity.getId() == null) {
                         entity.setId(existing != null ? existing.getId() : UUID.randomUUID().toString());
                     } else if (existing != null && !existing.getId().equals(entity.getId())) {
-                        return CompletableFuture.failedFuture(new IllegalArgumentException(
+                        return Future.failedFuture(new IllegalArgumentException(
                                 "A template already exists for this application."));
                     }
                     Date now = new Date();

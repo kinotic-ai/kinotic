@@ -1,13 +1,12 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ProjectScoped;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Repository tier for entities that belong to a project within an application and organization.
@@ -22,12 +21,12 @@ public abstract class AbstractProjectScopedRepository<T extends ProjectScoped<St
         super(indexName, type, crudServiceTemplate);
     }
 
-    public CompletableFuture<Long> countForProject(String projectId, String orgId) {
+    public Future<Long> countForProject(String projectId, String orgId) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return count(b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }
 
-    public CompletableFuture<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
+    public Future<Page<T>> findAllForProject(String projectId, String orgId, Pageable pageable) {
         Validate.notBlank(orgId, "orgId cannot be blank");
         return findAll(pageable, b -> b.routing(orgId).query(composeOrgFilter(orgId, projectIdFilter(projectId))));
     }

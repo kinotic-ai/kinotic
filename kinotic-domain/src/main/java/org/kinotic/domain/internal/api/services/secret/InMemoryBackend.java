@@ -1,8 +1,9 @@
 package org.kinotic.domain.internal.api.services.secret;
 
+import io.vertx.core.Future;
+
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -15,39 +16,39 @@ public class InMemoryBackend implements SecretStorageBackend {
     private final ConcurrentHashMap<String, String> store = new ConcurrentHashMap<>();
 
     @Override
-    public CompletableFuture<Void> setSecret(String derivedName, String value) {
+    public Future<Void> setSecret(String derivedName, String value) {
         store.put(derivedName, value);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<String> getSecret(String derivedName) {
-        return CompletableFuture.completedFuture(store.get(derivedName));
+    public Future<String> getSecret(String derivedName) {
+        return Future.succeededFuture(store.get(derivedName));
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecret(String derivedName) {
+    public Future<Void> deleteSecret(String derivedName) {
         store.remove(derivedName);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Void> setSecrets(Map<String, String> derivedNameToValue) {
+    public Future<Void> setSecrets(Map<String, String> derivedNameToValue) {
         store.putAll(derivedNameToValue);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Map<String, String>> getSecrets(List<String> derivedNames) {
+    public Future<Map<String, String>> getSecrets(List<String> derivedNames) {
         Map<String, String> results = derivedNames.stream()
                                                   .filter(store::containsKey)
                                                   .collect(Collectors.toMap(k -> k, store::get));
-        return CompletableFuture.completedFuture(results);
+        return Future.succeededFuture(results);
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecrets(List<String> derivedNames) {
+    public Future<Void> deleteSecrets(List<String> derivedNames) {
         derivedNames.forEach(store::remove);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 }

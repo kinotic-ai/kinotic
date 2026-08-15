@@ -27,6 +27,7 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'dashboard',
                 path: 'dashboard',
+
                 component: () => import('./pages/Dashboard.vue'),
                 meta: { sidebar: consoleSidebarItem('Dashboard', 'pi-objects-column', 10) }
             },

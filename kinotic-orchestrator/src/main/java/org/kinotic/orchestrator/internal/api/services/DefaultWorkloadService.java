@@ -1,17 +1,17 @@
 package org.kinotic.orchestrator.internal.api.services;
 
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.orchestrator.api.model.workload.Workload;
-import org.kinotic.orchestrator.internal.api.repositories.WorkloadRepository;
 import org.kinotic.orchestrator.api.services.WorkloadService;
+import org.kinotic.orchestrator.internal.api.repositories.WorkloadRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class DefaultWorkloadService extends AbstractCrudService<Workload> implements WorkloadService {
@@ -24,17 +24,17 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public CompletableFuture<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
+    public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
         return workloadRepository.findAllForNode(nodeId, pageable);
     }
 
     @Override
-    public CompletableFuture<Long> countForNode(String nodeId) {
+    public Future<Long> countForNode(String nodeId) {
         return workloadRepository.countForNode(nodeId);
     }
 
     @Override
-    protected CompletableFuture<Void> beforeSave(Workload entity) {
+    protected Future<Void> beforeSave(Workload entity) {
         Validate.notNull(entity, "Workload cannot be null");
         Validate.notNull(entity.getName(), "Workload name cannot be null");
         Validate.notNull(entity.getImage(), "Workload image cannot be null");
@@ -46,7 +46,7 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
         if (entity.getCreated() == null) {
             entity.setCreated(new Date());
         }
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
 }

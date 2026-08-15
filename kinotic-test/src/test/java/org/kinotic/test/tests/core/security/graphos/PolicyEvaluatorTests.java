@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.security.graphos;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -9,7 +10,6 @@ import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -43,14 +43,14 @@ public class PolicyEvaluatorTests {
     }
 
     @Test
-    public void testPolicyEvaluatorWithFailedOperations() throws Exception {
+    public void testPolicyEvaluatorWithFailedOperations() {
         List<List<String>> operationPolicies = List.of(
                 List.of("policy1", "policy2") // AND group
         );
 
         PolicyEvaluator evaluator = new PolicyEvaluatorWithOperation(authorizer, sharedPolicyManager, operationPolicies);
 
-        AuthorizationResult result = evaluator.evaluatePolicies(null).get();
+        AuthorizationResult result = evaluator.evaluatePolicies(null).await();
 
         assertFalse(result.operationAllowed()); // Operation policies are not satisfied
         assertTrue(result.entityAllowed());     // Domain policy is satisfied
@@ -61,7 +61,7 @@ public class PolicyEvaluatorTests {
     }
 
     @Test
-    public void testPolicyEvaluatorWithMissingDomainPolicy() throws Exception {
+    public void testPolicyEvaluatorWithMissingDomainPolicy() {
         List<List<String>> operationPolicies = List.of(
                 List.of("policy1", "policy3") // AND group
         );
@@ -70,7 +70,7 @@ public class PolicyEvaluatorTests {
         SharedPolicyManager modifiedPolicyManager = new SharedPolicyManager(null, sharedPolicyManager.getFieldPolicies());
         PolicyEvaluator evaluator = new PolicyEvaluatorWithOperation(authorizer, modifiedPolicyManager, operationPolicies);
 
-        AuthorizationResult result = evaluator.evaluatePolicies(null).get();
+        AuthorizationResult result = evaluator.evaluatePolicies(null).await();
 
         assertTrue(result.operationAllowed()); // Operation policies are satisfied
         assertTrue(result.entityAllowed());   // Domain policy is missing
@@ -81,7 +81,7 @@ public class PolicyEvaluatorTests {
     }
 
     @Test
-    public void testPolicyEvaluatorWithSuccessfulLastName() throws Exception {
+    public void testPolicyEvaluatorWithSuccessfulLastName() {
         List<List<String>> operationPolicies = List.of(
                 List.of("policy1", "policy3") // AND group
         );
@@ -89,7 +89,7 @@ public class PolicyEvaluatorTests {
         // Update MockPolicyAuthorizer to authorize policy7 for this test
         PolicyAuthorizer updatedAuthorizer = new PolicyAuthorizer() {
             @Override
-            public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
+            public Future<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
                 for (PolicyAuthorizationRequest request : requests) {
                     if ("policy1".equals(request.policy()) ||
                             "policy3".equals(request.policy()) ||
@@ -101,13 +101,13 @@ public class PolicyEvaluatorTests {
                         request.deny();
                     }
                 }
-                return CompletableFuture.completedFuture(null);
+                return Future.succeededFuture();
             }
         };
 
         PolicyEvaluator evaluator = new PolicyEvaluatorWithOperation(updatedAuthorizer, sharedPolicyManager, operationPolicies);
 
-        AuthorizationResult result = evaluator.evaluatePolicies(null).get();
+        AuthorizationResult result = evaluator.evaluatePolicies(null).await();
 
         assertTrue(result.operationAllowed()); // Operation policies are satisfied
         assertTrue(result.entityAllowed());    // Domain policy is satisfied
@@ -118,14 +118,14 @@ public class PolicyEvaluatorTests {
     }
 
     @Test
-    public void testPolicyEvaluatorWithSuccessfulOperations() throws Exception {
+    public void testPolicyEvaluatorWithSuccessfulOperations() {
         List<List<String>> operationPolicies = List.of(
                 List.of("policy1", "policy3") // AND group
         );
 
         PolicyEvaluator evaluator = new PolicyEvaluatorWithOperation(authorizer, sharedPolicyManager, operationPolicies);
 
-        AuthorizationResult result = evaluator.evaluatePolicies(null).get();
+        AuthorizationResult result = evaluator.evaluatePolicies(null).await();
 
         assertTrue(result.operationAllowed()); // Operation policies are satisfied
         assertTrue(result.entityAllowed());    // Domain policy is satisfied
@@ -136,10 +136,10 @@ public class PolicyEvaluatorTests {
     }
 
     @Test
-    public void testPolicyEvaluatorWithoutOperations() throws Exception {
+    public void testPolicyEvaluatorWithoutOperations() {
         PolicyEvaluator evaluator = new PolicyEvaluatorWithoutOperation(authorizer, sharedPolicyManager);
 
-        AuthorizationResult result = evaluator.evaluatePolicies(null).get();
+        AuthorizationResult result = evaluator.evaluatePolicies(null).await();
 
         assertTrue(result.operationAllowed()); // No operation policies mean it's always allowed
         assertTrue(result.entityAllowed());    // Domain policy is satisfied
@@ -163,7 +163,7 @@ public class PolicyEvaluatorTests {
     // Mock Implementation for PolicyAuthorizer
     private static class MockPolicyAuthorizer implements PolicyAuthorizer {
         @Override
-        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
+        public Future<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
             for (PolicyAuthorizationRequest request : requests) {
                 // Authorize specific policies for testing
                 if ("policy1".equals(request.policy()) ||
@@ -175,7 +175,7 @@ public class PolicyEvaluatorTests {
                     request.deny();
                 }
             }
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
     }
 }

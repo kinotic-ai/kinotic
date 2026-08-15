@@ -1,5 +1,6 @@
 package org.kinotic.orchestrator.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -8,11 +9,10 @@ import org.kinotic.orchestrator.api.services.WorkloadService;
 import org.kinotic.orchestrator.api.services.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.services.WorkloadOrchestrationService;
+import org.kinotic.orchestrator.api.model.workload.VmNode;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Component
@@ -26,16 +26,16 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final WorkloadService workloadService;
 
     @Override
-    public CompletableFuture<Workload> deployWorkload(Workload workload) {
+    public Future<Workload> deployWorkload(Workload workload) {
         Validate.notNull(workload, "Workload cannot be null");
         Validate.notNull(workload.getName(), "Workload name cannot be null");
         Validate.notNull(workload.getImage(), "Workload image cannot be null");
 
         // Find a node with sufficient resources
         return nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
-                .thenCompose(node -> {
+                .compose(node -> {
                     if (node == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalStateException("No available node with sufficient resources to deploy workload"));
                     }
 
@@ -47,117 +47,120 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
                     // Persist the workload and update node resource allocation
                     return workloadService.saveSync(workload)
-                            .thenCompose(savedWorkload -> {
+                            .compose(savedWorkload -> {
                                 node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
                                 node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
                                 node.setAllocatedDiskMb(node.getAllocatedDiskMb() + savedWorkload.getDiskSizeMb());
                                 return vmNodeService.saveSync(node)
-                                        .thenApply(updatedNode -> savedWorkload);
+                                        .map(savedWorkload);
                             })
-                            .thenCompose(savedWorkload ->
+                            .compose(savedWorkload ->
                                 // Dispatch to the VmManager on the selected node
                                 vmManagerProxy.startWorkload(node.getId(), savedWorkload)
-                                        .thenCompose(startedWorkload -> {
+                                        .compose(startedWorkload -> {
                                             // VmManager started the workload, mark as RUNNING
                                             startedWorkload.setStatus(WorkloadStatus.RUNNING);
                                             return workloadService.saveSync(startedWorkload);
                                         })
-                                        .exceptionallyCompose(error -> {
+                                        .recover(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
                                             savedWorkload.setStatus(WorkloadStatus.FAILED);
                                             return workloadService.saveSync(savedWorkload)
-                                                    .thenCompose(failed -> CompletableFuture.failedFuture(error));
+                                                    .compose(failed -> Future.failedFuture(error));
                                         })
                             );
                 });
     }
 
     @Override
-    public CompletableFuture<Workload> restartWorkload(String workloadId) {
+    public Future<Workload> restartWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
-                .thenCompose(workload -> {
+                .compose(workload -> {
                     if (workload == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Workload not found: " + workloadId));
                     }
                     if (workload.getStatus() != WorkloadStatus.STOPPED) {
-                        return CompletableFuture.failedFuture(new IllegalStateException(
+                        return Future.failedFuture(new IllegalStateException(
                                 "Workload " + workloadId + " is not stopped (status: " + workload.getStatus() + ")"));
                     }
 
                     workload.setStatus(WorkloadStatus.STARTING);
                     return workloadService.saveSync(workload);
                 })
-                .thenCompose(workload ->
+                .compose(workload ->
                     vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
-                            .thenCompose(restarted -> {
+                            .compose(restarted -> {
                                 restarted.setStatus(WorkloadStatus.RUNNING);
                                 return workloadService.saveSync(restarted);
                             })
-                            .exceptionallyCompose(error -> {
+                            .recover(error -> {
                                 log.error("Failed to restart workload {} on node {}",
                                           workloadId, workload.getNodeId(), error);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
-                                        .thenCompose(failed -> CompletableFuture.failedFuture(error));
+                                        .compose(failed -> Future.failedFuture(error));
                             })
                 );
     }
 
     @Override
-    public CompletableFuture<Void> stopWorkload(String workloadId) {
+    public Future<Void> stopWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
-                .thenCompose(workload -> {
+                .compose(workload -> {
                     if (workload == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Workload not found: " + workloadId));
                     }
 
                     workload.setStatus(WorkloadStatus.STOPPING);
                     return workloadService.saveSync(workload);
                 })
-                .thenCompose(workload ->
+                .compose(workload ->
                     vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
-                            .thenCompose(v -> {
+                            .compose(v -> {
                                 workload.setStatus(WorkloadStatus.STOPPED);
                                 return workloadService.saveSync(workload);
                             })
                 )
-                .thenApply(workload -> null);
+                .mapEmpty();
     }
 
     @Override
-    public CompletableFuture<Void> destroyWorkload(String workloadId) {
+    public Future<Void> destroyWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
 
         return workloadService.findById(workloadId)
-                .thenCompose(workload -> {
+                .compose(workload -> {
                     if (workload == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("Workload not found: " + workloadId));
                     }
 
                     // Dispatch destroy to the VmManager on the workload's node
                     return vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId)
-                            .thenCompose(v ->
+                            .compose(v ->
                                 // Free allocated resources on the node
                                 vmNodeService.findById(workload.getNodeId())
-                                        .thenCompose(node -> {
+                                        .compose(node -> {
+                                            Future<VmNode> ret;
                                             if (node != null) {
                                                 node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
                                                 node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
                                                 node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
-                                                return vmNodeService.saveSync(node);
+                                                ret = vmNodeService.saveSync(node);
+                                            } else {
+                                                ret = Future.succeededFuture(node);
                                             }
-                                            return CompletableFuture.completedFuture(node);
+                                            return ret;
                                         })
                             )
-                            .thenCompose(node -> workloadService.deleteById(workloadId));
+                            .compose(node -> workloadService.deleteById(workloadId));
                 });
     }
 }

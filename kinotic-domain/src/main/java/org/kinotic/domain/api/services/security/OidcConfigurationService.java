@@ -1,12 +1,12 @@
 package org.kinotic.domain.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.BaseOidcConfiguration;
 import org.kinotic.domain.api.model.security.OidcConfiguration;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 // FIXME: add an OrganizationScopedServiceInterface
 public interface OidcConfigurationService extends IdentifiableCrudService<OidcConfiguration, String> {
@@ -20,7 +20,7 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * @param orgId the organization that owns the configurations
      * @return the enabled configurations
      */
-    CompletableFuture<List<OidcConfiguration>> findEnabledByIds(List<String> ids, String orgId);
+    Future<List<OidcConfiguration>> findEnabledByIds(List<String> ids, String orgId);
 
     /**
      * Returns the {@link OidcConfiguration} the given organization uses as its SSO
@@ -28,7 +28,7 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * {@link Organization#getSsoConfigId()} — structurally
      * one-per-org, no scope flag needed on the config row itself.
      */
-    CompletableFuture<OidcConfiguration> findOrgLoginConfig(String organizationId);
+    Future<OidcConfiguration> findOrgLoginConfig(String organizationId);
 
     /**
      * The enabled OIDC configurations a login scope offers its users, in the order they should be
@@ -39,5 +39,5 @@ public interface OidcConfigurationService extends IdentifiableCrudService<OidcCo
      * @param organizationId the organization the scope belongs to
      * @param applicationId the application within it, or {@code null} for the organization scope
      */
-    CompletableFuture<List<BaseOidcConfiguration>> findEnabledForScope(String organizationId, String applicationId);
+    Future<List<BaseOidcConfiguration>> findEnabledForScope(String organizationId, String applicationId);
 }

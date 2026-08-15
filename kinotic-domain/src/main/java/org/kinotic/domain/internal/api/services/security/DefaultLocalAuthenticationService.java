@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -11,7 +12,6 @@ import org.kinotic.domain.internal.api.repositories.IdentityCredentialRepository
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.springframework.stereotype.Component;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -23,17 +23,17 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
     private final ParticipantIdentityRepository identityRepository;
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> authenticateLocal(String email, String password) {
+    public Future<UserParticipantIdentity> authenticateLocal(String email, String password) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
         return verifyMatchingUser(password, () -> identityRepository.findByEmail(email));
     }
 
     @Override
-    public CompletableFuture<UserParticipantIdentity> authenticateLocal(String email,
-                                                        String password,
-                                                        String organizationId,
-                                                        String applicationId) {
+    public Future<UserParticipantIdentity> authenticateLocal(String email,
+                                                             String password,
+                                                             String organizationId,
+                                                             String applicationId) {
         Validate.notBlank(email, "email cannot be blank");
         Validate.notBlank(password, "password cannot be blank");
         if (applicationId != null) {
@@ -42,16 +42,16 @@ public class DefaultLocalAuthenticationService implements LocalAuthenticationSer
         return verifyMatchingUser(password, () -> identityRepository.findByEmail(email, organizationId, applicationId));
     }
 
-    private CompletableFuture<UserParticipantIdentity> verifyMatchingUser(String password,
-                                                          Supplier<CompletableFuture<UserParticipantIdentity>> lookup) {
-        return lookup.get().thenCompose(user -> {
+    private Future<UserParticipantIdentity> verifyMatchingUser(String password,
+                                                               Supplier<Future<UserParticipantIdentity>> lookup) {
+        return lookup.get().compose(user -> {
             if (user == null
                     || user.getAuthType() != AuthType.LOCAL
                     || !user.isEnabled()) {
-                return CompletableFuture.completedFuture(null);
+                return Future.succeededFuture(null);
             }
             return credentialRepository.findById(user.getId())
-                                  .thenApply(credential -> {
+                                  .map(credential -> {
                                       if (credential == null
                                               || !DomainUtil.verifyPassword(password, credential.getSecretHash())) {
                                           return null;

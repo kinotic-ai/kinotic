@@ -1,6 +1,7 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,6 @@ import reactor.core.publisher.Sinks;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Default impl: mutates installation state for management events, flips backing
@@ -62,8 +62,8 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
     }
 
     @Override
-    public CompletableFuture<Void> process(GitHubWebhookEvent event) {
-        CompletableFuture<Void> ret;
+    public Future<Void> process(GitHubWebhookEvent event) {
+        Future<Void> ret;
         try {
             ret = switch (event.getEventType()) {
                 case "installation" -> handleInstallation(event);
@@ -71,69 +71,69 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                 default -> handleRepoEvent(event);
             };
         } catch (Exception e) {
-            ret = CompletableFuture.failedFuture(e);
+            ret = Future.failedFuture(e);
         }
         // Swallowing here rather than at each handler is what makes the "always succeeds"
         // contract hold for asynchronous failures too, not just synchronous throws.
-        return ret.exceptionally(err -> {
+        return ret.otherwise(err -> {
             log.warn("Webhook processing failed for delivery {}: {}", event.getDeliveryId(), err.getMessage());
             return null;
         });
     }
 
-    private CompletableFuture<Void> handleInstallation(GitHubWebhookEvent event) {
+    private Future<Void> handleInstallation(GitHubWebhookEvent event) {
         String action = event.getPayload().getString("action");
         Long installationId = event.getInstallationId();
         if (installationId == null) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
         return installationRepository.findByGithubInstallationId(installationId)
-                .thenCompose(existing -> {
+                .compose(existing -> {
                     if (existing == null) {
                         // Created elsewhere or already removed — nothing to mutate.
-                        return CompletableFuture.completedFuture(null);
+                        return Future.succeededFuture();
                     }
                     String orgId = existing.getOrganizationId();
                     return switch (action == null ? "" : action) {
                         case "deleted" -> installationRepository.deleteById(existing.getId(), orgId);
                         case "suspend" -> {
                             existing.setSuspendedAt(new Date()).setUpdated(new Date());
-                            yield installationRepository.save(existing, orgId).thenApply(saved -> null);
+                            yield installationRepository.save(existing, orgId).mapEmpty();
                         }
                         case "unsuspend" -> {
                             existing.setSuspendedAt(null).setUpdated(new Date());
-                            yield installationRepository.save(existing, orgId).thenApply(saved -> null);
+                            yield installationRepository.save(existing, orgId).mapEmpty();
                         }
-                        default -> CompletableFuture.completedFuture(null);
+                        default -> Future.succeededFuture();
                     };
                 });
     }
 
-    private CompletableFuture<Void> handleInstallationRepos(GitHubWebhookEvent event) {
+    private Future<Void> handleInstallationRepos(GitHubWebhookEvent event) {
         if (!"removed".equals(event.getPayload().getString("action"))) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
         var removed = event.getPayload().getJsonArray("repositories_removed");
         if (removed == null || removed.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
-        List<CompletableFuture<Void>> pending = new ArrayList<>();
+        List<Future<Void>> pending = new ArrayList<>();
         for (int i = 0; i < removed.size(); i++) {
             String fullName = removed.getJsonObject(i).getString("full_name");
             if (fullName != null) {
                 pending.add(markDisconnected(fullName));
             }
         }
-        return CompletableFuture.allOf(pending.toArray(CompletableFuture[]::new));
+        return Future.all(pending).mapEmpty();
     }
 
-    private CompletableFuture<Void> markDisconnected(String repoFullName) {
+    private Future<Void> markDisconnected(String repoFullName) {
         return projectRepository.findByRepoFullName(repoFullName)
-                .thenCompose(projects -> {
+                .compose(projects -> {
                     if (projects.isEmpty()) {
                         log.debug("Installation lost access to {}; no Kinotic project backed by it", repoFullName);
                     }
-                    List<CompletableFuture<Project>> saves = new ArrayList<>();
+                    List<Future<Project>> saves = new ArrayList<>();
                     for (Project project : projects) {
                         if (project.getRepoConnectionStatus() == RepositoryConnectionStatus.DISCONNECTED) {
                             continue;
@@ -143,26 +143,27 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                                  project.getId(), project.getOrganizationId(), repoFullName);
                         saves.add(projectRepository.save(project, project.getOrganizationId()));
                     }
-                    return CompletableFuture.allOf(saves.toArray(CompletableFuture[]::new));
+                    return Future.all(saves).mapEmpty();
                 });
     }
 
-    private CompletableFuture<Void> handleRepoEvent(GitHubWebhookEvent event) {
+    private Future<Void> handleRepoEvent(GitHubWebhookEvent event) {
         if (event.getRepoFullName() == null) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
         return projectRepository.findByRepoFullName(event.getRepoFullName())
-                .thenAccept(projects -> {
+                .compose(projects -> {
                     if (projects.isEmpty()) {
                         log.debug("No Kinotic project for repo {} (event {}); dropping",
                                   event.getRepoFullName(), event.getEventType());
-                        return;
+                    } else {
+                        for (Project project : projects) {
+                            emit(new GitHubProjectEvent().setOrganizationId(project.getOrganizationId())
+                                                         .setProjectId(project.getId())
+                                                         .setWebhookEvent(event));
+                        }
                     }
-                    for (Project project : projects) {
-                        emit(new GitHubProjectEvent().setOrganizationId(project.getOrganizationId())
-                                                     .setProjectId(project.getId())
-                                                     .setWebhookEvent(event));
-                    }
+                    return Future.succeededFuture();
                 });
     }
 

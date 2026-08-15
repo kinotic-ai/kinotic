@@ -103,12 +103,9 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
 
             log.trace("Processing webhook {} {} with payload {}", eventType, deliveryId, payload);
 
-            webhookEventService.process(event).whenComplete((v, err) -> {
-                if (err != null) {
+            webhookEventService.process(event).onFailure(err ->
                     log.warn("Webhook processing failed for {} {}: {}",
-                             eventType, deliveryId, err.getMessage());
-                }
-            });
+                             eventType, deliveryId, err.getMessage()));
         });
     }
 

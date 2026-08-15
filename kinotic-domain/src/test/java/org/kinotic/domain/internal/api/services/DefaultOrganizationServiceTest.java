@@ -23,7 +23,7 @@ class DefaultOrganizationServiceTest {
     void mintsIdFromSlugifiedName() {
         Organization organization = new Organization().setName("Acme Rockets");
 
-        service.beforeSave(organization).join();
+        service.beforeSave(organization).await();
 
         assertEquals("acme-rockets", organization.getId());
         assertNotNull(organization.getCreated());
@@ -33,7 +33,7 @@ class DefaultOrganizationServiceTest {
     void mintsLabelSafeIdsFromPunctuatedNames() {
         Organization organization = new Organization().setName("Acme Inc.");
 
-        service.beforeSave(organization).join();
+        service.beforeSave(organization).await();
 
         assertEquals("acme-inc", organization.getId());
     }
@@ -51,7 +51,7 @@ class DefaultOrganizationServiceTest {
     void allowsNamesNearTheReservedPrefix() {
         Organization organization = new Organization().setName("Kinetic Corp");
 
-        service.beforeSave(organization).join();
+        service.beforeSave(organization).await();
 
         assertEquals("kinetic-corp", organization.getId());
     }

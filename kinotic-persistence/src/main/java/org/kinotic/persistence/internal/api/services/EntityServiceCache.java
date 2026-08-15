@@ -2,6 +2,7 @@ package org.kinotic.persistence.internal.api.services;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
@@ -80,8 +81,8 @@ public class EntityServiceCache {
      * Returns the {@link EntityService} for {@code entityDefinitionId} within {@code organizationId},
      * building and caching it on a miss.
      */
-    public CompletableFuture<EntityService> get(String organizationId, String entityDefinitionId) {
-        return cache.get(new CacheKey(organizationId, entityDefinitionId));
+    public Future<EntityService> get(String organizationId, String entityDefinitionId) {
+        return crudServiceTemplate.toFuture(cache.get(new CacheKey(organizationId, entityDefinitionId)));
     }
 
     /**
@@ -91,22 +92,25 @@ public class EntityServiceCache {
         cache.asMap().remove(new CacheKey(organizationId, entityDefinitionId));
     }
 
+    // Caffeine's AsyncCacheLoader contract requires the (key, executor) signature and a CompletableFuture result
     private CompletableFuture<EntityService> load(CacheKey key, Executor executor) {
         return entityDefinitionRepository.findById(key.entityDefinitionId(), key.organizationId())
-                .thenApply(entityDefinition -> {
+                .map(entityDefinition -> {
                     Validate.notNull(entityDefinition, "No EntityDefinition found for %s", key);
                     return entityDefinition;
                 })
-                .thenComposeAsync(this::createEntityService, executor);
+                .compose(this::createEntityService)
+                .toCompletionStage()
+                .toCompletableFuture();
     }
 
     @SuppressWarnings("unchecked")
-    public CompletableFuture<EntityService> createEntityService(EntityDefinition entityDefinition) {
+    public Future<EntityService> createEntityService(EntityDefinition entityDefinition) {
 
         if(entityDefinition == null){
-            return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must not be null"));
+            return Future.failedFuture(new IllegalArgumentException("EntityDefinition must not be null"));
         } else if (!entityDefinition.isPublished()) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition must be published"));
+            return Future.failedFuture(new IllegalArgumentException("EntityDefinition must be published"));
         }
 
         // Map of jsonPath to DecoratorLogic
@@ -125,7 +129,7 @@ public class EntityServiceCache {
         }
 
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
-                                 .thenApply(authService -> new DefaultEntityService(
+                                 .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(persistenceProperties,

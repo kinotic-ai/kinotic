@@ -1,5 +1,6 @@
 package org.kinotic.orchestrator.internal.api.model.grind;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
 import org.kinotic.orchestrator.api.model.grind.JobRun;
@@ -18,7 +19,6 @@ import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.Deque;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -38,7 +38,7 @@ public class JobRunRecorder {
 
     private final Map<String, TaskRecord> recordsByPath = new ConcurrentHashMap<>();
     // Persistence calls are chained so writes for the same document can never race each other
-    private CompletableFuture<Void> writeChain = CompletableFuture.completedFuture(null);
+    private Future<Void> writeChain = Future.succeededFuture();
 
     public JobRunRecorder(String jobRunId,
                           JobDefinition jobDefinition,
@@ -229,14 +229,14 @@ public class JobRunRecorder {
                         .collect(Collectors.joining("/"));
     }
 
-    private synchronized void enqueue(Supplier<CompletableFuture<?>> writeOperation) {
-        writeChain = writeChain.thenCompose(v -> writeOperation.get()
-                                                               .handle((r, t) -> {
-                                                                   if(t != null){
-                                                                       log.warn("Failed to persist record for run {}", jobRunId, t);
-                                                                   }
-                                                                   return null;
-                                                               }));
+    private synchronized void enqueue(Supplier<Future<?>> writeOperation) {
+        writeChain = writeChain.compose(v -> writeOperation.get()
+                                                           .transform(ar -> {
+                                                               if(ar.failed()){
+                                                                   log.warn("Failed to persist record for run {}", jobRunId, ar.cause());
+                                                               }
+                                                               return Future.succeededFuture();
+                                                           }));
     }
 
 }

@@ -1,12 +1,11 @@
 package org.kinotic.domain.internal.api.services.secret;
 
+import io.vertx.core.Future;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Dev fallback for {@link SecretReferenceResolver}. Resolves secrets from process env
@@ -31,15 +30,15 @@ public class EnvVarSecretReferenceResolver implements SecretReferenceResolver {
     }
 
     @Override
-    public CompletableFuture<String> resolve(String secretName) {
+    public Future<String> resolve(String secretName) {
         if (secretName == null || secretName.isBlank()) {
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
         String envName = "KINOTIC_AKV_" + secretName.replaceAll("[^a-zA-Z0-9]", "_").toUpperCase();
         String value = System.getenv(envName);
         if (value == null) {
             log.debug("Secret '{}' not found in env var {}", secretName, envName);
         }
-        return CompletableFuture.completedFuture(value);
+        return Future.succeededFuture(value);
     }
 }

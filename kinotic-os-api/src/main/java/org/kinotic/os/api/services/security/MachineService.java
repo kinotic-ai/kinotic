@@ -1,12 +1,11 @@
 package org.kinotic.os.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Machine-identity management for the applications of the caller's organization, used by the
@@ -29,10 +28,10 @@ public interface MachineService {
      * @param applicationId the application whose API the machine calls; must belong to the
      *                      caller's organization
      */
-    CompletableFuture<MachineProvisionResult> createMachine(String displayName, String applicationId);
+    Future<MachineProvisionResult> createMachine(String displayName, String applicationId);
 
     /** Lists the machines of the given application of the caller's organization, disabled ones included. */
-    CompletableFuture<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable);
+    Future<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable);
 
     /**
      * Replaces the client secret of one of the caller's organization's machines, returning the
@@ -41,7 +40,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    CompletableFuture<String> rotateSecret(String machineId);
+    Future<String> rotateSecret(String machineId);
 
     /**
      * Enables or disables one of the caller's organization's machines. A disabled machine is
@@ -50,7 +49,7 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    CompletableFuture<Void> setMachineEnabled(String machineId, boolean enabled);
+    Future<Void> setMachineEnabled(String machineId, boolean enabled);
 
     /**
      * Permanently removes one of the caller's organization's machines, including its stored
@@ -58,5 +57,5 @@ public interface MachineService {
      *
      * @param machineId a machine belonging to the caller's organization
      */
-    CompletableFuture<Void> removeMachine(String machineId);
+    Future<Void> removeMachine(String machineId);
 }

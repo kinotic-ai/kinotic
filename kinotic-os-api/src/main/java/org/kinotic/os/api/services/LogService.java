@@ -1,11 +1,10 @@
 package org.kinotic.os.api.services;
 
+import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.log.LogQuery;
 import reactor.core.publisher.Flux;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Streams and queries the logs of workloads the authenticated participant may view: an
@@ -28,7 +27,7 @@ public interface LogService {
      * Returns a workload's historical logs for the given time range.
      *
      * @param query the {@link LogQuery} naming the workload, time range, and limit
-     * @return a {@link CompletableFuture} emitting the raw Loki {@code query_range} response
+     * @return a {@link Future} emitting the raw Loki {@code query_range} response
      */
-    CompletableFuture<Buffer> history(LogQuery query);
+    Future<Buffer> history(LogQuery query);
 }

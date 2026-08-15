@@ -1,5 +1,6 @@
 package org.kinotic.core.internal.api;
 
+import io.opentelemetry.api.OpenTelemetry;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -60,6 +61,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private Vertx vertx; //TODO: move thread scheduling and execution functionality into Continuum API such as Scheduling Service ect..
     @Autowired
     private SecurityContext securityContext;
+    @Autowired
+    private OpenTelemetry openTelemetry;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -86,7 +89,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 eventBusService,
                                                 reactiveAdapterRegistry,
                                                 vertx,
-                                                securityContext);
+                                                securityContext,
+                                                openTelemetry);
 
                                         serviceInvocationSupervisor
                                                 .start()
@@ -120,7 +124,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   eventBusService,
                                                   securityContext,
                                                   vertx,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry);
     }
 
     @Override
@@ -136,7 +141,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   eventBusService,
                                                   securityContext,
                                                   vertx,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry);
     }
 
     @Override
