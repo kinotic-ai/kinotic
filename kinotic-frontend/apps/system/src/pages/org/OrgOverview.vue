@@ -50,24 +50,32 @@ const stats = computed(() => [
     label: 'Applications',
     value: applicationCount.value?.toString() ?? '—',
     description: 'Applications owned by this organization',
+    icon: 'pi-th-large',
+    accent: 'sky' as const,
     to: { name: 'org-applications', params: { organizationId: props.organizationId } }
   },
   {
     label: 'Projects',
     value: projectCount.value?.toString() ?? '—',
     description: 'Projects across all of its applications',
+    icon: 'pi-folder',
+    accent: 'violet' as const,
     to: { name: 'org-projects', params: { organizationId: props.organizationId } }
   },
   {
     label: 'Members',
     value: memberCount.value?.toString() ?? '—',
     description: 'People with access to this organization',
+    icon: 'pi-users',
+    accent: 'green' as const,
     to: { name: 'org-members', params: { organizationId: props.organizationId } }
   },
   {
     label: 'Pending invites',
     value: inviteCount.value?.toString() ?? '—',
     description: 'Invitations awaiting acceptance',
+    icon: 'pi-envelope',
+    accent: 'amber' as const,
     to: { name: 'org-members', params: { organizationId: props.organizationId } }
   }
 ])

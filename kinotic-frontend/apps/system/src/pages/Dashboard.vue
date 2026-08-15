@@ -119,7 +119,7 @@ import { WorkloadStatus, type KinoticClusterInfo, type VmNode } from '@kinotic-a
 import { PageHeader, formatMb, isDark } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
-import StatTile from '@/components/StatTile.vue'
+import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 
 const clusterInfo = ref<KinoticClusterInfo | null>(null)
 const clusterError = ref<string | null>(null)
@@ -189,36 +189,48 @@ interface Stat {
   tag?: string
   /** Route the tile navigates to on click; unset renders a static tile. */
   to?: string
+  icon?: string
+  accent?: StatTileAccent
 }
 
 const stats = computed<Stat[]>(() => [
   {
     label: 'Server nodes',
     value: clusterInfo.value?.serverNodeCount?.toString() ?? '—',
-    description: 'kinotic-server instances in the cluster'
+    description: 'kinotic-server instances in the cluster',
+    icon: 'pi-server',
+    accent: 'sky'
   },
   {
     label: 'Cluster state',
     value: clusterInfo.value?.clusterState ?? '—',
     description: 'Whether the cluster is serving requests',
-    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary'
+    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary',
+    icon: 'pi-shield',
+    accent: clusterInfo.value && !clusterInfo.value.active ? 'red' : 'green'
   },
   {
     label: 'Topology version',
     value: clusterInfo.value?.topologyVersion?.toString() ?? '—',
-    description: 'Increments each time a node joins or leaves'
+    description: 'Increments each time a node joins or leaves',
+    icon: 'pi-sync',
+    accent: 'violet'
   },
   {
     label: 'Worker nodes',
     value: workerNodeCount.value?.toString() ?? '—',
     description: 'VmManager nodes available to host workloads',
-    to: '/worker-nodes'
+    to: '/worker-nodes',
+    icon: 'pi-box',
+    accent: 'amber'
   },
   {
     label: 'Organizations',
     value: organizationCount.value?.toString() ?? '—',
     description: 'Organizations registered on the platform',
-    to: '/organizations'
+    to: '/organizations',
+    icon: 'pi-building',
+    accent: 'teal'
   }
 ])
 
