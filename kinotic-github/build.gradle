@@ -88,6 +88,7 @@ sourceSets.main.resources.srcDir(extractSpawnRenderer)
 def npmPackageVersions = tasks.register('npmPackageVersions') {
     def packageJsonFiles = files(rootProject.file('kinotic-js/kinotic-cli/package.json')) +
                            fileTree(rootProject.file('kinotic-js/workspace/packages')) { include '*/package.json' }
+    def corePackageJson = rootProject.file('kinotic-js/workspace/packages/core/package.json')
     def outputDir = layout.buildDirectory.dir('npm-package-versions')
 
     inputs.files(packageJsonFiles).withPropertyName('packageJsonFiles')
@@ -100,6 +101,17 @@ def npmPackageVersions = tasks.register('npmPackageVersions') {
             def unscoped = ((String) pkg.name) - ~'^@[^/]+/' - ~'^kinotic-'
             def camelCased = unscoped.replaceAll(/-(.)/) { it[1].toUpperCase() }
             versions.put("kinotic${camelCased.capitalize()}Version".toString(), "^${pkg.version}".toString())
+        }
+
+        // A generated project registers an OpenTelemetry SDK to export the spans core produces, so
+        // it needs the SDK versions core is built against. These are ranges already, unlike the
+        // kinotic packages above whose range is derived from the version they publish at.
+        def core = new groovy.json.JsonSlurper().parse(corePackageJson)
+        ((core.dependencies ?: [:]) + (core.devDependencies ?: [:])).each { String name, String range ->
+            if (name.startsWith('@opentelemetry/')) {
+                def camelCased = (name - '@opentelemetry/').replaceAll(/-(.)/) { it[1].toUpperCase() }
+                versions.put("otel${camelCased.capitalize()}Version".toString(), range)
+            }
         }
         def target = outputDir.get().file('spawn/npm-package-versions.properties').asFile
         target.parentFile.mkdirs()
