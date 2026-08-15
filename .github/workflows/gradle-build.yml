@@ -7,7 +7,9 @@ on:
       - main
     paths-ignore:
       - 'helm/**'
+      - 'deployment/**'
       - 'docker-compose/**'
+      - 'docs/**'
       - 'kinotic-js/boxlite-test/**'
       - 'kinotic-js/firecracker-vmm-manager/**'
       - 'kinotic-js/kinotic-cli/**'
