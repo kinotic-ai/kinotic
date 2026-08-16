@@ -25,9 +25,9 @@ public class NetworkPolicy {
     private NetworkMode mode = NetworkMode.ENABLED;
 
     /**
-     * The outbound destinations the VM may reach, as hostnames. Applies only when
-     * {@link #mode} is {@link NetworkMode#ENABLED}; empty grants the provider's
-     * unrestricted egress.
+     * The outbound destinations the VM may reach, as hostnames. A populated list is enforced
+     * on the connection, so an unlisted destination is unreachable by name and by raw IP
+     * alike. An empty list is not a denial: it grants unrestricted egress.
      */
     private List<String> allowedHosts = new ArrayList<>();
 

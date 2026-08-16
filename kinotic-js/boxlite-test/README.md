@@ -5,7 +5,7 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
 (findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
-9–12 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+9–13 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
 (Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
@@ -224,6 +224,7 @@ Verified on Linux/KVM against 0.9.7:
 |---|---|
 | omitted entirely | every host reachable — identical to `enabled` |
 | `{ mode: 'enabled' }` | every host reachable; no allowlist means unrestricted |
+| `{ mode: 'enabled', allowNet: [] }` | every host reachable — see finding #13 |
 | `{ mode: 'enabled', allowNet: ['example.com'] }` | listed host reachable; unlisted host blocked **by name and by raw IP** |
 | `{ mode: 'disabled' }` | **cannot boot** — see finding #12 |
 | `{ mode: 'disabled', allowNet: [...] }` | rejected at config validation: *"network.mode=\"disabled\" is incompatible with allow_net"* |
@@ -286,7 +287,26 @@ Pairing the mode with an allowlist is caught earlier still, at config validation
 **Design implication:** there is no working no-egress mode in 0.9.7. `NetworkMode.DISABLED`
 is rejected by `buildBoxOptions` so a workload fails with a reason instead of a VM that
 never comes up, and a restrictive `allowedHosts` list is the only way to bound what a guest
-can reach. Whether an empty `allowNet` denies everything is the open question — probe case F.
+can reach.
+
+### 13. An empty `allowNet` grants everything, it does not deny everything (`network-policy-test.ts`)
+
+`{ mode: 'enabled', allowNet: [] }` is byte-identical to omitting the allowlist and to
+omitting the network option entirely — all three reach every target, raw IP included:
+
+```
+=== F. mode 'enabled', allowNet: [] ===
+  dns:cloudflare.com    REACHED  exit=0  Address: 104.16.133.229   <- the real record,
+  http://example.com    REACHED  exit=0                               not the 0.0.0.0
+  http://cloudflare.com REACHED  exit=0                               sinkhole a populated
+  http://1.1.1.1        REACHED  exit=0                               list produces
+```
+
+An empty list means "no allowlist configured", not "permit nothing". **Design implication:**
+a policy that computes down to an empty `allowedHosts` silently grants unrestricted egress —
+the opposite of the likely intent — so whatever builds a policy for untrusted code must
+treat an empty list as a bug rather than as a denial. boxlite will not catch it, and neither
+mode can: `disabled` does not boot (#12).
 
 ---
 
