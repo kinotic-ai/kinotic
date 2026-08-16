@@ -203,6 +203,12 @@ captured output. A feature request for surfacing container exit is filed upstrea
 | `console-log-test.ts` | Does `boxes/<id>/logs/console.log` capture entrypoint stdout/stderr live? (finding #7 — it does not; kernel/guest-agent output only.) | self-cleaning |
 | `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
+| `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, and whether it can be bypassed by connecting to a raw IP. Needs ordinary outbound internet. | self-cleaning |
+| `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap (phase A, runs anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
+
+The last two probes have no findings recorded above yet — they exist to answer questions the
+vm-manager currently depends on. Run them on a Linux host with virtualization and add what
+they report to the findings list.
 
 Note: `node/` is a separate mini-project running the smoke test under **Node.js**
 (`node --experimental-strip-types`) to confirm cross-runtime support.
