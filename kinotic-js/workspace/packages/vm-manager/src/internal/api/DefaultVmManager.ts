@@ -30,8 +30,6 @@ export class DefaultVmManager implements IVmManager {
         this.nodeId = nodeId
         this.alloyManager = alloyManager
         this.providers.set(provider.type, provider)
-        // Resume shipping logs of workloads the provider recovered before any workload operation
-        void this.refreshLogShipping()
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
@@ -74,8 +72,15 @@ export class DefaultVmManager implements IVmManager {
         return allWorkloads
     }
 
+    /**
+     * Rebuilds the log shipping pipeline from the workloads currently running on this node,
+     * launching the log shipper if it is not up yet. Every workload operation ends in a
+     * refresh; calling it once at startup, after the provider has recovered, both resumes
+     * shipping for the recovered workloads and pays the shipper's first-run cost off the
+     * path of the first workload operation.
+     */
     // Log shipping must never fail a workload operation, so errors are logged and swallowed
-    private async refreshLogShipping(): Promise<void> {
+    async refreshLogShipping(): Promise<void> {
         if (!this.alloyManager) {
             return
         }

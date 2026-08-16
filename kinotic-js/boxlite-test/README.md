@@ -4,7 +4,9 @@ Evaluation harness for [BoxLite](https://docs.boxlite.ai/) — a set of standalo
 scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
-(findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). The
+(findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
+9–15 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+(Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
 
@@ -185,6 +187,186 @@ captured output. A feature request for surfacing container exit is filed upstrea
   `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
   suppress the image CMD.
 
+### 9. A third volume mount exhausts the VM's IRQs (`disk-quota-test.ts`, `boot-failure-test.ts`)
+
+Sweeping volume count with plain host directories, nothing else varying:
+
+```
+  1 volume(s): STARTED   guest sees: /v0 /var
+  2 volume(s): STARTED   guest sees: /v0 /v1 /var
+  3 volume(s): FAILED    ... VM failed to start (libkrun status=-22)
+  4 volume(s): FAILED    ... VM failed to start (libkrun status=-22)
+```
+
+`status=-22` is the surface; the cause is in the shim stderr, which the SDK error carries:
+
+```
+[krun] krun_start_enter called
+[krun] ERROR krun] Building the microVM failed: RegisterNetDevice(IrqsExhausted)
+[krun] krun_start_enter returned (status=-22, elapsed=43ms)
+```
+
+So the limit is the VM's IRQ budget, not a volume cap — each virtio-fs mount consumes an
+IRQ and the net device, registered last, is the one that runs out and reports. What does
+*not* draw on it, swept in `boot-failure-test.ts`: ports (`0 volumes + 4 ports` boots,
+`2 volumes + 3 ports` boots) and a sized rootfs (`2 volumes + diskSizeGb` boots, and
+`3 volumes + diskSizeGb` fails exactly where plain `3 volumes` does).
+
+**Design implication:** every kinotic workload already carries the `/var/log/kinotic`
+mount, so a workload may declare exactly **one** volume of its own. `buildBoxOptions`
+rejects more than that up front rather than letting the VM fail to boot.
+
+### 10. Network policy is a real egress control, and open by default (`network-policy-test.ts`)
+
+Verified on Linux/KVM against 0.9.7:
+
+| Policy | Result |
+|---|---|
+| omitted entirely | every host reachable — identical to `enabled` |
+| `{ mode: 'enabled' }` | every host reachable; no allowlist means unrestricted |
+| `{ mode: 'enabled', allowNet: [] }` | every host reachable — see finding #13 |
+| `{ mode: 'enabled', allowNet: ['example.com'] }` | listed host reachable; unlisted host blocked **by name and by raw IP** |
+| `{ mode: 'disabled' }` | **cannot boot** — see finding #12 |
+| `{ mode: 'disabled', allowNet: [...] }` | rejected at config validation: *"network.mode=\"disabled\" is incompatible with allow_net"* |
+
+A blocked name resolves to `0.0.0.0` inside the guest, and connecting to the unlisted
+host's literal IP fails too, so the allowlist is enforced on the connection rather than
+only at DNS. There is no deny-by-default: a policy with an empty `allowNet` grants
+unrestricted egress, so untrusted workloads must always carry a populated allowlist.
+
+`mode: 'disabled'` failing to boot is finding #12.
+
+### 11. A 1 GiB rootfs cap holds, and so does a project quota on a volume (`disk-quota-test.ts`)
+
+`diskSizeGb: 1` gives the guest a 943.3M rootfs and stops writes at 930 MiB. An XFS project
+quota on a bind-mounted host directory holds too, despite the writes being performed on the
+host by virtiofsd rather than by the guest kernel:
+
+```
+  guest df /capped      : uservol0    64.0M    0    64.0M   0% /capped
+  bytes actually landed : 64.0 MiB (limit 64 MiB)
+  host quota report     : #4242    65536    0    65536
+```
+
+The guest's `df` reports the quota rather than the underlying filesystem, so a workload can
+see its own limit. `dd` exits 1 in both cases, so a workload can detect that it was capped from the exit
+status alone.
+
+**This holds at `diskSizeGb: 1` and nowhere above it — see finding #15.**
+
+**Quota accounting has no measurable write cost in this data.** Two hosts disagreed on the
+direction, which is the answer: the spread is first-write warm-up and host I/O variance, not
+accounting.
+
+```
+host 1   round 1 with quota  56.4 MiB/s   round 2 with quota   98.3 MiB/s
+         round 1 no quota   113.0 MiB/s   round 2 no quota    112.9 MiB/s
+host 2   round 1 with quota  29.8 MiB/s   round 2 with quota  103.1 MiB/s
+         round 1 no quota    60.3 MiB/s   round 2 no quota     47.5 MiB/s   <- slower than quota'd
+```
+
+Earlier readings of 36% and then 13% were both artifacts of an unreplicated ordered pair.
+Nothing here argues against a project quota on cost grounds.
+
+### 12. `network: { mode: 'disabled' }` cannot boot a VM (`boot-failure-test.ts`)
+
+Every attempt to boot with the network disabled dies the same way, with the image's own
+entrypoint or an override, with or without an allowlist alongside:
+
+```
+  mode enabled                           STARTED
+  mode disabled                          FAILED
+      | Exit code: 159 (unknown signal)
+      | Console output: empty (no kernel or guest messages captured)
+      | [shim] T+4ms: instance created (krun FFI calls done)
+      | [shim] T+4ms: entering VM (krun_start_enter)      <- last line; no krun error follows
+```
+
+It fails differently from finding #9: no `gvproxy created` line, no libkrun error, an empty
+console, and the shim dies on a signal at VM entry rather than failing device registration.
+Pairing the mode with an allowlist is caught earlier still, at config validation:
+*"network.mode=\"disabled\" is incompatible with allow_net"*.
+
+**Design implication:** `mode: 'disabled'` is unusable. `NetworkMode.DISABLED` is carried
+by an allowlist instead — see finding #14.
+
+### 13. An empty `allowNet` grants everything, it does not deny everything (`network-policy-test.ts`)
+
+`{ mode: 'enabled', allowNet: [] }` is byte-identical to omitting the allowlist and to
+omitting the network option entirely — all three reach every target, raw IP included:
+
+```
+=== F. mode 'enabled', allowNet: [] ===
+  dns:cloudflare.com    REACHED  exit=0  Address: 104.16.133.229   <- the real record,
+  http://example.com    REACHED  exit=0                               not the 0.0.0.0
+  http://cloudflare.com REACHED  exit=0                               sinkhole a populated
+  http://1.1.1.1        REACHED  exit=0                               list produces
+```
+
+An empty list means "no allowlist configured", not "permit nothing". **Design implication:**
+a policy that computes down to an empty `allowedHosts` silently grants unrestricted egress —
+the opposite of the likely intent — so whatever builds a policy for untrusted code must
+treat an empty list as a bug rather than as a denial. boxlite will not catch it, and neither
+mode can: `disabled` does not boot (#12).
+
+### 14. An allowlist naming only an unreachable address is a working no-egress policy (`network-policy-test.ts`)
+
+A populated allowlist is enforced (#10) and an empty one is not (#13), so permitting exactly
+one address that nothing answers on denies everything. Both forms boot and both deny:
+
+```
+=== G. mode 'enabled', allowNet ['192.0.2.1'] — an address nothing answers on ===
+  http://example.com     blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+  http://cloudflare.com  blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+  http://1.1.1.1         blocked  exit=1  wget: can't connect to remote host (1.1.1.1): Connection refused
+
+=== H. mode 'enabled', allowNet ['no-egress.invalid'] — a name that cannot resolve ===
+  http://1.1.1.1         blocked  exit=1  wget: error getting response
+```
+
+TEST-NET-1 (`192.0.2.1`, RFC 5737) is the better of the two: it refuses uniformly with
+`Connection refused`, and unlike a `.invalid` name it does not depend on how the guest's
+resolver handles a reserved TLD. Note the raw IP in G is refused at its own address rather
+than sinkholed to `0.0.0.0`, confirming the filter runs on the connection even where no DNS
+step exists.
+
+**Design implication:** this is how `NetworkMode.DISABLED` is implemented — `buildBoxOptions`
+sends `{ mode: 'enabled', allowNet: ['192.0.2.1'] }` and discards any allowlist the workload
+declared. Revisit once boxlite can boot a genuinely disabled network.
+
+### 15. A rootfs above 1 GiB is reported to the guest but never allocated (`repro-disk-size.ts`)
+
+Sweeping `diskSizeGb` with an identical 1536 MiB write in each box, on two separate hosts:
+
+| diskSizeGb | guest `df /` | VM alive after write | file reports | host box dir |
+|---|---|---|:---:|---|
+| 1 | 943.3M | YES | 930 MiB of 1536 | 978 MiB |
+| 2 | 1.9G | YES | 1536 MiB of 1536 | **1071 MiB** |
+| 4 | 3.7G | NO — died mid-write | (box died first) | **1071 MiB** |
+| 8 | 7.5G | NO — died mid-write | 1536 MiB of 1536 | **1071 MiB** |
+
+The backing store stops at ~1071 MiB across a 4× spread in declared size, while the guest's
+`df` scales correctly to 1.9G/3.7G/7.5G. Only `diskSizeGb: 1` comes in lower, because its own
+930 MiB cap binds before the ceiling does.
+
+Two things make this worse than a cap. The guest is told it has room that was never
+allocated. And at sizes 2 and 8 the file's own size reads back as the full 1536 MiB while the
+host directory only ever grew to 1071 MiB — `dd` did exit 1, so the writer was told, but
+anything that later reads that file sees a full-length file whose contents are not all there.
+
+Failure above the ceiling is not one behaviour but three: `I/O error` with the box surviving
+(2 GiB), the box dying mid-write with no message (4 GiB), and the guest remounting its
+filesystem read-only before the box dies (8 GiB). Both deaths report the same single line,
+with no shim or krun trace, because the box booted successfully and died later during exec:
+
+```
+Error: internal error: spawn_failed: internal error: build failed: failed to execute workload
+```
+
+**Design implication:** `buildBoxOptions` refuses a workload declaring more than 1024MB.
+Every larger size hands the workload a disk that silently swallows writes, which is worse
+than refusing to run it.
+
 ---
 
 ## Scripts (`src/`)
@@ -203,6 +385,14 @@ captured output. A feature request for surfacing container exit is filed upstrea
 | `console-log-test.ts` | Does `boxes/<id>/logs/console.log` capture entrypoint stdout/stderr live? (finding #7 — it does not; kernel/guest-agent output only.) | self-cleaning |
 | `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
+| `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, and whether it can be bypassed by connecting to a raw IP. Needs ordinary outbound internet. | self-cleaning |
+| `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap and whether a rootfs above 1 GiB survives being filled (phases A and D, run anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
+| `repro-disk-size.ts` | Standalone reproducer, free of any dependency but the SDK, sweeping `diskSizeGb` 1/2/4/8 with the same 1536 MiB write in each to show whether a fixed ceiling applies regardless of the disk requested. Written to be handed to the boxlite maintainers as-is. | self-cleaning |
+| `boot-failure-test.ts` | Isolates the two generic "failed to start" errors behind findings #9 and #10 — whether `mode: 'disabled'` is bootable at all, and whether the volume ceiling counts volumes only or a shared device budget that ports and a sized rootfs also draw on. Dumps the full error, which carries the shim trace. | self-cleaning |
+
+The last two probes have no findings recorded above yet — they exist to answer questions the
+vm-manager currently depends on. Run them on a Linux host with virtualization and add what
+they report to the findings list.
 
 Note: `node/` is a separate mini-project running the smoke test under **Node.js**
 (`node --experimental-strip-types`) to confirm cross-runtime support.

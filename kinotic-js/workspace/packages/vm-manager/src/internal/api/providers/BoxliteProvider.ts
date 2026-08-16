@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
-import { Workload, WorkloadStatus, VmProviderType } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/os-api'
 
 /**
  * Guest path where the per-workload host log directory is mounted. This is the log-shipping
@@ -12,6 +12,32 @@ import { Workload, WorkloadStatus, VmProviderType } from '@kinotic-ai/os-api'
  * write their logs here themselves.
  */
 export const GUEST_LOG_DIR = '/var/log/kinotic'
+
+/**
+ * How many volumes a workload may declare. Each virtio-fs mount draws from the VM's IRQ
+ * budget, and on boxlite 0.9.7 a third one exhausts it — libkrun then fails the VM with
+ * {@code RegisterNetDevice(IrqsExhausted)}, reported as {@code status=-22}. Ports and a
+ * sized rootfs cost nothing against this. The log directory mount always occupies one of
+ * the two the VM can carry.
+ */
+const MAX_WORKLOAD_VOLUME_MOUNTS = 1
+
+/**
+ * The allowlist entry that denies a VM every destination. boxlite 0.9.7 cannot boot a VM
+ * with {@code mode: 'disabled'}, and treats an empty allowlist as no allowlist at all, so
+ * the only way to deny egress is to permit a single address nothing answers on. TEST-NET-1
+ * (RFC 5737) is reserved and never routed, and boxlite's connection filter then refuses
+ * every other destination by name and by address alike.
+ */
+const NO_EGRESS_HOST = '192.0.2.1'
+
+/**
+ * The largest rootfs a workload may request. boxlite 0.9.7 grows a box's backing store to
+ * about 1071 MiB whatever size was asked for, while reporting the requested size to the
+ * guest, so a larger request promises the workload space that does not exist: writes are
+ * lost, the file's own size still reports them as written, and the VM often dies outright.
+ */
+const MAX_WORKLOAD_DISK_MB = 1024
 
 /**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
@@ -36,7 +62,8 @@ export interface ActiveVm {
 /**
  * Builds the boxlite options for a workload. The given host log directory is always mounted
  * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
- * declares them, so an empty value keeps the image default.
+ * declares them, so an empty value keeps the image default. The workload's disk size caps
+ * the guest rootfs, which grows sparsely up to that cap.
  */
 export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
     // Silently binding to all interfaces when a specific one was requested would be a
@@ -45,17 +72,48 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     if (boundMapping) {
         throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
     }
+    // Silently accepting a size the provider does not honor would hand the workload a disk
+    // that swallows writes, so it is refused where the reason can still be reported
+    if (workload.diskSizeMb > MAX_WORKLOAD_DISK_MB) {
+        throw new Error(`boxlite honors a rootfs up to ${MAX_WORKLOAD_DISK_MB}MB, `
+                        + `but ${workload.diskSizeMb}MB was declared`)
+    }
+    // Rejected here so the operator gets the reason; letting it through surfaces only as
+    // an opaque libkrun status=-22 when the VM fails to boot
+    if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
+        throw new Error(`boxlite supports ${MAX_WORKLOAD_VOLUME_MOUNTS} workload volume mount(s) `
+                        + `alongside the log mount, but ${workload.volumeMounts.length} were declared`)
+    }
+    // A workload deserialized from the wire or a persisted state file may predate the
+    // network field, whose absence means the policy the model defaults to
+    const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+    // A disabled network is expressed as an allowlist permitting only {@link NO_EGRESS_HOST},
+    // and the workload's own list is discarded: DISABLED means nothing is reachable
+    const allowNet = networkMode === NetworkMode.ENABLED
+        ? workload.network?.allowedHosts ?? []
+        : [NO_EGRESS_HOST]
     return {
         image: workload.image,
         name: workload.id!,
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
+        // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
+        // disk than it asked for, and leave the boxlite default when nothing was asked.
+        // MAX_WORKLOAD_DISK_MB keeps this at the one size the provider actually honors
+        ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
         env: workload.environment,
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
         // CMD is suppressed unless the workload declares its own cmd
         ...(workload.entrypoint.length > 0
             ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        // Always sent rather than left to the boxlite default, so what a guest can reach is
+        // decided by the workload record alone. The mode is always 'enabled' because the
+        // disabled one cannot boot; denial is carried by the allowlist instead
+        network: {
+            mode: 'enabled',
+            ...(allowNet.length > 0 ? { allowNet } : {}),
+        },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
             guestPort,
