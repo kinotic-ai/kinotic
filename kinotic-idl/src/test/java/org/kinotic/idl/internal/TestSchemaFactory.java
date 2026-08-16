@@ -25,6 +25,7 @@ import org.kinotic.idl.internal.support.TestAddress;
 import org.kinotic.idl.internal.support.TestCollidingPageService;
 import org.kinotic.idl.internal.support.TestObject;
 import org.kinotic.idl.internal.support.TestNamedHintService;
+import org.kinotic.idl.internal.support.TestNestedPageService;
 import org.kinotic.idl.internal.support.TestObjectCrudService;
 import org.kinotic.idl.internal.support.TestOverloadedService;
 import org.kinotic.idl.internal.support.TestPage;
@@ -176,6 +177,16 @@ public class TestSchemaFactory {
         // a raw TestPage leaves T unresolved, and an open signature cannot be described to a wire consumer
         NamespaceDefinition namespaceDefinition =
                 schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRawPageService.class, TestRawPageService.class)));
+
+        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
+    }
+
+    @Test
+    public void testNestedGenericInstantiationRejected() {
+        // TestPage<List<TestObject>>'s name would need a segment naming no class, so conversion fails and
+        // the service is omitted; a nested instantiation must be published as a named DTO
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNestedPageService.class, TestNestedPageService.class)));
 
         Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
     }
