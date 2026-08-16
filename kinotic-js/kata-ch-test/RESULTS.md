@@ -421,12 +421,19 @@ $ nerdctl run --rm --runtime io.containerd.kata-clh.v2 --memory 512m --cpus 2 al
   nproc          : 3                  <- what phase 6 measures
 ```
 
-Memory enforcement is real — an allocation past the limit is OOM-killed:
+Memory enforcement is real and deterministic — an allocation past the limit is OOM-killed by
+the guest kernel, and the workload exits 137 (SIGKILL):
 
 ```
-  alloc 256M  : 268435456 bytes (256.0MB) copied, 0.721476 seconds, 354.8MB/s   rc=0
-  alloc 800M  : Killed
+  bs=256M (under limit)  exit=0    exit=0    exit=0
+  bs=700M (over limit)   exit=137  exit=137  exit=137
+
+  guest dmesg: dd invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=-997
+               oom_kill_process+0xef/0x1f0
 ```
+
+**A 512 MB limit does restrict the workload to 512 MB.** That holds with the config exactly
+as shipped; no tuning is required for the limit to bind.
 
 CPU enforcement binds directionally, on fixed work across 4 workers:
 
@@ -490,8 +497,22 @@ Two consequences follow, neither an isolation failure:
 2. **Guests misreport their own size.** A workload reading `free`/`nproc` sees 2372 MiB and
    3 CPUs while its cgroup allows 512 MiB and 2 CPUs. This bites Kinotic apps specifically:
    a JVM left to default heap sizing takes ~1/4 of apparent physical memory (~593 MB),
-   exceeds the 512 MiB cgroup, and is OOM-killed. Workloads need explicit heap and pool
-   sizing, or the VM sized to match the limit.
+   exceeds the 512 MiB cgroup, and is OOM-killed.
+
+Sizing the VM to match the per-workload limit does not work through the obvious knobs.
+Both were tested against a `--memory 512m` workload:
+
+| Config | guest `free` total | cgroup | host RSS |
+|---|---|---|---|
+| as shipped (`default_memory = 2048`) | 2372 MiB | 512 MiB | 167 MiB |
+| `static_sandbox_resource_mgmt = true` | 2490 MiB | 512 MiB | 171 MiB |
+| `default_memory = 512` | 990 MiB | 512 MiB | 136 MiB |
+
+`static_sandbox_resource_mgmt = true` does not size the sandbox from the workload's limit —
+the guest still reports ~2.4 GB. `default_memory` does shrink the VM, but it is a global
+setting rather than per-workload, and the guest still does not land on the requested figure
+(512 requested, 990 reported). So the guest's self-reported size cannot currently be made to
+track each workload's limit; workloads must be given explicit heap and pool sizing instead.
 
 ### D. Can this be driven from Bun without shelling out?
 
