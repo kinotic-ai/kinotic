@@ -95,6 +95,10 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
+    // Resume shipping the recovered workloads' logs, which also downloads and launches
+    // Alloy here rather than inside whichever startWorkload call arrives first
+    await vmManager.refreshLogShipping()
+
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
     registration.totalCpus = os.cpus().length
