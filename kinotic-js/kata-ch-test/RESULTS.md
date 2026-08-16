@@ -494,10 +494,35 @@ Two consequences follow, neither an isolation failure:
    footprint is a high-water mark of everything it has ever touched, so a workload that
    briefly peaks holds that memory for its lifetime. This, not the declared size, is what
    governs density over time.
-2. **Guests misreport their own size.** A workload reading `free`/`nproc` sees 2372 MiB and
-   3 CPUs while its cgroup allows 512 MiB and 2 CPUs. This bites Kinotic apps specifically:
-   a JVM left to default heap sizing takes ~1/4 of apparent physical memory (~593 MB),
-   exceeds the 512 MiB cgroup, and is OOM-killed.
+2. **Guests misreport their own size**, and some runtime APIs inherit the error. A workload
+   reading `free`/`nproc` sees 2372 MiB and 3 CPUs while its cgroup allows 512 MiB and 2
+   CPUs. For the Bun runtime Kinotic apps use, the APIs split cleanly into correct and
+   wrong ones — measured inside a `--memory 512m --cpus 2` guest:
+
+   | API | Reports | Correct? |
+   |---|---|---|
+   | `process.constrainedMemory()` | 512 MiB | yes — reads the cgroup |
+   | `navigator.hardwareConcurrency` | 2 | yes — reads the cgroup |
+   | `os.totalmem()` | 2500 MiB | no — the VM |
+   | `os.freemem()` | 2407 MiB | no — the VM |
+   | `os.availableMemory()` / `process.availableMemory()` | 2407 MiB | no — the VM |
+   | `os.cpus().length` | 3 | no — the VM |
+
+   So a Kinotic app can size itself correctly, but only from `process.constrainedMemory()`
+   and `navigator.hardwareConcurrency`. Anything sizing a cache, worker pool or buffer from
+   `os.totalmem()` or `os.cpus().length` will over-commit by roughly 5x and be killed.
+
+   The kill itself is abrupt. A Bun process allocating past its limit:
+
+   ```
+     allocated  448 MiB   rss=476 MiB
+     allocated  480 MiB   rss=508 MiB
+   EXIT=137
+   ```
+
+   It is SIGKILLed at the cgroup boundary with no `exit` handler run and no SIGTERM first,
+   so a workload gets no opportunity to flush logs, close connections or checkpoint state.
+   The vm-manager sees exit 137 and must treat it as an OOM kill rather than a crash.
 
 Sizing the VM to match the per-workload limit does not work through the obvious knobs.
 Both were tested against a `--memory 512m` workload:
@@ -580,8 +605,9 @@ The VM is sized independently of the limit, but that costs far less than its rep
 suggests: guest memory is backed lazily, so an idle workload consumes ~165 MiB of host RAM
 while reporting 2500 MiB inside. Density is set by what workloads touch, not what they
 declare. Two caveats remain — freed guest memory is never returned to the host, so each VM's
-footprint ratchets to its high-water mark, and a guest misreports its own size to anything
-reading `free`/`nproc`, which will OOM a JVM left on default heap sizing.
+footprint ratchets to its high-water mark, and a guest misreports its own size, so Bun
+workloads must size themselves from `process.constrainedMemory()` and
+`navigator.hardwareConcurrency` rather than `os.totalmem()` or `os.cpus().length`.
 
 Also note the rootfs is **shared host storage**, not a per-workload disk: `guest df /`
 reports the host's 62 G filesystem. There is no per-workload disk cap here at all, so disk
