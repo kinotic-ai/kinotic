@@ -32,8 +32,9 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * Returns the enabled OIDC configurations registered on the given application.
      *
      * @param applicationId the id of the application
-     * @return the enabled configurations, or an empty list if the application is not
-     *         found or has no configurations attached
+     * @return the enabled configurations, or an empty list if the application has no
+     *         configurations attached; fails when the id names no application in the
+     *         caller's organization
      */
     Future<List<OidcConfiguration>> getOidcConfigurations(String applicationId);
 
