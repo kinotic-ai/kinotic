@@ -54,6 +54,27 @@ const pageRoutes: RouteRecordRaw[] = [
   },
 
   {
+    path: '/jobs',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      sidebar: { group: 'organization', section: 'Workspace', label: 'Jobs', icon: 'pi-list-check', order: 15 } as SidebarItemMeta
+    } as RouteMeta,
+    children: [
+      {
+        name: 'jobs',
+        path: '',
+        component: () => import('@/pages/JobsPage.vue'),
+      },
+      {
+        name: 'job-run',
+        path: ':jobRunId',
+        component: () => import('@/pages/JobRunPage.vue'),
+        props: true,
+      },
+    ]
+  },
+
+  {
     path: '/members',
     component: () => import('@/layouts/LayoutForPage.vue'),
     meta: {
