@@ -252,6 +252,12 @@ The guest's `df` reports the quota rather than the underlying filesystem, so a w
 see its own limit. `dd` exits 1 in both cases, so a workload can detect that it was capped from the exit
 status alone.
 
+**Verified at `diskSizeGb: 1` only.** Upstream [#1152](https://github.com/boxlite-ai/boxlite/issues/1152)
+reports `RLIMIT_FSIZE` fixed at 1 GiB whatever disk size was requested, so a larger rootfs
+would take SIGXFSZ on the monitor and kill the VM rather than returning ENOSPC to the guest.
+At 1 GiB the guest filesystem fills first, which is why phase A cannot see it — phase D
+tests it directly.
+
 Quota accounting cost ~13% of write throughput once the first-write artifact is excluded.
 Alternating and repeating the pair is what exposed it — round 1 with the quota reads as a
 36% penalty and round 2 does not:
@@ -350,7 +356,7 @@ declared. Revisit once boxlite can boot a genuinely disabled network.
 | `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
 | `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, and whether it can be bypassed by connecting to a raw IP. Needs ordinary outbound internet. | self-cleaning |
-| `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap (phase A, runs anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
+| `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap and whether a rootfs above 1 GiB survives being filled (phases A and D, run anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
 | `boot-failure-test.ts` | Isolates the two generic "failed to start" errors behind findings #9 and #10 — whether `mode: 'disabled'` is bootable at all, and whether the volume ceiling counts volumes only or a shared device budget that ports and a sized rootfs also draw on. Dumps the full error, which carries the shim trace. | self-cleaning |
 
 The last two probes have no findings recorded above yet — they exist to answer questions the

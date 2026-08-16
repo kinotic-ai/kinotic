@@ -17,6 +17,12 @@ import { spawnSync } from "node:child_process";
 // Phases:
 //  A. diskSizeGb — boot with a 1GB rootfs, ask the guest what df reports, then write past
 //     it. Does the write fail, at what size, and with what error?
+//  D. diskSizeGb above 1 GiB — boxlite-ai/boxlite#1152 reports RLIMIT_FSIZE fixed at 1 GiB
+//     whatever disk size was requested, so the monitor takes SIGXFSZ once the backing file
+//     crosses it and the VM dies instead of the guest seeing ENOSPC. Phase A cannot see
+//     this: at 1 GiB the guest filesystem fills first. The vm-manager passes
+//     Workload.diskSizeMb straight through, so whether a larger request is usable decides
+//     if that field needs a ceiling.
 //  B. project quota — build a loopback XFS mounted with prjquota, put a 64MB hard limit on
 //     one directory, mount it into a box, and write past the limit from inside the guest.
 //     Does the write fail, what does the guest see, does the guest's df show the quota or
@@ -38,6 +44,9 @@ const CAPPED_PROJECT_ID = 4242;
 const PERF_PROJECT_ID = 4243;
 const CAPPED_LIMIT_MB = 64;
 const PERF_PAYLOAD_MB = 256;
+// Phase D writes past 1 GiB inside a rootfs comfortably larger than that
+const OVERSIZE_DISK_GB = 4;
+const OVERSIZE_WRITE_MB = 2048;
 
 function sh(command: string, args: string[]): { ok: boolean; output: string } {
     const result = spawnSync(command, args, { encoding: "utf-8" });
@@ -131,6 +140,53 @@ async function phaseA(): Promise<void> {
         console.log(`  bytes actually landed : ${(fill.bytes / 1024 / 1024).toFixed(0)} MiB`);
         console.log(`  => diskSizeGb caps the rootfs: ${fill.bytes > 0 && fill.bytes < 1400 * 1024 * 1024 ? "YES" : "NO — the guest wrote past it"}`);
         console.log(`  => the guest is told it failed: ${fill.exitCode !== 0 ? "YES" : "NO — dd reported success while being capped"}`);
+    } finally {
+        await removeIfPresent(name);
+    }
+    console.log();
+}
+
+async function phaseD(): Promise<void> {
+    console.log(`=== Phase D: a rootfs larger than 1 GiB (boxlite-ai/boxlite#1152) ===`);
+    const name = `oversize-${RUN}`;
+    try {
+        const box = new SimpleBox({
+            image: "alpine:latest",
+            name,
+            runtime,
+            autoRemove: false,
+            diskSizeGb: OVERSIZE_DISK_GB,
+            entrypoint: ["sleep", "900"],
+            cmd: [],
+        });
+        await box.getId();
+
+        const df = await box.exec("sh", "-c", "df -h / | tail -n 1");
+        console.log(`  guest df /            : ${df.stdout.trim()}`);
+
+        const fill = await guestWrite(box, "/root/fill", OVERSIZE_WRITE_MB);
+        console.log(`  dd exit               : ${fill.exitCode}`);
+        console.log(`  dd said               : ${fill.detail}`);
+        console.log(`  bytes actually landed : ${(fill.bytes / 1024 / 1024).toFixed(0)} MiB`);
+
+        // The discriminator: a disk that merely fills leaves the VM running, while the
+        // reported SIGXFSZ kills the monitor and takes the VM with it
+        let alive: boolean;
+        try {
+            const ping = await box.exec("sh", "-c", "echo alive");
+            alive = ping.stdout.includes("alive");
+        } catch (error) {
+            alive = false;
+            console.log(`  exec after the write  : ${String(error).split("\n")[0]}`);
+        }
+        console.log(`  VM alive after write  : ${alive ? "YES" : "NO"}`);
+        console.log(`  => a rootfs above 1 GiB is usable: ${alive && fill.bytes > 1024 * 1024 * 1024
+            ? "YES"
+            : alive
+                ? "the write stopped early, but the VM survived"
+                : "NO — the VM died, so diskSizeMb above 1024 is a trap"}`);
+    } catch (error) {
+        console.log(`  PROBE ERROR: ${String(error).split("\n").map(line => `  | ${line}`).join("\n")}`);
     } finally {
         await removeIfPresent(name);
     }
@@ -238,6 +294,7 @@ async function main() {
     console.log(`Platform        : ${process.platform} (${process.arch})  runtime: Bun ${Bun.version}\n`);
 
     await phaseA();
+    await phaseD();
 
     const isRoot = process.getuid?.() === 0;
     const missing = ["mkfs.xfs", "xfs_quota"].filter(tool => !have(tool));
