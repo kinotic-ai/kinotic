@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -7,9 +7,13 @@ import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
 
 // AlloyManager resolves `alloy` from the PATH, so a harmless stand-in on the PATH lets
-// the full start path (binary resolution, orphan takeover, spawn, pid file) run for real
+// the full start path (binary resolution, orphan takeover, spawn, pid file) run for real.
+// It ignores SIGHUP as Alloy does on a config reload, and never execs, so the config path
+// the manager passed stays in its argv where liveAlloys can find it. The run is bounded so
+// a leaked stand-in cannot hold the test runner's inherited stdio open indefinitely.
 const fakeBinDir = mkdtempSync(join(tmpdir(), 'alloy-bin-'))
-writeFileSync(join(fakeBinDir, 'alloy'), '#!/bin/sh\nexec sleep 60\n')
+writeFileSync(join(fakeBinDir, 'alloy'),
+              "#!/bin/sh\ntrap '' HUP\ni=0\nwhile [ $i -lt 150 ]; do sleep 0.2; i=$((i+1)); done\n")
 chmodSync(join(fakeBinDir, 'alloy'), 0o755)
 process.env.PATH = `${fakeBinDir}:${process.env.PATH}`
 
@@ -123,5 +127,48 @@ describe('orphaned Alloy takeover on start', () => {
         await alloyManager.applyTargets([])
 
         await alloyManager.stop()
+    })
+})
+
+/**
+ * Alloy processes still running for the given data dir, found by the config path the
+ * manager passed on the command line. Only a process the manager lost track of can
+ * outlive its stop, so a non-empty result is a leaked Alloy.
+ */
+async function liveAlloys(dataDir: string): Promise<string[]> {
+    // A just-spawned process needs a moment to appear in the process table
+    await Bun.sleep(250)
+    const ps = spawnSync('ps', ['-eo', 'pid=,args='], { encoding: 'utf-8' })
+    return ps.stdout.split('\n').filter(line => line.includes(dataDir))
+}
+
+describe('concurrent applyTargets', () => {
+
+    it('spawns one Alloy and applies the last targets when calls overlap a start', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-concurrent-'))
+        const alloyManager = manager(dataDir)
+
+        // Every vm-manager workload operation ends in applyTargets, so overlapping
+        // startWorkload calls land here while the first start is still spawning
+        await Promise.all([
+            alloyManager.applyTargets([]),
+            alloyManager.applyTargets([target()]),
+            alloyManager.applyTargets([target({ workloadId: 'ff000000-0000-4000-8000-000000000001' })]),
+        ])
+        await alloyManager.stop()
+
+        expect(await liveAlloys(dataDir)).toBeEmpty()
+        expect(readFileSync(join(dataDir, 'config.alloy'), 'utf-8'))
+            .toContain('workload_id    = "ff000000-0000-4000-8000-000000000001"')
+    })
+
+    it('ignores targets applied after stop so shutdown leaves no Alloy behind', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-post-stop-'))
+        const alloyManager = manager(dataDir)
+
+        await alloyManager.stop()
+        await alloyManager.applyTargets([target()])
+
+        expect(await liveAlloys(dataDir)).toBeEmpty()
     })
 })

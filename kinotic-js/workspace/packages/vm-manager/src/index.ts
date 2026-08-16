@@ -10,6 +10,7 @@ import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
 import type { Workload } from '@kinotic-ai/os-api'
 import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
 import os from 'node:os'
+import { mkdirSync, statfsSync } from 'node:fs'
 
 const config = new VmManagerConfig()
 
@@ -31,6 +32,15 @@ if (!alloyManager) {
 }
 
 let heartbeatTimer: Timer | null = null
+
+// Capacity of the filesystem backing boxlite's guest rootfs disks, which is what the
+// orchestrator schedules Workload.diskSizeMb against. The directory is created up front
+// because statfs needs an existing path and boxlite only creates its home on the first box.
+function totalDiskMb(boxliteHome: string): number {
+    mkdirSync(boxliteHome, { recursive: true })
+    const stats = statfsSync(boxliteHome)
+    return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
+}
 
 function toStatusReport(workload: Workload): WorkloadStatusReport {
     return {
@@ -85,16 +95,22 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
+    // Resume shipping the recovered workloads' logs, which also downloads and launches
+    // Alloy here rather than inside whichever startWorkload call arrives first
+    await vmManager.refreshLogShipping()
+
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
     registration.totalCpus = os.cpus().length
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
+    registration.totalDiskMb = totalDiskMb(config.boxliteHome)
 
     // Register this node with the VmNodeOrchestrationService on the server
     await nodeOrchestrator.registerNode(registration)
 
     console.log(`VM Manager registered on node: ${nodeId}`)
-    console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB`)
+    console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB, `
+                + `Disk: ${registration.totalDiskMb}MB (${config.boxliteHome})`)
 
     // Start sending periodic heartbeats
     startHeartbeat(nodeOrchestrator, vmManager)
