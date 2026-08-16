@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -24,8 +25,6 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.concurrent.CompletableFuture;
-
 /**
  * Default {@link JobMonitoringService} that authorizes access through the run's recorded
  * owner - an organization or application participant may only view runs its organization
@@ -43,10 +42,10 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     private final SecurityContext securityContext;
 
     @Override
-    public CompletableFuture<Page<JobRun>> findJobRuns(Pageable pageable) {
+    public Future<Page<JobRun>> findJobRuns(Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
         ScopedParticipant participant = currentParticipant();
-        CompletableFuture<Page<JobRun>> ret;
+        Future<Page<JobRun>> ret;
         if(participant instanceof SystemParticipant){
             // operators troubleshoot every run, not only the platform-owned ones findAllForOwner would give
             ret = jobRunService.findAll(pageable);
@@ -57,28 +56,28 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     }
 
     @Override
-    public CompletableFuture<JobRun> findJobRun(String jobRunId) {
+    public Future<JobRun> findJobRun(String jobRunId) {
         return authorizedJobRun(jobRunId);
     }
 
     @Override
-    public CompletableFuture<Page<TaskRecord>> findTaskRecords(String jobRunId, Pageable pageable) {
+    public Future<Page<TaskRecord>> findTaskRecords(String jobRunId, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        return authorizedJobRun(jobRunId).thenCompose(run -> taskRecordService.findAllForJobRun(run.getId(), pageable));
+        return authorizedJobRun(jobRunId).compose(run -> taskRecordService.findAllForJobRun(run.getId(), pageable));
     }
 
     @Override
     public Flux<Result<?>> watch(String jobRunId) {
         // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
-        CompletableFuture<JobRun> authorized = authorizedJobRun(jobRunId);
-        return Mono.fromFuture(authorized)
+        Future<JobRun> authorized = authorizedJobRun(jobRunId);
+        return Mono.fromCompletionStage(authorized.toCompletionStage())
                    .flatMapMany(run -> jobService.watchExecution(run.getId()));
     }
 
-    private CompletableFuture<JobRun> authorizedJobRun(String jobRunId) {
+    private Future<JobRun> authorizedJobRun(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         ScopedParticipant participant = currentParticipant();
-        return jobRunService.findById(jobRunId).thenApply(run -> {
+        return jobRunService.findById(jobRunId).map(run -> {
             if(run == null){
                 throw new IllegalArgumentException("JobRun not found: " + jobRunId);
             }

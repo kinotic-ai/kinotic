@@ -26,7 +26,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Unauthenticated invitation-accept routes — the complete invite flow, self-contained. The
@@ -69,14 +68,13 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.getValidInvite(token))
+        inviteService.getValidInvite(token)
               .compose(invite -> {
-                  Future<String> orgName = Future.fromCompletionStage(
-                          organizationService.findById(invite.getOrganizationId()))
+                  Future<String> orgName = organizationService.findById(invite.getOrganizationId())
                           .map(org -> org == null ? null : org.getName());
-                  Future<List<BaseOidcConfiguration>> providers = Future.fromCompletionStage(
+                  Future<List<BaseOidcConfiguration>> providers =
                           oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
-                                                                      invite.getApplicationId()));
+                                                                      invite.getApplicationId());
                   return Future.all(orgName, providers)
                                .map(v -> new JsonObject()
                                        .put("email", invite.getEmail())
@@ -108,7 +106,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.acceptLocalInvite(token, password, displayName))
+        inviteService.acceptLocalInvite(token, password, displayName)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the payload
@@ -140,13 +138,12 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.getValidInvite(token))
+        inviteService.getValidInvite(token)
               .compose(invite -> startFlowForInvite(ctx, invite, configId, token))
               .onSuccess(url -> ctx.response().setStatusCode(302).putHeader("Location", url).end())
               .onFailure(err -> {
-                  Throwable cause = err.getCause() != null ? err.getCause() : err;
-                  log.warn("Invite OIDC start failed for config {}: {}", configId, cause.getMessage());
-                  String code = cause instanceof OidcCallbackException oce
+                  log.warn("Invite OIDC start failed for config {}: {}", configId, err.getMessage());
+                  String code = err instanceof OidcCallbackException oce
                           ? oce.getErrorCode() : OidcErrorCodes.INVITE_INVALID;
                   redirectInviteError(ctx, code, token);
               });
@@ -164,8 +161,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                 orgId -> resolveCallbackConfig(pathConfigId, orgId))
                 .onSuccess(result -> completeOidcAccept(ctx, result))
                 .onFailure(ex -> {
-                    Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                    String code = cause instanceof OidcCallbackException oce
+                    String code = ex instanceof OidcCallbackException oce
                             ? oce.getErrorCode() : OidcErrorCodes.EXCHANGE_FAILED;
                     redirectInviteError(ctx, code, null);
                 });
@@ -207,7 +203,7 @@ public class InviteHandler implements SuppliesGatewayRoutes {
             return;
         }
 
-        Future.fromCompletionStage(inviteService.acceptOidcInvite(token, sub, result.config().getId(), email))
+        inviteService.acceptOidcInvite(token, sub, result.config().getId(), email)
               .onSuccess(user -> {
                   if (user.getApplicationId() != null) {
                       // Session established like any login (ApplicationParticipant); the redirect
@@ -223,13 +219,12 @@ public class InviteHandler implements SuppliesGatewayRoutes {
                   }
               })
               .onFailure(err -> {
-                  Throwable cause = err.getCause() != null ? err.getCause() : err;
-                  if (cause instanceof InviteEmailMismatchException) {
+                  if (err instanceof InviteEmailMismatchException) {
                       // The invite is NOT consumed on mismatch — keep the token so the
                       // invitee can retry with another provider or a password.
                       redirectInviteError(ctx, OidcErrorCodes.EMAIL_MISMATCH, token);
                   } else {
-                      log.warn("Invite acceptance failed: {}", cause.getMessage());
+                      log.warn("Invite acceptance failed: {}", err.getMessage());
                       redirectInviteError(ctx, OidcErrorCodes.INVITE_INVALID, null);
                   }
               });
@@ -242,9 +237,8 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * carries the accept token on the session and returns to {@link #handleOidcCallback}.
      */
     private Future<String> startFlowForInvite(RoutingContext ctx, PendingInvite invite, String configId, String token) {
-        return Future.fromCompletionStage(
-                             oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
-                                                                         invite.getApplicationId()))
+        return oidcConfigurationService.findEnabledForScope(invite.getOrganizationId(),
+                                                            invite.getApplicationId())
                      .compose(offered -> {
                          BaseOidcConfiguration chosen = offered.stream()
                                                               .filter(c -> configId.equals(c.getId()))
@@ -265,25 +259,27 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * Resolves the callback's config, which may live in either table: platform social
      * configs (unscoped) or org SSO / app configs (org-scoped by the flow session's orgId).
      */
-    private CompletableFuture<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
+    private Future<BaseOidcConfiguration> resolveCallbackConfig(String configId, String orgId) {
         // Searching both tables by bare id is safe: we only get here after the orchestrator
         // matched the path's configId against the flow session, and that session value was
         // written by handleOidcStart, which only accepts configs the invite's target scope
         // offers. So whatever this finds is a config the start leg already approved (ids
         // are per-row UUIDs, so the same id cannot exist in both tables).
         return orgSignupOidcConfigurationService.findById(configId)
-                .thenCompose(social -> {
+                .compose(social -> {
+                    Future<BaseOidcConfiguration> ret;
                     if (social != null) {
-                        return CompletableFuture.<BaseOidcConfiguration>completedFuture(social);
+                        ret = Future.succeededFuture(social);
+                    } else if (orgId == null) {
+                        // Invite flows always stash an orgId; this guard only turns a corrupted
+                        // session into config_not_found instead of a repository exception.
+                        ret = Future.succeededFuture(null);
+                    } else {
+                        // The cast widens the future's element type — Future is invariant.
+                        ret = oidcConfigurationRepository.findById(configId, orgId)
+                                                         .map(c -> (BaseOidcConfiguration) c);
                     }
-                    // Invite flows always stash an orgId; this guard only turns a corrupted
-                    // session into config_not_found instead of a repository exception.
-                    if (orgId == null) {
-                        return CompletableFuture.completedFuture(null);
-                    }
-                    // The cast widens the future's element type — CompletableFuture is invariant.
-                    return oidcConfigurationRepository.findById(configId, orgId)
-                                                      .thenApply(c -> (BaseOidcConfiguration) c);
+                    return ret;
                 });
     }
 
@@ -310,11 +306,10 @@ public class InviteHandler implements SuppliesGatewayRoutes {
      * surface those as 400s and keep everything else generic.
      */
     private void respondInviteFailure(RoutingContext ctx, Throwable err, String genericMessage) {
-        Throwable cause = err.getCause() != null ? err.getCause() : err;
-        if (cause instanceof IllegalArgumentException) {
-            authEndpointSupport.respondError(ctx, 400, cause.getMessage());
+        if (err instanceof IllegalArgumentException) {
+            authEndpointSupport.respondError(ctx, 400, err.getMessage());
         } else {
-            log.warn("{}: {}", genericMessage, cause.getMessage());
+            log.warn("{}: {}", genericMessage, err.getMessage());
             authEndpointSupport.respondError(ctx, 500, genericMessage);
         }
     }

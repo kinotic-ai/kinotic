@@ -1,7 +1,6 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -11,6 +10,7 @@ import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -35,16 +35,16 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     }
 
     @Override
-    public <T> CompletableFuture<List<T>> execute(QueryContext context, Class<T> type) {
+    public <T> Future<List<T>> execute(QueryContext context, Class<T> type) {
 
         return executePage(context, null, type)
-                                 .thenApply(Page::getContent);
+                                 .map(Page::getContent);
     }
 
     @Override
-    public <T> CompletableFuture<Page<T>> executePage(QueryContext context,
-                                                      Pageable pageable,
-                                                      Class<T> type) {
+    public <T> Future<Page<T>> executePage(QueryContext context,
+                                           Pageable pageable,
+                                           Class<T> type) {
         JsonObject filter = createFilterIfNeeded(context);
 
         return elasticVertxClient.querySql(statement,

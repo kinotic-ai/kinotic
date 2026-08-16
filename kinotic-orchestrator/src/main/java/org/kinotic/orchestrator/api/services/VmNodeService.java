@@ -1,19 +1,15 @@
 package org.kinotic.orchestrator.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Service for managing {@link VmNode} entities.
  * Tracks available nodes in the cluster that can host workloads.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
 public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
 
     /**
@@ -23,6 +19,6 @@ public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
      * @param requiredDiskMb the amount of disk space required in megabytes
      * @return a future that will complete with a suitable node, or null if none available
      */
-    CompletableFuture<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb);
+    Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb);
 
 }

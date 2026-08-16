@@ -1,5 +1,6 @@
 package org.kinotic.orchestrator.internal.api.grind;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
@@ -8,7 +9,6 @@ import org.kinotic.orchestrator.api.services.JobRunService;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * In-memory stand-in for the Elasticsearch backed {@link JobRunService}, capturing what the
@@ -19,69 +19,69 @@ public class StubJobRunService implements JobRunService {
     public final Map<String, JobRun> saved = new LinkedHashMap<>();
 
     @Override
-    public CompletableFuture<JobRun> save(JobRun entity) {
+    public Future<JobRun> save(JobRun entity) {
         saved.put(entity.getId(), entity);
-        return CompletableFuture.completedFuture(entity);
+        return Future.succeededFuture(entity);
     }
 
     @Override
-    public CompletableFuture<JobRun> saveSync(JobRun entity) {
+    public Future<JobRun> saveSync(JobRun entity) {
         return save(entity);
     }
 
     @Override
-    public CompletableFuture<JobRun> create(JobRun entity) {
+    public Future<JobRun> create(JobRun entity) {
         return save(entity);
     }
 
     @Override
-    public CompletableFuture<JobRun> createSync(JobRun entity) {
+    public Future<JobRun> createSync(JobRun entity) {
         return save(entity);
     }
 
     @Override
-    public CompletableFuture<JobRun> findById(String id) {
-        return CompletableFuture.completedFuture(saved.get(id));
+    public Future<JobRun> findById(String id) {
+        return Future.succeededFuture(saved.get(id));
     }
 
     @Override
-    public CompletableFuture<Long> count() {
-        return CompletableFuture.completedFuture((long) saved.size());
+    public Future<Long> count() {
+        return Future.succeededFuture((long) saved.size());
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
+    public Future<Void> deleteById(String id) {
         saved.remove(id);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Void> deleteByIdSync(String id) {
+    public Future<Void> deleteByIdSync(String id) {
         return deleteById(id);
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findAll(Pageable pageable) {
+    public Future<Page<JobRun>> findAll(Pageable pageable) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> search(String searchText, Pageable pageable) {
+    public Future<Page<JobRun>> search(String searchText, Pageable pageable) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Void> syncIndex() {
-        return CompletableFuture.completedFuture(null);
+    public Future<Void> syncIndex() {
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
+    public Future<Page<JobRun>> findByName(String name, Pageable pageable) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
+    public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
         throw new UnsupportedOperationException();
     }
 }

@@ -198,13 +198,11 @@ public class McpJsonRpcHandler implements SuppliesGatewayRoutes {
             ret = mcpToolInvoker.invoke(params.get("name").asString(), arguments, participant)
                                 .map(toolResult -> JsonRpcResponse.result(id, toolResult))
                                 .otherwise(throwable -> {
-                                    // a repository failure crosses the strategy's fromCompletionStage wrapped in CompletionException
-                                    Throwable cause = throwable.getCause() != null ? throwable.getCause() : throwable;
                                     JsonRpcResponse response;
-                                    if (cause instanceof IllegalArgumentException) {
-                                        response = JsonRpcResponse.error(id, INVALID_PARAMS, cause.getMessage());
+                                    if (throwable instanceof IllegalArgumentException) {
+                                        response = JsonRpcResponse.error(id, INVALID_PARAMS, throwable.getMessage());
                                     } else {
-                                        log.error("tools/call failed", cause);
+                                        log.error("tools/call failed", throwable);
                                         response = JsonRpcResponse.error(id, INTERNAL_ERROR, "Internal error");
                                     }
                                     return response;

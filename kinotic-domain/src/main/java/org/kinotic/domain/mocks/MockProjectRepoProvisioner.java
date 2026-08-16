@@ -1,13 +1,12 @@
 package org.kinotic.domain.mocks;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.api.services.ProjectRepoProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Fallback {@link ProjectRepoProvisioner} used when the GitHub module is disabled
@@ -26,7 +25,7 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
     private static final String FAKE_DEFAULT_BRANCH = "main";
 
     @Override
-    public CompletableFuture<Project> provision(Project project) {
+    public Future<Project> provision(Project project) {
         String repoName = project.getName() == null ? "unnamed" : project.getName();
         project.setRepoFullName(FAKE_OWNER + "/" + repoName);
         project.setRepoId(FAKE_REPO_ID);
@@ -34,12 +33,12 @@ public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
         project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
         log.debug("MockProjectRepoProvisioner stamped {} on project {}",
                   project.getRepoFullName(), project.getId());
-        return CompletableFuture.completedFuture(project);
+        return Future.succeededFuture(project);
     }
 
     @Override
-    public CompletableFuture<Project> reinitialize(Project project) {
+    public Future<Project> reinitialize(Project project) {
         project.setRepoConnectionStatus(RepositoryConnectionStatus.CONNECTED);
-        return CompletableFuture.completedFuture(project);
+        return Future.succeededFuture(project);
     }
 }

@@ -1,5 +1,6 @@
 package org.kinotic.os.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -8,7 +9,6 @@ import org.kinotic.domain.api.model.security.DelegateSession;
 import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * The signed-in user's view of the clients authorized to act on their behalf — CLI installs
@@ -23,7 +23,7 @@ public interface DelegateService {
      * Lists the delegates authorized on the calling user's behalf, revoked ones included
      * (disabled entries show as revoked until re-approved).
      */
-    CompletableFuture<Page<DelegatingParticipantIdentity>> findMyDelegates(Pageable pageable, Participant participant);
+    Future<Page<DelegatingParticipantIdentity>> findMyDelegates(Pageable pageable, Participant participant);
 
     /**
      * Lists the live sessions of one of the calling user's delegates — one entry per
@@ -31,7 +31,7 @@ public interface DelegateService {
      *
      * @param delegateId a delegate owned by the calling user
      */
-    CompletableFuture<List<DelegateSession>> findSessions(String delegateId, Participant participant);
+    Future<List<DelegateSession>> findSessions(String delegateId, Participant participant);
 
     /**
      * Ends a single session of one of the calling user's delegates. The session's tokens can
@@ -40,7 +40,7 @@ public interface DelegateService {
      * @param delegateId a delegate owned by the calling user
      * @param familyId   the session to end, from {@link #findSessions}
      */
-    CompletableFuture<Void> revokeSession(String delegateId, String familyId, Participant participant);
+    Future<Void> revokeSession(String delegateId, String familyId, Participant participant);
 
     /**
      * Revokes one of the calling user's delegates entirely: the client is cut off on its next
@@ -49,5 +49,5 @@ public interface DelegateService {
      *
      * @param delegateId a delegate owned by the calling user
      */
-    CompletableFuture<Void> revokeDelegate(String delegateId, Participant participant);
+    Future<Void> revokeDelegate(String delegateId, Participant participant);
 }

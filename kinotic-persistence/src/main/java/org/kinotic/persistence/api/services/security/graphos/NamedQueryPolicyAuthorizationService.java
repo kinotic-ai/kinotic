@@ -1,5 +1,6 @@
 package org.kinotic.persistence.api.services.security.graphos;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -11,7 +12,6 @@ import org.kinotic.persistence.internal.api.services.security.graphos.PolicyExpr
 import org.kinotic.persistence.internal.api.services.security.graphos.PolicyExpressionUtil;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -43,7 +43,7 @@ public class NamedQueryPolicyAuthorizationService implements AuthorizationServic
 
 
     @Override
-    public CompletableFuture<Void> authorize(NamedQueryOperation operationIdentifier, EntityContext entityContext) {
+    public Future<Void> authorize(NamedQueryOperation operationIdentifier, EntityContext entityContext) {
 
         Map<String, PolicyAuthorizationRequest> policyRequests = allPolicies.stream()
                                                                             .collect(Collectors.toMap(policy -> policy, DefaultPolicyAuthorizationRequest::new));
@@ -51,15 +51,17 @@ public class NamedQueryPolicyAuthorizationService implements AuthorizationServic
         List<PolicyAuthorizationRequest> requests = new ArrayList<>(policyRequests.values());
 
         return policyAuthorizer.authorize(requests, entityContext)
-                               .thenCompose(ignored -> {
+                               .compose(ignored -> {
 
+                                   Future<Void> ret;
                                    boolean queryAllowed = this.policyExpression.evaluate(policyRequests);
                                    if(queryAllowed){
-                                       return CompletableFuture.completedFuture(null);
+                                       ret = Future.succeededFuture();
                                    }else{
-                                       return CompletableFuture.failedFuture(new AuthorizationException("The Named Query is not authorized"));
+                                       ret = Future.failedFuture(new AuthorizationException("The Named Query is not authorized"));
 
                                    }
+                                   return ret;
                                });
     }
 }

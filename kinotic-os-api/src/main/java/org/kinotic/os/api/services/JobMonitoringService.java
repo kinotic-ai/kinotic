@@ -1,5 +1,6 @@
 package org.kinotic.os.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -8,8 +9,6 @@ import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.ResultType;
 import org.kinotic.orchestrator.api.model.grind.TaskRecord;
 import reactor.core.publisher.Flux;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Read access to grind job runs for the authenticated participant: an organization or
@@ -26,7 +25,7 @@ public interface JobMonitoringService {
      * @param pageable the page of runs to return
      * @return a future that will complete with the page of runs
      */
-    CompletableFuture<Page<JobRun>> findJobRuns(Pageable pageable);
+    Future<Page<JobRun>> findJobRuns(Pageable pageable);
 
     /**
      * Finds a single job run the participant may view.
@@ -35,7 +34,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the run, or fail if the run does not exist
      *         or belongs to another organization
      */
-    CompletableFuture<JobRun> findJobRun(String jobRunId);
+    Future<JobRun> findJobRun(String jobRunId);
 
     /**
      * Finds the step ledger of a job run the participant may view.
@@ -45,7 +44,7 @@ public interface JobMonitoringService {
      * @return a future that will complete with the page of records, or fail if the run does
      *         not exist or belongs to another organization
      */
-    CompletableFuture<Page<TaskRecord>> findTaskRecords(String jobRunId, Pageable pageable);
+    Future<Page<TaskRecord>> findTaskRecords(String jobRunId, Pageable pageable);
 
     /**
      * Opens a live view of a job run the participant may view, replaying every {@link Result}

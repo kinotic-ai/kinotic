@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.security;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Component;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class DefaultOrgSignupOidcConfigurationService
@@ -26,7 +26,7 @@ public class DefaultOrgSignupOidcConfigurationService
     }
 
     @Override
-    protected CompletableFuture<Void> beforeSave(OrgSignupOidcConfiguration entity) {
+    protected Future<Void> beforeSave(OrgSignupOidcConfiguration entity) {
         Validate.notNull(entity.getName(), "OrgSignupOidcConfiguration name cannot be null");
         Validate.notNull(entity.getProvider(), "OrgSignupOidcConfiguration provider cannot be null");
         if (entity.getId() == null) {
@@ -34,16 +34,16 @@ public class DefaultOrgSignupOidcConfigurationService
             entity.setCreated(new Date());
         }
         entity.setUpdated(new Date());
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<List<OrgSignupOidcConfiguration>> findAllEnabled() {
+    public Future<List<OrgSignupOidcConfiguration>> findAllEnabled() {
         return signupRepository.findAllEnabled();
     }
 
     @Override
-    public CompletableFuture<OrgSignupOidcConfiguration> findEnabledByProvider(OidcProviderKind provider) {
+    public Future<OrgSignupOidcConfiguration> findEnabledByProvider(OidcProviderKind provider) {
         Validate.notNull(provider, "provider cannot be null");
         return signupRepository.findEnabledByProvider(provider);
     }

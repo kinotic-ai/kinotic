@@ -1,6 +1,8 @@
 package org.kinotic.os.internal.api.services;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -239,12 +241,19 @@ class DefaultJobMonitoringServiceTest {
      * Runs the call on a Vert.x context with the given participant bound, mirroring how the
      * gateway invokes published services.
      */
-    private <T> T callAs(Participant participant, Supplier<CompletableFuture<T>> call) throws Throwable {
-        try {
-            return onContextAs(participant, call).get(10, TimeUnit.SECONDS);
-        } catch (ExecutionException e) {
-            throw unwrap(e.getCause());
-        }
+    private <T> T callAs(Participant participant, Supplier<Future<T>> call) throws Throwable {
+        Promise<T> result = Promise.promise();
+        Context context = vertx.getOrCreateContext();
+        context.runOnContext(unused -> {
+            securityContext.setParticipant(context, participant);
+            try {
+                call.get().onComplete(result);
+            } catch (Throwable error) {
+                result.fail(error);
+            }
+        });
+        // await rethrows a failed future's raw cause, so failureOf sees the unwrapped exception
+        return result.future().await(10, TimeUnit.SECONDS);
     }
 
     /**
@@ -269,7 +278,7 @@ class DefaultJobMonitoringServiceTest {
         }
     }
 
-    private <T> Throwable failureOf(Participant participant, Supplier<CompletableFuture<T>> call) {
+    private <T> Throwable failureOf(Participant participant, Supplier<Future<T>> call) {
         try {
             callAs(participant, call);
             return null;
@@ -296,16 +305,16 @@ class DefaultJobMonitoringServiceTest {
         final Map<String, JobRun> saved = new LinkedHashMap<>();
 
         @Override
-        public CompletableFuture<Page<JobRun>> findByName(String name, Pageable pageable) {
+        public Future<Page<JobRun>> findByName(String name, Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
+        public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
             List<JobRun> matching = saved.values().stream()
                                          .filter(run -> matchesOwner(owner, run))
                                          .toList();
-            return CompletableFuture.completedFuture(new Page<>(matching, (long) matching.size()));
+            return Future.succeededFuture(new Page<>(matching, (long) matching.size()));
         }
 
         private static boolean matchesOwner(JobOwner owner, JobRun run) {
@@ -321,61 +330,65 @@ class DefaultJobMonitoringServiceTest {
         }
 
         @Override
-        public CompletableFuture<JobRun> save(JobRun entity) {
+        public Future<JobRun> save(JobRun entity) {
             saved.put(entity.getId(), entity);
-            return CompletableFuture.completedFuture(entity);
+            return Future.succeededFuture(entity);
         }
 
         @Override
-        public CompletableFuture<JobRun> saveSync(JobRun entity) {
+        public Future<JobRun> saveSync(JobRun entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<JobRun> create(JobRun entity) {
+        public Future<JobRun> create(JobRun entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<JobRun> createSync(JobRun entity) {
+        public Future<JobRun> createSync(JobRun entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<JobRun> findById(String id) {
-            return CompletableFuture.supplyAsync(() -> saved.get(id));
+        public Future<JobRun> findById(String id) {
+            // Completes on another thread like the real ES-backed service, so any
+            // SecurityContext read after this hop loses the Vert.x context and fails
+            Promise<JobRun> promise = Promise.promise();
+            new Thread(() -> promise.complete(saved.get(id))).start();
+            return promise.future();
         }
 
         @Override
-        public CompletableFuture<Long> count() {
-            return CompletableFuture.completedFuture((long) saved.size());
+        public Future<Long> count() {
+            return Future.succeededFuture((long) saved.size());
         }
 
         @Override
-        public CompletableFuture<Void> deleteById(String id) {
+        public Future<Void> deleteById(String id) {
             saved.remove(id);
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
 
         @Override
-        public CompletableFuture<Void> deleteByIdSync(String id) {
+        public Future<Void> deleteByIdSync(String id) {
             return deleteById(id);
         }
 
         @Override
-        public CompletableFuture<Page<JobRun>> findAll(Pageable pageable) {
+        public Future<Page<JobRun>> findAll(Pageable pageable) {
             List<JobRun> all = List.copyOf(saved.values());
-            return CompletableFuture.completedFuture(new Page<>(all, (long) all.size()));
+            return Future.succeededFuture(new Page<>(all, (long) all.size()));
         }
 
         @Override
-        public CompletableFuture<Page<JobRun>> search(String searchText, Pageable pageable) {
+        public Future<Page<JobRun>> search(String searchText, Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Void> syncIndex() {
-            return CompletableFuture.completedFuture(null);
+        public Future<Void> syncIndex() {
+            return Future.succeededFuture();
         }
     }
 
@@ -388,71 +401,71 @@ class DefaultJobMonitoringServiceTest {
         final Map<String, TaskRecord> saved = new LinkedHashMap<>();
 
         @Override
-        public CompletableFuture<Page<TaskRecord>> findAllForJobRun(String jobRunId, Pageable pageable) {
+        public Future<Page<TaskRecord>> findAllForJobRun(String jobRunId, Pageable pageable) {
             List<TaskRecord> matching = saved.values().stream()
                                              .filter(record -> jobRunId.equals(record.getJobRunId()))
                                              .toList();
             int pageNumber = ((OffsetPageable) pageable).getPageNumber();
             int from = Math.min(pageNumber * pageable.getPageSize(), matching.size());
             int to = Math.min(from + pageable.getPageSize(), matching.size());
-            return CompletableFuture.completedFuture(new Page<>(matching.subList(from, to), (long) matching.size()));
+            return Future.succeededFuture(new Page<>(matching.subList(from, to), (long) matching.size()));
         }
 
         @Override
-        public CompletableFuture<TaskRecord> save(TaskRecord entity) {
+        public Future<TaskRecord> save(TaskRecord entity) {
             saved.put(entity.getId(), entity);
-            return CompletableFuture.completedFuture(entity);
+            return Future.succeededFuture(entity);
         }
 
         @Override
-        public CompletableFuture<TaskRecord> saveSync(TaskRecord entity) {
+        public Future<TaskRecord> saveSync(TaskRecord entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<TaskRecord> create(TaskRecord entity) {
+        public Future<TaskRecord> create(TaskRecord entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<TaskRecord> createSync(TaskRecord entity) {
+        public Future<TaskRecord> createSync(TaskRecord entity) {
             return save(entity);
         }
 
         @Override
-        public CompletableFuture<TaskRecord> findById(String id) {
-            return CompletableFuture.completedFuture(saved.get(id));
+        public Future<TaskRecord> findById(String id) {
+            return Future.succeededFuture(saved.get(id));
         }
 
         @Override
-        public CompletableFuture<Long> count() {
-            return CompletableFuture.completedFuture((long) saved.size());
+        public Future<Long> count() {
+            return Future.succeededFuture((long) saved.size());
         }
 
         @Override
-        public CompletableFuture<Void> deleteById(String id) {
+        public Future<Void> deleteById(String id) {
             saved.remove(id);
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
 
         @Override
-        public CompletableFuture<Void> deleteByIdSync(String id) {
+        public Future<Void> deleteByIdSync(String id) {
             return deleteById(id);
         }
 
         @Override
-        public CompletableFuture<Page<TaskRecord>> findAll(Pageable pageable) {
+        public Future<Page<TaskRecord>> findAll(Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Page<TaskRecord>> search(String searchText, Pageable pageable) {
+        public Future<Page<TaskRecord>> search(String searchText, Pageable pageable) {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public CompletableFuture<Void> syncIndex() {
-            return CompletableFuture.completedFuture(null);
+        public Future<Void> syncIndex() {
+            return Future.succeededFuture();
         }
     }
 

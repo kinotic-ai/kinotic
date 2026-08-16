@@ -1,8 +1,9 @@
 package org.kinotic.domain.internal.api.services.secret;
 
+import io.vertx.core.Future;
+
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * SPI for secret storage backends. All methods operate on HKDF-derived opaque names,
@@ -17,7 +18,7 @@ public interface SecretStorageBackend {
      * @param value       the secret value to store
      * @return a future that completes when the secret has been persisted
      */
-    CompletableFuture<Void> setSecret(String derivedName, String value);
+    Future<Void> setSecret(String derivedName, String value);
 
     /**
      * Retrieves a secret value by its HKDF-derived name.
@@ -25,7 +26,7 @@ public interface SecretStorageBackend {
      * @param derivedName the opaque derived name
      * @return a future containing the secret value, or {@code null} if not found
      */
-    CompletableFuture<String> getSecret(String derivedName);
+    Future<String> getSecret(String derivedName);
 
     /**
      * Deletes a secret by its HKDF-derived name.
@@ -33,7 +34,7 @@ public interface SecretStorageBackend {
      * @param derivedName the opaque derived name
      * @return a future that completes when the secret has been deleted
      */
-    CompletableFuture<Void> deleteSecret(String derivedName);
+    Future<Void> deleteSecret(String derivedName);
 
     /**
      * Stores multiple secrets in a single batch.
@@ -41,7 +42,7 @@ public interface SecretStorageBackend {
      * @param derivedNameToValue a map of derived name to secret value
      * @return a future that completes when all secrets have been persisted
      */
-    CompletableFuture<Void> setSecrets(Map<String, String> derivedNameToValue);
+    Future<Void> setSecrets(Map<String, String> derivedNameToValue);
 
     /**
      * Retrieves multiple secrets in a single batch.
@@ -49,7 +50,7 @@ public interface SecretStorageBackend {
      * @param derivedNames the list of derived names to look up
      * @return a future containing a map of derived name to secret value (missing keys are omitted)
      */
-    CompletableFuture<Map<String, String>> getSecrets(List<String> derivedNames);
+    Future<Map<String, String>> getSecrets(List<String> derivedNames);
 
     /**
      * Deletes multiple secrets in a single batch.
@@ -57,5 +58,5 @@ public interface SecretStorageBackend {
      * @param derivedNames the list of derived names to delete
      * @return a future that completes when all secrets have been deleted
      */
-    CompletableFuture<Void> deleteSecrets(List<String> derivedNames);
+    Future<Void> deleteSecrets(List<String> derivedNames);
 }

@@ -2,6 +2,7 @@
 
 package org.kinotic.orchestrator.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -40,7 +41,6 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -130,7 +130,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                      objectMapper);
 
         Flux<Result<?>> results =
-            Flux.defer(() -> Mono.fromFuture(() -> jobRunService.findById(jobRunId))
+            Flux.defer(() -> Mono.fromCompletionStage(() -> jobRunService.findById(jobRunId).toCompletionStage())
                                  .switchIfEmpty(Mono.error(() -> new IllegalArgumentException("No JobRun found with id " + jobRunId)))
                                  .flatMapMany(originalRun -> {
                                      Flux<Result<?>> ret;
@@ -149,7 +149,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                          recorder.ownerResolved(originalRun.getOrganizationId(),
                                                                 originalRun.getApplicationId(),
                                                                 originalRun.getProjectId());
-                                         ret = Mono.fromFuture(() -> loadReplayLedger(jobRunId))
+                                         ret = Mono.fromCompletionStage(() -> loadReplayLedger(jobRunId).toCompletionStage())
                                                    .flatMapMany(ledger -> assembleInternal(jobDefinition, options, ledger));
                                      }
                                      return ret;
@@ -244,22 +244,22 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
      * STATE values. A value that cannot be restored leaves its entry without a value, so the
      * step re-executes rather than replaying corrupt state.
      */
-    private CompletableFuture<ReplayLedger> loadReplayLedger(String jobRunId) {
+    private Future<ReplayLedger> loadReplayLedger(String jobRunId) {
         Map<String, ReplayEntry> entries = new HashMap<>();
-        return loadRecordsPage(jobRunId, 0, entries).thenApply(v -> entries::get);
+        return loadRecordsPage(jobRunId, 0, entries).map(v -> entries::get);
     }
 
-    private CompletableFuture<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
+    private Future<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
         return taskRecordService.findAllForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
-                                .thenCompose(recordPage -> {
+                                .compose(recordPage -> {
                                     for(TaskRecord record : recordPage.getContent()){
                                         if(record.getStatus() == ExecutionStatus.COMPLETED){
                                             entries.put(record.getStepPath(), toReplayEntry(record));
                                         }
                                     }
-                                    CompletableFuture<Void> ret;
+                                    Future<Void> ret;
                                     if(recordPage.getContent().size() < RECORD_PAGE_SIZE){
-                                        ret = CompletableFuture.completedFuture(null);
+                                        ret = Future.succeededFuture();
                                     }else{
                                         ret = loadRecordsPage(jobRunId, page + 1, entries);
                                     }

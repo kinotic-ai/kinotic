@@ -1,10 +1,9 @@
 package org.kinotic.os.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.model.InviteEmailTemplate;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * CRUD service for an application's customized invitation email — at most one
@@ -19,6 +18,6 @@ public interface InviteEmailTemplateService extends ApplicationScopedCrudService
      * Finds the application's invitation template, or {@code null} when the application
      * uses the built-in email.
      */
-    CompletableFuture<InviteEmailTemplate> findByApplication(String applicationId);
+    Future<InviteEmailTemplate> findByApplication(String applicationId);
 
 }

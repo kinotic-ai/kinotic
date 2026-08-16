@@ -366,7 +366,13 @@ public class DefaultServiceDirectory implements ServiceDirectory {
         Map<String, ObjectC3Type> resolver = new HashMap<>();
         for (ComplexC3Type type : referencedTypes) {
             if (type instanceof ObjectC3Type objectType) {
-                resolver.put(objectType.getQualifiedName(), objectType);
+                ObjectC3Type previous = resolver.putIfAbsent(objectType.getQualifiedName(), objectType);
+                if (previous != null) {
+                    // a reference carries only the qualified name, so two types under one name would make
+                    // every resolution of it arbitrary
+                    throw new IllegalStateException("Duplicate ObjectC3Type qualified name '"
+                            + objectType.getQualifiedName() + "' in the converted namespace");
+                }
             }
         }
         return resolver;

@@ -1,6 +1,7 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import org.apache.commons.lang3.tuple.Pair;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
@@ -18,7 +19,6 @@ import org.kinotic.persistence.internal.api.services.EntityHolder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/7/23.
@@ -53,8 +53,8 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
 
     @WithSpan
     @Override
-    public CompletableFuture<EntityHolder<Map<Object, Object>>> process(Map<Object, Object> entity,
-                                                                        EntityContext context) {
+    public Future<EntityHolder<Map<Object, Object>>> process(Map<Object, Object> entity,
+                                                             EntityContext context) {
         try {
             // We always blow away tenant selection on save/update since the only tenants that mater are the ones in the data
             // This is a sanity check, in case somehow it was already provided. We want to make sure auth services see the correct list.
@@ -62,17 +62,17 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
                 context.setTenantSelection(new ArrayList<>());
             }
 
-            return CompletableFuture.completedFuture(preProcessData(entity, context));
+            return Future.succeededFuture(preProcessData(entity, context));
 
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<List<EntityHolder<Map<Object, Object>>>> processArray(List<Map<Object, Object>> entities,
-                                                                                   EntityContext context) {
+    public Future<List<EntityHolder<Map<Object, Object>>>> processArray(List<Map<Object, Object>> entities,
+                                                                        EntityContext context) {
         try {
             // We always blow away tenant selection on save/update since the only tenants that mater are the ones in the data
             // This is a sanity check, in case somehow it was already provided. We want to make sure auth services see the correct list.
@@ -84,9 +84,9 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
             for(Map<Object, Object> entity : entities) {
                 entityHolders.add(preProcessData(entity, context));
             }
-            return CompletableFuture.completedFuture(entityHolders);
+            return Future.succeededFuture(entityHolders);
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
     }
 

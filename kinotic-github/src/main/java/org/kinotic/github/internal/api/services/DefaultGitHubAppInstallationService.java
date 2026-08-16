@@ -1,7 +1,6 @@
 package org.kinotic.github.internal.api.services;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -21,7 +20,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Default impl of the install round-trip over the {@code kinotic_github_app_installation}
@@ -41,7 +39,6 @@ public class DefaultGitHubAppInstallationService
     private final GitHubApiClient apiClient;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
     private final SecretReferenceResolver secretReferenceResolver;
-    private final Vertx vertx;
 
     public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
@@ -49,8 +46,7 @@ public class DefaultGitHubAppInstallationService
                                                GitHubInstallStateService stateService,
                                                GitHubApiClient apiClient,
                                                OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
-                                               SecretReferenceResolver secretReferenceResolver,
-                                               Vertx vertx) {
+                                               SecretReferenceResolver secretReferenceResolver) {
         super(repository, securityContext);
         this.installationRepository = repository;
         this.properties = properties;
@@ -58,38 +54,37 @@ public class DefaultGitHubAppInstallationService
         this.apiClient = apiClient;
         this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
         this.secretReferenceResolver = secretReferenceResolver;
-        this.vertx = vertx;
     }
 
     @Override
-    public CompletableFuture<String> startInstall(String returnTo) {
+    public Future<String> startInstall(String returnTo) {
         String orgId = requireOrganizationId();
         StagedInstall staged = new StagedInstall()
                 .setOrganizationId(orgId)
                 .setReturnTo(returnTo);
         String state = stateService.stage(staged);
-        return CompletableFuture.completedFuture(
+        return Future.succeededFuture(
                 "https://github.com/apps/" + properties.getGithub().getAppSlug()
                         + "/installations/new?state=" + state);
     }
 
     @Override
-    public CompletableFuture<GitHubInstallCompletion> completeInstall(long installationId, String state, String code) {
+    public Future<GitHubInstallCompletion> completeInstall(long installationId, String state, String code) {
         String callerOrgId = requireOrganizationId();
         StagedInstall staged = stateService.consume(state);
         if (staged == null) {
-            return CompletableFuture.failedFuture(new IllegalStateException(
+            return Future.failedFuture(new IllegalStateException(
                     "Install state is missing, expired, or already used. Please re-link GitHub."));
         }
         if (!callerOrgId.equals(staged.getOrganizationId())) {
-            return CompletableFuture.failedFuture(new AuthorizationException(
+            return Future.failedFuture(new AuthorizationException(
                     "Install state does not belong to the current organization."));
         }
         if (code == null || code.isBlank()) {
-            return CompletableFuture.failedFuture(new IllegalStateException(
+            return Future.failedFuture(new IllegalStateException(
                     "Install redirect carried no user-authorization code. Please re-link GitHub."));
         }
-        return Future.fromCompletionStage(findForCurrentOrg(), vertx.getOrCreateContext())
+        return findForCurrentOrg()
                 .compose(existing -> existing == null
                                      || Long.valueOf(installationId).equals(existing.getGithubInstallationId())
                         ? verifiedInstallation(installationId, code)
@@ -100,8 +95,7 @@ public class DefaultGitHubAppInstallationService
                 .compose(details -> persist(staged.getOrganizationId(), installationId, details))
                 .map(installation -> new GitHubInstallCompletion()
                         .setInstallation(installation)
-                        .setReturnTo(staged.getReturnTo()))
-                .toCompletionStage().toCompletableFuture();
+                        .setReturnTo(staged.getReturnTo()));
     }
 
     private Future<InstallationDetails> verifiedInstallation(long installationId, String code) {
@@ -116,24 +110,22 @@ public class DefaultGitHubAppInstallationService
     private Future<String> userAccessToken(String code) {
         // Must exchange with the App's own OAuth credential (the github-platform sign-in
         // row): /user/installations only reports installations of the app that minted the token.
-        return Future.fromCompletionStage(orgSignupOidcConfigurationService.findEnabledByProvider(OidcProviderKind.GITHUB),
-                                          vertx.getOrCreateContext())
-                     .compose(config -> {
-                         if (config == null) {
-                             return Future.failedFuture(new IllegalStateException(
-                                     "No enabled GitHub OAuth configuration exists to verify the install."));
-                         }
-                         return Future.fromCompletionStage(secretReferenceResolver.resolve(config.getSecretNameRef()),
-                                                           vertx.getOrCreateContext())
-                                      .compose(secret -> {
-                                          if (secret == null) {
-                                              return Future.failedFuture(new IllegalStateException(
-                                                      "GitHub OAuth client secret '" + config.getSecretNameRef()
-                                                              + "' could not be resolved."));
-                                          }
-                                          return apiClient.exchangeUserAccessCode(config.getClientId(), secret, code);
-                                      });
-                     });
+        return orgSignupOidcConfigurationService.findEnabledByProvider(OidcProviderKind.GITHUB)
+                .compose(config -> {
+                    if (config == null) {
+                        return Future.failedFuture(new IllegalStateException(
+                                "No enabled GitHub OAuth configuration exists to verify the install."));
+                    }
+                    return secretReferenceResolver.resolve(config.getSecretNameRef())
+                            .compose(secret -> {
+                                if (secret == null) {
+                                    return Future.failedFuture(new IllegalStateException(
+                                            "GitHub OAuth client secret '" + config.getSecretNameRef()
+                                                    + "' could not be resolved."));
+                                }
+                                return apiClient.exchangeUserAccessCode(config.getClientId(), secret, code);
+                            });
+                });
     }
 
     private Future<InstallationDetails> requireAccessible(List<InstallationDetails> installations,
@@ -171,23 +163,23 @@ public class DefaultGitHubAppInstallationService
                 .setUpdated(now);
         // saveSync (not save) so the row is searchable before completeInstall resolves —
         // the SPA reads it straight back via findForCurrentOrg(), which is a search.
-        return Future.fromCompletionStage(saveSync(install), vertx.getOrCreateContext());
+        return saveSync(install);
     }
 
     @Override
-    public CompletableFuture<GitHubAppInstallation> findForCurrentOrg() {
+    public Future<GitHubAppInstallation> findForCurrentOrg() {
         return installationRepository.findAll(requireOrganizationId(), Pageable.ofSize(1))
-                                     .thenApply(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
+                                     .map(page -> page.getContent().isEmpty() ? null : page.getContent().getFirst());
     }
 
     @Override
-    public CompletableFuture<Void> unlink() {
+    public Future<Void> unlink() {
         String orgId = requireOrganizationId();
-        return findForCurrentOrg().thenCompose(
+        return findForCurrentOrg().compose(
                 // deleteByIdSync (not deleteById) so the row is gone from search before unlink
                 // resolves — the SPA reads it straight back via findForCurrentOrg(), a search.
                 installation -> installation == null
-                        ? CompletableFuture.<Void>completedFuture(null)
+                        ? Future.<Void>succeededFuture()
                         : installationRepository.deleteByIdSync(installation.getId(), orgId));
     }
 }

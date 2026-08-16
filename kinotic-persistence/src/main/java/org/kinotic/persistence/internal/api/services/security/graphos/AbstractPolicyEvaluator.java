@@ -1,12 +1,12 @@
 package org.kinotic.persistence.internal.api.services.security.graphos;
 
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizationRequest;
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public abstract class AbstractPolicyEvaluator implements PolicyEvaluator {
@@ -20,14 +20,15 @@ public abstract class AbstractPolicyEvaluator implements PolicyEvaluator {
 
     @WithSpan
     @Override
-    public CompletableFuture<AuthorizationResult> evaluatePolicies(EntityContext entityContext) {
+    public Future<AuthorizationResult> evaluatePolicies(EntityContext entityContext) {
         Set<String> allPolicies = new HashSet<>(sharedPolicyManager.getSharedPolicies());
         addOperationPolicies(allPolicies);
 
+        Future<AuthorizationResult> ret;
         // no need to call authorizer if there are no policies to evaluate
         if (allPolicies.isEmpty()) {
 
-            return CompletableFuture.completedFuture(new AuthorizationResult(true, true, Collections.emptyMap()));
+            ret = Future.succeededFuture(new AuthorizationResult(true, true, Collections.emptyMap()));
 
         }else {
             Map<String, PolicyAuthorizationRequest> policyRequests = allPolicies.stream()
@@ -35,19 +36,20 @@ public abstract class AbstractPolicyEvaluator implements PolicyEvaluator {
                                                                                                           DefaultPolicyAuthorizationRequest::new));
             List<PolicyAuthorizationRequest> requests = new ArrayList<>(policyRequests.values());
 
-            return authorizer.authorize(requests, entityContext)
-                             .thenApply(ignored -> {
+            ret = authorizer.authorize(requests, entityContext)
+                            .map(ignored -> {
 
-                                 Map<String, Boolean> fieldResults = evaluateFieldPolicies(policyRequests);
+                                Map<String, Boolean> fieldResults = evaluateFieldPolicies(policyRequests);
 
-                                 boolean operationAllowed = isOperationAllowed(policyRequests);
+                                boolean operationAllowed = isOperationAllowed(policyRequests);
 
-                                 boolean entityAllowed = sharedPolicyManager.getEntityExpression() == null
-                                         || sharedPolicyManager.getEntityExpression().evaluate(policyRequests);
+                                boolean entityAllowed = sharedPolicyManager.getEntityExpression() == null
+                                        || sharedPolicyManager.getEntityExpression().evaluate(policyRequests);
 
-                                 return new AuthorizationResult(operationAllowed, entityAllowed, fieldResults);
-                             });
+                                return new AuthorizationResult(operationAllowed, entityAllowed, fieldResults);
+                            });
         }
+        return ret;
     }
 
     private Map<String, Boolean> evaluateFieldPolicies(Map<String, PolicyAuthorizationRequest> policyRequests) {

@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.idl.api.schema.FunctionDefinition;
@@ -10,7 +11,6 @@ import org.kinotic.persistence.api.model.TenantSpecificId;
 import org.kinotic.persistence.api.model.ParameterHolder;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides functionality to query data for a single "Entity" for a given {@link EntityDefinition}.
@@ -22,44 +22,44 @@ public interface EntityService {
      * Saves all given entities.
      * @param entities all the entities to save
      * @param context the context for this operation
-     * @return {@link CompletableFuture} that will complete when all entities have been saved
+     * @return {@link Future} that will complete when all entities have been saved
      * @param <T> the type of the entities, this can be a {@link List} or {@link RawJson}
      */
-    <T> CompletableFuture<Void> bulkSave(T entities, EntityContext context);
+    <T> Future<Void> bulkSave(T entities, EntityContext context);
 
     /**
      * Updates all given entities.
      * @param entities all the entities to save
      * @param context the context for this operation
-     * @return {@link CompletableFuture} that will complete when all entities have been saved
+     * @return {@link Future} that will complete when all entities have been saved
      * @param <T> the type of the entities, this can be a {@link List} or {@link RawJson}
      */
-    <T> CompletableFuture<Void> bulkUpdate(T entities, EntityContext context);
+    <T> Future<Void> bulkUpdate(T entities, EntityContext context);
 
     /**
      * Returns the number of entities available.
      *
      * @param context the context for this operation
-     * @return {@link CompletableFuture} emitting the number of entities
+     * @return {@link Future} emitting the number of entities
      */
-    CompletableFuture<Long> count(EntityContext context);
+    Future<Long> count(EntityContext context);
 
     /**
      * Returns the number of entities available for the given query.
      * @param query       the query used to limit result
      * @param context     the context for this operation
-     * @return {@link CompletableFuture} emitting the number of entities.
+     * @return {@link Future} emitting the number of entities.
      */
-    CompletableFuture<Long> countByQuery(String query, EntityContext context);
+    Future<Long> countByQuery(String query, EntityContext context);
 
     /**
      * Deletes the entity with the given id.
      *
      * @param id      must not be {@literal null}
      * @param context the context for this operation
-     * @return {@link CompletableFuture} signaling when operation has completed
+     * @return {@link Future} signaling when operation has completed
      */
-    CompletableFuture<Void> deleteById(String id, EntityContext context);
+    Future<Void> deleteById(String id, EntityContext context);
 
     /**
      * Deletes the entity with the given id.
@@ -67,18 +67,18 @@ public interface EntityService {
      *
      * @param id      must not be {@literal null}
      * @param context the context for this operation
-     * @return {@link CompletableFuture} signaling when operation has completed
+     * @return {@link Future} signaling when operation has completed
      */
-    CompletableFuture<Void> deleteById(TenantSpecificId id, EntityContext context);
+    Future<Void> deleteById(TenantSpecificId id, EntityContext context);
 
     /**
      * Deletes any entities that match the given query.
      *
      * @param query       the query used to filter records to delete, must not be {@literal null}
      * @param context     the context for this operation
-     * @return {@link CompletableFuture} emitting when delete is complete
+     * @return {@link Future} emitting when delete is complete
      */
-    CompletableFuture<Void> deleteByQuery(String query, EntityContext context);
+    Future<Void> deleteByQuery(String query, EntityContext context);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@link Pageable} object.
@@ -88,7 +88,7 @@ public interface EntityService {
      * @param context  the context for this operation
      * @return a page of entities
      */
-    <T> CompletableFuture<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context);
+    <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context);
 
     /**
      * Retrieves an entity by its id.
@@ -96,9 +96,9 @@ public interface EntityService {
      * @param id      must not be {@literal null}
      * @param type    the type of the entity
      * @param context the context for this operation
-     * @return {@link CompletableFuture} emitting the entity with the given id or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} emitting the entity with the given id or {@link Future} emitting null if none found
      */
-    <T> CompletableFuture<T> findById(String id, Class<T> type, EntityContext context);
+    <T> Future<T> findById(String id, Class<T> type, EntityContext context);
 
     /**
      * Retrieves an entity by its id.
@@ -107,9 +107,9 @@ public interface EntityService {
      * @param id      must not be {@literal null}
      * @param type    the type of the entity
      * @param context the context for this operation
-     * @return {@link CompletableFuture} emitting the entity with the given id or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} emitting the entity with the given id or {@link Future} emitting null if none found
      */
-    <T> CompletableFuture<T> findById(TenantSpecificId id, Class<T> type, EntityContext context);
+    <T> Future<T> findById(TenantSpecificId id, Class<T> type, EntityContext context);
 
     /**
      * Retrieves a list of entities by their id.
@@ -117,9 +117,9 @@ public interface EntityService {
      * @param ids         must not be {@literal null}
      * @param type        the type of the entity
      * @param context     the context for this operation
-     * @return {@link CompletableFuture} with the list of matched entities with the given ids or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting null if none found
      */
-    <T> CompletableFuture<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context);
+    <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context);
 
     /**
      * Retrieves a list of entities by their id.
@@ -128,9 +128,9 @@ public interface EntityService {
      * @param ids         must not be {@literal null}
      * @param type        the type of the entity
      * @param context     the context for this operation
-     * @return {@link CompletableFuture} with the list of matched entities with the given ids or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting null if none found
      */
-    <T> CompletableFuture<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context);
+    <T> Future<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context);
 
     /**
      * Executes a named query.
@@ -139,12 +139,12 @@ public interface EntityService {
      * @param parameterHolder the parameters to pass to the query
      * @param type            the type of the entity
      * @param context         the context for this operation
-     * @return {@link CompletableFuture} with the result of the query
+     * @return {@link Future} with the result of the query
      */
-    <T> CompletableFuture<List<T>> namedQuery(String queryName,
-                                              ParameterHolder parameterHolder,
-                                              Class<T> type,
-                                              EntityContext context);
+    <T> Future<List<T>> namedQuery(String queryName,
+                                   ParameterHolder parameterHolder,
+                                   Class<T> type,
+                                   EntityContext context);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -154,13 +154,13 @@ public interface EntityService {
      * @param pageable        the page settings to be used
      * @param type            the type of the entity
      * @param context         the context for this operation
-     * @return {@link CompletableFuture} with the result of the query
+     * @return {@link Future} with the result of the query
      */
-    <T> CompletableFuture<Page<T>> namedQueryPage(String queryName,
-                                                  ParameterHolder parameterHolder,
-                                                  Pageable pageable,
-                                                  Class<T> type,
-                                                  EntityContext context);
+    <T> Future<Page<T>> namedQueryPage(String queryName,
+                                       ParameterHolder parameterHolder,
+                                       Pageable pageable,
+                                       Class<T> type,
+                                       EntityContext context);
 
     /**
      * Saves a given entity. This will override all data if there is an existing entity with the same id.
@@ -168,9 +168,9 @@ public interface EntityService {
      *
      * @param entity  must not be {@literal null}
      * @param context the context for this operation
-     * @return {@link CompletableFuture} emitting the saved entity
+     * @return {@link Future} emitting the saved entity
      */
-    <T> CompletableFuture<T> save(T entity, EntityContext context);
+    <T> Future<T> save(T entity, EntityContext context);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@link Pageable} object.
@@ -181,14 +181,14 @@ public interface EntityService {
      * @param context    the context for this operation
      * @return a page of entities
      */
-    <T> CompletableFuture<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context);
+    <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context);
 
     /**
      * This operation makes all the recent writes immediately available for search.
      * @param context the context for this operation
-     * @return a {@link CompletableFuture} that will complete when the operation is complete
+     * @return a {@link Future} that will complete when the operation is complete
      */
-    CompletableFuture<Void> syncIndex(EntityContext context);
+    Future<Void> syncIndex(EntityContext context);
 
     /**
      * Updates a given entity. This will only override the fields that are present in the given entity.
@@ -198,8 +198,8 @@ public interface EntityService {
      *
      * @param entity      must not be {@literal null}
      * @param context     the context for this operation
-     * @return {@link CompletableFuture} emitting the saved entity
+     * @return {@link Future} emitting the saved entity
      */
-    <T> CompletableFuture<T> update(T entity, EntityContext context);
+    <T> Future<T> update(T entity, EntityContext context);
 
 }

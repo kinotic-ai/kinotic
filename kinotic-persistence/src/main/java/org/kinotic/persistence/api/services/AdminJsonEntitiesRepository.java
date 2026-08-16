@@ -1,5 +1,6 @@
 package org.kinotic.persistence.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -11,7 +12,6 @@ import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.api.model.security.ApplicationParticipant;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides Admin access to entities for a given {@link EntityDefinition}.
@@ -28,9 +28,9 @@ public interface AdminJsonEntitiesRepository {
      * @param entityDefinitionId the id of the {@link EntityDefinition} to count
      * @param tenantSelection the list of tenants to use when retrieving the entity records
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} emitting the number of entities.
+     * @return {@link Future} emitting the number of entities.
      */
-    CompletableFuture<Long> count(String entityDefinitionId, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Long> count(String entityDefinitionId, List<String> tenantSelection, ApplicationParticipant participant);
 
     /**
      * Returns the number of entities available for the given query.
@@ -39,9 +39,9 @@ public interface AdminJsonEntitiesRepository {
      * @param query       the query used to limit result
      * @param tenantSelection the list of tenants to use when retrieving the entity records
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} emitting the number of entities.
+     * @return {@link Future} emitting the number of entities.
      */
-    CompletableFuture<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
 
     /**
      * Deletes the entity with the given id.
@@ -49,9 +49,9 @@ public interface AdminJsonEntitiesRepository {
      * @param entityDefinitionId the id of the {@link EntityDefinition} to delete the entity for
      * @param id          must not be {@literal null}
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} emitting when delete is complete
+     * @return {@link Future} emitting when delete is complete
      */
-    CompletableFuture<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
+    Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
 
     /**
      * Deletes any entities that match the given query.
@@ -60,9 +60,9 @@ public interface AdminJsonEntitiesRepository {
      * @param query       the query used to filter records to delete, must not be {@literal null}
      * @param tenantSelection the list of tenants to use when deleting entities by the given query
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} emitting when delete is complete
+     * @return {@link Future} emitting when delete is complete
      */
-    CompletableFuture<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
@@ -73,7 +73,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
-    CompletableFuture<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
 
     /**
      * Retrieves an entity by its id.
@@ -81,9 +81,9 @@ public interface AdminJsonEntitiesRepository {
      * @param entityDefinitionId the id of the {@link EntityDefinition} to find the entity for
      * @param id          must not be {@literal null}
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} with the entity with the given id or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
-    CompletableFuture<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
+    Future<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
 
     /**
      * Retrieves a list of entities by their id.
@@ -91,9 +91,9 @@ public interface AdminJsonEntitiesRepository {
      * @param entityDefinitionId the id of the {@link EntityDefinition} to find the entity for. (this is the {@link EntityDefinition#getApplicationId()} + "." + {@link EntityDefinition#getName()})
      * @param ids         must not be {@literal null}
      * @param participant the participant of the logged-in user
-     * @return {@link CompletableFuture} with the list of matched entities with the given ids or {@link CompletableFuture} emitting an empty list if none found
+     * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
-    CompletableFuture<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ApplicationParticipant participant);
+    Future<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ApplicationParticipant participant);
 
     /**
      * Executes a named query.
@@ -103,13 +103,13 @@ public interface AdminJsonEntitiesRepository {
      * @param queryParameters the parameters to pass to the query
      * @param tenantSelection the list of tenants to use when retrieving the entity records
      * @param participant     the participant of the logged-in user
-     * @return {@link CompletableFuture} with the result of the query
+     * @return {@link Future} with the result of the query
      */
-    CompletableFuture<List<RawJson>> namedQuery(String entityDefinitionId,
-                                                String queryName,
-                                                List<QueryParameter> queryParameters,
-                                                List<String> tenantSelection,
-                                                ApplicationParticipant participant);
+    Future<List<RawJson>> namedQuery(String entityDefinitionId,
+                                     String queryName,
+                                     List<QueryParameter> queryParameters,
+                                     List<String> tenantSelection,
+                                     ApplicationParticipant participant);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -120,14 +120,14 @@ public interface AdminJsonEntitiesRepository {
      * @param tenantSelection the list of tenants to use when retrieving the entity records
      * @param pageable        the page settings to be useds
      * @param participant     the participant of the logged-in user
-     * @return {@link CompletableFuture} with the result of the query
+     * @return {@link Future} with the result of the query
      */
-    CompletableFuture<Page<RawJson>> namedQueryPage(String entityDefinitionId,
-                                                    String queryName,
-                                                    List<QueryParameter> queryParameters,
-                                                    List<String> tenantSelection,
-                                                    Pageable pageable,
-                                                    ApplicationParticipant participant);
+    Future<Page<RawJson>> namedQueryPage(String entityDefinitionId,
+                                         String queryName,
+                                         List<QueryParameter> queryParameters,
+                                         List<String> tenantSelection,
+                                         Pageable pageable,
+                                         ApplicationParticipant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.
@@ -139,8 +139,8 @@ public interface AdminJsonEntitiesRepository {
      * @param tenantSelection the list of tenants to use when retrieving the entity records
      * @param pageable    the page settings to be used
      * @param participant the participant of the logged-in user
-     * @return a {@link CompletableFuture} of a page of entities
+     * @return a {@link Future} of a page of entities
      */
-    CompletableFuture<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
 
 }

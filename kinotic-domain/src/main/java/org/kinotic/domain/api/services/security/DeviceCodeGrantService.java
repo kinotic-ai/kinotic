@@ -1,10 +1,9 @@
 package org.kinotic.domain.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.security.DeviceCodePollResult;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Drives the server side of the OAuth 2.0 Device Authorization Grant (RFC 8628) for CLI
@@ -20,7 +19,7 @@ public interface DeviceCodeGrantService {
      * @param deviceName optional name of the device starting the flow; becomes the label of
      *                   the token family issued when the grant is redeemed
      */
-    CompletableFuture<DeviceCodeGrantStart> start(String deviceName);
+    Future<DeviceCodeGrantStart> start(String deviceName);
 
     /**
      * Polls a pending grant by its {@code device_code}. Once the grant has been approved it
@@ -28,7 +27,7 @@ public interface DeviceCodeGrantService {
      *
      * @param deviceCode the plaintext device code issued by {@link #start()}
      */
-    CompletableFuture<DeviceCodePollResult> poll(String deviceCode);
+    Future<DeviceCodePollResult> poll(String deviceCode);
 
     /**
      * Binds an authenticated user to a pending grant identified by its {@code user_code}.
@@ -37,5 +36,5 @@ public interface DeviceCodeGrantService {
      * @param userCode the code the user entered in the browser
      * @param identityId   id of the authenticated {@link UserParticipantIdentity} approving the grant
      */
-    CompletableFuture<Void> approve(String userCode, String identityId);
+    Future<Void> approve(String userCode, String identityId);
 }

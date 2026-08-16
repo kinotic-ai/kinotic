@@ -1,5 +1,6 @@
 package org.kinotic.os.internal.api.services;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
@@ -12,7 +13,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,7 +27,7 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
     }
 
     @Override
-    public CompletableFuture<KinoticClusterInfo> getClusterInfo() {
+    public Future<KinoticClusterInfo> getClusterInfo() {
         if (ignite != null) {
             // Get cluster group for all server nodes
             ClusterGroup servers = ignite.cluster().forServers();
@@ -62,10 +62,10 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
             }
 
             log.trace("Returning cluster info: {}", clusterInfoBuilder.build());
-            return CompletableFuture.completedFuture(clusterInfoBuilder.build());
+            return Future.succeededFuture(clusterInfoBuilder.build());
         } else {
             log.trace("Clustering disabled, returning static cluster info");
-            return CompletableFuture.completedFuture(KinoticClusterInfo.builder()
+            return Future.succeededFuture(KinoticClusterInfo.builder()
                                                                        .clusteringEnabled(false)
                                                                        .localNodeId("")
                                                                        .serverNodeCount(0)

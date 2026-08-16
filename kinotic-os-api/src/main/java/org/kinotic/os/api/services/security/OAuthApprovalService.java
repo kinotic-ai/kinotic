@@ -1,10 +1,9 @@
 package org.kinotic.os.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.domain.api.model.security.PendingOAuthAuthorization;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Browser-invoked service for the OAuth 2.1 consent step. The SPA consent page describes the
@@ -19,26 +18,26 @@ public interface OAuthApprovalService {
      * Describes the authorization request awaiting consent, for display before the user decides.
      *
      * @param requestId the request id from the consent page URL
-     * @return a {@link CompletableFuture} emitting the pending request, failing if it is
+     * @return a {@link Future} emitting the pending request, failing if it is
      *         unknown, expired, or already decided
      */
-    CompletableFuture<PendingOAuthAuthorization> describe(String requestId);
+    Future<PendingOAuthAuthorization> describe(String requestId);
 
     /**
      * Approves the authorization request as the calling participant's user.
      *
      * @param requestId the request id from the consent page URL
-     * @return a {@link CompletableFuture} emitting the redirect URL carrying the authorization code
+     * @return a {@link Future} emitting the redirect URL carrying the authorization code
      */
-    CompletableFuture<String> approve(String requestId, Participant participant);
+    Future<String> approve(String requestId, Participant participant);
 
     /**
      * Denies the authorization request.
      *
      * @param requestId the request id from the consent page URL
-     * @return a {@link CompletableFuture} emitting the redirect URL carrying {@code error=access_denied}
+     * @return a {@link Future} emitting the redirect URL carrying {@code error=access_denied}
      */
-    CompletableFuture<String> deny(String requestId);
+    Future<String> deny(String requestId);
 
     /**
      * Approves the pending RFC 8628 device grant identified by {@code userCode} as the calling
@@ -46,5 +45,5 @@ public interface OAuthApprovalService {
      *
      * @param userCode the code the user confirmed on the device page
      */
-    CompletableFuture<Void> approveDevice(String userCode, Participant participant);
+    Future<Void> approveDevice(String userCode, Participant participant);
 }

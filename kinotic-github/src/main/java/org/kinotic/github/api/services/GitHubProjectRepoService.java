@@ -1,8 +1,7 @@
 package org.kinotic.github.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.github.api.model.GitHubRepoToken;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Operations against a Kinotic Project's backing GitHub repository: minting
@@ -23,8 +22,8 @@ public interface GitHubProjectRepoService {
      * @return token + expiry + clone URL + default branch, or a failed future if the
      *         project has no GitHub repo provisioned
      */
-    CompletableFuture<GitHubRepoToken> issueRepoToken(String organizationId,
-                                                      String projectId);
+    Future<GitHubRepoToken> issueRepoToken(String organizationId,
+                                           String projectId);
 
     /**
      * Creates a lightweight tag on the project's backing repo.
@@ -35,16 +34,16 @@ public interface GitHubProjectRepoService {
      * @param tagName        e.g. {@code v1.2.0}
      * @param sha            full 40-character commit SHA the tag should point at
      */
-    CompletableFuture<Void> createTag(String organizationId,
-                                      String projectId,
-                                      String tagName,
-                                      String sha);
+    Future<Void> createTag(String organizationId,
+                           String projectId,
+                           String tagName,
+                           String sha);
 
     /**
      * Creates a branch on the project's backing repo pointing at {@code sha}.
      */
-    CompletableFuture<Void> createBranch(String organizationId,
-                                         String projectId,
-                                         String branchName,
-                                         String sha);
+    Future<Void> createBranch(String organizationId,
+                              String projectId,
+                              String branchName,
+                              String sha);
 }

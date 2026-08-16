@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { PortProtocol, Workload } from '@kinotic-ai/os-api'
+import { NetworkMode, PortProtocol, Workload } from '@kinotic-ai/os-api'
 import { GUEST_LOG_DIR, buildBoxOptions } from '@/internal/api/providers/BoxliteProvider'
 
 function workload(): Workload {
@@ -20,6 +20,86 @@ describe('buildBoxOptions', () => {
             { hostPath: '/data', guestPath: '/app/data', readOnly: true },
             { hostPath: '/logs/wl-1', guestPath: GUEST_LOG_DIR },
         ])
+    })
+
+    it('rejects more volume mounts than boxlite can boot', () => {
+        const w = workload()
+        w.volumeMounts = [
+            { hostPath: '/srv/repo', guestPath: '/workspace/repo', readOnly: true },
+            { hostPath: '/srv/out', guestPath: '/workspace/out', readOnly: false },
+        ]
+
+        // With the log mount that is three volumes, which fails the VM with libkrun status=-22
+        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('volume mount')
+    })
+
+    it('accepts the one workload volume that fits alongside the log mount', () => {
+        const w = workload()
+        w.volumeMounts = [{ hostPath: '/srv/repo', guestPath: '/workspace/repo', readOnly: true }]
+
+        expect(buildBoxOptions(w, '/logs/wl-1').volumes).toHaveLength(2)
+    })
+
+    it('sends the workload network policy rather than relying on a boxlite default', () => {
+        const options = buildBoxOptions(workload(), '/logs/wl-1')
+
+        expect(options.network).toEqual({ mode: 'enabled' })
+    })
+
+    it('restricts egress to the hosts the workload allows', () => {
+        const w = workload()
+        w.network.allowedHosts = ['api.github.com']
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['api.github.com'] })
+    })
+
+    it('denies every destination when the network is disabled', () => {
+        const w = workload()
+        w.network.mode = NetworkMode.DISABLED
+
+        // boxlite cannot boot mode 'disabled', so denial is an allowlist nothing answers on
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+    })
+
+    it('drops the allowlist of a workload whose network is disabled', () => {
+        const w = workload()
+        w.network.mode = NetworkMode.DISABLED
+        w.network.allowedHosts = ['api.github.com']
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+    })
+
+    it('keeps the network enabled for state files written before the policy existed', () => {
+        const w = JSON.parse(JSON.stringify(workload())) as Workload
+        delete (w as Partial<Workload>).network
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network).toEqual({ mode: 'enabled' })
+    })
+
+    it('rejects a rootfs larger than boxlite honors', () => {
+        const w = workload()
+        w.diskSizeMb = 2048
+
+        // Above 1GB the backing store stops growing while the guest is told it has the
+        // full size, so the writes a workload thinks it made are lost
+        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('rootfs up to 1024MB')
+    })
+
+    it('rounds the workload disk size up to whole GB for the guest rootfs', () => {
+        const w = workload()
+        w.diskSizeMb = 512
+
+        expect(buildBoxOptions(w, '/logs/wl-1').diskSizeGb).toBe(1)
+    })
+
+    it('leaves the boxlite rootfs default when no disk size is declared', () => {
+        const w = workload()
+        w.diskSizeMb = 0
+
+        expect('diskSizeGb' in buildBoxOptions(w, '/logs/wl-1')).toBeFalse()
     })
 
     it('keeps image defaults by omitting undeclared entrypoint and cmd', () => {

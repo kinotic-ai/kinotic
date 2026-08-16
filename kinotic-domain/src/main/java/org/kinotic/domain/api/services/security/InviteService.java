@@ -1,11 +1,10 @@
 package org.kinotic.domain.api.services.security;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingInvite;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Manages member invitations into an existing Organization or Application scope: creating and
@@ -25,13 +24,13 @@ public interface InviteService {
      *               id, token, and expiry are assigned here
      * @return a future emitting the saved invitation
      */
-    CompletableFuture<PendingInvite> createInvite(PendingInvite invite);
+    Future<PendingInvite> createInvite(PendingInvite invite);
 
     /**
      * Finds the invitation for the given accept token, failing if the token is unknown or the
      * invitation has expired. Used to show invitation details on the accept page.
      */
-    CompletableFuture<PendingInvite> getValidInvite(String token);
+    Future<PendingInvite> getValidInvite(String token);
 
     /**
      * Accepts an invitation by setting a password. Creates the member in the invite's stored
@@ -42,7 +41,7 @@ public interface InviteService {
      * @param displayName optional display-name override; the invite's value is used when blank
      * @return a future emitting the created member
      */
-    CompletableFuture<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName);
+    Future<UserParticipantIdentity> acceptLocalInvite(String token, String password, String displayName);
 
     /**
      * Accepts an invitation with a verified OIDC identity. The IdP-verified email must match the
@@ -55,18 +54,18 @@ public interface InviteService {
      * @param verifiedEmail the verified {@code email} claim from the IdP
      * @return a future emitting the created member
      */
-    CompletableFuture<UserParticipantIdentity> acceptOidcInvite(String token,
-                                                String oidcSubject,
-                                                String oidcConfigId,
-                                                String verifiedEmail);
+    Future<UserParticipantIdentity> acceptOidcInvite(String token,
+                                                     String oidcSubject,
+                                                     String oidcConfigId,
+                                                     String verifiedEmail);
 
     /**
      * Lists the live (unexpired) invitations for the given scope. {@code applicationId} null
      * lists org-member invites; set lists that application's invites.
      */
-    CompletableFuture<Page<PendingInvite>> findPendingInvites(String organizationId,
-                                                              String applicationId,
-                                                              Pageable pageable);
+    Future<Page<PendingInvite>> findPendingInvites(String organizationId,
+                                                   String applicationId,
+                                                   Pageable pageable);
 
     /**
      * Cancels (deletes) a pending invitation. Fails unless the invitation belongs to the given
@@ -75,5 +74,5 @@ public interface InviteService {
      * @param inviteId       id of the invitation to cancel
      * @param organizationId the organization the caller is acting for
      */
-    CompletableFuture<Void> cancelInvite(String inviteId, String organizationId);
+    Future<Void> cancelInvite(String inviteId, String organizationId);
 }

@@ -1,12 +1,8 @@
 package org.kinotic.orchestrator.api.services;
 
+import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.orchestrator.api.model.workload.Workload;
-import org.kinotic.orchestrator.api.services.WorkloadService;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Service responsible for orchestrating workload deployment across the cluster.
@@ -18,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
  * For querying workloads (findById, findAll, search) use {@link WorkloadService} directly.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
 public interface WorkloadOrchestrationService {
 
     /**
@@ -29,7 +24,7 @@ public interface WorkloadOrchestrationService {
      * @param workload the workload configuration to deploy
      * @return a future that will complete with the deployed workload (including assigned nodeId and id)
      */
-    CompletableFuture<Workload> deployWorkload(Workload workload);
+    Future<Workload> deployWorkload(Workload workload);
 
     /**
      * Restarts a stopped workload in place on the node it is deployed to. The same VM
@@ -40,7 +35,7 @@ public interface WorkloadOrchestrationService {
      * @param workloadId the id of the workload to restart
      * @return a future that will complete with the restarted workload
      */
-    CompletableFuture<Workload> restartWorkload(String workloadId);
+    Future<Workload> restartWorkload(String workloadId);
 
     /**
      * Stops a running workload.
@@ -49,7 +44,7 @@ public interface WorkloadOrchestrationService {
      * @param workloadId the id of the workload to stop
      * @return a future that will complete when the workload has been stopped
      */
-    CompletableFuture<Void> stopWorkload(String workloadId);
+    Future<Void> stopWorkload(String workloadId);
 
     /**
      * Destroys a workload, removing it from the node and cleaning up all resources.
@@ -57,6 +52,6 @@ public interface WorkloadOrchestrationService {
      * @param workloadId the id of the workload to destroy
      * @return a future that will complete when the workload has been destroyed
      */
-    CompletableFuture<Void> destroyWorkload(String workloadId);
+    Future<Void> destroyWorkload(String workloadId);
 
 }

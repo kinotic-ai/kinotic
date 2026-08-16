@@ -7,6 +7,7 @@ import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.SimpleJsonpMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.PoolOptions;
@@ -45,7 +46,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides access to ElasticSearch via Vertx.
@@ -112,12 +112,12 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
     @WithSpan
     @Override
     @SuppressWarnings("unchecked")
-    public <T> CompletableFuture<Page<T>> querySql(String statement,
-                                                   List<?> parameters,
-                                                   JsonObject filter,
-                                                   QueryOptions options,
-                                                   Pageable pageable,
-                                                   Class<T> type) {
+    public <T> Future<Page<T>> querySql(String statement,
+                                        List<?> parameters,
+                                        JsonObject filter,
+                                        QueryOptions options,
+                                        Pageable pageable,
+                                        Class<T> type) {
         JsonObject json = new JsonObject();
         boolean foundCursor = false;
         MutableObject<String> cursorProvided = new MutableObject<>(null);
@@ -131,7 +131,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                     json.put("fetch_size", pageable.getPageSize());
                 }
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Only CursorPageable is supported for queries containing Aggregations."));
+                return Future.failedFuture(new IllegalArgumentException("Only CursorPageable is supported for queries containing Aggregations."));
             }
         }
 
@@ -181,14 +181,13 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                   }else{
                                       throw convertErrorResponse(new ByteArrayInputStream(resp.body().getBytes()));
                                   }
-                              }).toCompletionStage()
-                              .toCompletableFuture();
+                              });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<TranslateResponse> translateSql(String statement,
-                                                             List<?> parameters){
+    public Future<TranslateResponse> translateSql(String statement,
+                                                  List<?> parameters){
         JsonObject json = new JsonObject().put("query", statement);
         if(parameters != null) {
             JsonArray paramsJson = new JsonArray();
@@ -212,8 +211,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                       } else {
                                           throw convertErrorResponse(input);
                                       }
-                                  }).toCompletionStage()
-                                  .toCompletableFuture();
+                                  });
     }
 
     private IllegalArgumentException convertErrorResponse(InputStream input) {

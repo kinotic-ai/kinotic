@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services.secret;
 
+import io.vertx.core.Future;
 import net.openhft.chronicle.map.ChronicleMap;
 import org.kinotic.domain.api.config.ChronicleMapProperties;
 import org.springframework.beans.factory.DisposableBean;
@@ -9,7 +10,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Chronicle Map backed secret storage for local development.
@@ -41,30 +41,30 @@ public class ChronicleMapBackend implements SecretStorageBackend, DisposableBean
     }
 
     @Override
-    public CompletableFuture<Void> setSecret(String derivedName, String value) {
+    public Future<Void> setSecret(String derivedName, String value) {
         map.put(derivedName, value);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<String> getSecret(String derivedName) {
-        return CompletableFuture.completedFuture(map.get(derivedName));
+    public Future<String> getSecret(String derivedName) {
+        return Future.succeededFuture(map.get(derivedName));
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecret(String derivedName) {
+    public Future<Void> deleteSecret(String derivedName) {
         map.remove(derivedName);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Void> setSecrets(Map<String, String> derivedNameToValue) {
+    public Future<Void> setSecrets(Map<String, String> derivedNameToValue) {
         map.putAll(derivedNameToValue);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Map<String, String>> getSecrets(List<String> derivedNames) {
+    public Future<Map<String, String>> getSecrets(List<String> derivedNames) {
         Map<String, String> results = new HashMap<>();
         for (String name : derivedNames) {
             String value = map.get(name);
@@ -72,13 +72,13 @@ public class ChronicleMapBackend implements SecretStorageBackend, DisposableBean
                 results.put(name, value);
             }
         }
-        return CompletableFuture.completedFuture(results);
+        return Future.succeededFuture(results);
     }
 
     @Override
-    public CompletableFuture<Void> deleteSecrets(List<String> derivedNames) {
+    public Future<Void> deleteSecrets(List<String> derivedNames) {
         derivedNames.forEach(map::remove);
-        return CompletableFuture.completedFuture(null);
+        return Future.succeededFuture();
     }
 
     @Override
