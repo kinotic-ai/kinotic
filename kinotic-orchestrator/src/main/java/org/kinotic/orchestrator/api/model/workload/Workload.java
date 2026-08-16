@@ -80,6 +80,11 @@ public class Workload implements Identifiable<String> {
     private int diskSizeMb = 1024;
 
     /**
+     * The network access granted to this workload's VM.
+     */
+    private NetworkPolicy network = new NetworkPolicy();
+
+    /**
      * When {@code true} the VM runs detached from the vm-manager process and survives its
      * restarts. Non-detached workloads end when the vm-manager exits.
      */

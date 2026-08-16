@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { PortProtocol, Workload } from '@kinotic-ai/os-api'
+import { NetworkMode, PortProtocol, Workload } from '@kinotic-ai/os-api'
 import { GUEST_LOG_DIR, buildBoxOptions } from '@/internal/api/providers/BoxliteProvider'
 
 function workload(): Workload {
@@ -20,6 +20,36 @@ describe('buildBoxOptions', () => {
             { hostPath: '/data', guestPath: '/app/data', readOnly: true },
             { hostPath: '/logs/wl-1', guestPath: GUEST_LOG_DIR },
         ])
+    })
+
+    it('sends the workload network policy rather than relying on a boxlite default', () => {
+        const options = buildBoxOptions(workload(), '/logs/wl-1')
+
+        expect(options.network).toEqual({ mode: 'enabled' })
+    })
+
+    it('restricts egress to the hosts the workload allows', () => {
+        const w = workload()
+        w.network.allowedHosts = ['api.github.com']
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['api.github.com'] })
+    })
+
+    it('disables the network when the policy says so', () => {
+        const w = workload()
+        w.network.mode = NetworkMode.DISABLED
+        w.network.allowedHosts = ['api.github.com']
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'disabled', allowNet: ['api.github.com'] })
+    })
+
+    it('keeps the network enabled for state files written before the policy existed', () => {
+        const w = JSON.parse(JSON.stringify(workload())) as Workload
+        delete (w as Partial<Workload>).network
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network).toEqual({ mode: 'enabled' })
     })
 
     it('rounds the workload disk size up to whole GB for the guest rootfs', () => {

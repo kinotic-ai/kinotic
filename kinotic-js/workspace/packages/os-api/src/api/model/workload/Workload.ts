@@ -3,6 +3,7 @@ import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
 import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 import type { PortMapping } from '@/api/model/workload/PortMapping'
+import { NetworkPolicy } from '@/api/model/workload/NetworkPolicy'
 
 /**
  * Represents a workload to be managed by the VM manager.
@@ -67,6 +68,11 @@ export class Workload implements Identifiable<string> {
      * Disk size allocated to the VM in megabytes.
      */
     public diskSizeMb: number = 1024
+
+    /**
+     * The network access granted to this workload's VM.
+     */
+    public network: NetworkPolicy = new NetworkPolicy()
 
     /**
      * When true the VM runs detached from the vm-manager process and survives its

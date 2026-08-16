@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
-import { Workload, WorkloadStatus, VmProviderType } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/os-api'
 
 /**
  * Guest path where the per-workload host log directory is mounted. This is the log-shipping
@@ -46,6 +46,10 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     if (boundMapping) {
         throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
     }
+    // A workload deserialized from the wire or a persisted state file may predate the
+    // network field, whose absence means the policy the model defaults to
+    const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+    const allowedHosts = workload.network?.allowedHosts ?? []
     return {
         image: workload.image,
         name: workload.id!,
@@ -60,6 +64,13 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         ...(workload.entrypoint.length > 0
             ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+        // Always sent rather than left to the boxlite default, so what a guest can reach
+        // is decided by the workload record alone. Anything but ENABLED maps to disabled,
+        // and allowNet is sent only when the workload lists hosts
+        network: {
+            mode: networkMode === NetworkMode.ENABLED ? 'enabled' : 'disabled',
+            ...(allowedHosts.length > 0 ? { allowNet: allowedHosts } : {}),
+        },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
             guestPort,
