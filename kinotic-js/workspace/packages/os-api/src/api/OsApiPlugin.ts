@@ -18,6 +18,7 @@ import { DelegateService, type IDelegateService } from '@/api/services/IDelegate
 import { ProfileService, type IProfileService } from '@/api/services/IProfileService'
 import { MachineService, type IMachineService } from '@/api/services/IMachineService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
+import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
 import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
 import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 
@@ -34,6 +35,7 @@ export interface IOsApiExtension {
     vmNodes: IVmNodeService
     workloads: IWorkloadService
     workloadOrchestration: IWorkloadOrchestrationService
+    jobMonitoring: IJobMonitoringService
     logs: ILogService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
@@ -59,6 +61,7 @@ export const OsApiPlugin: KinoticPlugin<IOsApiExtension> = {
             vmNodes: new VmNodeServiceProxy(kinotic),
             workloads: new WorkloadServiceProxy(kinotic),
             workloadOrchestration: new WorkloadOrchestrationService(kinotic),
+            jobMonitoring: new JobMonitoringService(kinotic),
             logs: new LogService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
