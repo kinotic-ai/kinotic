@@ -9,6 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ComplexC3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.PropertyDefinition;
 import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,8 @@ public class DefaultConversionContext implements ConversionContext {
 
     private final Map<String, C3Type> schemaCache = new HashMap<>();
 
-    private final Set<ComplexC3Type> complexC3Types = new HashSet<>();
+    // converted complex types keyed by qualified name, the name every ReferenceC3Type resolves through
+    private final Map<String, ObjectC3Type> complexC3Types = new HashMap<>();
 
     private final boolean shouldCreateReferences;
 
@@ -84,9 +86,8 @@ public class DefaultConversionContext implements ConversionContext {
     @Override
     public C3Type convert(ResolvableType resolvableType) {
         C3Type c3Type = convertInternal(resolvableType);
-        if(c3Type instanceof ObjectC3Type && shouldCreateReferences){
-            ObjectC3Type objectC3Type = (ObjectC3Type) c3Type;
-            complexC3Types.add(objectC3Type);
+        if(c3Type instanceof ObjectC3Type objectC3Type && shouldCreateReferences){
+            registerComplexType(objectC3Type);
             c3Type = new ReferenceC3Type(objectC3Type.getQualifiedName());
         }
         return c3Type;
@@ -94,7 +95,46 @@ public class DefaultConversionContext implements ConversionContext {
 
     @Override
     public Set<ComplexC3Type> getComplexC3Types() {
-        return complexC3Types;
+        return new HashSet<>(complexC3Types.values());
+    }
+
+    /**
+     * Registers a converted type under its qualified name, which every {@link ReferenceC3Type} minted for it
+     * resolves through.
+     * @param objectC3Type to register
+     * @throws IllegalStateException if a structurally different type is already registered under the same
+     *         qualified name, since every reference to that name would resolve to an arbitrary one of the two
+     */
+    private void registerComplexType(ObjectC3Type objectC3Type) {
+        ObjectC3Type existing = complexC3Types.putIfAbsent(objectC3Type.getQualifiedName(), objectC3Type);
+        // the schemaCache returns one instance per instantiation, so a repeat registration is normally the
+        // same instance; a distinct, structurally different one means two Java types claim this C3 name
+        if (existing != null && existing != objectC3Type && !sameStructure(existing, objectC3Type)) {
+            throw new IllegalStateException("Two structurally different types both convert to '"
+                    + objectC3Type.getQualifiedName() + "': " + existing + " and " + objectC3Type);
+        }
+    }
+
+    // ObjectC3Type equality is scoped to the qualified name and PropertyDefinition equality to the property
+    // name, so a structural comparison must check every property's type itself. One level deep is
+    // sufficient: convert() replaces every nested object with a ReferenceC3Type, and a referenced type
+    // passed this same guard before its container registered — a deeper mismatch throws at the depth where
+    // it lives.
+    private static boolean sameStructure(ObjectC3Type existing, ObjectC3Type candidate) {
+        boolean ret = Objects.equals(existing.getParent(), candidate.getParent())
+                && existing.getProperties().size() == candidate.getProperties().size();
+        if (ret) {
+            Iterator<PropertyDefinition> candidateProperties = candidate.getProperties().iterator();
+            for (PropertyDefinition property : existing.getProperties()) {
+                PropertyDefinition candidateProperty = candidateProperties.next();
+                if (!Objects.equals(property.getName(), candidateProperty.getName())
+                        || !Objects.equals(property.getType(), candidateProperty.getType())) {
+                    ret = false;
+                    break;
+                }
+            }
+        }
+        return ret;
     }
 
     /**
