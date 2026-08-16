@@ -224,13 +224,9 @@ nerdctl exec shB apk add --no-cache inotify-tools   # inside the guest
 
 Diagnostic tooling for the investigations; not needed by the probe.
 
-### 3.4 Branch substitution
+### 3.4 Run from `develop`
 
-The handoff specified branch `claude/vm-manager-workload-concurrency-c07ssf` at commit
-`1e88600`. That branch no longer exists on origin (`fatal: couldn't find remote ref`) and
-`1e88600` is not a reachable object — the work merged to `develop` and the branch was
-deleted. `origin/develop` at `aa7afaa1f` carries the same harness with the release-asset
-selection fix, so the run was done there.
+Run against `origin/develop` at `aa7afaa1f`, which is the intended base for this work.
 
 ### 3.5 Probe measurement bug: `cloud-hypervisor procs: 0`
 
@@ -402,6 +398,69 @@ within 0–1 ms once the writer has written, so a poll interval sets the entire 
 latency. A host-side watcher is a viable alternative trigger, since 1c shows the host does
 receive the event — the vm-manager could watch on the host and signal the guest.
 
+### E. Are resource limits actually enforced? (follow-up to phase 6)
+
+Phase 6 reports `memory / vcpu limits honoured : NO / NO`. **That verdict is wrong**, and
+the probe's assertion is measuring the wrong quantity:
+
+```ts
+const mem  = kata(["--rm", "--memory", "512m", IMAGE, "sh", "-c", "free -m | awk '/Mem:/ {print $2}'"]);
+const cpus = kata(["--rm", "--cpus", "2", IMAGE, "nproc"]);
+record("cpus", cpus.stdout === "2");   // capability-test.ts:211-217
+```
+
+`free -m` and `nproc` report the **sandbox VM's** size. What constrains the workload is the
+container's cgroup inside the guest, which carries exactly what was requested:
+
+```
+$ nerdctl run --rm --runtime io.containerd.kata-clh.v2 --memory 512m --cpus 2 alpine:latest sh -c '...'
+  cgroup version : v2
+  memory.max     : 536870912          <- 512 MiB exactly
+  cpu.max        : 200000 100000      <- 2.0 CPUs exactly
+  free -m total  : 2500 MiB           <- what phase 6 measures
+  nproc          : 3                  <- what phase 6 measures
+```
+
+Memory enforcement is real — an allocation past the limit is OOM-killed:
+
+```
+  alloc 256M  : 268435456 bytes (256.0MB) copied, 0.721476 seconds, 354.8MB/s   rc=0
+  alloc 800M  : Killed
+```
+
+CPU enforcement binds directionally, on fixed work across 4 workers:
+
+```
+  --cpus 1 : 5755 ms wall
+  --cpus 2 : 4797 ms wall
+  --cpus 4 : 3970 ms wall
+```
+
+(Each sample includes ~1.6 s of constant container boot, so the ratios understate the
+effect; `cpu.max = 200000 100000` is the precise evidence.)
+
+The VM's own sizing behaves differently for the two resources:
+
+```
+  --memory 512m  -> guest total 2372 MiB      --cpus 1 -> guest nproc 2
+  --memory 1024m -> guest total 2372 MiB      --cpus 2 -> guest nproc 3
+  --memory 2048m -> guest total 2372 MiB      --cpus 4 -> guest nproc 4
+```
+
+vCPUs scale with the request (`default_vcpus = 1` plus what was asked for), while guest RAM
+stays flat regardless of `--memory` — the sandbox is sized by `default_memory = 2048` in
+`configuration-clh.toml`, independent of the workload's limit.
+
+Two real consequences follow, neither of which is an isolation failure:
+
+1. **Density.** Every workload's VM reserves roughly 2.4 GB of host RAM whatever its
+   limit, so small workloads cannot be packed densely. Tunable via `default_memory`.
+2. **Guests misreport their own size.** A workload reading `free`/`nproc` sees 2372 MiB and
+   3 CPUs while its cgroup allows 512 MiB and 2 CPUs. This bites Kinotic apps specifically:
+   a JVM left to default heap sizing takes ~1/4 of apparent physical memory (~593 MB),
+   exceeds the 512 MiB cgroup, and is OOM-killed. Workloads need explicit heap and pool
+   sizing, or the VM sized to match the limit.
+
 ### D. Can this be driven from Bun without shelling out?
 
 **No usable client exists.** The npm registry has no official containerd client; the exact
@@ -458,11 +517,17 @@ non-capability cost in this evaluation.
 | Entrypoint stdout discarded | **Fixed** | phase 4: `stdout="line-one" stderr="line-two"` |
 | Rootfs above 1 GiB not allocated | **Not reproduced** | phase 6: `guest df / : 61.8G`, backed by the host's real 62 G ext4 |
 
-One new gap in the other direction: **resource limits are not honoured**. A workload asked
-for 512 MB and 2 CPUs got 2372 MiB and 3 CPUs (`memory / vcpu limits honoured : NO / NO`).
-For a multi-tenant boundary that is a real problem — one tenant can consume far more than
-its allocation — and it needs solving before this ships, most likely via the Kata
-configuration's default memory/CPU settings rather than the OCI limits nerdctl passes.
+The probe's `memory / vcpu limits honoured : NO / NO` is a **false negative** — see
+investigation E. The container cgroup inside the guest carries exactly the requested limits
+(`memory.max = 536870912`, `cpu.max = 200000 100000`) and enforces them: an 800 MB
+allocation in a 512 MB workload is OOM-killed. Phase 6 asserts on `free -m` and `nproc`,
+which describe the sandbox VM rather than the workload. Isolation holds.
+
+What is real is that the VM is sized independently of the limit: ~2.4 GB of host RAM per
+workload regardless of `--memory`, which caps density, and a guest that misreports its own
+size to anything reading `free`/`nproc` — a JVM on default heap sizing will OOM against its
+own cgroup. Both are addressed by tuning `default_memory` in `configuration-clh.toml`, not
+by a change in isolation properties.
 
 Also note the rootfs is **shared host storage**, not a per-workload disk: `guest df /`
 reports the host's 62 G filesystem. There is no per-workload disk cap here at all, so disk
