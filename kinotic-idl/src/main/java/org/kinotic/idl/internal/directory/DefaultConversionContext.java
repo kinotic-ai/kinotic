@@ -116,7 +116,10 @@ public class DefaultConversionContext implements ConversionContext {
     }
 
     // ObjectC3Type equality is scoped to the qualified name and PropertyDefinition equality to the property
-    // name, so a structural comparison must check every property's type itself
+    // name, so a structural comparison must check every property's type itself. One level deep is
+    // sufficient: convert() replaces every nested object with a ReferenceC3Type, and a referenced type
+    // passed this same guard before its container registered — a deeper mismatch throws at the depth where
+    // it lives.
     private static boolean sameStructure(ObjectC3Type existing, ObjectC3Type candidate) {
         boolean ret = Objects.equals(existing.getParent(), candidate.getParent())
                 && existing.getProperties().size() == candidate.getProperties().size();
