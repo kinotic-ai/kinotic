@@ -32,6 +32,14 @@ const MAX_WORKLOAD_VOLUME_MOUNTS = 1
 const NO_EGRESS_HOST = '192.0.2.1'
 
 /**
+ * The largest rootfs a workload may request. boxlite 0.9.7 grows a box's backing store to
+ * about 1071 MiB whatever size was asked for, while reporting the requested size to the
+ * guest, so a larger request promises the workload space that does not exist: writes are
+ * lost, the file's own size still reports them as written, and the VM often dies outright.
+ */
+const MAX_WORKLOAD_DISK_MB = 1024
+
+/**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
  * no TS type for it (JsBox), so only the members this provider uses are declared.
  */
@@ -64,6 +72,12 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     if (boundMapping) {
         throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
     }
+    // Silently accepting a size the provider does not honor would hand the workload a disk
+    // that swallows writes, so it is refused where the reason can still be reported
+    if (workload.diskSizeMb > MAX_WORKLOAD_DISK_MB) {
+        throw new Error(`boxlite honors a rootfs up to ${MAX_WORKLOAD_DISK_MB}MB, `
+                        + `but ${workload.diskSizeMb}MB was declared`)
+    }
     // Rejected here so the operator gets the reason; letting it through surfaces only as
     // an opaque libkrun status=-22 when the VM fails to boot
     if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
@@ -85,10 +99,7 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         memoryMib: workload.memoryMb,
         // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
         // disk than it asked for, and leave the boxlite default when nothing was asked.
-        // Verified as a cap at 1GB only: boxlite-ai/boxlite#1152 reports the VM monitor
-        // running under a fixed 1GiB RLIMIT_FSIZE whatever size was requested, which would
-        // kill a larger VM outright instead of filling its disk. Phase D of
-        // boxlite-test/src/disk-quota-test.ts settles it on any host boxlite runs on
+        // MAX_WORKLOAD_DISK_MB keeps this at the one size the provider actually honors
         ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
         env: workload.environment,
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image

@@ -5,7 +5,7 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
 (findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
-9–14 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+9–15 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
 (Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
@@ -236,7 +236,7 @@ unrestricted egress, so untrusted workloads must always carry a populated allowl
 
 `mode: 'disabled'` failing to boot is finding #12.
 
-### 11. Disk caps hold, and the guest is told when it hits them (`disk-quota-test.ts`)
+### 11. A 1 GiB rootfs cap holds, and so does a project quota on a volume (`disk-quota-test.ts`)
 
 `diskSizeGb: 1` gives the guest a 943.3M rootfs and stops writes at 930 MiB. An XFS project
 quota on a bind-mounted host directory holds too, despite the writes being performed on the
@@ -252,24 +252,21 @@ The guest's `df` reports the quota rather than the underlying filesystem, so a w
 see its own limit. `dd` exits 1 in both cases, so a workload can detect that it was capped from the exit
 status alone.
 
-**Verified at `diskSizeGb: 1` only.** Upstream [#1152](https://github.com/boxlite-ai/boxlite/issues/1152)
-reports `RLIMIT_FSIZE` fixed at 1 GiB whatever disk size was requested, so a larger rootfs
-would take SIGXFSZ on the monitor and kill the VM rather than returning ENOSPC to the guest.
-At 1 GiB the guest filesystem fills first, which is why phase A cannot see it — phase D
-tests it directly.
+**This holds at `diskSizeGb: 1` and nowhere above it — see finding #15.**
 
-Quota accounting cost ~13% of write throughput once the first-write artifact is excluded.
-Alternating and repeating the pair is what exposed it — round 1 with the quota reads as a
-36% penalty and round 2 does not:
+**Quota accounting has no measurable write cost in this data.** Two hosts disagreed on the
+direction, which is the answer: the spread is first-write warm-up and host I/O variance, not
+accounting.
 
 ```
-  round 1 with quota : 4.54s   56.4 MiB/s      <- first write into the sparse backing image
-  round 1 no quota   : 2.27s  113.0 MiB/s
-  round 2 with quota : 2.60s   98.3 MiB/s
-  round 2 no quota   : 2.27s  112.9 MiB/s
+host 1   round 1 with quota  56.4 MiB/s   round 2 with quota   98.3 MiB/s
+         round 1 no quota   113.0 MiB/s   round 2 no quota    112.9 MiB/s
+host 2   round 1 with quota  29.8 MiB/s   round 2 with quota  103.1 MiB/s
+         round 1 no quota    60.3 MiB/s   round 2 no quota     47.5 MiB/s   <- slower than quota'd
 ```
 
-Measured on a loopback XFS over ext4; a real data disk is worth its own measurement.
+Earlier readings of 36% and then 13% were both artifacts of an unreplicated ordered pair.
+Nothing here argues against a project quota on cost grounds.
 
 ### 12. `network: { mode: 'disabled' }` cannot boot a VM (`boot-failure-test.ts`)
 
@@ -336,6 +333,39 @@ step exists.
 **Design implication:** this is how `NetworkMode.DISABLED` is implemented — `buildBoxOptions`
 sends `{ mode: 'enabled', allowNet: ['192.0.2.1'] }` and discards any allowlist the workload
 declared. Revisit once boxlite can boot a genuinely disabled network.
+
+### 15. A rootfs above 1 GiB is reported to the guest but never allocated (`repro-disk-size.ts`)
+
+Sweeping `diskSizeGb` with an identical 1536 MiB write in each box, on two separate hosts:
+
+| diskSizeGb | guest `df /` | VM alive after write | file reports | host box dir |
+|---|---|---|:---:|---|
+| 1 | 943.3M | YES | 930 MiB of 1536 | 978 MiB |
+| 2 | 1.9G | YES | 1536 MiB of 1536 | **1071 MiB** |
+| 4 | 3.7G | NO — died mid-write | (box died first) | **1071 MiB** |
+| 8 | 7.5G | NO — died mid-write | 1536 MiB of 1536 | **1071 MiB** |
+
+The backing store stops at ~1071 MiB across a 4× spread in declared size, while the guest's
+`df` scales correctly to 1.9G/3.7G/7.5G. Only `diskSizeGb: 1` comes in lower, because its own
+930 MiB cap binds before the ceiling does.
+
+Two things make this worse than a cap. The guest is told it has room that was never
+allocated. And at sizes 2 and 8 the file's own size reads back as the full 1536 MiB while the
+host directory only ever grew to 1071 MiB — `dd` did exit 1, so the writer was told, but
+anything that later reads that file sees a full-length file whose contents are not all there.
+
+Failure above the ceiling is not one behaviour but three: `I/O error` with the box surviving
+(2 GiB), the box dying mid-write with no message (4 GiB), and the guest remounting its
+filesystem read-only before the box dies (8 GiB). Both deaths report the same single line,
+with no shim or krun trace, because the box booted successfully and died later during exec:
+
+```
+Error: internal error: spawn_failed: internal error: build failed: failed to execute workload
+```
+
+**Design implication:** `buildBoxOptions` refuses a workload declaring more than 1024MB.
+Every larger size hands the workload a disk that silently swallows writes, which is worse
+than refusing to run it.
 
 ---
 

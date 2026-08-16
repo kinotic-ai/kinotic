@@ -79,11 +79,20 @@ describe('buildBoxOptions', () => {
         expect(buildBoxOptions(w, '/logs/wl-1').network).toEqual({ mode: 'enabled' })
     })
 
+    it('rejects a rootfs larger than boxlite honors', () => {
+        const w = workload()
+        w.diskSizeMb = 2048
+
+        // Above 1GB the backing store stops growing while the guest is told it has the
+        // full size, so the writes a workload thinks it made are lost
+        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('rootfs up to 1024MB')
+    })
+
     it('rounds the workload disk size up to whole GB for the guest rootfs', () => {
         const w = workload()
-        w.diskSizeMb = 1536
+        w.diskSizeMb = 512
 
-        expect(buildBoxOptions(w, '/logs/wl-1').diskSizeGb).toBe(2)
+        expect(buildBoxOptions(w, '/logs/wl-1').diskSizeGb).toBe(1)
     })
 
     it('leaves the boxlite rootfs default when no disk size is declared', () => {
