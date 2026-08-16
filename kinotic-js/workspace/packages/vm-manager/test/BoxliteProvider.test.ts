@@ -54,11 +54,22 @@ describe('buildBoxOptions', () => {
             .toEqual({ mode: 'enabled', allowNet: ['api.github.com'] })
     })
 
-    it('rejects a disabled network boxlite cannot boot', () => {
+    it('denies every destination when the network is disabled', () => {
         const w = workload()
         w.network.mode = NetworkMode.DISABLED
 
-        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('network mode DISABLED')
+        // boxlite cannot boot mode 'disabled', so denial is an allowlist nothing answers on
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+    })
+
+    it('drops the allowlist of a workload whose network is disabled', () => {
+        const w = workload()
+        w.network.mode = NetworkMode.DISABLED
+        w.network.allowedHosts = ['api.github.com']
+
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
     })
 
     it('keeps the network enabled for state files written before the policy existed', () => {

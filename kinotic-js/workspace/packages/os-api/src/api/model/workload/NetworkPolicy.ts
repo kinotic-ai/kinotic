@@ -15,7 +15,8 @@ export class NetworkPolicy {
     /**
      * The outbound destinations the VM may reach, as hostnames. A populated list is enforced
      * on the connection, so an unlisted destination is unreachable by name and by raw IP
-     * alike. An empty list is not a denial: it grants unrestricted egress.
+     * alike. An empty list is not a denial: it grants unrestricted egress. Applies only
+     * when mode is ENABLED.
      */
     public allowedHosts: string[] = []
 

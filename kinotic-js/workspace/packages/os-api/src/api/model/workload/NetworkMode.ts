@@ -4,8 +4,8 @@ export enum NetworkMode {
     ENABLED = 'ENABLED',
 
     /**
-     * No network access. The boxlite provider cannot boot a VM in this mode and rejects a
-     * workload that asks for it; restrict egress with NetworkPolicy.allowedHosts instead.
+     * No network access. Nothing outside the VM is reachable, by name or by address, and
+     * any NetworkPolicy.allowedHosts the workload declares does not apply.
      */
     DISABLED = 'DISABLED'
 }

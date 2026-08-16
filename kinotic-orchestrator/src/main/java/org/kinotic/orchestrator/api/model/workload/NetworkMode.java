@@ -8,9 +8,8 @@ public enum NetworkMode {
     ENABLED,
 
     /**
-     * No network access. The boxlite provider cannot boot a VM in this mode and rejects a
-     * workload that asks for it; restrict egress with {@link NetworkPolicy#getAllowedHosts()}
-     * instead.
+     * No network access. Nothing outside the VM is reachable, by name or by address, and
+     * any {@link NetworkPolicy#getAllowedHosts()} the workload declares does not apply.
      */
     DISABLED
 }

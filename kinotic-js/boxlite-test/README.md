@@ -5,7 +5,7 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
 (findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
-9–13 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+9–14 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
 (Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
@@ -284,10 +284,8 @@ console, and the shim dies on a signal at VM entry rather than failing device re
 Pairing the mode with an allowlist is caught earlier still, at config validation:
 *"network.mode=\"disabled\" is incompatible with allow_net"*.
 
-**Design implication:** there is no working no-egress mode in 0.9.7. `NetworkMode.DISABLED`
-is rejected by `buildBoxOptions` so a workload fails with a reason instead of a VM that
-never comes up, and a restrictive `allowedHosts` list is the only way to bound what a guest
-can reach.
+**Design implication:** `mode: 'disabled'` is unusable. `NetworkMode.DISABLED` is carried
+by an allowlist instead — see finding #14.
 
 ### 13. An empty `allowNet` grants everything, it does not deny everything (`network-policy-test.ts`)
 
@@ -307,6 +305,31 @@ a policy that computes down to an empty `allowedHosts` silently grants unrestric
 the opposite of the likely intent — so whatever builds a policy for untrusted code must
 treat an empty list as a bug rather than as a denial. boxlite will not catch it, and neither
 mode can: `disabled` does not boot (#12).
+
+### 14. An allowlist naming only an unreachable address is a working no-egress policy (`network-policy-test.ts`)
+
+A populated allowlist is enforced (#10) and an empty one is not (#13), so permitting exactly
+one address that nothing answers on denies everything. Both forms boot and both deny:
+
+```
+=== G. mode 'enabled', allowNet ['192.0.2.1'] — an address nothing answers on ===
+  http://example.com     blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+  http://cloudflare.com  blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+  http://1.1.1.1         blocked  exit=1  wget: can't connect to remote host (1.1.1.1): Connection refused
+
+=== H. mode 'enabled', allowNet ['no-egress.invalid'] — a name that cannot resolve ===
+  http://1.1.1.1         blocked  exit=1  wget: error getting response
+```
+
+TEST-NET-1 (`192.0.2.1`, RFC 5737) is the better of the two: it refuses uniformly with
+`Connection refused`, and unlike a `.invalid` name it does not depend on how the guest's
+resolver handles a reserved TLD. Note the raw IP in G is refused at its own address rather
+than sinkholed to `0.0.0.0`, confirming the filter runs on the connection even where no DNS
+step exists.
+
+**Design implication:** this is how `NetworkMode.DISABLED` is implemented — `buildBoxOptions`
+sends `{ mode: 'enabled', allowNet: ['192.0.2.1'] }` and discards any allowlist the workload
+declared. Revisit once boxlite can boot a genuinely disabled network.
 
 ---
 

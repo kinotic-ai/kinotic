@@ -23,6 +23,15 @@ export const GUEST_LOG_DIR = '/var/log/kinotic'
 const MAX_WORKLOAD_VOLUME_MOUNTS = 1
 
 /**
+ * The allowlist entry that denies a VM every destination. boxlite 0.9.7 cannot boot a VM
+ * with {@code mode: 'disabled'}, and treats an empty allowlist as no allowlist at all, so
+ * the only way to deny egress is to permit a single address nothing answers on. TEST-NET-1
+ * (RFC 5737) is reserved and never routed, and boxlite's connection filter then refuses
+ * every other destination by name and by address alike.
+ */
+const NO_EGRESS_HOST = '192.0.2.1'
+
+/**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
  * no TS type for it (JsBox), so only the members this provider uses are declared.
  */
@@ -64,14 +73,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    const allowedHosts = workload.network?.allowedHosts ?? []
-    // boxlite 0.9.7 cannot boot a VM with the network disabled: the shim dies at VM entry
-    // on exit 159, before it registers any device. Rejected here so the workload fails with
-    // a reason rather than a VM that never comes up
-    if (networkMode !== NetworkMode.ENABLED) {
-        throw new Error(`boxlite cannot boot a VM with network mode ${networkMode}; `
-                        + 'restrict egress with an allowlist instead')
-    }
+    // A disabled network is expressed as an allowlist permitting only {@link NO_EGRESS_HOST},
+    // and the workload's own list is discarded: DISABLED means nothing is reachable
+    const allowNet = networkMode === NetworkMode.ENABLED
+        ? workload.network?.allowedHosts ?? []
+        : [NO_EGRESS_HOST]
     return {
         image: workload.image,
         name: workload.id!,
@@ -86,12 +92,12 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         ...(workload.entrypoint.length > 0
             ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
-        // Always sent rather than left to the boxlite default, so what a guest can reach
-        // is decided by the workload record alone. allowNet is sent only when the workload
-        // lists hosts, since boxlite rejects an allowlist paired with a disabled network
+        // Always sent rather than left to the boxlite default, so what a guest can reach is
+        // decided by the workload record alone. The mode is always 'enabled' because the
+        // disabled one cannot boot; denial is carried by the allowlist instead
         network: {
             mode: 'enabled',
-            ...(allowedHosts.length > 0 ? { allowNet: allowedHosts } : {}),
+            ...(allowNet.length > 0 ? { allowNet } : {}),
         },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
