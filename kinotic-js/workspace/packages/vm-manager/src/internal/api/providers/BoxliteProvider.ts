@@ -84,7 +84,11 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
         // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
-        // disk than it asked for, and leave the boxlite default when nothing was asked
+        // disk than it asked for, and leave the boxlite default when nothing was asked.
+        // Verified as a cap at 1GB only: boxlite-ai/boxlite#1152 reports the VM monitor
+        // running under a fixed 1GiB RLIMIT_FSIZE whatever size was requested, which would
+        // kill a larger VM outright instead of filling its disk. Phase D of
+        // boxlite-test/src/disk-quota-test.ts settles it on any host boxlite runs on
         ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
         env: workload.environment,
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
