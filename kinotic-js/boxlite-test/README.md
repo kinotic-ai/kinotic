@@ -5,7 +5,7 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
 (findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
-9–11 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+9–12 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
 (Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
@@ -187,7 +187,7 @@ captured output. A feature request for surfacing container exit is filed upstrea
   `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
   suppress the image CMD.
 
-### 9. A box cannot start with three or more volume mounts (`disk-quota-test.ts`)
+### 9. A third volume mount exhausts the VM's IRQs (`disk-quota-test.ts`, `boot-failure-test.ts`)
 
 Sweeping volume count with plain host directories, nothing else varying:
 
@@ -198,10 +198,23 @@ Sweeping volume count with plain host directories, nothing else varying:
   4 volume(s): FAILED    ... VM failed to start (libkrun status=-22)
 ```
 
-The failure is an opaque `libkrun status=-22` at boot, with no indication that the volume
-count caused it. **Design implication:** every kinotic workload already carries the
-`/var/log/kinotic` mount, so a workload may declare exactly **one** volume of its own.
-`buildBoxOptions` rejects more than that up front rather than letting the VM fail to boot.
+`status=-22` is the surface; the cause is in the shim stderr, which the SDK error carries:
+
+```
+[krun] krun_start_enter called
+[krun] ERROR krun] Building the microVM failed: RegisterNetDevice(IrqsExhausted)
+[krun] krun_start_enter returned (status=-22, elapsed=43ms)
+```
+
+So the limit is the VM's IRQ budget, not a volume cap — each virtio-fs mount consumes an
+IRQ and the net device, registered last, is the one that runs out and reports. What does
+*not* draw on it, swept in `boot-failure-test.ts`: ports (`0 volumes + 4 ports` boots,
+`2 volumes + 3 ports` boots) and a sized rootfs (`2 volumes + diskSizeGb` boots, and
+`3 volumes + diskSizeGb` fails exactly where plain `3 volumes` does).
+
+**Design implication:** every kinotic workload already carries the `/var/log/kinotic`
+mount, so a workload may declare exactly **one** volume of its own. `buildBoxOptions`
+rejects more than that up front rather than letting the VM fail to boot.
 
 ### 10. Network policy is a real egress control, and open by default (`network-policy-test.ts`)
 
@@ -212,17 +225,17 @@ Verified on Linux/KVM against 0.9.7:
 | omitted entirely | every host reachable — identical to `enabled` |
 | `{ mode: 'enabled' }` | every host reachable; no allowlist means unrestricted |
 | `{ mode: 'enabled', allowNet: ['example.com'] }` | listed host reachable; unlisted host blocked **by name and by raw IP** |
-| `{ mode: 'disabled' }` | **unverified** — the box failed to start |
+| `{ mode: 'disabled' }` | **cannot boot** — see finding #12 |
+| `{ mode: 'disabled', allowNet: [...] }` | rejected at config validation: *"network.mode=\"disabled\" is incompatible with allow_net"* |
 
 A blocked name resolves to `0.0.0.0` inside the guest, and connecting to the unlisted
 host's literal IP fails too, so the allowlist is enforced on the connection rather than
 only at DNS. There is no deny-by-default: a policy with an empty `allowNet` grants
 unrestricted egress, so untrusted workloads must always carry a populated allowlist.
 
-`mode: 'disabled'` failing to boot is unexplained and needs its own probe before anything
-relies on it.
+`mode: 'disabled'` failing to boot is finding #12.
 
-### 11. Disk caps hold, and the guest is not told it hit them (`disk-quota-test.ts`)
+### 11. Disk caps hold, and the guest is told when it hits them (`disk-quota-test.ts`)
 
 `diskSizeGb: 1` gives the guest a 943.3M rootfs and stops writes at 930 MiB. An XFS project
 quota on a bind-mounted host directory holds too, despite the writes being performed on the
@@ -235,9 +248,45 @@ host by virtiofsd rather than by the guest kernel:
 ```
 
 The guest's `df` reports the quota rather than the underlying filesystem, so a workload can
-see its own limit. Quota accounting cost ~36% of write throughput on a loopback XFS
-(61.0 vs 95.1 MiB/s, single unreplicated pair) — worth re-measuring on a real data disk,
-which is why phase C now alternates and repeats the writes.
+see its own limit. `dd` exits 1 in both cases, so a workload can detect that it was capped from the exit
+status alone.
+
+Quota accounting cost ~13% of write throughput once the first-write artifact is excluded.
+Alternating and repeating the pair is what exposed it — round 1 with the quota reads as a
+36% penalty and round 2 does not:
+
+```
+  round 1 with quota : 4.54s   56.4 MiB/s      <- first write into the sparse backing image
+  round 1 no quota   : 2.27s  113.0 MiB/s
+  round 2 with quota : 2.60s   98.3 MiB/s
+  round 2 no quota   : 2.27s  112.9 MiB/s
+```
+
+Measured on a loopback XFS over ext4; a real data disk is worth its own measurement.
+
+### 12. `network: { mode: 'disabled' }` cannot boot a VM (`boot-failure-test.ts`)
+
+Every attempt to boot with the network disabled dies the same way, with the image's own
+entrypoint or an override, with or without an allowlist alongside:
+
+```
+  mode enabled                           STARTED
+  mode disabled                          FAILED
+      | Exit code: 159 (unknown signal)
+      | Console output: empty (no kernel or guest messages captured)
+      | [shim] T+4ms: instance created (krun FFI calls done)
+      | [shim] T+4ms: entering VM (krun_start_enter)      <- last line; no krun error follows
+```
+
+It fails differently from finding #9: no `gvproxy created` line, no libkrun error, an empty
+console, and the shim dies on a signal at VM entry rather than failing device registration.
+Pairing the mode with an allowlist is caught earlier still, at config validation:
+*"network.mode=\"disabled\" is incompatible with allow_net"*.
+
+**Design implication:** there is no working no-egress mode in 0.9.7. `NetworkMode.DISABLED`
+is rejected by `buildBoxOptions` so a workload fails with a reason instead of a VM that
+never comes up, and a restrictive `allowedHosts` list is the only way to bound what a guest
+can reach. Whether an empty `allowNet` denies everything is the open question — probe case F.
 
 ---
 

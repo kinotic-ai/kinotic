@@ -21,6 +21,9 @@ import { SimpleBox, getJsBoxlite, type NetworkSpec } from "@boxlite-ai/boxlite";
 //  E. network omitted         — what the default is. The vm-manager always sends a policy
 //                               so it never relies on this, but it decides whether the
 //                               model's ENABLED default matches boxlite's.
+//  F. allowNet: []            — mode 'disabled' cannot boot (finding #12), so an empty
+//                               allowlist is the only remaining candidate for a workload
+//                               that should reach nothing at all.
 //
 // Requires ordinary outbound internet from the host. Every box is removed in cleanup.
 
@@ -122,6 +125,11 @@ async function main() {
             description: `C/D. mode 'enabled', allowNet ['${ALLOWED_HOST}']`,
             network: { mode: "enabled", allowNet: [ALLOWED_HOST] },
         },
+        {
+            label: "empty-allowlist",
+            description: "F. mode 'enabled', allowNet: [] — deny-all, or the same as omitting it?",
+            network: { mode: "enabled", allowNet: [] },
+        },
     ];
 
     const results = new Map<string, { dns: Probe; targets: Probe[] }>();
@@ -135,7 +143,9 @@ async function main() {
                 console.log(`  ${render(probe)}`);
             }
         } catch (error) {
-            console.log(`  PROBE ERROR: ${String(error).split("\n")[0]}`);
+            // Printed whole: a failed boot carries the shim trace and the exit status
+            // inside the error message, which is the only place they appear
+            console.log(String(error).split("\n").map(line => `  | ${line}`).join("\n"));
         }
         console.log();
     }
@@ -151,6 +161,8 @@ async function main() {
     console.log(`(d) allowNet blocks an unlisted host:      ${answer(!!allowlist, !reached("allowlist", BLOCKED_HOST))}`);
     console.log(`(e) allowNet ALSO blocks it by raw IP:     ${answer(!!allowlist, !reached("allowlist", BLOCKED_IP))}  <- if NO, allowNet is DNS-level only`);
     console.log(`(f) omitted default matches 'enabled':     ${answer(results.has("omitted"), reached("omitted", ALLOWED_HOST))}`);
+    const empty = results.get("empty-allowlist");
+    console.log(`(g) an empty allowNet denies everything:   ${answer(!!empty, !reached("empty-allowlist", ALLOWED_HOST) && !reached("empty-allowlist", BLOCKED_IP))}  <- if YES, it is the no-egress mode 'disabled' cannot provide`);
     console.log(`\nDNS under the allowlist: ${allowlist ? render(allowlist.dns) : "(not run)"}`);
 }
 

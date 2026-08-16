@@ -14,9 +14,11 @@ import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-
 export const GUEST_LOG_DIR = '/var/log/kinotic'
 
 /**
- * How many volumes a workload may declare. boxlite 0.9.7 cannot boot a box with more than
- * two volumes — the third fails the VM with {@code libkrun status=-22} — and the log
- * directory mount always occupies one of them.
+ * How many volumes a workload may declare. Each virtio-fs mount draws from the VM's IRQ
+ * budget, and on boxlite 0.9.7 a third one exhausts it — libkrun then fails the VM with
+ * {@code RegisterNetDevice(IrqsExhausted)}, reported as {@code status=-22}. Ports and a
+ * sized rootfs cost nothing against this. The log directory mount always occupies one of
+ * the two the VM can carry.
  */
 const MAX_WORKLOAD_VOLUME_MOUNTS = 1
 
@@ -63,6 +65,13 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
     const allowedHosts = workload.network?.allowedHosts ?? []
+    // boxlite 0.9.7 cannot boot a VM with the network disabled: the shim dies at VM entry
+    // on exit 159, before it registers any device. Rejected here so the workload fails with
+    // a reason rather than a VM that never comes up
+    if (networkMode !== NetworkMode.ENABLED) {
+        throw new Error(`boxlite cannot boot a VM with network mode ${networkMode}; `
+                        + 'restrict egress with an allowlist instead')
+    }
     return {
         image: workload.image,
         name: workload.id!,
@@ -78,10 +87,10 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
         // Always sent rather than left to the boxlite default, so what a guest can reach
-        // is decided by the workload record alone. Anything but ENABLED maps to disabled,
-        // and allowNet is sent only when the workload lists hosts
+        // is decided by the workload record alone. allowNet is sent only when the workload
+        // lists hosts, since boxlite rejects an allowlist paired with a disabled network
         network: {
-            mode: networkMode === NetworkMode.ENABLED ? 'enabled' : 'disabled',
+            mode: 'enabled',
             ...(allowedHosts.length > 0 ? { allowNet: allowedHosts } : {}),
         },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
