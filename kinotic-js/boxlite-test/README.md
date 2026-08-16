@@ -259,6 +259,7 @@ which is why phase C now alternates and repeats the writes.
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
 | `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, and whether it can be bypassed by connecting to a raw IP. Needs ordinary outbound internet. | self-cleaning |
 | `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap (phase A, runs anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
+| `boot-failure-test.ts` | Isolates the two generic "failed to start" errors behind findings #9 and #10 — whether `mode: 'disabled'` is bootable at all, and whether the volume ceiling counts volumes only or a shared device budget that ports and a sized rootfs also draw on. Dumps the full error, which carries the shim trace. | self-cleaning |
 
 The last two probes have no findings recorded above yet — they exist to answer questions the
 vm-manager currently depends on. Run them on a Linux host with virtualization and add what
