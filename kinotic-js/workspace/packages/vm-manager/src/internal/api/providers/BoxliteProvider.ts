@@ -14,6 +14,13 @@ import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-
 export const GUEST_LOG_DIR = '/var/log/kinotic'
 
 /**
+ * How many volumes a workload may declare. boxlite 0.9.7 cannot boot a box with more than
+ * two volumes — the third fails the VM with {@code libkrun status=-22} — and the log
+ * directory mount always occupies one of them.
+ */
+const MAX_WORKLOAD_VOLUME_MOUNTS = 1
+
+/**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
  * no TS type for it (JsBox), so only the members this provider uses are declared.
  */
@@ -45,6 +52,12 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
     if (boundMapping) {
         throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
+    }
+    // Rejected here so the operator gets the reason; letting it through surfaces only as
+    // an opaque libkrun status=-22 when the VM fails to boot
+    if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
+        throw new Error(`boxlite supports ${MAX_WORKLOAD_VOLUME_MOUNTS} workload volume mount(s) `
+                        + `alongside the log mount, but ${workload.volumeMounts.length} were declared`)
     }
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to

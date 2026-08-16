@@ -4,7 +4,9 @@ Evaluation harness for [BoxLite](https://docs.boxlite.ai/) — a set of standalo
 scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
-(findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). The
+(findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
+9–11 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
+(Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
 
@@ -184,6 +186,58 @@ captured output. A feature request for surfacing container exit is filed upstrea
 - Overriding `entrypoint` without `cmd` still appends the image's CMD (Docker semantics):
   `entrypoint: ["sleep", "600"]` on alpine runs `sleep 600 /bin/sh`. Pass `cmd: []` to
   suppress the image CMD.
+
+### 9. A box cannot start with three or more volume mounts (`disk-quota-test.ts`)
+
+Sweeping volume count with plain host directories, nothing else varying:
+
+```
+  1 volume(s): STARTED   guest sees: /v0 /var
+  2 volume(s): STARTED   guest sees: /v0 /v1 /var
+  3 volume(s): FAILED    ... VM failed to start (libkrun status=-22)
+  4 volume(s): FAILED    ... VM failed to start (libkrun status=-22)
+```
+
+The failure is an opaque `libkrun status=-22` at boot, with no indication that the volume
+count caused it. **Design implication:** every kinotic workload already carries the
+`/var/log/kinotic` mount, so a workload may declare exactly **one** volume of its own.
+`buildBoxOptions` rejects more than that up front rather than letting the VM fail to boot.
+
+### 10. Network policy is a real egress control, and open by default (`network-policy-test.ts`)
+
+Verified on Linux/KVM against 0.9.7:
+
+| Policy | Result |
+|---|---|
+| omitted entirely | every host reachable — identical to `enabled` |
+| `{ mode: 'enabled' }` | every host reachable; no allowlist means unrestricted |
+| `{ mode: 'enabled', allowNet: ['example.com'] }` | listed host reachable; unlisted host blocked **by name and by raw IP** |
+| `{ mode: 'disabled' }` | **unverified** — the box failed to start |
+
+A blocked name resolves to `0.0.0.0` inside the guest, and connecting to the unlisted
+host's literal IP fails too, so the allowlist is enforced on the connection rather than
+only at DNS. There is no deny-by-default: a policy with an empty `allowNet` grants
+unrestricted egress, so untrusted workloads must always carry a populated allowlist.
+
+`mode: 'disabled'` failing to boot is unexplained and needs its own probe before anything
+relies on it.
+
+### 11. Disk caps hold, and the guest is not told it hit them (`disk-quota-test.ts`)
+
+`diskSizeGb: 1` gives the guest a 943.3M rootfs and stops writes at 930 MiB. An XFS project
+quota on a bind-mounted host directory holds too, despite the writes being performed on the
+host by virtiofsd rather than by the guest kernel:
+
+```
+  guest df /capped      : uservol0    64.0M    0    64.0M   0% /capped
+  bytes actually landed : 64.0 MiB (limit 64 MiB)
+  host quota report     : #4242    65536    0    65536
+```
+
+The guest's `df` reports the quota rather than the underlying filesystem, so a workload can
+see its own limit. Quota accounting cost ~36% of write throughput on a loopback XFS
+(61.0 vs 95.1 MiB/s, single unreplicated pair) — worth re-measuring on a real data disk,
+which is why phase C now alternates and repeats the writes.
 
 ---
 

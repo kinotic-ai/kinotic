@@ -74,11 +74,16 @@ async function probeEgress(label: string, network: NetworkSpec | undefined): Pro
 
         // Separating name resolution from the fetch shows whether the allowlist is
         // enforced at DNS or on the connection itself
-        const lookup = await box.exec("sh", "-c", `nslookup ${BLOCKED_HOST} 2>&1 | tail -n 3`);
+        // The status is echoed rather than read from the exec: a shell reports the exit
+        // status of the LAST command in a pipeline, so piping nslookup into tail would
+        // always report tail's success and hide a failed lookup
+        const lookup = await box.exec("sh", "-c",
+            `nslookup ${BLOCKED_HOST} >/tmp/dns.out 2>&1; echo "lookup-exit=$?"; tail -n 3 /tmp/dns.out`);
+        const reported = lookup.stdout.match(/lookup-exit=(\d+)/);
         const dns: Probe = {
             target: `dns:${BLOCKED_HOST}`,
-            exitCode: lookup.exitCode,
-            detail: lookup.stdout.trim().split("\n").join(" | ") || lookup.stderr.trim().split("\n")[0] || "",
+            exitCode: reported ? Number(reported[1]) : -1,
+            detail: lookup.stdout.replace(/lookup-exit=\d+/, "").trim().split("\n").filter(Boolean).join(" | "),
         };
 
         const targets: Probe[] = [];

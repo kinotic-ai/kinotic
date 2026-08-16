@@ -22,6 +22,24 @@ describe('buildBoxOptions', () => {
         ])
     })
 
+    it('rejects more volume mounts than boxlite can boot', () => {
+        const w = workload()
+        w.volumeMounts = [
+            { hostPath: '/srv/repo', guestPath: '/workspace/repo', readOnly: true },
+            { hostPath: '/srv/out', guestPath: '/workspace/out', readOnly: false },
+        ]
+
+        // With the log mount that is three volumes, which fails the VM with libkrun status=-22
+        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('volume mount')
+    })
+
+    it('accepts the one workload volume that fits alongside the log mount', () => {
+        const w = workload()
+        w.volumeMounts = [{ hostPath: '/srv/repo', guestPath: '/workspace/repo', readOnly: true }]
+
+        expect(buildBoxOptions(w, '/logs/wl-1').volumes).toHaveLength(2)
+    })
+
     it('sends the workload network policy rather than relying on a boxlite default', () => {
         const options = buildBoxOptions(workload(), '/logs/wl-1')
 

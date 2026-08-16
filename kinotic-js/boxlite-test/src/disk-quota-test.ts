@@ -71,6 +71,40 @@ function failureDetail(result: { stdout: string; stderr: string }): string {
     return (result.stderr.trim() || result.stdout.trim()).split("\n").filter(Boolean).pop() ?? "";
 }
 
+interface WriteAttempt {
+    /** dd's own exit status inside the guest. */
+    exitCode: number;
+    /** What dd printed about the transfer, or why it stopped. */
+    detail: string;
+    /** Bytes that actually reached the file. */
+    bytes: number;
+    /** Wall clock of the write itself, excluding the size check that follows it. */
+    seconds: number;
+}
+
+/**
+ * Writes megabytes of zeroes to a path inside the guest and reports how dd fared.
+ *
+ * dd's status is echoed rather than taken from the exec, because a shell reports the exit
+ * status of the LAST command in a pipeline: piping dd into tail yields tail's status, which
+ * is 0 even when dd died on a full disk — the exact failure this probe exists to observe.
+ */
+async function guestWrite(box: SimpleBox, guestPath: string, megabytes: number): Promise<WriteAttempt> {
+    const started = Date.now();
+    const result = await box.exec("sh", "-c",
+        `dd if=/dev/zero of=${guestPath} bs=1M count=${megabytes} conv=fsync 2>/tmp/dd.err; `
+        + `echo "dd-exit=$?"; tail -n 2 /tmp/dd.err`);
+    const seconds = (Date.now() - started) / 1000;
+    const size = await box.exec("sh", "-c", `ls -l ${guestPath} 2>/dev/null | awk '{print $5}'`);
+    const reported = result.stdout.match(/dd-exit=(\d+)/);
+    return {
+        exitCode: reported ? Number(reported[1]) : -1,
+        detail: failureDetail({ stdout: result.stdout.replace(/dd-exit=\d+/, "").trim(), stderr: result.stderr }),
+        bytes: Number(size.stdout.trim() || 0),
+        seconds,
+    };
+}
+
 async function phaseA(): Promise<void> {
     console.log("=== Phase A: diskSizeGb as a rootfs cap ===");
     const name = `disk-${RUN}`;
@@ -90,15 +124,13 @@ async function phaseA(): Promise<void> {
         console.log(`  guest df /            : ${df.stdout.trim()}`);
 
         // Well past the 1GB rootfs; fsync so the failure is not hidden by page cache
-        const fill = await box.exec("sh", "-c",
-            "dd if=/dev/zero of=/root/fill bs=1M count=1500 conv=fsync 2>&1 | tail -n 2");
-        const written = await box.exec("sh", "-c", "ls -l /root/fill 2>/dev/null | awk '{print $5}'");
-        const bytes = Number(written.stdout.trim() || 0);
+        const fill = await guestWrite(box, "/root/fill", 1500);
 
         console.log(`  dd exit               : ${fill.exitCode}`);
-        console.log(`  dd said               : ${failureDetail(fill)}`);
-        console.log(`  bytes actually landed : ${(bytes / 1024 / 1024).toFixed(0)} MiB`);
-        console.log(`  => diskSizeGb caps the rootfs: ${bytes > 0 && bytes < 1400 * 1024 * 1024 ? "YES" : "NO — the guest wrote past it"}`);
+        console.log(`  dd said               : ${fill.detail}`);
+        console.log(`  bytes actually landed : ${(fill.bytes / 1024 / 1024).toFixed(0)} MiB`);
+        console.log(`  => diskSizeGb caps the rootfs: ${fill.bytes > 0 && fill.bytes < 1400 * 1024 * 1024 ? "YES" : "NO — the guest wrote past it"}`);
+        console.log(`  => the guest is told it failed: ${fill.exitCode !== 0 ? "YES" : "NO — dd reported success while being capped"}`);
     } finally {
         await removeIfPresent(name);
     }
@@ -129,7 +161,7 @@ function tearDownQuotaFilesystem(): void {
     sh("rm", ["-f", IMAGE_PATH]);
 }
 
-async function phaseBandC(): Promise<void> {
+async function phaseB(): Promise<void> {
     console.log(`=== Phase B: XFS project quota (${CAPPED_LIMIT_MB}MB hard limit) through a volume mount ===`);
     const name = `quota-${RUN}`;
     try {
@@ -140,11 +172,9 @@ async function phaseBandC(): Promise<void> {
             autoRemove: false,
             entrypoint: ["sleep", "900"],
             cmd: [],
-            volumes: [
-                { hostPath: `${MOUNT_POINT}/capped`, guestPath: "/capped" },
-                { hostPath: `${MOUNT_POINT}/perf-quota`, guestPath: "/perf-quota" },
-                { hostPath: `${MOUNT_POINT}/perf-plain`, guestPath: "/perf-plain" },
-            ],
+            // finding #9: a third volume fails the VM with libkrun status=-22, so phase C
+            // runs in its own box rather than mounting all three directories here
+            volumes: [{ hostPath: `${MOUNT_POINT}/capped`, guestPath: "/capped" }],
         });
         await box.getId();
 
@@ -152,29 +182,49 @@ async function phaseBandC(): Promise<void> {
         console.log(`  guest df /capped      : ${df.stdout.trim()}`);
         console.log(`  (does it report the ${CAPPED_LIMIT_MB}M quota, or the whole 4G filesystem?)`);
 
-        const overrun = await box.exec("sh", "-c",
-            `dd if=/dev/zero of=/capped/fill bs=1M count=${CAPPED_LIMIT_MB * 2} conv=fsync 2>&1 | tail -n 2`);
-        const written = await box.exec("sh", "-c", "ls -l /capped/fill 2>/dev/null | awk '{print $5}'");
-        const bytes = Number(written.stdout.trim() || 0);
+        const overrun = await guestWrite(box, "/capped/fill", CAPPED_LIMIT_MB * 2);
 
         console.log(`  dd exit               : ${overrun.exitCode}`);
-        console.log(`  dd said               : ${failureDetail(overrun)}`);
-        console.log(`  bytes actually landed : ${(bytes / 1024 / 1024).toFixed(1)} MiB (limit ${CAPPED_LIMIT_MB} MiB)`);
+        console.log(`  dd said               : ${overrun.detail}`);
+        console.log(`  bytes actually landed : ${(overrun.bytes / 1024 / 1024).toFixed(1)} MiB (limit ${CAPPED_LIMIT_MB} MiB)`);
 
         const report = sh("xfs_quota", ["-x", "-c", "report -p -N -b", MOUNT_POINT]);
         console.log(`  host quota report     :\n${report.output.split("\n").map(l => `      ${l}`).join("\n")}`);
-        const stopped = bytes > 0 && bytes <= CAPPED_LIMIT_MB * 1024 * 1024 * 1.05;
+        const stopped = overrun.bytes > 0 && overrun.bytes <= CAPPED_LIMIT_MB * 1024 * 1024 * 1.05;
         console.log(`  => the quota stops guest writes: ${stopped ? "YES" : "NO — the guest wrote past the limit"}`);
-        console.log();
+        console.log(`  => the guest is told it failed: ${overrun.exitCode !== 0 ? "YES" : "NO — dd reported success while being capped"}`);
+    } finally {
+        await removeIfPresent(name);
+    }
+    console.log();
+}
 
-        console.log(`=== Phase C: write cost of quota accounting (${PERF_PAYLOAD_MB}MB, same filesystem) ===`);
-        for (const [label, guestPath] of [["with quota", "/perf-quota"], ["no quota", "/perf-plain"]] as const) {
-            const started = Date.now();
-            const result = await box.exec("sh", "-c",
-                `dd if=/dev/zero of=${guestPath}/payload bs=1M count=${PERF_PAYLOAD_MB} conv=fsync 2>&1 | tail -n 1`);
-            const seconds = (Date.now() - started) / 1000;
-            console.log(`  ${label.padEnd(11)}: ${seconds.toFixed(2)}s  ${(PERF_PAYLOAD_MB / seconds).toFixed(1)} MiB/s  exit=${result.exitCode}`);
-            console.log(`               dd: ${failureDetail(result)}`);
+async function phaseC(): Promise<void> {
+    console.log(`=== Phase C: write cost of quota accounting (${PERF_PAYLOAD_MB}MB, same filesystem) ===`);
+    const name = `perf-${RUN}`;
+    try {
+        const box = new SimpleBox({
+            image: "alpine:latest",
+            name,
+            runtime,
+            autoRemove: false,
+            entrypoint: ["sleep", "900"],
+            cmd: [],
+            volumes: [
+                { hostPath: `${MOUNT_POINT}/perf-quota`, guestPath: "/perf-quota" },
+                { hostPath: `${MOUNT_POINT}/perf-plain`, guestPath: "/perf-plain" },
+            ],
+        });
+        await box.getId();
+
+        // Alternated and repeated because a single ordered pair cannot separate the cost of
+        // quota accounting from first-write allocation in the sparse backing image
+        for (let round = 1; round <= 2; round++) {
+            for (const [label, guestPath] of [["with quota", "/perf-quota"], ["no quota", "/perf-plain"]] as const) {
+                const write = await guestWrite(box, `${guestPath}/payload-${round}`, PERF_PAYLOAD_MB);
+                console.log(`  round ${round} ${label.padEnd(11)}: ${write.seconds.toFixed(2)}s  `
+                            + `${(PERF_PAYLOAD_MB / write.seconds).toFixed(1)} MiB/s  exit=${write.exitCode}`);
+            }
         }
     } finally {
         await removeIfPresent(name);
@@ -201,7 +251,8 @@ async function main() {
 
     try {
         setUpQuotaFilesystem();
-        await phaseBandC();
+        await phaseB();
+        await phaseC();
     } finally {
         tearDownQuotaFilesystem();
     }
