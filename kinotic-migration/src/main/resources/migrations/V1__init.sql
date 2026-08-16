@@ -234,7 +234,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     vcpus INTEGER,
     memoryMb INTEGER,
     diskSizeMb INTEGER,
-    network JSON NOT INDEXED,
+    network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
     detached BOOLEAN,
     autoRemove BOOLEAN,
     status KEYWORD,
