@@ -3,21 +3,18 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-// Standalone reproducer for the reported fixed 1 GiB RLIMIT_FSIZE on the VM monitor: a box
-// accepts any diskSizeGb, but once its backing file crosses 1 GiB the monitor is said to
-// take SIGXFSZ and die, so the guest never sees ENOSPC.
-//
-// The same write is attempted at several disk sizes, varying nothing else, so the boundary
-// is visible rather than inferred. At diskSizeGb 1 the guest filesystem fills at ~940 MiB
-// before the backing file reaches 1 GiB, which is the case that looks healthy and hides the
-// bug; every larger size lets the write reach the reported ceiling.
+// Standalone reproducer for a box whose disk is smaller than the size it was created with.
+// The same write is attempted at several values of diskSizeGb, varying nothing else, so the
+// boundary is visible rather than inferred. diskSizeGb 1 is the control: its filesystem
+// fills at ~940 MiB, which looks healthy and is what hides the behaviour at larger sizes.
 //
 // For each size it reports what the guest was told, how much data landed, whether the VM
-// still answers afterwards, and how large the box directory grew on the host. A VM that
-// merely filled its disk keeps answering exec; one whose monitor took a signal does not.
+// still answers afterwards, and how large the box directory grew on the host. That last
+// figure is the one that matters — it is what was actually allocated, as opposed to what
+// the guest's df claims. A VM that merely filled its disk keeps answering exec.
 //
-// Deliberately free of any dependency but @boxlite-ai/boxlite, so it can be handed to the
-// boxlite maintainers and run as-is:
+// Deliberately free of any dependency but @boxlite-ai/boxlite, so it runs anywhere the SDK
+// does:
 //
 //   bun add @boxlite-ai/boxlite && bun run repro-disk-size.ts
 //
@@ -127,10 +124,9 @@ async function main() {
         await attempt(diskSizeGb);
     }
 
-    console.log("Expected if the disk size is honored: every box survives, and each write");
-    console.log("either completes or stops with ENOSPC once its own filesystem is full.");
-    console.log("Expected if a fixed ceiling applies: diskSizeGb 1 behaves, and every larger");
-    console.log("size dies at the same point regardless of how much disk the guest was given.");
+    console.log("Compare the host box dir figures across the sizes. If they are equal while");
+    console.log("the guest's df scales, the backing store stopped at a fixed point that the");
+    console.log("guest was never told about, and what each box did on hitting it is secondary.");
 }
 
 main().catch((error) => {
