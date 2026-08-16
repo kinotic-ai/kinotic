@@ -18,22 +18,37 @@ fail()  { echo "SETUP FAILED: $*" >&2; exit 1; }
 step "Base packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl jq tar xz-utils iptables ca-certificates >/dev/null
+apt-get install -y -qq curl jq tar xz-utils zstd iptables ca-certificates >/dev/null
 
 step "Resolving latest releases"
-KATA_VERSION="$(curl -fsSL https://api.github.com/repos/kata-containers/kata-containers/releases/latest | jq -r .tag_name)"
-NERDCTL_VERSION="$(curl -fsSL https://api.github.com/repos/containerd/nerdctl/releases/latest | jq -r .tag_name)"
+# Asset URLs are taken from the release rather than built from the version. Kata has shipped
+# kata-static as .tar.xz and as .tar.zst at different times, and a constructed name 404s on
+# whichever release changes it. The prefix match excludes kata-tools-static, which is a
+# separate asset in the same release.
+KATA_JSON="$(curl -fsSL https://api.github.com/repos/kata-containers/kata-containers/releases/latest)"
+KATA_VERSION="$(printf '%s' "$KATA_JSON" | jq -r .tag_name)"
+KATA_URL="$(printf '%s' "$KATA_JSON" | jq -r '.assets[] | select(.name | startswith("kata-static-") and contains("-amd64.tar")) | .browser_download_url' | head -n 1)"
 [ -n "$KATA_VERSION" ] && [ "$KATA_VERSION" != "null" ] || fail "could not resolve the kata-containers release"
+[ -n "$KATA_URL" ] || fail "release $KATA_VERSION has no kata-static amd64 asset; it published: $(printf '%s' "$KATA_JSON" | jq -r '.assets[].name' | tr '\n' ' ')"
+
+NERDCTL_JSON="$(curl -fsSL https://api.github.com/repos/containerd/nerdctl/releases/latest)"
+NERDCTL_VERSION="$(printf '%s' "$NERDCTL_JSON" | jq -r .tag_name)"
+NERDCTL_URL="$(printf '%s' "$NERDCTL_JSON" | jq -r '.assets[] | select(.name | startswith("nerdctl-full-") and endswith("-linux-amd64.tar.gz")) | .browser_download_url' | head -n 1)"
 [ -n "$NERDCTL_VERSION" ] && [ "$NERDCTL_VERSION" != "null" ] || fail "could not resolve the nerdctl release"
-echo "kata-containers : $KATA_VERSION"
-echo "nerdctl         : $NERDCTL_VERSION"
+[ -n "$NERDCTL_URL" ] || fail "release $NERDCTL_VERSION has no nerdctl-full amd64 asset; it published: $(printf '%s' "$NERDCTL_JSON" | jq -r '.assets[].name' | tr '\n' ' ')"
+
+KATA_ASSET="${KATA_URL##*/}"
+NERDCTL_ASSET="${NERDCTL_URL##*/}"
+echo "kata-containers : $KATA_VERSION  ($KATA_ASSET)"
+echo "nerdctl         : $NERDCTL_VERSION  ($NERDCTL_ASSET)"
 
 step "Installing Kata Containers (static bundle: shim, guest kernel, guest image, cloud-hypervisor)"
-KATA_TARBALL="kata-static-${KATA_VERSION#v}-amd64.tar.xz"
-curl -fsSL -o "/tmp/${KATA_TARBALL}" \
-    "https://github.com/kata-containers/kata-containers/releases/download/${KATA_VERSION}/${KATA_TARBALL}" \
-    || fail "downloading ${KATA_TARBALL}"
-tar -xf "/tmp/${KATA_TARBALL}" -C / || fail "extracting ${KATA_TARBALL}"
+curl -fsSL -o "/tmp/${KATA_ASSET}" "$KATA_URL" || fail "downloading ${KATA_ASSET}"
+case "$KATA_ASSET" in
+    *.tar.zst) tar --use-compress-program=unzstd -xf "/tmp/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
+    *.tar.xz)  tar -xJf "/tmp/${KATA_ASSET}" -C / || fail "extracting ${KATA_ASSET}" ;;
+    *)         fail "unhandled archive format for ${KATA_ASSET}" ;;
+esac
 [ -x /opt/kata/bin/containerd-shim-kata-v2 ] || fail "the bundle did not provide /opt/kata/bin/containerd-shim-kata-v2"
 
 # The kata shim selects its config from the name it was invoked under, so the clh-suffixed
@@ -45,11 +60,8 @@ CLH_CONF=/opt/kata/share/defaults/kata-containers/configuration-clh.toml
 [ -f "$CLH_CONF" ] || fail "no Cloud Hypervisor configuration at $CLH_CONF — this bundle may not ship clh support"
 
 step "Installing containerd, CNI and nerdctl (nerdctl-full bundle)"
-NERDCTL_TARBALL="nerdctl-full-${NERDCTL_VERSION#v}-linux-amd64.tar.gz"
-curl -fsSL -o "/tmp/${NERDCTL_TARBALL}" \
-    "https://github.com/containerd/nerdctl/releases/download/${NERDCTL_VERSION}/${NERDCTL_TARBALL}" \
-    || fail "downloading ${NERDCTL_TARBALL}"
-tar -xzf "/tmp/${NERDCTL_TARBALL}" -C /usr/local || fail "extracting ${NERDCTL_TARBALL}"
+curl -fsSL -o "/tmp/${NERDCTL_ASSET}" "$NERDCTL_URL" || fail "downloading ${NERDCTL_ASSET}"
+tar -xzf "/tmp/${NERDCTL_ASSET}" -C /usr/local || fail "extracting ${NERDCTL_ASSET}"
 
 step "Starting containerd"
 systemctl daemon-reload
