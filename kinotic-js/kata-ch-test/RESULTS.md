@@ -451,10 +451,42 @@ vCPUs scale with the request (`default_vcpus = 1` plus what was asked for), whil
 stays flat regardless of `--memory` — the sandbox is sized by `default_memory = 2048` in
 `configuration-clh.toml`, independent of the workload's limit.
 
-Two real consequences follow, neither of which is an isolation failure:
+The guest's reported size is **not** a host reservation. Guest memory is backed lazily, so
+the host commits only what the workload actually touches:
 
-1. **Density.** Every workload's VM reserves roughly 2.4 GB of host RAM whatever its
-   limit, so small workloads cannot be packed densely. Tunable via `default_memory`.
+```
+=== baseline, no workloads ===
+  host MemAvailable : 15297 MiB
+  cloud-hypervisor  : 0 MiB RSS
+
+=== one idle workload (--memory 512m, guest reports 2500 MiB) ===
+  host MemAvailable : 15116 MiB
+  cloud-hypervisor  : 166 MiB RSS
+
+=== after touching 400 MiB inside the guest ===
+  host MemAvailable : 14708 MiB  (delta 408 MiB)
+  cloud-hypervisor  : 568 MiB RSS  (delta 402 MiB)
+
+=== after freeing it inside the guest ===
+  cloud-hypervisor  : 569 MiB RSS
+
+=== four workloads ===
+  cloud-hypervisor  : 1063 MiB RSS total
+  per-workload RSS  : 569 MiB / 164 MiB / 167 MiB / 163 MiB
+```
+
+An idle workload costs about **165 MiB** of host RAM despite reporting 2500 MiB inside, and
+touched pages are backed 1:1 on demand. Since the cgroup caps the workload at its limit, the
+worst case per workload is its limit plus that overhead — roughly 680 MiB for a 512 MiB
+workload, so a 16 GB host carries on the order of twenty, not six.
+
+Two consequences follow, neither an isolation failure:
+
+1. **Freed guest memory is not returned to the host.** Dropping the 400 MiB inside the guest
+   left host RSS at 569 MiB. Without free page reporting or ballooning, each VM's host
+   footprint is a high-water mark of everything it has ever touched, so a workload that
+   briefly peaks holds that memory for its lifetime. This, not the declared size, is what
+   governs density over time.
 2. **Guests misreport their own size.** A workload reading `free`/`nproc` sees 2372 MiB and
    3 CPUs while its cgroup allows 512 MiB and 2 CPUs. This bites Kinotic apps specifically:
    a JVM left to default heap sizing takes ~1/4 of apparent physical memory (~593 MB),
@@ -523,11 +555,12 @@ investigation E. The container cgroup inside the guest carries exactly the reque
 allocation in a 512 MB workload is OOM-killed. Phase 6 asserts on `free -m` and `nproc`,
 which describe the sandbox VM rather than the workload. Isolation holds.
 
-What is real is that the VM is sized independently of the limit: ~2.4 GB of host RAM per
-workload regardless of `--memory`, which caps density, and a guest that misreports its own
-size to anything reading `free`/`nproc` — a JVM on default heap sizing will OOM against its
-own cgroup. Both are addressed by tuning `default_memory` in `configuration-clh.toml`, not
-by a change in isolation properties.
+The VM is sized independently of the limit, but that costs far less than its reported size
+suggests: guest memory is backed lazily, so an idle workload consumes ~165 MiB of host RAM
+while reporting 2500 MiB inside. Density is set by what workloads touch, not what they
+declare. Two caveats remain — freed guest memory is never returned to the host, so each VM's
+footprint ratchets to its high-water mark, and a guest misreports its own size to anything
+reading `free`/`nproc`, which will OOM a JVM left on default heap sizing.
 
 Also note the rootfs is **shared host storage**, not a per-workload disk: `guest df /`
 reports the host's 62 G filesystem. There is no per-workload disk cap here at all, so disk
