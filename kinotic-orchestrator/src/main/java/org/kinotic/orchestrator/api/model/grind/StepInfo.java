@@ -39,4 +39,21 @@ public class StepInfo {
     public StepInfo getAncestor() {
         return ancestor;
     }
+
+    /**
+     * The {@code /} separated sequence path from the run's root down to the step that created
+     * this info, matching the {@code stepPath} recorded on a {@code TaskRecord}.
+     * @return the step path, complete once the {@link Result} carrying this info has been
+     *         delivered to a subscriber of the run
+     */
+    public String path() {
+        StringBuilder ret = new StringBuilder();
+        for(StepInfo info = this; info != null; info = info.getAncestor()){
+            if(!ret.isEmpty()){
+                ret.insert(0, '/');
+            }
+            ret.insert(0, info.getSequence());
+        }
+        return ret.toString();
+    }
 }

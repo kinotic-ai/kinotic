@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -155,7 +156,72 @@ public class JobServiceTest extends AbstractGrindTest {
 
         assertEquals(ExecutionStatus.FAILED, recordFor(execution.getJobRunId(), "boom task").getStatus());
         assertEquals(ExecutionStatus.COMPLETED, recordFor(execution.getJobRunId(), "ok task").getStatus());
-        assertNull(recordFor(execution.getJobRunId(), "never runs"));
+        // discovered at run start, never reached
+        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
+    }
+
+    @Test
+    public void staticStepsAreSeededPendingBeforeTheyExecute() throws Exception {
+        AtomicReference<String> runId = new AtomicReference<>();
+        // the recorder mutates the record instances it saved, so observations must snapshot values
+        AtomicReference<ExecutionStatus> secondStatusWhileFirstRuns = new AtomicReference<>();
+        AtomicReference<String> secondPathWhileFirstRuns = new AtomicReference<>();
+        JobDefinition def = JobDefinition.create("seeding test").name("seeding-test")
+            .task(Tasks.fromRunnable("first", () -> {
+                TaskRecord second = recordFor(runId.get(), "second");
+                if (second != null) {
+                    secondStatusWhileFirstRuns.set(second.getStatus());
+                    secondPathWhileFirstRuns.set(second.getStepPath());
+                }
+            }))
+            .task(Tasks.fromCallable("second", () -> "ok"));
+
+        JobExecution execution = jobService.execute(def);
+        runId.set(execution.getJobRunId());
+        RunOutcome outcome = await(execution);
+
+        assertFalse(outcome.failed());
+        // while "first" executed, "second" was already discovered with its definition description
+        assertEquals(ExecutionStatus.PENDING, secondStatusWhileFirstRuns.get());
+        assertEquals("0/2", secondPathWhileFirstRuns.get());
+
+        // the root job seeds too, and every seeded record reaches COMPLETED through the same id
+        assertEquals(ExecutionStatus.COMPLETED, records.saved.get(execution.getJobRunId() + ":0").getStatus());
+        assertEquals(3, records.forRun(execution.getJobRunId()).size());
+        assertTrue(records.forRun(execution.getJobRunId()).stream()
+                          .allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
+    }
+
+    @Test
+    public void dynamicallyDiscoveredStepsAreSeededPendingTogether() throws Exception {
+        AtomicReference<String> runId = new AtomicReference<>();
+        // the recorder mutates the record instances it saved, so observations must snapshot values
+        AtomicReference<ExecutionStatus> siblingStatusWhileInner1Runs = new AtomicReference<>();
+        AtomicReference<String> siblingPathWhileInner1Runs = new AtomicReference<>();
+        JobDefinition def = JobDefinition.create("dynamic seeding").name("dynamic-seeding")
+            .task(Tasks.fromCallable("generator", () ->
+                JobDefinition.create("generated")
+                    .task(Tasks.fromRunnable("inner 1", () -> {
+                        TaskRecord sibling = recordFor(runId.get(), "inner 2");
+                        if (sibling != null) {
+                            siblingStatusWhileInner1Runs.set(sibling.getStatus());
+                            siblingPathWhileInner1Runs.set(sibling.getStepPath());
+                        }
+                    }))
+                    .task(Tasks.fromCallable("inner 2", () -> "ok"))));
+
+        JobExecution execution = jobService.execute(def);
+        runId.set(execution.getJobRunId());
+        RunOutcome outcome = await(execution);
+
+        assertFalse(outcome.failed());
+        // both inner steps were seeded the moment the generator revealed them
+        assertEquals(ExecutionStatus.PENDING, siblingStatusWhileInner1Runs.get());
+        assertEquals("0/1/1/2", siblingPathWhileInner1Runs.get());
+
+        assertTrue(recordFor(execution.getJobRunId(), "generator").isDynamicSteps());
+        assertEquals(ExecutionStatus.COMPLETED, recordFor(execution.getJobRunId(), "generated").getStatus());
+        assertEquals("0/1/1", recordFor(execution.getJobRunId(), "generated").getStepPath());
     }
 
     @Test
@@ -342,7 +408,8 @@ public class JobServiceTest extends AbstractGrindTest {
 
         TaskRecord bad = recordFor(execution.getJobRunId(), "bare list");
         assertEquals(ExecutionStatus.FAILED, bad.getStatus());
-        assertNull(recordFor(execution.getJobRunId(), "never runs"));
+        // discovered at run start, never reached
+        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
     }
 
     @Test
@@ -380,7 +447,8 @@ public class JobServiceTest extends AbstractGrindTest {
         TaskRecord bad = recordFor(execution.getJobRunId(), "bad state");
         assertEquals(ExecutionStatus.FAILED, bad.getStatus());
         assertTrue(bad.getError().contains("not serializable"));
-        assertNull(recordFor(execution.getJobRunId(), "never runs"));
+        // discovered at run start, never reached
+        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
     }
 
 }

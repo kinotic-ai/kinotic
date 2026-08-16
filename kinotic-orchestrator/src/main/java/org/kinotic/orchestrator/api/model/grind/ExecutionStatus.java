@@ -6,6 +6,15 @@ package org.kinotic.orchestrator.api.model.grind;
 public enum ExecutionStatus {
 
     /**
+     * The execution has been discovered but has not started. Only {@link TaskRecord}s carry
+     * this status: a step is recorded PENDING the moment it becomes known - at run start for
+     * the definition's static steps, at discovery for dynamic ones. A record that keeps this
+     * status after its {@link JobRun} reached a terminal status indicates the step was never
+     * reached.
+     */
+    PENDING,
+
+    /**
      * The execution is currently in progress. A {@link TaskRecord} that keeps this status
      * after its {@link JobRun} reached a terminal status indicates the step never finished.
      */

@@ -41,6 +41,13 @@ public class JobDefinitionStep extends AbstractStep {
         return jobDefinition.getDescription();
     }
 
+    /**
+     * The static child steps of the definition this step executes.
+     */
+    List<Step> getSteps() {
+        return jobDefinition.getSteps();
+    }
+
     @Override
     public Publisher<Result<?>> assemble(String stepPath, JobContext context, ResultOptions options, ReplayLedger replayLedger) {
         return Flux.create(sink -> {

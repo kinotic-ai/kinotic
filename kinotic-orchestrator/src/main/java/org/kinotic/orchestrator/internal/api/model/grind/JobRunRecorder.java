@@ -11,17 +11,15 @@ import org.kinotic.orchestrator.api.model.grind.JobDefinition;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.StepCompletion;
-import org.kinotic.orchestrator.api.model.grind.StepInfo;
 import tools.jackson.databind.ObjectMapper;
 
-import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 /**
  * Writes the {@link JobRun} and {@link TaskRecord}s for one job execution as its
@@ -32,6 +30,7 @@ public class JobRunRecorder {
 
     private final String jobRunId;
     private final JobRun jobRun;
+    private final JobDefinition jobDefinition;
     private final JobRunService jobRunService;
     private final TaskRecordService taskRecordService;
     private final ObjectMapper objectMapper;
@@ -48,6 +47,7 @@ public class JobRunRecorder {
                           TaskRecordService taskRecordService,
                           ObjectMapper objectMapper) {
         this.jobRunId = jobRunId;
+        this.jobDefinition = jobDefinition;
         this.jobRunService = jobRunService;
         this.taskRecordService = taskRecordService;
         this.objectMapper = objectMapper;
@@ -82,22 +82,63 @@ public class JobRunRecorder {
         jobRun.setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
         enqueue(() -> jobRunService.save(jobRun));
+        // Discoverable structure at start is the definition's static step tree; dynamic
+        // subtrees are seeded by stepProducedDynamicSteps as tasks reveal them
+        seedDiscovered(discoveredStepRecords(jobRunId, "", new JobDefinitionStep(0, jobDefinition)));
     }
 
     public void record(Result<?> result) {
         switch(result.getResultType()){
-            case STEP_STARTED -> stepStarted(pathOf(result), (String) result.getValue());
-            case STEP_COMPLETED -> stepCompleted(pathOf(result), (StepCompletion) result.getValue());
-            case STEP_FAILED -> stepFailed(pathOf(result), (Throwable) result.getValue());
-            case DYNAMIC_STEPS -> stepProducedDynamicSteps(pathOf(result));
+            case STEP_STARTED -> stepStarted(result.getStepInfo().path(), (String) result.getValue());
+            case STEP_COMPLETED -> stepCompleted(result.getStepInfo().path(), (StepCompletion) result.getValue());
+            case STEP_FAILED -> stepFailed(result.getStepInfo().path(), (Throwable) result.getValue());
+            case DYNAMIC_STEPS -> stepProducedDynamicSteps(result.getStepInfo().path(), (Step) result.getValue());
             default -> { }
         }
     }
 
-    private void stepProducedDynamicSteps(String stepPath) {
+    private void stepProducedDynamicSteps(String stepPath, Step dynamicStep) {
         TaskRecord record = recordsByPath.get(stepPath);
         if(record != null){
             record.setDynamicSteps(true);
+            enqueue(() -> taskRecordService.save(record));
+        }
+        seedDiscovered(discoveredStepRecords(jobRunId, stepPath, dynamicStep));
+    }
+
+    /**
+     * Builds one PENDING {@link TaskRecord} for the given step and each of its static
+     * descendants, rooted under {@code parentPath}. Dynamic descendants are unknowable until
+     * their tasks execute; each later discovery walks only the newly revealed subtree.
+     * @param jobRunId the run the records belong to
+     * @param parentPath the path of the step that revealed this subtree, empty for the run's root
+     * @param step the revealed step
+     * @return the records, in discovery order
+     */
+    public static List<TaskRecord> discoveredStepRecords(String jobRunId, String parentPath, Step step) {
+        List<TaskRecord> ret = new ArrayList<>();
+        collectDiscovered(jobRunId, parentPath, step, ret);
+        return ret;
+    }
+
+    private static void collectDiscovered(String jobRunId, String parentPath, Step step, List<TaskRecord> collected) {
+        String stepPath = parentPath.isEmpty() ? String.valueOf(step.getSequence())
+                                               : parentPath + "/" + step.getSequence();
+        collected.add(new TaskRecord().setId(jobRunId + ":" + stepPath)
+                                      .setJobRunId(jobRunId)
+                                      .setStepPath(stepPath)
+                                      .setDescription(step.getDescription())
+                                      .setStatus(ExecutionStatus.PENDING));
+        if(step instanceof JobDefinitionStep definitionStep){
+            for(Step child : definitionStep.getSteps()){
+                collectDiscovered(jobRunId, stepPath, child, collected);
+            }
+        }
+    }
+
+    private void seedDiscovered(List<TaskRecord> discovered) {
+        for(TaskRecord record : discovered){
+            recordsByPath.put(record.getStepPath(), record);
             enqueue(() -> taskRecordService.save(record));
         }
     }
@@ -124,13 +165,15 @@ public class JobRunRecorder {
     }
 
     private void stepStarted(String stepPath, String description) {
-        TaskRecord record = new TaskRecord().setId(jobRunId + ":" + stepPath)
-                                            .setJobRunId(jobRunId)
-                                            .setStepPath(stepPath)
-                                            .setDescription(description)
-                                            .setStatus(ExecutionStatus.RUNNING)
-                                            .setStarted(new Date());
-        recordsByPath.put(stepPath, record);
+        // Normally seeded PENDING at discovery; creating here is load-bearing against a step
+        // shape the discovery walk cannot see, so its lifecycle is still recorded
+        TaskRecord record = recordsByPath.computeIfAbsent(stepPath,
+                                                          path -> new TaskRecord().setId(jobRunId + ":" + path)
+                                                                                  .setJobRunId(jobRunId)
+                                                                                  .setStepPath(path));
+        record.setDescription(description)
+              .setStatus(ExecutionStatus.RUNNING)
+              .setStarted(new Date());
         enqueue(() -> taskRecordService.save(record));
     }
 
@@ -217,16 +260,6 @@ public class JobRunRecorder {
                 enqueue(() -> taskRecordService.save(record));
             }
         }
-    }
-
-    private String pathOf(Result<?> result) {
-        Deque<Integer> sequences = new ArrayDeque<>();
-        for(StepInfo info = result.getStepInfo(); info != null; info = info.getAncestor()){
-            sequences.addFirst(info.getSequence());
-        }
-        return sequences.stream()
-                        .map(String::valueOf)
-                        .collect(Collectors.joining("/"));
     }
 
     private synchronized void enqueue(Supplier<CompletableFuture<?>> writeOperation) {
