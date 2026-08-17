@@ -159,8 +159,9 @@ Exit code 0.
 | Memory / vCPU limits enforced | YES | YES |
 | No-egress mode boots and denies | YES | YES |
 | Published ports, host-side address | YES | YES |
-| Snapshotter | overlayfs | devmapper thin-pool (required) |
-| Guest rootfs | host filesystem, 61.8 G shared | `/dev/vdb` ext4, 9.7 G per workload |
+| Snapshotter | overlayfs, or devmapper | devmapper thin-pool (required) |
+| Guest rootfs, on overlayfs | host filesystem, 61.8 G shared | n/a |
+| Guest rootfs, on devmapper | 9.7 G per workload, enforced | 9.7 G per workload, enforced |
 | Cold boot | ~1650–1780 ms | ~2180–2540 ms |
 
 ### 3.1 The bind mount is a copy, and that is the deciding difference
@@ -185,7 +186,7 @@ Container stdout is unaffected: it reaches a real file on the host
 (`/var/lib/nerdctl/.../<id>-json.log`) through the shim rather than through a shared
 filesystem, so log shipping via `nerdctl logs` or by tailing that file still works.
 
-### 3.2 Disk is per-workload here, which Cloud Hypervisor does not give
+### 3.2 The per-workload disk comes from the snapshotter, not from Firecracker
 
 The Firecracker rootfs is a thin-pool block device rather than a directory on the host
 filesystem:
@@ -195,10 +196,48 @@ filesystem:
   guest rootfs mount    : /dev/vdb on / type ext4 (rw,relatime,stripe=16)
 ```
 
-Under Cloud Hypervisor the same line reads `61.8G` — the host's own filesystem, with no
-per-workload cap at all. Firecracker's `base_image_size` gives each workload a bounded disk
-without needing the XFS project-quota mechanism, which is a genuine advantage for the
-multi-tenant case.
+Under Cloud Hypervisor **on overlayfs** the same line reads `61.8G` — the host's own
+filesystem, with no per-workload cap. That is a property of the snapshotter, though, not of
+the hypervisor: Cloud Hypervisor on the same devmapper pool is bounded too, and the cap is
+enforced.
+
+```
+$ nerdctl --snapshotter devmapper run --runtime io.containerd.kata-clh.v2 alpine ...
+  guest df /            : none                      9.7G      8.6M      9.2G   0% /
+  guest rootfs mount    : none on / type virtiofs (rw,relatime)
+
+  dd if=/dev/zero of=/fill bs=1M count=11000 conv=fsync
+  dd-exit=1     bytes landed: 10438172672
+  after         : none                      9.7G      9.7G         0 100% /
+```
+
+And live sharing survives that combination — all three directions propagate, unlike
+Firecracker:
+
+```
+  content at boot        : before-start
+  host write -> guest    : after-start
+  guest write -> host    : from-guest
+```
+
+So Cloud Hypervisor on devmapper gives a bounded per-workload disk *and* a live shared
+directory. Firecracker has no unique disk advantage; it just cannot be run any other way.
+
+XFS project quotas are a separate mechanism and only cover **volume mounts**, not the rootfs.
+They do work under Cloud Hypervisor, exactly as they did under boxlite — a 64 MiB hard limit
+stops the guest at the limit and reports it through `df`:
+
+```
+  guest df /capped       : none                     64.0M         0     64.0M   0% /capped
+  dd-exit=1              : 67108864 bytes (64.0MB) copied
+  bytes landed on host   : 67108864 (limit 67108864)
+  host quota report      : #5151  65536  0  65536
+```
+
+They cannot cap the overlayfs rootfs as deployed here: that snapshotter's directory sits on
+`/dev/root ext4`, and project quotas require XFS mounted `-o prjquota`. containerd's overlayfs
+snapshotter also has no per-container size option of the kind Docker's overlay2 exposes via
+`--storage-opt size=`. Capping the rootfs means changing snapshotter, not adding a quota.
 
 ### 3.3 Boot latency
 
