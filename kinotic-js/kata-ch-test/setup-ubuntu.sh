@@ -51,13 +51,17 @@ case "$KATA_ASSET" in
 esac
 [ -x /opt/kata/bin/containerd-shim-kata-v2 ] || fail "the bundle did not provide /opt/kata/bin/containerd-shim-kata-v2"
 
-# The kata shim selects its config from the name it was invoked under, so the clh-suffixed
-# link is what makes containerd's io.containerd.kata-clh.v2 runtime use Cloud Hypervisor
-# rather than the default QEMU configuration
 ln -sf /opt/kata/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-clh-v2
 ln -sf /opt/kata/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-v2
 CLH_CONF=/opt/kata/share/defaults/kata-containers/configuration-clh.toml
 [ -f "$CLH_CONF" ] || fail "no Cloud Hypervisor configuration at $CLH_CONF — this bundle may not ship clh support"
+
+# The shim does not derive its config from the name it was invoked under: kata-runtime reads
+# /etc/kata-containers/configuration.toml first and the bundle default second, and the bundle
+# ships that default as a symlink to configuration-qemu.toml. Without this override the stack
+# runs QEMU while every version string still reports cloud-hypervisor.
+mkdir -p /etc/kata-containers
+ln -sf "$CLH_CONF" /etc/kata-containers/configuration.toml
 
 step "Installing containerd, CNI and nerdctl (nerdctl-full bundle)"
 curl -fsSL -o "/tmp/${NERDCTL_ASSET}" "$NERDCTL_URL" || fail "downloading ${NERDCTL_ASSET}"
@@ -87,6 +91,28 @@ echo "host kernel  : $(uname -r)"
 echo "guest kernel : ${GUEST_KERNEL}"
 [ "$GUEST_KERNEL" != "$(uname -r)" ] \
     || fail "the guest reported the host's kernel, so this ran under runc and not in a VM at all"
+
+# A differing guest kernel only proves a VM booted, not which hypervisor booted it, so assert
+# the VMM process directly. This compares each process's actual executable via /proc/PID/exe:
+# a pgrep -f pattern would match this script's own command line, and comm is truncated to 15
+# characters so it never equals "cloud-hypervisor" either.
+count_vmm() {
+    local pid exe found=0
+    for pid in /proc/[0-9]*; do
+        exe="$(readlink -f "$pid/exe" 2>/dev/null)" || continue
+        [ "$exe" = "$1" ] && found=$((found + 1))
+    done
+    echo "$found"
+}
+/usr/local/bin/nerdctl run -d --name kata-clh-vmmcheck --runtime io.containerd.kata-clh.v2 \
+    alpine:latest sleep 30 >/dev/null 2>&1 || fail "could not start the VMM verification container"
+sleep 5
+RUNNING_CLH="$(count_vmm /opt/kata/bin/cloud-hypervisor)"
+RUNNING_QEMU="$(count_vmm /opt/kata/bin/qemu-system-x86_64)"
+/usr/local/bin/nerdctl rm -f kata-clh-vmmcheck >/dev/null 2>&1
+[ "$RUNNING_CLH" -gt 0 ] \
+    || fail "a kata-clh container ran with no cloud-hypervisor process (qemu-system processes seen: ${RUNNING_QEMU}) — the shim resolved a different hypervisor config; check kata-runtime env"
+echo "hypervisor   : cloud-hypervisor (${RUNNING_CLH} process(es) verified, qemu: ${RUNNING_QEMU})"
 
 echo
 echo "SETUP OK — kata ${KATA_VERSION}, nerdctl ${NERDCTL_VERSION}, guest kernel ${GUEST_KERNEL}"

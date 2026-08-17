@@ -157,6 +157,9 @@ sudo apt-get install -y unzip
 
 ### 3.2 Pointing Kata at the Cloud Hypervisor config (**the significant one**)
 
+Originally applied by hand; **now fixed in `setup-ubuntu.sh`**, which installs the override
+itself and then asserts the running VMM (see the end of this section).
+
 ```bash
 sudo mkdir -p /etc/kata-containers
 sudo ln -sf /opt/kata/share/defaults/kata-containers/configuration-clh.toml \
@@ -214,6 +217,26 @@ $ kata-runtime env | grep -A2 '^\[Hypervisor\]'
 
 Cold boot latency corroborates the switch: ~2100 ms per run under QEMU, ~1650 ms under
 Cloud Hypervisor.
+
+`setup-ubuntu.sh` now installs the override and verifies the result, so a fresh host cannot
+land on QEMU silently. The verification compares each process's actual executable through
+`/proc/PID/exe`, because the two obvious checks both give false results here: a `pgrep -f`
+pattern matches the setup script's own command line, and `comm` is truncated to 15 characters
+so it never equals `cloud-hypervisor`. Verified against both states — with the config forced
+to QEMU it reports `cloud-hypervisor procs: 0, qemu-system procs: 1` and fails the install;
+from a host with `/etc/kata-containers` deleted entirely it reinstalls the override and
+prints:
+
+```
+host kernel  : 6.8.0-1064-azure
+guest kernel : 6.18.35
+hypervisor   : cloud-hypervisor (1 process(es) verified, qemu: 0)
+
+SETUP OK — kata 4.0.0, nerdctl v2.3.5, guest kernel 6.18.35
+```
+
+The probe was re-run end to end on that freshly installed stack; results match §2.2 with
+boot latency 1659 / 1617 / 1634 ms.
 
 ### 3.3 `inotify-tools` for investigations A and C
 
