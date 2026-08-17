@@ -13,7 +13,6 @@ boxlite, run on a dedicated Azure VM with nested virtualization.
 | Host kernel | `6.8.0-1064-azure` |
 | Root filesystem | `/dev/root` ext4, 62 G |
 | `/dev/kvm` | present, `crw-rw---- root:kvm` |
-| Repo commit | `aa7afaa1f` (`origin/develop`) |
 
 Versions resolved by `setup-ubuntu.sh`, with the release asset each one selected:
 
@@ -27,6 +26,11 @@ Versions resolved by `setup-ubuntu.sh`, with the release asset each one selected
 
 Host kernel `6.8.0-1064-azure` vs guest kernel `6.18.35` — workloads are genuinely
 separate VMs, not host-kernel containers.
+
+There is no Docker daemon: `docker` and `dockerd` are not installed. Images are standard OCI
+images from Docker Hub, and the chain is nerdctl → containerd → containerd-shim-kata-v2 →
+cloud-hypervisor, with cgroup v2 and the overlayfs snapshotter. nerdctl is a
+Docker-CLI-compatible frontend, which is why the commands below look like `docker run`.
 
 ## 2. Verbatim stdout
 
@@ -56,19 +60,18 @@ cloud-hypervisor v51.1
 === Pulling the probe images
 
 === Smoke test: one container on the Kata Cloud Hypervisor runtime
-time="2026-08-16T05:52:29Z" level=warning msg="cannot set cgroup manager to \"systemd\" for runtime \"io.containerd.kata-clh.v2\""
+time="2026-08-17T00:11:53Z" level=warning msg="cannot set cgroup manager to \"systemd\" for runtime \"io.containerd.kata-clh.v2\""
 host kernel  : 6.8.0-1064-azure
 guest kernel : 6.18.35
+hypervisor   : cloud-hypervisor (1 process(es) verified, qemu: 0)
 
 SETUP OK — kata 4.0.0, nerdctl v2.3.5, guest kernel 6.18.35
 ```
 
-Exit code 0.
+Exit code 0. Run from a host with `/etc/kata-containers` deleted, so this is the full install
+path rather than a re-run over existing state.
 
 ### 2.2 `sudo bun run src/capability-test.ts`
-
-This is the run **after** the Cloud Hypervisor fix in section 3.2. An earlier run of the
-same probe, before that fix, executed under QEMU and is not reported as the result.
 
 ```
 Runtime         : io.containerd.kata-clh.v2
@@ -79,7 +82,7 @@ Host            : Linux 6.8.0-1064-azure
 === Phase 0: is a workload actually a VM here? ===
   host kernel           : 6.8.0-1064-azure
   guest kernel          : 6.18.35
-  cloud-hypervisor procs: 0
+  cloud-hypervisor procs: 1
 
 === Phase 1: OCI image semantics ===
   entrypoint override   : exit=0 "from-entrypoint"
@@ -103,28 +106,29 @@ Host            : Linux 6.8.0-1064-azure
 === Phase 5: lifecycle and IVmProvider.recover ===
   batch status/exit code: exited 42
   restart in place      : exit=0, /root/boots.log has 2 line(s)
-  visible to a new proc : keep-msve70jb Up
-  stable id for logs    : 7cf8ce06f9083dab9e2d3523
+  visible to a new proc : keep-mswhqa58 Up
+  stable id for logs    : 01390e4923168f9e11f7628d
 
 === Phase 6: are resource limits honoured? ===
-  guest RAM for 512m    : 2372 MiB
-  guest nproc for 2 cpus: 3
-  guest df /            : none                     61.8G      9.7G     52.1G  16% /
+  cgroup memory.max     : 536870912 (512 MiB) for --memory 512m
+  cgroup cpu.max        : 200000 100000 (2 cpus) for --cpus 2
+  but the guest sees    : 2500 MiB / 3 cpus
+  guest df /            : none                     61.8G     10.1G     51.7G  16% /
   host snapshotter dirs : /var/lib/containerd/io.containerd.snapshotter.v1.blockfile /var/lib/containerd/io.containerd.snapshotter.v1.btrfs /var/lib/containerd/io.containerd.snapshotter.v1.erofs /var/lib/containerd/io.containerd.snapshotter.v1.native /var/lib/containerd/io.containerd.snapshotter.v1.overlayfs
-  host fs for that dir  : /dev/root      ext4   62G  9.7G   53G  16% /
+  host fs for that dir  : /dev/root      ext4   62G   11G   52G  17% /
 
 === Phase 7: network ===
   default egress        : exit=0
   --network none        : booted=YES exit=1
   published port 18080  : HTTP 200
-  workload address      : 10.4.0.47
+  workload address      : 10.4.0.147
   (a host-side address is what lets a firewall allow only the api-gateway)
 
 === Phase 8: cold boot latency (the dev edit/redeploy cycle) ===
-  run-to-exit, 3 samples: 1761 ms, 1631 ms, 1633 ms
+  run-to-exit, 3 samples: 1783 ms, 1676 ms, 1716 ms
 
 === REPORT: what the vm-manager needs, and whether this stack provides it ===
-  workloads are real VMs                  : YES (cloud-hypervisor seen: NO)
+  workloads are real VMs                  : YES (cloud-hypervisor seen: YES)
   OCI entrypoint / env / workdir          : YES / YES / YES
   three volume mounts (boxlite: NO)       : YES   four: YES
   readOnly mount enforced                 : YES
@@ -133,7 +137,7 @@ Host            : Linux 6.8.0-1064-azure
   run-to-completion exit code (boxlite: NO): YES
   restart in place, rootfs intact         : YES
   state survives the manager process      : YES
-  memory / vcpu limits honoured           : NO / NO
+  memory / vcpu limits honoured           : YES / YES
   egress open by default                  : YES
   no-egress mode boots (boxlite: NO)      : YES   and denies: YES
   published ports reachable from the host : YES
@@ -144,7 +148,7 @@ Exit code 0.
 
 ## 3. Deviations
 
-Every command run beyond the scripted steps, and why.
+Commands run beyond the scripted steps, and why.
 
 ### 3.1 `unzip` for the bun installer
 
@@ -153,128 +157,37 @@ sudo apt-get install -y unzip
 ```
 
 `bun`'s installer aborts with `error: unzip is required to install bun` on a stock Ubuntu
-22.04 image. Already noted in the scripted steps.
+22.04 image.
 
-### 3.2 Pointing Kata at the Cloud Hypervisor config (**the significant one**)
-
-Originally applied by hand; **now fixed in `setup-ubuntu.sh`**, which installs the override
-itself and then asserts the running VMM (see the end of this section).
+### 3.2 `inotify-tools` for investigations A and C
 
 ```bash
-sudo mkdir -p /etc/kata-containers
-sudo ln -sf /opt/kata/share/defaults/kata-containers/configuration-clh.toml \
-            /etc/kata-containers/configuration.toml
-sudo systemctl restart containerd
+sudo apt-get install -y inotify-tools              # host
+nerdctl exec shB apk add --no-cache inotify-tools  # inside the guest
 ```
 
-Without this, **workloads run under QEMU, not Cloud Hypervisor**, even though the runtime
-is named `io.containerd.kata-clh.v2` and setup prints a cloud-hypervisor version.
+Diagnostic tooling for the investigations below; not needed by the probe.
 
-`setup-ubuntu.sh:39-42` assumes the shim picks its config from the name it is invoked
-under:
+### 3.3 Two measurement bugs fixed in the harness
 
-```bash
-# The kata shim selects its config from the name it was invoked under, so the clh-suffixed
-# link is what makes containerd's io.containerd.kata-clh.v2 runtime use Cloud Hypervisor
-ln -sf /opt/kata/bin/containerd-shim-kata-v2 /usr/local/bin/containerd-shim-kata-clh-v2
-```
+Neither changed what is being tested, and both were producing false negatives:
 
-Kata 4.0.0 does not do this. Its own binary reports the only two paths it consults:
+- **Selecting Cloud Hypervisor.** The setup script assumed the kata shim derives its config
+  from the name it was invoked under. It does not — `kata-runtime` reads
+  `/etc/kata-containers/configuration.toml` first and the bundle default second, and the
+  bundle ships that default as a symlink to `configuration-qemu.toml`. The stack therefore
+  ran QEMU while every version string still reported cloud-hypervisor. Setup now installs the
+  override and asserts the running VMM.
+- **Detecting the VMM, and reading resource limits.** Both the setup script's assertion and
+  the probe's phase 0 now identify processes by their executable via `/proc/PID/exe`: a
+  `pgrep -f` pattern matches the checking script's own command line, and `comm` is truncated
+  to 15 characters so it never equals `cloud-hypervisor`. Phase 6 now reads the container's
+  cgroup rather than `free -m` and `nproc`, which describe the sandbox VM and answer a
+  different question.
 
-```
-$ kata-runtime --show-default-config-paths
-/etc/kata-containers/configuration.toml
-/opt/kata/share/defaults/kata-containers/configuration.toml
-```
-
-and the bundle ships `configuration.toml` as a symlink to `configuration-qemu.toml`, so
-the shim silently resolved QEMU:
-
-```
-$ kata-runtime env | grep -A1 '^\[Hypervisor\]'
-[Hypervisor]
-  Path = "/opt/kata/bin/qemu-system-x86_64"
-```
-
-Proof it was actually QEMU running the workload, before the fix:
-
-```
-$ ps -eo pid,comm,args | grep -iE 'cloud-hyper|qemu-system'
-10521 qemu-system-x86 /opt/kata/bin/qemu-system-x86_64 -name sandbox-f8d987abd663...
-```
-
-and after:
-
-```
-$ ps -eo pid,comm,args | grep -iE 'cloud-hyper|qemu-system'
-11148 cloud-hyperviso /opt/kata/bin/cloud-hypervisor --api-socket /run/vc/vm/ee5f2f02...
-
-$ kata-runtime env | grep -A2 '^\[Hypervisor\]'
-[Hypervisor]
-  MachineType = "q35"
-  Version = "cloud-hypervisor v51.1"
-```
-
-Cold boot latency corroborates the switch: ~2100 ms per run under QEMU, ~1650 ms under
-Cloud Hypervisor.
-
-`setup-ubuntu.sh` now installs the override and verifies the result, so a fresh host cannot
-land on QEMU silently. The verification compares each process's actual executable through
-`/proc/PID/exe`, because the two obvious checks both give false results here: a `pgrep -f`
-pattern matches the setup script's own command line, and `comm` is truncated to 15 characters
-so it never equals `cloud-hypervisor`. Verified against both states — with the config forced
-to QEMU it reports `cloud-hypervisor procs: 0, qemu-system procs: 1` and fails the install;
-from a host with `/etc/kata-containers` deleted entirely it reinstalls the override and
-prints:
-
-```
-host kernel  : 6.8.0-1064-azure
-guest kernel : 6.18.35
-hypervisor   : cloud-hypervisor (1 process(es) verified, qemu: 0)
-
-SETUP OK — kata 4.0.0, nerdctl v2.3.5, guest kernel 6.18.35
-```
-
-The probe was re-run end to end on that freshly installed stack; results match §2.2 with
-boot latency 1659 / 1617 / 1634 ms.
-
-### 3.3 `inotify-tools` for investigations A and C
-
-```bash
-sudo apt-get install -y inotify-tools          # host
-nerdctl exec shB apk add --no-cache inotify-tools   # inside the guest
-```
-
-Diagnostic tooling for the investigations; not needed by the probe.
-
-### 3.4 Run from `develop`
-
-Run against `origin/develop` at `aa7afaa1f`, which is the intended base for this work.
-
-### 3.5 Probe measurement bug: `cloud-hypervisor procs: 0`
-
-Not a change — a caveat about the output above. Phase 0 counts with:
-
-```ts
-const ps = run("sh", ["-c", "ps -eo comm= | grep -c cloud-hypervisor || true"]);  // capability-test.ts:93
-```
-
-The kernel truncates `comm` to 15 characters (`TASK_COMM_LEN` is 16 including the NUL), so
-the process appears as `cloud-hyperviso` and the 16-character pattern never matches:
-
-```
-$ ps -eo comm= | grep -i cloud
-cloud-hyperviso
-$ pgrep -c cloud-hypervisor        # comm match
-0
-$ pgrep -c -f cloud-hypervisor     # full cmdline match
-2
-```
-
-So `cloud-hypervisor seen: NO` is a false negative on **any** host, correctly configured or
-not. This is why phase 0 did not catch the QEMU substitution in 3.2 — its only real guard is
-the host-vs-guest kernel comparison, which passes under QEMU too. The probe was left
-unedited; `pgrep -f` is the working check.
+Both fixes were verified against a deliberately broken host: with the config forced to QEMU
+the setup assertion reports `cloud-hypervisor procs: 0, qemu-system procs: 1` and fails the
+install.
 
 ## 4. Investigations
 
@@ -299,8 +212,8 @@ $ cat <path>
 {"log":"stdout-3\n","stream":"stdout","time":"2026-08-16T05:58:31.527082862Z"}
 ```
 
-A regular file on the host's ext4 root filesystem, Docker-compatible JSON-lines, with
-stdout and stderr distinguished by a `stream` field and each line timestamped. Mode `0600`,
+A regular file on the host's ext4 root filesystem, Docker-compatible JSON-lines, with stdout
+and stderr distinguished by a `stream` field and each line timestamped. Mode `0600`,
 root-owned.
 
 It is inotify-tailable:
@@ -315,8 +228,8 @@ $ tail -2 <path>
 {"log":"LATE-LINE\n","stream":"stdout","time":"2026-08-16T05:59:20.546102056Z"}
 ```
 
-**Alloy can tail container logs directly.** The log-file contract used with boxlite —
-where workloads write their own files into a mounted log directory — is no longer required.
+**Alloy can tail container logs directly.** The log-file contract used with boxlite — where
+workloads write their own files into a mounted log directory — is no longer required.
 
 ### B. Can egress be restricted to a single destination?
 
@@ -353,14 +266,14 @@ Verified from inside the guest, using raw IPs so the result does not depend on D
   raw ip    1.1.1.1            exit=1 wget: download timed out
 ```
 
-The `403 Forbidden` on the allowed destination is the origin server rejecting a raw-IP
-`Host` header — it is an HTTP response, so the TCP connection completed and the destination
-is reachable. The unlisted host and the raw IP change from reachable to `download timed
-out`, i.e. dropped at the network layer.
+The `403 Forbidden` on the allowed destination is the origin server rejecting a raw-IP `Host`
+header — it is an HTTP response, so the TCP connection completed and the destination is
+reachable. The unlisted host and the raw IP change from reachable to `download timed out`,
+i.e. dropped at the network layer.
 
-**Egress can be restricted to exactly one destination.** Unlike boxlite's `allowNet`, this
-is enforced on the host where customer code cannot reach it, and it fails closed: the DROP
-rule is unconditional and an empty allowlist means only the DROP rule exists.
+**Egress can be restricted to exactly one destination.** Unlike boxlite's `allowNet`, this is
+enforced on the host where customer code cannot reach it, and it fails closed: the DROP rule
+is unconditional and an empty allowlist means only the DROP rule exists.
 
 One caveat for implementation: rules are keyed on the workload's CNI address, which is
 assigned per container (`10.4.0.22`, `10.4.0.47`, `10.4.0.55` across runs). The vm-manager
@@ -386,21 +299,17 @@ Two controls confirm that is specific to the cross-guest path, not a broken watc
 
 ```
 === 1b. control: write made INSIDE B ===
-    Setting up watches.
-    Watches established.
     /shared/ CREATE local.js
     EXIT=0
 
 === 1c. control: inotify on the HOST, A's write ===
-    Watches established.
     host saw: CREATE hostwatch.js
 ```
 
-inotify works inside the guest, and a host watcher does see guest writes — only
-guest-to-guest event propagation is missing. The bytes themselves arrive:
+inotify works inside the guest, and a host watcher does see guest writes — only guest-to-guest
+event propagation is missing. The bytes themselves arrive:
 
 ```
-=== 2. does B see the bytes? ===
   B reads /shared/app.js : v1-payload
   host reads it          : v1-payload
 ```
@@ -416,151 +325,10 @@ ignores `%N`, so in-guest stamps have only 1-second resolution and were discarde
   sample 5: A wrote 1786860268.181123169, B reacted 1786860268.181123169  -> 0.0 ms
 ```
 
-**Same conclusion as boxlite: the redeploy loop must poll, not watch.** Data is visible
-within 0–1 ms once the writer has written, so a poll interval sets the entire reload
-latency. A host-side watcher is a viable alternative trigger, since 1c shows the host does
-receive the event — the vm-manager could watch on the host and signal the guest.
-
-### E. Are resource limits actually enforced? (follow-up to phase 6)
-
-Phase 6 reports `memory / vcpu limits honoured : NO / NO`. **That verdict is wrong**, and
-the probe's assertion is measuring the wrong quantity:
-
-```ts
-const mem  = kata(["--rm", "--memory", "512m", IMAGE, "sh", "-c", "free -m | awk '/Mem:/ {print $2}'"]);
-const cpus = kata(["--rm", "--cpus", "2", IMAGE, "nproc"]);
-record("cpus", cpus.stdout === "2");   // capability-test.ts:211-217
-```
-
-`free -m` and `nproc` report the **sandbox VM's** size. What constrains the workload is the
-container's cgroup inside the guest, which carries exactly what was requested:
-
-```
-$ nerdctl run --rm --runtime io.containerd.kata-clh.v2 --memory 512m --cpus 2 alpine:latest sh -c '...'
-  cgroup version : v2
-  memory.max     : 536870912          <- 512 MiB exactly
-  cpu.max        : 200000 100000      <- 2.0 CPUs exactly
-  free -m total  : 2500 MiB           <- what phase 6 measures
-  nproc          : 3                  <- what phase 6 measures
-```
-
-Memory enforcement is real and deterministic — an allocation past the limit is OOM-killed by
-the guest kernel, and the workload exits 137 (SIGKILL):
-
-```
-  bs=256M (under limit)  exit=0    exit=0    exit=0
-  bs=700M (over limit)   exit=137  exit=137  exit=137
-
-  guest dmesg: dd invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=-997
-               oom_kill_process+0xef/0x1f0
-```
-
-**A 512 MB limit does restrict the workload to 512 MB.** That holds with the config exactly
-as shipped; no tuning is required for the limit to bind.
-
-CPU enforcement binds directionally, on fixed work across 4 workers:
-
-```
-  --cpus 1 : 5755 ms wall
-  --cpus 2 : 4797 ms wall
-  --cpus 4 : 3970 ms wall
-```
-
-(Each sample includes ~1.6 s of constant container boot, so the ratios understate the
-effect; `cpu.max = 200000 100000` is the precise evidence.)
-
-The VM's own sizing behaves differently for the two resources:
-
-```
-  --memory 512m  -> guest total 2372 MiB      --cpus 1 -> guest nproc 2
-  --memory 1024m -> guest total 2372 MiB      --cpus 2 -> guest nproc 3
-  --memory 2048m -> guest total 2372 MiB      --cpus 4 -> guest nproc 4
-```
-
-vCPUs scale with the request (`default_vcpus = 1` plus what was asked for), while guest RAM
-stays flat regardless of `--memory` — the sandbox is sized by `default_memory = 2048` in
-`configuration-clh.toml`, independent of the workload's limit.
-
-The guest's reported size is **not** a host reservation. Guest memory is backed lazily, so
-the host commits only what the workload actually touches:
-
-```
-=== baseline, no workloads ===
-  host MemAvailable : 15297 MiB
-  cloud-hypervisor  : 0 MiB RSS
-
-=== one idle workload (--memory 512m, guest reports 2500 MiB) ===
-  host MemAvailable : 15116 MiB
-  cloud-hypervisor  : 166 MiB RSS
-
-=== after touching 400 MiB inside the guest ===
-  host MemAvailable : 14708 MiB  (delta 408 MiB)
-  cloud-hypervisor  : 568 MiB RSS  (delta 402 MiB)
-
-=== after freeing it inside the guest ===
-  cloud-hypervisor  : 569 MiB RSS
-
-=== four workloads ===
-  cloud-hypervisor  : 1063 MiB RSS total
-  per-workload RSS  : 569 MiB / 164 MiB / 167 MiB / 163 MiB
-```
-
-An idle workload costs about **165 MiB** of host RAM despite reporting 2500 MiB inside, and
-touched pages are backed 1:1 on demand. Since the cgroup caps the workload at its limit, the
-worst case per workload is its limit plus that overhead — roughly 680 MiB for a 512 MiB
-workload, so a 16 GB host carries on the order of twenty, not six.
-
-Two consequences follow, neither an isolation failure:
-
-1. **Freed guest memory is not returned to the host.** Dropping the 400 MiB inside the guest
-   left host RSS at 569 MiB. Without free page reporting or ballooning, each VM's host
-   footprint is a high-water mark of everything it has ever touched, so a workload that
-   briefly peaks holds that memory for its lifetime. This, not the declared size, is what
-   governs density over time.
-2. **Guests misreport their own size**, and some runtime APIs inherit the error. A workload
-   reading `free`/`nproc` sees 2372 MiB and 3 CPUs while its cgroup allows 512 MiB and 2
-   CPUs. For the Bun runtime Kinotic apps use, the APIs split cleanly into correct and
-   wrong ones — measured inside a `--memory 512m --cpus 2` guest:
-
-   | API | Reports | Correct? |
-   |---|---|---|
-   | `process.constrainedMemory()` | 512 MiB | yes — reads the cgroup |
-   | `navigator.hardwareConcurrency` | 2 | yes — reads the cgroup |
-   | `os.totalmem()` | 2500 MiB | no — the VM |
-   | `os.freemem()` | 2407 MiB | no — the VM |
-   | `os.availableMemory()` / `process.availableMemory()` | 2407 MiB | no — the VM |
-   | `os.cpus().length` | 3 | no — the VM |
-
-   So a Kinotic app can size itself correctly, but only from `process.constrainedMemory()`
-   and `navigator.hardwareConcurrency`. Anything sizing a cache, worker pool or buffer from
-   `os.totalmem()` or `os.cpus().length` will over-commit by roughly 5x and be killed.
-
-   The kill itself is abrupt. A Bun process allocating past its limit:
-
-   ```
-     allocated  448 MiB   rss=476 MiB
-     allocated  480 MiB   rss=508 MiB
-   EXIT=137
-   ```
-
-   It is SIGKILLed at the cgroup boundary with no `exit` handler run and no SIGTERM first,
-   so a workload gets no opportunity to flush logs, close connections or checkpoint state.
-   The vm-manager sees exit 137 and must treat it as an OOM kill rather than a crash.
-
-Sizing the VM to match the per-workload limit does not work through the obvious knobs.
-Both were tested against a `--memory 512m` workload:
-
-| Config | guest `free` total | cgroup | host RSS |
-|---|---|---|---|
-| as shipped (`default_memory = 2048`) | 2372 MiB | 512 MiB | 167 MiB |
-| `static_sandbox_resource_mgmt = true` | 2490 MiB | 512 MiB | 171 MiB |
-| `default_memory = 512` | 990 MiB | 512 MiB | 136 MiB |
-
-`static_sandbox_resource_mgmt = true` does not size the sandbox from the workload's limit —
-the guest still reports ~2.4 GB. `default_memory` does shrink the VM, but it is a global
-setting rather than per-workload, and the guest still does not land on the requested figure
-(512 requested, 990 reported). So the guest's self-reported size cannot currently be made to
-track each workload's limit; workloads must be given explicit heap and pool sizing instead.
+**Same conclusion as boxlite: the redeploy loop must poll, not watch.** Data is visible within
+0–1 ms once the writer has written, so a poll interval sets the entire reload latency. A
+host-side watcher is a viable alternative trigger, since 1c shows the host does receive the
+event — the vm-manager could watch on the host and signal the guest.
 
 ### D. Can this be driven from Bun without shelling out?
 
@@ -595,13 +363,111 @@ bun can open the socket : YES (node:net unix socket connect)
 server speaks HTTP/2    : YES (SETTINGS frame received)
 ```
 
-So the options are: generate gRPC stubs from containerd's `.proto` files with
-`@grpc/grpc-js` + `@grpc/proto-loader` and maintain them ourselves, or shell out to
-`nerdctl` permanently. Note the socket is `root:root 0660`, so the provider runs as root or
-in a group granted access.
+So the options are: generate gRPC stubs from containerd's `.proto` files with `@grpc/grpc-js`
++ `@grpc/proto-loader` and maintain them ourselves, or shell out to `nerdctl` permanently.
+Note the socket is `root:root 0660`, so the provider runs as root or in a group granted access.
 
 This is a genuine regression against boxlite's maintained Node SDK, and the largest
 non-capability cost in this evaluation.
+
+### E. How limits bind, and how the VM is sized
+
+A `--memory 512m` workload gets exactly that in its cgroup, and enforcement is deterministic —
+an allocation past the limit is OOM-killed by the guest kernel and the workload exits 137:
+
+```
+  bs=256M (under limit)  exit=0    exit=0    exit=0
+  bs=700M (over limit)   exit=137  exit=137  exit=137
+
+  guest dmesg: dd invoked oom-killer: gfp_mask=0xcc0(GFP_KERNEL), order=0, oom_score_adj=-997
+               oom_kill_process+0xef/0x1f0
+```
+
+CPU binds directionally, on fixed work across 4 workers (each sample includes ~1.6 s of
+constant container boot, so the ratios understate the effect):
+
+```
+  --cpus 1 : 5755 ms wall
+  --cpus 2 : 4797 ms wall
+  --cpus 4 : 3970 ms wall
+```
+
+The VM itself is sized independently of the limit, and cannot be made to track it:
+
+| Config | guest `free` total | cgroup | host RSS |
+|---|---|---|---|
+| as shipped (`default_memory = 2048`) | 2372 MiB | 512 MiB | 167 MiB |
+| `static_sandbox_resource_mgmt = true` | 2490 MiB | 512 MiB | 171 MiB |
+| `default_memory = 512` | 990 MiB | 512 MiB | 136 MiB |
+
+`static_sandbox_resource_mgmt = true` does not size the sandbox from the workload's limit.
+`default_memory` does shrink the VM, but it is global rather than per-workload and does not
+land on the requested figure. vCPUs do track the request (`default_vcpus = 1` plus what was
+asked: `--cpus 1` → 2, `--cpus 2` → 3, `--cpus 4` → 4); memory does not.
+
+That reported size is **not** a host reservation — guest memory is backed lazily, so the host
+commits only what the workload touches:
+
+```
+=== baseline, no workloads ===
+  host MemAvailable : 15297 MiB
+  cloud-hypervisor  : 0 MiB RSS
+
+=== one idle workload (--memory 512m, guest reports 2500 MiB) ===
+  cloud-hypervisor  : 166 MiB RSS
+
+=== after touching 400 MiB inside the guest ===
+  cloud-hypervisor  : 568 MiB RSS  (delta 402 MiB)
+
+=== after freeing it inside the guest ===
+  cloud-hypervisor  : 569 MiB RSS
+
+=== four workloads ===
+  cloud-hypervisor  : 1063 MiB RSS total
+  per-workload RSS  : 569 MiB / 164 MiB / 167 MiB / 163 MiB
+```
+
+An idle workload costs about **165 MiB** of host RAM despite reporting 2500 MiB inside, and
+touched pages are backed 1:1 on demand. Since the cgroup caps the workload at its limit, the
+worst case per workload is its limit plus that overhead — roughly 680 MiB for a 512 MiB
+workload, so a 16 GB host carries on the order of twenty.
+
+**Freed guest memory is not returned to the host.** Dropping the 400 MiB inside the guest left
+host RSS at 569 MiB. Without free page reporting or ballooning, each VM's host footprint is a
+high-water mark of everything it has ever touched, so a workload that briefly peaks holds that
+memory for its lifetime. This, not the declared size, is what governs density over time.
+
+### F. What the Bun runtime sees
+
+Kinotic apps run on Bun, so what its APIs report decides whether a workload can size itself
+correctly. Measured inside a `--memory 512m --cpus 2` guest with Bun 1.3.14:
+
+| API | Reports | Correct? |
+|---|---|---|
+| `process.constrainedMemory()` | 512 MiB | yes — reads the cgroup |
+| `navigator.hardwareConcurrency` | 2 | yes — reads the cgroup |
+| `os.totalmem()` | 2500 MiB | no — the VM |
+| `os.freemem()` | 2407 MiB | no — the VM |
+| `process.availableMemory()` | 2407 MiB | no — the VM |
+| `os.cpus().length` | 3 | no — the VM |
+
+A Kinotic app can size itself correctly, but only from `process.constrainedMemory()` and
+`navigator.hardwareConcurrency`. Anything sizing a cache, worker pool or buffer from
+`os.totalmem()` or `os.cpus().length` over-commits by roughly 5x and is killed.
+`process.availableMemory()` is the trap: it sounds cgroup-aware, sits next to
+`constrainedMemory()`, and returns the VM's free memory.
+
+The kill is abrupt. A Bun process allocating past its limit:
+
+```
+  allocated  448 MiB   rss=476 MiB
+  allocated  480 MiB   rss=508 MiB
+EXIT=137
+```
+
+It is SIGKILLed at the cgroup boundary with no `exit` handler run and no SIGTERM first, so a
+workload gets no opportunity to flush logs, close connections or checkpoint state. The
+vm-manager sees exit 137 and must treat it as an OOM kill rather than a crash.
 
 ## 5. Assessment
 
@@ -618,68 +484,50 @@ non-capability cost in this evaluation.
 | Entrypoint stdout discarded | **Fixed** | phase 4: `stdout="line-one" stderr="line-two"` |
 | Rootfs above 1 GiB not allocated | **Not reproduced** | phase 6: `guest df / : 61.8G`, backed by the host's real 62 G ext4 |
 
-The probe's `memory / vcpu limits honoured : NO / NO` is a **false negative** — see
-investigation E. The container cgroup inside the guest carries exactly the requested limits
-(`memory.max = 536870912`, `cpu.max = 200000 100000`) and enforces them: an 800 MB
-allocation in a 512 MB workload is OOM-killed. Phase 6 asserts on `free -m` and `nproc`,
-which describe the sandbox VM rather than the workload. Isolation holds.
+Resource limits are enforced (`memory / vcpu limits honoured : YES / YES`, investigation E).
 
-The VM is sized independently of the limit, but that costs far less than its reported size
-suggests: guest memory is backed lazily, so an idle workload consumes ~165 MiB of host RAM
-while reporting 2500 MiB inside. Density is set by what workloads touch, not what they
-declare. Two caveats remain — freed guest memory is never returned to the host, so each VM's
-footprint ratchets to its high-water mark, and a guest misreports its own size, so Bun
-workloads must size themselves from `process.constrainedMemory()` and
-`navigator.hardwareConcurrency` rather than `os.totalmem()` or `os.cpus().length`.
-
-Also note the rootfs is **shared host storage**, not a per-workload disk: `guest df /`
-reports the host's 62 G filesystem. There is no per-workload disk cap here at all, so disk
-quota remains a separate problem — the XFS project-quota mechanism probed against boxlite
-would still be the answer.
+Two things this stack does not provide. The rootfs is **shared host storage**, not a
+per-workload disk: `guest df /` reports the host's 62 G filesystem, so there is no
+per-workload disk cap at all and the XFS project-quota mechanism probed against boxlite
+remains the answer for disk. And a guest misreports its own size, so Bun workloads must size
+themselves from the cgroup-aware APIs in investigation F.
 
 ### 5.2 Does the logging design survive?
 
 **YES**, and it gets simpler.
 
-Both routes work. A host watcher sees guest writes to a mounted directory (`phase 3:
-inotify saw the write : YES after 61 ms`, `host reads the content: "hello"`), so the current
-Alloy design carries over unchanged. Additionally, entrypoint stdout/stderr is captured to a
-plain JSON-lines file on the host (investigation A) that Alloy can tail directly, which
-removes the need for workloads to write their own log files.
+Both routes work. A host watcher sees guest writes to a mounted directory (`phase 3: inotify
+saw the write : YES after 61 ms`, `host reads the content: "hello"`), so the current Alloy
+design carries over unchanged. Additionally, entrypoint stdout/stderr is captured to a plain
+JSON-lines file on the host (investigation A) that Alloy can tail directly, which removes the
+need for workloads to write their own log files.
 
 ### 5.3 Can egress be restricted to the api-gateway alone?
 
 **YES.** Investigation B restricts a workload to exactly one destination with two iptables
-rules; the allowed destination completes a TCP connection while an unlisted host and a raw
-IP both time out.
+rules; the allowed destination completes a TCP connection while an unlisted host and a raw IP
+both time out.
 
-This is stronger than boxlite's `allowNet`: enforcement is on the host rather than inside
-the sandbox, and it fails closed rather than open. The cost is that the vm-manager becomes
+This is stronger than boxlite's `allowNet`: enforcement is on the host rather than inside the
+sandbox, and it fails closed rather than open. The cost is that the vm-manager becomes
 responsible for firewall lifecycle — installing rules once the CNI address is known and
 removing them on teardown.
 
 ### 5.4 What is the cost?
 
-**Install friction: high, and quietly dangerous.** The setup is not
-`apt-get install`; it is a static bundle plus containerd, CNI and nerdctl, with release
-assets resolved at run time. Two failures were hit:
+**Install friction: high.** The setup is not `apt-get install`; it is a static bundle plus
+containerd, CNI and nerdctl, with release assets resolved at run time. Two failures were hit
+and both are now handled by `setup-ubuntu.sh`: upstream moving `kata-static` from `.tar.xz` to
+`.tar.zst`, and the hypervisor config selection described in §3.3. The general lesson for
+anything automating this install is to assert the running VMM process rather than the
+configured one.
 
-1. An earlier revision constructed `kata-static-<ver>-amd64.tar.xz` while upstream had moved
-   to `.tar.zst`, giving a 404. Already fixed on `develop`.
-2. The `clh` shim symlink does not select Cloud Hypervisor. Without
-   `/etc/kata-containers/configuration.toml`, **the stack silently runs QEMU while
-   reporting a cloud-hypervisor version**, and the probe's own phase 0 guard does not catch
-   it (section 3.5). That combination — a wrong hypervisor, a green setup, and a
-   passing guard — is the most decision-relevant finding here. Anything automating this
-   install must assert the running VMM process, not the configured one.
-
-**Boot latency: good.** `1761 ms, 1631 ms, 1633 ms` cold run-to-exit under Cloud
-Hypervisor, versus ~2100 ms under QEMU. Fast enough for the dev edit/redeploy loop,
-especially since the reload path (investigation C) reuses a running VM rather than booting
-one.
+**Boot latency: good.** `1783 / 1676 / 1716 ms` cold run-to-exit under Cloud Hypervisor,
+against ~2100 ms measured under QEMU. Fast enough for the dev edit/redeploy loop, especially
+since the reload path (investigation C) reuses a running VM rather than booting one.
 
 **Driving it from Bun: the real cost.** No maintained Node/Bun containerd client exists
-(investigation D). Either we generate and maintain gRPC stubs from containerd's protos, or
-we shell out to `nerdctl` indefinitely. Boxlite's clean Node SDK is a genuine advantage that
-this stack does not match, and this is the main ongoing engineering expense to weigh against
-the capability wins above.
+(investigation D). Either we generate and maintain gRPC stubs from containerd's protos, or we
+shell out to `nerdctl` indefinitely. Boxlite's clean Node SDK is a genuine advantage that this
+stack does not match, and this is the main ongoing engineering expense to weigh against the
+capability wins above.

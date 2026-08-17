@@ -87,12 +87,19 @@ function phasePreflight(): void {
     const isVm = guest.code === 0 && guest.stdout.length > 0 && guest.stdout !== hostKernel;
     record("vm", isVm);
 
-    // A long-lived box makes the hypervisor process observable from the host
+    // A long-lived box makes the hypervisor process observable from the host. Match on each
+    // process's executable rather than its name: comm is truncated to 15 characters so it
+    // never equals "cloud-hypervisor", and a pgrep -f pattern matches this probe's own
+    // command line, so both report the wrong answer on a host running QEMU.
     const name = `pre-${RUN}`;
     kata(["-d", "--name", name, IMAGE, "sleep", "120"]);
-    const ps = run("sh", ["-c", "ps -eo comm= | grep -c cloud-hypervisor || true"]);
-    console.log(`  cloud-hypervisor procs: ${ps.stdout}`);
-    record("clh", Number(ps.stdout || 0) > 0);
+    const countVmm = (binary: string) => Number(run("sh", ["-c",
+        `for p in /proc/[0-9]*; do [ "$(readlink -f "$p/exe" 2>/dev/null)" = "${binary}" ] && echo x; done | wc -l`,
+    ]).stdout || 0);
+    const clhProcs = countVmm("/opt/kata/bin/cloud-hypervisor");
+    const qemuProcs = countVmm("/opt/kata/bin/qemu-system-x86_64");
+    console.log(`  cloud-hypervisor procs: ${clhProcs}${qemuProcs > 0 ? `   qemu-system procs: ${qemuProcs}` : ""}`);
+    record("clh", clhProcs > 0);
     remove(name);
 
     if (!isVm) {
@@ -208,13 +215,25 @@ function phaseLifecycle(): void {
 
 function phaseResources(): void {
     console.log("=== Phase 6: are resource limits honoured? ===");
-    const mem = kata(["--rm", "--memory", "512m", IMAGE, "sh", "-c", "free -m | awk '/Mem:/ {print $2}'"]);
-    console.log(`  guest RAM for 512m    : ${mem.stdout} MiB`);
-    record("memory", Number(mem.stdout || 0) > 0 && Number(mem.stdout) <= 640);
+    // What constrains the workload is its cgroup, not the size of the sandbox VM. free -m and
+    // nproc describe the VM, which Kata sizes independently of the limit, so they answer a
+    // different question and report a limit as unhonoured when it is being enforced.
+    const mem = kata(["--rm", "--memory", "512m", IMAGE, "sh", "-c",
+        "cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes"]);
+    const memMib = Number(mem.stdout || 0) / 1024 / 1024;
+    console.log(`  cgroup memory.max     : ${mem.stdout} (${memMib} MiB) for --memory 512m`);
+    record("memory", memMib === 512);
 
-    const cpus = kata(["--rm", "--cpus", "2", IMAGE, "nproc"]);
-    console.log(`  guest nproc for 2 cpus: ${cpus.stdout}`);
-    record("cpus", cpus.stdout === "2");
+    const cpus = kata(["--rm", "--cpus", "2", IMAGE, "sh", "-c", "cat /sys/fs/cgroup/cpu.max 2>/dev/null"]);
+    const [quota, period] = cpus.stdout.split(/\s+/);
+    console.log(`  cgroup cpu.max        : ${cpus.stdout} (${Number(quota) / Number(period)} cpus) for --cpus 2`);
+    record("cpus", Number(quota) / Number(period) === 2);
+
+    // The VM is sized independently of the limit, so a guest misreports its own size to
+    // anything reading free/nproc — the reason a workload must size itself from its cgroup
+    const seen = kata(["--rm", "--memory", "512m", "--cpus", "2", IMAGE, "sh", "-c",
+        "echo \"$(free -m | awk '/Mem:/ {print $2}') MiB / $(nproc) cpus\""]);
+    console.log(`  but the guest sees    : ${seen.stdout}`);
 
     const df = kata(["--rm", IMAGE, "sh", "-c", "df -h / | tail -n 1"]);
     console.log(`  guest df /            : ${df.stdout}`);
