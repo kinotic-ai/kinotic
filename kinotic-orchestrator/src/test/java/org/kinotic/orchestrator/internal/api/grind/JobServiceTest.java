@@ -273,7 +273,7 @@ public class JobServiceTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("owned job").name("owned-job")
             .task(Tasks.fromCallable("work", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def, JobOwner.of("org-1", "app-1", "proj-1"));
+        JobExecution execution = jobService.execute(def, JobOwner.ofApplication("org-1", "app-1", "proj-1"));
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -284,10 +284,12 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
-    public void jobOwnerRequiresAnOrganizationForNarrowerIds() {
-        assertTrue(JobOwner.of(null, null, null).isSystem());
-        assertThrows(IllegalArgumentException.class, () -> JobOwner.of(null, "app-1", null));
-        assertThrows(IllegalArgumentException.class, () -> JobOwner.of(null, null, "proj-1"));
+    public void jobOwnerFactoriesValidateTheirTier() {
+        assertTrue(JobOwner.system().isSystem());
+        assertFalse(JobOwner.ofOrganization("org-1").isSystem());
+        assertThrows(IllegalArgumentException.class, () -> JobOwner.ofOrganization(""));
+        assertThrows(IllegalArgumentException.class, () -> JobOwner.ofApplication("org-1", ""));
+        assertThrows(IllegalArgumentException.class, () -> JobOwner.ofApplication("", "app-1"));
     }
 
     @Test
