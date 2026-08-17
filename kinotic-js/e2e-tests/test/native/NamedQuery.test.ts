@@ -17,7 +17,7 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V5__e2e_app_fixtures migration.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-named-query'
 
 interface LocalTestContext {
