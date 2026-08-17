@@ -128,7 +128,7 @@ export async function shutdownKinoticClient(): Promise<void> {
 
 /**
  * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
- * the given (applicationId, tenantId) pair by the V5__e2e_app_fixtures migration (email
+ * the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code OsApiPlugin} and
  * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
