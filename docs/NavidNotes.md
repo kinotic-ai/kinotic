@@ -1,6 +1,6 @@
 # Phase Prompt
 
-I would like you to break this work into a series of phases where ideally each phase changes around 10 files. After each phase I would like you to wait for me to review the code before proceeding with the next phase. Once I give approval you can move onto the next phase.
+I would like you to break this work into a series of phases where ideally each phase changes around 10 files. After each phase I would like you to wait for me to review the code before proceeding with the next phase. Once I give approval, you can move onto the next phase. No phase may rewrite, refactor, or restructure what an earlier phase produced, and if a later phase would force that, the earlier phase drew its boundary wrong: say so and re-plan rather than churning code.
 
 
 ### IamUser refactor
