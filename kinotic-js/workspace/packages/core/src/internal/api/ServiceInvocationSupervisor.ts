@@ -12,7 +12,7 @@ import opentelemetry, { context, propagation, trace, SpanKind, SpanStatusCode, t
 import info from '../../../package.json' with { type: 'json' }
 
 /**
- * Handles invoking services registered with Kinoitc in TypeScript.
+ * Handles invoking services registered with Kinotic in TypeScript.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
@@ -52,7 +52,7 @@ export class ServiceInvocationSupervisor {
         this._eventBus = eventBusService
         this.interceptorProvider = interceptorProvider
 
-        this.log = options.logger || createDebugLogger("kinoitc:ServiceInvocationSupervisor")
+        this.log = options.logger || createDebugLogger("kinotic:ServiceInvocationSupervisor")
         this.argumentResolver = options.argumentResolver || new JsonArgumentResolver()
         this.returnValueConverter = options.returnValueConverter || new BasicReturnValueConverter()
 

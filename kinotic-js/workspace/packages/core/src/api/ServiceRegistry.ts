@@ -60,7 +60,7 @@ export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
-    private debugLogger = debug('kinoitc:serviceRegistry')
+    private debugLogger = debug('kinotic:serviceRegistry')
 
     constructor(eventBus: IEventBus) {
         this._eventBus = eventBus

@@ -12,7 +12,7 @@ const DEFAULT_PORT = 58503
 const DEFAULT_HOST = 'api.kinotic.ai'
 
 /**
- * Static utility functions used across the Kinoitc core runtime.
+ * Static utility functions used across the Kinotic core runtime.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025

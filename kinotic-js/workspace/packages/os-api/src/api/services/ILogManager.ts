@@ -35,13 +35,13 @@ export class LoggersDescriptor {
 export interface ILogManager {
 
     /**
-     * @param nodeId the kinoitc node to get the LoggersDescriptor from
+     * @param nodeId the kinotic node to get the LoggersDescriptor from
      * @return a {@link LoggersDescriptor} containing all the loggers and their levels
      */
     loggers(nodeId: string): Promise<LoggersDescriptor>
 
     /**
-     * @param nodeId the kinoitc node to get the LoggerLevelsDescriptor from
+     * @param nodeId the kinotic node to get the LoggerLevelsDescriptor from
      * @param name the name of the logger to get
      * @return a {@link LoggerLevelsDescriptor} containing the logger and its levels
      */
@@ -49,7 +49,7 @@ export interface ILogManager {
 
     /**
      * Configures the log level for the logger with the given name
-     * @param nodeId the kinoitc node to set the log level on
+     * @param nodeId the kinotic node to set the log level on
      * @param name the name of the logger to set
      * @param level the {@link LogLevel} to set for the logger with the given name
      */
