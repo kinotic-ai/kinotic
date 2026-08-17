@@ -147,7 +147,7 @@ export class EventBus implements IEventBus {
     }
 
     public send(event: IEvent): void {
-        if(this.stompConnectionManager.rxStomp){
+        if(this.stompConnectionManager.active){
             const headers: any = {}
 
             for (const [key, value] of event.headers.entries()) {
@@ -179,7 +179,7 @@ export class EventBus implements IEventBus {
     }
 
     public requestStream(event: IEvent, sendControlEvents: boolean = true): Observable<IEvent> {
-        if(this.stompConnectionManager?.rxStomp){
+        if(this.stompConnectionManager.active){
             return new Observable<IEvent>((subscriber) => {
 
                 if (this.requestRepliesObservable == null) {
@@ -338,11 +338,13 @@ export class EventBus implements IEventBus {
      * @return the cold {@link Observable<IEvent>} for the given destination
      */
     private _observe(cri: string): Observable<IEvent> {
-        if(this.stompConnectionManager?.rxStomp) {
-            return this.stompConnectionManager
-                       .rxStomp
-                       .watch(cri)
-                       .pipe(map<IMessage, IEvent>((message: IMessage): IEvent => {
+        // watch() is durable: a subscription made before the first connect queues until the
+        // broker connects, and re-subscribes on every reconnect — so service registrations
+        // and observed CRIs stay live across disconnect/connect cycles.
+        return this.stompConnectionManager
+                   .rxStomp
+                   .watch(cri)
+                   .pipe(map<IMessage, IEvent>((message: IMessage): IEvent => {
 
                            // We translate all IMessage objects to IEvent objects
                            const headers: Map<string, string> = new Map<string, string>()
@@ -357,9 +359,6 @@ export class EventBus implements IEventBus {
 
                            return new Event(destination, headers, message.binaryBody)
                        }))
-        }else{
-            throw this.createSendUnavailableError()
-        }
     }
 
 }
