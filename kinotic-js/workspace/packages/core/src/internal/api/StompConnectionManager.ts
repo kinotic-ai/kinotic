@@ -44,7 +44,7 @@ export class StompConnectionManager {
     private readonly JITTER_MAX: number = 5000
     private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
     private connectionAttempts: number = 0
-    private debugLogger = debug('kinoitc:stomp')
+    private debugLogger = debug('kinotic:stomp')
     private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
     private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
     private initialConnectionSuccessful: boolean = false
@@ -282,7 +282,7 @@ export class StompConnectionManager {
 
                 const newReplyToCri: string = EventConstants.REPLY_DESTINATION_PREFIX
                     + connectedInfo.replyToId + ':' + this.uuidv4
-                    + '@kinoitc.js.EventBus/replyHandler'
+                    + '@kinotic.js.EventBus/replyHandler'
 
                 if (!this.initialConnectionSuccessful) {
                     this._replyToCri = newReplyToCri
