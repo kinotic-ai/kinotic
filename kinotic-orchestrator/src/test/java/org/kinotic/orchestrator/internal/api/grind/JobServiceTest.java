@@ -6,9 +6,6 @@ import org.kinotic.orchestrator.api.model.grind.ExecutionStatus;
 import org.kinotic.orchestrator.api.model.grind.JobRun;
 import org.kinotic.orchestrator.api.model.grind.StoreType;
 import org.kinotic.orchestrator.api.model.grind.TaskRecord;
-import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 import org.kinotic.orchestrator.api.model.grind.JobDefinition;
 import org.kinotic.orchestrator.api.model.grind.JobExecution;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
@@ -287,27 +284,10 @@ public class JobServiceTest extends AbstractGrindTest {
     }
 
     @Test
-    public void jobOwnerMapsFromEachParticipantScope() {
-        JobOwner system = JobOwner.from(DefaultSystemParticipant.builder().id("sys").build());
-        assertTrue(system.isSystem(), "a system participant owns platform runs");
-        assertNull(system.getOrganizationId());
-
-        JobOwner org = JobOwner.from(DefaultOrganizationParticipant.builder()
-                                                                   .id("user-1").organizationId("org-1").build());
-        assertEquals("org-1", org.getOrganizationId());
-        assertNull(org.getApplicationId());
-
-        JobOwner app = JobOwner.from(DefaultApplicationParticipant.builder()
-                                                                  .id("user-1").organizationId("org-1")
-                                                                  .applicationId("app-1").build(),
-                                     "proj-1");
-        assertEquals("org-1", app.getOrganizationId());
-        assertEquals("app-1", app.getApplicationId());
-        assertEquals("proj-1", app.getProjectId());
-
-        // project ownership requires an organization, so a system participant cannot carry one
-        assertThrows(IllegalArgumentException.class,
-                     () -> JobOwner.from(DefaultSystemParticipant.builder().id("sys").build(), "proj-1"));
+    public void jobOwnerRequiresAnOrganizationForNarrowerIds() {
+        assertTrue(JobOwner.of(null, null, null).isSystem());
+        assertThrows(IllegalArgumentException.class, () -> JobOwner.of(null, "app-1", null));
+        assertThrows(IllegalArgumentException.class, () -> JobOwner.of(null, null, "proj-1"));
     }
 
     @Test

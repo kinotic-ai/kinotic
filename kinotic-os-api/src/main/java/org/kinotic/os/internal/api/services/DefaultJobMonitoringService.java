@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.security.ParticipantScope;
 import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.model.grind.JobRun;
@@ -41,13 +42,14 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     @Override
     public Future<Page<JobRun>> findJobRuns(Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        JobOwner owner = JobOwner.from(currentParticipant());
+        ParticipantScope scope = currentParticipant().getScope();
         Future<Page<JobRun>> ret;
-        if(owner.isSystem()){
+        if(scope.organizationId() == null){
             // operators troubleshoot every run, not only the platform-owned ones findAllForOwner would give
             ret = jobRunService.findAll(pageable);
         }else{
-            ret = jobRunService.findAllForOwner(owner, pageable);
+            ret = jobRunService.findAllForOwner(JobOwner.of(scope.organizationId(), scope.applicationId(), null),
+                                                pageable);
         }
         return ret;
     }
@@ -74,12 +76,13 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     private Future<JobRun> authorizedJobRun(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         ScopedParticipant participant = currentParticipant();
-        JobOwner owner = JobOwner.from(participant);
+        String organizationId = participant.getScope().organizationId();
         return jobRunService.findById(jobRunId).map(run -> {
             if(run == null){
                 throw new IllegalArgumentException("JobRun not found: " + jobRunId);
             }
-            if(!owner.isSystem() && !owner.getOrganizationId().equals(run.getOrganizationId())){
+            // a null organizationId is a SYSTEM-scoped caller, who may view any run
+            if(organizationId != null && !organizationId.equals(run.getOrganizationId())){
                 // Log the mismatch server-side; surface only a generic message to the caller
                 log.error("Participant {} may not view job run {} (run org={})",
                           participant.getId(), jobRunId, run.getOrganizationId());
