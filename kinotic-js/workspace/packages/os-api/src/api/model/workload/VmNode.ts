@@ -58,6 +58,14 @@ export class VmNode implements Identifiable<string> {
     public allocatedDiskMb: number = 0
 
     /**
+     * The largest rootfs this node can give a single workload, in megabytes. A workload whose
+     * diskSizeMb exceeds it cannot be placed here, however much unallocated disk the node has,
+     * because the cap comes from how the node's container storage is configured rather than
+     * from free space. Zero means the node reports no per-workload ceiling.
+     */
+    public maxWorkloadDiskMb: number = 0
+
+    /**
      * The date and time the node was last seen/heartbeat.
      */
     public lastSeen: number | null = null

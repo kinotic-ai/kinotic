@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/e2e-tests",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@kinotic-ai/core": "^5.0.0-beta.4",
-    "@kinotic-ai/os-api": "^5.0.0-beta.5",
+    "@kinotic-ai/os-api": "^5.0.0-beta.12",
     "@kinotic-ai/persistence": "^5.0.0-beta.4",
     "vue": "^3.5.41"
   },

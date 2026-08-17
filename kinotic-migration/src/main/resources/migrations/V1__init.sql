@@ -305,6 +305,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
+    maxWorkloadDiskMb INTEGER,
     lastSeen DATE
 );
 
@@ -324,12 +325,14 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     memoryMb INTEGER,
     diskSizeMb INTEGER,
     network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
+    logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
     detached BOOLEAN,
     autoRemove BOOLEAN,
     status KEYWORD,
+    exitCode INTEGER,
     environment JSON NOT INDEXED,
     portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
-    volumeMounts OBJECT (hostPath KEYWORD, guestPath KEYWORD, readOnly BOOLEAN),
+    volumeMounts OBJECT (hostPath KEYWORD, guestPath KEYWORD, readOnly BOOLEAN, sizeLimitMb INTEGER),
     entrypoint KEYWORD NOT INDEXED,
     cmd KEYWORD NOT INDEXED,
     created DATE,

@@ -4,6 +4,7 @@ import { VmProviderType } from '@/api/model/workload/VmProviderType'
 import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 import type { PortMapping } from '@/api/model/workload/PortMapping'
 import { NetworkPolicy } from '@/api/model/workload/NetworkPolicy'
+import { LogPolicy } from '@/api/model/workload/LogPolicy'
 
 /**
  * Represents a workload to be managed by the VM manager.
@@ -75,6 +76,11 @@ export class Workload implements Identifiable<string> {
     public network: NetworkPolicy = new NetworkPolicy()
 
     /**
+     * How much of this workload's log output the node keeps.
+     */
+    public logPolicy: LogPolicy = new LogPolicy()
+
+    /**
      * When true the VM runs detached from the vm-manager process and survives its
      * restarts. Non-detached workloads end when the vm-manager exits.
      */
@@ -91,6 +97,14 @@ export class Workload implements Identifiable<string> {
      * Current status of the workload.
      */
     public status: WorkloadStatus = WorkloadStatus.PENDING
+
+    /**
+     * The exit status of the workload's process once it has stopped, null while it has not.
+     * A workload killed by a signal reports 128 plus the signal number, so 137 is a SIGKILL —
+     * which is what a workload that exceeded its memory limit receives, with no chance to
+     * shut down first. FAILED alone does not distinguish that from code that threw.
+     */
+    public exitCode: number | null = null
 
     /**
      * Optional environment variables to pass to the VM.
