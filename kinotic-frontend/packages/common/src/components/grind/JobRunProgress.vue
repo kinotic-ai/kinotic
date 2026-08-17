@@ -44,7 +44,7 @@ import Tag from 'primevue/tag'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import JobStepPipeline from './JobStepPipeline.vue'
 import JobTaskTree from './JobTaskTree.vue'
-import { executionStatusSeverity, formatDuration } from './jobRunDisplay'
+import { executionStatusSeverity } from './jobRunDisplay'
 import { useJobRunProgress } from './useJobRunProgress'
 
 /**
@@ -57,6 +57,7 @@ const props = defineProps<{
 }>()
 
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDuration = DatetimeUtil.formatDuration
 
 const { run, root, loading, error, live } = useJobRunProgress(props.jobRunId)
 

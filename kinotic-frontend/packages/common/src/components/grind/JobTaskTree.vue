@@ -56,7 +56,9 @@ import { computed, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
 import { ExecutionStatus } from '@kinotic-ai/os-api'
 import type { JobStepNode } from './JobStepNode'
-import { formatDuration } from './jobRunDisplay'
+import DatetimeUtil from '../../util/DatetimeUtil'
+
+const formatDuration = DatetimeUtil.formatDuration
 
 interface TreeRow {
   node: JobStepNode

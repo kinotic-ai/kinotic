@@ -38,7 +38,7 @@ import { useCrudTablePage } from '../useCrudTablePage'
 import type { CrudHeader } from '../../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
 import DatetimeUtil from '../../util/DatetimeUtil'
-import { executionStatusSeverity, formatDuration } from './jobRunDisplay'
+import { executionStatusSeverity } from './jobRunDisplay'
 
 /**
  * The job runs the caller may view, newest knowledge first as the facade returns them.
@@ -49,6 +49,7 @@ const emit = defineEmits<{
 }>()
 
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
+const formatDuration = DatetimeUtil.formatDuration
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },

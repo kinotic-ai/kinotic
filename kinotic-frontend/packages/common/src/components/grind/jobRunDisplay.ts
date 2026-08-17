@@ -18,27 +18,3 @@ export function executionStatusSeverity(status: ExecutionStatus): string {
   }
   return ret
 }
-
-/**
- * Formats the elapsed time of a run or step, measuring against nowMs while it has not
- * finished. Returns an em dash when it never started.
- */
-export function formatDuration(started: number | null, finished: number | null, nowMs: number = Date.now()): string {
-  let ret: string
-  if (!started) {
-    ret = '—'
-  } else {
-    const totalSeconds = Math.max(0, Math.floor(((finished ?? nowMs) - started) / 1000))
-    const hours = Math.floor(totalSeconds / 3600)
-    const minutes = Math.floor((totalSeconds % 3600) / 60)
-    const seconds = totalSeconds % 60
-    if (hours > 0) {
-      ret = `${hours}h ${minutes}m`
-    } else if (minutes > 0) {
-      ret = `${minutes}m ${seconds}s`
-    } else {
-      ret = `${seconds}s`
-    }
-  }
-  return ret
-}
