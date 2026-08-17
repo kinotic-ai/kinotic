@@ -12,6 +12,10 @@ import org.kinotic.domain.api.model.security.ScopedParticipant;
  * by owner. A job definition is a system-wide template; ownership is declared per
  * execution when the job is started and recorded on the {@link JobRun}. The platform itself is an owner too - {@link #system()} -
  * with no organization.
+ * <p>
+ * An owner fuses two sources: the organization and application follow from the initiating
+ * participant's scope, while the owning project is declared by the caller per execution -
+ * no participant carries a project.
  */
 @Getter
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
