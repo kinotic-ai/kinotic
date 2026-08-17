@@ -222,15 +222,8 @@ export function tryGetNodeModuleName(nodeModulePath: string): string | null {
  * @return the absolute path to the subdirectory
  */
 async function ensureC3Directory(subdirectory: string): Promise<string> {
-    const c3Dir = path.resolve(resolveKinoticConfigDir(), 'c3')
-    const ret = path.resolve(c3Dir, subdirectory)
+    const ret = path.resolve(resolveKinoticConfigDir(), 'c3', subdirectory)
     await fsPromises.mkdir(ret, {recursive: true})
-    // c3 holds only what this generator rewrites from the entity sources on every run, so the
-    // directory ignores itself instead of every project needing to add the rule
-    const ignorePath = path.resolve(c3Dir, '.gitignore')
-    if (!fs.existsSync(ignorePath)) {
-        await fsPromises.writeFile(ignorePath, '*\n')
-    }
     return ret
 }
 
