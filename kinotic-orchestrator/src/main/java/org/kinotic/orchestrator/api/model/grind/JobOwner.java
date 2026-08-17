@@ -4,10 +4,8 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
-import org.kinotic.domain.api.model.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.ParticipantScope;
 import org.kinotic.domain.api.model.security.ScopedParticipant;
-import org.kinotic.domain.api.model.security.SystemParticipant;
 
 /**
  * The hierarchy a job run executes on behalf of, recorded on the run so runs can be filtered
@@ -88,15 +86,13 @@ public class JobOwner {
      * Creates the owner matching the given participant's scope, so a run started on a
      * participant's behalf is owned by the hierarchy the participant is authenticated under.
      * @param participant whose scope owns the run
-     * @return the owner, {@link #system()} for a {@link SystemParticipant}
+     * @return the owner, {@link #system()} for a SYSTEM-scoped participant
      */
     public static JobOwner from(ScopedParticipant participant) {
         Validate.notNull(participant, "participant cannot be null");
-        return switch (participant) {
-            case SystemParticipant ignored -> system();
-            case OrganizationParticipant org -> ofOrganization(org.getOrganizationId());
-            case ApplicationParticipant app -> ofApplication(app.getOrganizationId(), app.getApplicationId());
-        };
+        // the scope's tenantId is a data-slicing coordinate, not an ownership one, so it does not carry over
+        ParticipantScope scope = participant.getScope();
+        return of(scope.organizationId(), scope.applicationId(), null);
     }
 
     /**
@@ -104,7 +100,7 @@ public class JobOwner {
      * @param participant whose scope owns the run
      * @param projectId the owning project, or null for no project narrowing
      * @return the owner
-     * @throws IllegalArgumentException if a project is given for a {@link SystemParticipant},
+     * @throws IllegalArgumentException if a project is given for a SYSTEM-scoped participant,
      *         since a project-owned run requires an owning organization
      */
     public static JobOwner from(ScopedParticipant participant, String projectId) {
