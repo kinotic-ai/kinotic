@@ -12,8 +12,10 @@ import {v4 as uuidv4} from 'uuid'
 const SESSION_CHECK_PATH = '/api/auth/me'
 
 /**
- * Creates a new RxStomp client and manages it
- * This is here to simplify the logic needed for connection management and the usage of the client.
+ * Owns the process's single RxStomp client and manages its connection lifecycle.
+ * The client is created once and reused across activate/deactivate cycles, so
+ * subscriptions made through it (service registrations, observed CRIs) survive a
+ * disconnect and are re-subscribed by RxStomp on the next activation.
  */
 export class StompConnectionManager {
 
@@ -28,12 +30,21 @@ export class StompConnectionManager {
      * replyToId across connections.
      */
     public replyToCriChangedHandler: ((replyToCri: string) => void) | null = null
-    public rxStomp: RxStomp | null = null
+    /**
+     * The process-lifetime RxStomp client. Never replaced: watch() subscriptions made on it
+     * queue until connected and re-subscribe on every (re)connection, which is what keeps
+     * published services and observed CRIs alive across disconnect/connect cycles.
+     */
+    public readonly rxStomp: RxStomp = new RxStomp()
+    private isActive: boolean = false
+    private initialConnectedSubscription: Subscription | null = null
+    private initialFailureSubscription: Subscription | null = null
+    private webSocketErrorsSubscription: Subscription | null = null
     private readonly INITIAL_RECONNECT_DELAY: number = 2000
     private readonly JITTER_MAX: number = 5000
     private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
     private connectionAttempts: number = 0
-    private debugLogger = debug('kinoitc:stomp')
+    private debugLogger = debug('kinotic:stomp')
     private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
     private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
     private initialConnectionSuccessful: boolean = false
@@ -55,15 +66,14 @@ export class StompConnectionManager {
      * @return true if this {@link StompConnectionManager} is actively trying to maintain a connection to the Stomp server, false if not.
      */
     public get active(): boolean {
-        return !!this.rxStomp;
+        return this.isActive
     }
 
     /**
      * return true if this {@link StompConnectionManager} is active and has a connection to the stomp server
      */
     public get connected(): boolean {
-        return this.rxStomp != null
-            && this.rxStomp.connected()
+        return this.isActive && this.rxStomp.connected()
     }
 
     /**
@@ -81,7 +91,7 @@ export class StompConnectionManager {
         if (!options?.server?.host) {
             throw new Error('No host provided')
         }
-        if (this.rxStomp) {
+        if (this.isActive) {
             throw new Error('Stomp connection already active')
         }
 
@@ -112,8 +122,6 @@ export class StompConnectionManager {
             this.maxConnectionAttemptsReached = false
 
             const url = buildBrokerUrl(server)
-
-            this.rxStomp = new RxStomp()
 
             // Sockets may be produced asynchronously (a user factory, or credential resolution
             // refreshing a short-lived secret), but @stomp/stompjs only accepts a synchronous
@@ -211,7 +219,7 @@ export class StompConnectionManager {
             this.rxStomp.configure(stompConfig)
 
             // Handles Websocket Errors
-            this.rxStomp.webSocketErrors$.subscribe(async value => {
+            this.webSocketErrorsSubscription = this.rxStomp.webSocketErrors$.subscribe(async value => {
                 this.lastWebsocketError = value
                 // The attempt that just failed was the last the budget allows — report now
                 // instead of paying the reconnect delay before the next beforeConnect notices.
@@ -232,10 +240,10 @@ export class StompConnectionManager {
             })
 
             // Handles Successful Connections
-            const connectedSubscription: Subscription = this.rxStomp.connected$.subscribe(() =>{
+            this.initialConnectedSubscription = this.rxStomp.connected$.subscribe(() =>{
                 // We only want these for the initial connection
-                connectedSubscription.unsubscribe()
-                initialFailureSubscription.unsubscribe()
+                this.initialConnectedSubscription?.unsubscribe()
+                this.initialFailureSubscription?.unsubscribe()
 
                 // Successful Connection
                 if(!this.initialConnectionSuccessful){
@@ -245,9 +253,9 @@ export class StompConnectionManager {
 
             // Route any fatal error that arrives before the initial connection succeeds into
             // the activate() promise so the caller learns why the connection never came up.
-            const initialFailureSubscription: Subscription = this.fatalErrorsSubject.subscribe((err: Error) => {
-                connectedSubscription.unsubscribe()
-                initialFailureSubscription.unsubscribe()
+            this.initialFailureSubscription = this.fatalErrorsSubject.subscribe((err: Error) => {
+                this.initialConnectedSubscription?.unsubscribe()
+                this.initialFailureSubscription?.unsubscribe()
                 reject(err.message)
             })
 
@@ -274,7 +282,7 @@ export class StompConnectionManager {
 
                 const newReplyToCri: string = EventConstants.REPLY_DESTINATION_PREFIX
                     + connectedInfo.replyToId + ':' + this.uuidv4
-                    + '@kinoitc.js.EventBus/replyHandler'
+                    + '@kinotic.js.EventBus/replyHandler'
 
                 if (!this.initialConnectionSuccessful) {
                     this._replyToCri = newReplyToCri
@@ -285,25 +293,35 @@ export class StompConnectionManager {
                 }
             })
 
+            this.isActive = true
             this.rxStomp.activate()
         })
     }
 
     public async deactivate(force?: boolean): Promise<void> {
-        const rxStomp = this.rxStomp
-        if(rxStomp){
-            await rxStomp.deactivate({force: force})
-            // A concurrent activate() (a reconnect, or signalFatal racing an external disconnect) may
-            // have replaced the socket while we awaited this teardown, so only clear the shared state
-            // if rxStomp is still the one we tore down.
-            if(this.rxStomp === rxStomp){
-                this.serverHeadersSubscription?.unsubscribe()
-                this.serverHeadersSubscription = null
-                this.stompErrorsSubscription?.unsubscribe()
-                this.stompErrorsSubscription = null
-                this.rxStomp = null
-                this._replyToCri = null
-            }
+        if(this.isActive){
+            // cleared before the await so a reentrant deactivate (signalFatal firing while this
+            // teardown is in flight) is a no-op instead of a second rxStomp.deactivate()
+            this.isActive = false
+            await this.rxStomp.deactivate({force: force})
+            // watch() subscriptions survive deactivation and re-subscribe on the next activation.
+            // The listeners below are per-activation state that activate() recreates, so they are
+            // torn down with the connection.
+            // initialFailureSubscription is deliberately NOT torn down here: signalFatal()
+            // deactivates before emitting, so it must stay subscribed for the fatal error to
+            // reject a pending activate(). It self-unsubscribes when it fires. The stale
+            // connected-listener must go, though — on the persistent client it would otherwise
+            // fire on the next activation's CONNECTED frame and mark the initial connection
+            // successful before the new serverHeaders handler resolves it.
+            this.initialConnectedSubscription?.unsubscribe()
+            this.initialConnectedSubscription = null
+            this.webSocketErrorsSubscription?.unsubscribe()
+            this.webSocketErrorsSubscription = null
+            this.serverHeadersSubscription?.unsubscribe()
+            this.serverHeadersSubscription = null
+            this.stompErrorsSubscription?.unsubscribe()
+            this.stompErrorsSubscription = null
+            this._replyToCri = null
         }
         return
     }

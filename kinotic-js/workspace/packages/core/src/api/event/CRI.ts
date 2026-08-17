@@ -1,9 +1,9 @@
 import {DefaultCRI} from './DefaultCRI'
 
 /**
- * `CRI` is a Kinoitc Resource Identifier used by Kinoitc to route requests appropriately.
+ * `CRI` is a Kinotic Resource Identifier used by Kinotic to route requests appropriately.
  *
- * The `CRI` is a URI where the parts are named differently for clarity as to their purpose within Kinoitc.
+ * The `CRI` is a URI where the parts are named differently for clarity as to their purpose within Kinotic.
  *
  * Will be in a format as follows where anything surrounded with `[]` is optional:
  *

@@ -4,7 +4,7 @@ import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 
 /**
- * Part of the low level portion of kinoitc representing data to be processed
+ * Part of the low level portion of kinotic representing data to be processed
  *
  * This is similar to a Stomp Frame but with more required information and no control plane semantics.
  *
@@ -71,7 +71,7 @@ export interface IEvent {
 }
 
 /**
- * Part of the low level portion of kinoitc representing a connection to a kinoitc server
+ * Part of the low level portion of kinotic representing a connection to a kinotic server
  * This is similar to a Stomp Client but with more required information and no control plane semantics.
  *
  * Created by Navid Mitchell on 2019-01-04.
@@ -110,7 +110,7 @@ export interface IEventBus {
 
     /**
      * Determines if the connection is connected.
-     * This means that there is an open connection to the Kinoitc server
+     * This means that there is an open connection to the Kinotic server
      * @return true if the connection is active false if not
      */
     isConnected(): boolean

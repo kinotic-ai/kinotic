@@ -20,7 +20,7 @@ const CREATE_APPLICATION = 'Application Service Create Application If Not Exist'
 // inherits — AbstractCrudService.save(T value) — names the same parameter 'value'.
 const SAVE_PROJECT = 'Project Service Save'
 
-/** applicationId of the APPLICATION-scope user seeded for this suite by V5__e2e_app_fixtures. */
+/** applicationId of the APPLICATION-scope user seeded for this suite by V4__e2e_app_fixtures. */
 const APP_ID = 'e2e-mcp'
 
 async function connectMcpClient(authHeaders: Record<string, string>): Promise<Client> {

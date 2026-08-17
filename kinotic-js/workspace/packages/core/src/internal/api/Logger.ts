@@ -1,7 +1,7 @@
 import debug from 'debug'
 
 /**
- * Logging utilities for the Kinoitc library.
+ * Logging utilities for the Kinotic library.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025

@@ -108,6 +108,10 @@ describe('EntityCodeGenerationService', () => {
     it('writes the entity C3Type json and the Repository classes without verbose', async () => {
         await generate()
 
+        // The schemas are consumed server-side from the committed repository, so
+        // generate must never leave a gitignore that hides them.
+        expect(readIfExists('.config/c3/.gitignore'), 'c3 self-ignore').to.be.null
+
         const entityJson = readIfExists('.config/c3/entities/my.app.Todo.json')
         expect(entityJson, 'entity C3Type json').to.not.be.null
 

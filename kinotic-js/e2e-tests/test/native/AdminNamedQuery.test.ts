@@ -18,7 +18,7 @@ import {
 } from '../TestHelpers.js'
 
 // Fixed id: the app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, an APPLICATION-scoped
-// user that V5__e2e_app_fixtures seeds only for this applicationId.
+// user that V4__e2e_app_fixtures seeds only for this applicationId.
 const APP_ID = 'e2e-admin-named-query'
 
 interface LocalTestContext {
