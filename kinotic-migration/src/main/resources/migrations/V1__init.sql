@@ -71,6 +71,37 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
+-- Create the service_directory table if it does not exist
+CREATE TABLE IF NOT EXISTS kinotic_service_directory (
+    id KEYWORD,
+    serviceAddress KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    namespace KEYWORD,
+    name KEYWORD,
+    version KEYWORD,
+    zone KEYWORD,
+    description TEXT,
+    serviceDefinition JSON NOT INDEXED,
+    advertised BOOLEAN,
+    mcpExposed BOOLEAN,
+    mcpTools OBJECT (
+        name KEYWORD,
+        title KEYWORD,
+        description TEXT,
+        inputSchema JSON NOT INDEXED,
+        cri KEYWORD NOT INDEXED,
+        annotations OBJECT (
+            readOnlyHint BOOLEAN,
+            destructiveHint BOOLEAN,
+            idempotentHint BOOLEAN
+        ) NOT INDEXED
+    ),
+    online BOOLEAN,
+    lastStatusChange DATE
+);
+
 -- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
 -- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by
 -- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
@@ -202,6 +233,64 @@ CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
     textBody TEXT,
     created DATE,
     updated DATE
+);
+
+-- OAuth 2.0 Device Authorization Grant (RFC 8628): pending CLI device-code login flows.
+-- Short-lived (minutes); deleted once the CLI collects its tokens. deviceCodeHash is the
+-- SHA-256 of the high-entropy device_code the CLI polls with — the plaintext is never stored.
+CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
+    id KEYWORD,
+    deviceCodeHash KEYWORD,
+    userCode KEYWORD,
+    identityId KEYWORD,
+    deviceName KEYWORD NOT INDEXED,
+    created DATE,
+    expiresAt DATE,
+    lastPolledAt DATE,
+    intervalSeconds INTEGER
+);
+
+-- Rotating refresh tokens for CLI sessions. tokenHash is the SHA-256 of the refresh token —
+-- the plaintext lives only on the client. familyId groups a rotation lineage so presenting
+-- an already-rotated token (reuse) can revoke the whole family.
+-- audience is the surface access tokens minted from a lineage are valid for; rotation
+-- preserves it, so an MCP host's lineage can never mint a published-services token or the
+-- reverse.
+CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
+    id KEYWORD,
+    tokenHash KEYWORD,
+    identityId KEYWORD,
+    familyId KEYWORD,
+    label KEYWORD NOT INDEXED,
+    audience KEYWORD,
+    created DATE,
+    expiresAt DATE,
+    lastUsedAt DATE,
+    revoked BOOLEAN,
+    replacedById KEYWORD NOT INDEXED
+);
+
+-- OAuth 2.1 authorization server (PKCE authorization-code grant) that MCP hosts drive to reach
+-- POST /mcp. Clients are not stored: a client_id is a Client ID Metadata Document URL the
+-- authorization server fetches and validates per request
+-- (draft-ietf-oauth-client-id-metadata-document).
+--
+-- Authorization-code flows in progress: created by the authorize endpoint, bound to a user when
+-- the consent page approves, and deleted when the code is exchanged. codeHash is the SHA-256 of
+-- the authorization code — the plaintext is never stored.
+CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
+    id KEYWORD,
+    clientId KEYWORD,
+    clientName KEYWORD NOT INDEXED,
+    redirectUri KEYWORD NOT INDEXED,
+    codeChallenge KEYWORD NOT INDEXED,
+    scope KEYWORD NOT INDEXED,
+    resource KEYWORD NOT INDEXED,
+    state KEYWORD NOT INDEXED,
+    identityId KEYWORD,
+    codeHash KEYWORD,
+    created DATE,
+    expiresAt DATE
 );
 
 -- Create the vm_node table for tracking VmManager nodes
