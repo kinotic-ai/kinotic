@@ -20,19 +20,12 @@ describe('EgressPolicyManager', () => {
             .toThrow(/workload wl-2/)
     })
 
-    it('refuses an always-allowed destination that is not an address', () => {
-        const egress = new EgressPolicyManager(['api-gateway.internal'])
-
-        expect(() => egress.apply('wl-3', '172.17.0.2', []))
-            .toThrow(/not an IPv4 address or CIDR/)
-    })
-
     it('accepts addresses and CIDRs', () => {
-        const egress = new EgressPolicyManager(['10.0.1.0/24'])
+        const egress = new EgressPolicyManager()
 
         // Reaching past validation means the shape was accepted; whether the rules land
         // depends on iptables, which is the node's business rather than this guard's
-        expect(() => egress.apply('wl-4', '172.17.0.2', ['10.0.2.7', '10.0.3.0/28']))
+        expect(() => egress.apply('wl-4', '172.17.0.2', ['10.0.1.0/24', '10.0.2.7', '10.0.3.0/28']))
             .not.toThrow(/not an IPv4 address or CIDR/)
     })
 

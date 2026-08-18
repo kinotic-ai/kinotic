@@ -44,7 +44,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
-        const egress = new EgressPolicyManager(config.workloadGatewayCidrs, config.workloadDns ?? null)
+        const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
             console.warn('This node does not deny workload egress by default — a workload can reach '
                          + 'anything its address can route to. See docker-kata-ch/README.md')

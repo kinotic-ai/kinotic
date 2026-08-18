@@ -38,17 +38,14 @@ const ADDRESS_OR_CIDR = /^(\d{1,3}\.){3}\d{1,3}(\/([0-9]|[12][0-9]|3[0-2]))?$/
  */
 export class EgressPolicyManager {
 
-    private readonly alwaysAllowed: string[]
     private readonly resolver: string | null
 
     /**
-     * @param alwaysAllowed destinations every workload on this node may reach whatever its own
-     *        policy says — the api-gateway it exists to talk to
-     * @param resolver the DNS server workloads are given, permitted on port 53; null when the
-     *        node leaves resolution to the destinations in alwaysAllowed
+     * @param resolver the DNS server workloads are given, permitted on port 53. A property of
+     *        the node's network rather than of any workload's policy, so it is the one
+     *        destination this manager permits that the workload did not ask for.
      */
-    constructor(alwaysAllowed: string[] = [], resolver: string | null = null) {
-        this.alwaysAllowed = alwaysAllowed
+    constructor(resolver: string | null = null) {
         this.resolver = resolver
     }
 
@@ -69,12 +66,12 @@ export class EgressPolicyManager {
      * @param workloadId the workload the rules belong to
      * @param address the micro VM's address on the workload bridge
      * @param allowedHosts destinations from the workload's network policy, as IPv4 addresses
-     *        or CIDRs
+     *        or CIDRs. The api-gateway is among them: the server places it there, because only
+     *        the server knows where the gateway is.
      */
     public apply(workloadId: string, address: string, allowedHosts: string[]): void {
         this.requireAddress(address, `workload ${workloadId}`)
-        const destinations = [...this.alwaysAllowed, ...allowedHosts]
-        for (const destination of destinations) {
+        for (const destination of allowedHosts) {
             this.requireAddress(destination, `an allowed destination of workload ${workloadId}`)
         }
 
@@ -86,7 +83,7 @@ export class EgressPolicyManager {
             this.run(['-I', CHAIN, '-s', address, '-d', this.resolver,
                       '-p', 'udp', '--dport', '53', ...comment, '-j', 'ACCEPT'])
         }
-        for (const destination of destinations) {
+        for (const destination of allowedHosts) {
             this.run(['-I', CHAIN, '-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
         }
     }
