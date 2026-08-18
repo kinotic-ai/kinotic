@@ -14,6 +14,13 @@ export interface IVmProvider {
     readonly type: VmProviderType
 
     /**
+     * Capacity of the filesystem this provider gives workloads their disks from, in
+     * megabytes. This is what the orchestrator schedules {@link Workload#diskSizeMb}
+     * against, and each provider keeps its guest disks somewhere different.
+     */
+    totalDiskMb(): Promise<number>
+
+    /**
      * Restores the workload state persisted by a previous vm-manager process on this node,
      * reattaching to VMs that are still running.
      */

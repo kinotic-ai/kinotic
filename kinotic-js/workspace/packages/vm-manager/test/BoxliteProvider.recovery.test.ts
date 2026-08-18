@@ -27,6 +27,7 @@ const VM_TIMEOUT = 240_000
 describe('BoxliteProvider recovery and restart', () => {
 
     const base = mkdtempSync(join(tmpdir(), 'vm-manager-recovery-'))
+    const boxliteHome = join(base, 'boxlite')
     const logsDir = join(base, 'logs')
     const stateDir = join(base, 'state')
     const startedIds: string[] = []
@@ -68,7 +69,7 @@ describe('BoxliteProvider recovery and restart', () => {
 
         // Generation 1: start a detached workload, then abandon the provider without
         // stopping anything — the VM keeps running, modelling a crashed vm-manager
-        const first = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
+        const first = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
         const started = await first.start(longRunningWorkload())
         startedIds.push(started.id!)
         expect(started.status).toBe(WorkloadStatus.RUNNING)
@@ -76,7 +77,7 @@ describe('BoxliteProvider recovery and restart', () => {
         expect(target).toBeDefined()
 
         // Generation 2: a fresh provider over the same dirs models the restarted process
-        const second = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
+        const second = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
         await second.recover()
 
         const recovered = await second.getWorkload(started.id!)
@@ -95,7 +96,7 @@ describe('BoxliteProvider recovery and restart', () => {
         await second.stop(started.id!)
 
         // Generation 3: recovery after the stop — workload present but dormant
-        const third = new BoxliteProvider(logsDir, stateDir, onStatusChanged)
+        const third = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
         await third.recover()
         expect((await third.getWorkload(started.id!)).status).toBe(WorkloadStatus.STOPPED)
         expect(await third.listLogTargets()).toEqual([])
@@ -120,7 +121,7 @@ describe('BoxliteProvider recovery and restart', () => {
     }, VM_TIMEOUT)
 
     itVm('rejects restarting a workload that is not stopped', async () => {
-        const provider = new BoxliteProvider(logsDir, stateDir)
+        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir)
         const started = await provider.start(longRunningWorkload())
         startedIds.push(started.id!)
 
@@ -130,7 +131,7 @@ describe('BoxliteProvider recovery and restart', () => {
     }, VM_TIMEOUT)
 
     itVm('rejects restarting a workload whose VM was discarded by autoRemove', async () => {
-        const provider = new BoxliteProvider(logsDir, stateDir)
+        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir)
         const workload = longRunningWorkload()
         workload.autoRemove = true
         const started = await provider.start(workload)

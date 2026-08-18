@@ -1,5 +1,5 @@
 import { SimpleBox, getJsBoxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
@@ -150,6 +150,7 @@ export class BoxliteProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly activeVms: Map<string, ActiveVm> = new Map()
+    private readonly boxliteHome: string
     private readonly logsBaseDir: string
     // State must not live under logsBaseDir: log dirs are guest-writable via the
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
@@ -159,13 +160,22 @@ export class BoxliteProvider implements IVmProvider {
     private readonly runtime = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
-    constructor(logsBaseDir: string,
+    constructor(boxliteHome: string,
+                logsBaseDir: string,
                 stateDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
+        this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+    }
+
+    async totalDiskMb(): Promise<number> {
+        // statfs needs an existing path and boxlite only creates its home on the first box
+        mkdirSync(this.boxliteHome, { recursive: true })
+        const stats = statfsSync(this.boxliteHome)
+        return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
     }
 
     async recover(): Promise<void> {

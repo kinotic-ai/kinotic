@@ -4,14 +4,16 @@ import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
+import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { SYSTEM_ZONE, VmProviderType } from '@kinotic-ai/os-api'
 import type { Workload } from '@kinotic-ai/os-api'
 import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
+import Docker from 'dockerode'
 import os from 'node:os'
-import { mkdirSync, statfsSync } from 'node:fs'
+import { join } from 'node:path'
 
 const config = new VmManagerConfig()
 
@@ -34,21 +36,14 @@ if (!alloyManager) {
 
 let heartbeatTimer: Timer | null = null
 
-// Capacity of the filesystem backing boxlite's guest rootfs disks, which is what the
-// orchestrator schedules Workload.diskSizeMb against. The directory is created up front
-// because statfs needs an existing path and boxlite only creates its home on the first box.
-function totalDiskMb(boxliteHome: string): number {
-    mkdirSync(boxliteHome, { recursive: true })
-    const stats = statfsSync(boxliteHome)
-    return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
-}
-
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
 function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
     let ret: IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
-        ret = new BoxliteProvider(config.vmLogsDir, config.vmStateDir, reportStatus)
+        ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
+    } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
+        ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'), new Docker(), reportStatus)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }
@@ -118,14 +113,14 @@ async function start() {
     registration.providerType = provider.type
     registration.totalCpus = os.cpus().length
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
-    registration.totalDiskMb = totalDiskMb(config.boxliteHome)
+    registration.totalDiskMb = await provider.totalDiskMb()
 
     // Register this node with the VmNodeOrchestrationService on the server
     await nodeOrchestrator.registerNode(registration)
 
     console.log(`VM Manager registered on node: ${nodeId} (provider ${provider.type})`)
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB, `
-                + `Disk: ${registration.totalDiskMb}MB (${config.boxliteHome})`)
+                + `Disk: ${registration.totalDiskMb}MB`)
 
     // Start sending periodic heartbeats
     startHeartbeat(nodeOrchestrator, vmManager)
