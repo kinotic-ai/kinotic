@@ -68,10 +68,14 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     }
 }
 
-function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy, vmManager: DefaultVmManager) {
+function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
+                        vmManager: DefaultVmManager,
+                        provider: IVmProvider) {
     heartbeatTimer = setInterval(async () => {
         try {
             await nodeOrchestrator.heartbeat(nodeId!)
+            // A node that stopped enforcing something keeps its workloads but takes no more
+            await nodeOrchestrator.reportNodeHealth(nodeId!, await provider.checkNodeHealth())
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
@@ -133,7 +137,7 @@ async function start() {
                 + `Disk: ${registration.totalDiskMb}MB`)
 
     // Start sending periodic heartbeats
-    startHeartbeat(nodeOrchestrator, vmManager)
+    startHeartbeat(nodeOrchestrator, vmManager, provider)
     console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
 }
 

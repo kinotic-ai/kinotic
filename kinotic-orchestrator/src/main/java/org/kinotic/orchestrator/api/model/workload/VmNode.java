@@ -76,6 +76,13 @@ public class VmNode implements Identifiable<String> {
     private int allocatedDiskMb;
 
     /**
+     * Why the node is not fit to receive workloads, or null when it is. Set from the node's
+     * own report of the guarantees it can still make — a data root that stopped enforcing
+     * disk limits, or a firewall that stopped hiding host credentials from guests.
+     */
+    private String healthMessage;
+
+    /**
      * The date and time the node was last seen/heartbeat.
      */
     private Date lastSeen;

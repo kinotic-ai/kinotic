@@ -181,6 +181,12 @@ export class BoxliteProvider implements IVmProvider {
         return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
     }
 
+    // boxlite carries its own guest kernel and filesystem, so there is nothing on the host
+    // it depends on that could quietly stop being true
+    async checkNodeHealth(): Promise<string[]> {
+        return []
+    }
+
     async recover(): Promise<void> {
         for (const file of readdirSync(this.stateDir)) {
             if (!file.endsWith('.json')) {

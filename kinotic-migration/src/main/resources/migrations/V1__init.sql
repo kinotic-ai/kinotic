@@ -306,6 +306,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
+    healthMessage TEXT,
     lastSeen DATE
 );
 

@@ -22,6 +22,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -112,6 +113,37 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // reads it, via a search against a heartbeatTimeoutSeconds cutoff, so a
                         // refresh wait costs the caller the index refresh interval and buys nothing.
                         ret = vmNodeService.save(node);
+                    }
+                    return ret;
+                });
+    }
+
+    @Override
+    public Future<VmNode> reportNodeHealth(String nodeId, List<String> problems) {
+        Validate.notNull(nodeId, "Node id cannot be null");
+        List<String> found = problems == null ? List.of() : problems;
+        String message = found.isEmpty() ? null : String.join("; ", found);
+        VmNodeStatus reported = found.isEmpty() ? VmNodeStatus.ONLINE : VmNodeStatus.DRAINING;
+
+        return vmNodeService.findById(nodeId)
+                .compose(node -> {
+                    Future<VmNode> ret;
+                    if (node == null) {
+                        ret = Future.failedFuture(
+                                new IllegalArgumentException("Node not registered: " + nodeId));
+                    } else if (node.getStatus() == reported && Objects.equals(node.getHealthMessage(), message)) {
+                        // Reported on every heartbeat, so the unchanged case must not write
+                        ret = Future.succeededFuture(node);
+                    } else {
+                        if (message != null) {
+                            log.warn("VmNode {} is not fit for workloads: {}", nodeId, message);
+                        } else {
+                            log.info("VmNode {} is fit for workloads again", nodeId);
+                        }
+                        node.setStatus(reported).setHealthMessage(message);
+                        // findAvailableNode selects on status with a search, so the change has
+                        // to be in the index before the next placement reads it
+                        ret = vmNodeService.saveSync(node);
                     }
                     return ret;
                 });

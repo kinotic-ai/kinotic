@@ -132,6 +132,25 @@ export class CloudHypervisorProvider implements IVmProvider {
         mkdirSync(stateDir, { recursive: true })
     }
 
+    async checkNodeHealth(): Promise<string[]> {
+        const problems: string[] = []
+        let dataRoot: string | null = null
+        try {
+            dataRoot = (await this.docker.info()).DockerRootDir
+        } catch (error) {
+            problems.push(`the container runtime is not answering: ${(error as Error).message}`)
+        }
+        if (dataRoot !== null && !this.quotas.supports(dataRoot)) {
+            problems.push(`${dataRoot} is not on a filesystem with project quotas, `
+                          + 'so a workload can write past the disk size it was given')
+        }
+        if (!this.egress.blocksCloudMetadata()) {
+            problems.push('the node firewall does not block the cloud metadata endpoint, '
+                          + "so a workload can read this host's credentials")
+        }
+        return problems
+    }
+
     async totalDiskMb(): Promise<number> {
         // Every container's rootfs comes out of the daemon's data root, wherever the node
         // put it — commonly a filesystem of its own, sized differently from the host's

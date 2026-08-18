@@ -15,6 +15,12 @@ const RULE_COMMENT_PREFIX = 'kinotic:'
  */
 const DEFAULT_DENY_MARKER = '/etc/kinotic/egress-default-deny'
 
+/**
+ * The link-local address a cloud hands instance metadata and identity tokens out on, the same
+ * one on Azure, AWS, and GCP. A guest that reaches it can read the host's own credentials.
+ */
+const CLOUD_METADATA_ADDRESS = '169.254.169.254'
+
 /** The chain Docker consults from FORWARD, which is where guest traffic is filtered. */
 const CHAIN = 'DOCKER-USER'
 
@@ -56,6 +62,16 @@ export class EgressPolicyManager {
      */
     public enforces(): boolean {
         return existsSync(DEFAULT_DENY_MARKER) && this.hasIptables()
+    }
+
+    /**
+     * Whether the node's firewall keeps guests away from the cloud metadata endpoint. Written
+     * by the node's provisioning rather than here, and asserted because a flushed chain leaves
+     * every workload able to read the host's credentials with nothing to indicate it.
+     */
+    public blocksCloudMetadata(): boolean {
+        return spawnSync('iptables', ['-C', CHAIN, '-d', CLOUD_METADATA_ADDRESS, '-j', 'DROP'],
+                         { encoding: 'utf-8' }).status === 0
     }
 
     /**

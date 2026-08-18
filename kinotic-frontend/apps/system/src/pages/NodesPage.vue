@@ -50,6 +50,10 @@
           </div>
         </div>
 
+        <Message v-if="node.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
+          {{ node.healthMessage }}
+        </Message>
+
         <div class="text-xs text-muted-color mt-1">Last seen: {{ formatEpochDateTime(node.lastSeen) }}</div>
       </div>
     </div>

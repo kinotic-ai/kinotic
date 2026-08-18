@@ -21,6 +21,14 @@ export interface IVmProvider {
     totalDiskMb(): Promise<number>
 
     /**
+     * What this provider can no longer guarantee about the node, empty when it is fit to
+     * receive workloads. Called on every heartbeat, because the things a provider depends on
+     * — a data root that enforces disk limits, a firewall that hides host credentials from
+     * guests — can stop being true while it runs, and each fails silently.
+     */
+    checkNodeHealth(): Promise<string[]>
+
+    /**
      * Restores the workload state persisted by a previous vm-manager process on this node,
      * reattaching to VMs that are still running.
      */

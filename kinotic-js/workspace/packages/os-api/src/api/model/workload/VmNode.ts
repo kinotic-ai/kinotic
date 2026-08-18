@@ -65,6 +65,13 @@ export class VmNode implements Identifiable<string> {
     public allocatedDiskMb: number = 0
 
     /**
+     * Why the node is not fit to receive workloads, or null when it is. Set from the node's
+     * own report of the guarantees it can still make — a data root that stopped enforcing
+     * disk limits, or a firewall that stopped hiding host credentials from guests.
+     */
+    public healthMessage: string | null = null
+
+    /**
      * The date and time the node was last seen/heartbeat.
      */
     public lastSeen: number | null = null

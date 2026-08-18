@@ -34,6 +34,16 @@ export class VmNodeOrchestrationServiceProxy {
     }
 
     /**
+     * Reports what this node can no longer guarantee, so the orchestrator stops placing
+     * workloads on a node that stopped enforcing something.
+     * @param nodeId the id of this node
+     * @param problems what the node can no longer guarantee, empty when it is fit
+     */
+    public reportNodeHealth(nodeId: string, problems: string[]): Promise<VmNode> {
+        return this.serviceProxy.invoke('reportNodeHealth', [nodeId, problems])
+    }
+
+    /**
      * Reports the actual status of workloads on this node so the server's records track
      * transitions the orchestrator did not initiate.
      * @param nodeId the id of this node

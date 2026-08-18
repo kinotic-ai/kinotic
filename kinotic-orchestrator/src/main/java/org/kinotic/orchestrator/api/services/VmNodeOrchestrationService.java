@@ -38,6 +38,19 @@ public interface VmNodeOrchestrationService {
     Future<VmNode> heartbeat(String nodeId);
 
     /**
+     * Applies a node's report of the guarantees it can still make. A node reporting problems
+     * is moved to {@link org.kinotic.orchestrator.api.model.workload.VmNodeStatus#DRAINING} so
+     * the orchestrator stops placing workloads on it, and back to ONLINE once it reports none.
+     * The workloads already there keep running: a node that stopped enforcing a limit is unfit
+     * to take on more, not required to drop what it has.
+     *
+     * @param nodeId the id of the node sending the report
+     * @param problems what the node can no longer guarantee, empty when it is fit
+     * @return a future that will complete with the updated node
+     */
+    Future<VmNode> reportNodeHealth(String nodeId, List<String> problems);
+
+    /**
      * Applies a node's report of its workloads' actual statuses. The vm-manager sends a
      * report whenever a workload changes state on the node — including transitions the
      * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
