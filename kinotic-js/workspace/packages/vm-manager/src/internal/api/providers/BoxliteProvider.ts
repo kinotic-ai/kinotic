@@ -88,10 +88,13 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    // A disabled network is expressed as an allowlist permitting only {@link NO_EGRESS_HOST},
-    // and the workload's own list is discarded: DISABLED means nothing is reachable
-    const allowNet = networkMode === NetworkMode.ENABLED
-        ? workload.network?.allowedHosts ?? []
+    // Both denials are expressed as an allowlist permitting only {@link NO_EGRESS_HOST}: a
+    // disabled network, whose own list is discarded, and an empty list, which boxlite would
+    // otherwise read as no filter at all and grant everything. Name resolution runs inside
+    // boxlite's network stack rather than over the allowlist, so it survives either.
+    const allowedHosts = workload.network?.allowedHosts ?? []
+    const allowNet = networkMode === NetworkMode.ENABLED && allowedHosts.length > 0
+        ? allowedHosts
         : [NO_EGRESS_HOST]
     return {
         image: workload.image,
@@ -110,10 +113,10 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
         // Always sent rather than left to the boxlite default, so what a guest can reach is
         // decided by the workload record alone. The mode is always 'enabled' because the
-        // disabled one cannot boot; denial is carried by the allowlist instead
+        // disabled one cannot boot; every denial is carried by the allowlist instead
         network: {
             mode: 'enabled',
-            ...(allowNet.length > 0 ? { allowNet } : {}),
+            allowNet,
         },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),

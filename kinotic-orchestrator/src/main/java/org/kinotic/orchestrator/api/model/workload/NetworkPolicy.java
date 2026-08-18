@@ -25,15 +25,15 @@ public class NetworkPolicy {
     private NetworkMode mode = NetworkMode.ENABLED;
 
     /**
-     * The outbound destinations the VM may reach, including the api-gateway the workload is
-     * deployed to talk to. Applies only when {@link #mode} is {@link NetworkMode#ENABLED}.
+     * The outbound destinations the VM may reach, including the api-gateway the {@link Workload}
+     * is deployed to talk to. An empty list denies every destination, leaving the VM able to
+     * resolve names and reach nothing. Applies only when {@link #mode} is
+     * {@link NetworkMode#ENABLED}.
      *
-     * What an entry may be, and what an empty list means, follow the {@link VmProviderType} of
-     * the node the workload is placed on. {@link VmProviderType#CLOUD_HYPERVISOR} takes IPv4
-     * addresses and CIDRs, enforced by the node's firewall, and reaches nothing beyond name
-     * resolution when the list is empty. {@link VmProviderType#BOXLITE} takes hostnames,
-     * enforced on the connection so an unlisted destination is unreachable by name and by raw
-     * IP alike, and grants unrestricted egress when the list is empty.
+     * What an entry may be follows the {@link VmProviderType} of the node the workload is placed
+     * on: {@link VmProviderType#CLOUD_HYPERVISOR} takes IPv4 addresses and CIDRs, enforced by the
+     * node's firewall, and {@link VmProviderType#BOXLITE} takes hostnames, enforced on the
+     * connection so an unlisted destination is unreachable by name and by raw IP alike.
      */
     private List<String> allowedHosts = new ArrayList<>();
 
