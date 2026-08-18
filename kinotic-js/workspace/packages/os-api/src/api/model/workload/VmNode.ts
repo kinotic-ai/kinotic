@@ -1,5 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { VmNodeStatus } from '@/api/model/workload/VmNodeStatus'
+import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
  * Represents a node in the cluster that is running a VmManager process
@@ -26,6 +27,12 @@ export class VmNode implements Identifiable<string> {
      * Current status of the node.
      */
     public status: VmNodeStatus = VmNodeStatus.ONLINE
+
+    /**
+     * The VM provider this node runs every workload on, determined by how the node was
+     * provisioned and reported when it registers.
+     */
+    public providerType: VmProviderType = VmProviderType.BOXLITE
 
     /**
      * Total number of vCPUs available on this node.
@@ -56,14 +63,6 @@ export class VmNode implements Identifiable<string> {
      * Disk space currently allocated to workloads in megabytes.
      */
     public allocatedDiskMb: number = 0
-
-    /**
-     * The largest rootfs this node can give a single workload, in megabytes. A workload whose
-     * diskSizeMb exceeds it cannot be placed here, however much unallocated disk the node has,
-     * because the cap comes from how the node's container storage is configured rather than
-     * from free space. Zero means the node reports no per-workload ceiling.
-     */
-    public maxWorkloadDiskMb: number = 0
 
     /**
      * The date and time the node was last seen/heartbeat.

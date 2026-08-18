@@ -40,6 +40,12 @@ public class VmNode implements Identifiable<String> {
     private VmNodeStatus status = VmNodeStatus.ONLINE;
 
     /**
+     * The VM provider this node runs every workload on, determined by how the node was
+     * provisioned and reported when it registers.
+     */
+    private VmProviderType providerType = VmProviderType.BOXLITE;
+
+    /**
      * Total number of vCPUs available on this node.
      */
     private int totalCpus;
@@ -68,14 +74,6 @@ public class VmNode implements Identifiable<String> {
      * Disk space currently allocated to workloads in megabytes.
      */
     private int allocatedDiskMb;
-
-    /**
-     * The largest rootfs this node can give a single workload, in megabytes. A workload whose
-     * diskSizeMb exceeds it cannot be placed here, however much unallocated disk the node has,
-     * because the cap comes from how the node's container storage is configured rather than
-     * from free space. Zero means the node reports no per-workload ceiling.
-     */
-    private int maxWorkloadDiskMb;
 
     /**
      * The date and time the node was last seen/heartbeat.

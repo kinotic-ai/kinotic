@@ -1,3 +1,5 @@
+import { VmProviderType } from '@kinotic-ai/os-api'
+
 /**
  * DTO sent by a vm-manager process when it registers with the server.
  * Contains only the information the node knows about itself.
@@ -18,6 +20,11 @@ export class VmNodeRegistration {
      * The hostname or address of the node.
      */
     public hostname: string
+
+    /**
+     * The VM provider this node runs every workload on.
+     */
+    public providerType: VmProviderType = VmProviderType.BOXLITE
 
     /**
      * Total number of vCPUs available on this node.

@@ -1,6 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
-import { VmProviderType } from '@/api/model/workload/VmProviderType'
 import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 import type { PortMapping } from '@/api/model/workload/PortMapping'
 import { NetworkPolicy } from '@/api/model/workload/NetworkPolicy'
@@ -44,11 +43,6 @@ export class Workload implements Identifiable<string> {
      * When set, organizationId must also be set.
      */
     public applicationId: string | null = null
-
-    /**
-     * The VM provider to use for this workload.
-     */
-    public providerType: VmProviderType = VmProviderType.BOXLITE
 
     /**
      * The image or rootfs to use for the VM.

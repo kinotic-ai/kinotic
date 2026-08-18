@@ -55,11 +55,6 @@ public class Workload implements Identifiable<String> {
     private String applicationId;
 
     /**
-     * The VM provider to use for this workload.
-     */
-    private VmProviderType providerType = VmProviderType.BOXLITE;
-
-    /**
      * The image or rootfs to use for the VM.
      */
     private String image;

@@ -115,6 +115,7 @@ async function start() {
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
+    registration.providerType = provider.type
     registration.totalCpus = os.cpus().length
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
     registration.totalDiskMb = totalDiskMb(config.boxliteHome)

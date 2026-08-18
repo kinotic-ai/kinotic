@@ -70,6 +70,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     if (existing != null) {
                         existing.setHostname(registration.getHostname())
                                 .setName(registration.getName())
+                                .setProviderType(registration.getProviderType())
                                 .setTotalCpus(registration.getTotalCpus())
                                 .setTotalMemoryMb(registration.getTotalMemoryMb())
                                 .setTotalDiskMb(registration.getTotalDiskMb())
@@ -78,6 +79,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         ret = vmNodeService.saveSync(existing);
                     } else {
                         VmNode node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
+                        node.setProviderType(registration.getProviderType());
                         node.setTotalCpus(registration.getTotalCpus());
                         node.setTotalMemoryMb(registration.getTotalMemoryMb());
                         node.setTotalDiskMb(registration.getTotalDiskMb());

@@ -299,13 +299,13 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     name KEYWORD,
     hostname KEYWORD,
     status KEYWORD,
+    providerType KEYWORD,
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
     totalDiskMb INTEGER,
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
-    maxWorkloadDiskMb INTEGER,
     lastSeen DATE
 );
 
@@ -319,7 +319,6 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     nodeId KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
-    providerType KEYWORD,
     image KEYWORD,
     vcpus INTEGER,
     memoryMb INTEGER,

@@ -21,7 +21,10 @@
           <span class="font-semibold">{{ node.name }}</span>
           <Tag :value="node.status" :severity="nodeSeverity(node.status)" />
         </div>
-        <div class="font-mono text-xs text-muted-color">{{ node.hostname }}</div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs text-muted-color">{{ node.hostname }}</span>
+          <Tag :value="node.providerType" severity="secondary" />
+        </div>
 
         <div class="flex flex-col gap-2 mt-1">
           <div>
