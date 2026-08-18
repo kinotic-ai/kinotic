@@ -3,6 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
+import { LogFormat } from '@/model/LogFormat'
 import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/os-api'
 
 /**
@@ -335,7 +336,8 @@ export class BoxliteProvider implements IVmProvider {
             return {
                 workloadId,
                 vmId: vm.vmId,
-                logDir: vm.logDir,
+                logPath: join(vm.logDir, '*.log'),
+                format: LogFormat.PLAIN,
                 organizationId: workload.organizationId,
                 applicationId: workload.applicationId,
             }

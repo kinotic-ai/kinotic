@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import type { LogTarget } from '@/model/LogTarget'
+import { LogFormat } from '@/model/LogFormat'
 
 // AlloyManager resolves `alloy` from the PATH, so a harmless stand-in on the PATH lets
 // the full start path (binary resolution, orphan takeover, spawn, pid file) run for real.
@@ -25,7 +26,8 @@ function target(overrides: Partial<LogTarget> = {}): LogTarget {
     return {
         workloadId: '9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c',
         vmId: 'KeUwLBZv2RFz',
-        logDir: '/var/kinotic/vm-logs/9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c',
+        logPath: '/var/kinotic/vm-logs/9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c/*.log',
+        format: LogFormat.PLAIN,
         organizationId: 'acme',
         applicationId: null,
         ...overrides,
@@ -54,6 +56,26 @@ describe('applyTargets pipeline generation', () => {
         expect(config).toContain('vm_id          = "KeUwLBZv2RFz"')
         expect(config).toContain('node_id        = "node-1"')
         expect(config).toContain('__path__       = "/var/kinotic/vm-logs/9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c/*.log"')
+    })
+
+    it('unwraps the json-file envelope for a Docker target before tenant routing', async () => {
+        const config = await configFor([target({
+            logPath: '/var/lib/docker/containers/abc123/abc123-json.log',
+            format: LogFormat.DOCKER_JSON,
+        })])
+
+        expect(config).toContain('stage.docker {}')
+        expect(config).toContain('forward_to = [loki.process.docker.receiver]')
+        expect(config).toContain('__path__       = "/var/lib/docker/containers/abc123/abc123-json.log"')
+        // The docker stage recovers the message and hands off to the one tenant-routing stage
+        expect(config).toContain('tenant         = "acme"')
+    })
+
+    it('omits the docker stage when no target needs it', async () => {
+        const config = await configFor([target()])
+
+        expect(config).not.toContain('stage.docker')
+        expect(config).toContain('forward_to = [loki.process.workloads.receiver]')
     })
 
     it('routes a platform workload (no organization) to the system tenant', async () => {

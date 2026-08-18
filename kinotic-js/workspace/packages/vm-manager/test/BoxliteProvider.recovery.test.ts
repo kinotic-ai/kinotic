@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
+import { LogFormat } from '@/model/LogFormat'
 
 // Real boxlite VMs need virtualization: Hypervisor.framework on macOS, /dev/kvm on Linux.
 // The boxlite runtime aborts the whole process on unsupported hosts, so the gate must be
@@ -84,7 +85,8 @@ describe('BoxliteProvider recovery and restart', () => {
         expect(await second.listLogTargets()).toEqual([{
             workloadId: started.id!,
             vmId: target!.vmId,
-            logDir: target!.logDir,
+            logPath: target!.logPath,
+            format: LogFormat.PLAIN,
             organizationId: 'acme',
             applicationId: null,
         }])
