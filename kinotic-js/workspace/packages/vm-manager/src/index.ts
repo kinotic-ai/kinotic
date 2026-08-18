@@ -4,9 +4,10 @@ import { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
+import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
+import { SYSTEM_ZONE, VmProviderType } from '@kinotic-ai/os-api'
 import type { Workload } from '@kinotic-ai/os-api'
 import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
 import os from 'node:os'
@@ -40,6 +41,18 @@ function totalDiskMb(boxliteHome: string): number {
     mkdirSync(boxliteHome, { recursive: true })
     const stats = statfsSync(boxliteHome)
     return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
+}
+
+// The node runs whichever provider it is configured for and nothing else, so a provider it
+// cannot construct is a fatal misconfiguration rather than a capability to omit
+function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
+    let ret: IVmProvider
+    if (config.providerType === VmProviderType.BOXLITE) {
+        ret = new BoxliteProvider(config.vmLogsDir, config.vmStateDir, reportStatus)
+    } else {
+        throw new Error(`No provider implementation for ${config.providerType}`)
+    }
+    return ret
 }
 
 function toStatusReport(workload: Workload): WorkloadStatusReport {
@@ -86,10 +99,11 @@ async function start() {
     // VmManager service is published and can receive new workload operations. Every
     // node-side status transition is pushed so the server tracks the workload's real
     // state; a failed push is only logged — the heartbeat snapshot reconciles it.
-    const provider = new BoxliteProvider(config.vmLogsDir, config.vmStateDir, workload => {
+    const reportStatus = (workload: Workload) => {
         nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(workload)])
                         .catch(error => console.error('Failed to report workload status:', error))
-    })
+    }
+    const provider = createProvider(reportStatus)
     await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
@@ -108,7 +122,7 @@ async function start() {
     // Register this node with the VmNodeOrchestrationService on the server
     await nodeOrchestrator.registerNode(registration)
 
-    console.log(`VM Manager registered on node: ${nodeId}`)
+    console.log(`VM Manager registered on node: ${nodeId} (provider ${provider.type})`)
     console.log(`  CPUs: ${registration.totalCpus}, Memory: ${registration.totalMemoryMb}MB, `
                 + `Disk: ${registration.totalDiskMb}MB (${config.boxliteHome})`)
 

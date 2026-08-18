@@ -3,12 +3,13 @@ import type { LogTarget } from '@/model/LogTarget'
 
 /**
  * Abstraction for a VM provider that can manage micro VM lifecycle.
- * Implementations handle the specifics of each hypervisor (boxlite, firecracker, cloud-hypervisor, etc.)
+ * Implementations handle the specifics of each hypervisor (boxlite, cloud-hypervisor, etc.)
  */
 export interface IVmProvider {
 
     /**
-     * The provider type workloads select via {@link Workload#providerType}.
+     * Identifies this implementation to the orchestrator. A node runs exactly one provider,
+     * chosen by its own configuration, and reports it when it registers.
      */
     readonly type: VmProviderType
 

@@ -1,5 +1,24 @@
 import os from 'node:os'
 import path from 'node:path'
+import { VmProviderType } from '@kinotic-ai/os-api'
+
+/**
+ * Resolves KINOTIC_VM_PROVIDER, defaulting to the provider that runs anywhere a developer
+ * works. An unrecognised name throws rather than falling back, so a node configured for a
+ * provider it cannot spell never silently registers running something else.
+ */
+function parseProviderType(value: string | undefined): VmProviderType {
+    let ret: VmProviderType
+    if (!value) {
+        ret = VmProviderType.BOXLITE
+    } else if ((Object.values(VmProviderType) as string[]).includes(value)) {
+        ret = value as VmProviderType
+    } else {
+        throw new Error(`KINOTIC_VM_PROVIDER must be one of `
+                        + `${Object.values(VmProviderType).join(', ')} but was '${value}'`)
+    }
+    return ret
+}
 
 /**
  * Typed view of the vm-manager's process configuration. Every environment variable the
@@ -8,6 +27,9 @@ import path from 'node:path'
  * itself from the standard KINOTIC_SERVER_ and KINOTIC_CLIENT_ (or KINOTIC_TOKEN) variables.
  */
 export class VmManagerConfig {
+
+    /** KINOTIC_VM_PROVIDER — the provider every workload on this node runs on. */
+    readonly providerType: VmProviderType = parseProviderType(process.env.KINOTIC_VM_PROVIDER)
 
     /** KINOTIC_NODE_ID — unique id of this vm-manager node. */
     readonly nodeId: string | undefined = process.env.KINOTIC_NODE_ID

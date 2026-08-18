@@ -2,7 +2,7 @@ import type { Workload } from '@kinotic-ai/os-api'
 
 /**
  * Interface for managing VM workloads on a single node.
- * Delegates to the appropriate VM provider (boxlite, firecracker, etc.) based on the workload configuration.
+ * Delegates to the VM provider the node is configured to run.
  */
 export interface IVmManager {
 
