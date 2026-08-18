@@ -94,6 +94,14 @@ const netProbe = `net-${RUN}`
 quiet(`docker rm -f ${netProbe}`)
 sh(`docker run -d --name ${netProbe} --runtime kata-clh alpine:latest sleep 200`)
 execSync('sleep 10')
+// On a node that denies egress by default, the vm-manager grants each workload its resolver.
+// This harness starts containers directly, so it writes the same rule for its own probe —
+// otherwise the DNS check below would fail for the absence of a rule, not a broken resolver.
+const denyByDefault = existsSync('/etc/kinotic/egress-default-deny')
+const probeIp = sh(`docker inspect -f '{{.NetworkSettings.Networks.bridge.IPAddress}}' ${netProbe}`)
+if (denyByDefault) {
+    sh(`iptables -I DOCKER-USER -s ${probeIp} -d 168.63.129.16 -p udp --dport 53 -m comment --comment 'kinotic-req-test' -j ACCEPT`)
+}
 const imds = quiet(`docker exec ${netProbe} sh -c ${shq('wget -q -T4 -O- --header=Metadata:true "http://169.254.169.254/metadata/instance/compute/name?api-version=2021-02-01&format=text" 2>/dev/null')}`)
 check('R3', 'Azure IMDS unreachable from the guest', imds === '', imds === '' ? 'refused' : `LEAKED: ${imds}`)
 const wire = quiet(`docker exec ${netProbe} sh -c ${shq('wget -q -T4 -O- --header=x-ms-version:2012-11-30 "http://168.63.129.16/machine/?comp=goalstate" 2>/dev/null | head -c 20')}`)
@@ -109,6 +117,9 @@ execSync('sleep 10')
 const victimIp = sh(`docker inspect -f '{{.NetworkSettings.Networks.bridge.IPAddress}}' ${victim}`)
 const leak = quiet(`docker exec ${netProbe} sh -c ${shq(`nc -w 4 ${victimIp} 8080 2>/dev/null`)}`)
 check('R3', 'one workload cannot reach another', !leak.includes('TENANT-SECRET'), leak ? `LEAKED: ${leak}` : `refused (${victimIp})`)
+if (denyByDefault) {
+    quiet(`iptables -D DOCKER-USER -s ${probeIp} -d 168.63.129.16 -p udp --dport 53 -m comment --comment 'kinotic-req-test' -j ACCEPT`)
+}
 quiet(`docker rm -f ${netProbe} ${victim}`)
 
 const disabled = runWorkload(`nonet-${RUN}`,

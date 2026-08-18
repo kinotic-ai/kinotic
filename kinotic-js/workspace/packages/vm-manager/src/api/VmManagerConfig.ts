@@ -37,6 +37,17 @@ export class VmManagerConfig {
     /** KINOTIC_HEARTBEAT_INTERVAL_MS — period of the node heartbeat sent to the orchestrator. */
     readonly heartbeatIntervalMs: number = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
 
+    /**
+     * KINOTIC_WORKLOAD_GATEWAY_CIDRS — comma-separated addresses or CIDRs every workload on
+     * this node may reach whatever its own policy says, being the api-gateway it exists to
+     * talk to. Addresses rather than names, because egress rules match addresses.
+     */
+    readonly workloadGatewayCidrs: string[] = (process.env.KINOTIC_WORKLOAD_GATEWAY_CIDRS ?? '')
+        .split(',').map(entry => entry.trim()).filter(Boolean)
+
+    /** KINOTIC_WORKLOAD_DNS — resolver given to each workload and permitted on port 53. */
+    readonly workloadDns: string | undefined = process.env.KINOTIC_WORKLOAD_DNS
+
     /** KINOTIC_LOKI_URL — Loki HTTP API workload logs are shipped to; unset disables log shipping. */
     readonly lokiUrl: string | undefined = process.env.KINOTIC_LOKI_URL
 

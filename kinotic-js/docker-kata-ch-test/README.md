@@ -4,7 +4,7 @@ Node provisioning and requirement verification for the `CLOUD_HYPERVISOR` provid
 run as [Kata Containers](https://katacontainers.io/) microVMs on
 [Cloud Hypervisor](https://www.cloudhypervisor.org/), driven through the Docker Engine API.
 
-Unlike [`../kata-ch-test`](../kata-ch-test/README.md) and [`../kata-fc-test`](../kata-fc-test/README.md),
+Unlike [`../kata-fc-test`](../kata-fc-test/README.md) and [`../boxlite-test`](../boxlite-test/README.md),
 which were evaluation harnesses answering *can this runtime do X*, this folder is the outcome
 of that evaluation: the setup a production node actually needs, and the checks that say whether
 a given node still meets it.
@@ -64,7 +64,11 @@ sudo systemctl restart kinotic-node-firewall
 It is *appended*, so it sits below any per-workload `ACCEPT` the vm-manager inserts with `-I`.
 A workload whose rules were never applied — provider died mid-start, address recycled, a
 container started outside the vm-manager — then gets no network at all rather than
-unrestricted egress. Turning it on before those rules exist leaves every workload networkless.
+unrestricted egress.
+
+With it on, a container started **outside** the vm-manager has no network, which is the point.
+The requirements test starts its own containers, so it writes and removes the one resolver rule
+its network probe needs.
 
 ## What the requirements test proves
 
@@ -95,6 +99,11 @@ a line in a log file — never against a flag we set. Results are written to `la
   upstream it forwards to. Workloads stay on the default bridge.
 - **A workload that fills its rootfs to the cap cannot restart** — Docker cannot create the
   overlay `merged` directory inside an exhausted quota. Correct enforcement, but worth knowing.
+- **`icc: false` beats an allowlist entry for an on-node peer.** Docker's inter-container
+  block sits below `DOCKER-USER`, so an `ACCEPT` naming another container's address on this
+  node does not take effect. Destinations off the bridge — the api-gateway behind its load
+  balancer, a VNet CIDR, the internet — are unaffected. Do not colocate the api-gateway with
+  workloads.
 - **Host networking would bypass the floor.** A container sharing the host netns sends through
   `OUTPUT`, not `FORWARD`, so `DOCKER-USER` never sees it. The provider emits only `bridge` or
   `none`, so this cannot happen today.

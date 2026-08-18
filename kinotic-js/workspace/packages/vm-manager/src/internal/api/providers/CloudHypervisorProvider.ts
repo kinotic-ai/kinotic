@@ -4,6 +4,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, w
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
+import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { Workload, WorkloadStatus, VmProviderType, NetworkMode, PortProtocol } from '@kinotic-ai/os-api'
@@ -40,17 +41,10 @@ export interface ActiveContainer {
  * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
  * the workload declares its own.
  */
-export function buildCreateOptions(workload: Workload): ContainerCreateOptions {
+export function buildCreateOptions(workload: Workload, resolver: string | null = null): ContainerCreateOptions {
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    const allowedHosts = workload.network?.allowedHosts ?? []
-    // Accepting an allowlist this provider does not yet enforce would leave the guest with
-    // unrestricted egress while the workload record claims otherwise
-    if (networkMode === NetworkMode.ENABLED && allowedHosts.length > 0) {
-        throw new Error(`${VmProviderType.CLOUD_HYPERVISOR} does not yet restrict egress to an allowlist, `
-                        + `but ${allowedHosts.length} allowedHosts were declared`)
-    }
     const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
 
     const exposedPorts: Record<string, Record<string, never>> = {}
@@ -92,6 +86,9 @@ export function buildCreateOptions(workload: Workload): ContainerCreateOptions {
                 },
             },
             NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
+            // Pinned so the resolver the egress rules permit is the one the guest is given,
+            // rather than whatever the daemon happened to inject
+            ...(resolver !== null ? { Dns: [resolver] } : {}),
             PortBindings: portBindings,
             // The vm-manager owns restarts, so the daemon must not resurrect a workload
             // behind its back and leave the server's record stale
@@ -118,13 +115,19 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly stateDir: string
     private readonly docker: Docker
     private readonly quotas = new MountQuotaManager()
+    private readonly egress: EgressPolicyManager
+    private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(stateDir: string,
                 docker: Docker,
+                egress: EgressPolicyManager = new EgressPolicyManager(),
+                resolver: string | null = null,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.stateDir = stateDir
         this.docker = docker
+        this.egress = egress
+        this.resolver = resolver
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
     }
@@ -151,6 +154,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.workloads.set(workload.id!, workload)
             await this.recoverContainer(workload)
         }
+        this.egress.reconcile(new Set(this.containers.keys()))
     }
 
     async start(workload: Workload): Promise<Workload> {
@@ -171,10 +175,11 @@ export class CloudHypervisorProvider implements IVmProvider {
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
 
-            const container = await this.docker.createContainer(buildCreateOptions(workload))
+            const container = await this.docker.createContainer(buildCreateOptions(workload, this.resolver))
             await container.start()
 
             const info = await container.inspect()
+            this.applyEgressPolicy(workload, info)
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
@@ -208,6 +213,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             await container.start()
 
             const info = await container.inspect()
+            this.applyEgressPolicy(workload, info)
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
@@ -233,6 +239,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         const container = this.docker.getContainer(workloadId)
         await container.stop({ t: STOP_TIMEOUT_SECONDS })
         workload.exitCode = (await container.inspect()).State.ExitCode
+        this.egress.release(workloadId)
 
         // Implements Workload.autoRemove: the container is created without Docker's own
         // auto-remove so that a stopped workload can be restarted when the flag is off
@@ -252,6 +259,7 @@ export class CloudHypervisorProvider implements IVmProvider {
 
         await this.removeContainer(workloadId)
         this.releaseMountQuotas(workload)
+        this.egress.release(workloadId)
 
         this.containers.delete(workloadId)
         rmSync(this.stateFile(workloadId), { force: true })
@@ -337,6 +345,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             workload.status = status
             workload.exitCode = exitCode
             workload.updated = Date.now()
+            this.egress.release(workload.id!)
             this.containers.delete(workload.id!)
             this.persist(workload)
         }
@@ -370,6 +379,27 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.docker.modem.followProgress(stream, (error: Error | null) =>
                 error ? reject(error) : resolve())
         })
+    }
+
+    /**
+     * Restricts what the workload's micro VM may reach. A node that does not deny by default
+     * cannot honour a declared allowlist, and saying so is better than writing rules that
+     * permit access nothing was withholding.
+     */
+    private applyEgressPolicy(workload: Workload, info: ContainerInspectInfo): void {
+        const allowedHosts = workload.network?.allowedHosts ?? []
+        if (!this.egress.enforces()) {
+            if (allowedHosts.length > 0) {
+                throw new Error(`Workload ${workload.id} declares ${allowedHosts.length} allowedHosts, `
+                                + 'but this node does not deny workload egress by default')
+            }
+            return
+        }
+        // A workload with no network has no address and nothing to restrict
+        const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
+        if (address) {
+            this.egress.apply(workload.id!, address, allowedHosts)
+        }
     }
 
     private applyMountQuotas(workload: Workload): void {

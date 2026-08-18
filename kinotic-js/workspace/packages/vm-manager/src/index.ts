@@ -5,6 +5,7 @@ import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrche
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
+import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
@@ -43,7 +44,16 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
-        ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'), new Docker(), reportStatus)
+        const egress = new EgressPolicyManager(config.workloadGatewayCidrs, config.workloadDns ?? null)
+        if (!egress.enforces()) {
+            console.warn('This node does not deny workload egress by default — a workload can reach '
+                         + 'anything its address can route to. See docker-kata-ch/README.md')
+        }
+        ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
+                                          new Docker(),
+                                          egress,
+                                          config.workloadDns ?? null,
+                                          reportStatus)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }

@@ -54,6 +54,10 @@ for rule in "-d 169.254.169.254/32 -j DROP" \
         bad "firewall floor" "missing: $rule"
     fi
 done
+BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)"
+iptables -C INPUT -s "${BRIDGE_SUBNET:-172.17.0.0/16}" -j DROP >/dev/null 2>&1 \
+  && ok "host services shielded" "INPUT drops ${BRIDGE_SUBNET}" \
+  || bad "host services shielded" "a guest can dial this node's own services"
 systemctl is-enabled --quiet kinotic-node-firewall 2>/dev/null \
   && ok "firewall floor persisted" "kinotic-node-firewall enabled" \
   || bad "firewall floor persisted" "unit not enabled — rules are lost on reboot"

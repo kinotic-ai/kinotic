@@ -26,6 +26,14 @@ insert -d 169.254.169.254/32 -j DROP
 insert -d 168.63.129.16/32 -p tcp --dport 80 -j DROP
 insert -d 168.63.129.16/32 -p tcp --dport 32526 -j DROP
 
+# --- host services -------------------------------------------------------------------------
+# DOCKER-USER is consulted from FORWARD, and traffic addressed to the host itself never
+# reaches FORWARD — so the rules above say nothing about a guest dialling the node's own
+# sshd. Published ports are unaffected: those are the host initiating, not the guest.
+BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
+[ -n "$BRIDGE_SUBNET" ] || BRIDGE_SUBNET=172.17.0.0/16
+iptables -C INPUT -s "$BRIDGE_SUBNET" -j DROP 2>/dev/null || iptables -I INPUT -s "$BRIDGE_SUBNET" -j DROP
+
 # --- Egress default-deny ------------------------------------------------------------------
 # Appended, so it sits BELOW any per-workload ACCEPT the vm-manager inserts with -I. A
 # workload whose rules were never applied — provider died mid-start, address recycled, a
@@ -35,7 +43,5 @@ insert -d 168.63.129.16/32 -p tcp --dport 32526 -j DROP
 # Off until the vm-manager writes per-workload egress rules, because with nothing above it
 # this denies every workload. Enable with:  touch /etc/kinotic/egress-default-deny
 if [ -e /etc/kinotic/egress-default-deny ]; then
-    SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
-    [ -n "$SUBNET" ] || SUBNET=172.17.0.0/16
-    append -s "$SUBNET" -j DROP
+    append -s "$BRIDGE_SUBNET" -j DROP
 fi
