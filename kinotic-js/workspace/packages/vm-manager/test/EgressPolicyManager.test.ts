@@ -39,15 +39,15 @@ describe('EgressPolicyManager', () => {
             .not.toThrow(/denies every workload/)
     })
 
-    it('refuses a range that covers a protected address without naming it', () => {
+    it('accepts a range that covers a protected address without naming it', () => {
         const egress = new EgressPolicyManager()
 
-        expect(() => egress.apply('wl-6', '172.17.0.2', ['169.254.0.0/16']))
-            .toThrow(/covers 169\.254\.169\.254 without naming it/)
-        expect(() => egress.apply('wl-7', '172.17.0.2', ['0.0.0.0/0']))
-            .toThrow(/without naming it/)
-        expect(() => egress.apply('wl-8', '172.17.0.2', ['168.63.129.0/24']))
-            .toThrow(/covers 168\.63\.129\.16 without naming it/)
+        // Ordering keeps these below the node's own drops, so the range means everything in
+        // it the node does not otherwise deny — 0.0.0.0/0 is the internet, not the host
+        for (const range of ['169.254.0.0/16', '0.0.0.0/0', '168.63.129.0/24']) {
+            expect(() => egress.apply('wl-6', '172.17.0.2', [range]))
+                .not.toThrow(/not an IPv4 address or CIDR/)
+        }
     })
 
     it('reports that a node without the default-deny marker does not enforce egress', () => {

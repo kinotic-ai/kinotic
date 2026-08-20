@@ -105,14 +105,6 @@ export class EgressPolicyManager {
                 // address named outright is a decision it made; it is still worth a record
                 console.warn(`Workload ${workloadId} is granted ${granted}, where this host hands `
                              + 'out its own identity')
-            } else {
-                const covered = this.protectedAddressCoveredBy(destination)
-                if (covered !== null) {
-                    throw new Error(`Workload ${workloadId} allows ${destination}, whose range covers `
-                                    + `${covered} without naming it — an address this node otherwise `
-                                    + "denies every workload so a guest cannot read the host's own "
-                                    + 'identity. Name it exactly to grant it.')
-                }
             }
         }
 
@@ -121,12 +113,28 @@ export class EgressPolicyManager {
 
         const comment = ['-m', 'comment', '--comment', `${RULE_COMMENT_PREFIX}${workloadId}`]
         if (this.resolver !== null) {
-            this.run(['-I', CHAIN, '-s', address, '-d', this.resolver,
-                      '-p', 'udp', '--dport', '53', ...comment, '-j', 'ACCEPT'])
+            this.insert(this.floorPosition(), ['-s', address, '-d', this.resolver,
+                                               '-p', 'udp', '--dport', '53', ...comment, '-j', 'ACCEPT'])
         }
         for (const destination of allowedHosts) {
-            this.run(['-I', CHAIN, '-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
+            // A destination that names a protected address goes above the node's own drops so it
+            // can override them; everything else goes below, which is what lets a policy of
+            // 0.0.0.0/0 mean the whole internet without also meaning the host's identity
+            const position = this.protectedAddressNamedBy(destination) !== null ? 1 : this.floorPosition()
+            this.insert(position, ['-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
         }
+    }
+
+    /**
+     * Where a rule goes to sit below the node's own drops and above its default-deny. Falls at
+     * the top when the node has no default-deny, since nothing is being overridden there.
+     */
+    private floorPosition(): number {
+        const rules = this.chain()
+        // The default-deny is the node's only rule with a source and no destination; its own
+        // metadata drops name a destination, and every per-workload rule names both
+        const index = rules.findIndex(rule => rule.includes('-s') && !rule.includes('-d') && rule.includes('DROP'))
+        return index >= 0 ? index + 1 : 1
     }
 
     /**
@@ -161,14 +169,24 @@ export class EgressPolicyManager {
 
     // Rules in the chain whose comment starts with the given text, as argument arrays
     private rulesFor(commentPrefix: string): string[][] {
+        return this.chain()
+            .filter(rule => rule.some(token => token.startsWith(commentPrefix)))
+    }
+
+    // Every rule in the chain, in order, as argument arrays
+    private chain(): string[][] {
         const result = spawnSync('iptables', ['-S', CHAIN], { encoding: 'utf-8' })
         let ret: string[][] = []
         if (result.status === 0) {
             ret = (result.stdout ?? '').split('\n')
-                .filter(line => line.startsWith(`-A ${CHAIN}`) && line.includes(`--comment "${commentPrefix}`))
+                .filter(line => line.startsWith(`-A ${CHAIN}`))
                 .map(line => this.tokenize(line))
         }
         return ret
+    }
+
+    private insert(position: number, rule: string[]): void {
+        this.run(['-I', CHAIN, String(position), ...rule])
     }
 
     private workloadIdOf(rule: string[]): string | null {
@@ -188,21 +206,6 @@ export class EgressPolicyManager {
     private protectedAddressNamedBy(destination: string): string | null {
         const named = destination.endsWith('/32') ? destination.slice(0, -3) : destination
         return PROTECTED_ADDRESSES.find(address => address === named) ?? null
-    }
-
-    // The protected address the destination's range covers, or null when it covers none.
-    // 169.254.0.0/16 and 0.0.0.0/0 reach the metadata endpoint without ever mentioning it, and
-    // a server composing "the internet" should not hand over the host's identity by accident.
-    private protectedAddressCoveredBy(destination: string): string | null {
-        const [network, prefixText] = destination.split('/')
-        const prefix = prefixText === undefined ? 32 : Number(prefixText)
-        const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0
-        const base = this.toInt(network!) & mask
-        return PROTECTED_ADDRESSES.find(address => (this.toInt(address) & mask) === base) ?? null
-    }
-
-    private toInt(address: string): number {
-        return address.split('.').reduce((packed, part) => ((packed << 8) >>> 0) + Number(part), 0) >>> 0
     }
 
     private requireAddress(value: string, subject: string): void {

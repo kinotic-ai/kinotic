@@ -62,9 +62,10 @@ sudo systemctl restart kinotic-node-firewall
 ```
 
 It is *appended*, so it sits below any per-workload `ACCEPT` the vm-manager inserts with `-I`.
-The metadata and WireServer drops above it are *not* protected by ordering — a per-workload
-`ACCEPT` inserted at the top wins — so a workload can be granted one, but only by naming the
-address exactly. A range that merely covers it is refused.
+Per-workload rules are placed immediately above it and below the node's own metadata drops, so
+a policy of `0.0.0.0/0` means the whole internet except the host's identity. A policy that
+names a protected address exactly is placed at the top instead, where it overrides the drop —
+which only the server can ask for, and which the node logs.
 A workload whose rules were never applied — provider died mid-start, address recycled, a
 container started outside the vm-manager — then gets no network at all rather than
 unrestricted egress.
