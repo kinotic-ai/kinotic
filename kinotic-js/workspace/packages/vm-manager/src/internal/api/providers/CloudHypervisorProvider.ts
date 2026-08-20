@@ -37,67 +37,6 @@ export interface ActiveContainer {
 }
 
 /**
- * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
- * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
- * the workload declares its own.
- */
-export function buildCreateOptions(workload: Workload, resolver: string | null = null): ContainerCreateOptions {
-    // A workload deserialized from the wire or a persisted state file may predate the
-    // network field, whose absence means the policy the model defaults to
-    const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
-
-    const exposedPorts: Record<string, Record<string, never>> = {}
-    const portBindings: Record<string, Array<{ HostIp?: string, HostPort?: string }>> = {}
-    for (const { hostPort, guestPort, protocol, hostIp } of workload.portMappings) {
-        const port = `${guestPort}/${(protocol ?? PortProtocol.TCP).toLowerCase()}`
-        exposedPorts[port] = {}
-        portBindings[port] = [{
-            ...(hostIp !== undefined ? { HostIp: hostIp } : {}),
-            ...(hostPort !== undefined ? { HostPort: String(hostPort) } : {}),
-        }]
-    }
-
-    return {
-        name: workload.id!,
-        Image: workload.image,
-        Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
-        Env: Object.entries(workload.environment).map(([key, value]) => `${key}=${value}`),
-        ...(workload.entrypoint.length > 0
-            ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
-            : workload.cmd.length > 0 ? { Cmd: workload.cmd } : {}),
-        ExposedPorts: exposedPorts,
-        HostConfig: {
-            Runtime: KATA_CLH_RUNTIME,
-            Memory: workload.memoryMb * 1024 * 1024,
-            NanoCpus: workload.vcpus * 1_000_000_000,
-            // Needs overlay2 on an XFS filesystem mounted with pquota, which the node's
-            // provisioning supplies; without it the daemon refuses the container outright
-            ...(workload.diskSizeMb > 0 ? { StorageOpt: { size: `${workload.diskSizeMb}m` } } : {}),
-            Binds: workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) =>
-                `${hostPath}:${guestPath}:${readOnly ? 'ro' : 'rw'}`),
-            LogConfig: {
-                Type: 'json-file',
-                Config: {
-                    'max-size': `${logPolicy.maxSizeMb}m`,
-                    // Docker counts the current file among its max-file, the policy counts
-                    // only the rotated ones kept beside it
-                    'max-file': String(logPolicy.maxFiles + 1),
-                },
-            },
-            NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
-            // Pinned so the resolver the egress rules permit is the one the guest is given,
-            // rather than whatever the daemon happened to inject
-            ...(resolver !== null ? { Dns: [resolver] } : {}),
-            PortBindings: portBindings,
-            // The vm-manager owns restarts, so the daemon must not resurrect a workload
-            // behind its back and leave the server's record stale
-            RestartPolicy: { Name: 'no' },
-        },
-    }
-}
-
-/**
  * VM provider that runs each workload as a Cloud Hypervisor micro VM, driving the Docker
  * Engine API with the Kata runtime. Workload state is persisted under the given state
  * directory so a restarted vm-manager can {@link recover} the VMs of a previous process.
@@ -130,6 +69,67 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.resolver = resolver
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+    }
+
+    /**
+     * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
+     * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
+     * the workload declares its own.
+     */
+    private buildCreateOptions(workload: Workload): ContainerCreateOptions {
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // network field, whose absence means the policy the model defaults to
+        const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+        const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
+
+        const exposedPorts: Record<string, Record<string, never>> = {}
+        const portBindings: Record<string, Array<{ HostIp?: string, HostPort?: string }>> = {}
+        for (const { hostPort, guestPort, protocol, hostIp } of workload.portMappings) {
+            const port = `${guestPort}/${(protocol ?? PortProtocol.TCP).toLowerCase()}`
+            exposedPorts[port] = {}
+            portBindings[port] = [{
+                ...(hostIp !== undefined ? { HostIp: hostIp } : {}),
+                ...(hostPort !== undefined ? { HostPort: String(hostPort) } : {}),
+            }]
+        }
+
+        return {
+            name: workload.id!,
+            Image: workload.image,
+            Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
+            Env: Object.entries(workload.environment).map(([key, value]) => `${key}=${value}`),
+            ...(workload.entrypoint.length > 0
+                ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
+                : workload.cmd.length > 0 ? { Cmd: workload.cmd } : {}),
+            ExposedPorts: exposedPorts,
+            HostConfig: {
+                Runtime: KATA_CLH_RUNTIME,
+                Memory: workload.memoryMb * 1024 * 1024,
+                NanoCpus: workload.vcpus * 1_000_000_000,
+                // Needs overlay2 on an XFS filesystem mounted with pquota, which the node's
+                // provisioning supplies; without it the daemon refuses the container outright
+                ...(workload.diskSizeMb > 0 ? { StorageOpt: { size: `${workload.diskSizeMb}m` } } : {}),
+                Binds: workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) =>
+                    `${hostPath}:${guestPath}:${readOnly ? 'ro' : 'rw'}`),
+                LogConfig: {
+                    Type: 'json-file',
+                    Config: {
+                        'max-size': `${logPolicy.maxSizeMb}m`,
+                        // Docker counts the current file among its max-file, the policy counts
+                        // only the rotated ones kept beside it
+                        'max-file': String(logPolicy.maxFiles + 1),
+                    },
+                },
+                NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
+                // Pinned so the resolver the egress rules permit is the one the guest is given,
+                // rather than whatever the daemon happened to inject
+                ...(this.resolver !== null ? { Dns: [this.resolver] } : {}),
+                PortBindings: portBindings,
+                // The vm-manager owns restarts, so the daemon must not resurrect a workload
+                // behind its back and leave the server's record stale
+                RestartPolicy: { Name: 'no' },
+            },
+        }
     }
 
     async checkNodeHealth(): Promise<string[]> {
@@ -194,7 +194,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
 
-            const container = await this.docker.createContainer(buildCreateOptions(workload, this.resolver))
+            const container = await this.docker.createContainer(this.buildCreateOptions(workload))
             await container.start()
 
             const info = await container.inspect()
