@@ -1,4 +1,5 @@
-import type { IServiceProxy } from '@kinotic-ai/core'
+import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
+import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
 import type { VmNode } from '@kinotic-ai/os-api'
 import type { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
@@ -11,8 +12,9 @@ export class VmNodeOrchestrationServiceProxy {
 
     private readonly serviceProxy: IServiceProxy
 
-    constructor(serviceProxy: IServiceProxy) {
-        this.serviceProxy = serviceProxy
+    constructor(kinotic: IKinotic) {
+        this.serviceProxy = kinotic.serviceProxy(
+            `${SYSTEM_ZONE}~org.kinotic.orchestrator.api.services.VmNodeOrchestrationService`)
     }
 
     /**
