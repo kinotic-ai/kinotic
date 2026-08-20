@@ -26,11 +26,12 @@ INSERT INTO kinotic_participant_identity (id, type, email, displayName, authType
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b1', 'fixture-invite-token-1', '2036-01-01T00:00:00Z', '2026-08-10T16:00:00Z', 'sofia.marino@kinotic-test.dev', 'Sofia Marino', 'kinotic-test', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 INSERT INTO kinotic_pending_invite (id, verificationToken, expiresAt, created, email, displayName, organizationId, invitedById, invitedByName) VALUES ('00000000-0000-0000-0000-0000000000b2', 'fixture-invite-token-2', '2036-01-01T00:00:00Z', '2026-08-13T11:20:00Z', 'liam.sullivan@kinotic-test.dev', 'Liam Sullivan', 'kinotic-test', '00000000-0000-0000-0000-000000000002', 'Kinotic Test') WITH REFRESH;
 
--- Worker nodes in each VmNodeStatus. Allocated figures equal the sum of the non-stopped
--- workloads placed on each node below, so capacity bars agree with the workload table
-INSERT INTO kinotic_vm_node (id, name, hostname, status, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-1', 'dev-worker-1', 'dev-worker-1.internal.kinotic.dev', 'ONLINE', 'CLOUD_HYPERVISOR', 16, 32768, 512000, 9, 18432, 122880, '2026-08-14T21:45:00Z') WITH REFRESH;
-INSERT INTO kinotic_vm_node (id, name, hostname, status, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-2', 'dev-worker-2', 'dev-worker-2.internal.kinotic.dev', 'DRAINING', 'CLOUD_HYPERVISOR', 8, 16384, 256000, 2, 4096, 20480, '2026-08-14T21:44:30Z') WITH REFRESH;
-INSERT INTO kinotic_vm_node (id, name, hostname, status, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-3', 'dev-worker-3', 'dev-worker-3.internal.kinotic.dev', 'OFFLINE', 'BOXLITE', 8, 16384, 128000, 0, 0, 0, '2026-08-12T04:10:00Z') WITH REFRESH;
+-- Worker nodes. Allocated figures equal the sum of the non-stopped workloads placed on each
+-- node below, so capacity bars agree with the workload table. status is an OBJECT column and
+-- INSERT takes only scalar values, so these seed as the entity default (ONLINE).
+INSERT INTO kinotic_vm_node (id, name, hostname, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-1', 'dev-worker-1', 'dev-worker-1.internal.kinotic.dev', 'CLOUD_HYPERVISOR', 16, 32768, 512000, 9, 18432, 122880, '2026-08-14T21:45:00Z') WITH REFRESH;
+INSERT INTO kinotic_vm_node (id, name, hostname, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-2', 'dev-worker-2', 'dev-worker-2.internal.kinotic.dev', 'CLOUD_HYPERVISOR', 8, 16384, 256000, 2, 4096, 20480, '2026-08-14T21:44:30Z') WITH REFRESH;
+INSERT INTO kinotic_vm_node (id, name, hostname, providerType, totalCpus, totalMemoryMb, totalDiskMb, allocatedCpus, allocatedMemoryMb, allocatedDiskMb, lastSeen) VALUES ('dev-worker-3', 'dev-worker-3', 'dev-worker-3.internal.kinotic.dev', 'BOXLITE', 8, 16384, 128000, 0, 0, 0, '2026-08-12T04:10:00Z') WITH REFRESH;
 
 -- Workloads covering every WorkloadStatus, both kinotic-test and platform (no organizationId)
 -- scope, and a PENDING row with no nodeId (not yet placed)

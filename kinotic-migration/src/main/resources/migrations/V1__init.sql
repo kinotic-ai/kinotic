@@ -298,7 +298,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,
     name KEYWORD,
     hostname KEYWORD,
-    status KEYWORD,
+    status OBJECT (type KEYWORD, healthMessage TEXT),
     providerType KEYWORD,
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
@@ -306,7 +306,6 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
-    healthMessage TEXT,
     lastSeen DATE
 );
 

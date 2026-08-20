@@ -24,9 +24,9 @@ export class VmNode implements Identifiable<string> {
     public hostname: string
 
     /**
-     * Current status of the node.
+     * Whether the node is fit to receive workloads, and why when it is not.
      */
-    public status: VmNodeStatus = VmNodeStatus.ONLINE
+    public status: VmNodeStatus = new VmNodeStatus()
 
     /**
      * The VM provider this node runs every workload on, determined by how the node was
@@ -63,13 +63,6 @@ export class VmNode implements Identifiable<string> {
      * Disk space currently allocated to workloads in megabytes.
      */
     public allocatedDiskMb: number = 0
-
-    /**
-     * Why the node is not fit to receive workloads, or null when it is. Set from the node's
-     * own report of the guarantees it can still make — a data root that stopped enforcing
-     * disk limits, or a firewall that stopped hiding host credentials from guests.
-     */
-    public healthMessage: string | null = null
 
     /**
      * The date and time the node was last seen/heartbeat.

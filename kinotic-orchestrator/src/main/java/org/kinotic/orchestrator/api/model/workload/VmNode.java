@@ -35,9 +35,9 @@ public class VmNode implements Identifiable<String> {
     private String hostname;
 
     /**
-     * Current status of the node.
+     * Whether the node is fit to receive workloads, and why when it is not.
      */
-    private VmNodeStatus status = VmNodeStatus.ONLINE;
+    private VmNodeStatus status = new VmNodeStatus();
 
     /**
      * The VM provider this node runs every workload on, determined by how the node was
@@ -74,13 +74,6 @@ public class VmNode implements Identifiable<String> {
      * Disk space currently allocated to workloads in megabytes.
      */
     private int allocatedDiskMb;
-
-    /**
-     * Why the node is not fit to receive workloads, or null when it is. Set from the node's
-     * own report of the guarantees it can still make — a data root that stopped enforcing
-     * disk limits, or a firewall that stopped hiding host credentials from guests.
-     */
-    private String healthMessage;
 
     /**
      * The date and time the node was last seen/heartbeat.

@@ -29,26 +29,20 @@ public interface VmNodeOrchestrationService {
     Future<VmNode> registerNode(VmNodeRegistration registration);
 
     /**
-     * Heartbeat from a running vm-manager node.
+     * Heartbeat from a running vm-manager node, carrying what it can still guarantee.
      * Updates the node's {@code lastSeen} timestamp to indicate it is still alive.
      *
+     * A node reporting problems is moved to
+     * {@link org.kinotic.orchestrator.api.model.workload.VmNodeStatusType#DRAINING} so the
+     * orchestrator stops placing workloads on it, and back to ONLINE once it reports none. The
+     * workloads already there keep running: a node that stopped enforcing a limit is unfit to
+     * take on more, not required to drop what it has.
+     *
      * @param nodeId the id of the node sending the heartbeat
+     * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a future that will complete with the updated node, or fail if the node is not registered
      */
-    Future<VmNode> heartbeat(String nodeId);
-
-    /**
-     * Applies a node's report of the guarantees it can still make. A node reporting problems
-     * is moved to {@link org.kinotic.orchestrator.api.model.workload.VmNodeStatus#DRAINING} so
-     * the orchestrator stops placing workloads on it, and back to ONLINE once it reports none.
-     * The workloads already there keep running: a node that stopped enforcing a limit is unfit
-     * to take on more, not required to drop what it has.
-     *
-     * @param nodeId the id of the node sending the report
-     * @param problems what the node can no longer guarantee, empty when it is fit
-     * @return a future that will complete with the updated node
-     */
-    Future<VmNode> reportNodeHealth(String nodeId, List<String> problems);
+    Future<VmNode> heartbeat(String nodeId, List<String> problems);
 
     /**
      * Applies a node's report of its workloads' actual statuses. The vm-manager sends a

@@ -73,9 +73,8 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         provider: IVmProvider) {
     heartbeatTimer = setInterval(async () => {
         try {
-            await nodeOrchestrator.heartbeat(nodeId!)
             // A node that stopped enforcing something keeps its workloads but takes no more
-            await nodeOrchestrator.reportNodeHealth(nodeId!, await provider.checkNodeHealth())
+            await nodeOrchestrator.heartbeat(nodeId!, await provider.checkNodeHealth())
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()

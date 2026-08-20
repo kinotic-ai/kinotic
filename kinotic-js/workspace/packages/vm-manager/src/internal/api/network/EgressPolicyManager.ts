@@ -142,7 +142,9 @@ export class EgressPolicyManager {
      * to call for a workload that never started.
      */
     public release(workloadId: string): void {
-        for (const rule of this.rulesFor(`${RULE_COMMENT_PREFIX}${workloadId}`)) {
+        // Compared as a whole id rather than a prefix: 'wl-1' is a prefix of 'wl-10', and
+        // releasing one workload must not take a sibling's rules with it
+        for (const rule of this.chain().filter(rule => this.workloadIdOf(rule) === workloadId)) {
             // -S prints rules as the -A that would create them; the same words delete it
             this.run(['-D', ...rule.slice(1)])
         }
@@ -155,7 +157,7 @@ export class EgressPolicyManager {
      */
     public reconcile(activeWorkloadIds: Set<string>): void {
         const stale = new Set<string>()
-        for (const rule of this.rulesFor(RULE_COMMENT_PREFIX)) {
+        for (const rule of this.chain()) {
             const workloadId = this.workloadIdOf(rule)
             if (workloadId !== null && !activeWorkloadIds.has(workloadId)) {
                 stale.add(workloadId)
@@ -165,12 +167,6 @@ export class EgressPolicyManager {
             console.log(`Dropping egress rules left by workload ${workloadId}`)
             this.release(workloadId)
         }
-    }
-
-    // Rules in the chain whose comment starts with the given text, as argument arrays
-    private rulesFor(commentPrefix: string): string[][] {
-        return this.chain()
-            .filter(rule => rule.some(token => token.startsWith(commentPrefix)))
     }
 
     // Every rule in the chain, in order, as argument arrays

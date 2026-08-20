@@ -45,6 +45,7 @@ export * from '@/api/model/workload/WorkloadStatus'
 export * from '@/api/model/workload/VmProviderType'
 export * from '@/api/model/workload/VmNode'
 export * from '@/api/model/workload/VmNodeStatus'
+export * from '@/api/model/workload/VmNodeStatusType'
 
 export * from '@/api/model/log/LogQuery'
 

@@ -25,22 +25,14 @@ export class VmNodeOrchestrationServiceProxy {
     }
 
     /**
-     * Sends a heartbeat to indicate this node is still alive.
-     * @param nodeId the id of this node
-     * @return a Promise resolving to the updated VmNode
-     */
-    public heartbeat(nodeId: string): Promise<VmNode> {
-        return this.serviceProxy.invoke('heartbeat', [nodeId])
-    }
-
-    /**
-     * Reports what this node can no longer guarantee, so the orchestrator stops placing
-     * workloads on a node that stopped enforcing something.
+     * Sends a heartbeat to indicate this node is still alive, carrying what it can still
+     * guarantee. A node reporting problems stops receiving workloads until it reports none.
      * @param nodeId the id of this node
      * @param problems what the node can no longer guarantee, empty when it is fit
+     * @return a Promise resolving to the updated VmNode
      */
-    public reportNodeHealth(nodeId: string, problems: string[]): Promise<VmNode> {
-        return this.serviceProxy.invoke('reportNodeHealth', [nodeId, problems])
+    public heartbeat(nodeId: string, problems: string[]): Promise<VmNode> {
+        return this.serviceProxy.invoke('heartbeat', [nodeId, problems])
     }
 
     /**
