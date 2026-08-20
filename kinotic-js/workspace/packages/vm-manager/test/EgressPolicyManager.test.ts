@@ -29,24 +29,25 @@ describe('EgressPolicyManager', () => {
             .not.toThrow(/not an IPv4 address or CIDR/)
     })
 
-    it('refuses a policy naming the cloud metadata endpoint', () => {
+    it('honours a protected address the policy names outright', () => {
         const egress = new EgressPolicyManager()
 
-        // Rules go in above the node's own, so permitting this would re-open the endpoint
-        // the node denies every workload
+        // Only the server can set a workload's policy, so naming it is a decision it made
         expect(() => egress.apply('wl-5', '172.17.0.2', ['169.254.169.254/32']))
-            .toThrow(/covers 169\.254\.169\.254/)
+            .not.toThrow(/denies every workload/)
+        expect(() => egress.apply('wl-5b', '172.17.0.2', ['169.254.169.254']))
+            .not.toThrow(/denies every workload/)
     })
 
-    it('refuses a range that merely covers a protected address', () => {
+    it('refuses a range that covers a protected address without naming it', () => {
         const egress = new EgressPolicyManager()
 
         expect(() => egress.apply('wl-6', '172.17.0.2', ['169.254.0.0/16']))
-            .toThrow(/covers 169\.254\.169\.254/)
+            .toThrow(/covers 169\.254\.169\.254 without naming it/)
         expect(() => egress.apply('wl-7', '172.17.0.2', ['0.0.0.0/0']))
-            .toThrow(/covers/)
+            .toThrow(/without naming it/)
         expect(() => egress.apply('wl-8', '172.17.0.2', ['168.63.129.0/24']))
-            .toThrow(/covers 168\.63\.129\.16/)
+            .toThrow(/covers 168\.63\.129\.16 without naming it/)
     })
 
     it('reports that a node without the default-deny marker does not enforce egress', () => {

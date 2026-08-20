@@ -25,9 +25,9 @@ const CLOUD_METADATA_ADDRESS = '169.254.169.254'
 const AZURE_WIRESERVER_ADDRESS = '168.63.129.16'
 
 /**
- * Addresses the node blocks for every workload. A policy naming one is refused rather than
- * written: rules here are inserted above the node's own, so an ACCEPT covering one of these
- * would re-open it for that workload and first-match-wins would hand it the host's credentials.
+ * Addresses the node blocks for every workload, being where a host hands out its own identity.
+ * Rules written here are inserted above the node's own, so permitting one of these re-opens it
+ * for that workload — which only the server may decide, and only by naming the address itself.
  */
 const PROTECTED_ADDRESSES = [CLOUD_METADATA_ADDRESS, AZURE_WIRESERVER_ADDRESS]
 
@@ -99,11 +99,20 @@ export class EgressPolicyManager {
         this.requireAddress(address, `workload ${workloadId}`)
         for (const destination of allowedHosts) {
             this.requireAddress(destination, `an allowed destination of workload ${workloadId}`)
-            const covered = this.protectedAddressIn(destination)
-            if (covered !== null) {
-                throw new Error(`Workload ${workloadId} allows ${destination}, which covers ${covered} — `
-                                + 'an address this node denies every workload so a guest cannot read '
-                                + "the host's own credentials")
+            const granted = this.protectedAddressNamedBy(destination)
+            if (granted !== null) {
+                // Only the server can reach the service that carries a workload's policy, so an
+                // address named outright is a decision it made; it is still worth a record
+                console.warn(`Workload ${workloadId} is granted ${granted}, where this host hands `
+                             + 'out its own identity')
+            } else {
+                const covered = this.protectedAddressCoveredBy(destination)
+                if (covered !== null) {
+                    throw new Error(`Workload ${workloadId} allows ${destination}, whose range covers `
+                                    + `${covered} without naming it — an address this node otherwise `
+                                    + "denies every workload so a guest cannot read the host's own "
+                                    + 'identity. Name it exactly to grant it.')
+                }
             }
         }
 
@@ -174,10 +183,17 @@ export class EgressPolicyManager {
             token.startsWith('"') ? token.slice(1, -1) : token)
     }
 
-    // The protected address the destination's range covers, or null when it covers none. A
-    // range rather than an equality test, because 169.254.0.0/16 reaches the metadata endpoint
-    // just as surely as naming it outright.
-    private protectedAddressIn(destination: string): string | null {
+    // The protected address this destination is, or null when it is something else. A bare
+    // address and its /32 are the same grant.
+    private protectedAddressNamedBy(destination: string): string | null {
+        const named = destination.endsWith('/32') ? destination.slice(0, -3) : destination
+        return PROTECTED_ADDRESSES.find(address => address === named) ?? null
+    }
+
+    // The protected address the destination's range covers, or null when it covers none.
+    // 169.254.0.0/16 and 0.0.0.0/0 reach the metadata endpoint without ever mentioning it, and
+    // a server composing "the internet" should not hand over the host's identity by accident.
+    private protectedAddressCoveredBy(destination: string): string | null {
         const [network, prefixText] = destination.split('/')
         const prefix = prefixText === undefined ? 32 : Number(prefixText)
         const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0
