@@ -3,6 +3,8 @@ package org.kinotic.test.tests.sql;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
+import co.elastic.clients.elasticsearch.core.GetResponse;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import jakarta.annotation.PostConstruct;
 import org.junit.jupiter.api.Test;
@@ -20,6 +22,7 @@ import org.kinotic.sql.domain.statements.CreateTableStatement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -352,6 +355,105 @@ class CompositeTypeTest extends KinoticTestBase {
         assertTrue(subProps.containsKey("kind"));
         assertTrue(subProps.containsKey("x"));
         assertTrue(subProps.containsKey("y"));
+    }
+
+    @Test
+    void whenInsertObjectAndNestedLiterals_thenSubDocumentsStored() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_insert_test (
+                id      KEYWORD,
+                address OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE)),
+                tags    NESTED (label TEXT, value KEYWORD)
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_insert_test (id, address, tags) VALUES (
+                'p-1',
+                { street: '1 Main St', city: 'Springfield', coords: { lat: 30.26, lon: -97.74 } },
+                [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ]
+            ) WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_insert_create", createSql),
+                    migration(2, "V2__ct_insert_data",   insertSql)), "ct_insert_project").get();
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> response = client.get(g -> g.index("ct_insert_test").id("p-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> source = response.source();
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> address = (Map<String, Object>) source.get("address");
+        assertEquals("1 Main St", address.get("street"));
+        assertEquals("Springfield", address.get("city"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> coords = (Map<String, Object>) address.get("coords");
+        assertEquals(30.26, ((Number) coords.get("lat")).doubleValue());
+        assertEquals(-97.74, ((Number) coords.get("lon")).doubleValue());
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tags = (List<Map<String, Object>>) source.get("tags");
+        assertEquals(2, tags.size());
+        assertEquals("Release", tags.get(0).get("label"));
+        assertEquals("sql", tags.get(1).get("value"));
+    }
+
+    @Test
+    void whenInsertNestedLiteral_thenElementsIndependentlyQueryable() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_insert_nested_test (
+                id   KEYWORD,
+                tags NESTED (label KEYWORD, value KEYWORD)
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_insert_nested_test (id, tags) VALUES (
+                'a-1',
+                [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ]
+            ) WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_insert_nested_create", createSql),
+                    migration(2, "V2__ct_insert_nested_data",   insertSql)), "ct_insert_nested_project").get();
+
+        // A nested query matches only when both terms come from the same array element, so a hit on
+        // ('Release','v1') and none on ('Release','sql') means each element became its own sub-document
+        assertEquals(1, nestedTagMatches("Release", "v1"));
+        assertEquals(0, nestedTagMatches("Release", "sql"));
+    }
+
+    @SuppressWarnings("rawtypes")
+    private long nestedTagMatches(String label, String value) throws Exception {
+        SearchResponse<Map> response = client.search(s -> s
+            .index("ct_insert_nested_test")
+            .query(q -> q.nested(n -> n
+                .path("tags")
+                .query(nq -> nq.bool(b -> b
+                    .filter(f -> f.term(t -> t.field("tags.label").value(label)))
+                    .filter(f -> f.term(t -> t.field("tags.value").value(value))))))),
+            Map.class);
+        return response.hits().total().value();
+    }
+
+    @Test
+    void whenInsertObjectLiteralWithUndeclaredSubField_thenMigrationFails() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_insert_strict_test (
+                id      KEYWORD,
+                address OBJECT (street TEXT, city KEYWORD)
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_insert_strict_test (id, address)
+                VALUES ('p-1', { street: '1 Main St', country: 'US' }) WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_insert_strict_create", createSql)), "ct_insert_strict_project").get();
+
+        // dynamic:strict means the mapping, not the parser, is what rejects a mistyped sub-field
+        assertThrows(ExecutionException.class, () -> migrationExecutor.executeProjectMigrations(
+            List.of(migration(2, "V2__ct_insert_strict_data", insertSql)), "ct_insert_strict_project").get());
     }
 
     @Test

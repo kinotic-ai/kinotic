@@ -86,9 +86,29 @@ valueList
 
 value
     : STRING
-    | INTEGER_LITERAL
+    | numberLiteral
     | BOOLEAN_LITERAL
     | PARAMETER
+    | objectLiteral
+    | arrayLiteral
+    ;
+
+// JSON style literals that populate OBJECT/NESTED/UNION columns: an object literal is one
+// sub-document, an array literal a list of them. Both nest to any depth.
+objectLiteral
+    : LBRACE (objectField (COMMA objectField)*)? RBRACE
+    ;
+
+objectField
+    : (ID | STRING) COLON value
+    ;
+
+arrayLiteral
+    : LBRACKET (value (COMMA value)*)? RBRACKET
+    ;
+
+numberLiteral
+    : MINUS? (INTEGER_LITERAL | DECIMAL_LITERAL)
     ;
 
 assignment
@@ -98,7 +118,7 @@ assignment
 expression
     : PARAMETER
     | STRING
-    | INTEGER_LITERAL
+    | numberLiteral
     | BOOLEAN_LITERAL
     | ID operator expression  // e.g., age + 1, status == 'active'
     | LPAREN expression RPAREN
@@ -120,7 +140,7 @@ whereClause
     ;
 
 condition
-    : ID comparisonOperator (PARAMETER | STRING | INTEGER_LITERAL | BOOLEAN_LITERAL)
+    : ID comparisonOperator (PARAMETER | STRING | numberLiteral | BOOLEAN_LITERAL)
     ;
 
 comparisonOperator
@@ -243,11 +263,14 @@ UNION: 'UNION';
 // Punctuation and Operators
 // '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
 ASSIGN: '=';
+COLON: ':';
 COMMA: ',';
 DIVIDE: '/';
 EQUALS: '==';
 GREATER_THAN: '>';
 GREATER_THAN_EQUALS: '>=';
+LBRACE: '{';
+LBRACKET: '[';
 LESS_THAN: '<';
 LESS_THAN_EQUALS: '<=';
 LPAREN: '(';
@@ -256,11 +279,14 @@ MULTIPLY: '*';
 NOT_EQUALS: '!=';
 PARAMETER: '?';
 PLUS: '+';
+RBRACE: '}';
+RBRACKET: ']';
 RPAREN: ')';
 SEMICOLON: ';';
 
 // Literals and Identifiers
 BOOLEAN_LITERAL: 'true' | 'false';
+DECIMAL_LITERAL: [0-9]+ '.' [0-9]+;
 ID: [a-zA-Z_][a-zA-Z_0-9]*;
 INTEGER_LITERAL: [0-9]+;
 STRING: '\'' ~[']* '\'';

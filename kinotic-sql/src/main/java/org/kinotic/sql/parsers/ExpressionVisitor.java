@@ -16,8 +16,8 @@ public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
             return new Expression.Literal(ctx.PARAMETER().getText());
         } else if (ctx.STRING() != null) {
             return new Expression.Literal(ctx.STRING().getText());
-        } else if (ctx.INTEGER_LITERAL() != null) {
-            return new Expression.Literal(ctx.INTEGER_LITERAL().getText());
+        } else if (ctx.numberLiteral() != null) {
+            return new Expression.Literal(ctx.numberLiteral().getText());
         } else if (ctx.BOOLEAN_LITERAL() != null) {
             return new Expression.Literal(ctx.BOOLEAN_LITERAL().getText());
         } else if (ctx.operator() != null) {
@@ -27,7 +27,7 @@ public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
             KinoticSQLParser.ExpressionContext rightCtx = ctx.expression();
             String right = rightCtx.PARAMETER() != null ? rightCtx.PARAMETER().getText()
                     : rightCtx.STRING() != null ? rightCtx.STRING().getText()
-                    : rightCtx.INTEGER_LITERAL() != null ? rightCtx.INTEGER_LITERAL().getText()
+                    : rightCtx.numberLiteral() != null ? rightCtx.numberLiteral().getText()
                     : rightCtx.BOOLEAN_LITERAL() != null ? rightCtx.BOOLEAN_LITERAL().getText()
                     : rightCtx.ID().getText();
             return new Expression.BinaryExpression(left, operator, right);

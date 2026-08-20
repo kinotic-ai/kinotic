@@ -113,6 +113,30 @@ public interface KinoticSQLVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitValue(KinoticSQLParser.ValueContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#objectField}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitObjectField(KinoticSQLParser.ObjectFieldContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#arrayLiteral}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitArrayLiteral(KinoticSQLParser.ArrayLiteralContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link KinoticSQLParser#numberLiteral}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitNumberLiteral(KinoticSQLParser.NumberLiteralContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link KinoticSQLParser#assignment}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
