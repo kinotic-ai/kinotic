@@ -29,6 +29,26 @@ describe('EgressPolicyManager', () => {
             .not.toThrow(/not an IPv4 address or CIDR/)
     })
 
+    it('refuses a policy naming the cloud metadata endpoint', () => {
+        const egress = new EgressPolicyManager()
+
+        // Rules go in above the node's own, so permitting this would re-open the endpoint
+        // the node denies every workload
+        expect(() => egress.apply('wl-5', '172.17.0.2', ['169.254.169.254/32']))
+            .toThrow(/covers 169\.254\.169\.254/)
+    })
+
+    it('refuses a range that merely covers a protected address', () => {
+        const egress = new EgressPolicyManager()
+
+        expect(() => egress.apply('wl-6', '172.17.0.2', ['169.254.0.0/16']))
+            .toThrow(/covers 169\.254\.169\.254/)
+        expect(() => egress.apply('wl-7', '172.17.0.2', ['0.0.0.0/0']))
+            .toThrow(/covers/)
+        expect(() => egress.apply('wl-8', '172.17.0.2', ['168.63.129.0/24']))
+            .toThrow(/covers 168\.63\.129\.16/)
+    })
+
     it('reports that a node without the default-deny marker does not enforce egress', () => {
         // The marker is written by node provisioning, so a developer machine never has one
         expect(new EgressPolicyManager().enforces()).toBe(false)

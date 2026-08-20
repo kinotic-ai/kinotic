@@ -21,6 +21,16 @@ const DEFAULT_DENY_MARKER = '/etc/kinotic/egress-default-deny'
  */
 const CLOUD_METADATA_ADDRESS = '169.254.169.254'
 
+/** Azure's WireServer, whose control ports carry the host agent's goal state and certificates. */
+const AZURE_WIRESERVER_ADDRESS = '168.63.129.16'
+
+/**
+ * Addresses the node blocks for every workload. A policy naming one is refused rather than
+ * written: rules here are inserted above the node's own, so an ACCEPT covering one of these
+ * would re-open it for that workload and first-match-wins would hand it the host's credentials.
+ */
+const PROTECTED_ADDRESSES = [CLOUD_METADATA_ADDRESS, AZURE_WIRESERVER_ADDRESS]
+
 /** The chain Docker consults from FORWARD, which is where guest traffic is filtered. */
 const CHAIN = 'DOCKER-USER'
 
@@ -89,6 +99,12 @@ export class EgressPolicyManager {
         this.requireAddress(address, `workload ${workloadId}`)
         for (const destination of allowedHosts) {
             this.requireAddress(destination, `an allowed destination of workload ${workloadId}`)
+            const covered = this.protectedAddressIn(destination)
+            if (covered !== null) {
+                throw new Error(`Workload ${workloadId} allows ${destination}, which covers ${covered} — `
+                                + 'an address this node denies every workload so a guest cannot read '
+                                + "the host's own credentials")
+            }
         }
 
         // Replaced rather than added to, so re-applying cannot accumulate duplicates
@@ -156,6 +172,21 @@ export class EgressPolicyManager {
     private tokenize(line: string): string[] {
         return (line.match(/"[^"]*"|\S+/g) ?? []).map(token =>
             token.startsWith('"') ? token.slice(1, -1) : token)
+    }
+
+    // The protected address the destination's range covers, or null when it covers none. A
+    // range rather than an equality test, because 169.254.0.0/16 reaches the metadata endpoint
+    // just as surely as naming it outright.
+    private protectedAddressIn(destination: string): string | null {
+        const [network, prefixText] = destination.split('/')
+        const prefix = prefixText === undefined ? 32 : Number(prefixText)
+        const mask = prefix === 0 ? 0 : (0xFFFFFFFF << (32 - prefix)) >>> 0
+        const base = this.toInt(network!) & mask
+        return PROTECTED_ADDRESSES.find(address => (this.toInt(address) & mask) === base) ?? null
+    }
+
+    private toInt(address: string): number {
+        return address.split('.').reduce((packed, part) => ((packed << 8) >>> 0) + Number(part), 0) >>> 0
     }
 
     private requireAddress(value: string, subject: string): void {

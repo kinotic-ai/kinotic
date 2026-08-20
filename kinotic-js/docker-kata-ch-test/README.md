@@ -62,6 +62,9 @@ sudo systemctl restart kinotic-node-firewall
 ```
 
 It is *appended*, so it sits below any per-workload `ACCEPT` the vm-manager inserts with `-I`.
+The metadata and WireServer drops above it are *not* protected by ordering — a per-workload
+`ACCEPT` inserted at the top would win — so the vm-manager refuses any `allowedHosts` entry
+whose range covers one of them.
 A workload whose rules were never applied — provider died mid-start, address recycled, a
 container started outside the vm-manager — then gets no network at all rather than
 unrestricted egress.
