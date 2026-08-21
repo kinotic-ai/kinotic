@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.sql.domain.MigrationContent;
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.statements.InsertStatement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,10 +40,19 @@ class InsertStatementParserTest {
     }
 
     @Test
-    void whenParameterValue_thenNullPlaceholder() {
-        InsertStatement statement = parseInsert("INSERT INTO products (name) VALUES (?);");
+    void whenParameterReference_thenNamedParameterInValues() {
+        InsertStatement statement = parseInsert("INSERT INTO products (name, sku) VALUES (:name, :sku);");
 
-        assertNull(statement.values().getFirst());
+        assertEquals(List.of(new NamedParameter("name"), new NamedParameter("sku")), statement.values());
+    }
+
+    @Test
+    void whenParameterNestedInObjectLiteral_thenNamedParameterAtThatPosition() {
+        InsertStatement statement = parseInsert(
+            "INSERT INTO persons (address) VALUES ({ street: :street, city: 'Springfield' });");
+
+        assertEquals(Map.of("street", new NamedParameter("street"), "city", "Springfield"),
+                     statement.values().getFirst());
     }
 
     @Test

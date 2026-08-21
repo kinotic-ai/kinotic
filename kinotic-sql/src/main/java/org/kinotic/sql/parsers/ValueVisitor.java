@@ -1,5 +1,6 @@
 package org.kinotic.sql.parsers;
 
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
 import org.kinotic.sql.parser.KinoticSQLParser;
 
@@ -12,8 +13,8 @@ import java.util.Map;
  * Visitor for parsing SQL-like literal values into the Java objects a document is built from.
  * Object literals become {@link Map}s and array literals {@link List}s, so composite columns
  * (OBJECT, NESTED, UNION) can be given their sub-document values directly.
- * A null literal yields null, as does a parameter placeholder ({@code ?}) whose value is bound at
- * execution time.
+ * A null literal yields null, and a parameter reference ({@code :name}) a {@link NamedParameter}
+ * that is resolved when the statement is executed.
  * Created by Navíd Mitchell 🤝 Claude on 8/20/26.
  */
 public class ValueVisitor extends KinoticSQLBaseVisitor<Object> {
@@ -31,8 +32,10 @@ public class ValueVisitor extends KinoticSQLBaseVisitor<Object> {
             ret = visitObjectLiteral(ctx.objectLiteral());
         } else if (ctx.arrayLiteral() != null) {
             ret = visitArrayLiteral(ctx.arrayLiteral());
+        } else if (ctx.namedParameter() != null) {
+            ret = new NamedParameter(ctx.namedParameter().ID().getText());
         } else {
-            ret = null; // A null literal, or a PARAMETER whose value is bound at execution time
+            ret = null; // NULL_LITERAL
         }
         return ret;
     }

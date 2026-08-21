@@ -8,7 +8,8 @@ import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
 import org.kinotic.sql.domain.LiteralExpression;
 import org.kinotic.sql.domain.MigrationContent;
-import org.kinotic.sql.domain.ParameterExpression;
+import org.kinotic.sql.domain.NamedParameter;
+import org.kinotic.sql.domain.WhereClause;
 import org.kinotic.sql.domain.statements.UpdateStatement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -100,10 +101,21 @@ class UpdateStatementParserTest {
     }
 
     @Test
-    void whenParameterAssignment_thenParameterExpression() {
-        UpdateStatement statement = parseUpdate("UPDATE products SET name = ? WHERE sku == 'WDG-001';");
+    void whenParameterAssignment_thenNamedParameter() {
+        UpdateStatement statement = parseUpdate("UPDATE products SET name = :newName WHERE sku == 'WDG-001';");
 
-        assertInstanceOf(ParameterExpression.class, statement.assignments().get("name"));
+        assertEquals(new NamedParameter("newName"), statement.assignments().get("name"));
+    }
+
+    @Test
+    void whenTwoParametersOnOneField_thenEachKeepsItsOwnName() {
+        // The name, not the field, identifies the value: keying by field made these the same parameter
+        UpdateStatement statement = parseUpdate(
+            "UPDATE products SET price = :newPrice WHERE price == :oldPrice;");
+
+        assertEquals(new NamedParameter("newPrice"), statement.assignments().get("price"));
+        WhereClause.Condition condition = assertInstanceOf(WhereClause.Condition.class, statement.whereClause());
+        assertEquals(":oldPrice", condition.getValue());
     }
 
     @Test

@@ -3,6 +3,7 @@ package org.kinotic.sql.executor;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.WhereClause;
 
 import java.util.Map;
@@ -23,14 +24,8 @@ public class QueryBuilder {
             String field = condition.getField();
             String operator = condition.getOperator();
 
-            if ("?".equals(value)) {
-                if (parameters == null) {
-                    throw new IllegalStateException("Parameterized condition not supported without parameters");
-                }
-                Object paramValue = parameters.get(field);
-                if (paramValue == null) {
-                    throw new IllegalArgumentException("Missing parameter for " + field);
-                }
+            if (NamedParameter.isReference(value)) {
+                Object paramValue = ParameterBinder.resolve(NamedParameter.nameOf(value), parameters);
                 // Convert parameter to FieldValue
                 FieldValue fieldValue;
                 if (paramValue instanceof Number) {

@@ -8,9 +8,10 @@ import lombok.RequiredArgsConstructor;
 import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
 import org.kinotic.sql.domain.LiteralExpression;
-import org.kinotic.sql.domain.ParameterExpression;
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
+import org.kinotic.sql.executor.ParameterBinder;
 import org.kinotic.sql.executor.QueryBuilder;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.springframework.stereotype.Component;
@@ -129,7 +130,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     case "==" -> "=="; // Not typically used in SET, but included
                     default -> throw new IllegalStateException("Unsupported operator: " + binExpr.operator());
                 };
-                String right = "?".equals(binExpr.right()) ? "params." + field : binExpr.right();
+                String right = NamedParameter.isReference(binExpr.right()) ? "params." + field : binExpr.right();
                 script.append(BINARY_ASSIGNMENT.formatted(field, binExpr.left(), operator, right));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
@@ -160,7 +161,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
      * which is why the generated script tests both sides before merging.
      */
     private static boolean mergesIntoStoredObject(Expression expression) {
-        return expression instanceof ParameterExpression
+        return expression instanceof NamedParameter
                 || (expression instanceof LiteralExpression literal && literal.value() instanceof Map);
     }
 
@@ -169,26 +170,15 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         assignments.forEach((field, expr) -> {
             if (expr instanceof LiteralExpression literal) {
                 if (literal.value() != null) { // a null is written into the script itself, not passed as a param
-                    params.put(field, literal.value());
+                    params.put(field, ParameterBinder.bind(literal.value(), parameters));
                 }
-            } else if (expr instanceof ParameterExpression) {
-                params.put(field, resolveParameter(field, parameters));
-            } else if (expr instanceof BinaryExpression binExpr && "?".equals(binExpr.right())) {
-                params.put(field, resolveParameter(field, parameters));
+            } else if (expr instanceof NamedParameter parameter) {
+                params.put(field, ParameterBinder.resolve(parameter.name(), parameters));
+            } else if (expr instanceof BinaryExpression binExpr && NamedParameter.isReference(binExpr.right())) {
+                params.put(field, ParameterBinder.resolve(NamedParameter.nameOf(binExpr.right()), parameters));
             }
         });
         return params;
-    }
-
-    private Object resolveParameter(String field, Map<String, Object> parameters) {
-        if (parameters == null) {
-            throw new IllegalStateException("Parameterized assignment not supported without parameters");
-        }
-        Object value = parameters.get(field);
-        if (value == null) {
-            throw new IllegalArgumentException("Missing parameter for " + field);
-        }
-        return value;
     }
 
     private Map<String, JsonData> convertToJsonDataMap(Map<String, Object> params) {

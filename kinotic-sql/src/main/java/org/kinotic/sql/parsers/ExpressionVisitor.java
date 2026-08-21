@@ -3,7 +3,7 @@ package org.kinotic.sql.parsers;
 import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
 import org.kinotic.sql.domain.LiteralExpression;
-import org.kinotic.sql.domain.ParameterExpression;
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
 import org.kinotic.sql.parser.KinoticSQLParser;
 
@@ -19,9 +19,9 @@ public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
     public Expression visitExpression(KinoticSQLParser.ExpressionContext ctx) {
         Expression ret;
         if (ctx.value() != null) {
-            ret = ctx.value().PARAMETER() != null
-                    ? new ParameterExpression()
-                    : new LiteralExpression(valueVisitor.visitValue(ctx.value()));
+            // A parameter reference materializes as a NamedParameter, which is itself an Expression
+            Object value = valueVisitor.visitValue(ctx.value());
+            ret = value instanceof NamedParameter parameter ? parameter : new LiteralExpression(value);
         } else if (ctx.operator() != null) {
             // Binary expression: ID operator expression
             KinoticSQLParser.ExpressionContext rightCtx = ctx.expression();

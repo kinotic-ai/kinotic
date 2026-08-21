@@ -1,0 +1,62 @@
+package org.kinotic.sql.executor;
+
+import org.kinotic.sql.domain.NamedParameter;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Resolves the {@link NamedParameter}s a parsed statement carries against the values supplied for an
+ * execution, keyed by parameter name.
+ * Created by Navíd Mitchell 🤝 Claude on 8/21/26.
+ */
+public class ParameterBinder {
+
+    /**
+     * Returns the given value with every parameter reference in it replaced by its supplied value.
+     * Object and array literals are walked, so a parameter nested inside one is resolved as well.
+     *
+     * @param value      a value materialized by the parser
+     * @param parameters the values supplied for this execution, keyed by parameter name
+     * @return the value with its parameters resolved, or the value itself when it carries none
+     */
+    public static Object bind(Object value, Map<String, Object> parameters) {
+        Object ret;
+        if (value instanceof NamedParameter parameter) {
+            ret = resolve(parameter.name(), parameters);
+        } else if (value instanceof Map<?, ?> map) {
+            Map<String, Object> bound = new LinkedHashMap<>();
+            map.forEach((key, entry) -> bound.put((String) key, bind(entry, parameters)));
+            ret = bound;
+        } else if (value instanceof List<?> list) {
+            List<Object> bound = new ArrayList<>();
+            list.forEach(entry -> bound.add(bind(entry, parameters)));
+            ret = bound;
+        } else {
+            ret = value;
+        }
+        return ret;
+    }
+
+    /**
+     * Returns the value supplied for the named parameter.
+     *
+     * @param name       the parameter name, without its {@code :} prefix
+     * @param parameters the values supplied for this execution, keyed by parameter name
+     * @throws IllegalStateException    if the statement uses parameters but none were supplied
+     * @throws IllegalArgumentException if no value was supplied for this parameter
+     */
+    public static Object resolve(String name, Map<String, Object> parameters) {
+        if (parameters == null) {
+            throw new IllegalStateException("Statement uses parameter " + NamedParameter.PREFIX + name
+                                                    + " but no parameters were supplied");
+        }
+        Object ret = parameters.get(name);
+        if (ret == null) {
+            throw new IllegalArgumentException("Missing value for parameter " + NamedParameter.PREFIX + name);
+        }
+        return ret;
+    }
+}

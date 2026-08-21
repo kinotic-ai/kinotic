@@ -89,9 +89,15 @@ value
     | numberLiteral
     | BOOLEAN_LITERAL
     | NULL_LITERAL
-    | PARAMETER
+    | namedParameter
     | objectLiteral
     | arrayLiteral
+    ;
+
+// Two tokens rather than one ':name' lexer rule, which would swallow the colon of an object field
+// whose value starts a word: '{ street:null }' lexes as ID COLON NULL_LITERAL either way
+namedParameter
+    : COLON ID
     ;
 
 // JSON style literals that populate OBJECT/NESTED/UNION columns: an object literal is one
@@ -138,7 +144,7 @@ whereClause
     ;
 
 condition
-    : ID comparisonOperator (PARAMETER | STRING | numberLiteral | BOOLEAN_LITERAL)
+    : ID comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
     ;
 
 comparisonOperator
@@ -275,7 +281,6 @@ LPAREN: '(';
 MINUS: '-';
 MULTIPLY: '*';
 NOT_EQUALS: '!=';
-PARAMETER: '?';
 PLUS: '+';
 RBRACE: '}';
 RBRACKET: ']';

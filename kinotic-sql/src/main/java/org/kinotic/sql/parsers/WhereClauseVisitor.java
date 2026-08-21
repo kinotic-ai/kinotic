@@ -15,7 +15,7 @@ public class WhereClauseVisitor extends KinoticSQLBaseVisitor<WhereClause> {
         if (ctx.condition() != null) {
             String field = ctx.condition().ID().getText();
             String operator = ctx.condition().comparisonOperator().getText();
-            String value = ctx.condition().PARAMETER() != null ? ctx.condition().PARAMETER().getText()
+            String value = ctx.condition().namedParameter() != null ? ctx.condition().namedParameter().getText()
                     : ctx.condition().STRING() != null ? ctx.condition().STRING().getText()
                     : ctx.condition().numberLiteral() != null ? ctx.condition().numberLiteral().getText()
                     : ctx.condition().BOOLEAN_LITERAL().getText();

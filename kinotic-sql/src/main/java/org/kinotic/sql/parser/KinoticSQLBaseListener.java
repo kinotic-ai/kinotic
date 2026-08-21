@@ -221,6 +221,18 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterNamedParameter(KinoticSQLParser.NamedParameterContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitNamedParameter(KinoticSQLParser.NamedParameterContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx) { }
 	/**
 	 * {@inheritDoc}

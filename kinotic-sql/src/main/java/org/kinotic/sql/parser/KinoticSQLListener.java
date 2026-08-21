@@ -178,6 +178,16 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitValue(KinoticSQLParser.ValueContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void enterNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void exitNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
 	 * @param ctx the parse tree
 	 */
