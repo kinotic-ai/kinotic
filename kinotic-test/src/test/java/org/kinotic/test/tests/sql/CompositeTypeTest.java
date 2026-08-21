@@ -437,24 +437,24 @@ class CompositeTypeTest extends KinoticTestBase {
     }
 
     @Test
-    void whenUpdateSetsObjectAndNestedLiterals_thenValuesReplaced() throws Exception {
+    void whenUpdateSetsObjectLiteral_thenMergedIntoStoredObject() throws Exception {
         String createSql = """
             CREATE TABLE ct_update_test (
                 id      KEYWORD,
-                address OBJECT (street TEXT, city KEYWORD),
+                address OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE)),
                 tags    NESTED (label TEXT, value KEYWORD)
             );
             """;
         String insertSql = """
             INSERT INTO ct_update_test (id, address, tags) VALUES (
                 'p-1',
-                { street: '1 Main St', city: 'Springfield' },
+                { street: '1 Main St', city: 'Springfield', coords: { lat: 1.0, lon: -97.74 } },
                 [ { label: 'Area', value: 'sql' } ]
             ) WITH REFRESH;
             """;
         String updateSql = """
             UPDATE ct_update_test
-               SET address = { city: 'Shelbyville' },
+               SET address = { city: 'Shelbyville', coords: { lat: 30.26 } },
                    tags    = [ { label: 'Area', value: 'grammar' }, { label: 'Release', value: 'v2' } ]
              WHERE id == 'p-1' WITH REFRESH;
             """;
@@ -468,9 +468,18 @@ class CompositeTypeTest extends KinoticTestBase {
         @SuppressWarnings("unchecked")
         Map<String, Object> source = response.source();
 
-        // SET replaces the column's whole value, so the street left out of the literal is gone
-        assertEquals(Map.of("city", "Shelbyville"), source.get("address"));
+        @SuppressWarnings("unchecked")
+        Map<String, Object> address = (Map<String, Object>) source.get("address");
+        assertEquals("1 Main St", address.get("street"), "sub-field the statement left out is kept");
+        assertEquals("Shelbyville", address.get("city"));
 
+        // The merge is recursive: coords keeps the lon the statement never mentioned
+        @SuppressWarnings("unchecked")
+        Map<String, Object> coords = (Map<String, Object>) address.get("coords");
+        assertEquals(30.26, ((Number) coords.get("lat")).doubleValue());
+        assertEquals(-97.74, ((Number) coords.get("lon")).doubleValue());
+
+        // An array has no sub-fields to merge, so it is replaced outright
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tags = (List<Map<String, Object>>) source.get("tags");
         assertEquals(2, tags.size());

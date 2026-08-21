@@ -27,6 +27,52 @@ import java.util.concurrent.CompletableFuture;
 @Component
 @RequiredArgsConstructor
 public class UpdateStatementExecutor implements StatementExecutor<UpdateStatement, Long> {
+
+    private static final String ASSIGNMENT = """
+            ctx._source.%1$s = params.%1$s;
+            """;
+
+    private static final String BINARY_ASSIGNMENT = """
+            ctx._source.%1$s = ctx._source.%2$s %3$s %4$s;
+            """;
+
+    // An object is merged into the stored one rather than replacing it, so sub-fields the statement
+    // does not mention survive. Both sides are tested because a stored scalar, a missing field, or an
+    // array has nothing to merge into and is replaced outright.
+    private static final String MERGE_ASSIGNMENT = """
+            if (ctx._source.%1$s instanceof Map && params.%1$s instanceof Map) {
+              mergeTargets.add(ctx._source.%1$s);
+              mergeSources.add(params.%1$s);
+            } else {
+              ctx._source.%1$s = params.%1$s;
+            }
+            """;
+
+    private static final String MERGE_QUEUE = """
+            List mergeTargets = new ArrayList();
+            List mergeSources = new ArrayList();
+            """;
+
+    // Merges every queued pair, appending nested objects to the queue as it finds them, which is what
+    // makes the merge recursive without a recursive function: size() is re-read on each pass, so pairs
+    // appended during the loop are picked up by it.
+    private static final String MERGE_DRAIN = """
+            for (int i = 0; i < mergeTargets.size(); i++) {
+              Map target = (Map) mergeTargets.get(i);
+              Map source = (Map) mergeSources.get(i);
+              for (def key : source.keySet()) {
+                def incoming = source.get(key);
+                def current = target.get(key);
+                if (current instanceof Map && incoming instanceof Map) {
+                  mergeTargets.add(current);
+                  mergeSources.add(incoming);
+                } else {
+                  target.put(key, incoming);
+                }
+              }
+            }
+            """;
+
     private final ElasticsearchAsyncClient client;
 
     @Override
@@ -55,6 +101,10 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
 
     private ScriptSource buildScript(Map<String, Expression> assignments) {
         StringBuilder script = new StringBuilder();
+        boolean merges = assignments.values().stream().anyMatch(UpdateStatementExecutor::mergesIntoStoredObject);
+        if (merges) {
+            script.append(MERGE_QUEUE);
+        }
         assignments.forEach((field, expr) -> {
             if (expr instanceof BinaryExpression binExpr) {
                 String operator = switch (binExpr.operator()) {
@@ -66,15 +116,29 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     default -> throw new IllegalStateException("Unsupported operator: " + binExpr.operator());
                 };
                 String right = "?".equals(binExpr.right()) ? "params." + field : binExpr.right();
-                script.append("ctx._source.").append(field).append(" = ctx._source.").append(binExpr.left())
-                      .append(" ").append(operator).append(" ").append(right).append(";");
+                script.append(BINARY_ASSIGNMENT.formatted(field, binExpr.left(), operator, right));
+            } else if (mergesIntoStoredObject(expr)) {
+                script.append(MERGE_ASSIGNMENT.formatted(field));
             } else {
                 // Literals and parameters alike are passed as script params, so an object or array
                 // value crosses as JSON instead of being rendered into the script source
-                script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
+                script.append(ASSIGNMENT.formatted(field));
             }
         });
+        if (merges) {
+            script.append(MERGE_DRAIN);
+        }
         return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
+    }
+
+    /**
+     * Whether the value assigned to a field can be an object that merges into the stored one.
+     * A parameter qualifies because what it is bound to is only known when the statement runs,
+     * which is why the generated script tests both sides before merging.
+     */
+    private static boolean mergesIntoStoredObject(Expression expression) {
+        return expression instanceof ParameterExpression
+                || (expression instanceof LiteralExpression literal && literal.value() instanceof Map);
     }
 
     private Map<String, Object> buildScriptParams(Map<String, Expression> assignments, Map<String, Object> parameters) {
