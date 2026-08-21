@@ -64,6 +64,7 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     return {
         workloadId: workload.id!,
         status: workload.status,
+        exitCode: workload.exitCode ?? null,
         updated: workload.updated ?? Date.now(),
     }
 }

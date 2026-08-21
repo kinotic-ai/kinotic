@@ -1,6 +1,7 @@
 package org.kinotic.orchestrator.internal.api.services;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -14,6 +15,8 @@ import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.concurrent.CompletableFuture;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,6 +27,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
+    private final WorkloadCompletionTracker completionTracker;
+    private final Vertx vertx;
 
     @Override
     public Future<Workload> deployWorkload(Workload workload) {
@@ -57,11 +62,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                             .compose(savedWorkload ->
                                 // Dispatch to the VmManager on the selected node
                                 vmManagerProxy.startWorkload(node.getId(), savedWorkload)
-                                        .compose(startedWorkload -> {
-                                            // VmManager started the workload, mark as RUNNING
-                                            startedWorkload.setStatus(WorkloadStatus.RUNNING);
-                                            return workloadService.saveSync(startedWorkload);
-                                        })
+                                        .compose(this::markRunning)
                                         .recover(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
@@ -70,6 +71,25 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                                     .compose(failed -> Future.failedFuture(error));
                                         })
                             );
+                });
+    }
+
+    @Override
+    public Future<Workload> runWorkload(Workload workload) {
+        return deployWorkload(workload)
+                .compose(deployed -> {
+                    CompletableFuture<Workload> completion = completionTracker.awaitCompletion(deployed.getId());
+                    // The node's terminal report can be applied before the waiter registers, so
+                    // settle from the persisted record when the run has already ended
+                    return workloadService.findById(deployed.getId())
+                            .compose(current -> {
+                                if (current == null) {
+                                    completionTracker.workloadDestroyed(deployed.getId());
+                                } else {
+                                    completionTracker.workloadChanged(current);
+                                }
+                                return Future.fromCompletionStage(completion, vertx.getOrCreateContext());
+                            });
                 });
     }
 
@@ -93,10 +113,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                 })
                 .compose(workload ->
                     vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
-                            .compose(restarted -> {
-                                restarted.setStatus(WorkloadStatus.RUNNING);
-                                return workloadService.saveSync(restarted);
-                            })
+                            .compose(this::markRunning)
                             .recover(error -> {
                                 log.error("Failed to restart workload {} on node {}",
                                           workloadId, workload.getNodeId(), error);
@@ -125,7 +142,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
                             .compose(v -> {
                                 workload.setStatus(WorkloadStatus.STOPPED);
-                                return workloadService.saveSync(workload);
+                                return workloadService.saveSync(workload)
+                                        .onSuccess(completionTracker::workloadChanged);
                             })
                 )
                 .mapEmpty();
@@ -160,7 +178,31 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                             return ret;
                                         })
                             )
-                            .compose(node -> workloadService.deleteById(workloadId));
+                            .compose(node -> workloadService.deleteById(workloadId))
+                            .onSuccess(v -> completionTracker.workloadDestroyed(workloadId));
+                });
+    }
+
+    /**
+     * Persists the node's just-started view of the workload as RUNNING, keeping the persisted
+     * record instead when it has already moved past STARTING.
+     */
+    private Future<Workload> markRunning(Workload startedWorkload) {
+        return workloadService.findById(startedWorkload.getId())
+                .compose(current -> {
+                    Future<Workload> ret;
+                    if (current == null) {
+                        // Destroyed while starting — a save here would resurrect the record
+                        ret = Future.succeededFuture(startedWorkload);
+                    } else if (current.getStatus() != WorkloadStatus.STARTING) {
+                        // A short-lived workload's terminal status report can be applied before
+                        // the start reply gets here; that newer state must not be clobbered
+                        ret = Future.succeededFuture(current);
+                    } else {
+                        startedWorkload.setStatus(WorkloadStatus.RUNNING);
+                        ret = workloadService.saveSync(startedWorkload);
+                    }
+                    return ret;
                 });
     }
 }

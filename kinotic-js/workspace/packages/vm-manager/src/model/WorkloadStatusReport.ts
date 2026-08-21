@@ -11,6 +11,9 @@ export interface WorkloadStatusReport {
     /** The workload's status on the node. */
     status: WorkloadStatus
 
+    /** The exit status of the workload's process once its run has ended, null while it has not. */
+    exitCode: number | null
+
     /** When the node recorded this status, in epoch milliseconds. */
     updated: number
 }

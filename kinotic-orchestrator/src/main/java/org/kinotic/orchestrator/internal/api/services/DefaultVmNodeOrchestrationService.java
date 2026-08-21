@@ -36,6 +36,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private final KinoticOrchestratorProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
+    private final WorkloadCompletionTracker completionTracker;
     private ScheduledExecutorService scheduler;
 
     @PostConstruct
@@ -142,26 +143,37 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private Future<Workload> applyStatusReport(String nodeId, WorkloadStatusReport report) {
         return workloadService.findById(report.getWorkloadId())
                 .compose(workload -> {
+                    Future<Workload> ret;
                     if (workload == null) {
                         // Destroyed since the node recorded the status — stale report
-                        return Future.succeededFuture();
-                    }
-                    if (!nodeId.equals(workload.getNodeId())) {
+                        ret = Future.succeededFuture();
+                    } else if (!nodeId.equals(workload.getNodeId())) {
                         log.warn("Ignoring status report from node {} for workload {} deployed on node {}",
                                  nodeId, report.getWorkloadId(), workload.getNodeId());
-                        return Future.succeededFuture(workload);
+                        ret = Future.succeededFuture(workload);
+                    } else if (workload.getStatus() == report.getStatus()) {
+                        // Same state; still adopt an exit code the record lacks — stopWorkload
+                        // persists STOPPED before the node's exit-code-bearing report arrives
+                        if (report.getExitCode() != null && workload.getExitCode() == null) {
+                            workload.setExitCode(report.getExitCode());
+                            ret = workloadService.saveSync(workload)
+                                                 .onSuccess(completionTracker::workloadChanged);
+                        } else {
+                            ret = Future.succeededFuture(workload);
+                        }
+                    } else if (workload.getUpdated() != null
+                            && report.getUpdated() <= workload.getUpdated().getTime()) {
+                        // A report older than the record's last transition must not clobber it
+                        ret = Future.succeededFuture(workload);
+                    } else {
+                        log.info("Workload {} status {} -> {} per report from node {}",
+                                 report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
+                        workload.setStatus(report.getStatus());
+                        workload.setExitCode(report.getExitCode());
+                        ret = workloadService.saveSync(workload)
+                                             .onSuccess(completionTracker::workloadChanged);
                     }
-                    // A report older than the record's last transition must not clobber it;
-                    // snapshot re-sends of an already-applied report are skipped the same way
-                    if (workload.getStatus() == report.getStatus()
-                            || (workload.getUpdated() != null
-                                && report.getUpdated() <= workload.getUpdated().getTime())) {
-                        return Future.succeededFuture(workload);
-                    }
-                    log.info("Workload {} status {} -> {} per report from node {}",
-                             report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
-                    workload.setStatus(report.getStatus());
-                    return workloadService.saveSync(workload);
+                    return ret;
                 });
     }
 
@@ -231,6 +243,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
+                                                      .onSuccess(completionTracker::workloadChanged)
                                                       .mapEmpty();
                             });
                         }

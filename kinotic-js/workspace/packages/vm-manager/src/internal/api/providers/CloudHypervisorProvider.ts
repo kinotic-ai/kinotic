@@ -202,6 +202,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
+            this.watchExit(workload)
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(id)
@@ -236,6 +237,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
+            this.watchExit(workload)
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(workloadId)
@@ -327,6 +329,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             if (info.State.Running) {
                 this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
                 workload.status = WorkloadStatus.RUNNING
+                this.watchExit(workload)
                 console.log(`Reattached to running workload ${id} (container ${info.Id.slice(0, 12)})`)
             } else {
                 workload.status = this.exitedStatus(workload, info)
@@ -360,6 +363,11 @@ export class CloudHypervisorProvider implements IVmProvider {
             // The container is gone while the workload record says it should be live
             status = WorkloadStatus.FAILED
         }
+        // destroy() can tear the workload down while inspect is in flight; persisting here
+        // would resurrect the state file it removed
+        if (!this.workloads.has(workload.id!)) {
+            return
+        }
         if (status !== workload.status || exitCode !== workload.exitCode) {
             workload.status = status
             workload.exitCode = exitCode
@@ -368,6 +376,17 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.delete(workload.id!)
             this.persist(workload)
         }
+    }
+
+    // Pushes the run's end the moment the guest exits, instead of leaving it for the next
+    // heartbeat's listWorkloads() sweep to notice. syncStatus() no-ops for exits another
+    // operation (stop, destroy) is already handling.
+    private watchExit(workload: Workload): void {
+        this.docker.getContainer(workload.id!).wait()
+            .then(() => this.syncStatus(workload))
+            .catch(() => {
+                // The container was removed or the daemon restarted — the heartbeat sweep reconciles
+            })
     }
 
     // A guest that ended while no operation was in flight stopped cleanly only if it said so;
