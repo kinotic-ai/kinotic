@@ -363,14 +363,16 @@ class CompositeTypeTest extends KinoticTestBase {
             CREATE TABLE ct_insert_test (
                 id      KEYWORD,
                 address OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE)),
-                tags    NESTED (label TEXT, value KEYWORD)
+                tags    NESTED (label TEXT, value KEYWORD),
+                roles   KEYWORD
             );
             """;
         String insertSql = """
-            INSERT INTO ct_insert_test (id, address, tags) VALUES (
+            INSERT INTO ct_insert_test (id, address, tags, roles) VALUES (
                 'p-1',
                 { street: '1 Main St', city: 'Springfield', coords: { lat: 30.26, lon: -97.74 } },
-                [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ]
+                [ { label: 'Release', value: 'v1' }, { label: 'Area', value: 'sql' } ],
+                [ 'ADMIN', 'USER' ]
             ) WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
@@ -397,6 +399,11 @@ class CompositeTypeTest extends KinoticTestBase {
         assertEquals(2, tags.size());
         assertEquals("Release", tags.get(0).get("label"));
         assertEquals("sql", tags.get(1).get("value"));
+
+        // An array of scalars gives a KEYWORD column its several values
+        assertEquals(List.of("ADMIN", "USER"), source.get("roles"));
+        assertEquals(1, client.count(c -> c.index("ct_insert_test")
+            .query(q -> q.term(t -> t.field("roles").value("USER")))).count());
     }
 
     @Test
@@ -537,6 +544,144 @@ class CompositeTypeTest extends KinoticTestBase {
         @SuppressWarnings("unchecked")
         Map<String, Object> insertedSource = inserted.source();
         assertFalse(insertedSource.containsKey("nickname"), "a null INSERT value stores no field at all");
+    }
+
+    @Test
+    void whenUpdateMergesIntoAbsentObject_thenObjectCreated() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_merge_absent_test (
+                id      KEYWORD,
+                address OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE))
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_merge_absent_test (id) VALUES ('p-1') WITH REFRESH;
+            INSERT INTO ct_merge_absent_test (id) VALUES ('p-2') WITH REFRESH;
+            """;
+        String updateSql = """
+            UPDATE ct_merge_absent_test SET address = { city: 'Shelbyville' } WHERE id == 'p-1' WITH REFRESH;
+            UPDATE ct_merge_absent_test SET address = { coords: { lat: null } } WHERE id == 'p-2' WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_merge_absent_create", createSql),
+                    migration(2, "V2__ct_merge_absent_data",   insertSql),
+                    migration(3, "V3__ct_merge_absent_apply",  updateSql)), "ct_merge_absent_project").get();
+
+        // Neither document carries the column, so the merge has to create the object it merges into
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> created = client.get(g -> g.index("ct_merge_absent_test").id("p-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> createdSource = created.source();
+        assertEquals(Map.of("city", "Shelbyville"), createdSource.get("address"));
+
+        // Nulls contribute nothing to a created object, so none of them reaches the stored document
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> cleared = client.get(g -> g.index("ct_merge_absent_test").id("p-2"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> clearedSource = cleared.source();
+        assertEquals(Map.of("coords", Map.of()), clearedSource.get("address"));
+    }
+
+    @Test
+    void whenInsertUnionLiteral_thenVariantStoredAndSwitchable() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_union_data_test (
+                id   KEYWORD,
+                item UNION (
+                    Book  (kind KEYWORD, title TEXT, isbn KEYWORD),
+                    Video (kind KEYWORD, title TEXT, duration INTEGER)
+                )
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_union_data_test (id, item)
+                VALUES ('a-1', { kind: 'Book', title: 'Refactoring', isbn: '978-0134757599' }) WITH REFRESH;
+            INSERT INTO ct_union_data_test (id, item)
+                VALUES ('a-2', { kind: 'Video', title: 'Talk', duration: 42 }) WITH REFRESH;
+            """;
+        // Switching variants means clearing the fields the new one does not carry
+        String updateSql = """
+            UPDATE ct_union_data_test
+               SET item = { kind: 'Video', duration: 17, isbn: null }
+             WHERE id == 'a-1' WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_union_data_create", createSql),
+                    migration(2, "V2__ct_union_data_insert", insertSql),
+                    migration(3, "V3__ct_union_data_switch", updateSql)), "ct_union_data_project").get();
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> stored = client.get(g -> g.index("ct_union_data_test").id("a-2"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> storedSource = stored.source();
+        assertEquals(Map.of("kind", "Video", "title", "Talk", "duration", 42), storedSource.get("item"));
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> switched = client.get(g -> g.index("ct_union_data_test").id("a-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> switchedSource = switched.source();
+        assertEquals(Map.of("kind", "Video", "title", "Refactoring", "duration", 17),
+                     switchedSource.get("item"),
+                     "the Book-only isbn is cleared while the shared title survives the merge");
+
+        // The merged flat mapping keeps the discriminator queryable
+        assertEquals(2, client.count(c -> c.index("ct_union_data_test")
+            .query(q -> q.term(t -> t.field("item.kind").value("Video")))).count());
+    }
+
+    @Test
+    void whenInsertJsonLiteral_thenObjectStoredAndLeavesQueryable() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_json_data_test (
+                id      KEYWORD,
+                payload JSON
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_json_data_test (id, payload) VALUES (
+                'e-1',
+                { source: { region: 'us-east' }, 'content-type': 'application/json' }
+            ) WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_json_data_create", createSql),
+                    migration(2, "V2__ct_json_data_insert", insertSql)), "ct_json_data_project").get();
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> response = client.get(g -> g.index("ct_json_data_test").id("e-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> source = response.source();
+
+        // A JSON column takes any shape, including keys the identifier rule cannot express
+        assertEquals(Map.of("source", Map.of("region", "us-east"), "content-type", "application/json"),
+                     source.get("payload"));
+
+        // Its leaves are indexed by dot-path
+        assertEquals(1, client.count(c -> c.index("ct_json_data_test")
+            .query(q -> q.term(t -> t.field("payload.source.region").value("us-east")))).count());
+    }
+
+    @Test
+    void whenInsertGeoPointLiteral_thenGeoQueryMatches() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_geo_data_test (
+                id       KEYWORD,
+                location GEO_POINT
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_geo_data_test (id, location)
+                VALUES ('g-1', { lat: 30.26, lon: -97.74 }) WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_geo_data_create", createSql),
+                    migration(2, "V2__ct_geo_data_insert", insertSql)), "ct_geo_data_project").get();
+
+        // A geo_distance query resolves only if the decimals reached the geo_point as coordinates
+        assertEquals(1, client.count(c -> c.index("ct_geo_data_test")
+            .query(q -> q.geoDistance(g -> g.field("location")
+                                            .distance("10km")
+                                            .location(l -> l.latlon(ll -> ll.lat(30.27).lon(-97.75)))))).count());
     }
 
     @Test
