@@ -36,11 +36,19 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
             ctx._source.%1$s = ctx._source.%2$s %3$s %4$s;
             """;
 
+    // A null clears the field, leaving the document as though it had never carried one
+    private static final String CLEARING_ASSIGNMENT = """
+            ctx._source.remove("%1$s");
+            """;
+
     // An object is merged into the stored one rather than replacing it, so sub-fields the statement
-    // does not mention survive. Both sides are tested because a stored scalar, a missing field, or an
-    // array has nothing to merge into and is replaced outright.
+    // does not mention survive. A stored scalar, array, or missing field is turned into an empty object
+    // first so that the merge, and the removal a null in it asks for, applies at every depth.
     private static final String MERGE_ASSIGNMENT = """
-            if (ctx._source.%1$s instanceof Map && params.%1$s instanceof Map) {
+            if (params.%1$s instanceof Map) {
+              if (!(ctx._source.%1$s instanceof Map)) {
+                ctx._source.%1$s = [:];
+              }
               mergeTargets.add(ctx._source.%1$s);
               mergeSources.add(params.%1$s);
             } else {
@@ -62,8 +70,14 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
               Map source = (Map) mergeSources.get(i);
               for (def key : source.keySet()) {
                 def incoming = source.get(key);
-                def current = target.get(key);
-                if (current instanceof Map && incoming instanceof Map) {
+                if (incoming == null) {
+                  target.remove(key);
+                } else if (incoming instanceof Map) {
+                  def current = target.get(key);
+                  if (!(current instanceof Map)) {
+                    current = [:];
+                    target.put(key, current);
+                  }
                   mergeTargets.add(current);
                   mergeSources.add(incoming);
                 } else {
@@ -117,6 +131,8 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                 };
                 String right = "?".equals(binExpr.right()) ? "params." + field : binExpr.right();
                 script.append(BINARY_ASSIGNMENT.formatted(field, binExpr.left(), operator, right));
+            } else if (clearsStoredValue(expr)) {
+                script.append(CLEARING_ASSIGNMENT.formatted(field));
             } else if (mergesIntoStoredObject(expr)) {
                 script.append(MERGE_ASSIGNMENT.formatted(field));
             } else {
@@ -129,6 +145,13 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
             script.append(MERGE_DRAIN);
         }
         return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
+    }
+
+    /**
+     * Whether the field is assigned a null literal, which removes it rather than storing a value.
+     */
+    private static boolean clearsStoredValue(Expression expression) {
+        return expression instanceof LiteralExpression literal && literal.value() == null;
     }
 
     /**
@@ -145,7 +168,9 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         Map<String, Object> params = new HashMap<>();
         assignments.forEach((field, expr) -> {
             if (expr instanceof LiteralExpression literal) {
-                params.put(field, literal.value());
+                if (literal.value() != null) { // a null is written into the script itself, not passed as a param
+                    params.put(field, literal.value());
+                }
             } else if (expr instanceof ParameterExpression) {
                 params.put(field, resolveParameter(field, parameters));
             } else if (expr instanceof BinaryExpression binExpr && "?".equals(binExpr.right())) {

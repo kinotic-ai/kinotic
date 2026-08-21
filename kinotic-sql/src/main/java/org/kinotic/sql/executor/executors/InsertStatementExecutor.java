@@ -36,6 +36,16 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
         return executeQuery(statement, null);
     }
 
+    /**
+     * Adds a column's value to the document being built, leaving the column out of the document when
+     * the value is null so that a null reads back the same as a column the statement never listed.
+     */
+    private void putValue(Map<String, Object> document, String column, Object value) {
+        if (value != null) {
+            document.put(column, value);
+        }
+    }
+
     @Override
     public CompletableFuture<Void> executeQuery(InsertStatement statement, Map<String, Object> parameters) {
         return client.indices().getMapping(m -> m.index(statement.tableName()))
@@ -59,12 +69,12 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
                     // Add values in order of fields in mapping
                     int i = 0;
                     for (String field : properties.keySet()) {
-                        document.put(field, statement.values().get(i++));
+                        putValue(document, field, statement.values().get(i++));
                     }
                 } else {
                     // If columns are specified, just add the values directly
                     for (int i = 0; i < statement.columns().size(); i++) {
-                        document.put(statement.columns().get(i), statement.values().get(i));
+                        putValue(document, statement.columns().get(i), statement.values().get(i));
                     }
                 }
 

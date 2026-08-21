@@ -88,6 +88,7 @@ value
     : STRING
     | numberLiteral
     | BOOLEAN_LITERAL
+    | NULL_LITERAL
     | PARAMETER
     | objectLiteral
     | arrayLiteral
@@ -284,6 +285,8 @@ SEMICOLON: ';';
 // Literals and Identifiers
 BOOLEAN_LITERAL: 'true' | 'false';
 DECIMAL_LITERAL: [0-9]+ '.' [0-9]+;
+// Word literals are declared before ID because a match of equal length goes to whichever rule comes first
+NULL_LITERAL: 'null';
 ID: [a-zA-Z_][a-zA-Z_0-9]*;
 INTEGER_LITERAL: [0-9]+;
 STRING: '\'' ~[']* '\'';

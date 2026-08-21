@@ -488,6 +488,52 @@ class CompositeTypeTest extends KinoticTestBase {
     }
 
     @Test
+    void whenValueIsNull_thenFieldAbsentFromDocument() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_null_test (
+                id       KEYWORD,
+                nickname KEYWORD,
+                address  OBJECT (street TEXT, city KEYWORD)
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_null_test (id, nickname, address) VALUES (
+                'p-1', 'Jay', { street: '1 Main St', city: 'Springfield' }
+            ) WITH REFRESH;
+            INSERT INTO ct_null_test (id, nickname, address) VALUES (
+                'p-2', null, { street: '2 Elm St', city: 'Shelbyville' }
+            ) WITH REFRESH;
+            """;
+        String updateSql = """
+            UPDATE ct_null_test
+               SET nickname = null,
+                   address  = { street: null }
+             WHERE id == 'p-1' WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_null_create", createSql),
+                    migration(2, "V2__ct_null_data",   insertSql),
+                    migration(3, "V3__ct_null_clear",  updateSql)), "ct_null_project").get();
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> cleared = client.get(g -> g.index("ct_null_test").id("p-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> clearedSource = cleared.source();
+        assertFalse(clearedSource.containsKey("nickname"), "a column set to null is removed");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> address = (Map<String, Object>) clearedSource.get("address");
+        assertFalse(address.containsKey("street"), "a sub-field set to null is removed");
+        assertEquals("Springfield", address.get("city"), "the sub-field the statement left out is kept");
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> inserted = client.get(g -> g.index("ct_null_test").id("p-2"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> insertedSource = inserted.source();
+        assertFalse(insertedSource.containsKey("nickname"), "a null INSERT value stores no field at all");
+    }
+
+    @Test
     void whenInsertObjectLiteralWithUndeclaredSubField_thenMigrationFails() throws Exception {
         String createSql = """
             CREATE TABLE ct_insert_strict_test (

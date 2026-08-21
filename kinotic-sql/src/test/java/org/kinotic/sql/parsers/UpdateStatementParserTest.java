@@ -13,6 +13,8 @@ import org.kinotic.sql.domain.statements.UpdateStatement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Verifies that SET assignments parse into the expressions the update script is built from,
@@ -77,6 +79,24 @@ class UpdateStatementParserTest {
         UpdateStatement statement = parseUpdate("UPDATE articles SET tags = [] WHERE id == 'a-1';");
 
         assertEquals(List.of(), literalValue(statement, "tags"));
+    }
+
+    @Test
+    void whenNullAssignment_thenLiteralCarriesNull() {
+        UpdateStatement statement = parseUpdate("UPDATE persons SET address = null WHERE id == 'p-1';");
+
+        assertNull(literalValue(statement, "address"));
+    }
+
+    @Test
+    void whenObjectLiteralFieldIsNull_thenMapCarriesNullForThatField() {
+        UpdateStatement statement = parseUpdate(
+            "UPDATE persons SET address = { city: 'Shelbyville', street: null } WHERE id == 'p-1';");
+
+        Map<?, ?> address = (Map<?, ?>) literalValue(statement, "address");
+        assertEquals("Shelbyville", address.get("city"));
+        assertTrue(address.containsKey("street"), "a cleared field must stay in the literal to be applied");
+        assertNull(address.get("street"));
     }
 
     @Test

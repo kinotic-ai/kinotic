@@ -46,6 +46,13 @@ class InsertStatementParserTest {
     }
 
     @Test
+    void whenNullValue_thenNullInValues() {
+        InsertStatement statement = parseInsert("INSERT INTO products (name, sku) VALUES ('Widget', null);");
+
+        assertNull(statement.values().get(1));
+    }
+
+    @Test
     void whenObjectLiteral_thenMapOfSubFields() {
         InsertStatement statement = parseInsert("""
             INSERT INTO persons (id, address)
