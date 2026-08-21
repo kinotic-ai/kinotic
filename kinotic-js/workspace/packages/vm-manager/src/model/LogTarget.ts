@@ -1,3 +1,5 @@
+import type { LogFormat } from '@/model/LogFormat'
+
 /**
  * A running VM's log source, as consumed by the Alloy config generation: where its log
  * files live on the host and the identity labels its log streams carry.
@@ -6,11 +8,14 @@ export interface LogTarget {
 
     workloadId: string
 
-    /** boxlite box id (ULID). */
+    /** The provider's id for the VM. */
     vmId: string
 
-    /** Host directory holding the VM's log files. */
-    logDir: string
+    /** Path the shipper tails, a glob where the VM writes more than one file. */
+    logPath: string
+
+    /** Encoding of the lines found at {@link logPath}. */
+    format: LogFormat
 
     /** Organization whose Loki tenant receives the logs; null ships to the system tenant. */
     organizationId: string | null

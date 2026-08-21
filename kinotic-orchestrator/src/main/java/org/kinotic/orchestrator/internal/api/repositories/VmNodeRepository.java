@@ -4,7 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
-import org.kinotic.orchestrator.api.model.workload.VmNodeStatus;
+import org.kinotic.orchestrator.api.model.workload.VmNodeStatusType;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
@@ -17,11 +17,11 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
     }
 
     /**
-     * Returns the first page (up to 100) of nodes whose {@code status} is {@link VmNodeStatus#ONLINE}.
+     * Returns the first page (up to 100) of nodes whose {@code status} is {@link VmNodeStatusType#ONLINE}.
      * Resource-availability filtering is left to the caller because Elasticsearch can't express the
      * "available = total - allocated" computation as a server-side query.
      */
     public Future<Page<VmNode>> findOnlineNodes() {
-        return findAll(Pageable.ofSize(100), b -> b.query(termFilter("status", VmNodeStatus.ONLINE.name())));
+        return findAll(Pageable.ofSize(100), b -> b.query(termFilter("status.type", VmNodeStatusType.ONLINE.name())));
     }
 }

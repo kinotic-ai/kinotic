@@ -19,9 +19,12 @@
       <div v-for="node in nodes" :key="node.id" class="flex flex-col gap-2 p-4 border border-surface rounded-lg">
         <div class="flex items-center justify-between">
           <span class="font-semibold">{{ node.name }}</span>
-          <Tag :value="node.status" :severity="nodeSeverity(node.status)" />
+          <Tag :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
         </div>
-        <div class="font-mono text-xs text-muted-color">{{ node.hostname }}</div>
+        <div class="flex items-center gap-2">
+          <span class="font-mono text-xs text-muted-color">{{ node.hostname }}</span>
+          <Tag :value="node.providerType" severity="secondary" />
+        </div>
 
         <div class="flex flex-col gap-2 mt-1">
           <div>
@@ -46,6 +49,10 @@
             <CapacityBar :pct="percentOf(node.allocatedDiskMb, node.totalDiskMb)" />
           </div>
         </div>
+
+        <Message v-if="node.status.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
+          {{ node.status.healthMessage }}
+        </Message>
 
         <div class="text-xs text-muted-color mt-1">Last seen: {{ formatEpochDateTime(node.lastSeen) }}</div>
       </div>
@@ -104,7 +111,7 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
-import { VmNodeStatus, WorkloadStatus, type VmNode, type Workload } from '@kinotic-ai/os-api'
+import { VmNodeStatusType, WorkloadStatus, type VmNode, type Workload } from '@kinotic-ai/os-api'
 import {
   CrudTable,
   PageHeader,
@@ -249,11 +256,11 @@ function refreshAll() {
   refreshTable()
 }
 
-function nodeSeverity(status: VmNodeStatus): string {
+function nodeSeverity(status: VmNodeStatusType): string {
   let ret: string
-  if (status === VmNodeStatus.ONLINE) {
+  if (status === VmNodeStatusType.ONLINE) {
     ret = 'success'
-  } else if (status === VmNodeStatus.DRAINING) {
+  } else if (status === VmNodeStatusType.DRAINING) {
     ret = 'warn'
   } else {
     ret = 'danger'

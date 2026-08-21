@@ -15,6 +15,7 @@ import org.kinotic.orchestrator.api.model.workload.VmNode;
 import org.kinotic.orchestrator.api.workload.VmNodeRegistration;
 import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;
 import org.kinotic.orchestrator.api.model.workload.VmNodeStatus;
+import org.kinotic.orchestrator.api.model.workload.VmNodeStatusType;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.services.VmNodeService;
 import org.kinotic.orchestrator.api.services.WorkloadService;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -70,18 +72,20 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     if (existing != null) {
                         existing.setHostname(registration.getHostname())
                                 .setName(registration.getName())
+                                .setProviderType(registration.getProviderType())
                                 .setTotalCpus(registration.getTotalCpus())
                                 .setTotalMemoryMb(registration.getTotalMemoryMb())
                                 .setTotalDiskMb(registration.getTotalDiskMb())
-                                .setStatus(VmNodeStatus.ONLINE);
+                                .setStatus(new VmNodeStatus());
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
                         ret = vmNodeService.saveSync(existing);
                     } else {
                         VmNode node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
+                        node.setProviderType(registration.getProviderType());
                         node.setTotalCpus(registration.getTotalCpus());
                         node.setTotalMemoryMb(registration.getTotalMemoryMb());
                         node.setTotalDiskMb(registration.getTotalDiskMb());
-                        node.setStatus(VmNodeStatus.ONLINE);
+                        node.setStatus(new VmNodeStatus());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
                         ret = vmNodeService.saveSync(node);
                     }
@@ -90,8 +94,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<VmNode> heartbeat(String nodeId) {
+    public Future<VmNode> heartbeat(String nodeId, List<String> problems) {
         Validate.notNull(nodeId, "Node id cannot be null");
+        List<String> found = problems == null ? List.of() : problems;
+        String message = found.isEmpty() ? null : String.join("; ", found);
+        VmNodeStatusType reported = found.isEmpty() ? VmNodeStatusType.ONLINE : VmNodeStatusType.DRAINING;
 
         return vmNodeService.findById(nodeId)
                 .compose(node -> {
@@ -99,16 +106,22 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     if (node == null) {
                         ret = Future.failedFuture(
                                 new IllegalArgumentException("Node not registered: " + nodeId));
-                    } else if (node.getStatus() == VmNodeStatus.OFFLINE) {
-                        log.info("VmNode {} came back online", nodeId);
-                        node.setStatus(VmNodeStatus.ONLINE);
-                        // findAvailableNode selects on status with a search, so the recovered node
-                        // has to be refreshed into the index before it can be scheduled onto
+                    } else if (node.getStatus().getType() != reported
+                            || !Objects.equals(node.getStatus().getHealthMessage(), message)) {
+                        if (message != null) {
+                            log.warn("VmNode {} is not fit for workloads: {}", nodeId, message);
+                        } else {
+                            log.info("VmNode {} is fit for workloads again", nodeId);
+                        }
+                        node.setStatus(new VmNodeStatus(reported, message));
+                        // findAvailableNode selects on status.type with a search, so the change
+                        // has to be in the index before the next placement reads it
                         ret = vmNodeService.saveSync(node);
                     } else {
-                        // lastSeen is stamped by DefaultVmNodeService.beforeSave. Only checkNodeHealth
-                        // reads it, via a search against a heartbeatTimeoutSeconds cutoff, so a
-                        // refresh wait costs the caller the index refresh interval and buys nothing.
+                        // lastSeen is stamped by DefaultVmNodeService.beforeSave. Only
+                        // checkNodeHealth reads it, via a search against a heartbeatTimeoutSeconds
+                        // cutoff, so a refresh wait costs the caller the index refresh interval
+                        // and buys nothing.
                         ret = vmNodeService.save(node);
                     }
                     return ret;
@@ -186,14 +199,14 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
             vmNodeService.findAll(Pageable.create(0, 500, null))
                     .onSuccess(page -> {
                         for (VmNode node : page.getContent()) {
-                            if (node.getStatus() == VmNodeStatus.ONLINE
+                            if (node.getStatus().getType() == VmNodeStatusType.ONLINE
                                     && node.getLastSeen() != null
                                     && node.getLastSeen().before(cutoffDate)) {
 
                                 log.warn("VmNode {} ({}) missed heartbeat, marking OFFLINE",
                                          node.getName(), node.getId());
 
-                                node.setStatus(VmNodeStatus.OFFLINE);
+                                node.setStatus(new VmNodeStatus(VmNodeStatusType.OFFLINE, node.getStatus().getHealthMessage()));
                                 vmNodeService.saveSync(node)
                                         .compose(offlineNode -> markNodeWorkloadsFailed(offlineNode.getId()))
                                         .onFailure(error -> log.error("Error handling offline node {}", node.getId(), error));

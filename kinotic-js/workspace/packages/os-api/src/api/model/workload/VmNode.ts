@@ -1,5 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { VmNodeStatus } from '@/api/model/workload/VmNodeStatus'
+import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
  * Represents a node in the cluster that is running a VmManager process
@@ -23,9 +24,15 @@ export class VmNode implements Identifiable<string> {
     public hostname: string
 
     /**
-     * Current status of the node.
+     * Whether the node is fit to receive workloads, and why when it is not.
      */
-    public status: VmNodeStatus = VmNodeStatus.ONLINE
+    public status: VmNodeStatus = new VmNodeStatus()
+
+    /**
+     * The VM provider this node runs every workload on, determined by how the node was
+     * provisioned and reported when it registers.
+     */
+    public providerType: VmProviderType = VmProviderType.BOXLITE
 
     /**
      * Total number of vCPUs available on this node.

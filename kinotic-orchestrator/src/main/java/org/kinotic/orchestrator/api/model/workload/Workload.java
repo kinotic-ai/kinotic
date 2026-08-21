@@ -55,11 +55,6 @@ public class Workload implements Identifiable<String> {
     private String applicationId;
 
     /**
-     * The VM provider to use for this workload.
-     */
-    private VmProviderType providerType = VmProviderType.BOXLITE;
-
-    /**
      * The image or rootfs to use for the VM.
      */
     private String image;
@@ -85,6 +80,11 @@ public class Workload implements Identifiable<String> {
     private NetworkPolicy network = new NetworkPolicy();
 
     /**
+     * How much of this workload's log output the node keeps.
+     */
+    private LogPolicy logPolicy = new LogPolicy();
+
+    /**
      * When {@code true} the VM runs detached from the vm-manager process and survives its
      * restarts. Non-detached workloads end when the vm-manager exits.
      */
@@ -101,6 +101,14 @@ public class Workload implements Identifiable<String> {
      * Current status of the workload.
      */
     private WorkloadStatus status = WorkloadStatus.PENDING;
+
+    /**
+     * The exit status of the workload's process once it has stopped, null while it has not.
+     * A workload killed by a signal reports 128 plus the signal number, so 137 is a SIGKILL —
+     * which is what a workload that exceeded its memory limit receives, with no chance to shut
+     * down first. FAILED alone does not distinguish that from code that threw.
+     */
+    private Integer exitCode;
 
     /**
      * Optional environment variables to pass to the VM.

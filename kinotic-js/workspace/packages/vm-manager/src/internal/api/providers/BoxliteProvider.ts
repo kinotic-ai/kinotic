@@ -1,8 +1,9 @@
 import { SimpleBox, getJsBoxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
+import { LogFormat } from '@/model/LogFormat'
 import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/os-api'
 
 /**
@@ -87,10 +88,13 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    // A disabled network is expressed as an allowlist permitting only {@link NO_EGRESS_HOST},
-    // and the workload's own list is discarded: DISABLED means nothing is reachable
-    const allowNet = networkMode === NetworkMode.ENABLED
-        ? workload.network?.allowedHosts ?? []
+    // Both denials are expressed as an allowlist permitting only {@link NO_EGRESS_HOST}: a
+    // disabled network, whose own list is discarded, and an empty list, which boxlite would
+    // otherwise read as no filter at all and grant everything. Name resolution runs inside
+    // boxlite's network stack rather than over the allowlist, so it survives either.
+    const allowedHosts = workload.network?.allowedHosts ?? []
+    const allowNet = networkMode === NetworkMode.ENABLED && allowedHosts.length > 0
+        ? allowedHosts
         : [NO_EGRESS_HOST]
     return {
         image: workload.image,
@@ -109,10 +113,10 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
         // Always sent rather than left to the boxlite default, so what a guest can reach is
         // decided by the workload record alone. The mode is always 'enabled' because the
-        // disabled one cannot boot; denial is carried by the allowlist instead
+        // disabled one cannot boot; every denial is carried by the allowlist instead
         network: {
             mode: 'enabled',
-            ...(allowNet.length > 0 ? { allowNet } : {}),
+            allowNet,
         },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
@@ -149,6 +153,7 @@ export class BoxliteProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly activeVms: Map<string, ActiveVm> = new Map()
+    private readonly boxliteHome: string
     private readonly logsBaseDir: string
     // State must not live under logsBaseDir: log dirs are guest-writable via the
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
@@ -158,13 +163,28 @@ export class BoxliteProvider implements IVmProvider {
     private readonly runtime = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
-    constructor(logsBaseDir: string,
+    constructor(boxliteHome: string,
+                logsBaseDir: string,
                 stateDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
+        this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+    }
+
+    async totalDiskMb(): Promise<number> {
+        // statfs needs an existing path and boxlite only creates its home on the first box
+        mkdirSync(this.boxliteHome, { recursive: true })
+        const stats = statfsSync(this.boxliteHome)
+        return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
+    }
+
+    // boxlite carries its own guest kernel and filesystem, so there is nothing on the host
+    // it depends on that could quietly stop being true
+    async checkNodeHealth(): Promise<string[]> {
+        return []
     }
 
     async recover(): Promise<void> {
@@ -335,7 +355,8 @@ export class BoxliteProvider implements IVmProvider {
             return {
                 workloadId,
                 vmId: vm.vmId,
-                logDir: vm.logDir,
+                logPath: join(vm.logDir, '*.log'),
+                format: LogFormat.PLAIN,
                 organizationId: workload.organizationId,
                 applicationId: workload.applicationId,
             }

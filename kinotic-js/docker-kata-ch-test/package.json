@@ -1,9 +1,9 @@
 {
-  "name": "kata-ch-test",
+  "name": "docker-kata-ch",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun run src/capability-test.ts"
+    "start": "bun run src/requirements-test.ts"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",

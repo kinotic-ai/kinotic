@@ -1,5 +1,24 @@
 import os from 'node:os'
 import path from 'node:path'
+import { VmProviderType } from '@kinotic-ai/os-api'
+
+/**
+ * Resolves KINOTIC_VM_PROVIDER, defaulting to the provider that runs anywhere a developer
+ * works. An unrecognised name throws rather than falling back, so a node configured for a
+ * provider it cannot spell never silently registers running something else.
+ */
+function parseProviderType(value: string | undefined): VmProviderType {
+    let ret: VmProviderType
+    if (!value) {
+        ret = VmProviderType.BOXLITE
+    } else if ((Object.values(VmProviderType) as string[]).includes(value)) {
+        ret = value as VmProviderType
+    } else {
+        throw new Error(`KINOTIC_VM_PROVIDER must be one of `
+                        + `${Object.values(VmProviderType).join(', ')} but was '${value}'`)
+    }
+    return ret
+}
 
 /**
  * Typed view of the vm-manager's process configuration. Every environment variable the
@@ -9,11 +28,21 @@ import path from 'node:path'
  */
 export class VmManagerConfig {
 
+    /** KINOTIC_VM_PROVIDER — the provider every workload on this node runs on. */
+    readonly providerType: VmProviderType = parseProviderType(process.env.KINOTIC_VM_PROVIDER)
+
     /** KINOTIC_NODE_ID — unique id of this vm-manager node. */
     readonly nodeId: string | undefined = process.env.KINOTIC_NODE_ID
 
     /** KINOTIC_HEARTBEAT_INTERVAL_MS — period of the node heartbeat sent to the orchestrator. */
     readonly heartbeatIntervalMs: number = Number(process.env.KINOTIC_HEARTBEAT_INTERVAL_MS ?? '30000')
+
+    /**
+     * KINOTIC_WORKLOAD_DNS — resolver given to each workload and permitted on port 53. A
+     * property of the node's network rather than of any workload, which is why it is not
+     * carried on NetworkPolicy: a workload cannot know what resolver its node was given.
+     */
+    readonly workloadDns: string | undefined = process.env.KINOTIC_WORKLOAD_DNS
 
     /** KINOTIC_LOKI_URL — Loki HTTP API workload logs are shipped to; unset disables log shipping. */
     readonly lokiUrl: string | undefined = process.env.KINOTIC_LOKI_URL

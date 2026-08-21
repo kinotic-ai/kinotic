@@ -35,9 +35,15 @@ public class VmNode implements Identifiable<String> {
     private String hostname;
 
     /**
-     * Current status of the node.
+     * Whether the node is fit to receive workloads, and why when it is not.
      */
-    private VmNodeStatus status = VmNodeStatus.ONLINE;
+    private VmNodeStatus status = new VmNodeStatus();
+
+    /**
+     * The VM provider this node runs every workload on, determined by how the node was
+     * provisioned and reported when it registers.
+     */
+    private VmProviderType providerType = VmProviderType.BOXLITE;
 
     /**
      * Total number of vCPUs available on this node.

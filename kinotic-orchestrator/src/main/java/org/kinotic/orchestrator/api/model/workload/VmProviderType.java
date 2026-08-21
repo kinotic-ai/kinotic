@@ -1,10 +1,9 @@
 package org.kinotic.orchestrator.api.model.workload;
 
 /**
- * Represents the type of VM provider used to run a {@link Workload}.
+ * Represents the type of VM provider a {@link VmNode} runs its {@link Workload}s on.
  */
 public enum VmProviderType {
     BOXLITE,
-    FIRECRACKER,
     CLOUD_HYPERVISOR
 }
