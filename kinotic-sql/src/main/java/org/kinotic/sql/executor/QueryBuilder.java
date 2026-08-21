@@ -103,7 +103,7 @@ public class QueryBuilder {
         }
     }
 
-    public static FieldValue parseValue(String value) {
+    private static FieldValue parseValue(String value) {
         if (value.startsWith("'") && value.endsWith("'")) {
             return FieldValue.of(value.substring(1, value.length() - 1));
         } else if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {

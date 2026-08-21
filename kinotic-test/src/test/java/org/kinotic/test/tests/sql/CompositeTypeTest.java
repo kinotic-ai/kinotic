@@ -437,6 +437,48 @@ class CompositeTypeTest extends KinoticTestBase {
     }
 
     @Test
+    void whenUpdateSetsObjectAndNestedLiterals_thenValuesReplaced() throws Exception {
+        String createSql = """
+            CREATE TABLE ct_update_test (
+                id      KEYWORD,
+                address OBJECT (street TEXT, city KEYWORD),
+                tags    NESTED (label TEXT, value KEYWORD)
+            );
+            """;
+        String insertSql = """
+            INSERT INTO ct_update_test (id, address, tags) VALUES (
+                'p-1',
+                { street: '1 Main St', city: 'Springfield' },
+                [ { label: 'Area', value: 'sql' } ]
+            ) WITH REFRESH;
+            """;
+        String updateSql = """
+            UPDATE ct_update_test
+               SET address = { city: 'Shelbyville' },
+                   tags    = [ { label: 'Area', value: 'grammar' }, { label: 'Release', value: 'v2' } ]
+             WHERE id == 'p-1' WITH REFRESH;
+            """;
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__ct_update_create", createSql),
+                    migration(2, "V2__ct_update_data",   insertSql),
+                    migration(3, "V3__ct_update_apply",  updateSql)), "ct_update_project").get();
+
+        @SuppressWarnings("rawtypes")
+        GetResponse<Map> response = client.get(g -> g.index("ct_update_test").id("p-1"), Map.class);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> source = response.source();
+
+        // SET replaces the column's whole value, so the street left out of the literal is gone
+        assertEquals(Map.of("city", "Shelbyville"), source.get("address"));
+
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tags = (List<Map<String, Object>>) source.get("tags");
+        assertEquals(2, tags.size());
+        assertEquals("grammar", tags.get(0).get("value"));
+        assertEquals("Release", tags.get(1).get("label"));
+    }
+
+    @Test
     void whenInsertObjectLiteralWithUndeclaredSubField_thenMigrationFails() throws Exception {
         String createSql = """
             CREATE TABLE ct_insert_strict_test (

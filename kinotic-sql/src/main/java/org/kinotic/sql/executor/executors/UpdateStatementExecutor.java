@@ -5,7 +5,10 @@ import co.elastic.clients.elasticsearch._types.ScriptSource;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
+import org.kinotic.sql.domain.LiteralExpression;
+import org.kinotic.sql.domain.ParameterExpression;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
 import org.kinotic.sql.executor.QueryBuilder;
@@ -38,7 +41,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
 
     @Override
     public CompletableFuture<Long> executeQuery(UpdateStatement statement, Map<String, Object> parameters) {
-        ScriptSource scriptSource = buildScript(statement.assignments(), parameters);
+        ScriptSource scriptSource = buildScript(statement.assignments());
         Map<String, Object> params = buildScriptParams(statement.assignments(), parameters);
         Map<String, JsonData> scriptParams = convertToJsonDataMap(params);
 
@@ -50,30 +53,25 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         ).thenApply(UpdateByQueryResponse::updated);
     }
 
-    private ScriptSource buildScript(Map<String, Expression> assignments, Map<String, Object> parameters) {
+    private ScriptSource buildScript(Map<String, Expression> assignments) {
         StringBuilder script = new StringBuilder();
         assignments.forEach((field, expr) -> {
-            if (expr instanceof Expression.Literal literal) {
-                if ("?".equals(literal.getValue())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized assignment not supported without parameters");
-                    }
-                    script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
-                } else {
-                    script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
-                }
-            } else if (expr instanceof Expression.BinaryExpression binExpr) {
-                String operator = switch (binExpr.getOperator()) {
+            if (expr instanceof BinaryExpression binExpr) {
+                String operator = switch (binExpr.operator()) {
                     case "+" -> "+";
                     case "-" -> "-";
                     case "*" -> "*";
                     case "/" -> "/";
                     case "==" -> "=="; // Not typically used in SET, but included
-                    default -> throw new IllegalStateException("Unsupported operator: " + binExpr.getOperator());
+                    default -> throw new IllegalStateException("Unsupported operator: " + binExpr.operator());
                 };
-                String right = "?".equals(binExpr.getRight()) ? "params." + field : binExpr.getRight();
-                script.append("ctx._source.").append(field).append(" = ctx._source.").append(binExpr.getLeft())
+                String right = "?".equals(binExpr.right()) ? "params." + field : binExpr.right();
+                script.append("ctx._source.").append(field).append(" = ctx._source.").append(binExpr.left())
                       .append(" ").append(operator).append(" ").append(right).append(";");
+            } else {
+                // Literals and parameters alike are passed as script params, so an object or array
+                // value crosses as JSON instead of being rendered into the script source
+                script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
             }
         });
         return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
@@ -82,42 +80,31 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
     private Map<String, Object> buildScriptParams(Map<String, Expression> assignments, Map<String, Object> parameters) {
         Map<String, Object> params = new HashMap<>();
         assignments.forEach((field, expr) -> {
-            if (expr instanceof Expression.Literal literal) {
-                if ("?".equals(literal.getValue())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized assignment not supported without parameters");
-                    }
-                    Object paramValue = parameters.get(field);
-                    if (paramValue == null) {
-                        throw new IllegalArgumentException("Missing parameter for " + field);
-                    }
-                    params.put(field, paramValue);
-                } else {
-                    params.put(field, QueryBuilder.parseValue(literal.getValue()));
-                }
-            } else if (expr instanceof Expression.BinaryExpression binExpr) {
-                if ("?".equals(binExpr.getRight())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized expression not supported without parameters");
-                    }
-                    Object paramValue = parameters.get(field);
-                    if (paramValue == null) {
-                        throw new IllegalArgumentException("Missing parameter for " + field);
-                    }
-                    params.put(field, paramValue);
-                } else if (!binExpr.getRight().matches("[a-zA-Z_][a-zA-Z_0-9]*")) { // Not a field reference
-                    params.put(field, QueryBuilder.parseValue(binExpr.getRight()));
-                }
+            if (expr instanceof LiteralExpression literal) {
+                params.put(field, literal.value());
+            } else if (expr instanceof ParameterExpression) {
+                params.put(field, resolveParameter(field, parameters));
+            } else if (expr instanceof BinaryExpression binExpr && "?".equals(binExpr.right())) {
+                params.put(field, resolveParameter(field, parameters));
             }
         });
         return params;
     }
 
+    private Object resolveParameter(String field, Map<String, Object> parameters) {
+        if (parameters == null) {
+            throw new IllegalStateException("Parameterized assignment not supported without parameters");
+        }
+        Object value = parameters.get(field);
+        if (value == null) {
+            throw new IllegalArgumentException("Missing parameter for " + field);
+        }
+        return value;
+    }
+
     private Map<String, JsonData> convertToJsonDataMap(Map<String, Object> params) {
         Map<String, JsonData> jsonDataParams = new HashMap<>();
-        if (params != null) {
-            params.forEach((key, value) -> jsonDataParams.put(key, JsonData.of(value)));
-        }
+        params.forEach((key, value) -> jsonDataParams.put(key, JsonData.of(value)));
         return jsonDataParams;
     }
 }

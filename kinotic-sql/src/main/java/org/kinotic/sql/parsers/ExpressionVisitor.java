@@ -1,6 +1,9 @@
 package org.kinotic.sql.parsers;
 
+import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
+import org.kinotic.sql.domain.LiteralExpression;
+import org.kinotic.sql.domain.ParameterExpression;
 import org.kinotic.sql.parser.KinoticSQLBaseVisitor;
 import org.kinotic.sql.parser.KinoticSQLParser;
 
@@ -10,30 +13,26 @@ import org.kinotic.sql.parser.KinoticSQLParser;
  * Created by Navíd Mitchell 🤝 Grok on 3/31/25.
  */
 public class ExpressionVisitor extends KinoticSQLBaseVisitor<Expression> {
+    private final ValueVisitor valueVisitor = new ValueVisitor();
+
     @Override
     public Expression visitExpression(KinoticSQLParser.ExpressionContext ctx) {
-        if (ctx.PARAMETER() != null) {
-            return new Expression.Literal(ctx.PARAMETER().getText());
-        } else if (ctx.STRING() != null) {
-            return new Expression.Literal(ctx.STRING().getText());
-        } else if (ctx.numberLiteral() != null) {
-            return new Expression.Literal(ctx.numberLiteral().getText());
-        } else if (ctx.BOOLEAN_LITERAL() != null) {
-            return new Expression.Literal(ctx.BOOLEAN_LITERAL().getText());
+        Expression ret;
+        if (ctx.value() != null) {
+            ret = ctx.value().PARAMETER() != null
+                    ? new ParameterExpression()
+                    : new LiteralExpression(valueVisitor.visitValue(ctx.value()));
         } else if (ctx.operator() != null) {
             // Binary expression: ID operator expression
-            String left = ctx.ID().getText();
-            String operator = ctx.operator().getText();
             KinoticSQLParser.ExpressionContext rightCtx = ctx.expression();
-            String right = rightCtx.PARAMETER() != null ? rightCtx.PARAMETER().getText()
-                    : rightCtx.STRING() != null ? rightCtx.STRING().getText()
-                    : rightCtx.numberLiteral() != null ? rightCtx.numberLiteral().getText()
-                    : rightCtx.BOOLEAN_LITERAL() != null ? rightCtx.BOOLEAN_LITERAL().getText()
-                    : rightCtx.ID().getText();
-            return new Expression.BinaryExpression(left, operator, right);
+            // The right operand is kept as written since it is spliced into the update script as source
+            String right = rightCtx.value() != null ? rightCtx.value().getText() : rightCtx.ID().getText();
+            ret = new BinaryExpression(ctx.ID().getText(), ctx.operator().getText(), right);
         } else if (ctx.LPAREN() != null) {
-            return visit(ctx.expression()); // Unwrap parentheses
+            ret = visit(ctx.expression()); // Unwrap parentheses
+        } else {
+            throw new IllegalStateException("Invalid expression: " + ctx.getText());
         }
-        throw new IllegalStateException("Invalid expression");
+        return ret;
     }
 }

@@ -116,10 +116,7 @@ assignment
     ;
 
 expression
-    : PARAMETER
-    | STRING
-    | numberLiteral
-    | BOOLEAN_LITERAL
+    : value
     | ID operator expression  // e.g., age + 1, status == 'active'
     | LPAREN expression RPAREN
     ;
