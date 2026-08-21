@@ -493,12 +493,12 @@ class CompositeTypeTest extends KinoticTestBase {
             CREATE TABLE ct_null_test (
                 id       KEYWORD,
                 nickname KEYWORD,
-                address  OBJECT (street TEXT, city KEYWORD)
+                address  OBJECT (street TEXT, city KEYWORD, coords OBJECT (lat DOUBLE, lon DOUBLE))
             );
             """;
         String insertSql = """
             INSERT INTO ct_null_test (id, nickname, address) VALUES (
-                'p-1', 'Jay', { street: '1 Main St', city: 'Springfield' }
+                'p-1', 'Jay', { street: '1 Main St', city: 'Springfield', coords: { lat: 30.26, lon: -97.74 } }
             ) WITH REFRESH;
             INSERT INTO ct_null_test (id, nickname, address) VALUES (
                 'p-2', null, { street: '2 Elm St', city: 'Shelbyville' }
@@ -507,7 +507,7 @@ class CompositeTypeTest extends KinoticTestBase {
         String updateSql = """
             UPDATE ct_null_test
                SET nickname = null,
-                   address  = { street: null }
+                   address  = { street: null, coords: { lat: null } }
              WHERE id == 'p-1' WITH REFRESH;
             """;
         migrationExecutor.executeProjectMigrations(
@@ -525,6 +525,12 @@ class CompositeTypeTest extends KinoticTestBase {
         Map<String, Object> address = (Map<String, Object>) clearedSource.get("address");
         assertFalse(address.containsKey("street"), "a sub-field set to null is removed");
         assertEquals("Springfield", address.get("city"), "the sub-field the statement left out is kept");
+
+        // The literal's nesting is what addresses a field, so a null reaches any depth
+        @SuppressWarnings("unchecked")
+        Map<String, Object> coords = (Map<String, Object>) address.get("coords");
+        assertFalse(coords.containsKey("lat"), "a null nested in the literal removes that sub-field");
+        assertEquals(-97.74, ((Number) coords.get("lon")).doubleValue(), "its sibling is kept");
 
         @SuppressWarnings("rawtypes")
         GetResponse<Map> inserted = client.get(g -> g.index("ct_null_test").id("p-2"), Map.class);
