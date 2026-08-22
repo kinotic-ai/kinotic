@@ -4,16 +4,16 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
-import org.kinotic.domain.api.model.security.OrganizationParticipant;
-import org.kinotic.domain.api.model.security.ScopedParticipant;
-import org.kinotic.domain.api.model.security.SystemParticipant;
 
 /**
- * The hierarchy a job run executes on behalf of, recorded on the run so runs can be filtered
- * by owner. A job definition is a system-wide template; ownership is declared per
- * execution when the job is started and recorded on the {@link JobRun}. The platform itself is an owner too - {@link #system()} -
- * with no organization.
+ * The hierarchy tier a job run executes on behalf of, recorded on the run so runs can be
+ * filtered by owner. A job definition is a system-wide template; ownership is declared per
+ * execution when the job is started and recorded on the {@link JobRun}. Runs are owned at one
+ * of the platform's three tiers: the platform itself ({@link #system()}, no organization and
+ * no application), an organization ({@link #ofOrganization}), or an application
+ * ({@link #ofApplication}). An organization or application owner may additionally name the
+ * project the run served - the project is declared by the caller per execution, it never
+ * follows from a participant.
  */
 @Getter
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -27,12 +27,12 @@ public class JobOwner {
     private final String organizationId;
 
     /**
-     * The owning Application, or null if the run is owned at the organization level.
+     * The owning Application, or null if the run is owned at the system or organization tier.
      */
     private final String applicationId;
 
     /**
-     * The owning Project, or null if the run is owned at the organization or application level.
+     * The Project the run served, or null if the run was not for a project.
      */
     private final String projectId;
 
@@ -52,67 +52,46 @@ public class JobOwner {
     }
 
     /**
-     * Creates an owner from the given hierarchy ids.
-     * @param organizationId the owning organization, or null for the platform owner
-     * @param applicationId the owning application, or null if owned at the organization level
-     * @param projectId the owning project, or null if not project-owned
-     * @return the owner
-     * @throws IllegalArgumentException if an application or project is given without an organization
-     */
-    public static JobOwner of(String organizationId, String applicationId, String projectId) {
-        Validate.isTrue(organizationId != null || (applicationId == null && projectId == null),
-                        "applicationId and projectId require an organizationId");
-        return new JobOwner(organizationId, applicationId, projectId);
-    }
-
-    /**
-     * Creates an owner at the organization level.
+     * Creates an owner at the organization tier.
      * @param organizationId the owning organization
      * @return the owner
      */
     public static JobOwner ofOrganization(String organizationId) {
-        return of(organizationId, null, null);
+        return ofOrganization(organizationId, null);
     }
 
     /**
-     * Creates an owner at the application level.
+     * Creates an owner at the organization tier, naming the project the run serves.
+     * @param organizationId the owning organization
+     * @param projectId the project the run serves, or null if the run is not for a project
+     * @return the owner
+     */
+    public static JobOwner ofOrganization(String organizationId, String projectId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return new JobOwner(organizationId, null, projectId);
+    }
+
+    /**
+     * Creates an owner at the application tier.
      * @param organizationId the owning organization
      * @param applicationId the owning application
      * @return the owner
      */
     public static JobOwner ofApplication(String organizationId, String applicationId) {
-        return of(organizationId, applicationId, null);
+        return ofApplication(organizationId, applicationId, null);
     }
 
     /**
-     * Creates the owner matching the given participant's scope, so a run started on a
-     * participant's behalf is owned by the hierarchy the participant is authenticated under.
-     * @param participant whose scope owns the run
-     * @return the owner, {@link #system()} for a {@link SystemParticipant}
-     */
-    public static JobOwner from(ScopedParticipant participant) {
-        Validate.notNull(participant, "participant cannot be null");
-        return switch (participant) {
-            case SystemParticipant ignored -> system();
-            case OrganizationParticipant org -> ofOrganization(org.getOrganizationId());
-            case ApplicationParticipant app -> ofApplication(app.getOrganizationId(), app.getApplicationId());
-        };
-    }
-
-    /**
-     * Creates the owner matching the given participant's scope, narrowed to the given project.
-     * @param participant whose scope owns the run
-     * @param projectId the owning project, or null for no project narrowing
+     * Creates an owner at the application tier, naming the project the run serves.
+     * @param organizationId the owning organization
+     * @param applicationId the owning application
+     * @param projectId the project the run serves, or null if the run is not for a project
      * @return the owner
-     * @throws IllegalArgumentException if a project is given for a {@link SystemParticipant},
-     *         since a project-owned run requires an owning organization
      */
-    public static JobOwner from(ScopedParticipant participant, String projectId) {
-        JobOwner ret = from(participant);
-        if(projectId != null){
-            ret = of(ret.organizationId, ret.applicationId, projectId);
-        }
-        return ret;
+    public static JobOwner ofApplication(String organizationId, String applicationId, String projectId) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        return new JobOwner(organizationId, applicationId, projectId);
     }
 
 }

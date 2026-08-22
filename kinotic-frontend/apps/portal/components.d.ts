@@ -46,4 +46,7 @@ declare module 'vue' {
     Textarea: typeof import('primevue/textarea')['default']
     UnionNode: typeof import('./src/components/nodes/UnionNode.vue')['default']
   }
+  export interface GlobalDirectives {
+    Tooltip: typeof import('primevue/tooltip')['default']
+  }
 }

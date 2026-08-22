@@ -44,6 +44,18 @@ const routes: RouteRecordRaw[] = [
                 meta: { sidebar: consoleSidebarItem('Worker nodes', 'pi-server', 30) }
             },
             {
+                name: 'jobs',
+                path: 'jobs',
+                component: () => import('./pages/JobsPage.vue'),
+                meta: { sidebar: consoleSidebarItem('Jobs', 'pi-list-check', 40) }
+            },
+            {
+                name: 'job-run',
+                path: 'jobs/:jobRunId',
+                component: () => import('./pages/JobRunPage.vue'),
+                props: true
+            },
+            {
                 name: 'organization-detail',
                 path: 'organizations/:organizationId',
                 redirect: to => ({ name: 'org-overview', params: to.params })

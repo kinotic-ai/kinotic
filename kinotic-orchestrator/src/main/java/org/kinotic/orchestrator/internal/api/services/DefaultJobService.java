@@ -19,11 +19,15 @@ import org.kinotic.orchestrator.api.model.grind.JobOwner;
 import org.kinotic.orchestrator.api.services.JobService;
 import org.kinotic.orchestrator.api.model.grind.Result;
 import org.kinotic.orchestrator.api.model.grind.ResultOptions;
+import org.kinotic.orchestrator.api.model.grind.ResultType;
+import org.kinotic.orchestrator.api.model.grind.StepCompletion;
 import org.kinotic.orchestrator.internal.api.model.grind.DefaultJobContext;
+import org.kinotic.orchestrator.internal.api.model.grind.DefaultResult;
 import org.kinotic.orchestrator.internal.api.model.grind.JobDefinitionStep;
 import org.kinotic.orchestrator.internal.api.model.grind.JobRunRecorder;
 import org.kinotic.orchestrator.internal.api.model.grind.ReplayEntry;
 import org.kinotic.orchestrator.internal.api.model.grind.ReplayLedger;
+import org.kinotic.orchestrator.internal.api.model.grind.Step;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -37,6 +41,8 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  *
@@ -52,6 +58,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final JobRunService jobRunService;
     private final TaskRecordService taskRecordService;
     private final ObjectMapper objectMapper;
+
+    private final Map<String, JobExecution> activeExecutions = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
@@ -168,14 +176,67 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private JobExecution executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
-        Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> recorder.runStarted())
+        String jobRunId = recorder.getJobRunId();
+        AtomicReference<JobExecution> executionRef = new AtomicReference<>();
+        Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> {
+                                              // Registered on first subscription rather than at creation, so a
+                                              // watcher can only attach to a run that has started and can never
+                                              // be the subscription that triggers execution
+                                              activeExecutions.put(jobRunId, executionRef.get());
+                                              recorder.runStarted();
+                                          })
                                           .doOnNext(recorder::record)
                                           .doOnError(recorder::runFailed)
                                           .doOnCancel(recorder::runCancelled)
-                                          .doOnComplete(recorder::runCompleted);
+                                          .doOnComplete(recorder::runCompleted)
+                                          .doFinally(signalType -> activeExecutions.remove(jobRunId));
 
         // JobExecution multicasts, so these hooks see one subscription no matter how many subscribers attach
-        return new JobExecution(recorder.getJobRunId(), recorded);
+        JobExecution execution = new JobExecution(jobRunId, recorded);
+        executionRef.set(execution);
+        return execution;
+    }
+
+    @Override
+    public Flux<Result<?>> watchExecution(String jobRunId) {
+        Validate.notBlank(jobRunId, "jobRunId Must not be blank");
+        JobExecution execution = activeExecutions.get(jobRunId);
+        Flux<Result<?>> ret;
+        if(execution == null){
+            ret = Flux.empty();
+        }else{
+            ret = execution.getResults().map(result -> toWireSafeResult(jobRunId, result));
+        }
+        return ret;
+    }
+
+    /**
+     * Rebuilds results whose value cannot cross a serialization boundary: dynamic steps are
+     * internal {@link Step} graphs holding live {@link org.kinotic.orchestrator.api.model.grind.Task}
+     * instances, failures are {@link Throwable}s, and completions and values carry arbitrary
+     * user objects. Everything else passes through untouched.
+     */
+    private Result<?> toWireSafeResult(String jobRunId, Result<?> result) {
+        Result<?> ret;
+        switch(result.getResultType()){
+            case DYNAMIC_STEPS -> ret = new DefaultResult<>(result.getStepInfo(),
+                                                            ResultType.DYNAMIC_STEPS,
+                                                            JobRunRecorder.discoveredStepRecords(jobRunId,
+                                                                                                 result.getStepInfo().path(),
+                                                                                                 (Step) result.getValue()));
+            case STEP_FAILED -> ret = new DefaultResult<>(result.getStepInfo(),
+                                                          ResultType.STEP_FAILED,
+                                                          result.getValue().toString());
+            case STEP_COMPLETED -> {
+                StepCompletion completion = (StepCompletion) result.getValue();
+                ret = new DefaultResult<>(result.getStepInfo(),
+                                          ResultType.STEP_COMPLETED,
+                                          new StepCompletion(completion.getStoreType(), completion.getStoredName(), null));
+            }
+            case VALUE -> ret = new DefaultResult<>(result.getStepInfo(), ResultType.VALUE, null);
+            default -> ret = result;
+        }
+        return ret;
     }
 
     /**

@@ -12,7 +12,7 @@
   "dependencies": {
     "@kinotic-ai/core": "^5.0.0-beta.5",
     "@kinotic-ai/frontend-common": "workspace:*",
-    "@kinotic-ai/os-api": "^5.0.0-beta.15",
+    "@kinotic-ai/os-api": "^5.0.0-beta.16",
     "@primeuix/themes": "^2.0.3",
     "echarts": "^6.1.0",
     "primeicons": "^7.0.0",

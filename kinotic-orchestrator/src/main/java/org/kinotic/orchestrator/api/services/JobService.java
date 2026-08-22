@@ -103,4 +103,20 @@ public interface JobService {
      */
     JobExecution resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
 
+    /**
+     * Opens a view of a run currently executing in this process. The returned {@link Flux} replays
+     * every {@link Result} emitted since the run started, then continues live until the run
+     * terminates. Watching never starts a run - subscribing attaches to the in-flight execution only.
+     * <p>
+     * Result values are reduced to what a monitoring caller can consume remotely:
+     * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
+     * {@link org.kinotic.orchestrator.api.model.grind.TaskRecord}s in discovery order,
+     * {@link ResultType#STEP_FAILED} carries the failure message, and
+     * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
+     * @param jobRunId the id of the run to watch
+     * @return the run's {@link Result} stream, or an empty {@link Flux} when no run with the
+     *         given id is executing in this process
+     */
+    Flux<Result<?>> watchExecution(String jobRunId);
+
 }
