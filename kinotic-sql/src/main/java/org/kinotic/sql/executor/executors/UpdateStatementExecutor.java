@@ -11,7 +11,7 @@ import org.kinotic.sql.domain.LiteralExpression;
 import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
-import org.kinotic.sql.executor.ParameterBinder;
+import org.kinotic.sql.executor.ParameterUtils;
 import org.kinotic.sql.executor.QueryBuilder;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.springframework.stereotype.Component;
@@ -130,7 +130,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     case "==" -> "=="; // Not typically used in SET, but included
                     default -> throw new IllegalStateException("Unsupported operator: " + operator1);
                 };
-                String right = NamedParameter.isReference(right1) ? "params." + field : right1;
+                String right = ParameterUtils.isReference(right1) ? "params." + field : right1;
                 script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
@@ -170,12 +170,12 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         assignments.forEach((field, expr) -> {
             if (expr instanceof LiteralExpression(Object value)) {
                 if (value != null) { // a null is written into the script itself, not passed as a param
-                    params.put(field, ParameterBinder.bind(value, parameters));
+                    params.put(field, ParameterUtils.bind(value, parameters));
                 }
             } else if (expr instanceof NamedParameter(String name)) {
-                params.put(field, ParameterBinder.resolve(name, parameters));
-            } else if (expr instanceof BinaryExpression binExpr && NamedParameter.isReference(binExpr.right())) {
-                params.put(field, ParameterBinder.resolve(NamedParameter.nameOf(binExpr.right()), parameters));
+                params.put(field, ParameterUtils.resolve(name, parameters));
+            } else if (expr instanceof BinaryExpression binExpr && ParameterUtils.isReference(binExpr.right())) {
+                params.put(field, ParameterUtils.resolve(ParameterUtils.nameOf(binExpr.right()), parameters));
             }
         });
         return params;

@@ -7,7 +7,7 @@ import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.InsertStatement;
-import org.kinotic.sql.executor.ParameterBinder;
+import org.kinotic.sql.executor.ParameterUtils;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +52,7 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
     public CompletableFuture<Void> executeQuery(InsertStatement statement, Map<String, Object> parameters) {
         // Bound before the mapping lookup so a missing parameter fails the call rather than the future,
         // the way it does for UPDATE and DELETE
-        final List<Object> values = statement.values().stream().map(v -> ParameterBinder.bind(v, parameters)).toList();
+        final List<Object> values = statement.values().stream().map(v -> ParameterUtils.bind(v, parameters)).toList();
 
         return client.indices().getMapping(m -> m.index(statement.tableName()))
             .thenCompose(mapping -> {

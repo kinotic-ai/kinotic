@@ -8,11 +8,31 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Resolves the {@link NamedParameter}s a parsed statement carries against the values supplied for an
- * execution, keyed by parameter name.
+ * Recognizes the {@link NamedParameter} references a statement carries and resolves them against the
+ * values supplied for an execution, keyed by parameter name.
  * Created by Navíd Mitchell 🤝 Claude on 8/21/26.
  */
-public class ParameterBinder {
+public class ParameterUtils {
+
+    private static final String PREFIX = ":";
+
+    /**
+     * Whether the given statement text is a parameter reference rather than a literal.
+     *
+     * @param text the text as written in the statement
+     */
+    public static boolean isReference(String text) {
+        return text.startsWith(PREFIX);
+    }
+
+    /**
+     * The parameter name carried by a reference, such as {@code minAge} for {@code :minAge}.
+     *
+     * @param text a parameter reference as written in the statement
+     */
+    public static String nameOf(String text) {
+        return text.substring(PREFIX.length());
+    }
 
     /**
      * Returns the given value with every parameter reference in it replaced by its supplied value.
@@ -50,12 +70,12 @@ public class ParameterBinder {
      */
     public static Object resolve(String name, Map<String, Object> parameters) {
         if (parameters == null) {
-            throw new IllegalStateException("Statement uses parameter " + NamedParameter.PREFIX + name
+            throw new IllegalStateException("Statement uses parameter " + PREFIX + name
                                                     + " but no parameters were supplied");
         }
         Object ret = parameters.get(name);
         if (ret == null) {
-            throw new IllegalArgumentException("Missing value for parameter " + NamedParameter.PREFIX + name);
+            throw new IllegalArgumentException("Missing value for parameter " + PREFIX + name);
         }
         return ret;
     }
