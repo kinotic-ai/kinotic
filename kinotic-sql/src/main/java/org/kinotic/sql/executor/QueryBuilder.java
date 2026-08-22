@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import org.kinotic.sql.domain.WhereClause;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * Utility class for building Elasticsearch queries from SQL WHERE clauses.
@@ -13,20 +14,17 @@ import java.util.Map;
  */
 public class QueryBuilder {
 
+    // Mirrors the grammar's numberLiteral rule, so a literal that parsed as a number stays one here
+    private static final Pattern NUMBER_PATTERN = Pattern.compile("-?\\d+(\\.\\d+)?");
+
     public static Query buildQuery(WhereClause whereClause, Map<String, Object> parameters) {
         if (whereClause instanceof WhereClause.Condition condition) {
             String value = condition.getValue();
             String field = condition.getField();
             String operator = condition.getOperator();
 
-            if ("?".equals(value)) {
-                if (parameters == null) {
-                    throw new IllegalStateException("Parameterized condition not supported without parameters");
-                }
-                Object paramValue = parameters.get(field);
-                if (paramValue == null) {
-                    throw new IllegalArgumentException("Missing parameter for " + field);
-                }
+            if (ParameterUtils.isReference(value)) {
+                Object paramValue = ParameterUtils.resolve(ParameterUtils.nameOf(value), parameters);
                 // Convert parameter to FieldValue
                 FieldValue fieldValue;
                 if (paramValue instanceof Number) {
@@ -99,17 +97,16 @@ public class QueryBuilder {
         }
     }
 
-    public static FieldValue parseValue(String value) {
+    private static FieldValue parseValue(String value) {
         if (value.startsWith("'") && value.endsWith("'")) {
             return FieldValue.of(value.substring(1, value.length() - 1));
         } else if ("true".equalsIgnoreCase(value) || "false".equalsIgnoreCase(value)) {
             return FieldValue.of(Boolean.parseBoolean(value));
+        } else if (NUMBER_PATTERN.matcher(value).matches()) {
+            return value.indexOf('.') >= 0 ? FieldValue.of(Double.parseDouble(value))
+                                           : FieldValue.of(Long.parseLong(value));
         } else {
-            try {
-                return FieldValue.of(Integer.parseInt(value));
-            } catch (NumberFormatException e) {
-                return FieldValue.of(value); // Fallback to string if not a number
-            }
+            return FieldValue.of(value); // Fallback to string if not a number
         }
     }
 }

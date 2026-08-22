@@ -321,6 +321,72 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
     }
 
     @Test
+    void whenDecimalValues_thenStoredAndComparedAsNumbers() throws Exception {
+        // Given
+        String createContent = """
+            CREATE TABLE test_table_decimal (id KEYWORD, price DOUBLE, inStock BOOLEAN);
+            """;
+        String insertContent = """
+            INSERT INTO test_table_decimal (id, price, inStock) VALUES ('1', 19.99, true) WITH REFRESH;
+            INSERT INTO test_table_decimal (id, price, inStock) VALUES ('2', 4.0, true) WITH REFRESH;
+            INSERT INTO test_table_decimal (id, price, inStock) VALUES ('3', -5.5, true) WITH REFRESH;
+            """;
+        String updateContent = """
+            UPDATE test_table_decimal SET inStock = false WHERE price > 10.5 WITH REFRESH;
+            """;
+
+        // When
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__create_decimal_table", createContent),
+                    migration(2, "V2__insert_decimal_data",  insertContent),
+                    migration(3, "V3__update_by_price",      updateContent)), "test_project_decimal").get();
+
+        // Then only the 19.99 row is above the threshold, which orders numerically rather than lexically
+        @SuppressWarnings("rawtypes")
+        SearchResponse<Map> response = client.search(s -> s
+            .index("test_table_decimal")
+            .query(q -> q.term(t -> t.field("inStock").value(false))),
+            Map.class);
+
+        assertEquals(1, response.hits().hits().size());
+        Map<?, ?> source = response.hits().hits().getFirst().source();
+        assertNotNull(source);
+        assertEquals("1", source.get("id"));
+        assertEquals(19.99, ((Number) source.get("price")).doubleValue());
+    }
+
+    @Test
+    void whenUpdateWithBinaryExpression_thenValueComputed() throws Exception {
+        // Given
+        String createContent = """
+            CREATE TABLE test_table_binary (id KEYWORD, quantity INTEGER);
+            """;
+        String insertContent = """
+            INSERT INTO test_table_binary (id, quantity) VALUES ('1', 12) WITH REFRESH;
+            """;
+        String updateContent = """
+            UPDATE test_table_binary SET quantity = quantity + 1 WHERE id == '1' WITH REFRESH;
+            """;
+
+        // When
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__create_binary_table", createContent),
+                    migration(2, "V2__insert_binary_data",  insertContent),
+                    migration(3, "V3__increment_quantity",  updateContent)), "test_project_binary").get();
+
+        // Then the operand is read from the stored document rather than passed as a script param
+        @SuppressWarnings("rawtypes")
+        SearchResponse<Map> response = client.search(s -> s
+            .index("test_table_binary")
+            .query(q -> q.term(t -> t.field("id").value("1"))),
+            Map.class);
+
+        Map<?, ?> source = response.hits().hits().getFirst().source();
+        assertNotNull(source);
+        assertEquals(13, ((Number) source.get("quantity")).intValue());
+    }
+
+    @Test
     void whenDelete_thenDataDeleted() throws Exception {
         // Given
         String createTableContent = """
