@@ -1,8 +1,6 @@
 package org.kinotic.orchestrator.internal.api.services;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
@@ -12,24 +10,20 @@ import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;
 
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Behavior of deploy-and-return vs run-to-completion workload orchestration, exercised through
- * the real orchestration services and completion tracker against in-memory stubs for
- * persistence and the node's vm-manager.
+ * Behavior of the detached contract in workload orchestration: a detached deploy returns at
+ * start while a non-detached one returns at run end, exercised through the real orchestration
+ * services against in-memory stubs for persistence and the node's vm-manager.
  */
 public class WorkloadOrchestrationTest {
 
     private static final String NODE_ID = "node-1";
 
-    private Vertx vertx;
     private StubWorkloadService workloads;
     private StubVmNodeService nodes;
     private StubVmManagerProxy vmManager;
@@ -38,25 +32,18 @@ public class WorkloadOrchestrationTest {
 
     @BeforeEach
     void setUp() {
-        vertx = Vertx.vertx();
         workloads = new StubWorkloadService();
         nodes = new StubVmNodeService();
         nodes.availableNode = new VmNode(NODE_ID, "node-1", "host-1");
         vmManager = new StubVmManagerProxy();
-        WorkloadCompletionTracker tracker = new WorkloadCompletionTracker();
         nodeOrchestration = new DefaultVmNodeOrchestrationService(new KinoticOrchestratorProperties(),
-                                                                  nodes, workloads, tracker);
+                                                                  nodes, workloads);
         orchestration = new DefaultWorkloadOrchestrationService(nodeOrchestration, vmManager,
-                                                                nodes, workloads, tracker, vertx);
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        await(vertx.close());
+                                                                nodes, workloads);
     }
 
     @Test
-    public void deployCompletesOnceStarted() throws Exception {
+    public void detachedDeployCompletesOnceStarted() throws Exception {
         Workload deployed = await(orchestration.deployWorkload(newWorkload()));
 
         assertEquals(WorkloadStatus.RUNNING, deployed.getStatus());
@@ -64,23 +51,29 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void runWaitsForTerminalReport() throws Exception {
-        Future<Workload> run = orchestration.runWorkload(newWorkload());
+    public void foregroundDeployCompletesAtRunEnd() throws Exception {
+        Future<Workload> run = orchestration.deployWorkload(newForegroundWorkload());
+        assertFalse(run.isComplete());
+
+        // Mid-run the node pushes its RUNNING transition while the reply stays pending
+        report(vmManager.lastStarted.getId(), WorkloadStatus.RUNNING, null);
         assertFalse(run.isComplete());
         assertEquals(WorkloadStatus.RUNNING, workloads.saved.get(vmManager.lastStarted.getId()).getStatus());
 
-        report(vmManager.lastStarted.getId(), WorkloadStatus.STOPPED, 0);
+        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
 
         Workload finished = await(run);
         assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
         assertEquals(0, finished.getExitCode());
+        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(finished.getId()).getStatus());
+        assertEquals(0, workloads.saved.get(finished.getId()).getExitCode());
     }
 
     @Test
-    public void runCompletesWithFailureExitCode() throws Exception {
-        Future<Workload> run = orchestration.runWorkload(newWorkload());
+    public void foregroundDeployCompletesWithFailureExitCode() throws Exception {
+        Future<Workload> run = orchestration.deployWorkload(newForegroundWorkload());
 
-        report(vmManager.lastStarted.getId(), WorkloadStatus.FAILED, 137);
+        vmManager.completeRun(WorkloadStatus.FAILED, 137);
 
         Workload finished = await(run);
         assertEquals(WorkloadStatus.FAILED, finished.getStatus());
@@ -88,37 +81,44 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void runCompletesWhenReportOutrunsStartReply() throws Exception {
-        // The node's terminal report lands before the start reply is processed, so the waiter
-        // registers after the run has already ended
+    public void detachedReplyDoesNotClobberTerminalReport() throws Exception {
+        // A short-lived detached workload: the node's terminal report is applied before the
+        // start reply is processed, so the RUNNING reply must not overwrite it
         vmManager.onStart = () -> report(vmManager.lastStarted.getId(), WorkloadStatus.STOPPED, 0);
 
-        Workload finished = await(orchestration.runWorkload(newWorkload()));
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
 
+        assertEquals(WorkloadStatus.STOPPED, deployed.getStatus());
+        assertEquals(0, deployed.getExitCode());
+        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus());
+    }
+
+    @Test
+    public void detachedExitCodeArrivesViaStatusReport() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+
+        report(deployed.getId(), WorkloadStatus.STOPPED, 0);
+
+        Workload stored = workloads.saved.get(deployed.getId());
+        assertEquals(WorkloadStatus.STOPPED, stored.getStatus());
+        assertEquals(0, stored.getExitCode());
+    }
+
+    @Test
+    public void foregroundRestartCompletesAtRunEnd() throws Exception {
+        Future<Workload> firstRun = orchestration.deployWorkload(newForegroundWorkload());
+        String workloadId = vmManager.lastStarted.getId();
+        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
+        await(firstRun);
+
+        Future<Workload> secondRun = orchestration.restartWorkload(workloadId);
+        assertFalse(secondRun.isComplete());
+
+        vmManager.completeRun(WorkloadStatus.STOPPED, 3);
+
+        Workload finished = await(secondRun);
         assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
-        assertEquals(0, finished.getExitCode());
-        // The start reply must not have promoted the already-ended run back to RUNNING
-        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(finished.getId()).getStatus());
-    }
-
-    @Test
-    public void stopSettlesRunWaiter() throws Exception {
-        Future<Workload> run = orchestration.runWorkload(newWorkload());
-
-        await(orchestration.stopWorkload(vmManager.lastStarted.getId()));
-
-        assertEquals(WorkloadStatus.STOPPED, await(run).getStatus());
-    }
-
-    @Test
-    public void destroyFailsRunWaiter() throws Exception {
-        Future<Workload> run = orchestration.runWorkload(newWorkload());
-
-        await(orchestration.destroyWorkload(vmManager.lastStarted.getId()));
-
-        ExecutionException error = assertThrows(ExecutionException.class,
-                                                () -> run.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS));
-        assertInstanceOf(IllegalStateException.class, error.getCause());
+        assertEquals(3, finished.getExitCode());
     }
 
     private static <T> T await(Future<T> future) throws Exception {
@@ -127,6 +127,10 @@ public class WorkloadOrchestrationTest {
 
     private static Workload newWorkload() {
         return new Workload("test-workload", "alpine:latest");
+    }
+
+    private static Workload newForegroundWorkload() {
+        return newWorkload().setDetached(false);
     }
 
     /**

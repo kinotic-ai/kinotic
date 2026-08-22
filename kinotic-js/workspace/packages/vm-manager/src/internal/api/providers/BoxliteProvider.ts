@@ -205,6 +205,14 @@ export class BoxliteProvider implements IVmProvider {
     }
 
     async start(workload: Workload): Promise<Workload> {
+        // boxlite cannot observe a guest's exit (the box reports running after the entrypoint
+        // ends — see boxlite-test/src/batch-workload-test.ts), so the foreground contract of
+        // a non-detached workload — start resolving at run end — cannot be honored
+        if (!(workload.detached ?? true)) {
+            throw new Error('Non-detached workloads are not supported on the boxlite provider: '
+                            + 'boxlite cannot observe a workload\'s exit. Deploy it detached instead.')
+        }
+
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING

@@ -188,6 +188,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         // STARTING is persisted first so a crash mid-boot is visible to recover()
         this.persist(workload)
 
+        let exitWatch: Promise<void> = Promise.resolve()
         try {
             this.applyMountQuotas(workload)
             await this.ensureImage(workload.image)
@@ -202,7 +203,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            this.watchExit(workload)
+            exitWatch = this.watchExit(workload)
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(id)
@@ -210,6 +211,12 @@ export class CloudHypervisorProvider implements IVmProvider {
         } finally {
             workload.updated = Date.now()
             this.persist(workload)
+        }
+
+        // A non-detached workload runs in the foreground: start resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await exitWatch
         }
 
         return workload
@@ -226,6 +233,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         workload.exitCode = null
         this.persist(workload)
 
+        let exitWatch: Promise<void> = Promise.resolve()
         try {
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
@@ -237,7 +245,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            this.watchExit(workload)
+            exitWatch = this.watchExit(workload)
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(workloadId)
@@ -245,6 +253,12 @@ export class CloudHypervisorProvider implements IVmProvider {
         } finally {
             workload.updated = Date.now()
             this.persist(workload)
+        }
+
+        // A non-detached workload runs in the foreground: restart resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await exitWatch
         }
 
         return workload
@@ -380,9 +394,10 @@ export class CloudHypervisorProvider implements IVmProvider {
 
     // Pushes the run's end the moment the guest exits, instead of leaving it for the next
     // heartbeat's listWorkloads() sweep to notice. syncStatus() no-ops for exits another
-    // operation (stop, destroy) is already handling.
-    private watchExit(workload: Workload): void {
-        this.docker.getContainer(workload.id!).wait()
+    // operation (stop, destroy) is already handling. The returned promise settles once the
+    // exit is recorded, which is what a non-detached start awaits.
+    private watchExit(workload: Workload): Promise<void> {
+        return this.docker.getContainer(workload.id!).wait()
             .then(() => this.syncStatus(workload))
             .catch(() => {
                 // The container was removed or the daemon restarted — the heartbeat sweep reconciles

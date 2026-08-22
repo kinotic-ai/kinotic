@@ -21,6 +21,11 @@ public interface WorkloadOrchestrationService {
      * Deploys a new workload to an appropriate node in the cluster.
      * The orchestrator selects a node with sufficient resources, persists the workload,
      * and delegates to the VmManager on the selected node.
+     * <p>
+     * When {@link Workload#isDetached()} is {@code false} the returned future completes only
+     * once the run has ended — the workload reached {@link WorkloadStatus#STOPPED} or
+     * {@link WorkloadStatus#FAILED}, with its {@link Workload#getExitCode() exit code} set.
+     * Otherwise it completes as soon as the workload is started.
      *
      * @param workload the workload configuration to deploy
      * @return a future that will complete with the deployed workload (including assigned nodeId and id)
@@ -28,22 +33,11 @@ public interface WorkloadOrchestrationService {
     Future<Workload> deployWorkload(Workload workload);
 
     /**
-     * Deploys a new workload like {@link #deployWorkload(Workload)} and then waits for its run
-     * to end. The returned future completes once the workload reaches
-     * {@link WorkloadStatus#STOPPED} or {@link WorkloadStatus#FAILED}, with the final workload
-     * including its {@link Workload#getExitCode() exit code}, and fails if the workload is
-     * destroyed before its run ends.
-     *
-     * @param workload the workload configuration to deploy
-     * @return a future that will complete with the finished workload once its run has ended
-     */
-    Future<Workload> runWorkload(Workload workload);
-
-    /**
      * Restarts a stopped workload in place on the node it is deployed to. The same VM
      * boots again with its disk state intact and the workload's entrypoint runs again.
      * Fails unless the workload is stopped; a workload stopped with
      * {@link Workload#isAutoRemove()} {@code true} has no VM left to restart.
+     * Honors {@link Workload#isDetached()} the same way as {@link #deployWorkload(Workload)}.
      *
      * @param workloadId the id of the workload to restart
      * @return a future that will complete with the restarted workload

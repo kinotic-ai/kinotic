@@ -36,7 +36,6 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private final KinoticOrchestratorProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
-    private final WorkloadCompletionTracker completionTracker;
     private ScheduledExecutorService scheduler;
 
     @PostConstruct
@@ -156,8 +155,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // persists STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
                             workload.setExitCode(report.getExitCode());
-                            ret = workloadService.saveSync(workload)
-                                                 .onSuccess(completionTracker::workloadChanged);
+                            ret = workloadService.saveSync(workload);
                         } else {
                             ret = Future.succeededFuture(workload);
                         }
@@ -170,8 +168,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
                         workload.setStatus(report.getStatus());
                         workload.setExitCode(report.getExitCode());
-                        ret = workloadService.saveSync(workload)
-                                             .onSuccess(completionTracker::workloadChanged);
+                        ret = workloadService.saveSync(workload);
                     }
                     return ret;
                 });
@@ -243,7 +240,6 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
-                                                      .onSuccess(completionTracker::workloadChanged)
                                                       .mapEmpty();
                             });
                         }
