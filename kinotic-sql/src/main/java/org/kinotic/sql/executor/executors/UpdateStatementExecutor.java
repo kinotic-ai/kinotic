@@ -121,17 +121,17 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
             script.append(MERGE_QUEUE);
         }
         assignments.forEach((field, expr) -> {
-            if (expr instanceof BinaryExpression binExpr) {
-                String operator = switch (binExpr.operator()) {
+            if (expr instanceof BinaryExpression(String left, String operator1, String right1)) {
+                String operator = switch (operator1) {
                     case "+" -> "+";
                     case "-" -> "-";
                     case "*" -> "*";
                     case "/" -> "/";
                     case "==" -> "=="; // Not typically used in SET, but included
-                    default -> throw new IllegalStateException("Unsupported operator: " + binExpr.operator());
+                    default -> throw new IllegalStateException("Unsupported operator: " + operator1);
                 };
-                String right = NamedParameter.isReference(binExpr.right()) ? "params." + field : binExpr.right();
-                script.append(BINARY_ASSIGNMENT.formatted(field, binExpr.left(), operator, right));
+                String right = NamedParameter.isReference(right1) ? "params." + field : right1;
+                script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
             } else if (mergesIntoStoredObject(expr)) {
@@ -152,7 +152,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
      * Whether the field is assigned a null literal, which removes it rather than storing a value.
      */
     private static boolean clearsStoredValue(Expression expression) {
-        return expression instanceof LiteralExpression literal && literal.value() == null;
+        return expression instanceof LiteralExpression(Object value) && value == null;
     }
 
     /**
@@ -162,18 +162,18 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
      */
     private static boolean mergesIntoStoredObject(Expression expression) {
         return expression instanceof NamedParameter
-                || (expression instanceof LiteralExpression literal && literal.value() instanceof Map);
+                || (expression instanceof LiteralExpression(Object value) && value instanceof Map);
     }
 
     private Map<String, Object> buildScriptParams(Map<String, Expression> assignments, Map<String, Object> parameters) {
         Map<String, Object> params = new HashMap<>();
         assignments.forEach((field, expr) -> {
-            if (expr instanceof LiteralExpression literal) {
-                if (literal.value() != null) { // a null is written into the script itself, not passed as a param
-                    params.put(field, ParameterBinder.bind(literal.value(), parameters));
+            if (expr instanceof LiteralExpression(Object value)) {
+                if (value != null) { // a null is written into the script itself, not passed as a param
+                    params.put(field, ParameterBinder.bind(value, parameters));
                 }
-            } else if (expr instanceof NamedParameter parameter) {
-                params.put(field, ParameterBinder.resolve(parameter.name(), parameters));
+            } else if (expr instanceof NamedParameter(String name)) {
+                params.put(field, ParameterBinder.resolve(name, parameters));
             } else if (expr instanceof BinaryExpression binExpr && NamedParameter.isReference(binExpr.right())) {
                 params.put(field, ParameterBinder.resolve(NamedParameter.nameOf(binExpr.right()), parameters));
             }

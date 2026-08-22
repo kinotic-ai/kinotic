@@ -24,8 +24,8 @@ public class ParameterBinder {
      */
     public static Object bind(Object value, Map<String, Object> parameters) {
         Object ret;
-        if (value instanceof NamedParameter parameter) {
-            ret = resolve(parameter.name(), parameters);
+        if (value instanceof NamedParameter(String name)) {
+            ret = resolve(name, parameters);
         } else if (value instanceof Map<?, ?> map) {
             Map<String, Object> bound = new LinkedHashMap<>();
             map.forEach((key, entry) -> bound.put((String) key, bind(entry, parameters)));
