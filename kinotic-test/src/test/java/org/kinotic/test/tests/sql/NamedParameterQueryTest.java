@@ -130,14 +130,16 @@ class NamedParameterQueryTest extends KinoticTestBase {
     void whenTwoParametersNameTheSameField_thenEachResolvesSeparately() throws Exception {
         insertStatementExecutor.executeQuery(parse(
             "INSERT INTO np_param_test (id, city) VALUES (:id, :city) WITH REFRESH;"),
-            Map.of("id", "p-3", "city", "Springfield")).get();
+            Map.of("id", "p-3", "city", "North Haverbrook")).get();
 
-        // Both parameters sit on the city field: only their names tell the new value from the matched one
+        // Both parameters sit on the city field: only their names tell the new value from the matched one.
+        // The city is unique to this test — every test here shares the np_param_test index, so a
+        // by-value WHERE would otherwise match another test's document.
         UpdateStatement statement = parse(
             "UPDATE np_param_test SET city = :newCity WHERE city == :oldCity WITH REFRESH;");
         Long updated = updateStatementExecutor.executeQuery(statement, Map.of(
             "newCity", "Shelbyville",
-            "oldCity", "Springfield")).get();
+            "oldCity", "North Haverbrook")).get();
 
         assertEquals(1, updated);
         assertEquals("Shelbyville", source("p-3").get("city"));

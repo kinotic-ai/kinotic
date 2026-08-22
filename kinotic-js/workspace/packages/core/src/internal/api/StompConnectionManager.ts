@@ -6,6 +6,7 @@ import {type IFrame, RxStomp, RxStompConfig, StompHeaders} from '@stomp/rx-stomp
 import {ReconnectionTimeMode} from '@stomp/stompjs'
 import debug from 'debug'
 import {Observable, Subject, Subscription} from 'rxjs'
+import {skip} from 'rxjs/operators'
 import {v4 as uuidv4} from 'uuid'
 
 /** Fixed REST route the cookie-session pre-flight probes; identical in every environment. */
@@ -48,6 +49,7 @@ export class StompConnectionManager {
     private readonly fatalErrorsSubject: Subject<Error> = new Subject<Error>()
     private readonly _fatalErrors: Observable<Error> = this.fatalErrorsSubject.asObservable()
     private initialConnectionSuccessful: boolean = false
+    private rxStompHasConnected: boolean = false
     private serverHeadersSubscription: Subscription | null = null
     private stompErrorsSubscription: Subscription | null = null
     private readonly uuidv4 = uuidv4()
@@ -261,7 +263,17 @@ export class StompConnectionManager {
 
             // Triggered on every CONNECTED frame, including reconnects. The replyToId is generated
             // server side, so on reconnect it may change.
-            this.serverHeadersSubscription = this.rxStomp.serverHeaders$.subscribe(async (value: StompHeaders) => {
+            // serverHeaders$ is a BehaviorSubject on an rxStomp that outlives a deactivate/activate
+            // cycle, so a later activation is replayed the previous connection's frame on subscribe —
+            // skipping it stops activate() resolving with the replyToId that just went away. Stays on
+            // serverHeaders$ rather than connected$: stompjs emits here before reinstating watch()
+            // subscriptions, so a changed replyToCri reaches replyToCriChangedHandler before the stale
+            // reply destination is re-subscribed and rejected.
+            this.serverHeadersSubscription = this.rxStomp.serverHeaders$
+                                                 .pipe(skip(this.rxStompHasConnected ? 1 : 0))
+                                                 .subscribe(async (value: StompHeaders) => {
+                this.rxStompHasConnected = true
+
                 const connectedInfoJson: string | undefined = value[EventConstants.CONNECTED_INFO_HEADER]
                 if (connectedInfoJson == null) {
                     if (!this.initialConnectionSuccessful) {
