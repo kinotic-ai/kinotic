@@ -3,14 +3,30 @@ import type { LogTarget } from '@/model/LogTarget'
 
 /**
  * Abstraction for a VM provider that can manage micro VM lifecycle.
- * Implementations handle the specifics of each hypervisor (boxlite, firecracker, cloud-hypervisor, etc.)
+ * Implementations handle the specifics of each hypervisor (boxlite, cloud-hypervisor, etc.)
  */
 export interface IVmProvider {
 
     /**
-     * The provider type workloads select via {@link Workload#providerType}.
+     * Identifies this implementation to the orchestrator. A node runs exactly one provider,
+     * chosen by its own configuration, and reports it when it registers.
      */
     readonly type: VmProviderType
+
+    /**
+     * Capacity of the filesystem this provider gives workloads their disks from, in
+     * megabytes. This is what the orchestrator schedules {@link Workload#diskSizeMb}
+     * against, and each provider keeps its guest disks somewhere different.
+     */
+    totalDiskMb(): Promise<number>
+
+    /**
+     * What this provider can no longer guarantee about the node, empty when it is fit to
+     * receive workloads. Called on every heartbeat, because the things a provider depends on
+     * — a data root that enforces disk limits, a firewall that hides host credentials from
+     * guests — can stop being true while it runs, and each fails silently.
+     */
+    checkNodeHealth(): Promise<string[]>
 
     /**
      * Restores the workload state persisted by a previous vm-manager process on this node,

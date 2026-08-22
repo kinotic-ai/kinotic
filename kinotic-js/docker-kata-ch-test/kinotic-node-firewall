@@ -1,0 +1,47 @@
+#!/bin/sh
+# The firewall floor every workload on this node runs behind. Applied at boot by
+# kinotic-node-firewall.service, ordered after docker.service because Docker rebuilds its
+# chains when the daemon starts and would otherwise drop these on every restart.
+#
+# DOCKER-USER is consulted from FORWARD, so everything here governs guest traffic only —
+# the host's own processes go out through OUTPUT and keep their access. That is what lets
+# the vm-manager read Azure IMDS for its own Entra token on a node where no workload can.
+#
+# Nothing here carries per-workload state, so there is nothing to get out of sync with a
+# workload's lifecycle. Per-workload egress rules are inserted above this floor by the
+# vm-manager and only ever ADD permission.
+set -e
+
+# Idempotent: -C tests for the rule before inserting it, so a re-run is a no-op
+insert() { iptables -C DOCKER-USER "$@" 2>/dev/null || iptables -I DOCKER-USER "$@"; }
+append() { iptables -C DOCKER-USER "$@" 2>/dev/null || iptables -A DOCKER-USER "$@"; }
+
+# --- Azure instance metadata -------------------------------------------------------------
+# A guest that reaches 169.254.169.254 can read instance metadata and the signed attested
+# document, and — on a VM with a managed identity — mint tokens for that identity over plain
+# HTTP. 168.63.129.16 is the WireServer: port 53 is the VNet resolver every workload needs,
+# but port 80 serves the agent's goal state and extension configuration, and 32526 the
+# extension endpoint. Neither of those has any legitimate guest consumer.
+insert -d 169.254.169.254/32 -j DROP
+insert -d 168.63.129.16/32 -p tcp --dport 80 -j DROP
+insert -d 168.63.129.16/32 -p tcp --dport 32526 -j DROP
+
+# --- host services -------------------------------------------------------------------------
+# DOCKER-USER is consulted from FORWARD, and traffic addressed to the host itself never
+# reaches FORWARD — so the rules above say nothing about a guest dialling the node's own
+# sshd. Published ports are unaffected: those are the host initiating, not the guest.
+BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
+[ -n "$BRIDGE_SUBNET" ] || BRIDGE_SUBNET=172.17.0.0/16
+iptables -C INPUT -s "$BRIDGE_SUBNET" -j DROP 2>/dev/null || iptables -I INPUT -s "$BRIDGE_SUBNET" -j DROP
+
+# --- Egress default-deny ------------------------------------------------------------------
+# Appended, so it sits BELOW any per-workload ACCEPT the vm-manager inserts with -I. A
+# workload whose rules were never applied — provider died mid-start, address recycled, a
+# container started outside the vm-manager — then matches this and gets no network at all,
+# rather than unrestricted egress.
+#
+# Off until the vm-manager writes per-workload egress rules, because with nothing above it
+# this denies every workload. Enable with:  touch /etc/kinotic/egress-default-deny
+if [ -e /etc/kinotic/egress-default-deny ]; then
+    append -s "$BRIDGE_SUBNET" -j DROP
+fi

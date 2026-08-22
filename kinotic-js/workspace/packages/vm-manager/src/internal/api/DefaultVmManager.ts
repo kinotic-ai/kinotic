@@ -1,9 +1,8 @@
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import type { LogTarget } from '@/model/LogTarget'
 import { Publish, Scope } from '@kinotic-ai/core'
-import type { Workload, VmProviderType } from '@kinotic-ai/os-api'
+import type { Workload } from '@kinotic-ai/os-api'
 
 /**
  * Default implementation of {@link IVmManager}.
@@ -18,7 +17,7 @@ export class DefaultVmManager implements IVmManager {
 
     public readonly nodeId: string
 
-    private readonly providers: Map<VmProviderType, IVmProvider> = new Map()
+    private readonly provider: IVmProvider
     private readonly alloyManager: AlloyManager | null
 
     @Scope
@@ -26,50 +25,44 @@ export class DefaultVmManager implements IVmManager {
         return this.nodeId
     }
 
+    /**
+     * @param provider the provider every workload on this node runs on, chosen by the node's
+     *        configuration rather than by the workloads it is given
+     */
     constructor(nodeId: string, provider: IVmProvider, alloyManager: AlloyManager | null = null) {
         this.nodeId = nodeId
+        this.provider = provider
         this.alloyManager = alloyManager
-        this.providers.set(provider.type, provider)
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
-        const provider = this.getProvider(workload.providerType)
-        const started = await provider.start(workload)
+        const started = await this.provider.start(workload)
         await this.refreshLogShipping()
         return started
     }
 
     async restartWorkload(workloadId: string): Promise<Workload> {
-        const provider = await this.findProviderForWorkload(workloadId)
-        const restarted = await provider.restart(workloadId)
+        const restarted = await this.provider.restart(workloadId)
         await this.refreshLogShipping()
         return restarted
     }
 
     async stopWorkload(workloadId: string): Promise<void> {
-        const provider = await this.findProviderForWorkload(workloadId)
-        await provider.stop(workloadId)
+        await this.provider.stop(workloadId)
         await this.refreshLogShipping()
     }
 
     async destroyWorkload(workloadId: string): Promise<void> {
-        const provider = await this.findProviderForWorkload(workloadId)
-        await provider.destroy(workloadId)
+        await this.provider.destroy(workloadId)
         await this.refreshLogShipping()
     }
 
     async getWorkload(workloadId: string): Promise<Workload> {
-        const provider = await this.findProviderForWorkload(workloadId)
-        return provider.getWorkload(workloadId)
+        return this.provider.getWorkload(workloadId)
     }
 
     async listWorkloads(): Promise<Workload[]> {
-        const allWorkloads: Workload[] = []
-        for (const provider of this.providers.values()) {
-            const workloads = await provider.listWorkloads()
-            allWorkloads.push(...workloads)
-        }
-        return allWorkloads
+        return this.provider.listWorkloads()
     }
 
     /**
@@ -85,33 +78,9 @@ export class DefaultVmManager implements IVmManager {
             return
         }
         try {
-            const targets: LogTarget[] = []
-            for (const provider of this.providers.values()) {
-                targets.push(...await provider.listLogTargets())
-            }
-            await this.alloyManager.applyTargets(targets)
+            await this.alloyManager.applyTargets(await this.provider.listLogTargets())
         } catch (error) {
             console.error('Failed to update log shipping configuration:', error)
         }
-    }
-
-    private getProvider(providerType: VmProviderType): IVmProvider {
-        const provider = this.providers.get(providerType)
-        if (!provider) {
-            throw new Error(`Unsupported VM provider type: ${providerType}`)
-        }
-        return provider
-    }
-
-    private async findProviderForWorkload(workloadId: string): Promise<IVmProvider> {
-        for (const provider of this.providers.values()) {
-            try {
-                await provider.getWorkload(workloadId)
-                return provider
-            } catch {
-                // not found in this provider, continue
-            }
-        }
-        throw new Error(`Workload not found across any provider: ${workloadId}`)
     }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@kinotic-ai/load-generator",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.3.4",
   "type": "module",
   "files": [
     "dist"
@@ -33,7 +33,7 @@
     "@kinotic-ai/core": "^2.0.0",
     "@kinotic-ai/idl": "^1.0.9",
     "@kinotic-ai/kinotic-cli": "^2.2.0",
-    "@kinotic-ai/os-api": "^4.1.0",
+    "@kinotic-ai/os-api": "^5.0.0-beta.15",
     "@kinotic-ai/persistence": "^2.0.0",
     "@opentelemetry/api": "1.9.1",
     "@opentelemetry/exporter-trace-otlp-grpc": "0.221.0",

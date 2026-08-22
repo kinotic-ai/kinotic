@@ -107,7 +107,7 @@ public class StompAuthorizerFactoryTest {
     public void applicationParticipantSubscribesOnlyToReplyDestinations() {
         StompAuthorizer authorizer = applicationAuthorizer("acme-org", "orders-app");
 
-        assertTrue(authorizer.subscribeAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinotic.js.EventBus/replyHandler")));
 
         // not even its own zone: an application's services are hosted by its runtime, which
         // authenticates as an organization participant
@@ -212,21 +212,21 @@ public class StompAuthorizerFactoryTest {
     public void replyDestinationIsScopedToTheConnectionsReplyToId() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
 
-        assertTrue(authorizer.subscribeAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://other-id:sub-1@kinoitc.js.EventBus/replyHandler")));
-        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://kinoitc.js.EventBus/replyHandler")));
+        assertTrue(authorizer.subscribeAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@kinotic.js.EventBus/replyHandler")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://other-id:sub-1@kinotic.js.EventBus/replyHandler")));
+        assertFalse(authorizer.subscribeAllowed(CRI.create("reply://kinotic.js.EventBus/replyHandler")));
     }
 
     @Test
     public void temporaryGrantsAllowOneExactMatchSend() {
         StompAuthorizer authorizer = organizationAuthorizer("acme-org");
-        String replyDestination = "reply://" + REPLY_TO_ID + ":sub-1@kinoitc.js.EventBus/replyHandler";
+        String replyDestination = "reply://" + REPLY_TO_ID + ":sub-1@kinotic.js.EventBus/replyHandler";
 
         assertFalse(authorizer.sendAllowed(CRI.create(replyDestination)));
 
         // grants match by exact string, so a case variant of the granted destination stays denied
         authorizer.addTemporarySendAllowed(replyDestination);
-        assertFalse(authorizer.sendAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@Kinoitc.js.EventBus/replyHandler")));
+        assertFalse(authorizer.sendAllowed(CRI.create("reply://" + REPLY_TO_ID + ":sub-1@Kinotic.js.EventBus/replyHandler")));
         assertTrue(authorizer.sendAllowed(CRI.create(replyDestination)));
 
         // a grant authorizes exactly one send

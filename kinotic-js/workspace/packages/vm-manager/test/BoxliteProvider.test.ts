@@ -43,7 +43,8 @@ describe('buildBoxOptions', () => {
     it('sends the workload network policy rather than relying on a boxlite default', () => {
         const options = buildBoxOptions(workload(), '/logs/wl-1')
 
-        expect(options.network).toEqual({ mode: 'enabled' })
+        // An empty allowlist is a denial: boxlite reads a missing allowNet as no filter
+        expect(options.network).toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
     })
 
     it('restricts egress to the hosts the workload allows', () => {
@@ -72,11 +73,14 @@ describe('buildBoxOptions', () => {
             .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
     })
 
-    it('keeps the network enabled for state files written before the policy existed', () => {
+    it('denies egress to a record that carries no network policy', () => {
         const w = JSON.parse(JSON.stringify(workload())) as Workload
         delete (w as Partial<Workload>).network
 
-        expect(buildBoxOptions(w, '/logs/wl-1').network).toEqual({ mode: 'enabled' })
+        // A workload whose policy cannot be read is the case least safe to guess at, so it
+        // gets the same denial an empty allowlist does rather than the boxlite default
+        expect(buildBoxOptions(w, '/logs/wl-1').network)
+            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
     })
 
     it('rejects a rootfs larger than boxlite honors', () => {

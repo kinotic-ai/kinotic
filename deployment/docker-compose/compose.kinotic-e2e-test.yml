@@ -7,7 +7,7 @@ include:
 services:
   kinotic-migration:
     environment:
-      # 'test' activates the e2e fixture migrations (V5__e2e_app_fixtures.test.sql).
+      # 'test' activates the e2e fixture migrations (V4__e2e_app_fixtures.test.sql).
       SPRING_PROFILES_ACTIVE: development,test,compose
   kinotic-server:
     environment:

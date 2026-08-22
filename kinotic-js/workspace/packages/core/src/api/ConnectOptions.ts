@@ -62,7 +62,7 @@ export enum SessionKeepAliveMode {
  * Options for {@link IKinotic#connect}. Every field is optional: absent {@link server}
  * fields resolve from the environment (the {@code KINOTIC_SERVER_HOST} /
  * {@code KINOTIC_SERVER_PORT} / {@code KINOTIC_SERVER_USE_SSL} variables, the browser's own
- * location, then {@code https://api.kinotic.com}), and absent {@link credentials} resolve
+ * location, then {@code https://api.kinotic.ai}), and absent {@link credentials} resolve
  * through the default {@link ChainedCredentialsResolver} (environment variables, then the
  * browser session).
  *

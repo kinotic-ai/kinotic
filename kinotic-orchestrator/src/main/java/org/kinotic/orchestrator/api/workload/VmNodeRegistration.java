@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.orchestrator.api.model.workload.VmProviderType;
 
 /**
  * DTO sent by a vm-manager process when it registers with the server.
@@ -29,6 +30,11 @@ public class VmNodeRegistration {
      * The hostname or address of the node.
      */
     private String hostname;
+
+    /**
+     * The VM provider this node runs every workload on.
+     */
+    private VmProviderType providerType = VmProviderType.BOXLITE;
 
     /**
      * Total number of vCPUs available on this node.

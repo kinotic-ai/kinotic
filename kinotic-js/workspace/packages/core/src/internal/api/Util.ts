@@ -9,10 +9,10 @@ import {SessionCredentialsResolver} from '@/api/security/SessionCredentialsResol
 const DEFAULT_PORT = 58503
 
 /** Where a fully unconfigured client connects: the Kinotic cloud. */
-const DEFAULT_HOST = 'api.kinotic.com'
+const DEFAULT_HOST = 'api.kinotic.ai'
 
 /**
- * Static utility functions used across the Kinoitc core runtime.
+ * Static utility functions used across the Kinotic core runtime.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
@@ -53,7 +53,7 @@ export class Util {
      * Fills every absent {@link ConnectOptions} field from the environment. Server fields
      * resolve explicit value → {@code KINOTIC_SERVER_HOST/PORT/USE_SSL} → the browser's own
      * location (only when the host itself came from the location, so an explicit cross-origin
-     * host never inherits the page's port) → {@code https://api.kinotic.com}. Absent
+     * host never inherits the page's port) → {@code https://api.kinotic.ai}. Absent
      * credentials get the default chain: environment variables, then the browser session.
      */
     public static resolveConnectOptions(options?: ConnectOptions): ConnectOptions {

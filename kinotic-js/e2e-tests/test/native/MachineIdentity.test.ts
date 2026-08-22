@@ -9,7 +9,7 @@ import {E2E_ORGANIZATION_ID,
         restBase,
         shutdownKinoticClient} from '../TestHelpers.js'
 
-// the machine identity V5__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
+// the machine identity V4__e2e_app_fixtures seeds for these tests (clientSecret: kinotic)
 const MACHINE_CLIENT_ID = '00000000-0000-0000-0000-000000000010'
 const MACHINE_CLIENT_SECRET = 'kinotic'
 // a kinotic-test org USER — a valid identity + password that must nevertheless be refused

@@ -178,6 +178,56 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitValue(KinoticSQLParser.ValueContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void enterNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void exitNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#objectField}.
+	 * @param ctx the parse tree
+	 */
+	void enterObjectField(KinoticSQLParser.ObjectFieldContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#objectField}.
+	 * @param ctx the parse tree
+	 */
+	void exitObjectField(KinoticSQLParser.ObjectFieldContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#arrayLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterArrayLiteral(KinoticSQLParser.ArrayLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#arrayLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitArrayLiteral(KinoticSQLParser.ArrayLiteralContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#numberLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterNumberLiteral(KinoticSQLParser.NumberLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#numberLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitNumberLiteral(KinoticSQLParser.NumberLiteralContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#assignment}.
 	 * @param ctx the parse tree
 	 */

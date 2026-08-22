@@ -1,4 +1,5 @@
-import type { IServiceProxy } from '@kinotic-ai/core'
+import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
+import { SYSTEM_ZONE } from '@kinotic-ai/os-api'
 import type { VmNode } from '@kinotic-ai/os-api'
 import type { VmNodeRegistration } from '@/model/VmNodeRegistration'
 import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
@@ -11,8 +12,9 @@ export class VmNodeOrchestrationServiceProxy {
 
     private readonly serviceProxy: IServiceProxy
 
-    constructor(serviceProxy: IServiceProxy) {
-        this.serviceProxy = serviceProxy
+    constructor(kinotic: IKinotic) {
+        this.serviceProxy = kinotic.serviceProxy(
+            `${SYSTEM_ZONE}~org.kinotic.orchestrator.api.services.VmNodeOrchestrationService`)
     }
 
     /**
@@ -25,12 +27,14 @@ export class VmNodeOrchestrationServiceProxy {
     }
 
     /**
-     * Sends a heartbeat to indicate this node is still alive.
+     * Sends a heartbeat to indicate this node is still alive, carrying what it can still
+     * guarantee. A node reporting problems stops receiving workloads until it reports none.
      * @param nodeId the id of this node
+     * @param problems what the node can no longer guarantee, empty when it is fit
      * @return a Promise resolving to the updated VmNode
      */
-    public heartbeat(nodeId: string): Promise<VmNode> {
-        return this.serviceProxy.invoke('heartbeat', [nodeId])
+    public heartbeat(nodeId: string, problems: string[]): Promise<VmNode> {
+        return this.serviceProxy.invoke('heartbeat', [nodeId, problems])
     }
 
     /**

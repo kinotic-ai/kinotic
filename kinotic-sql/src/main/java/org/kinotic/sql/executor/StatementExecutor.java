@@ -16,6 +16,11 @@ public interface StatementExecutor<T extends Statement, R> {
     // For migrations (async, returns a value)
     CompletableFuture<R> executeMigration(T statement);
 
-    // For named queries
+    /**
+     * Executes a statement, supplying the values its {@code :name} parameters refer to.
+     *
+     * @param statement  the statement to execute
+     * @param parameters the values the statement's parameters refer to, keyed by parameter name
+     */
     CompletableFuture<R> executeQuery(T statement, Map<String, Object> parameters);
 }
