@@ -121,16 +121,16 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
             script.append(MERGE_QUEUE);
         }
         assignments.forEach((field, expr) -> {
-            if (expr instanceof BinaryExpression(String left, String operator1, String right1)) {
-                String operator = switch (operator1) {
+            if (expr instanceof BinaryExpression(String left, String binaryOperator, String rightOperand)) {
+                String operator = switch (binaryOperator) {
                     case "+" -> "+";
                     case "-" -> "-";
                     case "*" -> "*";
                     case "/" -> "/";
                     case "==" -> "=="; // Not typically used in SET, but included
-                    default -> throw new IllegalStateException("Unsupported operator: " + operator1);
+                    default -> throw new IllegalStateException("Unsupported operator: " + binaryOperator);
                 };
-                String right = ParameterUtils.isReference(right1) ? "params." + field : right1;
+                String right = ParameterUtils.isReference(rightOperand) ? "params." + field : rightOperand;
                 script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
