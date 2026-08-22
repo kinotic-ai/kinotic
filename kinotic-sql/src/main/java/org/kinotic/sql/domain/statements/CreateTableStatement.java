@@ -13,7 +13,4 @@ import org.kinotic.sql.domain.Statement;
 public record CreateTableStatement(String tableName,
                                  List<Column> columns,
                                  boolean ifNotExists) implements Statement {
-    public CreateTableStatement(String tableName, List<Column> columns) {
-        this(tableName, columns, false);
-    }
 }
