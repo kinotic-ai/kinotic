@@ -116,6 +116,7 @@ dependencyManagement {
         dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
         dependency "io.vertx:vertx-health-check:${vertxVersion}"
         dependency "io.vertx:vertx-ignite:${vertxVersion}"
+        dependency "io.vertx:vertx-micrometer-metrics:${vertxVersion}"
         dependency "io.vertx:vertx-reactive-streams:${vertxVersion}"
         dependency "io.vertx:vertx-web:${vertxVersion}"
         dependency "io.vertx:vertx-web-client:${vertxVersion}"

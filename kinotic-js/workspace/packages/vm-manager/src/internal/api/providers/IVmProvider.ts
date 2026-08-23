@@ -35,7 +35,10 @@ export interface IVmProvider {
     recover(): Promise<void>
 
     /**
-     * Starts a new VM for the given workload.
+     * Starts a new VM for the given workload. For a detached workload the Promise resolves
+     * as soon as the VM is running; for a non-detached one it resolves only once the run has
+     * ended, with the final status and exit code, or rejects if the provider cannot observe
+     * the guest's exit.
      * @param workload the workload configuration
      * @return a Promise resolving to the workload with updated status
      */
@@ -45,6 +48,7 @@ export interface IVmProvider {
      * Restarts a stopped workload in place: the same VM boots again with its disk state
      * intact and the workload's entrypoint runs again. Fails unless the workload is
      * STOPPED and its VM still exists (a workload stopped with autoRemove has none).
+     * Resolves at boot or at run end the same way as {@link start}.
      * @param workloadId the id of the workload to restart
      * @return a Promise resolving to the workload with updated status
      */
