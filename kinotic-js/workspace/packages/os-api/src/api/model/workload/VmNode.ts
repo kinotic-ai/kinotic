@@ -69,6 +69,12 @@ export class VmNode implements Identifiable<string> {
      */
     public lastSeen: number | null = null
 
+    /**
+     * Base directory every workload volume mount on this node must live under. Reported by
+     * the node at registration; deployment flows compose host paths under it.
+     */
+    public workloadDataDir: string | null = null
+
     constructor(id: string, name: string, hostname: string) {
         this.id = id
         this.name = name

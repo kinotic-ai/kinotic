@@ -41,6 +41,11 @@ export class VmNodeRegistration {
      */
     public totalDiskMb: number = 0
 
+    /**
+     * Base directory every workload volume mount on this node must live under.
+     */
+    public workloadDataDir: string | null = null
+
     constructor(id: string, name: string, hostname: string) {
         this.id = id
         this.name = name

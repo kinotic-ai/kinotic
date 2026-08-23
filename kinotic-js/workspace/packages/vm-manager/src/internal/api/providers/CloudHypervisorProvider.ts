@@ -1,7 +1,7 @@
 import Docker from 'dockerode'
 import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import { join, resolve, sep } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
@@ -53,6 +53,7 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly containers: Map<string, ActiveContainer> = new Map()
     private readonly stateDir: string
     private readonly docker: Docker
+    private readonly workloadDataDir: string
     private readonly quotas = new MountQuotaManager()
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
@@ -60,15 +61,18 @@ export class CloudHypervisorProvider implements IVmProvider {
 
     constructor(stateDir: string,
                 docker: Docker,
+                workloadDataDir: string,
                 egress: EgressPolicyManager = new EgressPolicyManager(),
                 resolver: string | null = null,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.stateDir = stateDir
         this.docker = docker
+        this.workloadDataDir = resolve(workloadDataDir)
         this.egress = egress
         this.resolver = resolver
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+        mkdirSync(this.workloadDataDir, { recursive: true })
     }
 
     /**
@@ -149,6 +153,10 @@ export class CloudHypervisorProvider implements IVmProvider {
             problems.push('the node firewall does not block the cloud metadata endpoint, '
                           + "so a workload can read this host's credentials")
         }
+        if (!this.quotas.supports(this.workloadDataDir)) {
+            problems.push(`${this.workloadDataDir} is not on a filesystem with project quotas, `
+                          + 'so a workload can write past the size limit of a writable mount')
+        }
         return problems
     }
 
@@ -191,6 +199,7 @@ export class CloudHypervisorProvider implements IVmProvider {
 
         let exitWatch: Promise<void> = Promise.resolve()
         try {
+            this.prepareVolumeMounts(workload)
             this.applyMountQuotas(workload)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name
@@ -453,6 +462,32 @@ export class CloudHypervisorProvider implements IVmProvider {
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
             this.egress.apply(workload.id!, address, allowedHosts)
+        }
+    }
+
+    /**
+     * Validates every volume mount and creates missing host directories for writable ones.
+     * Each hostPath must resolve strictly inside the node's workload data directory: binds
+     * are created with root's authority, so an unconstrained path would hand any host
+     * directory to the guest. A read-only mount of a directory that does not exist fails
+     * here with the real reason, instead of the daemon masking it by creating an empty
+     * root-owned directory at the path.
+     */
+    private prepareVolumeMounts(workload: Workload): void {
+        for (const mount of workload.volumeMounts) {
+            const hostPath = resolve(mount.hostPath)
+            if (!hostPath.startsWith(this.workloadDataDir + sep)) {
+                throw new Error(`Volume mount ${mount.hostPath} of workload ${workload.id} must be `
+                                + `an absolute path inside the workload data directory ${this.workloadDataDir}`)
+            }
+            if (mount.readOnly) {
+                if (!existsSync(hostPath)) {
+                    throw new Error(`Read-only volume mount ${mount.hostPath} of workload `
+                                    + `${workload.id} does not exist on this node`)
+                }
+            } else {
+                mkdirSync(hostPath, { recursive: true })
+            }
         }
     }
 

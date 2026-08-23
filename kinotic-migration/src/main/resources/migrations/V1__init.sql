@@ -322,7 +322,8 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
-    lastSeen DATE
+    lastSeen DATE,
+    workloadDataDir KEYWORD
 );
 
 -- Create the workload table for tracking deployed workloads.

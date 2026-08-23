@@ -47,6 +47,14 @@ export class VmManagerConfig {
     /** KINOTIC_LOKI_URL — Loki HTTP API workload logs are shipped to; unset disables log shipping. */
     readonly lokiUrl: string | undefined = process.env.KINOTIC_LOKI_URL
 
+    /**
+     * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node
+     * must live under. Binds are created with root's authority, so this boundary is what
+     * keeps a workload spec from mounting an arbitrary host directory. Reported to the
+     * server at registration so deployment flows compose host paths under it.
+     */
+    readonly workloadDataDir: string = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
+
     /** KINOTIC_VM_LOGS_DIR — base directory holding each workload's log dir mounted into its guest. */
     readonly vmLogsDir: string = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
 
