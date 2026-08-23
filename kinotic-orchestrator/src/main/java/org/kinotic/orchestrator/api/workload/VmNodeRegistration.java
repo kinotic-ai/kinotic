@@ -51,6 +51,11 @@ public class VmNodeRegistration {
      */
     private int totalDiskMb;
 
+    /**
+     * Base directory every workload volume mount on this node must live under.
+     */
+    private String workloadDataDir;
+
     public VmNodeRegistration(String id, String name, String hostname) {
         this.id = id;
         this.name = name;

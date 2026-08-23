@@ -1,4 +1,8 @@
-import {buildServerUrl, Kinotic, type ServerInfo} from '@kinotic-ai/core'
+import {buildServerUrl,
+        type CredentialsResolver,
+        EnvCredentialsResolver,
+        Kinotic,
+        type ServerInfo} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {confirm} from '@inquirer/prompts'
 import open from 'open'
@@ -52,8 +56,11 @@ export class CliAuthenticator {
     }
 
     /**
-     * Opens an authenticated {@link Kinotic} connection using the stored refresh token. Fails
-     * fast — with no interactive prompt — when there are no stored credentials.
+     * Opens an authenticated {@link Kinotic} connection. A machine identity present in the
+     * environment ({@code KINOTIC_CLIENT_ID}/{@code KINOTIC_CLIENT_SECRET}, or
+     * {@code KINOTIC_TOKEN}) wins over a stored login, so CI and deploy workloads run every
+     * command non-interactively; otherwise the stored refresh token from {@link login} is
+     * used. Fails fast — with no interactive prompt — when neither is available.
      *
      * @return true if the connection was established
      */
@@ -63,12 +70,17 @@ export class CliAuthenticator {
             if (target === null) {
                 return false
             }
-            const resolver = new CliLoginCredentialsResolver(this.server, this.configDir)
-            // Resolved once up front so a missing login gets its friendly message instead of
-            // the generic chain failure; the resolver caches the token for the connect below.
+            let resolver: CredentialsResolver = new EnvCredentialsResolver()
             if (await resolver.resolve(target) === null) {
-                this.logger.log('Not logged in. Run `kinotic login` first.')
-                return false
+                const stored = new CliLoginCredentialsResolver(this.server, this.configDir)
+                // Resolved once up front so a missing login gets its friendly message instead
+                // of the generic chain failure; the resolver caches the token for the connect
+                // below.
+                if (await stored.resolve(target) === null) {
+                    this.logger.log('Not logged in. Run `kinotic login` first.')
+                    return false
+                }
+                resolver = stored
             }
             // The resolver's bearer token rides the WebSocket upgrade headers, which needs
             // the header-capable ws WebSocket installed in a Node process.

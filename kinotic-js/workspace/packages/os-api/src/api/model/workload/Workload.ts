@@ -28,7 +28,8 @@ export class Workload implements Identifiable<string> {
 
     /**
      * The id of the node this workload is deployed to, assigned by the orchestrator
-     * during deployment. Null until the workload has been placed.
+     * during deployment, or set by the caller before deploying to pin the workload to a
+     * specific node. Null until the workload has been placed.
      */
     public nodeId: string | null = null
 
@@ -104,9 +105,18 @@ export class Workload implements Identifiable<string> {
     public exitCode: number | null = null
 
     /**
-     * Optional environment variables to pass to the VM.
+     * Optional environment variables to pass to the VM. Persisted verbatim on the workload
+     * record — put values that must not be readable there in secrets instead.
      */
     public environment: Record<string, string> = {}
+
+    /**
+     * Optional secret environment variables to pass to the VM, delivered to the guest
+     * exactly like environment and overriding it on a duplicate key. The persisted workload
+     * record holds a masked value for every entry — reading a workload back returns the keys
+     * but never the values, which only the node receives.
+     */
+    public secrets: Record<string, string> = {}
 
     /**
      * Port mappings that expose guest ports on the host.

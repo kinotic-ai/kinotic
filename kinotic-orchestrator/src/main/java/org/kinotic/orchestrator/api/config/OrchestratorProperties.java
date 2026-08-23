@@ -20,4 +20,9 @@ public class OrchestratorProperties {
      */
     private VmNodeProperties vmNode = new VmNodeProperties();
 
+    /**
+     * Deployment of customer project workloads from GitHub pushes.
+     */
+    private DeploymentProperties deployment = new DeploymentProperties();
+
 }

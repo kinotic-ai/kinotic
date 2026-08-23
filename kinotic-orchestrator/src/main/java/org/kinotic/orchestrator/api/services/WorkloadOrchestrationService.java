@@ -20,7 +20,10 @@ public interface WorkloadOrchestrationService {
     /**
      * Deploys a new workload to an appropriate node in the cluster.
      * The orchestrator selects a node with sufficient resources, persists the workload,
-     * and delegates to the VmManager on the selected node.
+     * and delegates to the VmManager on the selected node. A workload carrying a
+     * {@link Workload#getNodeId() nodeId} is deployed to that node instead, failing when the
+     * node is not registered, not taking workloads, or lacks the capacity the workload
+     * requires.
      * <p>
      * When {@link Workload#isDetached()} is {@code false} the returned future completes only
      * once the run has ended — the workload reached {@link WorkloadStatus#STOPPED} or

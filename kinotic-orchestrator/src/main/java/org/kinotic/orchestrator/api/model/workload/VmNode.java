@@ -80,6 +80,12 @@ public class VmNode implements Identifiable<String> {
      */
     private Date lastSeen;
 
+    /**
+     * Base directory every workload volume mount on this node must live under. Reported by
+     * the node at registration; deployment flows compose host paths under it.
+     */
+    private String workloadDataDir;
+
     public VmNode(String id, String name, String hostname) {
         this.id = id;
         this.name = name;

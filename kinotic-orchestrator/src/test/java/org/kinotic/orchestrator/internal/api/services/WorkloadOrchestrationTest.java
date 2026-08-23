@@ -5,15 +5,21 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.orchestrator.api.config.KinoticOrchestratorProperties;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
+import org.kinotic.orchestrator.api.model.workload.VmNodeStatus;
+import org.kinotic.orchestrator.api.model.workload.VmNodeStatusType;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.kinotic.orchestrator.api.workload.WorkloadStatusReport;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Behavior of the detached contract in workload orchestration: a detached deploy returns at
@@ -119,6 +125,86 @@ public class WorkloadOrchestrationTest {
         Workload finished = await(secondRun);
         assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
         assertEquals(3, finished.getExitCode());
+    }
+
+    @Test
+    public void pinnedDeployLandsOnRequestedNode() throws Exception {
+        VmNode target = registeredNode("node-2", 4, 4096, 10240);
+
+        Workload deployed = await(orchestration.deployWorkload(newWorkload().setNodeId("node-2")));
+
+        assertEquals("node-2", deployed.getNodeId());
+        assertEquals("node-2", vmManager.lastStarted.getNodeId());
+        assertEquals(deployed.getVcpus(), target.getAllocatedCpus());
+        assertEquals(deployed.getMemoryMb(), target.getAllocatedMemoryMb());
+        assertEquals(deployed.getDiskSizeMb(), target.getAllocatedDiskMb());
+    }
+
+    @Test
+    public void pinnedDeployFailsWhenNodeUnknown() {
+        Future<Workload> run = orchestration.deployWorkload(newWorkload().setNodeId("ghost"));
+
+        assertTrue(run.failed());
+        assertNull(vmManager.lastStarted);
+        assertTrue(workloads.saved.isEmpty());
+    }
+
+    @Test
+    public void pinnedDeployFailsWhenNodeNotTakingWorkloads() {
+        registeredNode("node-2", 4, 4096, 10240)
+                .setStatus(new VmNodeStatus(VmNodeStatusType.DRAINING, "disk limits unenforced"));
+
+        Future<Workload> run = orchestration.deployWorkload(newWorkload().setNodeId("node-2"));
+
+        assertTrue(run.failed());
+        assertNull(vmManager.lastStarted);
+    }
+
+    @Test
+    public void pinnedDeployFailsWhenNodeLacksCapacity() {
+        registeredNode("node-2", 1, 4096, 10240);
+
+        Future<Workload> run = orchestration.deployWorkload(newWorkload().setNodeId("node-2").setVcpus(2));
+
+        assertTrue(run.failed());
+        assertNull(vmManager.lastStarted);
+    }
+
+    @Test
+    public void secretValuesRedactedInRecordButRealOnNode() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(
+                newWorkload().setEnvironment(new LinkedHashMap<>(Map.of("LOG_LEVEL", "debug")))
+                             .setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret")))));
+
+        // The node received the real secret; the record only ever held the mask, including
+        // when the node's start reply (which echoes environment and secrets) was persisted.
+        // Plain environment entries persist verbatim.
+        assertEquals("secret", vmManager.lastStarted.getSecrets().get("GIT_TOKEN"));
+        assertEquals("<redacted>", workloads.saved.get(deployed.getId()).getSecrets().get("GIT_TOKEN"));
+        assertEquals("debug", workloads.saved.get(deployed.getId()).getEnvironment().get("LOG_LEVEL"));
+        assertEquals("secret", deployed.getSecrets().get("GIT_TOKEN"));
+    }
+
+    @Test
+    public void secretValuesRedactedWhenStartFails() {
+        vmManager.failStartWith = new RuntimeException("node exploded");
+
+        Future<Workload> run = orchestration.deployWorkload(
+                newWorkload().setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret"))));
+
+        assertTrue(run.failed());
+        Workload stored = workloads.saved.values().iterator().next();
+        assertEquals(WorkloadStatus.FAILED, stored.getStatus());
+        assertEquals("<redacted>", stored.getSecrets().get("GIT_TOKEN"));
+    }
+
+    private VmNode registeredNode(String nodeId, int cpus, int memoryMb, int diskMb) {
+        VmNode node = new VmNode(nodeId, nodeId, "host-" + nodeId);
+        node.setTotalCpus(cpus);
+        node.setTotalMemoryMb(memoryMb);
+        node.setTotalDiskMb(diskMb);
+        nodes.saved.put(nodeId, node);
+        return node;
     }
 
     private static <T> T await(Future<T> future) throws Exception {

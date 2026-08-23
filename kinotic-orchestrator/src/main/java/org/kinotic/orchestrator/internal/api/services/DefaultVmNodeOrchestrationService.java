@@ -76,6 +76,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 .setTotalCpus(registration.getTotalCpus())
                                 .setTotalMemoryMb(registration.getTotalMemoryMb())
                                 .setTotalDiskMb(registration.getTotalDiskMb())
+                                .setWorkloadDataDir(registration.getWorkloadDataDir())
                                 .setStatus(new VmNodeStatus());
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
                         ret = vmNodeService.saveSync(existing);
@@ -85,6 +86,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node.setTotalCpus(registration.getTotalCpus());
                         node.setTotalMemoryMb(registration.getTotalMemoryMb());
                         node.setTotalDiskMb(registration.getTotalDiskMb());
+                        node.setWorkloadDataDir(registration.getWorkloadDataDir());
                         node.setStatus(new VmNodeStatus());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
                         ret = vmNodeService.saveSync(node);

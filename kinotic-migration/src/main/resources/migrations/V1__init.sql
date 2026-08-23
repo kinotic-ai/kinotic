@@ -37,6 +37,22 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     updated DATE
 );
 
+-- Deployment state per project: which node holds the checkout, which workload serves it,
+-- and the commit currently live. One row per project; id equals the projectId.
+CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    nodeId KEYWORD,
+    hostDir KEYWORD,
+    runtimeWorkloadId KEYWORD,
+    commitSha KEYWORD,
+    lastJobRunId KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
 -- GitHub App installations: one row per Kinotic Org that has linked GitHub.
 CREATE TABLE IF NOT EXISTS kinotic_github_app_installation (
     id KEYWORD,
@@ -306,7 +322,8 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     allocatedCpus INTEGER,
     allocatedMemoryMb INTEGER,
     allocatedDiskMb INTEGER,
-    lastSeen DATE
+    lastSeen DATE,
+    workloadDataDir KEYWORD
 );
 
 -- Create the workload table for tracking deployed workloads.
@@ -330,6 +347,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     status KEYWORD,
     exitCode INTEGER,
     environment JSON NOT INDEXED,
+    secrets JSON NOT INDEXED,
     portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
     volumeMounts OBJECT (hostPath KEYWORD, guestPath KEYWORD, readOnly BOOLEAN, sizeLimitMb INTEGER),
     entrypoint KEYWORD NOT INDEXED,
