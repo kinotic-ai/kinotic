@@ -5,7 +5,6 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
-    implementation project(':kinotic-system-api')
     implementation project(':kinotic-idl')
 
     implementation 'io.vertx:vertx-core'
@@ -28,5 +27,8 @@ dependencies {
     // jackson impl
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
+
+    // DefaultJobMonitoringServiceTest drives the real grind engine through the JobWatchService seam
+    testImplementation project(':kinotic-system-api')
 }
 

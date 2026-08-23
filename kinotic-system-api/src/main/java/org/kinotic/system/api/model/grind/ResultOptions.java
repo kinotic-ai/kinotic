@@ -2,6 +2,8 @@
 
 package org.kinotic.system.api.model.grind;
 
+import org.kinotic.domain.api.model.grind.DiagnosticLevel;
+
 /**
  *
  * Created by Navid Mitchell on 11/11/20

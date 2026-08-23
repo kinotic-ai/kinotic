@@ -5,17 +5,18 @@ package org.kinotic.system.api.services;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
 import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.system.api.model.grind.Result;
+import org.kinotic.domain.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
-import org.kinotic.system.api.model.grind.ResultType;
+import org.kinotic.domain.api.model.grind.ResultType;
 import org.kinotic.system.api.model.grind.Task;
+import org.kinotic.domain.api.services.JobWatchService;
 import reactor.core.publisher.Flux;
 
 /**
  *
  * Created by Navid Mitchell on 3/19/20
  */
-public interface JobService {
+public interface JobService extends JobWatchService {
 
     /**
      * Takes the given {@link JobDefinition} and assembles a {@link Flux} that when subscribed to will execute all of the {@link Task}'s within the {@link JobDefinition}
@@ -102,21 +103,5 @@ public interface JobService {
      * @return the prepared {@link JobExecution}
      */
     JobExecution resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
-
-    /**
-     * Opens a view of a run currently executing in this process. The returned {@link Flux} replays
-     * every {@link Result} emitted since the run started, then continues live until the run
-     * terminates. Watching never starts a run - subscribing attaches to the in-flight execution only.
-     * <p>
-     * Result values are reduced to what a monitoring caller can consume remotely:
-     * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
-     * {@link org.kinotic.domain.api.model.grind.TaskRecord}s in discovery order,
-     * {@link ResultType#STEP_FAILED} carries the failure message, and
-     * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
-     * @param jobRunId the id of the run to watch
-     * @return the run's {@link Result} stream, or an empty {@link Flux} when no run with the
-     *         given id is executing in this process
-     */
-    Flux<Result<?>> watchExecution(String jobRunId);
 
 }

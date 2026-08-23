@@ -1,6 +1,6 @@
 
 
-package org.kinotic.system.api.model.grind;
+package org.kinotic.domain.api.model.grind;
 
 /**
  * The sequence of steps that have been executed to get to a specific {@link Result}

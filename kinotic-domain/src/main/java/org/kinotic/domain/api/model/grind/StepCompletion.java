@@ -1,4 +1,4 @@
-package org.kinotic.system.api.model.grind;
+package org.kinotic.domain.api.model.grind;
 
 import org.kinotic.domain.api.model.grind.StoreType;
 

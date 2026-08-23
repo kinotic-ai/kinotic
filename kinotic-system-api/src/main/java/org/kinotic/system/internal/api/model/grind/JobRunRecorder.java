@@ -10,8 +10,8 @@ import org.kinotic.domain.api.services.JobRunService;
 import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.system.api.model.grind.Result;
-import org.kinotic.system.api.model.grind.StepCompletion;
+import org.kinotic.domain.api.model.grind.Result;
+import org.kinotic.domain.api.model.grind.StepCompletion;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;

@@ -13,10 +13,10 @@ import org.kinotic.domain.api.model.security.ParticipantScope;
 import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.system.api.model.grind.Result;
+import org.kinotic.domain.api.model.grind.Result;
 import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.domain.api.services.JobRunService;
-import org.kinotic.system.api.services.JobService;
+import org.kinotic.domain.api.services.JobWatchService;
 import org.kinotic.domain.api.services.TaskRecordService;
 import org.kinotic.os.api.services.JobMonitoringService;
 import org.springframework.stereotype.Component;
@@ -27,7 +27,7 @@ import reactor.core.publisher.Mono;
  * Default {@link JobMonitoringService} that authorizes access through the run's recorded
  * owner - an organization or application participant may only view runs its organization
  * owns - and serves reads from {@link JobRunService} and {@link TaskRecordService} and live
- * views from {@link JobService}.
+ * views from {@link JobWatchService}.
  */
 @Slf4j
 @Component
@@ -36,7 +36,7 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
 
     private final JobRunService jobRunService;
     private final TaskRecordService taskRecordService;
-    private final JobService jobService;
+    private final JobWatchService jobWatchService;
     private final SecurityContext securityContext;
 
     @Override
@@ -72,7 +72,7 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
         Future<JobRun> authorized = authorizedJobRun(jobRunId);
         return Mono.fromCompletionStage(authorized.toCompletionStage())
-                   .flatMapMany(run -> jobService.watchExecution(run.getId()));
+                   .flatMapMany(run -> jobWatchService.watchExecution(run.getId()));
     }
 
     private Future<JobRun> authorizedJobRun(String jobRunId) {

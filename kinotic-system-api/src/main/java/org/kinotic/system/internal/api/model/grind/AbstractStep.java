@@ -2,6 +2,13 @@
 
 package org.kinotic.system.internal.api.model.grind;
 
+import org.kinotic.domain.api.model.grind.Result;
+import org.kinotic.domain.api.model.grind.ResultType;
+import org.kinotic.domain.api.model.grind.StepInfo;
+import org.kinotic.domain.api.model.grind.StepCompletion;
+import org.kinotic.domain.api.model.grind.Progress;
+import org.kinotic.domain.api.model.grind.Diagnostic;
+import org.kinotic.domain.api.model.grind.DiagnosticLevel;
 import org.kinotic.system.api.model.grind.*;
 import org.slf4j.Logger;
 import reactor.core.publisher.FluxSink;

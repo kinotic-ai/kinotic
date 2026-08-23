@@ -4,9 +4,9 @@ package org.kinotic.system.internal.api.model.grind;
 
 import org.kinotic.system.api.model.grind.JobContext;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.Result;
+import org.kinotic.domain.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
-import org.kinotic.system.api.model.grind.ResultType;
+import org.kinotic.domain.api.model.grind.ResultType;
 import org.kinotic.system.api.model.grind.Task;
 import org.reactivestreams.Publisher;
 

@@ -1,5 +1,6 @@
 package org.kinotic.system.api.model.grind;
 
+import org.kinotic.domain.api.model.grind.Result;
 import org.kinotic.domain.api.model.grind.JobRun;
 
 import lombok.Getter;

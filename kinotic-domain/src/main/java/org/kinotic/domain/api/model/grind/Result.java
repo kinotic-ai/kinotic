@@ -1,8 +1,7 @@
 
 
-package org.kinotic.system.api.model.grind;
+package org.kinotic.domain.api.model.grind;
 
-import org.kinotic.system.api.services.JobService;
 
 /**
  *
@@ -19,10 +18,10 @@ public interface Result<T> {
 
     /**
      * What type of result this is.
-     * The results that are produced by a {@link JobDefinition} depend on what options you pass into the {@link JobService} during assembly
+     * The results that are produced by a {@code JobDefinition} depend on what options you pass into the {@code JobService} during assembly
      *
      * The result type will affect the meaning of the value
-     * For {@link ResultType#VALUE} the value will be the "final" value produced by a {@link Task}
+     * For {@link ResultType#VALUE} the value will be the "final" value produced by a {@code Task}
      * For {@link ResultType#NOOP} the value will be null
      * For {@link ResultType#DIAGNOSTIC} the value will be a simple message describing something that happened
      * For {@link ResultType#PROGRESS} the value will be a {@link Progress} object
