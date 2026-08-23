@@ -1,7 +1,7 @@
 import type { FunctionDefinition, ObjectC3Type } from '@kinotic-ai/idl'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import type { SyncLogger } from './SyncLogger'
+import type { Logger } from './Logger'
 
 /**
  * Named queries of one generated Repository, as `kinotic generate` writes them to
@@ -40,7 +40,7 @@ function readJsonFiles(directory: string): Array<{ file: string, value: unknown 
  * project's `.config/c3` directory. Queries files missing the entity pairing fields (from a
  * generator predating them) are skipped with a warning telling the developer to regenerate.
  */
-export function readC3Definitions(projectDir: string, logger: SyncLogger): C3Definitions {
+export function readC3Definitions(projectDir: string, logger: Pick<Logger, 'log'>): C3Definitions {
     const c3Dir = join(projectDir, '.config', 'c3')
 
     const entities: ObjectC3Type[] = []

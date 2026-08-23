@@ -3,8 +3,11 @@ import type { FunctionDefinition, ObjectC3Type } from '@kinotic-ai/idl'
 import { EntityDefinition, NamedQueriesDefinition, Project, ProjectType } from '@kinotic-ai/os-api'
 import { join } from 'node:path'
 import { readC3Definitions } from './C3Definitions'
+import { ConsoleLogger, type Logger } from './Logger'
 import { ProjectMigrationService } from './ProjectMigrationService'
-import { ConsoleSyncLogger, type SyncLogger } from './SyncLogger'
+
+/** The subset of {@link Logger} synchronization reports progress through. */
+type SyncLogger = Pick<Logger, 'log' | 'logVerbose'>
 
 export interface SynchronizeProjectOptions {
     organizationId: string
@@ -36,7 +39,7 @@ export async function synchronizeProject(options: SynchronizeProjectOptions): Pr
             throw new Error(`${field} is required`)
         }
     }
-    const logger = options.logger ?? new ConsoleSyncLogger()
+    const logger = options.logger ?? new ConsoleLogger()
     const projectDir = options.projectDir ?? process.cwd()
     const verbose = options.verbose ?? false
 

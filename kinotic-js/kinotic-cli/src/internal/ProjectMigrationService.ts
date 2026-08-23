@@ -3,7 +3,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'
-import type { SyncLogger } from './SyncLogger'
+import { Logger } from './Logger'
 
 /**
  * Internal service for loading and applying migrations from the local filesystem.
@@ -11,9 +11,9 @@ import type { SyncLogger } from './SyncLogger'
  */
 export class ProjectMigrationService {
     private readonly migrationService: IMigrationService
-    private readonly logger: SyncLogger
+    private readonly logger: Pick<Logger, 'log'>
 
-    constructor(logger: SyncLogger) {
+    constructor(logger: Pick<Logger, 'log'>) {
         this.migrationService = Kinotic.migrations
         this.logger = logger
     }

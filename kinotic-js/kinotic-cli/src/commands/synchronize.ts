@@ -1,10 +1,10 @@
 import {chdirToProjectRoot, isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
 import { Kinotic } from '@kinotic-ai/core'
 import { OsApiPlugin } from '@kinotic-ai/os-api'
-import { synchronizeProject } from '@kinotic-ai/project-sync'
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
+import {synchronizeProject} from '@/internal/synchronizeProject'
 import {resolveServer} from '@/internal/state/Environment'
 import {CliAuthenticator} from '@/internal/CliAuthenticator'
 

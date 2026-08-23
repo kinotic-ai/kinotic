@@ -26,7 +26,6 @@
     "@kinotic-ai/idl": "^5.0.0-beta.1",
     "@kinotic-ai/os-api": "^5.0.0-beta.15",
     "@kinotic-ai/persistence": "^5.0.0-beta.4",
-    "@kinotic-ai/project-sync": "^5.0.0-beta.1",
     "@kinotic-ai/spawn": "^5.0.0-beta.1",
     "@oclif/core": "^4.13.3",
     "c12": "^3.3.4",
