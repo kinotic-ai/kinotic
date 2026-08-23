@@ -105,7 +105,7 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         // disk than it asked for, and leave the boxlite default when nothing was asked.
         // MAX_WORKLOAD_DISK_MB keeps this at the one size the provider actually honors
         ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
-        env: workload.environment,
+        env: { ...workload.environment, ...workload.secrets },
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
         // CMD is suppressed unless the workload declares its own cmd
         ...(workload.entrypoint.length > 0

@@ -171,28 +171,31 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void environmentValuesRedactedInRecordButRealOnNode() throws Exception {
+    public void secretValuesRedactedInRecordButRealOnNode() throws Exception {
         Workload deployed = await(orchestration.deployWorkload(
-                newWorkload().setEnvironment(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret")))));
+                newWorkload().setEnvironment(new LinkedHashMap<>(Map.of("LOG_LEVEL", "debug")))
+                             .setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret")))));
 
-        // The node received the real value; the record only ever held the mask, including
-        // when the node's start reply (which echoes the environment) was persisted
-        assertEquals("secret", vmManager.lastStarted.getEnvironment().get("GIT_TOKEN"));
-        assertEquals("<redacted>", workloads.saved.get(deployed.getId()).getEnvironment().get("GIT_TOKEN"));
-        assertEquals("secret", deployed.getEnvironment().get("GIT_TOKEN"));
+        // The node received the real secret; the record only ever held the mask, including
+        // when the node's start reply (which echoes environment and secrets) was persisted.
+        // Plain environment entries persist verbatim.
+        assertEquals("secret", vmManager.lastStarted.getSecrets().get("GIT_TOKEN"));
+        assertEquals("<redacted>", workloads.saved.get(deployed.getId()).getSecrets().get("GIT_TOKEN"));
+        assertEquals("debug", workloads.saved.get(deployed.getId()).getEnvironment().get("LOG_LEVEL"));
+        assertEquals("secret", deployed.getSecrets().get("GIT_TOKEN"));
     }
 
     @Test
-    public void environmentValuesRedactedWhenStartFails() {
+    public void secretValuesRedactedWhenStartFails() {
         vmManager.failStartWith = new RuntimeException("node exploded");
 
         Future<Workload> run = orchestration.deployWorkload(
-                newWorkload().setEnvironment(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret"))));
+                newWorkload().setSecrets(new LinkedHashMap<>(Map.of("GIT_TOKEN", "secret"))));
 
         assertTrue(run.failed());
         Workload stored = workloads.saved.values().iterator().next();
         assertEquals(WorkloadStatus.FAILED, stored.getStatus());
-        assertEquals("<redacted>", stored.getEnvironment().get("GIT_TOKEN"));
+        assertEquals("<redacted>", stored.getSecrets().get("GIT_TOKEN"));
     }
 
     private VmNode registeredNode(String nodeId, int cpus, int memoryMb, int diskMb) {

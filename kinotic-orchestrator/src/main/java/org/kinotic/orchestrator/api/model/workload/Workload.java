@@ -117,11 +117,18 @@ public class Workload implements Identifiable<String> {
     private Integer exitCode;
 
     /**
-     * Optional environment variables to pass to the VM. The persisted workload record holds
-     * a masked value for every entry — reading a workload back returns the keys but never
-     * the values, which only the node receives.
+     * Optional environment variables to pass to the VM. Persisted verbatim on the workload
+     * record — put values that must not be readable there in {@link #secrets} instead.
      */
     private Map<String, String> environment = new HashMap<>();
+
+    /**
+     * Optional secret environment variables to pass to the VM, delivered to the guest
+     * exactly like {@link #environment} and overriding it on a duplicate key. The persisted
+     * workload record holds a masked value for every entry — reading a workload back returns
+     * the keys but never the values, which only the node receives.
+     */
+    private Map<String, String> secrets = new HashMap<>();
 
     /**
      * Port mappings that expose guest ports on the host.

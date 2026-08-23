@@ -97,7 +97,8 @@ export class CloudHypervisorProvider implements IVmProvider {
             name: workload.id!,
             Image: workload.image,
             Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
-            Env: Object.entries(workload.environment).map(([key, value]) => `${key}=${value}`),
+            Env: Object.entries({ ...workload.environment, ...workload.secrets })
+                       .map(([key, value]) => `${key}=${value}`),
             ...(workload.entrypoint.length > 0
                 ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
                 : workload.cmd.length > 0 ? { Cmd: workload.cmd } : {}),

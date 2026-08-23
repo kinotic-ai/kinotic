@@ -23,9 +23,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DefaultWorkloadOrchestrationService implements WorkloadOrchestrationService {
 
-    // What the persisted record holds in place of every environment value; only the node
+    // What the persisted record holds in place of every secret value; only the node
     // ever receives the real values
-    private static final String REDACTED_ENV_VALUE = "<redacted>";
+    private static final String REDACTED_SECRET_VALUE = "<redacted>";
 
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -224,21 +224,21 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     /**
-     * Persists the workload with every environment value replaced by
-     * {@value REDACTED_ENV_VALUE}, then restores the real values on the object — the record
-     * never holds an environment value, while dispatch to the node still carries them.
+     * Persists the workload with every secret value replaced by
+     * {@value REDACTED_SECRET_VALUE}, then restores the real values on the object — the
+     * record never holds a secret value, while dispatch to the node still carries them.
      */
     private Future<Workload> persistRedacted(Workload workload) {
         Future<Workload> ret;
-        Map<String, String> environment = workload.getEnvironment();
-        if (environment == null || environment.isEmpty()) {
+        Map<String, String> secrets = workload.getSecrets();
+        if (secrets == null || secrets.isEmpty()) {
             ret = workloadService.saveSync(workload);
         } else {
             Map<String, String> redacted = new LinkedHashMap<>();
-            environment.keySet().forEach(key -> redacted.put(key, REDACTED_ENV_VALUE));
-            workload.setEnvironment(redacted);
+            secrets.keySet().forEach(key -> redacted.put(key, REDACTED_SECRET_VALUE));
+            workload.setSecrets(redacted);
             ret = workloadService.saveSync(workload)
-                    .andThen(result -> workload.setEnvironment(environment));
+                    .andThen(result -> workload.setSecrets(secrets));
         }
         return ret;
     }

@@ -346,6 +346,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     status KEYWORD,
     exitCode INTEGER,
     environment JSON NOT INDEXED,
+    secrets JSON NOT INDEXED,
     portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
     volumeMounts OBJECT (hostPath KEYWORD, guestPath KEYWORD, readOnly BOOLEAN, sizeLimitMb INTEGER),
     entrypoint KEYWORD NOT INDEXED,

@@ -110,6 +110,7 @@ public class StubVmManagerProxy implements VmManagerProxy {
                 .setMemoryMb(workload.getMemoryMb())
                 .setDiskSizeMb(workload.getDiskSizeMb())
                 .setEnvironment(new LinkedHashMap<>(workload.getEnvironment()))
+                .setSecrets(new LinkedHashMap<>(workload.getSecrets()))
                 .setCreated(workload.getCreated())
                 .setUpdated(workload.getUpdated());
     }
