@@ -37,6 +37,22 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     updated DATE
 );
 
+-- Deployment state per project: which node holds the checkout, which workload serves it,
+-- and the commit currently live. One row per project; id equals the projectId.
+CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    nodeId KEYWORD,
+    hostDir KEYWORD,
+    runtimeWorkloadId KEYWORD,
+    commitSha KEYWORD,
+    lastJobRunId KEYWORD,
+    status KEYWORD,
+    created DATE,
+    updated DATE
+);
+
 -- GitHub App installations: one row per Kinotic Org that has linked GitHub.
 CREATE TABLE IF NOT EXISTS kinotic_github_app_installation (
     id KEYWORD,
