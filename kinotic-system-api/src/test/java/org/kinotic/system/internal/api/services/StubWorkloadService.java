@@ -3,7 +3,7 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.system.api.services.WorkloadService;
 import tools.jackson.databind.ObjectMapper;
 

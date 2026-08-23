@@ -3,7 +3,7 @@ package org.kinotic.system.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
-import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.domain.api.model.workload.VmNode;
 
 /**
  * Service for managing {@link VmNode} entities.

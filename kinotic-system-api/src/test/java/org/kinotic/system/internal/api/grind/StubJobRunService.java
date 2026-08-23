@@ -3,9 +3,9 @@ package org.kinotic.system.internal.api.grind;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.grind.JobOwner;
-import org.kinotic.system.api.model.grind.JobRun;
-import org.kinotic.system.api.services.JobRunService;
+import org.kinotic.domain.api.model.grind.JobOwner;
+import org.kinotic.domain.api.model.grind.JobRun;
+import org.kinotic.domain.api.services.JobRunService;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

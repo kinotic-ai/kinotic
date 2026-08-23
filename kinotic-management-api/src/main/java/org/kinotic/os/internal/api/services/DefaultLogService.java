@@ -9,11 +9,11 @@ import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.log.LogQuery;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.SystemParticipant;
 import org.kinotic.domain.api.services.LokiClient;
-import org.kinotic.system.api.services.WorkloadService;
+import org.kinotic.domain.internal.api.repositories.WorkloadRepository;
 import org.kinotic.os.api.services.LogService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -38,7 +38,7 @@ public class DefaultLogService implements LogService {
 
     private final LokiClient lokiClient;
     private final SecurityContext securityContext;
-    private final WorkloadService workloadService;
+    private final WorkloadRepository workloadRepository;
 
     @Override
     public Flux<Buffer> tail(String workloadId) {
@@ -65,7 +65,7 @@ public class DefaultLogService implements LogService {
         if (participant == null) {
             throw new IllegalStateException("No Participant is bound to the current Vert.x context");
         }
-        return workloadService.findById(workloadId).map(workload -> {
+        return workloadRepository.findById(workloadId).map(workload -> {
             if (workload == null) {
                 throw new IllegalArgumentException("Workload not found: " + workloadId);
             }

@@ -1,4 +1,4 @@
-package org.kinotic.system.api.model.grind;
+package org.kinotic.domain.api.model.grind;
 
 /**
  * How a step's result was stored in the job scope, recorded on the {@link TaskRecord}

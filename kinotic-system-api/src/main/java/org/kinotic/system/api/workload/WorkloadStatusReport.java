@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.domain.api.model.workload.WorkloadStatus;
 
 /**
  * A vm-manager node's view of one workload's status, reported to the orchestrator.

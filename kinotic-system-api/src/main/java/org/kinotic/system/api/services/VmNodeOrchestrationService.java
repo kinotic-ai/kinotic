@@ -2,7 +2,7 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.domain.api.model.workload.VmNode;
 
 import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
@@ -32,7 +32,7 @@ public interface VmNodeOrchestrationService {
      * Updates the node's {@code lastSeen} timestamp to indicate it is still alive.
      *
      * A node reporting problems is moved to
-     * {@link org.kinotic.system.api.model.workload.VmNodeStatusType#DRAINING} so the
+     * {@link org.kinotic.domain.api.model.workload.VmNodeStatusType#DRAINING} so the
      * orchestrator stops placing workloads on it, and back to ONLINE once it reports none. The
      * workloads already there keep running: a node that stopped enforcing a limit is unfit to
      * take on more, not required to drop what it has.

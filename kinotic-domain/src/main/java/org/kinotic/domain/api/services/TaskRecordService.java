@@ -1,11 +1,11 @@
-package org.kinotic.system.api.services;
+package org.kinotic.domain.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.grind.JobRun;
-import org.kinotic.system.api.model.grind.TaskRecord;
+import org.kinotic.domain.api.model.grind.JobRun;
+import org.kinotic.domain.api.model.grind.TaskRecord;
 
 /**
  * Service for managing {@link TaskRecord} entities, the per-step history of a {@link JobRun}.

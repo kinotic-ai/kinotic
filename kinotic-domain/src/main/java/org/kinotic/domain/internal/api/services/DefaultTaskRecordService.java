@@ -1,13 +1,12 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.domain.internal.api.services;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.grind.TaskRecord;
-import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.system.api.services.TaskRecordService;
-import org.kinotic.system.internal.api.repositories.TaskRecordRepository;
+import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.domain.api.services.TaskRecordService;
+import org.kinotic.domain.internal.api.repositories.TaskRecordRepository;
 import org.springframework.stereotype.Component;
 
 @Component

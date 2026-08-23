@@ -4,6 +4,7 @@ package org.kinotic.system.internal.api.model.grind;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.system.api.model.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;

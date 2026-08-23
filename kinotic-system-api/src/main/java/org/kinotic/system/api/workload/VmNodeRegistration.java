@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.system.api.model.workload.VmProviderType;
+import org.kinotic.domain.api.model.workload.VmProviderType;
 
 /**
  * DTO sent by a vm-manager process when it registers with the server.

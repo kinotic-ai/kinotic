@@ -3,6 +3,7 @@
 package org.kinotic.system.internal.api.model.grind;
 
 import org.apache.commons.lang3.ClassUtils;
+import org.kinotic.domain.api.model.grind.StoreType;
 import org.kinotic.system.api.model.grind.*;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;

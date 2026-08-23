@@ -4,11 +4,11 @@ import io.vertx.core.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
-import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatus;
-import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.model.workload.Workload;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.domain.api.model.workload.VmNode;
+import org.kinotic.domain.api.model.workload.VmNodeStatus;
+import org.kinotic.domain.api.model.workload.VmNodeStatusType;
+import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
 
 import java.util.LinkedHashMap;

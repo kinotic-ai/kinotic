@@ -1,4 +1,4 @@
-package org.kinotic.system.api.model.workload;
+package org.kinotic.domain.api.model.workload;
 
 /**
  * Represents the type of VM provider a {@link VmNode} runs its {@link Workload}s on.

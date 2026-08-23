@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.system.api.model.grind.DiagnosticLevel;
-import org.kinotic.system.api.model.grind.ExecutionStatus;
+import org.kinotic.domain.api.model.grind.ExecutionStatus;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
 import org.kinotic.system.api.model.grind.Progress;
@@ -10,7 +10,7 @@ import org.kinotic.system.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.system.api.model.grind.ResultType;
 import org.kinotic.system.api.model.grind.StepCompletion;
-import org.kinotic.system.api.model.grind.TaskRecord;
+import org.kinotic.domain.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.Tasks;
 import reactor.core.scheduler.Schedulers;
 

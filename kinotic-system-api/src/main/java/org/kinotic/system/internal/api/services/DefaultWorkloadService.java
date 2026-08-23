@@ -5,9 +5,9 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.system.api.services.WorkloadService;
-import org.kinotic.system.internal.api.repositories.WorkloadRepository;
+import org.kinotic.domain.internal.api.repositories.WorkloadRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

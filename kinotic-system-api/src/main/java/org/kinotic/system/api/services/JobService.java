@@ -4,7 +4,7 @@ package org.kinotic.system.api.services;
 
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
-import org.kinotic.system.api.model.grind.JobOwner;
+import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.system.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.system.api.model.grind.ResultType;
@@ -35,8 +35,8 @@ public interface JobService {
 
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
-     * {@link org.kinotic.system.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.system.api.model.grind.TaskRecord} for every step executed.
+     * {@link org.kinotic.domain.api.model.grind.JobRun} for the run and a
+     * {@link org.kinotic.domain.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobExecution#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -46,8 +46,8 @@ public interface JobService {
 
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
-     * {@link org.kinotic.system.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.system.api.model.grind.TaskRecord} for every step executed.
+     * {@link org.kinotic.domain.api.model.grind.JobRun} for the run and a
+     * {@link org.kinotic.domain.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobExecution#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -81,7 +81,7 @@ public interface JobService {
      * are not executed again. A completed {@code taskStoreState} step replays its recorded value, a
      * completed {@code taskStoreResult} step re-runs (or runs its reload task when one was declared),
      * and a completed step that stored nothing is skipped. Everything else executes normally.
-     * The resume is recorded as a new {@link org.kinotic.system.api.model.grind.JobRun} referencing
+     * The resume is recorded as a new {@link org.kinotic.domain.api.model.grind.JobRun} referencing
      * the original via {@code resumedFrom}, owned by the original run's owner.
      *
      * The given {@link JobDefinition} must be freshly built by the same code that built the original
@@ -110,7 +110,7 @@ public interface JobService {
      * <p>
      * Result values are reduced to what a monitoring caller can consume remotely:
      * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
-     * {@link org.kinotic.system.api.model.grind.TaskRecord}s in discovery order,
+     * {@link org.kinotic.domain.api.model.grind.TaskRecord}s in discovery order,
      * {@link ResultType#STEP_FAILED} carries the failure message, and
      * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
      * @param jobRunId the id of the run to watch

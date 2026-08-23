@@ -3,7 +3,7 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.domain.api.model.workload.VmNode;
 import org.kinotic.system.api.services.VmNodeService;
 
 import java.util.LinkedHashMap;

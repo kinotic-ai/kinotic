@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.model.grind;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.system.api.model.grind.StoreType;
+import org.kinotic.domain.api.model.grind.StoreType;
 
 /**
  * What a {@link ReplayLedger} knows about one completed step of the run being resumed.

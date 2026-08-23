@@ -2,8 +2,8 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.system.api.model.workload.Workload;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.WorkloadStatus;
 
 /**
  * Service responsible for orchestrating workload deployment across the cluster.

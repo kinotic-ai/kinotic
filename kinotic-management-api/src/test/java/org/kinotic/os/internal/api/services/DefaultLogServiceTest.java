@@ -8,17 +8,15 @@ import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.log.LogQuery;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.Workload;
 import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 import org.kinotic.domain.api.services.LokiClient;
-import org.kinotic.system.api.services.WorkloadService;
+import org.kinotic.domain.internal.api.repositories.WorkloadRepository;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
@@ -47,7 +45,7 @@ class DefaultLogServiceTest {
 
     private final RecordingLokiClient lokiClient = new RecordingLokiClient();
     private final DefaultLogService service = new DefaultLogService(
-            lokiClient, securityContext, new FakeWorkloadService(
+            lokiClient, securityContext, new FakeWorkloadRepository(
                     workload("wl-acme", "acme"),
                     workload("wl-globex", "globex"),
                     workload("wl-platform", null)));
@@ -180,13 +178,14 @@ class DefaultLogServiceTest {
     }
 
     /**
-     * Serves the given workloads from findById; every other operation is unsupported.
+     * Serves the given workloads from findById without touching Elasticsearch.
      */
-    private static class FakeWorkloadService implements WorkloadService {
+    private static class FakeWorkloadRepository extends WorkloadRepository {
 
         private final Map<String, Workload> workloads = new HashMap<>();
 
-        FakeWorkloadService(Workload... entities) {
+        FakeWorkloadRepository(Workload... entities) {
+            super(null);
             for (Workload workload : entities) {
                 workloads.put(workload.getId(), workload);
             }
@@ -194,71 +193,11 @@ class DefaultLogServiceTest {
 
         @Override
         public Future<Workload> findById(String id) {
-            // Completes on another thread like the real ES-backed service, so any
+            // Completes on another thread like the real ES-backed repository, so any
             // SecurityContext read after this hop loses the Vert.x context and fails
             Promise<Workload> promise = Promise.promise();
             new Thread(() -> promise.complete(workloads.get(id))).start();
             return promise.future();
-        }
-
-        @Override
-        public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Long> countForNode(String nodeId) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Workload> create(Workload entity) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Workload> createSync(Workload entity) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Workload> save(Workload entity) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Workload> saveSync(Workload entity) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Long> count() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Void> deleteById(String id) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Void> deleteByIdSync(String id) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Page<Workload>> findAll(Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Page<Workload>> search(String searchText, Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Void> syncIndex() {
-            throw new UnsupportedOperationException();
         }
     }
 }

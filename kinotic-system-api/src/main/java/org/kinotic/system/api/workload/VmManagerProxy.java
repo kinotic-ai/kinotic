@@ -3,7 +3,7 @@ package org.kinotic.system.api.workload;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Scope;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.domain.api.model.workload.Workload;
 
 import java.util.List;
 
