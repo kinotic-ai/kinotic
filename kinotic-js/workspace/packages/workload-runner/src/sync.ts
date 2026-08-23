@@ -1,6 +1,3 @@
-import { Kinotic } from '@kinotic-ai/core'
-import { appZone, OsApiPlugin } from '@kinotic-ai/os-api'
-import { synchronizeProject } from '@kinotic-ai/project-sync'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -15,15 +12,14 @@ import { writeSentinel } from './sentinel.ts'
  * therefore never restarts the microservices into a half-updated tree.
  *
  * Environment:
- * - GIT_CLONE_URL            https URL of the repository to check out (required)
- * - GIT_REF                  commit sha or branch to deploy (required)
- * - GIT_TOKEN                token authorizing the fetch; omit for a public repository
- * - KINOTIC_WORKSPACE_DIR    the shared checkout directory (default /workspace)
- * - KINOTIC_ORGANIZATION_ID  the organization the project belongs to
- * - KINOTIC_APPLICATION_ID   the application the project belongs to
- * - KINOTIC_PROJECT_NAME     the project's name on the server
+ * - GIT_CLONE_URL          https URL of the repository to check out (required)
+ * - GIT_REF                commit sha or branch to deploy (required)
+ * - GIT_TOKEN              token authorizing the fetch; omit for a public repository
+ * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
- *   connection settings; entity sync is skipped when no credentials are present
+ *   connection settings the CLI authenticates with; entity sync is skipped when no
+ *   credentials are present
+ * - KINOTIC_CLI_BIN        overrides the kinotic CLI entry script (development/tests)
  */
 
 function require_(name: string): string {
@@ -75,33 +71,32 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
 }
 
 /**
- * Synchronizes the project's committed entity definitions (.config/c3) and migrations
- * with the Kinotic server so they exist before the microservices serving them start.
- * Skipped when the environment carries no Kinotic credentials, so the checkout itself
- * still works against a server the workload cannot reach yet.
+ * Runs `kinotic sync` over the checkout: generation compiles the entity sources and
+ * refreshes the definitions — the projects have no CI of their own, so this deploy run is
+ * where a project that does not build gets stopped — then the definitions and migrations
+ * are pushed. The CLI authenticates with the machine identity in the environment; the sync
+ * is skipped entirely when no credentials are present, so the checkout itself still works
+ * against a server the workload cannot reach yet.
  */
-async function syncEntities(workspaceDir: string): Promise<void> {
+function syncEntities(workspaceDir: string): void {
     if (!process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_TOKEN) {
         console.log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
         return
     }
-    const organizationId = require_('KINOTIC_ORGANIZATION_ID')
-    const applicationId = require_('KINOTIC_APPLICATION_ID')
-    const projectName = require_('KINOTIC_PROJECT_NAME')
-
-    // The workload authenticates as an APPLICATION-scoped machine, so it lives in the
-    // application's zone the same way the project's microservices do
-    Kinotic.use(OsApiPlugin)
-    Kinotic.zonePrefix = appZone(organizationId, applicationId)
-    await Kinotic.connect()
-    try {
-        await synchronizeProject({ organizationId, applicationId, projectName, projectDir: workspaceDir })
-    } finally {
-        await Kinotic.disconnect()
-    }
+    // bun runs the CLI's entry script directly, so its node shebang never matters
+    const cliEntry = process.env.KINOTIC_CLI_BIN
+        ?? Bun.resolveSync('@kinotic-ai/kinotic-cli/bin/run.js', import.meta.dir)
+    run('bun', [cliEntry, 'sync', '--server', serverUrlFromEnv()], workspaceDir)
 }
 
-async function main(): Promise<void> {
+function serverUrlFromEnv(): string {
+    const host = require_('KINOTIC_SERVER_HOST')
+    const port = process.env.KINOTIC_SERVER_PORT
+    const useSsl = process.env.KINOTIC_SERVER_USE_SSL === 'true'
+    return `${useSsl ? 'https' : 'http'}://${host}${port ? `:${port}` : ''}`
+}
+
+function main(): void {
     const cloneUrl = require_('GIT_CLONE_URL')
     const ref = require_('GIT_REF')
     const token = process.env.GIT_TOKEN
@@ -110,7 +105,7 @@ async function main(): Promise<void> {
     console.log(`[workload-runner] syncing ${ref} into ${workspaceDir}`)
     syncSource(workspaceDir, cloneUrl, ref, token)
     run('bun', ['install'], workspaceDir)
-    await syncEntities(workspaceDir)
+    syncEntities(workspaceDir)
 
     const commitSha = run('git', ['rev-parse', 'HEAD'], workspaceDir, true)
     writeSentinel(workspaceDir, commitSha)
@@ -118,7 +113,7 @@ async function main(): Promise<void> {
 }
 
 try {
-    await main()
+    main()
 } catch (error) {
     console.error('[workload-runner] sync failed:', error)
     process.exit(1)

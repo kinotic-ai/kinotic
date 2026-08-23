@@ -13,7 +13,10 @@ RUN apt-get update \
 
 WORKDIR /opt/workload-runner
 COPY package.json tsconfig.json ./
-RUN bun install --production
+# The kinotic CLI is what the sync entrypoint runs (generate + entity sync); it is an
+# image-level install rather than a package.json dependency because the workspace's
+# bun install cannot resolve it (the CLI lives outside the workspace)
+RUN bun add @kinotic-ai/kinotic-cli@^5.2.0-beta.9
 COPY src ./src
 
 ENTRYPOINT ["bun", "src/supervise.ts"]

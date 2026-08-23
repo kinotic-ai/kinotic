@@ -34,14 +34,13 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_REF` | commit sha or branch to deploy | required |
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
-| `KINOTIC_ORGANIZATION_ID` | organization the project belongs to | required for entity sync |
-| `KINOTIC_APPLICATION_ID` | application the project belongs to | required for entity sync |
-| `KINOTIC_PROJECT_NAME` | the project's name on the server | required for entity sync |
-| `KINOTIC_SERVER_*`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET` | standard Kinotic connection settings; sync is skipped when no credentials are present | — |
+| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID`, `KINOTIC_APPLICATION_ID` | machine identity and server the CLI connects with; sync is skipped when no credentials are present | — |
+| `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
-Entity definitions are **not generated here**: `@kinotic-ai/project-sync` pushes the
-committed output of `kinotic generate` (`.config/c3`) and applies migrations, connected as
-an APPLICATION-scoped machine in the application's zone.
+Entity sync runs `kinotic sync` over the checkout. The projects have no CI of their own —
+this deploy run is their pipeline — so the CLI's generation step recompiles the entity
+sources (a project that does not build never reaches the server) and pushes the fresh
+definitions and migrations, authenticated by the machine identity in the environment.
 
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and

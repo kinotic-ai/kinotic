@@ -101,6 +101,50 @@ describe('sync entrypoint', () => {
         expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)
     }, 30_000)
 
+    it('runs kinotic sync with the machine identity when credentials are present', () => {
+        const sha = git(seedDir, 'rev-parse', 'HEAD')
+        // Fake CLI records its invocation; the wiring under test is that sync spawns it
+        // with the composed server URL and still writes the sentinel afterwards
+        const fakeCli = join(baseDir, 'fake-cli.ts')
+        writeFileSync(fakeCli, `import { appendFileSync } from 'node:fs'
+                                appendFileSync('${join(baseDir, 'cli-invocations.log')}', process.argv.slice(2).join(' ') + '\\n')`)
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: sha,
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+            KINOTIC_CLI_BIN: fakeCli,
+            KINOTIC_CLIENT_ID: 'machine-1',
+            KINOTIC_CLIENT_SECRET: 'machine-secret',
+            KINOTIC_SERVER_HOST: 'kinotic.example',
+            KINOTIC_SERVER_PORT: '58503',
+        })
+
+        expect(result.status).toBe(0)
+        expect(readFileSync(join(baseDir, 'cli-invocations.log'), 'utf-8').trim())
+            .toBe('sync --server http://kinotic.example:58503')
+        expect(readFileSync(join(workspaceDir, '.kinotic', 'reload'), 'utf-8')).toBe(sha)
+    }, 30_000)
+
+    it('fails without touching the sentinel when the entity sync fails', () => {
+        const sha = git(seedDir, 'rev-parse', 'HEAD')
+        const fakeCli = join(baseDir, 'failing-cli.ts')
+        writeFileSync(fakeCli, 'process.exit(3)')
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: sha,
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+            KINOTIC_CLI_BIN: fakeCli,
+            KINOTIC_CLIENT_ID: 'machine-1',
+            KINOTIC_CLIENT_SECRET: 'machine-secret',
+            KINOTIC_SERVER_HOST: 'kinotic.example',
+        })
+
+        expect(result.status).not.toBe(0)
+        expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)
+    }, 30_000)
+
     it('never persists the token into the shared checkout', () => {
         const sha = git(seedDir, 'rev-parse', 'HEAD')
 
