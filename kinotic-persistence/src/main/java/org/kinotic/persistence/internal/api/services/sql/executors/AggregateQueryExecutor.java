@@ -5,7 +5,7 @@ import java.util.List;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
@@ -23,11 +23,11 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     private final String statement;
     private final PersistenceProperties persistenceProperties;
 
-    public AggregateQueryExecutor(EntityDefinition entityDefinition,
+    public AggregateQueryExecutor(EntityDescriptor entityDescriptor,
                                   ElasticVertxClient elasticVertxClient,
                                   String statement,
                                   PersistenceProperties persistenceProperties) {
-        super(entityDefinition);
+        super(entityDescriptor);
         this.elasticVertxClient = elasticVertxClient;
         this.statement = statement;
         this.persistenceProperties = persistenceProperties;
@@ -58,9 +58,9 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     private JsonObject createFilterIfNeeded(QueryContext context) {
         JsonObject filter = null;
         // add multi tenancy filters if needed
-        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED) {
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
 
-            if(entityDefinition.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
+            if(entityDescriptor.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
 
                 // Filter must fit the Query DSL format, and look like the following
                 //     "bool":{
@@ -77,10 +77,10 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("terms", new JsonObject()
-                                        .put(entityDefinition.getTenantIdFieldName(), tenants)))
+                                        .put(entityDescriptor.tenantIdFieldName(), tenants)))
                         ));
 
-            }else if(!entityDefinition.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
+            }else if(!entityDescriptor.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
                 throw new IllegalArgumentException("Tenant selection is not supported for this EntityDefinition");
             }else{
 

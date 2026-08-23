@@ -8,7 +8,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionRepository;
@@ -50,19 +50,19 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
                             .expireAfterAccess(Duration.ofHours(20))
                             .maximumSize(persistenceProperties.getNamedQueriesCacheMaxSize())
                             .buildAsync((key, executor) -> namedQueriesRepository
-                                    .findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
-                                                                          key.entityDefinition().getName(),
-                                                                          key.entityDefinition().getOrganizationId())
+                                    .findByApplicationAndEntityDefinition(key.entityDescriptor().applicationId(),
+                                                                          key.entityDescriptor().name(),
+                                                                          key.entityDescriptor().organizationId())
                                     .toCompletionStage()
                                     .toCompletableFuture()
                                     .thenApplyAsync(namedQueriesDefinition -> {
 
                                         Validate.notNull(namedQueriesDefinition, "No Named Query found for EntityDefinition: "
-                                                + key.entityDefinition()
+                                                + key.entityDescriptor()
                                                 + " and Query: "
                                                 + key.queryName());
 
-                                        QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.entityDefinition(),
+                                        QueryExecutor ret = queryExecutorFactory.createQueryExecutor(key.entityDescriptor(),
                                                                                                      key.queryName(),
                                                                                                      namedQueriesDefinition);
 
@@ -108,27 +108,27 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
     }
 
     @Override
-    public <T> Future<List<T>> executeNamedQuery(EntityDefinition entityDefinition,
+    public <T> Future<List<T>> executeNamedQuery(EntityDescriptor entityDescriptor,
                                                  String queryName,
                                                  ParameterHolder parameterHolder,
                                                  Class<T> type,
                                                  EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDefinition)))
+        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.execute(new QueryContext(context, parameterHolder), type));
     }
 
     @Override
-    public <T> Future<Page<T>> executeNamedQueryPage(EntityDefinition entityDefinition,
+    public <T> Future<Page<T>> executeNamedQueryPage(EntityDescriptor entityDescriptor,
                                                      String queryName,
                                                      ParameterHolder parameterHolder,
                                                      Pageable pageable,
                                                      Class<T> type,
                                                      EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDefinition)))
+        return crudServiceTemplate.toFuture(cache.get(new CacheKey(queryName, entityDescriptor)))
                                   .compose(queryExecutor -> queryExecutor.executePage(new QueryContext(context, parameterHolder), pageable, type));
     }
 
-    private record CacheKey(String queryName, EntityDefinition entityDefinition) {}
+    private record CacheKey(String queryName, EntityDescriptor entityDescriptor) {}
 }

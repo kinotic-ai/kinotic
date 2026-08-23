@@ -14,6 +14,7 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
@@ -180,7 +181,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     String templateName = entityDefinition.getItemIndex() + "_tpl";
                     boolean allowCustomRouting = entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED;
 
-                    Future<Void> creationFuture = entityDefinition.isStream()
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
+
+                    Future<Void> creationFuture = descriptor.isStream()
                             ? crudServiceTemplate
                               .createIndexTemplate(templateName,
                                                    entityDefinition.getItemIndex() + "*",
@@ -260,9 +263,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
                     entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
 
+                    EntityDescriptor existingDescriptor = existingEntityDefinition.toDescriptor();
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
+
                     if (entityDefinition.isPublished()) {
-                        if (!existingEntityDefinition.isMultiTenantSelectionEnabled()
-                                && entityDefinition.isMultiTenantSelectionEnabled()
+                        if (!existingDescriptor.isMultiTenantSelectionEnabled()
+                                && descriptor.isMultiTenantSelectionEnabled()
                                 && !persistenceProperties.getTenantIdFieldName()
                                                          .equals(entityDefinition.getTenantIdFieldName())) {
                             return Future.failedFuture(
@@ -270,7 +276,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                             "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
                         }
 
-                        if (!existingEntityDefinition.isStream() && entityDefinition.isStream()) {
+                        if (!existingDescriptor.isStream() && descriptor.isStream()) {
                             return Future.failedFuture(
                                     new IllegalArgumentException(
                                             "Cannot change an existing published EntityDefinition from a non-stream to a stream"));
@@ -284,7 +290,7 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
 
                         Future<Void> updateFuture;
-                        if (entityDefinition.isStream()) {
+                        if (descriptor.isStream()) {
                             String templateName = entityDefinition.getItemIndex() + "_tpl";
                             // Update both the template (for future indices) and the data stream's current indices
                             updateFuture = crudServiceTemplate.updateIndexTemplate(templateName, mappings)
@@ -328,8 +334,10 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                 new IllegalStateException("EntityDefinition is not published"));
                     }
 
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
+
                     Future<Void> deleteStorageFuture;
-                    if (entityDefinition.isStream()) {
+                    if (descriptor.isStream()) {
                         String templateName = entityDefinition.getItemIndex() + "_tpl";
                         // Delete the data stream and its template
                         deleteStorageFuture = crudServiceTemplate.deleteDataStream(entityDefinition.getItemIndex())

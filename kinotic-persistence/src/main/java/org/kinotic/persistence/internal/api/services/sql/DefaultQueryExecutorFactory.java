@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.NamedQueriesDefinition;
 import org.kinotic.persistence.api.model.NamedQueryOperation;
 import org.kinotic.persistence.api.model.idl.decorators.QueryDecorator;
@@ -29,7 +29,7 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
     private final PersistenceProperties persistenceProperties;
     private final AuthorizationServiceFactory authorizationServiceFactory;
 
-    public QueryExecutor createQueryExecutor(EntityDefinition entityDefinition,
+    public QueryExecutor createQueryExecutor(EntityDescriptor entityDescriptor,
                                              String queryName,
                                              NamedQueriesDefinition namedQueriesDefinition){
         FunctionDefinition namedQuery = null;
@@ -52,11 +52,11 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
 
         String[] statements = queryDecorator.getStatements().split(";");
         if(statements.length == 1){
-            QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDefinition, statements[0], namedQuery);
+            QueryExecutor queryExecutor = createQueryExecutorForStatement(entityDescriptor, statements[0], namedQuery);
             AuthorizationService<NamedQueryOperation> authorizationService =
                     authorizationServiceFactory.createNamedQueryAuthorizationService(namedQuery)
                                                .toCompletionStage().toCompletableFuture().join();
-            return new ParameterProcessorExecutor(entityDefinition,
+            return new ParameterProcessorExecutor(entityDescriptor,
                                                   namedQuery,
                                                   new PreAuthorizationExecutor(authorizationService, queryExecutor));
         }else{
@@ -64,13 +64,13 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
         }
     }
 
-    private QueryExecutor createQueryExecutorForStatement(EntityDefinition entityDefinition,
+    private QueryExecutor createQueryExecutorForStatement(EntityDescriptor entityDescriptor,
                                                           String statement,
                                                           FunctionDefinition namedQueryDefinition) {
         // naive approach to how we handle these queries, this will be improved as we do more R&D on advanced approaches
         SqlQueryType queryType = QueryUtils.determineQueryType(statement);
         return switch (queryType) {
-            case AGGREGATE -> new AggregateQueryExecutor(entityDefinition,
+            case AGGREGATE -> new AggregateQueryExecutor(entityDescriptor,
                                                          elasticVertxClient,
                                                          statement,
                                                          persistenceProperties);
