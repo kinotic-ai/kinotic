@@ -18,7 +18,7 @@ import org.kinotic.os.api.model.security.PendingInviteSummary;
  * instead of resolving it from the caller's scope.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
+@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface SystemOrganizationService {
 
     /**

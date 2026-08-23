@@ -42,7 +42,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Kinotic } from '@kinotic-ai/core'
-import type { PendingOAuthAuthorization } from '@kinotic-ai/os-api'
+import type { PendingOAuthAuthorization } from '@kinotic-ai/management-api'
 import Button from 'primevue/button'
 
 import loginPageLeft from '@/assets/login-page-left.svg'

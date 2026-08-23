@@ -1,6 +1,6 @@
 import {Kinotic, Pageable} from '@kinotic-ai/core'
-import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/os-api'
-import type {DelegatingParticipantIdentity} from '@kinotic-ai/os-api'
+import {DelegateKind, DelegateService, OAuthApprovalService} from '@kinotic-ai/management-api'
+import type {DelegatingParticipantIdentity} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {randomBytes, createHash} from 'node:crypto'
 import {WebSocket} from 'ws'

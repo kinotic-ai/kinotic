@@ -1,6 +1,6 @@
 import {Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'

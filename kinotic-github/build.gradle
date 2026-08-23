@@ -83,7 +83,7 @@ sourceSets.main.resources.srcDir(extractSpawnRenderer)
 // context wins over that default at render time.
 //
 // The global name drops the @kinotic-ai scope and a kinotic- prefix on the package
-// name, so @kinotic-ai/os-api becomes kinoticOsApiVersion and @kinotic-ai/kinotic-cli
+// name, so @kinotic-ai/management-api becomes kinoticManagementApiVersion and @kinotic-ai/kinotic-cli
 // becomes kinoticCliVersion rather than kinoticKinoticCliVersion.
 def npmPackageVersions = tasks.register('npmPackageVersions') {
     def packageJsonFiles = files(rootProject.file('kinotic-js/kinotic-cli/package.json')) +

@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
 import { IEntityRepository } from '@kinotic-ai/persistence'
-import { Project, ProjectType } from '@kinotic-ai/os-api'
+import { Project, ProjectType } from '@kinotic-ai/management-api'
 import { ConnectionInfo, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import path from 'path'
 import { Customer } from '../../entity/domain/ecommerce/Customer'

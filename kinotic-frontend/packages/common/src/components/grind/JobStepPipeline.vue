@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ExecutionStatus } from '@kinotic-ai/os-api'
+import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 
 /**

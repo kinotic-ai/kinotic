@@ -76,7 +76,7 @@ import { ref, onMounted, type Ref } from 'vue'
 import InputText from 'primevue/inputtext'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
-import type { SignUpRequest } from '@kinotic-ai/os-api'
+import type { SignUpRequest } from '@kinotic-ai/management-api'
 
 import { apiUrl } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'

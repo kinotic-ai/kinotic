@@ -15,12 +15,16 @@ export default defineWorkspace(
 			root: 'packages/idl'
 		},
 		{
-			name: 'os-api',
-			root: 'packages/os-api'
+			name: 'management-api',
+			root: 'packages/management-api'
 		},
 		{
 			name: 'persistence',
 			root: 'packages/persistence'
+		},
+		{
+			name: 'system-api',
+			root: 'packages/system-api'
 		},
 		{
 			// Library only: core engine (".") + node fs adapter ("./node"), deps external.

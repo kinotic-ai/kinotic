@@ -8,7 +8,7 @@ import {
   type Progress,
   type Result,
   type TaskRecord
-} from '@kinotic-ai/os-api'
+} from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 
 const POLL_INTERVAL_MS = 2000

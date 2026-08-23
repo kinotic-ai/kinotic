@@ -10,13 +10,13 @@ import {
 import {randomUUID} from 'node:crypto'
 import {expect} from 'vitest'
 import {
-    OsApiPlugin,
+    ManagementApiPlugin,
     EntityDefinition,
     KinoticProjectConfig,
     NamedQueriesDefinition,
     QueryDecorator,
     Project
-} from '@kinotic-ai/os-api'
+} from '@kinotic-ai/management-api'
 import {
     IEntityRepository,
     IAdminEntityRepository,
@@ -33,7 +33,7 @@ import {Vehicle, Wheel} from './domain/Vehicle.js'
 // header-credential connects need a WebSocket constructor that accepts upgrade headers
 ensureNodeWebSocket()
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
 
 type SchemaCreationResult ={
     entityDefinitionSchema: ObjectC3Type
@@ -130,13 +130,13 @@ export async function shutdownKinoticClient(): Promise<void> {
  * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
  * the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
- * responsible for disconnecting it when done. The instance has {@code OsApiPlugin} and
+ * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
  * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
  * {@code AdminEntityRepository} used to act on SHARED entity data.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
     const appKinotic = new KinoticSingleton()
-    appKinotic.use(OsApiPlugin).use(PersistencePlugin)
+    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
 
     await appKinotic.connect(buildConnectOptions(
         new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),

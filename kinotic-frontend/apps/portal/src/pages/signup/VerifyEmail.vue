@@ -46,7 +46,7 @@ import { useRoute } from 'vue-router'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 import { useToast } from 'primevue/usetoast'
-import type { SignUpCompleteRequest } from '@kinotic-ai/os-api'
+import type { SignUpCompleteRequest } from '@kinotic-ai/management-api'
 
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
 import SetPasswordFields from '@/components/SetPasswordFields.vue'

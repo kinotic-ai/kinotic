@@ -14,7 +14,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
  * Created by Navid Mitchell 🤪 on 7/9/20
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
+@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface LogManager {
 
     @Scope

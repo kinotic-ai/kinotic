@@ -12,7 +12,7 @@ import type {
 } from "@kinotic-ai/core";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { Kinotic } from "@kinotic-ai/core";
-import { EntityDefinition, type IEntityDefinitionService } from "@kinotic-ai/os-api";
+import { EntityDefinition, type IEntityDefinitionService } from "@kinotic-ai/management-api";
 import type { CrudHeader } from "@kinotic-ai/frontend-common";
 import { DatetimeUtil } from "@kinotic-ai/frontend-common";
 import { createDebug } from "@kinotic-ai/frontend-common";

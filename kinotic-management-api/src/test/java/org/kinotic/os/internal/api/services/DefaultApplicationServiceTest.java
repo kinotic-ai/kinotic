@@ -54,10 +54,10 @@ class DefaultApplicationServiceTest {
     @Test
     void rejectsIdsThatCollideWithTheSystemZone() {
         assertThrows(IllegalArgumentException.class,
-                     () -> service.beforeSave(new Application("System", "desc")));
+                     () -> service.beforeSave(new Application("System Api", "desc")));
         // an update keeps the caller's id rather than re-minting it, so that path is guarded too
         Application existing = new Application("Anything", "desc");
-        existing.setId("system");
+        existing.setId("system-api");
         assertThrows(IllegalArgumentException.class, () -> service.beforeSave(existing));
     }
 

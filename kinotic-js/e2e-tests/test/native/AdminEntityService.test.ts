@@ -1,5 +1,5 @@
 import {Direction, Kinotic, KinoticSingleton, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import {AdminEntitiesRepository, AdminEntityRepository, EntitiesRepository, EntityRepository, IAdminEntityRepository, IEntityRepository, TenantSpecificId,} from '@kinotic-ai/persistence'
 import * as allure from "allure-js-commons";
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'

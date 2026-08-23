@@ -41,7 +41,7 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
+import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,

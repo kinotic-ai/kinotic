@@ -1,5 +1,5 @@
 import { type ISessionState, SessionState } from '@kinotic-ai/frontend-common'
-import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/os-api'
+import { isApplicationParticipant, isOrganizationParticipant } from '@kinotic-ai/management-api'
 import { reactive } from 'vue'
 
 export interface IUserState extends ISessionState {

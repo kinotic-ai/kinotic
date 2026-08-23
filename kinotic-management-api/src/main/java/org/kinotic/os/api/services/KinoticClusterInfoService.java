@@ -10,7 +10,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
  * Provides information about the ignite Kinotic cluster.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_ZONE)
+@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface KinoticClusterInfoService {
     
     /**

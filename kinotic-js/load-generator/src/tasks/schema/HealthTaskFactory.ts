@@ -1,6 +1,6 @@
 import { ITask } from "../ITask"
 import { IEntityRepository } from '@kinotic-ai/persistence'
-import { Project, ProjectType } from '@kinotic-ai/os-api'
+import { Project, ProjectType } from '@kinotic-ai/management-api'
 import { ConnectionInfo, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import { Patient } from '../../entity/domain/health/Patient'
 import { Provider } from '../../entity/domain/health/Provider'

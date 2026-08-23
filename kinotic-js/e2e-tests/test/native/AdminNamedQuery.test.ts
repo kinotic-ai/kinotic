@@ -1,6 +1,6 @@
 import {Kinotic, KinoticSingleton} from '@kinotic-ai/core'
 import {AdminEntitiesRepository, AdminEntityRepository, EntitiesRepository, EntityRepository, IAdminEntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'

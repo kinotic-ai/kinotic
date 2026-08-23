@@ -1,5 +1,5 @@
 import { ITask } from "../ITask"
-import { IEntityDefinitionService, EntityDefinition } from '@kinotic-ai/os-api'
+import { IEntityDefinitionService, EntityDefinition } from '@kinotic-ai/management-api'
 import { IEntityRepository, EntityRepository, EntitiesRepository } from '@kinotic-ai/persistence'
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { Kinotic, KinoticSingleton } from '@kinotic-ai/core'

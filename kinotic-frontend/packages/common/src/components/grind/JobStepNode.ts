@@ -1,4 +1,4 @@
-import type { ExecutionStatus, Progress } from '@kinotic-ai/os-api'
+import type { ExecutionStatus, Progress } from '@kinotic-ai/management-api'
 
 /**
  * One discovered step of a job run, positioned by its stepPath, with the children discovered

@@ -5,7 +5,7 @@ import type {Identifiable} from '@/api/crud/Identifiable'
  *
  * This is the base shape every participant shares, regardless of scope, and is what RPC-only
  * consumers work with directly. The Kinotic OS contract layers scope-typed participants on top
- * of it — see the participant types in {@code @kinotic-ai/os-api}.
+ * of it — see the participant types in {@code @kinotic-ai/management-api}.
  *
  * Mirrors the server {@code org.kinotic.core.api.security.Participant}.
  *

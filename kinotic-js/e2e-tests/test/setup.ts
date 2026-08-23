@@ -1,4 +1,4 @@
-import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {ManagementApiPlugin} from '@kinotic-ai/management-api'
 import {Kinotic} from '@kinotic-ai/core'
 import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
@@ -10,7 +10,7 @@ import {TestProject} from 'vitest/node.js'
 
 ensureNodeWebSocket()
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
        .use(PersistencePlugin)
 
 let environment: StartedDockerComposeEnvironment

@@ -21,7 +21,7 @@ import {
 } from '@kinotic-ai/idl'
 import type {Edge, Node} from "@vue-flow/core"
 import {generateVueFlowGraphFromSchema} from '@/util/graph.ts'
-import {EntityDefinition} from "@kinotic-ai/os-api";
+import {EntityDefinition} from "@kinotic-ai/management-api";
 
 export interface IEntityDefinitionStore {
     entityDefinition: EntityDefinition | null

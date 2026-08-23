@@ -1,0 +1,77 @@
+import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
+import { Project } from '@/api/model/Project'
+
+export interface IProjectService extends ICrudServiceProxy<Project> {
+
+    /**
+     * Counts all projects for the given application.
+     * @param applicationId the application to find projects for
+     * @return Promise emitting the number of projects
+     */
+    countForApplication(applicationId: string): Promise<number>
+
+    /**
+     * Creates a new project if it does not already exist.
+     * @param project the project to create
+     * @return Promise emitting the created project or the existing project if it already exists
+     */
+    createProjectIfNotExist(project: Project): Promise<Project>
+
+    /**
+     * Finds all projects for the given application.
+     * @param applicationId the application to find projects for
+     * @param pageable the page to return
+     * @return Promise emitting a page of projects
+     */
+    findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>>
+
+    /**
+     * Re-runs repository initialization for a project left
+     * {@link RepositoryConnectionStatus.INITIALIZATION_FAILED} by creation.
+     * @param projectId the id of the project to retry
+     * @return Promise emitting the project, marked {@link RepositoryConnectionStatus.CONNECTED} on success
+     */
+    retryRepoInitialization(projectId: string): Promise<Project>
+
+    /**
+     * This operation makes all the recent writes immediately available for search.
+     * @return a Promise that resolves when the operation is complete
+     */
+    syncIndex(): Promise<void>
+
+}
+
+export class ProjectService extends CrudServiceProxy<Project> implements IProjectService {
+
+    constructor(kinotic: IKinotic) {
+        super(kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.ProjectService`))
+    }
+
+    public countForApplication(applicationId: string): Promise<number> {
+        return this.serviceProxy.invoke('countForApplication', [applicationId])
+    }
+
+    public createProjectIfNotExist(project: Project): Promise<Project> {
+        return this.serviceProxy.invoke('createProjectIfNotExist', [project])
+    }
+
+    public async findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>> {
+        const page: Page<Project> = await this.findAllForApplicationSinglePage(applicationId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findAllForApplicationSinglePage(applicationId, pageable))
+    }
+
+    public findAllForApplicationSinglePage(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>> {
+        return this.serviceProxy.invoke('findAllForApplication', [applicationId, pageable])
+    }
+
+    public retryRepoInitialization(projectId: string): Promise<Project> {
+        return this.serviceProxy.invoke('retryRepoInitialization', [projectId])
+    }
+
+    public syncIndex(): Promise<void> {
+        return this.serviceProxy.invoke('syncIndex', [])
+    }
+
+}

@@ -54,7 +54,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
-import { ExecutionStatus } from '@kinotic-ai/os-api'
+import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 import DatetimeUtil from '../../util/DatetimeUtil'
 

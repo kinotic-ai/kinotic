@@ -1,7 +1,7 @@
 import { Kinotic } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
-import { VmNodeRegistration } from '@/model/VmNodeRegistration'
-import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
+import { VmNodeRegistration } from '@kinotic-ai/system-api'
+import { VmNodeOrchestrationServiceProxy } from '@kinotic-ai/system-api'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
@@ -9,9 +9,9 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import { SYSTEM_ZONE, VmProviderType } from '@kinotic-ai/os-api'
-import type { Workload } from '@kinotic-ai/os-api'
-import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
+import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
+import type { Workload } from '@kinotic-ai/system-api'
+import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
 import Docker from 'dockerode'
 import os from 'node:os'
 import { join } from 'node:path'
@@ -92,7 +92,7 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
 async function start() {
     // The vm-manager runs as a system participant, so its VmManager service registers in the
     // system zone. Must be set before DefaultVmManager is instantiated (@Publish registers there).
-    Kinotic.zonePrefix = SYSTEM_ZONE
+    Kinotic.zonePrefix = SYSTEM_API_ZONE
 
     // Server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL
     // and KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET (or KINOTIC_TOKEN).
@@ -162,5 +162,5 @@ start().catch(error => {
 
 export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
-export type { VolumeMount } from '@kinotic-ai/os-api'
+export type { VolumeMount } from '@kinotic-ai/system-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'

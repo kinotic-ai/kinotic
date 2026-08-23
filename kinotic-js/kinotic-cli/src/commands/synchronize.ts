@@ -5,9 +5,9 @@ import {EntityDefinition,
         IEntityDefinitionService,
         INamedQueriesDefinitionService,
         NamedQueriesDefinition,
-        OsApiPlugin,
+        ManagementApiPlugin,
         Project,
-        ProjectType} from '@kinotic-ai/os-api'
+        ProjectType} from '@kinotic-ai/management-api'
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
@@ -15,7 +15,7 @@ import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
 import {resolveServer} from '@/internal/state/Environment'
 import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
 
 export class Synchronize extends Command {
     static aliases = ['sync']
