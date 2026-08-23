@@ -24,6 +24,9 @@ import {
 import {GitChangeDetector} from './GitChangeDetector'
 import chalk from 'chalk'
 
+export type GeneratedEntityProcessor = (entityInfo: EntityInfo, serviceInfo: GeneratedServiceInfo[]) => Promise<void>
+
+
 /**
  * Helper service for generating code.s
  */
@@ -53,6 +56,7 @@ export class EntityCodeGenerationService {
 
     public async generateAllEntities(projectConfig: KinoticProjectConfig,
                                      verbose: boolean,
+                                     entityProcessor?: GeneratedEntityProcessor,
                                      force: boolean = false){
 
         const changeDetector = new GitChangeDetector(this.logger)
@@ -80,7 +84,7 @@ export class EntityCodeGenerationService {
                 verbose            : verbose,
                 logger             : this.logger
             }
-            await this.processEntities(config, projectConfig, resolvedPathConfig, changedFiles)
+            await this.processEntities(config, projectConfig, resolvedPathConfig, changedFiles, entityProcessor)
         }
 
         await changeDetector.saveLastGenerationHash()
@@ -111,7 +115,8 @@ export class EntityCodeGenerationService {
     private async processEntities(config: ConversionConfiguration,
                                   projectConfig: KinoticProjectConfig,
                                   pathConfig: EntitiesPathConfig,
-                                  changedFiles: Set<string> | null): Promise<void>{
+                                  changedFiles: Set<string> | null,
+                                  entityProcessor?: GeneratedEntityProcessor): Promise<void>{
 
         if (!fs.existsSync(config.entitiesPath)) {
             throw new Error(`Entities path does not exist: ${config.entitiesPath}`)
@@ -145,6 +150,10 @@ export class EntityCodeGenerationService {
 
                 for(let generatedServiceInfo of generatedServices) {
                     await writeGeneratedServiceInfoToFilesystem(config, generatedServiceInfo)
+                }
+
+                if(entityProcessor){
+                    await entityProcessor(entityInfo, generatedServices)
                 }
             }
 
@@ -236,8 +245,6 @@ export class EntityCodeGenerationService {
 
         return {
             entityServiceName: `${entityName}${adminPrefix}Repository`,
-            entityNamespace: entityNamespace,
-            entityName: entityName,
             namedQueries: namedQueries
         }
     }

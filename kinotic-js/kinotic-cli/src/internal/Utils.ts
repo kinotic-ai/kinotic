@@ -11,13 +11,6 @@ import {resolveKinoticConfigDir} from './state/KinoticProjectConfigUtil'
 
 export type GeneratedServiceInfo = {
     entityServiceName: string
-    /**
-     * Namespace and name of the entity the Repository serves. Serialized into the
-     * .config/c3/queries json so synchronization can pair each queries file with its
-     * entity definition without the generator in memory.
-     */
-    entityNamespace: string
-    entityName: string
     namedQueries: FunctionDefinition[]
 }
 
