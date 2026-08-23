@@ -31,7 +31,7 @@ questions. All probes were throwaway and have been deleted.
 | Session, scoped participant | 588 B | 518 B serialized exactly + 70 B Ignite entry overhead |
 | Ignite caches, empty | 16.1 MiB | region allocated at zero connections |
 | Netty retained, per magazine | 312 KiB | 9.76 MiB flat at 1k/5k/10k, 16 vCPUs → 32 magazines |
-| Cached `EntityService`, heap | 24,350 B | 2.79 MiB across 120 definitions, reproduced twice |
+| Cached `EntityService`, heap | 24,000 B | 100 definitions each of an 11-node and a ~300-node schema: 25,169 B and 23,941 B |
 | Cached `QueryExecutor`, heap | 285 B | 114,000 B across 400 executors |
 | Metaspace | 232.5 MiB | printed by the Paketo memory calculator at 39,623 classes |
 
@@ -66,8 +66,22 @@ fills, so an oversized cap costs no RSS. Head room should be sized on projected 
 held in full on every node; sessions are `PARTITIONED` with one backup and cost roughly `2/N`.
 
 **Both persistence caches are bounded**, so definition count cannot run the heap away — it starts
-thrashing instead: `entityServiceCache` at 2,000 and `namedQueriesCache` at 10,000, both with a
-20-hour idle expiry.
+thrashing instead. Both caps are properties (`kinotic.persistence.entityServiceCacheMaxSize` and
+`namedQueriesCacheMaxSize`), each defaulting to 10,000, both with a 20-hour idle expiry.
+
+**The `EntityService` coefficient is flat in schema size**, as of the `EntityDescriptor` change. A
+cached `EntityService` used to retain the whole `EntityDefinition` — including the `ObjectC3Type`
+schema and the `decoratedProperties` index — for the life of the cache entry, though nothing on the
+request path read either after construction. It now holds a nine-scalar `EntityDescriptor`. Measured
+before and after, at 100 definitions per shape:
+
+| Schema shape | Before | After |
+|---|---|---|
+| 11 type nodes, like `Person` | 27,955 B | 25,169 B |
+| ~300 type nodes, like `Provider` | 75,939 B | 23,941 B |
+
+The narrow case barely moves, which is the point: the old coefficient was measured on the smallest
+schema in the repo, so it never showed the term that scaled.
 
 ## What needs improving or validating
 
@@ -94,8 +108,9 @@ thrashing instead: `entityServiceCache` at 2,000 and `namedQueriesCache` at 10,0
    connection. Noticed, not chased.
 8. **The named-query coefficient used 400 identical short statements.** Real queries carry longer SQL
    and will cost proportionally more.
-9. **The entity-definition coefficient used the `Person` sample schema.** A wider schema very likely
-   costs more per definition; worth re-measuring against a realistic customer entity.
+9. ~~**The entity-definition coefficient used the `Person` sample schema.**~~ Resolved. A wide schema
+   did cost more — 2.7× — and the cause was schema retention, now removed. The coefficient is flat in
+   schema size; see the before/after table above.
 
 ## The Elasticsearch concern — not modelled at all
 
@@ -115,8 +130,8 @@ heap on the ES side. The questions worth answering:
 - Should entity definitions share indices instead of each getting their own?
 - What is the ES-side heap and shard budget per org/project, and should the sizing model cover the ES
   tier as well as the gateway?
-- What happens to a customer creating their 2,001st entity definition — the `entityServiceCache` cap
-  is 2,000, so it starts evicting and reloading. Is that a cliff we should surface?
+- What happens to a customer creating their 10,001st entity definition — `entityServiceCacheMaxSize`
+  defaults to 10,000, so it starts evicting and reloading. Is that a cliff we should surface?
 
 **Also found while measuring:** named queries only support aggregates.
 `DefaultQueryExecutorFactory:79` throws `NotImplementedException` for `SELECT`, `UPDATE`, `DELETE` and
