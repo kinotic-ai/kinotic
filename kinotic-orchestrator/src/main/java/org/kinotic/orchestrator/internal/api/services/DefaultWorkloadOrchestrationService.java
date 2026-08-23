@@ -55,13 +55,10 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         .map(savedWorkload);
                             })
                             .compose(savedWorkload ->
-                                // Dispatch to the VmManager on the selected node
+                                // Dispatch to the VmManager on the selected node. For a
+                                // non-detached workload the reply arrives once the run ends.
                                 vmManagerProxy.startWorkload(node.getId(), savedWorkload)
-                                        .compose(startedWorkload -> {
-                                            // VmManager started the workload, mark as RUNNING
-                                            startedWorkload.setStatus(WorkloadStatus.RUNNING);
-                                            return workloadService.saveSync(startedWorkload);
-                                        })
+                                        .compose(this::applyStartReply)
                                         .recover(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
@@ -93,10 +90,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                 })
                 .compose(workload ->
                     vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
-                            .compose(restarted -> {
-                                restarted.setStatus(WorkloadStatus.RUNNING);
-                                return workloadService.saveSync(restarted);
-                            })
+                            .compose(this::applyStartReply)
                             .recover(error -> {
                                 log.error("Failed to restart workload {} on node {}",
                                           workloadId, workload.getNodeId(), error);
@@ -161,6 +155,32 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         })
                             )
                             .compose(node -> workloadService.deleteById(workloadId));
+                });
+    }
+
+    /**
+     * Persists the node's reply to a start or restart dispatch and returns the workload's
+     * resulting state.
+     */
+    private Future<Workload> applyStartReply(Workload startedWorkload) {
+        return workloadService.findById(startedWorkload.getId())
+                .compose(current -> {
+                    Future<Workload> ret;
+                    if (current == null) {
+                        // Destroyed while the dispatch was in flight — a save here would
+                        // resurrect the record
+                        ret = Future.succeededFuture(startedWorkload);
+                    } else if (startedWorkload.getStatus().isComplete()
+                            || current.getStatus() == WorkloadStatus.STARTING) {
+                        // A terminal reply — a non-detached run that already ended — is the
+                        // node's final word. A RUNNING reply only promotes from STARTING: a
+                        // short-lived detached workload's terminal status report can be
+                        // applied before the reply gets here, and must not be clobbered.
+                        ret = workloadService.saveSync(startedWorkload);
+                    } else {
+                        ret = Future.succeededFuture(current);
+                    }
+                    return ret;
                 });
     }
 }

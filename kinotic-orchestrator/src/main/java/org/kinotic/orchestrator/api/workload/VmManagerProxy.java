@@ -19,7 +19,9 @@ import java.util.List;
 public interface VmManagerProxy {
 
     /**
-     * Starts a new workload on the VmManager running on the given node.
+     * Starts a new workload on the VmManager running on the given node. For a detached
+     * workload the future completes as soon as the workload is running; for a non-detached
+     * one it completes only once the run has ended, with the final status and exit code.
      * @param nodeId the id of the node to route to
      * @param workload the workload configuration to start
      * @return a future that will complete with the started workload
@@ -29,7 +31,8 @@ public interface VmManagerProxy {
     /**
      * Restarts a stopped workload in place on the VmManager running on the given node.
      * The same VM boots again with its disk state intact and the workload's entrypoint
-     * runs again.
+     * runs again. Resolves at boot or at run end the same way as
+     * {@link #startWorkload(String, Workload)}.
      * @param nodeId the id of the node to route to
      * @param workloadId the id of the workload to restart
      * @return a future that will complete with the restarted workload

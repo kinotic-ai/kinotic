@@ -3,6 +3,7 @@ package org.kinotic.orchestrator.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.orchestrator.api.model.workload.Workload;
+import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 
 /**
  * Service responsible for orchestrating workload deployment across the cluster.
@@ -20,6 +21,11 @@ public interface WorkloadOrchestrationService {
      * Deploys a new workload to an appropriate node in the cluster.
      * The orchestrator selects a node with sufficient resources, persists the workload,
      * and delegates to the VmManager on the selected node.
+     * <p>
+     * When {@link Workload#isDetached()} is {@code false} the returned future completes only
+     * once the run has ended — the workload reached {@link WorkloadStatus#STOPPED} or
+     * {@link WorkloadStatus#FAILED}, with its {@link Workload#getExitCode() exit code} set.
+     * Otherwise it completes as soon as the workload is started.
      *
      * @param workload the workload configuration to deploy
      * @return a future that will complete with the deployed workload (including assigned nodeId and id)
@@ -31,6 +37,7 @@ public interface WorkloadOrchestrationService {
      * boots again with its disk state intact and the workload's entrypoint runs again.
      * Fails unless the workload is stopped; a workload stopped with
      * {@link Workload#isAutoRemove()} {@code true} has no VM left to restart.
+     * Honors {@link Workload#isDetached()} the same way as {@link #deployWorkload(Workload)}.
      *
      * @param workloadId the id of the workload to restart
      * @return a future that will complete with the restarted workload

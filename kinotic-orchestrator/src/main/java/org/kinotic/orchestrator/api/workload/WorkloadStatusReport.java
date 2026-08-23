@@ -26,6 +26,11 @@ public class WorkloadStatusReport {
     private WorkloadStatus status;
 
     /**
+     * The exit status of the workload's process once its run has ended, null while it has not.
+     */
+    private Integer exitCode;
+
+    /**
      * When the node recorded this status, in epoch milliseconds.
      */
     private long updated;
