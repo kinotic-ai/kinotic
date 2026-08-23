@@ -32,16 +32,15 @@ folded in below.
 the Cloud" names the umbrella, so no single deployable claims the `os` name. Servers are
 named for what they are: the management plane (where the platform is operated), the
 system plane (the privileged core), and the application plane. Names that describe the
-OS as a whole keep their `os` prefix (`os-api` — the OS's public API; `os-data` — the
-OS's own state).
+OS as a whole keep their `os` prefix (`os-data` — the OS's own state).
 
 - **`kinotic-management-server`** — the management plane (today's `kinotic-server`
   module, renamed). Public gateway where the platform is operated. Assembles: core,
-  domain, gateway, os-api, persistence, github. Serves: portal SPA, CLI (device-grant
+  domain, gateway, management-api, persistence, github. Serves: portal SPA, CLI (device-grant
   delegates), MCP hosts, GitHub webhooks — all ORGANIZATION-scope participants.
 - **`kinotic-system-server`** — the system plane. Gateway reachable from the internet only
   over VPN; reachable directly inside the Azure VNet. Assembles: core, domain, gateway,
-  orchestrator, system services. Serves: `apps/system` SPA, system users, vm-manager
+  system-api, system services. Serves: `apps/system` SPA, system users, vm-manager
   nodes.
 - **`kinotic-app-server`** — the application plane. Public gateway. Assembles: core,
   domain, gateway, persistence (app-api services). Serves: application end-users,
@@ -137,7 +136,7 @@ The management plane reports that a job is warranted; the system plane owns what
 This narrow waist is also the exit hatch: if the planes ever need physical separation
 (§ Alternatives), it is already the bridge contract.
 
-User-facing re-runs enter through a small os-api-zone service that verifies the caller's
+User-facing re-runs enter through a small management-api-zone service that verifies the caller's
 org owns the `JobRun` (read from shared ES) before forwarding. Live status streams over
 the bus (`watch`); shared ES serves only cold reads (history pages, ownership checks).
 Job dispatch does not ride the `GitHubProjectEventService` fan-out (which has zero
@@ -216,9 +215,9 @@ flowchart TB
     end
 
     subgraph oscore["OS CORE"]
-      osgw["kinotic-management-server (public gateway)<br/>OrgSecurityService: org users · delegates · machine creds<br/>os-api zone · GitHub webhook · app-api (dual-hosted)"]
+      osgw["kinotic-management-server (public gateway)<br/>OrgSecurityService: org users · delegates · machine creds<br/>management-api zone · GitHub webhook · app-api (dual-hosted)"]
       vpn{{"VPN<br/>gateway"}}
-      sysgw["kinotic-system-server — NO public listener<br/>SystemSecurityService: Entra SSO + workload identity ONLY<br/>system zone · orchestrator · system console"]
+      sysgw["kinotic-system-server — NO public listener<br/>SystemSecurityService: Entra SSO + workload identity ONLY<br/>system-api zone · orchestrator · system console"]
       pbus(["OS BUS — Vert.x cluster A · zone rules + supervisor RBAC"])
       vpn ==> sysgw
       osgw --- pbus
@@ -297,7 +296,7 @@ applications run in user space on their own bus.
 
 ## Accepted residual risks
 
-- A compromised org-gateway node has OS-bus reach toward the system zone, bounded
+- A compromised org-gateway node has OS-bus reach toward the system-api zone, bounded
   by supervisor RBAC, the narrow waist, and the VPN'd system gateway — not by the
   network. Accepted because the org surface is authenticated and far narrower than the
   app surface.
@@ -316,17 +315,17 @@ These predate the split and should be fixed (or verified) before or alongside it
 
 1. **Dangling TS proxies.** `IVmNodeService`/`IWorkloadService` target Java classes that
    do not exist; `IOrganizationService` targets an unpublished service; `LogManager` TS
-   says os-api while Java says system; `LogService` is not wired into `OsApiPlugin`.
+   says management-api while Java says system-api; `LogService` is not wired into `ManagementApiPlugin`.
    Delete or repair.
 2. **`DefaultLogService` → orchestrator `WorkloadService.findById`** is the single
    in-process cross-plane edge in the codebase (authorization read of
    `workload.organizationId`). Replace with a read of the workload row from shared ES;
-   this also lets os-api drop its build dependency on kinotic-orchestrator.
+   this also lets management-api drop its build dependency on kinotic-system-api.
 3. **Zone-only-guarded services** (no in-method participant check):
    `MigrationService`, `AdminJsonEntitiesRepository`, `WorkloadOrchestrationService`,
    `VmNodeOrchestrationService`, `LogManager`, `KinoticClusterInfoService` — their
    access control today is the zone rules alone.
-4. **`ITestService` ships in kinotic-server's main sources** on the os-api zone. Confirm
+4. **`ITestService` ships in kinotic-server's main sources** on the management-api zone. Confirm
    its gating, or move it out of main.
 
 ## Open items
