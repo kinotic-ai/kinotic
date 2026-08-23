@@ -38,7 +38,9 @@ public class Workload implements Identifiable<String> {
     private String description;
 
     /**
-     * The id of the {@link VmNode} this workload is deployed on.
+     * The id of the {@link VmNode} this workload is deployed on. Assigned by the
+     * orchestrator at placement, or set by the caller before deploying to pin the workload
+     * to a specific node.
      */
     private String nodeId;
 
@@ -115,7 +117,9 @@ public class Workload implements Identifiable<String> {
     private Integer exitCode;
 
     /**
-     * Optional environment variables to pass to the VM.
+     * Optional environment variables to pass to the VM. The persisted workload record holds
+     * a masked value for every entry — reading a workload back returns the keys but never
+     * the values, which only the node receives.
      */
     private Map<String, String> environment = new HashMap<>();
 

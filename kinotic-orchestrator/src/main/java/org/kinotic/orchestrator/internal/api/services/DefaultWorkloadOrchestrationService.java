@@ -10,14 +10,22 @@ import org.kinotic.orchestrator.api.services.VmNodeOrchestrationService;
 import org.kinotic.orchestrator.api.workload.VmManagerProxy;
 import org.kinotic.orchestrator.api.services.WorkloadOrchestrationService;
 import org.kinotic.orchestrator.api.model.workload.VmNode;
+import org.kinotic.orchestrator.api.model.workload.VmNodeStatusType;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultWorkloadOrchestrationService implements WorkloadOrchestrationService {
+
+    // What the persisted record holds in place of every environment value; only the node
+    // ever receives the real values
+    private static final String REDACTED_ENV_VALUE = "<redacted>";
 
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -31,8 +39,10 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workload.getName(), "Workload name cannot be null");
         Validate.notNull(workload.getImage(), "Workload image cannot be null");
 
-        // Find a node with sufficient resources
-        return nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
+        Future<VmNode> nodeFuture = workload.getNodeId() == null
+                ? nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
+                : requirePinnedNode(workload);
+        return nodeFuture
                 .compose(node -> {
                     if (node == null) {
                         return Future.failedFuture(
@@ -46,7 +56,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     workload.setStatus(WorkloadStatus.STARTING);
 
                     // Persist the workload and update node resource allocation
-                    return workloadService.saveSync(workload)
+                    return persistRedacted(workload)
                             .compose(savedWorkload -> {
                                 node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
                                 node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
@@ -63,7 +73,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
                                             savedWorkload.setStatus(WorkloadStatus.FAILED);
-                                            return workloadService.saveSync(savedWorkload)
+                                            return persistRedacted(savedWorkload)
                                                     .compose(failed -> Future.failedFuture(error));
                                         })
                             );
@@ -176,11 +186,60 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // node's final word. A RUNNING reply only promotes from STARTING: a
                         // short-lived detached workload's terminal status report can be
                         // applied before the reply gets here, and must not be clobbered.
-                        ret = workloadService.saveSync(startedWorkload);
+                        ret = persistRedacted(startedWorkload);
                     } else {
                         ret = Future.succeededFuture(current);
                     }
                     return ret;
                 });
+    }
+
+    /**
+     * Resolves a workload's pre-assigned node, failing unless it is registered, ONLINE, and
+     * has the capacity the workload requires — the same gates placement applies when it
+     * selects a node.
+     */
+    private Future<VmNode> requirePinnedNode(Workload workload) {
+        String nodeId = workload.getNodeId();
+        return vmNodeService.findById(nodeId)
+                .compose(node -> {
+                    Future<VmNode> ret;
+                    if (node == null) {
+                        ret = Future.failedFuture(
+                                new IllegalArgumentException("Node not registered: " + nodeId));
+                    } else if (node.getStatus().getType() != VmNodeStatusType.ONLINE) {
+                        ret = Future.failedFuture(new IllegalStateException(
+                                "Node " + nodeId + " is not taking workloads (status: "
+                                        + node.getStatus().getType() + ")"));
+                    } else if (node.getAvailableCpus() < workload.getVcpus()
+                            || node.getAvailableMemoryMb() < workload.getMemoryMb()
+                            || node.getAvailableDiskMb() < workload.getDiskSizeMb()) {
+                        ret = Future.failedFuture(new IllegalStateException(
+                                "Node " + nodeId + " lacks capacity for workload " + workload.getName()));
+                    } else {
+                        ret = Future.succeededFuture(node);
+                    }
+                    return ret;
+                });
+    }
+
+    /**
+     * Persists the workload with every environment value replaced by
+     * {@value REDACTED_ENV_VALUE}, then restores the real values on the object — the record
+     * never holds an environment value, while dispatch to the node still carries them.
+     */
+    private Future<Workload> persistRedacted(Workload workload) {
+        Future<Workload> ret;
+        Map<String, String> environment = workload.getEnvironment();
+        if (environment == null || environment.isEmpty()) {
+            ret = workloadService.saveSync(workload);
+        } else {
+            Map<String, String> redacted = new LinkedHashMap<>();
+            environment.keySet().forEach(key -> redacted.put(key, REDACTED_ENV_VALUE));
+            workload.setEnvironment(redacted);
+            ret = workloadService.saveSync(workload)
+                    .andThen(result -> workload.setEnvironment(environment));
+        }
+        return ret;
     }
 }

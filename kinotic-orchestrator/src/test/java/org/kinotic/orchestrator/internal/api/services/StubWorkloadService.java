@@ -5,6 +5,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.orchestrator.api.model.workload.Workload;
 import org.kinotic.orchestrator.api.services.WorkloadService;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -15,9 +16,13 @@ import java.util.UUID;
 /**
  * In-memory stand-in for the Elasticsearch backed {@link WorkloadService}. Saves assign ids and
  * stamp {@code updated} like {@code DefaultWorkloadService.beforeSave} so status-report
- * timestamp guards behave as they do against the real service.
+ * timestamp guards behave as they do against the real service. Records are stored and returned
+ * as serialization round-trips the way Elasticsearch documents are, so a caller's mutation of
+ * an entity after a save never alters the stored record.
  */
 public class StubWorkloadService implements WorkloadService {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     public final Map<String, Workload> saved = new LinkedHashMap<>();
 
@@ -30,7 +35,7 @@ public class StubWorkloadService implements WorkloadService {
         if (entity.getCreated() == null) {
             entity.setCreated(new Date());
         }
-        saved.put(entity.getId(), entity);
+        saved.put(entity.getId(), snapshot(entity));
         return Future.succeededFuture(entity);
     }
 
@@ -51,7 +56,12 @@ public class StubWorkloadService implements WorkloadService {
 
     @Override
     public Future<Workload> findById(String id) {
-        return Future.succeededFuture(saved.get(id));
+        Workload stored = saved.get(id);
+        return Future.succeededFuture(stored == null ? null : snapshot(stored));
+    }
+
+    private static Workload snapshot(Workload entity) {
+        return MAPPER.readValue(MAPPER.writeValueAsBytes(entity), Workload.class);
     }
 
     @Override

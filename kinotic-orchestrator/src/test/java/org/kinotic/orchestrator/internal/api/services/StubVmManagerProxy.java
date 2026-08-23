@@ -31,8 +31,14 @@ public class StubVmManagerProxy implements VmManagerProxy {
     /** Runs after the node has "started" the workload, before the start reply returns. */
     public Runnable onStart;
 
+    /** When set, every start fails with this error instead of starting. */
+    public Exception failStartWith;
+
     @Override
     public Future<Workload> startWorkload(String nodeId, Workload workload) {
+        if (failStartWith != null) {
+            return Future.failedFuture(failStartWith);
+        }
         Workload startedWorkload = copy(workload);
         startedWorkload.setStatus(WorkloadStatus.RUNNING);
         started.put(startedWorkload.getId(), startedWorkload);
@@ -103,6 +109,7 @@ public class StubVmManagerProxy implements VmManagerProxy {
                 .setVcpus(workload.getVcpus())
                 .setMemoryMb(workload.getMemoryMb())
                 .setDiskSizeMb(workload.getDiskSizeMb())
+                .setEnvironment(new LinkedHashMap<>(workload.getEnvironment()))
                 .setCreated(workload.getCreated())
                 .setUpdated(workload.getUpdated());
     }
