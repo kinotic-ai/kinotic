@@ -10,10 +10,8 @@ import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
-import org.kinotic.domain.api.services.ProjectPushListener;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
 import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -25,8 +23,7 @@ import java.util.List;
 /**
  * Default impl: mutates installation state for management events, flips backing
  * projects to {@link RepositoryConnectionStatus#DISCONNECTED} when GitHub revokes
- * access, emits a {@link GitHubProjectEvent} per backing project for repo events, and
- * notifies every {@link ProjectPushListener} bean for pushes to a project's default branch.
+ * access, and emits a {@link GitHubProjectEvent} per backing project for repo events.
  * <p>
  * Webhook deliveries have no Kinotic participant attached, so reads go through the
  * repositories' find-by-field finders (which need no org context, the search key is
@@ -41,14 +38,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DefaultGitHubWebhookEventService implements GitHubWebhookEventService {
 
-    // GitHub uses a sha of all zeros for "no commit" in branch create/delete deliveries
-    private static final String ZERO_SHA = "0".repeat(40);
-
     private final GitHubAppInstallationRepository installationRepository;
     private final ProjectRepository projectRepository;
-    // ObjectProvider rather than List: no listener beans exist when every consuming module
-    // is disabled, and Spring rejects a required List injection with zero candidates
-    private final ObjectProvider<ProjectPushListener> pushListeners;
     private final Vertx vertx;
 
     // Hot sink shared by every events() subscriber; never terminates. Best-effort delivery keeps a
@@ -162,7 +153,6 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         }
         return projectRepository.findByRepoFullName(event.getRepoFullName())
                 .compose(projects -> {
-                    List<Future<Void>> notifications = new ArrayList<>();
                     if (projects.isEmpty()) {
                         log.debug("No Kinotic project for repo {} (event {}); dropping",
                                   event.getRepoFullName(), event.getEventType());
@@ -171,50 +161,10 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
                             emit(new GitHubProjectEvent().setOrganizationId(project.getOrganizationId())
                                                          .setProjectId(project.getId())
                                                          .setWebhookEvent(event));
-                            if (isDefaultBranchPush(event, project)) {
-                                notifications.add(notifyPushListeners(project, event.getPayload().getString("after")));
-                            }
                         }
                     }
-                    return Future.all(notifications).mapEmpty();
+                    return Future.succeededFuture();
                 });
-    }
-
-    /**
-     * True when the delivery is a push of commits to the project's default branch.
-     * Branch deletions arrive as push deliveries too ({@code deleted: true}, after-sha of
-     * all zeros) and must not trigger listeners.
-     */
-    private boolean isDefaultBranchPush(GitHubWebhookEvent event, Project project) {
-        boolean ret = false;
-        if ("push".equals(event.getEventType()) && project.getRepoDefaultBranch() != null) {
-            String after = event.getPayload().getString("after");
-            ret = ("refs/heads/" + project.getRepoDefaultBranch()).equals(event.getPayload().getString("ref"))
-                    && !event.getPayload().getBoolean("deleted", false)
-                    && after != null
-                    && !ZERO_SHA.equals(after);
-        }
-        return ret;
-    }
-
-    private Future<Void> notifyPushListeners(Project project, String commitSha) {
-        List<Future<Void>> pending = new ArrayList<>();
-        for (ProjectPushListener listener : pushListeners) {
-            Future<Void> notification;
-            try {
-                notification = listener.onPush(project, commitSha);
-            } catch (Exception e) {
-                notification = Future.failedFuture(e);
-            }
-            // Recovered per listener so one failure neither hides another listener's outcome
-            // nor fails the delivery
-            pending.add(notification.otherwise(err -> {
-                log.warn("Push listener {} failed for project {} commit {}: {}",
-                         listener.getClass().getSimpleName(), project.getId(), commitSha, err.getMessage());
-                return null;
-            }));
-        }
-        return Future.all(pending).mapEmpty();
     }
 
     private void emit(GitHubProjectEvent event) {
