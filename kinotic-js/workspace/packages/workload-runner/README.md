@@ -34,10 +34,18 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_REF` | commit sha or branch to deploy | required |
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
+| `KINOTIC_ORGANIZATION_ID` | organization the project belongs to | required for entity sync |
+| `KINOTIC_APPLICATION_ID` | application the project belongs to | required for entity sync |
+| `KINOTIC_PROJECT_NAME` | the project's name on the server | required for entity sync |
+| `KINOTIC_SERVER_*`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET` | standard Kinotic connection settings; sync is skipped when no credentials are present | — |
 
-The token travels as a per-invocation `http.extraheader`, never written to `.git/config`
-or embedded in the remote URL — the checkout is a shared host directory and must not hold
-a credential.
+Entity definitions are **not generated here**: `@kinotic-ai/project-sync` pushes the
+committed output of `kinotic generate` (`.config/c3`) and applies migrations, connected as
+an APPLICATION-scoped machine in the application's zone.
+
+The git token travels as a per-invocation `http.extraheader`, never written to
+`.git/config` or embedded in the remote URL — the checkout is a shared host directory and
+must not hold a credential.
 
 `supervise.ts` — long-lived:
 

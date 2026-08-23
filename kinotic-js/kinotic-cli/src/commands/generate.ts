@@ -37,7 +37,7 @@ export class Generate extends Command {
                                                                       kinoticProjectConfig.fileExtensionForImports,
                                                                       this)
 
-            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, undefined, flags.force)
+            await codeGenerationService.generateAllEntities(kinoticProjectConfig, flags.verbose, flags.force)
 
         this.log(`Code Generation Complete For application: ${kinoticProjectConfig.applicationId}`)
     }

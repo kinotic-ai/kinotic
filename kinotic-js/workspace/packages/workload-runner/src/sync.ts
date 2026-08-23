@@ -1,3 +1,6 @@
+import { Kinotic } from '@kinotic-ai/core'
+import { appZone, OsApiPlugin } from '@kinotic-ai/os-api'
+import { synchronizeProject } from '@kinotic-ai/project-sync'
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,10 +15,15 @@ import { writeSentinel } from './sentinel.ts'
  * therefore never restarts the microservices into a half-updated tree.
  *
  * Environment:
- * - GIT_CLONE_URL          https URL of the repository to check out (required)
- * - GIT_REF                commit sha or branch to deploy (required)
- * - GIT_TOKEN              token authorizing the fetch; omit for a public repository
- * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
+ * - GIT_CLONE_URL            https URL of the repository to check out (required)
+ * - GIT_REF                  commit sha or branch to deploy (required)
+ * - GIT_TOKEN                token authorizing the fetch; omit for a public repository
+ * - KINOTIC_WORKSPACE_DIR    the shared checkout directory (default /workspace)
+ * - KINOTIC_ORGANIZATION_ID  the organization the project belongs to
+ * - KINOTIC_APPLICATION_ID   the application the project belongs to
+ * - KINOTIC_PROJECT_NAME     the project's name on the server
+ * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
+ *   connection settings; entity sync is skipped when no credentials are present
  */
 
 function require_(name: string): string {
@@ -67,16 +75,33 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
 }
 
 /**
- * Synchronizes the project's entity definitions with the Kinotic server so they exist
- * before the microservices serving them start.
+ * Synchronizes the project's committed entity definitions (.config/c3) and migrations
+ * with the Kinotic server so they exist before the microservices serving them start.
+ * Skipped when the environment carries no Kinotic credentials, so the checkout itself
+ * still works against a server the workload cannot reach yet.
  */
-function syncEntities(workspaceDir: string): void {
-    // TODO: not wired yet — will either run the kinotic CLI headlessly with the workload's
-    // machine credentials, or be superseded by the server reading .config/c3 from the repo
-    console.log('[workload-runner] entity definition sync is not wired yet; skipping')
+async function syncEntities(workspaceDir: string): Promise<void> {
+    if (!process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_TOKEN) {
+        console.log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
+        return
+    }
+    const organizationId = require_('KINOTIC_ORGANIZATION_ID')
+    const applicationId = require_('KINOTIC_APPLICATION_ID')
+    const projectName = require_('KINOTIC_PROJECT_NAME')
+
+    // The workload authenticates as an APPLICATION-scoped machine, so it lives in the
+    // application's zone the same way the project's microservices do
+    Kinotic.use(OsApiPlugin)
+    Kinotic.zonePrefix = appZone(organizationId, applicationId)
+    await Kinotic.connect()
+    try {
+        await synchronizeProject({ organizationId, applicationId, projectName, projectDir: workspaceDir })
+    } finally {
+        await Kinotic.disconnect()
+    }
 }
 
-function main(): void {
+async function main(): Promise<void> {
     const cloneUrl = require_('GIT_CLONE_URL')
     const ref = require_('GIT_REF')
     const token = process.env.GIT_TOKEN
@@ -85,7 +110,7 @@ function main(): void {
     console.log(`[workload-runner] syncing ${ref} into ${workspaceDir}`)
     syncSource(workspaceDir, cloneUrl, ref, token)
     run('bun', ['install'], workspaceDir)
-    syncEntities(workspaceDir)
+    await syncEntities(workspaceDir)
 
     const commitSha = run('git', ['rev-parse', 'HEAD'], workspaceDir, true)
     writeSentinel(workspaceDir, commitSha)
@@ -93,7 +118,7 @@ function main(): void {
 }
 
 try {
-    main()
+    await main()
 } catch (error) {
     console.error('[workload-runner] sync failed:', error)
     process.exit(1)

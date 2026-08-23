@@ -1,8 +1,7 @@
 # Image for the workloads that deploy and run a customer project on a node.
 #
 # The sync workload runs `bun src/sync.ts` (set as the workload entrypoint) and the
-# runtime workload runs the default supervisor entrypoint. The package has no runtime
-# dependencies, so the sources are copied in as-is and bun runs them directly.
+# runtime workload runs the default supervisor entrypoint.
 #
 # Build from this directory: docker build -t ghcr.io/kinotic-ai/workload-runner .
 FROM oven/bun:1-slim
@@ -14,6 +13,7 @@ RUN apt-get update \
 
 WORKDIR /opt/workload-runner
 COPY package.json tsconfig.json ./
+RUN bun install --production
 COPY src ./src
 
 ENTRYPOINT ["bun", "src/supervise.ts"]

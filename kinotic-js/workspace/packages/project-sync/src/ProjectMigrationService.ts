@@ -1,9 +1,9 @@
-import { IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import type { IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
 import { Kinotic } from '@kinotic-ai/core'
 import { readdir, readFile, access } from 'fs/promises'
 import { join } from 'path'
 import { constants } from 'fs'
-import { Logger } from './Logger'
+import type { SyncLogger } from './SyncLogger'
 
 /**
  * Internal service for loading and applying migrations from the local filesystem.
@@ -11,9 +11,9 @@ import { Logger } from './Logger'
  */
 export class ProjectMigrationService {
     private readonly migrationService: IMigrationService
-    private readonly logger: Logger
+    private readonly logger: SyncLogger
 
-    constructor(logger: Logger) {
+    constructor(logger: SyncLogger) {
         this.migrationService = Kinotic.migrations
         this.logger = logger
     }
@@ -114,8 +114,8 @@ export class ProjectMigrationService {
      * Expected format: V{version}__{description}.sql
      */
     private extractVersionFromFilename(filename: string): number | null {
-        const match = filename.match(/^V(\d+)__.*\.sql$/)
-        return match ? parseInt(match[1], 10) : null
+        const version = filename.match(/^V(\d+)__.*\.sql$/)?.[1]
+        return version !== undefined ? parseInt(version, 10) : null
     }
 
     private logVerbose(message: string, verbose: boolean): void {

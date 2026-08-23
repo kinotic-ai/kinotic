@@ -97,7 +97,7 @@ describe('EntityCodeGenerationService', () => {
         const service = new EntityCodeGenerationService(projectConfig.applicationId,
                                                         projectConfig.fileExtensionForImports,
                                                         new ConsoleLogger())
-        await service.generateAllEntities(projectConfig, false, undefined, true)
+        await service.generateAllEntities(projectConfig, false, true)
     }
 
     function readIfExists(...segments: string[]): string | null {
@@ -152,6 +152,9 @@ describe('EntityCodeGenerationService', () => {
 
         const queries = JSON.parse(queriesJson as string)
         expect(queries.entityServiceName).to.equal('TodoRepository')
+        // The entity pairing is what synchronization uses to match the file to its entity json
+        expect(queries.entityNamespace).to.equal('my.app')
+        expect(queries.entityName).to.equal('Todo')
         expect(queries.namedQueries.map((q: {name: string}) => q.name)).to.deep.equal(['findByTitle'])
 
         fs.writeFileSync(path.join(projectDir, 'src/repository/TodoRepository.ts'), REPOSITORY_WITHOUT_QUERY)
