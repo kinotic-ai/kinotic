@@ -77,7 +77,6 @@ export * from '@/api/model/InviteEmailTemplate'
 
 export * from '@/api/model/github/GitHubAppInstallation'
 export * from '@/api/model/github/GitHubToken'
-export * from '@/api/model/github/GitHubRepoToken'
 export * from '@/api/model/github/GitHubInstallCompletion'
 
 export * from '@/api/model/KinoticProjectConfig'

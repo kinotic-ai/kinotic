@@ -3,16 +3,15 @@ package org.kinotic.github.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.security.OrganizationParticipant;
-import org.kinotic.github.api.model.GitHubAppInstallation;
-import org.kinotic.github.api.model.GitHubRepoToken;
-import org.kinotic.github.api.services.GitHubAppInstallationService;
-import org.kinotic.github.api.services.GitHubProjectRepoService;
-import org.kinotic.github.internal.api.services.client.GitHubApiClient;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Project;
-import org.kinotic.os.api.services.ProjectService;
+import org.kinotic.domain.api.model.ProjectRepoToken;
+import org.kinotic.domain.internal.api.repositories.ProjectRepository;
+import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.github.api.services.GitHubProjectRepoService;
+import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
+import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -20,18 +19,17 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService {
 
-    private final SecurityContext securityContext;
-    private final ProjectService projectService;
-    private final GitHubAppInstallationService installationService;
+    private final ProjectRepository projectRepository;
+    private final GitHubAppInstallationRepository installationRepository;
     private final GitHubApiClient apiClient;
 
     @Override
-    public Future<GitHubRepoToken> issueRepoToken(String organizationId, String projectId) {
+    public Future<ProjectRepoToken> issueRepoToken(String organizationId, String projectId) {
         return resolve(organizationId, projectId).compose(ctx ->
                 apiClient.getToken(ctx.install().getGithubInstallationId(),
                                    ctx.project().getRepoId(),
                                    GitHubApiClient.READ_CONTENTS)
-                         .map(base -> new GitHubRepoToken(
+                         .map(base -> new ProjectRepoToken(
                                  base.getToken(),
                                  base.getExpiresAt(),
                                  "https://github.com/" + ctx.project().getRepoFullName() + ".git",
@@ -58,31 +56,25 @@ public class DefaultGitHubProjectRepoService implements GitHubProjectRepoService
                                                                refName, sha)));
     }
 
+    // Callers are trusted in-process code (this service is not published), so authorization
+    // is validation of the explicit organizationId: the org-scoped project lookup finds
+    // nothing for a project of another org, and the org must still have a GitHub install.
+    // Participant enforcement returns with @Publish.
     private Future<RepoContext> resolve(String organizationId, String projectId) {
-
-        OrganizationParticipant caller = securityContext.requireParticipant(OrganizationParticipant.class);
-        if (!organizationId.equals(caller.getOrganizationId())) {
-            throw new AuthorizationException(
-                    "Caller's organizationId '" + caller.getOrganizationId()
-                            + "' does not match requested '" + organizationId + "'");
-        }
-
-        return projectService.findById(projectId).compose(project -> {
+        return projectRepository.findById(projectId, organizationId).compose(project -> {
             if (project == null || project.getRepoFullName() == null || project.getRepoId() == null) {
-                throw new IllegalStateException(
-                        "Project " + projectId + " has no GitHub repo provisioned");
+                throw new IllegalStateException("Project " + projectId + " of organization "
+                        + organizationId + " has no GitHub repo provisioned");
             }
-            if (!organizationId.equals(project.getOrganizationId())) {
-                throw new AuthorizationException(
-                        "Project " + projectId + " does not belong to organization " + organizationId);
-            }
-            return installationService.findForCurrentOrg().map(install -> {
-                if (install == null) {
-                    throw new IllegalStateException(
-                            "GitHub install for organization " + organizationId + " no longer exists");
-                }
-                return new RepoContext(project, install);
-            });
+            return installationRepository.findAll(organizationId, Pageable.ofSize(1))
+                    .map(Page::getContent)
+                    .map(installs -> {
+                        if (installs.isEmpty()) {
+                            throw new IllegalStateException(
+                                    "GitHub install for organization " + organizationId + " no longer exists");
+                        }
+                        return new RepoContext(project, installs.getFirst());
+                    });
         });
     }
 
