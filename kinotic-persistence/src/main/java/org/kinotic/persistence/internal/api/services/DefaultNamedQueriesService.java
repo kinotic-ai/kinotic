@@ -15,6 +15,7 @@ import org.kinotic.persistence.internal.api.repositories.NamedQueriesDefinitionR
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.QueryExecutorFactory;
 import org.kinotic.persistence.internal.api.services.sql.executors.QueryExecutor;
+import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.EvictionSourceType;
@@ -40,13 +41,14 @@ public class DefaultNamedQueriesService implements NamedQueriesService {
     public DefaultNamedQueriesService(DefaultCaffeineCacheFactory cacheFactory,
                                       CrudServiceTemplate crudServiceTemplate,
                                       NamedQueriesDefinitionRepository namedQueriesRepository,
-                                      QueryExecutorFactory queryExecutorFactory) {
+                                      QueryExecutorFactory queryExecutorFactory,
+                                      PersistenceProperties persistenceProperties) {
 
         this.crudServiceTemplate = crudServiceTemplate;
         cache = cacheFactory.<CacheKey, QueryExecutor>newBuilder()
                             .name("namedQueriesCache")
                             .expireAfterAccess(Duration.ofHours(20))
-                            .maximumSize(10_000)
+                            .maximumSize(persistenceProperties.getNamedQueriesCacheMaxSize())
                             .buildAsync((key, executor) -> namedQueriesRepository
                                     .findByApplicationAndEntityDefinition(key.entityDefinition().getApplicationId(),
                                                                           key.entityDefinition().getName(),

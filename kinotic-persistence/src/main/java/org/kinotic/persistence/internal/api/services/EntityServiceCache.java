@@ -73,7 +73,7 @@ public class EntityServiceCache {
         this.cache = cacheFactory.<CacheKey, EntityService>newBuilder()
                                  .name("entityServiceCache")
                                  .expireAfterAccess(Duration.ofHours(20))
-                                 .maximumSize(2000)
+                                 .maximumSize(persistenceProperties.getEntityServiceCacheMaxSize())
                                  .buildAsync(this::load);
     }
 

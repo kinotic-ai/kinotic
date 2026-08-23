@@ -219,6 +219,8 @@ public class CrudServiceTemplate {
      */
     public Future<Void> createIndex(String indexName,
                                                boolean failIfExists,
+                                               int numberOfShards,
+                                               int numberOfReplicas,
                                                Map<String, Property> mappings) {
         return toFuture(esAsyncClient.indices().exists(builder -> builder.index(indexName))
                             .thenCompose(exists -> {
@@ -227,8 +229,8 @@ public class CrudServiceTemplate {
                                                         .create(builder -> {
                                                             builder.index(indexName)
                                                                    .settings(s -> s
-                                                                           .numberOfShards("3")
-                                                                           .numberOfReplicas("2")
+                                                                           .numberOfShards(String.valueOf(numberOfShards))
+                                                                           .numberOfReplicas(String.valueOf(numberOfReplicas))
                                                                            .store(st -> st.type(StorageType.Fs))
                                                                    );
                                                             if (mappings != null && !mappings.isEmpty()) {
@@ -261,8 +263,11 @@ public class CrudServiceTemplate {
     public Future<Void> createIndexTemplate(String templateName,
                                                        String indexPattern,
                                                        DataStreamVisibility dataStreamVisibility,
+                                                       int numberOfShards,
+                                                       int numberOfReplicas,
                                                        Map<String, Property> mappings) {
-        return createIndexTemplate(templateName, indexPattern, dataStreamVisibility, null, mappings);
+        return createIndexTemplate(templateName, indexPattern, dataStreamVisibility, null,
+                                   numberOfShards, numberOfReplicas, mappings);
     }
 
     /**
@@ -280,6 +285,8 @@ public class CrudServiceTemplate {
                                                        String indexPattern,
                                                        DataStreamVisibility dataStreamVisibility,
                                                        Duration dataRetention,
+                                                       int numberOfShards,
+                                                       int numberOfReplicas,
                                                        Map<String, Property> mappings) {
         Validate.notNull(templateName, "templateName cannot be null");
         Validate.notNull(indexPattern, "indexPattern cannot be null");
@@ -295,8 +302,8 @@ public class CrudServiceTemplate {
                    .create(true)
                    .template(t -> {
                                  t.settings(s -> s
-                                         .numberOfShards("3")
-                                         .numberOfReplicas("2")
+                                         .numberOfShards(String.valueOf(numberOfShards))
+                                         .numberOfReplicas(String.valueOf(numberOfReplicas))
                                  );
                                  if (dataRetention != null) {
                                      t.lifecycle(l -> l.dataRetention(r -> r.time(dataRetention.toSeconds() + "s")));

@@ -185,10 +185,16 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                               .createIndexTemplate(templateName,
                                                    entityDefinition.getItemIndex() + "*",
                                                    DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
+                                                   persistenceProperties.getNumberOfShards(),
+                                                   persistenceProperties.getNumberOfReplicas(),
                                                    mappings)
                               .compose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
                             : crudServiceTemplate
-                              .createIndex(entityDefinition.getItemIndex(), true, mappings);
+                              .createIndex(entityDefinition.getItemIndex(),
+                                           true,
+                                           persistenceProperties.getNumberOfShards(),
+                                           persistenceProperties.getNumberOfReplicas(),
+                                           mappings);
 
                     return creationFuture.compose(v -> {
                         entityDefinition.setPublished(true);
