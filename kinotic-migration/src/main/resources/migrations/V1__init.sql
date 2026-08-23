@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     runtimeWorkloadId KEYWORD,
     commitSha KEYWORD,
     lastJobRunId KEYWORD,
-    status KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
     created DATE,
     updated DATE
 );

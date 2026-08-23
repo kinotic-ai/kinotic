@@ -1,23 +1,15 @@
 package org.kinotic.domain.api.model;
 
 /**
- * Lifecycle state of a {@link ProjectDeployment}.
+ * Lifecycle state of a {@link ProjectDeployment}, and why when something is wrong.
+ *
+ * @param type    the lifecycle state of the deployment
+ * @param message why the deployment is in this state, or null when the state speaks for
+ *                itself — typically the failure reason of the last deployment job
  */
-public enum ProjectDeploymentStatus {
+public record ProjectDeploymentStatus(ProjectDeploymentStatusType type, String message) {
 
-    /**
-     * A deployment job is currently syncing the project's code to its node.
-     */
-    DEPLOYING,
-
-    /**
-     * The project's runtime workload is serving the commit recorded on the deployment.
-     */
-    RUNNING,
-
-    /**
-     * The last deployment job failed; the deployment may have no usable runtime workload.
-     */
-    FAILED
-
+    public ProjectDeploymentStatus(ProjectDeploymentStatusType type) {
+        this(type, null);
+    }
 }
