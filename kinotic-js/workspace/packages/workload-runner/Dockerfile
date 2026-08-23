@@ -13,9 +13,11 @@ RUN apt-get update \
 
 WORKDIR /opt/workload-runner
 COPY package.json tsconfig.json ./
-# The kinotic CLI is what the sync entrypoint runs (generate + entity sync); it is an
-# image-level install rather than a package.json dependency because the workspace's
-# bun install cannot resolve it (the CLI lives outside the workspace)
+# The kinotic CLI is what the sync entrypoint runs (generate + entity sync). It is an
+# image-level install only until this version is on npm: a package.json dependency on an
+# unpublished version fails the whole workspace's bun install (the CLI is not a workspace
+# member, so bun resolves it from the registry). Once published, move this into
+# package.json dependencies and change this line back to `bun install --production`.
 RUN bun add @kinotic-ai/kinotic-cli@^5.2.0-beta.9
 COPY src ./src
 
