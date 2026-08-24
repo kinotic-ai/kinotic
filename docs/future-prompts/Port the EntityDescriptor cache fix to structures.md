@@ -458,11 +458,30 @@ public class EntityServiceHeapProbe extends KinoticTestBase {
 }
 ```
 
-## What to expect, honestly
+## What to expect
 
-The narrow case barely moves; roughly 10%, arguably inside the noise band. The entire value is in the
-wide case, where it removed 68%, and it is better understood as a bound than a saving: per-entity
-cost stops growing with however wide a customer makes their schema. Decide whether `structures` has
-customers with wide entities before spending the effort — look at whatever load-generator or sample
-entities the repo has, not at the smallest test fixture, which is what produced kinotic's misleadingly
-cheap original coefficient.
+The wide column is the one that applies. kinotic's load-generator entities are modeled on real
+customer entities, and they are wide — resolved type-node counts, after inlining nested types:
+
+```
+  Person            11 nodes     <-- the test fixture, and the reason the original
+                                     coefficient looked cheap
+  Diagnosis         12
+  Product           25
+  Treatment         31
+  Purchase          47
+  Patient           47
+  Provider         296           <-- Qualifications alone inlines ~50 nested classes
+```
+
+So expect the 68% figure, not the 10% one, and expect it to matter more as customer schemas grow —
+the real win is that per-entity cost stops scaling with schema width at all, which turns an unbounded
+term into a fixed one.
+
+Two consequences worth carrying into `structures`:
+
+- **Build the wide probe schema to match real entities**, not the test fixture. Measuring against the
+  smallest schema in the repo is exactly what hid this defect in kinotic for years.
+- **Check the sizing assumptions downstream of this.** Any capacity model built on a coefficient
+  measured against a narrow fixture is understating a real deployment, by roughly the ratio of the
+  node counts above.

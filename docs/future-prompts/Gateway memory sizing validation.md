@@ -13,16 +13,26 @@ term in a stacked allocation bar.
 
 ## How the numbers were collected
 
-Every per-unit figure is a **marginal** cost: two runs differing only in the quantity being varied,
-the difference divided by that quantity. Nothing is estimated or reasoned from source. The
-instruments were NMT (`-XX:NativeMemoryTracking=summary`) for off-heap, live `jcmd` heap readings
-after a forced GC, Ignite `DataRegionMetrics.getTotalAllocatedSize()` for the session and
-subscription caches, and live-objects-only heap dumps (`GC.heap_dump -all=false`) for retention
-questions. All probes were throwaway and have been deleted.
+Every per-unit figure is a **marginal** cost: two states differing only in the quantity being
+varied, the difference divided by that quantity. Off-heap comes from NMT
+(`-XX:NativeMemoryTracking=summary`) and Ignite `DataRegionMetrics.getTotalAllocatedSize()`.
+
+**The heap figures are counted, not differenced.** Forced-GC heap deltas were used first and are
+not trustworthy at this granularity: on a live JVM running Vert.x, Ignite and an ES client, the
+same measurement repeated three times gave answers spanning 9x, and one run produced a *negative*
+value for a quantity that can only be positive. The noise floor is several KiB per unit. Every heap
+coefficient here now comes from parsing live-objects heap dumps (`GC.heap_dump -all=false`) taken
+at two or three quantities, summing the classes whose instance counts scale exactly with the
+quantity being varied. All probes were throwaway and have been deleted.
+
+Two traps worth knowing if this is redone. `jcmd` invoked against the JVM's *own* pid deadlocks
+against the VM operation it needs -- dump via `HotSpotDiagnosticMXBean` from inside, or `jcmd` from
+outside. And Gradle caps captured test stdout at 32 KB, which TRACE logging blows through, silently
+truncating results: write them to a file instead.
 
 | Quantity | Amount | Sample it came from |
 |---|---|---|
-| Bare connection, heap | 18,334 B | 36.7 MiB across 2,000 connections |
+| Bare connection, heap | 21,361 B | counted from heap dumps at 0/500/1000 conns: 25,979 B marginal per connected client, less the reply-destination row |
 | Reply destination + RPC, heap | 4,618 B | UI run minus bare run, both at 2,000 |
 | Published service subscription, heap | 1,036 B | 2,000 connections × 50 services vs 2,000 bare |
 | User connection, Ignite off-heap | 1,064 B | 10.15 MiB across 10,000 connections |
@@ -31,7 +41,7 @@ questions. All probes were throwaway and have been deleted.
 | Session, scoped participant | 588 B | 518 B serialized exactly + 70 B Ignite entry overhead |
 | Ignite caches, empty | 16.1 MiB | region allocated at zero connections |
 | Netty retained, per magazine | 312 KiB | 9.76 MiB flat at 1k/5k/10k, 16 vCPUs → 32 magazines |
-| Cached `EntityService`, heap | 24,000 B | 100 definitions each of an 11-node and a ~300-node schema: 25,169 B and 23,941 B |
+| Cached `EntityService`, heap | 1,253 B | counted from a live-objects heap dump: 873 B of objects allocated once per definition, plus its strings and map |
 | Cached `QueryExecutor`, heap | 285 B | 114,000 B across 400 executors |
 | Metaspace | 232.5 MiB | printed by the Paketo memory calculator at 39,623 classes |
 
@@ -90,8 +100,10 @@ schema in the repo, so it never showed the term that scaled.
    proxy stalls around 16,000. Validating 50k+ needs a Linux host with the load generator and the
    gateway on the same network. Direct memory should stay flat (it is core-bound); heap is the one to
    confirm.
-2. **Heap per connection was still converging** — 18.7 → 24.7 → 25.4 KiB at 1k/5k/10k. Treat 25.4 KiB
-   as a floor, not a settled asymptote.
+2. ~~**Heap per connection was still converging.**~~ Largely resolved. Counting from dumps gives
+   25,979 B marginal between 500 and 1000 connections, within 0.1% of the 25.4 KiB seen at 10k, so
+   the earlier convergence was the delta method settling rather than a real trend. About 17 KiB of
+   it is the two MPSC queues' chunked backing arrays. Still unmeasured above 10k.
 3. **The "% of connections at once" input is a pure planning assumption.** Nothing in the platform
    bounds concurrent in-flight events; the only thing that stops it is `MaxDirectMemorySize` itself.
    Replace the guess with a real reading of `jvm.buffer.memory.used{pool=direct}` under production
