@@ -1,1 +1,0 @@
-{"id":"73d4818e9d23e7c92fde778cc839cafc","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenTwoParametersOnOneField_thenEachKeepsItsOwnName","name":"whenTwoParametersOnOneField_thenEachKeepsItsOwnName()","status":"passed","testResultsByEnv":{"default":"eaf45ed519e95cb6e4b7839e0f220ae4"}}
