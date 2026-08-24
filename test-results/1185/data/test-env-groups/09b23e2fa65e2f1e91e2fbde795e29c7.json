@@ -1,0 +1,1 @@
+{"id":"09b23e2fa65e2f1e91e2fbde795e29c7","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertObjectLiteralWithUndeclaredSubField_thenMigrationFails","name":"whenInsertObjectLiteralWithUndeclaredSubField_thenMigrationFails()","status":"passed","testResultsByEnv":{"default":"2c4705c43deedde88008427d575a95ca"}}

@@ -1,0 +1,1 @@
+{"id":"9af1c6743c6c5c8e308d5d2d77c37814","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Async methods without scope should invoke fetchData asynchronously","name":"should invoke fetchData asynchronously","status":"passed","testResultsByEnv":{"default":"c76cefd58bfb76892045f7f2d01092f0"}}

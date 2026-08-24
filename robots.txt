@@ -1,0 +1,7 @@
+# START nuxt-robots (indexable)
+User-agent: *
+Allow: /
+Disallow: /test-results/
+
+Sitemap: https://kinotic.ai/sitemap.xml
+# END nuxt-robots

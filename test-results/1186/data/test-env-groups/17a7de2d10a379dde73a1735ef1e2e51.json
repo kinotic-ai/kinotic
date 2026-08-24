@@ -1,0 +1,1 @@
+{"id":"17a7de2d10a379dde73a1735ef1e2e51","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenNullAssignment_thenLiteralCarriesNull","name":"whenNullAssignment_thenLiteralCarriesNull()","status":"passed","testResultsByEnv":{"default":"9d11ecf3f227fe5dc29a535c1dc59b4f"}}

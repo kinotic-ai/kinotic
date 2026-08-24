@@ -1,0 +1,1 @@
+{"id":"10db6ab071cff9c2e9ec2366cff18026","fullName":"@kinotic-ai/e2e-tests:test/native/SystemLogin.test.ts#System login route rejects an ORGANIZATION-scope user with a generic 401","name":"rejects an ORGANIZATION-scope user with a generic 401","status":"passed","testResultsByEnv":{"default":"9e0a986d9f6ee49fa635777e99fa0c3d"}}

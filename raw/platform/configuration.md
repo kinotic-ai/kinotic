@@ -1,0 +1,597 @@
+# Configuration
+
+> Configuration reference for Kinotic OS server and services.
+
+<alert type="info">
+
+Configuration reference coming soon.
+
+</alert>
+
+## Overview
+
+Kinotic OS is configured through a combination of application properties, environment variables, and Helm chart values. Key configuration areas include:
+
+- **Server configuration** — Port bindings, cluster discovery, and runtime settings
+- **Elasticsearch settings** — Connection URLs, index defaults, and replica configuration
+- **Authentication** — OIDC provider configuration, session management, and security policies
+- **Environment variables** — Runtime overrides for containerized deployments
+- **Helm values** — Kubernetes-specific configuration for resource limits, replicas, ingress, and TLS
+
+## Loki
+
+The server reads workload logs from Grafana Loki (see [Observability](/platform/observability#workload-logs)).
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Helm value
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        kinotic.domain.loki.url
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        KINOTIC_DOMAIN_LOKI_URL
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        kinotic.domain.loki.url
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        http://localhost:3100
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+In docker-compose the server points at `http://loki:3100`; the Helm chart defaults to `http://loki.observability.svc:3100`.
+
+## VM provider
+
+Each vm-manager node runs every workload on one VM provider, chosen by the node rather than by the workloads it is given. The node reports which one it runs when it registers, and the orchestrator surfaces it on the node in the system UI.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Values
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        KINOTIC_VM_PROVIDER
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      <code>
+        BOXLITE
+      </code>
+      
+      , <code>
+        CLOUD_HYPERVISOR
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        BOXLITE
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Provider
+    </th>
+    
+    <th>
+      Runs on
+    </th>
+    
+    <th>
+      Isolation
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        BOXLITE
+      </code>
+    </td>
+    
+    <td>
+      macOS and Linux
+    </td>
+    
+    <td>
+      libkrun micro VM, one per workload
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        CLOUD_HYPERVISOR
+      </code>
+    </td>
+    
+    <td>
+      Linux nodes provisioned with Docker and Kata Containers
+    </td>
+    
+    <td>
+      Cloud Hypervisor micro VM, one per workload
+    </td>
+  </tr>
+</tbody>
+</table>
+
+`CLOUD_HYPERVISOR` needs the node's Docker daemon to register a `kata-clh` runtime and to keep its data root on an XFS filesystem mounted with `prjquota`. Without the quota support the daemon refuses any workload declaring a `diskSizeMb`, since that is what caps a container's rootfs.
+
+## Workload volume mounts
+
+On a `CLOUD_HYPERVISOR` node, every workload volume mount must live under the node's workload data directory — binds are created with root's authority, so this boundary is what keeps a workload spec from mounting an arbitrary host directory. The node creates missing directories for writable mounts, refuses a read-only mount of a directory that does not exist, and reports the directory to the server at registration so deployment flows compose host paths under it. The directory should sit on an XFS filesystem with `prjquota`, since that is what enforces a writable mount's `sizeLimitMb`; a node whose directory cannot enforce it reports the problem and stops taking workloads.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        KINOTIC_WORKLOAD_DATA_DIR
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      Base directory every workload volume mount must live under
+    </td>
+    
+    <td>
+      <code>
+        /var/lib/kinotic/workloads
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+## Workload egress
+
+A `CLOUD_HYPERVISOR` node denies workload egress by default and permits each workload only what its policy allows. The node's firewall carries the denial; the vm-manager writes one exception per allowed destination when a workload starts, and removes them when it stops.
+
+Every destination comes from the workload's own `network.allowedHosts`, including the api-gateway — the server sets it there, because only the server knows where the gateway is. The node adds one destination the workload cannot know: the resolver it was given.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        KINOTIC_WORKLOAD_DNS
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      Resolver each workload is given, permitted on port 53
+    </td>
+  </tr>
+</tbody>
+</table>
+
+`network.allowedHosts` entries are **IPv4 addresses or CIDRs**, not hostnames. Egress rules match addresses, and a hostname resolved once when the workload starts goes stale as soon as the target moves — so a name is rejected rather than resolved. A destination in the same virtual network is best expressed as the subnet's CIDR, which is fixed when the subnet is created.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      <code>
+        network
+      </code>
+    </th>
+    
+    <th>
+      What the workload reaches
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        mode: ENABLED
+      </code>
+      
+      , <code>
+        allowedHosts: []
+      </code>
+    </td>
+    
+    <td>
+      Name resolution, nothing else — not even the api-gateway
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        mode: ENABLED
+      </code>
+      
+      , <code>
+        allowedHosts: [...]
+      </code>
+    </td>
+    
+    <td>
+      Name resolution and the declared destinations
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        mode: DISABLED
+      </code>
+    </td>
+    
+    <td>
+      Nothing — the guest gets no network interface at all
+    </td>
+  </tr>
+</tbody>
+</table>
+
+An empty list means the same on a `BOXLITE` node, which reaches it differently: boxlite treats a missing allowlist as no filter, so the provider sends an allowlist naming a single unrouted address instead. Only the accepted form of an entry differs between providers — addresses and CIDRs on `CLOUD_HYPERVISOR`, hostnames on `BOXLITE`.
+
+A node that does not deny egress by default cannot honour a declared allowlist, so a workload declaring one is refused there rather than started with access it was supposed to be denied.
+
+A node denies every workload the cloud metadata endpoint (`169.254.169.254`) and the Azure WireServer's control ports (`168.63.129.16`), which is what keeps a guest from reading the host's own identity. A workload may still be granted one, by naming the address exactly:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      <code>
+        allowedHosts
+      </code>
+      
+       entry
+    </th>
+    
+    <th>
+      Reaches
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        []
+      </code>
+    </td>
+    
+    <td>
+      Name resolution and nothing else
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ['10.0.1.0/24']
+      </code>
+    </td>
+    
+    <td>
+      That range, minus what the node denies
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ['0.0.0.0/0']
+      </code>
+    </td>
+    
+    <td>
+      Everything except the metadata endpoint
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        ['169.254.169.254/32']
+      </code>
+    </td>
+    
+    <td>
+      The metadata endpoint, logged by name on the node
+    </td>
+  </tr>
+</tbody>
+</table>
+
+An entry that names a protected address is placed above the node's own rules so it overrides them; every other entry is placed below, so a range containing one grants everything in it *except* that address. Only a system participant can reach the service that carries a workload's policy, so naming an address outright is a decision the platform made — a range that merely contains one is not, and does not become one by accident.
+
+A provider needs its host prepared for it, so the setting follows the node's provisioning: a developer machine keeps the default, and a node built for Kata is configured for `CLOUD_HYPERVISOR`. An unrecognised value stops the vm-manager at startup rather than falling back, so a node never registers running something other than what it was configured for.
+
+## Node capacity
+
+Each vm-manager node reports its capacity when it registers with the orchestrator. A workload is placed on the first online node whose unallocated capacity covers the workload's `vcpus`, `memoryMb`, and `diskSizeMb`.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Reported
+    </th>
+    
+    <th>
+      Source on the node
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        totalCpus
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        os.cpus().length
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        totalMemoryMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        os.totalmem()
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        totalDiskMb
+      </code>
+    </td>
+    
+    <td>
+      Capacity of the filesystem the node's provider gives guest disks from: <code>
+        BOXLITE_HOME
+      </code>
+      
+       (default <code>
+        ~/.boxlite
+      </code>
+      
+      ) on <code>
+        BOXLITE
+      </code>
+      
+       nodes, the Docker data root on <code>
+        CLOUD_HYPERVISOR
+      </code>
+      
+       ones
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Capacity is reported in full, with nothing held back for the host OS, so size workloads with headroom for the node itself.
+    </td>
+    
+    <td>
+      
+    </td>
+  </tr>
+</tbody>
+</table>
+
+## Node health
+
+Some of what a node promises can stop being true while it runs, and each failure is silent: a data root that fell back to a filesystem without project quotas keeps running workloads and stops capping their disks, and a firewall chain that was flushed keeps running workloads and stops hiding the cloud metadata endpoint from them.
+
+Each node re-checks these and sends what it can no longer guarantee with its heartbeat, so a node's liveness and its fitness arrive in one call. A node reporting problems moves to `DRAINING`, so the orchestrator places no further workloads on it, and back to `ONLINE` once it reports none. The workloads already there keep running — a node that stopped enforcing a limit is unfit to take on more, not required to drop what it has.
+
+`VmNode.status` carries both parts: `status.type` is `ONLINE`, `DRAINING`, or `OFFLINE`, and `status.healthMessage` is why, or null when the node is fit. The system console shows the reason on the node.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Provider
+    </th>
+    
+    <th>
+      What it re-checks
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        CLOUD_HYPERVISOR
+      </code>
+    </td>
+    
+    <td>
+      The container runtime answers, the data root still enforces project quotas, and the firewall still blocks the cloud metadata endpoint
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        BOXLITE
+      </code>
+    </td>
+    
+    <td>
+      Nothing — boxlite carries its own guest kernel and filesystem, so it depends on nothing on the host that could quietly change
+    </td>
+  </tr>
+</tbody>
+</table>
+
+A workload's `diskSizeMb` caps the guest rootfs, which is sparse and grows up to that cap. Host directories a workload mounts through `volumeMounts` are not part of it — their contents are bound from the host filesystem and are not counted against the node's disk.
+
+On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: the node mounts a log directory into every workload's VM, and boxlite supports two mounts per VM in total, so a second declared mount is rejected when the workload is started. `CLOUD_HYPERVISOR` nodes impose no such limit and capture logs without a mount.
+
+## Workload storage and log limits
+
+A workload writes to two places the node must bound: the directories it mounts, and its own log output.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Setting
+    </th>
+    
+    <th>
+      Bounds
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        volumeMounts[].sizeLimitMb
+      </code>
+    </td>
+    
+    <td>
+      What the guest may write through that mount. Unset leaves the mount bounded only by the host filesystem it comes from
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        logPolicy.maxSizeMb
+      </code>
+    </td>
+    
+    <td>
+      Size at which the workload's current log file is rotated
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        logPolicy.maxFiles
+      </code>
+    </td>
+    
+    <td>
+      How many rotated files are kept alongside the current one
+    </td>
+  </tr>
+</tbody>
+</table>
+
+`sizeLimitMb` applies to writable mounts; a mount declared `readOnly` is already unwritable. It is enforced by an XFS project quota on `CLOUD_HYPERVISOR` nodes, so the host filesystem refuses the write once the cap is reached whatever the workload does — which requires the mount to live on an XFS filesystem mounted with `prjquota`. A workload's logs occupy at most `maxSizeMb * (maxFiles + 1)`, and the limits are applied by the VM provider rather than by the workload, so a workload cannot raise its own ceiling.

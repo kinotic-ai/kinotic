@@ -1,0 +1,1 @@
+{"id":"00e309a636d6ff364fc3d79007d6caac","fullName":"org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactoryTest.systemParticipantSendsAnywhereAndSubscribesToTheSystemZone","name":"systemParticipantSendsAnywhereAndSubscribesToTheSystemZone()","status":"passed","testResultsByEnv":{"default":"83113d25e6fae6b23a26e14de5d48973"}}

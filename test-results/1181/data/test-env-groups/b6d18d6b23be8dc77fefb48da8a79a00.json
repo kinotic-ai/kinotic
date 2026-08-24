@@ -1,0 +1,1 @@
+{"id":"b6d18d6b23be8dc77fefb48da8a79a00","fullName":"org.kinotic.test.tests.sql.CompositeTypeParserTest.whenParseUnionColumn_thenVariantsStoredAsObjectSubColumns","name":"whenParseUnionColumn_thenVariantsStoredAsObjectSubColumns()","status":"passed","testResultsByEnv":{"default":"2a602802b094e82d1d04efc727097278"}}

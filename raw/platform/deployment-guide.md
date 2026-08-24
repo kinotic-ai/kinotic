@@ -1,0 +1,38 @@
+# Deployment Guide
+
+> Deploying and operating Kinotic OS in various environments.
+
+<alert type="info">
+
+Detailed deployment guide coming soon.
+
+</alert>
+
+## Overview
+
+Kinotic OS deploys to Kubernetes and provides several deployment configurations for different environments.
+
+## Deployment Options
+
+### Helm Charts
+
+Production-ready Helm charts are available in `deployment/helm/` for deploying:
+
+- **Kinotic Server** — The core platform with configurable replicas, resource limits, and ingress
+- **Elasticsearch** — Search and persistence cluster
+- **Load Generator** — For performance testing
+
+### Docker Compose (Local Development)
+
+A Docker Compose configuration in `deployment/docker-compose/` provides a complete local development environment including the Kinotic server, Elasticsearch, and supporting services. This is the recommended way to run Kinotic OS during development.
+
+### KinD (Kubernetes in Docker)
+
+For testing Kubernetes deployments locally, `deployment/kind/` provides a KinD setup with Terraform configurations that deploy the full stack into a local Kubernetes cluster.
+
+### Cloud Providers (Terraform)
+
+Terraform configurations in `deployment/terraform/` support deployment to:
+
+- **AWS** — EC2-based deployment with configurable instance types
+- **Azure** — VM-based deployment on Azure infrastructure

@@ -1,0 +1,187 @@
+# Migrations
+
+> Schema evolution using versioned migration scripts for Kinotic's persistence layer.
+
+Migrations let you evolve your data schema in a controlled, versioned way. They are written in a SQL-like syntax and executed automatically during `kinotic sync`.
+
+## File Naming
+
+Migration files follow a strict naming convention:
+
+```text
+V<number>__<description>.sql
+```
+
+Examples:
+
+- `V1__initial_schema.sql`
+- `V2__add_email_field.sql`
+- `V3__create_sensor_readings.sql`
+
+The version number determines execution order. The double underscore (`__`) separates the version from the description.
+
+## How It Works
+
+1. Migration files are discovered and sorted by version number
+2. Only unapplied migrations are parsed and executed
+3. Each migration is recorded after successful execution to prevent re-runs
+4. Migrations run during `kinotic sync`
+
+A migration file containing a syntax error fails the entire migration run — nothing from that file is applied and the file is not recorded. The error names the file, line, and offending token.
+
+## Example Migration
+
+```sql
+-- V1__initial_schema.sql
+CREATE TABLE users (name TEXT, age INTEGER, active BOOLEAN);
+```
+
+## Supported Statements
+
+### CREATE TABLE
+
+Create a new table with field mappings.
+
+```sql
+CREATE TABLE users (name TEXT, age INTEGER, active BOOLEAN);
+```
+
+### CREATE COMPONENT TEMPLATE
+
+Define reusable templates with settings that can be applied to multiple tables.
+
+```sql
+CREATE COMPONENT TEMPLATE my_settings (NUMBER_OF_SHARDS = 1, NUMBER_OF_REPLICAS = 0);
+```
+
+### CREATE INDEX TEMPLATE
+
+Create templates that automatically apply to tables matching a name pattern.
+
+```sql
+CREATE INDEX TEMPLATE my_template FOR 'logs-*' USING 'my_settings';
+```
+
+### ALTER TABLE ADD COLUMN
+
+Add new fields to an existing table. Composite types are supported — you can add an OBJECT, NESTED, or UNION column just like any other type.
+
+```sql
+ALTER TABLE users ADD COLUMN email TEXT;
+ALTER TABLE users ADD COLUMN address OBJECT (street TEXT, city KEYWORD, zip KEYWORD);
+```
+
+### Composite Column Types
+
+In addition to scalar types, columns can be structured objects.
+
+**OBJECT** — a single embedded sub-document:
+
+```sql
+CREATE TABLE persons (
+    id KEYWORD,
+    address OBJECT (street TEXT, city KEYWORD, state KEYWORD, zip KEYWORD)
+);
+```
+
+**NESTED** — an array of independently-queryable sub-documents. Use this when a field holds a list of items and you need to filter on individual list entries without cross-element matching:
+
+```sql
+CREATE TABLE articles (
+    id KEYWORD,
+    tags NESTED (label TEXT, value KEYWORD)
+);
+```
+
+**UNION** — a field that can hold one of several named object variants. All variant fields are merged into a single object. Include a shared field (e.g. `kind KEYWORD`) in each variant so your application can identify which variant it received at runtime:
+
+```sql
+CREATE TABLE assets (
+    id KEYWORD,
+    item UNION (
+        Book  (kind KEYWORD, title TEXT, isbn KEYWORD),
+        Video (kind KEYWORD, title TEXT, duration INTEGER)
+    )
+);
+```
+
+All composite types support `NOT INDEXED` (except NESTED) to store data without making it searchable. They also support recursive nesting — an OBJECT inside a NESTED, for example, is valid.
+
+For the complete syntax and options, see the [Migration SQL Grammar Reference](/apps/reference/migration-sql-grammar#composite-types).
+
+### REINDEX
+
+Migrate data between tables with advanced options.
+
+```sql
+REINDEX old_index INTO new_index WITH (SKIP_IF_NO_SOURCE = TRUE);
+```
+
+### INSERT INTO
+
+Add records to a table.
+
+```sql
+INSERT INTO users (name, age, active) VALUES ('Jane', 28, true) WITH REFRESH;
+```
+
+Composite columns take an object literal, and a NESTED column an array of them:
+
+```sql
+INSERT INTO persons (id, address, tags) VALUES (
+    'p-1',
+    { street: '1 Main St', city: 'Springfield', zip: '11111' },
+    [ { label: 'Role', value: 'admin' }, { label: 'Team', value: 'platform' } ]
+) WITH REFRESH;
+```
+
+<callout type="warning">
+
+If your table has a logical `id` field, always include the `id` column in the INSERT. The value becomes the document's storage identifier, which is how find-by-id lookups resolve the document. An INSERT that omits `id` stores the row with a random identifier and it can only be located via search — not via a direct id lookup. See the [Migration SQL Grammar reference](/apps/reference/migration-sql-grammar#the-id-column) for details.
+
+</callout>
+
+### UPDATE ... SET ... WHERE
+
+Modify existing records.
+
+```sql
+UPDATE users SET active = false WHERE age < 18 WITH REFRESH;
+```
+
+A composite column is set from the same literals INSERT uses. An object literal merges into the
+stored object — recursively, and leaving sub-fields it does not mention alone — so you can change
+one sub-field by naming only that one. Arrays and scalars are replaced outright:
+
+```sql
+-- street keeps its stored value; only city changes
+UPDATE persons SET address = { city: 'Shelbyville' } WHERE id == 'p-1' WITH REFRESH;
+```
+
+Since omitting a sub-field keeps it, `null` is what clears one. The literal's nesting addresses the
+field, so any depth is reachable:
+
+```sql
+UPDATE persons SET address = { street: null } WHERE id == 'p-1' WITH REFRESH;          -- address.street
+UPDATE persons SET address = { coords: { lat: null } } WHERE id == 'p-1' WITH REFRESH; -- address.coords.lat
+UPDATE persons SET nickname = null WHERE id == 'p-1' WITH REFRESH;                     -- the whole column
+```
+
+### DELETE FROM ... WHERE
+
+Remove records matching a condition.
+
+```sql
+DELETE FROM users WHERE active == false WITH REFRESH;
+```
+
+## Best Practices
+
+- **Increment version numbers sequentially** - Gaps are allowed but order must be maintained
+- **Use IF NOT EXISTS where available** - Makes migrations safe to re-run if the tracking state is reset
+- **Use WITH REFRESH** on INSERT, UPDATE, and DELETE when subsequent migrations depend on the changed data being immediately visible
+- **Use SKIP_IF_NO_SOURCE = TRUE** on REINDEX operations for idempotent data migrations
+- **Keep migrations small and focused** - One logical change per migration file
+- **Never modify a migration after it has been applied** - Create a new migration instead
+
+For the complete SQL grammar reference, see the [Migration SQL Grammar Reference](/apps/reference/migration-sql-grammar).

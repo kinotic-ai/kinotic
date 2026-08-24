@@ -1,0 +1,503 @@
+# MCP Tools
+
+> Expose published service functions as Model Context Protocol tools.
+
+## Overview
+
+The API gateway serves published service functions as [MCP (Model Context Protocol)](https://modelcontextprotocol.io) tools, so an LLM can call them through `POST /mcp`. A function opts in with the `@McpTool` annotation on a `@Publish`ed interface's method; the gateway serves each caller only the tools their participant may reach.
+
+Tool authoring is currently a platform capability: the annotated services are those hosted by Kinotic OS itself. Application-level tool authoring is not yet implemented and will be documented with the apps docs when it lands.
+
+## Exposing a function
+
+```java
+@Publish
+@Version("1.0.0")
+public interface OrderService {
+
+    @McpTool(title = "Find Order", description = "Finds an order by its id", readOnlyHint = true, idempotentHint = true)
+    CompletableFuture<Order> findById(String orderId);
+}
+```
+
+`description` is what the LLM reads to decide when to call the tool. When it is empty, the description resolves in order:
+
+1. **The method's Javadoc.** An annotation processor shipped in `kinotic-idl` extracts each method's Javadoc main description at compile time (inline tags resolved, HTML stripped) into a `META-INF/kinotic/docs/` jar resource. Lookup follows the most specific declaration first — the implementation's override, the interface's declaration, then the interface's ancestors — so a function inherited from a generic CRUD base finds the doc written on the base, even across modules. Modules in this repo are wired automatically; an external project enables extraction with `annotationProcessor 'org.kinotic:kinotic-idl'`.
+2. **The function name**, split into a sentence — `findByRepoFullName` becomes `Find by repo full name` — so every tool stays individually recognizable even with no docs at all.
+
+`title` is a human-readable display name surfaced in tool listings. A tool's title is always **two halves joined by a space** — the service's, then the function's — and each half comes from the `title` on the declaration that owns it, or is split out of the name it stands for:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      
+    </th>
+    
+    <th>
+      Service half
+    </th>
+    
+    <th>
+      Function half
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      Stated by
+    </td>
+    
+    <td>
+      <code>
+        title
+      </code>
+      
+       on the type-level <code>
+        @McpTool
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        title
+      </code>
+      
+       on the method's <code>
+        @McpTool
+      </code>
+      
+      /<code>
+        @McpToolInfo
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      Otherwise
+    </td>
+    
+    <td>
+      the service interface's simple name, split
+    </td>
+    
+    <td>
+      the function name, split
+    </td>
+  </tr>
+</tbody>
+</table>
+
+```text
+ProjectService.findByRepoFullName                       → "Project Service Find By Repo Full Name"
+  + @McpTool(title = "Find by GitHub Repo") on the method → "Project Service Find by GitHub Repo"
+  + @McpTool(title = "Projects") on the interface         → "Projects Find by GitHub Repo"
+```
+
+Carrying the service half on every tool is what keeps a title recognizable when many services expose a function of the same name (`save`, `findById`), so a method's `title` replaces only its own half. The title never affects the tool name.
+
+The input schema's property names are the service interface's Java parameter names (`orderId` above), retained in the class file at compile time — the same declaration the invocation binds against, so the published schema and the runtime binding cannot drift even when an implementation renames a parameter in its override. A single parameter can carry a different name in the schema with `@Name("...")`, declared on the interface.
+
+`@McpTool` is honored in three places, mirroring how `@Publish` marks the interface while the implementation supplies the methods:
+
+- **On the service interface itself** — every function becomes a tool. A bare `@McpTool` on the interface exposes a whole service, including functions inherited from a CRUD parent, with per-function descriptions from each function's Javadoc (or its name). Only `title` is read here, as the service half of every tool's title; describing or hinting a service's functions is done per function (see [Which declaration describes a function](#which-declaration-describes-a-function)).
+- **On an interface method** — that method becomes a tool, and this is the declaration that describes it.
+- **On the implementation's override** — same as an interface method, without touching the interface. This is how a single inherited function becomes a tool without redeclaring it.
+
+## Describing a function without exposing it
+
+`@McpToolInfo` carries the same metadata as `@McpTool` — `title`, `description`, and the four hints — but never makes a tool. A base interface uses it to state what its functions *are*, leaving the decision to expose them to whichever service extends it:
+
+```java
+public interface CrudService<T, ID> {
+
+    @McpToolInfo(readOnlyHint = true)
+    Future<T> findById(ID id);
+
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
+    Future<Void> deleteById(ID id);
+}
+```
+
+A `@Publish`ed service that extends `CrudService` and carries a bare `@McpTool` now serves correctly-hinted CRUD tools, while a service that carries no `@McpTool` still exposes nothing.
+
+## Which declaration describes a function
+
+A function's title half, `description`, and hints all come from **one** declaration — the nearer of the two that can describe a function, chosen by whether it is there at all, never by what it says:
+
+1. A method-level `@McpTool` (on the interface method or the implementation's override).
+2. The function's `@McpToolInfo`, wherever in its hierarchy it is declared.
+
+The type-level `@McpTool` is not on this list. It describes the service, not any one function, so it contributes only the service half of the title; a function it sweeps in with no declaration of its own falls back to what the function itself provides — its Javadoc for a description, its name for a title half and for hints.
+
+Nothing is borrowed from the further declaration either: `@McpTool(title = "Store Entity")` on a method whose inherited `@McpToolInfo` sets a `description` serves the Javadoc, not that `description`, because the method's own `@McpTool` is what describes it.
+
+## Hints
+
+The four hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) are served as MCP tool annotations. They follow the rule above with no string-shaped escape: a boolean has no blank value, so the winning declaration's hints are exactly what is served, including when it declares none.
+
+`@McpTool(description = "Appends an audit entry")` on a method named `saveAuditEntry` therefore serves `destructiveHint: false` — the annotation is present, so it decides, and it declares nothing destructive. And because a type-level `@McpTool` supplies no hints, `readOnlyHint = true` there can no longer mislabel the mutating functions a sweep catches.
+
+The name rules, reached only for a function with no declaration of its own. Every word counts, not just the leading verb, and the first matching rule wins:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      The name…
+    </th>
+    
+    <th>
+      <code>
+        readOnlyHint
+      </code>
+    </th>
+    
+    <th>
+      <code>
+        destructiveHint
+      </code>
+    </th>
+    
+    <th>
+      <code>
+        idempotentHint
+      </code>
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      has a word that replaces or removes state — <code>
+        save
+      </code>
+      
+      , <code>
+        update
+      </code>
+      
+      , <code>
+        put
+      </code>
+      
+      , <code>
+        set
+      </code>
+      
+      , <code>
+        upsert
+      </code>
+      
+      , <code>
+        delete
+      </code>
+      
+      , <code>
+        remove
+      </code>
+      
+      , <code>
+        clear
+      </code>
+      
+      , <code>
+        drop
+      </code>
+      
+      , <code>
+        purge
+      </code>
+      
+      , <code>
+        destroy
+      </code>
+      
+      , <code>
+        truncate
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      ends in <code>
+        IfNotExist
+      </code>
+      
+      /<code>
+        IfNotExists
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      has a word that adds or acts — <code>
+        create
+      </code>
+      
+      , <code>
+        add
+      </code>
+      
+      , <code>
+        insert
+      </code>
+      
+      , <code>
+        register
+      </code>
+      
+      , <code>
+        send
+      </code>
+      
+      , <code>
+        run
+      </code>
+      
+      , <code>
+        start
+      </code>
+      
+      , <code>
+        stop
+      </code>
+      
+      , <code>
+        retry
+      </code>
+      
+      , …
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      has a word that reads — <code>
+        find
+      </code>
+      
+      , <code>
+        get
+      </code>
+      
+      , <code>
+        list
+      </code>
+      
+      , <code>
+        search
+      </code>
+      
+      , <code>
+        count
+      </code>
+      
+      , <code>
+        query
+      </code>
+      
+      , <code>
+        read
+      </code>
+      
+      , <code>
+        fetch
+      </code>
+      
+      , <code>
+        is
+      </code>
+      
+      , <code>
+        has
+      </code>
+      
+      , <code>
+        exists
+      </code>
+      
+      , <code>
+        load
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      matches nothing above
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
+```text
+deleteById               destructive, idempotent  — "delete"
+createPersonIfNotExist   idempotent               — the suffix rule is reached before "create"
+peopleCount              read-only                — "count", though it does not lead the name
+getOrCreatePerson        all three false          — "create" is reached before "get"
+notifyPeople             all three false          — no rule matches
+```
+
+The adds-or-acts row exists only to be reached before the reads row. `getOrCreatePerson` both reads and creates, and matching it there is what stops `readOnlyHint = true` from being served for a call that creates a person. All three `false` is not "unknown" — it is the honest answer, and it tells a host the tool may modify something and is not safe to run unattended.
+
+Every hint is always written to the wire, which matters most for `openWorldHint`: [MCP defaults it to `true`](https://modelcontextprotocol.io/specification/2025-11-25/server/tools), so a tool that omits it is read as one that may call out to any external system, and hosts weigh that when deciding whether a call needs approval. A Kinotic function works against the platform's own data, so the served default is `false`; a function that does reach a third-party system says so:
+
+```java
+@McpTool(openWorldHint = true)
+Future<Project> retryRepoInitialization(String projectId);
+```
+
+Nothing in a function's name says whether it calls out, so `openWorldHint` is never inferred — only a declaration sets it.
+
+A function with a streaming return type (`Flux`, `Publisher`) cannot be a tool — registration fails with an error naming the function. Single-value async returns (`Future`, `CompletableFuture`, `Mono`) are fine.
+
+## Tool naming
+
+The tool name is the XXHash128 of the service's qualified name plus the function, written in base 36:
+
+```text
+app.acme-org.orders-app~com.acme.OrderService/findById
+  → 5nwldv2gqljeygvmd1ywjl2z7
+```
+
+Because a qualified name is unique system wide, so is its hash — every caller scope, including system participants who see every zone, gets an unambiguous listing. Names are never parsed back apart: resolution is a caller-scoped directory query, and authorization reads the zone from the tool's stored CRI.
+
+A name is opaque, so `title` and `description` are what an LLM has to work with, and both are always served. Base 36 also bounds a name at 25 characters however long the service's package is, well inside the 128-character MCP limit.
+
+`KinoticUtil.mcpToolName(qualifiedName, functionName)` mints the name, so anything that needs to name a tool it did not read from a listing computes the same value the directory stored:
+
+```java
+KinoticUtil.mcpToolName("os-api~org.kinotic.os.api.services.ProjectService", "findByRepoFullName")
+```
+
+Hashing is what keeps a name safe to pass through an LLM host. MCP permits characters in a tool name that hosts do not — a dot most commonly — and a host rewrites each one, then holds two names for the same tool: the one the server advertises and the one it calls. Any layer that compares the wrong pair breaks, and the failure is invisible from the server. A permission granted against the advertised name and checked against the callable one leaves a tool that prompts for approval, is approved, and reports that it still needs approval. Base 36 emits only `[0-9a-z]`, so a host has nothing to rewrite.
+
+## The endpoint
+
+`POST /mcp` speaks the stateless streamable-HTTP subset of MCP: JSON-RPC 2.0 with `initialize`, `notifications/initialized`, `ping`, `tools/list`, and `tools/call`. There are no sessions — every request authenticates independently from its headers, exactly like a STOMP `CONNECT`. Other verbs return 405, and JSON-RPC batches are rejected.
+
+## Authorization
+
+Two ways in, both landing on the same participant model:
+
+**OAuth 2.1 (MCP authorization spec)** — what Claude connectors, Claude Code plugins, and other MCP hosts use. An unauthenticated request gets `401` with `WWW-Authenticate: Bearer resource_metadata="…/.well-known/oauth-protected-resource/mcp"`, from which a host discovers the authorization server (RFC 9728 + RFC 8414, both served from `kinotic.domain.oauth.issuerBaseUrl`, which falls back to `kinotic.domain.apiBaseUrl`), identifies itself with a [Client ID Metadata Document](/platform/system-security#client-identity-is-a-domain-not-a-string) URL, and runs the PKCE S256 authorization-code flow: `GET /api/auth/oauth/authorize` sends the browser to the SPA's `/oauth/consent` page, where the signed-in user approves, and `POST /api/auth/oauth/token` (form-encoded) exchanges the single-use code for a one-hour access token plus a rotating 90-day refresh token (`offline_access` is advertised, so hosts refresh without re-consent; refresh-token reuse revokes the whole token family).
+
+The issued token's `sub` is a delegate identity created when the user approves the consent — the host acts on that user's behalf, at the user's exact scope, as a `SystemParticipant`, `OrganizationParticipant`, or `ApplicationParticipant` carrying `onBehalfOf` metadata, and sees the same visibility matrix as every other caller. Approving the same host again reuses the delegate, and disabling it revokes the host's access on its next request. A Claude Code plugin needs nothing beyond the server URL:
+
+```json
+{
+  "mcpServers": {
+    "kinotic-os": {
+      "type": "http",
+      "url": "https://api.example.kinotic.ai/mcp"
+    }
+  }
+}
+```
+
+There is no registration endpoint. Dynamic Client Registration (RFC 7591) is not supported: a `client_id` is the HTTPS URL of the client's own metadata document, which the gateway fetches and validates per authorization request. That URL must appear in `kinotic.domain.oauth.allowedClientIds`, which ships with the document URLs of [Claude Code and the Claude connectors](/platform/system-security#client-identity-is-a-domain-not-a-string); a host whose URL is absent gets `400 {"error":"invalid_request"}` from `/api/auth/oauth/authorize`.
+
+`issuerBaseUrl` is separate from `apiBaseUrl` because the two are reached by different parties. A browser follows the OIDC callbacks built from `apiBaseUrl`; an MCP host's backend calls the token endpoint built from `issuerBaseUrl`, having never been near the browser. They are the same URL in any deployment the internet reaches directly, and differ where the gateway is public only through a tunnel or a separate ingress — a development gateway on `localhost` whose OAuth surface is tunnelled, for instance, keeps its OIDC callbacks (and its IdP app registrations) on `localhost` while publishing a reachable token endpoint.
+
+**Static headers** — for agent frameworks and scripts that can attach headers: `clientId`/`clientSecret` (plus `organizationId`/`applicationId` to select a scope), or `Authorization: Bearer <kinotic-jwt>`. A bearer token takes its scope from the token's own claims, which are not cross-checked against any scope headers sent alongside it.
+
+`tools/list` is paginated per the [MCP pagination spec](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination): a response carrying `nextCursor` has more results, fetched by repeating the request with that opaque `cursor`; an invalid cursor is rejected with `-32602`. It returns the tools the authenticated participant may call, mirroring the zone send rules the gateway enforces at call time: a system participant sees every zone, an organization participant sees `os-api`- and `app-api`-zone tools, and an application participant sees its own `app.<org>.<app>`-zone tools plus `app-api`-zone tools. Offline services' tools are not listed.
+
+`tools/call` dispatches through the same RPC path as every other service invocation, with the caller's participant as the sender. Resolution and dispatch are independently authorized — see [Defense in Depth](/platform/defense-in-depth). The `arguments` object is delivered to the service bound by parameter name, so the names in the tool's input schema are exactly the names the service binds. A call to an offline service or an invocation error returns an MCP tool error (`isError: true`) with the message as text content.
