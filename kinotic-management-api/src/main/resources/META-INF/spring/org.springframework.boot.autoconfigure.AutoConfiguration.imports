@@ -1,1 +1,2 @@
 org.kinotic.os_autoconfig.KinoticOsApiAutoConfiguration
+org.kinotic.github_autoconfig.KinoticGithubAutoConfiguration

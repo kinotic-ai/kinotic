@@ -8,9 +8,9 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.ProjectRepoToken;
 import org.kinotic.domain.internal.api.repositories.ProjectRepository;
-import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.services.GitHubProjectRepoService;
-import org.kinotic.github.internal.api.repositories.GitHubAppInstallationRepository;
+import org.kinotic.domain.internal.api.repositories.GitHubAppInstallationRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 

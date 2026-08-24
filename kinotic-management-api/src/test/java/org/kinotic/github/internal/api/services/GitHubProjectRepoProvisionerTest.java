@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.github.api.config.KinoticGithubProperties;
-import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubToken;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.CreatedRepository;

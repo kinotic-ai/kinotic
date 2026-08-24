@@ -106,7 +106,8 @@ are served on the app bus. With separate buses this is required, not optional.
 
 ### 6. GitHub module stays on the management plane; workers get tokens, never services
 
-Of kinotic-github's responsibilities, four pin to the management plane without tension: the
+Of the GitHub module's responsibilities (merged into kinotic-management-api behind the
+`kinotic.disableGithub` gate), four pin to the management plane without tension: the
 webhook handler (GitHub must reach it from the internet; the system gateway is VPN'd),
 the install flow, the repo provisioner, and installation/repo state writes.
 

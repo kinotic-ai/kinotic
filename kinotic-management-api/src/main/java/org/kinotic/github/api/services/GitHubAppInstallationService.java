@@ -2,7 +2,7 @@ package org.kinotic.github.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.model.GitHubInstallCompletion;
 
 /**

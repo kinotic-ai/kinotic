@@ -1,9 +1,8 @@
-package org.kinotic.github.internal.api.repositories;
+package org.kinotic.domain.internal.api.repositories;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.springframework.stereotype.Component;
 
 @Component

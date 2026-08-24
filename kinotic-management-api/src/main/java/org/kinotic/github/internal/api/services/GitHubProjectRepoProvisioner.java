@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.github.api.config.KinoticGithubProperties;
-import org.kinotic.github.api.model.GitHubAppInstallation;
+import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.github.api.services.GitHubAppInstallationService;
 import org.kinotic.github.internal.api.services.client.CreatedRepository;
 import org.kinotic.github.internal.api.services.client.GitHubApiClient;
