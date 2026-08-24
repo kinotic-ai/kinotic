@@ -22,6 +22,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -163,24 +164,34 @@ public class MetaUtil {
     }
 
     /**
-     * Returns the interface or interfaces that declares the given annotation
+     * Returns the interface or interfaces that declares the given annotation.
+     * The whole type hierarchy is searched: superclasses, and every interface reachable
+     * through {@code extends}, so an annotation on a superinterface is found even when the
+     * class only implements a sub-interface of it.
      * @param clazz to check for the annotation
      * @param annotation to look for
-     * @return a list of interfaces that declare the annotation
+     * @return a list of interfaces that declare the annotation, each listed once
      */
     public static List<Class<?>> getInterfaceDeclaringAnnotation(Class<?> clazz, Class<? extends Annotation> annotation){
-        ArrayList<Class<?>> ret = new ArrayList<>();
+        // LinkedHashSet dedupes diamonds (a class reaching the same annotated interface twice)
+        // while keeping discovery order
+        Set<Class<?>> ret = new LinkedHashSet<>();
+        collectInterfacesDeclaringAnnotation(clazz, annotation, ret);
+        return new ArrayList<>(ret);
+    }
 
+    private static void collectInterfacesDeclaringAnnotation(Class<?> clazz, Class<? extends Annotation> annotation, Set<Class<?>> found){
         for(Class<?> interClass: clazz.getInterfaces()){
             if(interClass.isAnnotationPresent(annotation)){
-                ret.add(interClass);
+                found.add(interClass);
             }
+            // interface annotations are never inherited, so an annotated superinterface is
+            // only found by walking the extends chain explicitly
+            collectInterfacesDeclaringAnnotation(interClass, annotation, found);
         }
-        // If there is a superclass we need its interfaces as well
         if(clazz.getSuperclass() != null){
-            ret.addAll(getInterfaceDeclaringAnnotation(clazz.getSuperclass(), annotation));
+            collectInterfacesDeclaringAnnotation(clazz.getSuperclass(), annotation, found);
         }
-        return ret;
     }
 
     /**

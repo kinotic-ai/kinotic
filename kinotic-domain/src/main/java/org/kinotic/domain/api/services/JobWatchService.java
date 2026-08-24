@@ -1,8 +1,12 @@
 package org.kinotic.domain.api.services;
 
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.model.grind.Result;
 import org.kinotic.domain.api.model.grind.ResultType;
 import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.domain.api.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
 /**
@@ -10,6 +14,9 @@ import reactor.core.publisher.Flux;
  * kinotic-system-api; this seam exposes only watching, so modules that monitor runs need
  * no dependency on the engine.
  */
+@Publish
+@Version("1.0.0")
+@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface JobWatchService {
 
     /**
