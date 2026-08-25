@@ -1,0 +1,1 @@
+{"id":"16b02b24f2f46e9ba60468acc529b1c8","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects a namespace containing an underscore","name":"rejects a namespace containing an underscore","status":"passed","testResultsByEnv":{"default":"c8abebfa4d01c6dfdb9465797ae51add"}}
