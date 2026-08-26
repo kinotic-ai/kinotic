@@ -105,6 +105,8 @@ Properties should never be created for something that will not need to be config
 
 Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Enabling or disabling behavior is done with explicit `kinotic.*` properties read by `@ConditionalOnProperty` (the `kinotic.disable*` module flags are the established idiom), so what a deployment runs can be read from its YAML alone.
 
+Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.serverHost`). The only root-level `kinotic.*` entries are the whole-module `disable*` switches and genuinely platform-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
+
 ## Dependency Versions
 
 Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.

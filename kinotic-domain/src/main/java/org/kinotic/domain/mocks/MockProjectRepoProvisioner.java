@@ -10,13 +10,13 @@ import org.springframework.stereotype.Component;
 
 /**
  * Fallback {@link ProjectRepoProvisioner} used when repository provisioning is disabled
- * ({@code kinotic.disableProvisioner=true}). Skips the GitHub API call entirely and stamps
+ * ({@code kinotic.managementApi.github.disableProvisioner=true}). Skips the GitHub API call entirely and stamps
  * deterministic fake repo metadata on the project, so project-create flows work in
  * development and tests without a configured GitHub App.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.disableProvisioner", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.managementApi.github.disableProvisioner", havingValue = "true")
 public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     private static final String FAKE_OWNER = "kinotic-mock";

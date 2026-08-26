@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.disableProvisioner", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.managementApi.github.disableProvisioner", havingValue = "false", matchIfMissing = true)
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 

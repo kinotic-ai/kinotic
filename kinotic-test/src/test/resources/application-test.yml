@@ -2,10 +2,10 @@
 kinotic:
   debug: true
   disableClustering: false
-  disableProvisioner: true
   # placeholder GitHub App config; the github beans are registered but never called in tests
   managementApi:
     github:
+      disableProvisioner: true
       appId: "-"
       appSlug: "-"
       appPrivateKey: "-"
