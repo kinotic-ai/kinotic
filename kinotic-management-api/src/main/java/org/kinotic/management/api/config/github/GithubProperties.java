@@ -24,6 +24,12 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public class GithubProperties {
 
+    /**
+     * When true the GitHub repository provisioner is not registered and
+     * {@code MockProjectRepoProvisioner} stamps fake repo metadata instead, so
+     * project-create flows work without a configured GitHub App.
+     */
+    private boolean disableProvisioner = false;
 
     /** Numeric GitHub App id (from the App's settings page). */
     @NotBlank
