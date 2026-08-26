@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
 
 /**
  * Contributes the {@link SystemApiProperties} to the kinotic prefix.
- * Configuration is accessible via {@code kinotic.orchestrator.*}
+ * Configuration is accessible via {@code kinotic.systemApi.*}
  */
 @Getter
 @Setter
@@ -22,10 +22,10 @@ import org.springframework.validation.annotation.Validated;
 public class KinoticSystemApiProperties extends KinoticProperties {
 
     /**
-     * Orchestrator properties configuration.
+     * System-api properties configuration.
      */
     @Valid
-    private SystemApiProperties orchestrator = new SystemApiProperties();
+    private SystemApiProperties systemApi = new SystemApiProperties();
 
     /**
      * When true the orchestrator module is not loaded: no grind execution, no run

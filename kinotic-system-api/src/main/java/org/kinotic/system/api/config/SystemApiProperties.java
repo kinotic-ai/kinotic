@@ -7,8 +7,8 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Configuration properties for the orchestrator module.
- * Accessible via {@code kinotic.orchestrator.*}
+ * Configuration properties for the system-api module.
+ * Accessible via {@code kinotic.systemApi.*}
  */
 @Getter
 @Setter

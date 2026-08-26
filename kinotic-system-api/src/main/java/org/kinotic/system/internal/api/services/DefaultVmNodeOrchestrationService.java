@@ -40,7 +40,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     @PostConstruct
     public void init() {
-        VmNodeProperties nodeProps = orchestratorProperties.getOrchestrator().getVmNode();
+        VmNodeProperties nodeProps = orchestratorProperties.getSystemApi().getVmNode();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "node-health-check");
             t.setDaemon(true);
@@ -203,7 +203,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      */
     private void checkNodeHealth() {
         try {
-            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getVmNode().getHeartbeatTimeoutSeconds();
+            long heartbeatTimeoutSeconds = orchestratorProperties.getSystemApi().getVmNode().getHeartbeatTimeoutSeconds();
             long cutoff = System.currentTimeMillis() - (heartbeatTimeoutSeconds * 1000);
             Date cutoffDate = new Date(cutoff);
 

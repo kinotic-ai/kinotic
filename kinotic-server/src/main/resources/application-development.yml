@@ -10,7 +10,7 @@ kinotic:
   github:
     webhookSecret: "-"
     appPrivateKey: "-"
-  orchestrator:
+  systemApi:
     deployment:
       # deployed workloads reach the dev gateway on the host
       serverHost: localhost

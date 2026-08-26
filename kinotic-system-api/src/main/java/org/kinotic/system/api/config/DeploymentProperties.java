@@ -11,7 +11,7 @@ import java.util.List;
 
 /**
  * Configuration for deploying customer project workloads from GitHub pushes.
- * Accessible via {@code kinotic.orchestrator.deployment.*}
+ * Accessible via {@code kinotic.systemApi.deployment.*}
  */
 @Getter
 @Setter

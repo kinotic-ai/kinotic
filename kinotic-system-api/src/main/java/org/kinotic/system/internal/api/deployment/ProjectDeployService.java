@@ -288,7 +288,7 @@ public class ProjectDeployService {
     }
 
     private DeploymentProperties deployment() {
-        return properties.getOrchestrator().getDeployment();
+        return properties.getSystemApi().getDeployment();
     }
 
 }
