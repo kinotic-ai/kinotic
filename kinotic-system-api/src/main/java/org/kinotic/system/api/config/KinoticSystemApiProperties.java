@@ -1,11 +1,13 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Contributes the {@link SystemApiProperties} to the kinotic prefix.
@@ -16,11 +18,13 @@ import org.springframework.stereotype.Component;
 @Accessors(chain = true)
 @NoArgsConstructor
 @Component
+@Validated
 public class KinoticSystemApiProperties extends KinoticProperties {
 
     /**
      * Orchestrator properties configuration.
      */
+    @Valid
     private SystemApiProperties orchestrator = new SystemApiProperties();
 
     /**

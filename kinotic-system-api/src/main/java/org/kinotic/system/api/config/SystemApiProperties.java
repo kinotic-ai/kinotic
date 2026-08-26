@@ -1,5 +1,6 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -23,6 +24,7 @@ public class SystemApiProperties {
     /**
      * Deployment of customer project workloads from GitHub pushes.
      */
+    @Valid
     private DeploymentProperties deployment = new DeploymentProperties();
 
 }

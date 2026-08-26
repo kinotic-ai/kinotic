@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.GitHubProjectEvent;
 import org.kinotic.os.api.model.GitHubWebhookEvent;
 import org.kinotic.os.api.services.GitHubProjectEventService;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.util.retry.Retry;
@@ -32,7 +31,6 @@ import java.util.Set;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "kinotic.orchestrator.deployment", name = "server-host")
 public class ProjectDeploymentListener {
 
     /** The sha GitHub sends as {@code after} when a push deletes a ref. */

@@ -25,7 +25,6 @@ import org.kinotic.system.api.model.grind.Tasks;
 import org.kinotic.system.api.services.JobService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -46,7 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "kinotic.orchestrator.deployment", name = "server-host")
 public class ProjectDeployService {
 
     private final JobService jobService;

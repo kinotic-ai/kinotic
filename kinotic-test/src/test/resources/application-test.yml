@@ -4,6 +4,10 @@ kinotic:
   disableClustering: false
   disableGithub: true
   maxNumberOfCoresToUse: 4
+  orchestrator:
+    deployment:
+      # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
+      serverHost: localhost
 
 logging:
   level:
