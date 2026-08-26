@@ -15,13 +15,11 @@ on:
   push:
     branches: [ "develop" ]
     paths-ignore:
+      - 'helm/**'
+      - 'deployment/**'
+      - 'docker-compose/**'
+      - 'docs/**'
       - 'website/**'
-      - 'webdocs/**'  
-  pull_request:
-    branches: [ "develop" ]
-    paths-ignore:
-      - 'website/**'
-      - 'webdocs/**'  
   schedule:
     - cron: '35 16 * * 4'
     
