@@ -235,6 +235,31 @@ const pageRoutes: RouteRecordRaw[] = [
     ],
   },
   {
+    path: '/application/:applicationId/project/:projectId/deployment',
+    name: 'project-deployment-wrapper',
+    component: () => import('@/layouts/LayoutForPage.vue'),
+    meta: {
+      showInMainNav: false,
+      icon: 'objects-column.svg',
+      label: 'Project Deployment',
+      sidebarGroup: 'project'
+    } as RouteMeta,
+    children: [
+      {
+        name: 'project-deployment',
+        path: '',
+        meta: {
+          sidebar: { group: 'project', label: 'Deployment', icon: 'pi pi-cloud-upload', order: 20 } as SidebarItemMeta
+        } as RouteMeta,
+        component: () => import('@/pages/ProjectDeploymentPage.vue'),
+        props: (route) => ({
+          applicationId: route.params.applicationId,
+          projectId: route.params.projectId,
+        }),
+      },
+    ],
+  },
+  {
     path: '/new-entity-definition',
     component: () => import('@/pages/NewEntityDefinition.vue'),
     meta: {
