@@ -80,7 +80,6 @@ export * from '@/api/model/security/ParticipantGuards'
 // Services
 export * from '@/api/services/IApplicationService'
 export * from '@/api/services/IProjectService'
-export * from '@/api/services/IProjectDeploymentService'
 export * from '@/api/services/ILogService'
 export * from '@/api/services/IEntityDefinitionService'
 export * from '@/api/services/INamedQueriesDefinitionService'

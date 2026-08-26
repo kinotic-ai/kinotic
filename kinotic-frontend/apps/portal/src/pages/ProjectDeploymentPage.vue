@@ -67,7 +67,7 @@ const error = ref<string | null>(null)
 
 async function loadDeployment(): Promise<void> {
   try {
-    deployment.value = await Kinotic.projectDeployments.findByProjectId(props.projectId)
+    deployment.value = await Kinotic.projects.findDeployment(props.projectId)
     error.value = null
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)

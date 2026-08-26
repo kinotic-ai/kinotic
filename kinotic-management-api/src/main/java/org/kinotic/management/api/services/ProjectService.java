@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.idl.api.annotations.McpTool;
 
 import java.util.List;
@@ -33,6 +34,16 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      */
     @McpTool(title = "Find by GitHub Repo", readOnlyHint = true)
     Future<List<Project>> findByRepoFullName(String repoFullName);
+
+    /**
+     * Finds the deployment record of the given project in the current participant's
+     * organization.
+     *
+     * @param projectId id of the project the deployment belongs to
+     * @return a {@link Future} emitting the deployment record, or {@code null} when the
+     *         project has never been deployed
+     */
+    Future<ProjectDeployment> findDeployment(String projectId);
 
     /**
      * Re-runs repository initialization for a project left

@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import { Project } from '@/api/model/Project'
+import type { ProjectDeployment } from '@/api/model/ProjectDeployment'
 
 export interface IProjectService extends ICrudServiceProxy<Project> {
 
@@ -25,6 +26,15 @@ export interface IProjectService extends ICrudServiceProxy<Project> {
      * @return Promise emitting a page of projects
      */
     findAllForApplication(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>>
+
+    /**
+     * Finds the deployment record of the given project in the current participant's
+     * organization.
+     * @param projectId id of the project the deployment belongs to
+     * @return Promise emitting the deployment record, or null when the project has never
+     *         been deployed
+     */
+    findDeployment(projectId: string): Promise<ProjectDeployment | null>
 
     /**
      * Re-runs repository initialization for a project left
@@ -64,6 +74,10 @@ export class ProjectService extends CrudServiceProxy<Project> implements IProjec
 
     public findAllForApplicationSinglePage(applicationId: string, pageable: Pageable): Promise<IterablePage<Project>> {
         return this.serviceProxy.invoke('findAllForApplication', [applicationId, pageable])
+    }
+
+    public findDeployment(projectId: string): Promise<ProjectDeployment | null> {
+        return this.serviceProxy.invoke('findDeployment', [projectId])
     }
 
     public retryRepoInitialization(projectId: string): Promise<Project> {

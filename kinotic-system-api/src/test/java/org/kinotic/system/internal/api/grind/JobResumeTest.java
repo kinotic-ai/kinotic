@@ -123,10 +123,10 @@ public class JobResumeTest extends AbstractGrindTest {
         assertEquals(1, stateExecutions.get(), "completed STATE step must not re-execute");
         assertTrue(outcome.values().contains("checkpointed"), "downstream must be wired from the replayed value");
 
-        JobRun resumedRun = runs.saved.get(resumed.getJobRunId());
+        JobRun resumedRun = records.savedJobRuns.get(resumed.getJobRunId());
         assertEquals(ExecutionStatus.COMPLETED, resumedRun.getStatus());
         assertNotNull(resumedRun.getResumedFrom(), "resumed run must reference the original");
-        assertEquals(2, runs.saved.size());
+        assertEquals(2, records.savedJobRuns.size());
     }
 
     @Test
@@ -266,7 +266,7 @@ public class JobResumeTest extends AbstractGrindTest {
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
-        JobRun resumedRun = runs.saved.get(resumed.getJobRunId());
+        JobRun resumedRun = records.savedJobRuns.get(resumed.getJobRunId());
         assertEquals("org-1", resumedRun.getOrganizationId());
         assertEquals("app-1", resumedRun.getApplicationId());
         assertNull(resumedRun.getProjectId());

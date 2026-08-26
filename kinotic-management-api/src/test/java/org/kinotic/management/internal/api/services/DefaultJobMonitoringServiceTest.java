@@ -26,8 +26,7 @@ import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.management.api.model.grind.ResultType;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.Tasks;
-import org.kinotic.management.api.services.JobRunService;
-import org.kinotic.management.api.services.TaskRecordService;
+import org.kinotic.management.api.services.JobRecordService;
 import org.kinotic.system.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import reactor.core.publisher.Flux;
@@ -64,8 +63,7 @@ class DefaultJobMonitoringServiceTest {
     private static Vertx vertx;
 
     private AnnotationConfigApplicationContext appCtx;
-    private InMemoryJobRunService runs;
-    private InMemoryTaskRecordService records;
+    private InMemoryJobRecordService records;
     private DefaultJobService jobService;
     private DefaultJobMonitoringService service;
 
@@ -86,11 +84,10 @@ class DefaultJobMonitoringServiceTest {
     void setupServices() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
-        runs = new InMemoryJobRunService();
-        records = new InMemoryTaskRecordService();
-        jobService = new DefaultJobService(runs, records, new ObjectMapper());
+        records = new InMemoryJobRecordService();
+        jobService = new DefaultJobService(records, new ObjectMapper());
         jobService.setApplicationContext(appCtx);
-        service = new DefaultJobMonitoringService(runs, records, jobService, securityContext);
+        service = new DefaultJobMonitoringService(records, jobService, securityContext);
     }
 
     @AfterEach
@@ -296,24 +293,41 @@ class DefaultJobMonitoringServiceTest {
     }
 
     /**
-     * In-memory stand-in for the Elasticsearch backed {@link JobRunService}. findById completes
-     * on another thread like the real service, so any SecurityContext read after that hop
-     * loses the Vert.x context and fails.
+     * In-memory stand-in for the Elasticsearch backed {@link JobRecordService}. findJobRunById
+     * completes on another thread like the real service, so any SecurityContext read after
+     * that hop loses the Vert.x context and fails.
      */
-    private static class InMemoryJobRunService implements JobRunService {
+    private static class InMemoryJobRecordService implements JobRecordService {
 
-        final Map<String, JobRun> saved = new LinkedHashMap<>();
+        final Map<String, JobRun> savedJobRuns = new LinkedHashMap<>();
+        final Map<String, TaskRecord> savedTaskRecords = new LinkedHashMap<>();
 
         @Override
-        public Future<Page<JobRun>> findByName(String name, Pageable pageable) {
-            throw new UnsupportedOperationException();
+        public Future<JobRun> saveJobRun(JobRun jobRun) {
+            savedJobRuns.put(jobRun.getId(), jobRun);
+            return Future.succeededFuture(jobRun);
         }
 
         @Override
-        public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
-            List<JobRun> matching = saved.values().stream()
-                                         .filter(run -> matchesOwner(owner, run))
-                                         .toList();
+        public Future<JobRun> findJobRunById(String jobRunId) {
+            // Completes on another thread like the real ES-backed service, so any
+            // SecurityContext read after this hop loses the Vert.x context and fails
+            Promise<JobRun> promise = Promise.promise();
+            new Thread(() -> promise.complete(savedJobRuns.get(jobRunId))).start();
+            return promise.future();
+        }
+
+        @Override
+        public Future<Page<JobRun>> findAllJobRuns(Pageable pageable) {
+            List<JobRun> all = List.copyOf(savedJobRuns.values());
+            return Future.succeededFuture(new Page<>(all, (long) all.size()));
+        }
+
+        @Override
+        public Future<Page<JobRun>> findJobRunsForOwner(JobOwner owner, Pageable pageable) {
+            List<JobRun> matching = savedJobRuns.values().stream()
+                                                .filter(run -> matchesOwner(owner, run))
+                                                .toList();
             return Future.succeededFuture(new Page<>(matching, (long) matching.size()));
         }
 
@@ -330,142 +344,20 @@ class DefaultJobMonitoringServiceTest {
         }
 
         @Override
-        public Future<JobRun> save(JobRun entity) {
-            saved.put(entity.getId(), entity);
-            return Future.succeededFuture(entity);
+        public Future<TaskRecord> saveTaskRecord(TaskRecord taskRecord) {
+            savedTaskRecords.put(taskRecord.getId(), taskRecord);
+            return Future.succeededFuture(taskRecord);
         }
 
         @Override
-        public Future<JobRun> saveSync(JobRun entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<JobRun> create(JobRun entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<JobRun> createSync(JobRun entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<JobRun> findById(String id) {
-            // Completes on another thread like the real ES-backed service, so any
-            // SecurityContext read after this hop loses the Vert.x context and fails
-            Promise<JobRun> promise = Promise.promise();
-            new Thread(() -> promise.complete(saved.get(id))).start();
-            return promise.future();
-        }
-
-        @Override
-        public Future<Long> count() {
-            return Future.succeededFuture((long) saved.size());
-        }
-
-        @Override
-        public Future<Void> deleteById(String id) {
-            saved.remove(id);
-            return Future.succeededFuture();
-        }
-
-        @Override
-        public Future<Void> deleteByIdSync(String id) {
-            return deleteById(id);
-        }
-
-        @Override
-        public Future<Page<JobRun>> findAll(Pageable pageable) {
-            List<JobRun> all = List.copyOf(saved.values());
-            return Future.succeededFuture(new Page<>(all, (long) all.size()));
-        }
-
-        @Override
-        public Future<Page<JobRun>> search(String searchText, Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Void> syncIndex() {
-            return Future.succeededFuture();
-        }
-    }
-
-    /**
-     * In-memory stand-in for the Elasticsearch backed {@link TaskRecordService}, capturing
-     * what the recorder writes.
-     */
-    private static class InMemoryTaskRecordService implements TaskRecordService {
-
-        final Map<String, TaskRecord> saved = new LinkedHashMap<>();
-
-        @Override
-        public Future<Page<TaskRecord>> findAllForJobRun(String jobRunId, Pageable pageable) {
-            List<TaskRecord> matching = saved.values().stream()
-                                             .filter(record -> jobRunId.equals(record.getJobRunId()))
-                                             .toList();
+        public Future<Page<TaskRecord>> findTaskRecordsForJobRun(String jobRunId, Pageable pageable) {
+            List<TaskRecord> matching = savedTaskRecords.values().stream()
+                                                        .filter(record -> jobRunId.equals(record.getJobRunId()))
+                                                        .toList();
             int pageNumber = ((OffsetPageable) pageable).getPageNumber();
             int from = Math.min(pageNumber * pageable.getPageSize(), matching.size());
             int to = Math.min(from + pageable.getPageSize(), matching.size());
             return Future.succeededFuture(new Page<>(matching.subList(from, to), (long) matching.size()));
-        }
-
-        @Override
-        public Future<TaskRecord> save(TaskRecord entity) {
-            saved.put(entity.getId(), entity);
-            return Future.succeededFuture(entity);
-        }
-
-        @Override
-        public Future<TaskRecord> saveSync(TaskRecord entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<TaskRecord> create(TaskRecord entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<TaskRecord> createSync(TaskRecord entity) {
-            return save(entity);
-        }
-
-        @Override
-        public Future<TaskRecord> findById(String id) {
-            return Future.succeededFuture(saved.get(id));
-        }
-
-        @Override
-        public Future<Long> count() {
-            return Future.succeededFuture((long) saved.size());
-        }
-
-        @Override
-        public Future<Void> deleteById(String id) {
-            saved.remove(id);
-            return Future.succeededFuture();
-        }
-
-        @Override
-        public Future<Void> deleteByIdSync(String id) {
-            return deleteById(id);
-        }
-
-        @Override
-        public Future<Page<TaskRecord>> findAll(Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Page<TaskRecord>> search(String searchText, Pageable pageable) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public Future<Void> syncIndex() {
-            return Future.succeededFuture();
         }
     }
 

@@ -6,7 +6,9 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.internal.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.internal.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
@@ -24,13 +26,16 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     final Slugify slg = Slugify.builder().build();
 
     private final ProjectRepository projectRepository;
+    private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepoProvisioner repoProvisioner;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
+                                 ProjectDeploymentRepository projectDeploymentRepository,
                                  ProjectRepoProvisioner repoProvisioner) {
         super(repository, securityContext);
         this.projectRepository = repository;
+        this.projectDeploymentRepository = projectDeploymentRepository;
         this.repoProvisioner = repoProvisioner;
     }
 
@@ -73,6 +78,12 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
+    }
+
+    @Override
+    public Future<ProjectDeployment> findDeployment(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        return projectDeploymentRepository.findById(projectId, requireOrganizationId());
     }
 
     @Override

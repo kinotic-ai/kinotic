@@ -59,7 +59,7 @@ public class JobServiceTest extends AbstractGrindTest {
         assertEquals(2, outcome.values().stream().filter("hello world"::equals).count(),
                      "@Autowired and @Value should both deliver the produced value");
 
-        JobRun run = runs.saved.get(execution.getJobRunId());
+        JobRun run = records.savedJobRuns.get(execution.getJobRunId());
         assertNotNull(run);
         assertEquals("injection-test", run.getName());
         assertEquals("1", run.getVersion());
@@ -147,7 +147,7 @@ public class JobServiceTest extends AbstractGrindTest {
 
         assertTrue(outcome.failed());
 
-        JobRun run = runs.saved.get(execution.getJobRunId());
+        JobRun run = records.savedJobRuns.get(execution.getJobRunId());
         assertEquals(ExecutionStatus.FAILED, run.getStatus());
         assertTrue(run.getError().contains("boom"));
 
@@ -183,7 +183,7 @@ public class JobServiceTest extends AbstractGrindTest {
         assertEquals("0/2", secondPathWhileFirstRuns.get());
 
         // the root job seeds too, and every seeded record reaches COMPLETED through the same id
-        assertEquals(ExecutionStatus.COMPLETED, records.saved.get(execution.getJobRunId() + ":0").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, records.savedTaskRecords.get(execution.getJobRunId() + ":0").getStatus());
         assertEquals(3, records.forRun(execution.getJobRunId()).size());
         assertTrue(records.forRun(execution.getJobRunId()).stream()
                           .allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
@@ -234,7 +234,7 @@ public class JobServiceTest extends AbstractGrindTest {
 
         assertFalse(second.failed());
         assertEquals(1, executions.get());
-        assertEquals(1, runs.saved.size());
+        assertEquals(1, records.savedJobRuns.size());
     }
 
     @Test
@@ -277,7 +277,7 @@ public class JobServiceTest extends AbstractGrindTest {
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
-        JobRun run = runs.saved.get(execution.getJobRunId());
+        JobRun run = records.savedJobRuns.get(execution.getJobRunId());
         assertEquals("org-1", run.getOrganizationId());
         assertEquals("app-1", run.getApplicationId());
         assertEquals("proj-1", run.getProjectId());
@@ -422,7 +422,7 @@ public class JobServiceTest extends AbstractGrindTest {
         assertTrue(outcome.failed());
         assertTrue(outcome.error().getMessage().contains("not serializable"));
 
-        JobRun run = runs.saved.get(execution.getJobRunId());
+        JobRun run = records.savedJobRuns.get(execution.getJobRunId());
         assertEquals(ExecutionStatus.FAILED, run.getStatus());
         assertTrue(run.getError().contains("taskStoreState"));
 

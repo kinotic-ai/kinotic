@@ -177,7 +177,7 @@ public class JobWatchTest extends AbstractGrindTest {
         List<Result<?>> results = jobService.watchExecution(execution.getJobRunId())
                                             .collectList().block();
         assertTrue(results.isEmpty());
-        assertTrue(runs.saved.isEmpty(), "watching must never start the run");
+        assertTrue(records.savedJobRuns.isEmpty(), "watching must never start the run");
 
         RunOutcome outcome = await(execution);
         assertFalse(outcome.failed());

@@ -18,13 +18,6 @@ public class JobRunRepository extends AbstractRepository<JobRun> {
     }
 
     /**
-     * Returns the page of runs recorded for the given job name.
-     */
-    public Future<Page<JobRun>> findByName(String name, Pageable pageable) {
-        return findAll(pageable, b -> b.query(termFilter("name", name)));
-    }
-
-    /**
      * Returns the page of runs owned by the given {@link JobOwner}: all of an organization's
      * runs, narrowed to an application and/or project when the owner carries those ids. The
      * system owner selects platform runs - those owned by no organization.

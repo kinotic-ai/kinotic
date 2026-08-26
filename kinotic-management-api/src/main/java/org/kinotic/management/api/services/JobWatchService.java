@@ -8,8 +8,7 @@ import reactor.core.publisher.Flux;
 /**
  * Live view of grind job runs executing in this process. The full job engine lives in
  * kinotic-system-api; this seam exposes only watching, so modules that monitor runs need
- * no dependency on the engine. Remote access goes through the published
- * {@code JobWatchRemoteService} in kinotic-system-api.
+ * no dependency on the engine.
  */
 public interface JobWatchService {
 

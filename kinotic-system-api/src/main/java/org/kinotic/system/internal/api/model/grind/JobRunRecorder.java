@@ -6,8 +6,7 @@ import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
-import org.kinotic.management.api.services.JobRunService;
-import org.kinotic.management.api.services.TaskRecordService;
+import org.kinotic.management.api.services.JobRecordService;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.Result;
@@ -31,8 +30,7 @@ public class JobRunRecorder {
     private final String jobRunId;
     private final JobRun jobRun;
     private final JobDefinition jobDefinition;
-    private final JobRunService jobRunService;
-    private final TaskRecordService taskRecordService;
+    private final JobRecordService jobRecordService;
     private final ObjectMapper objectMapper;
 
     private final Map<String, TaskRecord> recordsByPath = new ConcurrentHashMap<>();
@@ -43,13 +41,11 @@ public class JobRunRecorder {
                           JobDefinition jobDefinition,
                           JobOwner owner,
                           String resumedFrom,
-                          JobRunService jobRunService,
-                          TaskRecordService taskRecordService,
+                          JobRecordService jobRecordService,
                           ObjectMapper objectMapper) {
         this.jobRunId = jobRunId;
         this.jobDefinition = jobDefinition;
-        this.jobRunService = jobRunService;
-        this.taskRecordService = taskRecordService;
+        this.jobRecordService = jobRecordService;
         this.objectMapper = objectMapper;
         this.jobRun = new JobRun().setId(jobRunId)
                                   .setName(jobDefinition.getName())
@@ -75,13 +71,13 @@ public class JobRunRecorder {
         jobRun.setOrganizationId(organizationId)
               .setApplicationId(applicationId)
               .setProjectId(projectId);
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     public void runStarted() {
         jobRun.setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRecordService.saveJobRun(jobRun));
         // Discoverable structure at start is the definition's static step tree; dynamic
         // subtrees are seeded by stepProducedDynamicSteps as tasks reveal them
         seedDiscovered(discoveredStepRecords(jobRunId, "", new JobDefinitionStep(0, jobDefinition)));
@@ -101,7 +97,7 @@ public class JobRunRecorder {
         TaskRecord record = recordsByPath.get(stepPath);
         if(record != null){
             record.setDynamicSteps(true);
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> jobRecordService.saveTaskRecord(record));
         }
         seedDiscovered(discoveredStepRecords(jobRunId, stepPath, dynamicStep));
     }
@@ -139,14 +135,14 @@ public class JobRunRecorder {
     private void seedDiscovered(List<TaskRecord> discovered) {
         for(TaskRecord record : discovered){
             recordsByPath.put(record.getStepPath(), record);
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> jobRecordService.saveTaskRecord(record));
         }
     }
 
     public void runCompleted() {
         jobRun.setStatus(ExecutionStatus.COMPLETED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     public void runFailed(Throwable throwable) {
@@ -154,14 +150,14 @@ public class JobRunRecorder {
         jobRun.setStatus(ExecutionStatus.FAILED)
               .setError(throwable.toString())
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     public void runCancelled() {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
         jobRun.setStatus(ExecutionStatus.CANCELLED)
               .setFinished(new Date());
-        enqueue(() -> jobRunService.save(jobRun));
+        enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     private void stepStarted(String stepPath, String description) {
@@ -174,7 +170,7 @@ public class JobRunRecorder {
         record.setDescription(description)
               .setStatus(ExecutionStatus.RUNNING)
               .setStarted(new Date());
-        enqueue(() -> taskRecordService.save(record));
+        enqueue(() -> jobRecordService.saveTaskRecord(record));
     }
 
     private void stepCompleted(String stepPath, StepCompletion completion) {
@@ -219,7 +215,7 @@ public class JobRunRecorder {
                              + completion.getStoredValue().getClass().getName() + " is not serializable", e);
                 }
             }
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> jobRecordService.saveTaskRecord(record));
         }
     }
 
@@ -232,7 +228,7 @@ public class JobRunRecorder {
         record.setStatus(ExecutionStatus.FAILED)
               .setError(message)
               .setFinished(new Date());
-        enqueue(() -> taskRecordService.save(record));
+        enqueue(() -> jobRecordService.saveTaskRecord(record));
         throw new IllegalStateException(message, cause);
     }
 
@@ -244,7 +240,7 @@ public class JobRunRecorder {
             record.setStatus(ExecutionStatus.FAILED)
                   .setError(throwable.toString())
                   .setFinished(new Date());
-            enqueue(() -> taskRecordService.save(record));
+            enqueue(() -> jobRecordService.saveTaskRecord(record));
         }
     }
 
@@ -257,7 +253,7 @@ public class JobRunRecorder {
             if(record.getStatus() == ExecutionStatus.RUNNING){
                 record.setStatus(status)
                       .setFinished(new Date());
-                enqueue(() -> taskRecordService.save(record));
+                enqueue(() -> jobRecordService.saveTaskRecord(record));
             }
         }
     }

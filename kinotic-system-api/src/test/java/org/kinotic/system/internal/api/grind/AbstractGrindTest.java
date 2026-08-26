@@ -18,14 +18,13 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Base for grind tests: a real application context for injection, in-memory record services,
+ * Base for grind tests: a real application context for injection, an in-memory record service,
  * and a synchronous await over a {@link JobExecution}.
  */
 public abstract class AbstractGrindTest {
 
     protected AnnotationConfigApplicationContext appCtx;
-    protected StubJobRunService runs;
-    protected StubTaskRecordService records;
+    protected StubJobRecordService records;
     protected ObjectMapper objectMapper;
     protected DefaultJobService jobService;
 
@@ -33,10 +32,9 @@ public abstract class AbstractGrindTest {
     void setUpGrind() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
-        runs = new StubJobRunService();
-        records = new StubTaskRecordService();
+        records = new StubJobRecordService();
         objectMapper = new ObjectMapper();
-        jobService = new DefaultJobService(runs, records, objectMapper);
+        jobService = new DefaultJobService(records, objectMapper);
         jobService.setApplicationContext(appCtx);
     }
 

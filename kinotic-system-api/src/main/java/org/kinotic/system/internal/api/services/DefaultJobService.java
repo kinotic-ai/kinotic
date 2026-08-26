@@ -10,14 +10,12 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
-import org.kinotic.management.api.services.JobRunService;
-import org.kinotic.management.api.services.TaskRecordService;
+import org.kinotic.management.api.services.JobRecordService;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.system.api.services.JobService;
-import org.kinotic.system.api.services.JobWatchRemoteService;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.management.api.model.grind.ResultType;
@@ -52,12 +50,11 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultJobService implements JobService, JobWatchRemoteService, ApplicationContextAware {
+public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private static final int RECORD_PAGE_SIZE = 500;
 
-    private final JobRunService jobRunService;
-    private final TaskRecordService taskRecordService;
+    private final JobRecordService jobRecordService;
     private final ObjectMapper objectMapper;
 
     private final Map<String, JobExecution> activeExecutions = new ConcurrentHashMap<>();
@@ -103,8 +100,7 @@ public class DefaultJobService implements JobService, JobWatchRemoteService, App
                                                      jobDefinition,
                                                      owner,
                                                      null,
-                                                     jobRunService,
-                                                     taskRecordService,
+                                                     jobRecordService,
                                                      objectMapper);
 
         return executeRecorded(recorder, assembleInternal(jobDefinition, options, null));
@@ -126,12 +122,11 @@ public class DefaultJobService implements JobService, JobWatchRemoteService, App
                                                      jobDefinition,
                                                      null,
                                                      jobRunId,
-                                                     jobRunService,
-                                                     taskRecordService,
+                                                     jobRecordService,
                                                      objectMapper);
 
         Flux<Result<?>> results =
-            Flux.defer(() -> Mono.fromCompletionStage(() -> jobRunService.findById(jobRunId).toCompletionStage())
+            Flux.defer(() -> Mono.fromCompletionStage(() -> jobRecordService.findJobRunById(jobRunId).toCompletionStage())
                                  .switchIfEmpty(Mono.error(() -> new IllegalArgumentException("No JobRun found with id " + jobRunId)))
                                  .flatMapMany(originalRun -> {
                                      Flux<Result<?>> ret;
@@ -251,7 +246,7 @@ public class DefaultJobService implements JobService, JobWatchRemoteService, App
     }
 
     private Future<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
-        return taskRecordService.findAllForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
+        return jobRecordService.findTaskRecordsForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
                                 .compose(recordPage -> {
                                     for(TaskRecord record : recordPage.getContent()){
                                         if(record.getStatus() == ExecutionStatus.COMPLETED){
