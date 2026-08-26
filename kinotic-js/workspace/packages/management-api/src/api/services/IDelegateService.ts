@@ -42,7 +42,7 @@ export class DelegateService implements IDelegateService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.security.DelegateService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.security.DelegateService`)
     }
 
     public async findMyDelegates(pageable: Pageable): Promise<IterablePage<DelegatingParticipantIdentity>> {

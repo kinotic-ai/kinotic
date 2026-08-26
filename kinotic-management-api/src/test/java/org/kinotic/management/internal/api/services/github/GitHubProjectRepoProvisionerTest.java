@@ -60,7 +60,7 @@ class GitHubProjectRepoProvisionerTest {
         installationService = mock(GitHubAppInstallationService.class);
         apiClient = mock(GitHubApiClient.class);
         KinoticManagementApiProperties properties = new KinoticManagementApiProperties();
-        properties.getGithub().setRepoTemplate("kinotic-ai/project-template");
+        properties.getManagementApi().getGithub().setRepoTemplate("kinotic-ai/project-template");
         vertx = Vertx.vertx();
         provisioner = new GitHubProjectRepoProvisioner(vertx, installationService, apiClient,
                                                        properties, new GraalJsSpawnRenderer());

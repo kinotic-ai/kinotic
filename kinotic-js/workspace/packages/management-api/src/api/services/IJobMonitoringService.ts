@@ -46,7 +46,7 @@ export class JobMonitoringService implements IJobMonitoringService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.JobMonitoringService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.JobMonitoringService`)
     }
 
     public findJobRuns(pageable: Pageable): Promise<Page<JobRun>> {

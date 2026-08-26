@@ -24,7 +24,7 @@ export class ProfileService implements IProfileService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.security.ProfileService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.security.ProfileService`)
     }
 
     public findMyProfile(): Promise<UserParticipantIdentity> {

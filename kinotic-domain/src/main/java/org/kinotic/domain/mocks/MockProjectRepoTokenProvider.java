@@ -8,12 +8,12 @@ import org.springframework.stereotype.Component;
 
 /**
  * Fallback {@link ProjectRepoTokenProvider} used when the GitHub module is disabled
- * ({@code kinotic.disableGithub=true}). Consumers can start without a GitHub App
+ * ({@code kinotic.managementApi.github.disable=true}). Consumers can start without a GitHub App
  * configured; any actual token request fails, since there is no repository host to
  * mint one for.
  */
 @Component
-@ConditionalOnProperty(value = "kinotic.disableGithub", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.managementApi.github.disable", havingValue = "true")
 public class MockProjectRepoTokenProvider implements ProjectRepoTokenProvider {
 
     @Override

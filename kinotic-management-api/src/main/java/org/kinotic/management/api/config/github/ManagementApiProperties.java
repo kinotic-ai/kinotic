@@ -5,8 +5,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.springframework.stereotype.Component;
-import org.springframework.validation.annotation.Validated;
 
 /**
  *
@@ -16,8 +14,6 @@ import org.springframework.validation.annotation.Validated;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-@Component
-@Validated
 public class ManagementApiProperties {
 
     @Valid

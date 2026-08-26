@@ -87,7 +87,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             return apiClient.getToken(installationId, null, GitHubApiClient.CREATE_REPOSITORY)
                             .compose(token -> apiClient.createRepoFromTemplate(
                                     token.getToken(),
-                                    properties.getGithub().getRepoTemplate(),
+                                    properties.getManagementApi().getGithub().getRepoTemplate(),
                                     install.getAccountLogin(),
                                     repoName,
                                     project.getDescription(),

@@ -11,10 +11,10 @@ import org.springframework.context.annotation.FilterType;
  */
 @Configuration
 @EnableConfigurationProperties
-// The github packages are gated separately by GithubConfiguration (kinotic.disableGithub),
+// The github packages are gated separately by GithubConfiguration (kinotic.managementApi.github.disable),
 // so this scan must not register them
 @ComponentScan(excludeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
                                                       pattern = "org\\.kinotic\\.os\\..*\\.github\\..*"))
-@ConditionalOnProperty(value = "kinotic.disableOsApi", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.disableManagement", havingValue = "false", matchIfMissing = true)
 public class KinoticManagementApiLibrary {
 }

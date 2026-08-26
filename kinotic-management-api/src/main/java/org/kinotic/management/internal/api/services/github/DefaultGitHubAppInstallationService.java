@@ -64,7 +64,7 @@ public class DefaultGitHubAppInstallationService
                 .setReturnTo(returnTo);
         String state = stateService.stage(staged);
         return Future.succeededFuture(
-                "https://github.com/apps/" + properties.getGithub().getAppSlug()
+                "https://github.com/apps/" + properties.getManagementApi().getGithub().getAppSlug()
                         + "/installations/new?state=" + state);
     }
 
@@ -130,7 +130,7 @@ public class DefaultGitHubAppInstallationService
 
     private Future<InstallationDetails> requireAccessible(List<InstallationDetails> installations,
                                                           long installationId) {
-        String appId = properties.getGithub().getAppId();
+        String appId = properties.getManagementApi().getGithub().getAppId();
         // app_id pin: a credential that is not this App's fails closed instead of
         // vouching from another app's installation list
         InstallationDetails match = installations.stream()

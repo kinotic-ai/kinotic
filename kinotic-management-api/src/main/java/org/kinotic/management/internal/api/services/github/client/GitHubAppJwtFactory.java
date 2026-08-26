@@ -74,7 +74,7 @@ public class GitHubAppJwtFactory {
         PrivateKey key = ensureKey();
         Instant expiresAt = now.plus(JWT_TTL_SECONDS, ChronoUnit.SECONDS);
         String token = Jwts.builder()
-                .issuer(properties.getGithub().getAppId())
+                .issuer(properties.getManagementApi().getGithub().getAppId())
                 .issuedAt(Date.from(now.minusSeconds(IAT_BACKDATE_SECONDS)))
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.RS256)
@@ -87,7 +87,7 @@ public class GitHubAppJwtFactory {
         if (existing != null) {
             return existing;
         }
-        PrivateKey parsed = parsePem(properties.getGithub().getAppPrivateKey());
+        PrivateKey parsed = parsePem(properties.getManagementApi().getGithub().getAppPrivateKey());
         cachedKey.set(parsed);
         return parsed;
     }

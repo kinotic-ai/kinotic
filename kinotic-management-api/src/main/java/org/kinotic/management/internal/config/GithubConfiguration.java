@@ -14,6 +14,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ComponentScan(basePackages = {"org.kinotic.management.api.config.github",
                                "org.kinotic.management.internal.api.services.github"})
-@ConditionalOnProperty(value = "kinotic.management.github.disable", havingValue = "false", matchIfMissing = true)
+@ConditionalOnProperty(value = "kinotic.managementApi.github.disable", havingValue = "false", matchIfMissing = true)
 public class GithubConfiguration {
 }

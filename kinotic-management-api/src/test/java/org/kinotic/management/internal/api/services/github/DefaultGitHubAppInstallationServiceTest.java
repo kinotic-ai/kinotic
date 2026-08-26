@@ -61,7 +61,7 @@ class DefaultGitHubAppInstallationServiceTest {
         when(securityContext.requireParticipant(OrganizationParticipant.class)).thenReturn(participant);
 
         KinoticManagementApiProperties properties = new KinoticManagementApiProperties();
-        properties.getGithub().setAppId(APP_ID);
+        properties.getManagementApi().getGithub().setAppId(APP_ID);
 
         // Real state store (Caffeine path) so staging + single-use consumption are exercised
         stateService = new GitHubInstallStateService(null);

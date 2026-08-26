@@ -2,7 +2,9 @@
 kinotic:
   debug: true
   disableClustering: false
-  disableGithub: true
+  managementApi:
+    github:
+      disable: true
   maxNumberOfCoresToUse: 4
   systemApi:
     deployment:

@@ -8,11 +8,11 @@ import reactor.core.publisher.Flux;
 
 /**
  * Fallback {@link GitHubProjectEventService} used when the GitHub module is disabled
- * ({@code kinotic.disableGithub=true}): a stream that never emits, so subscribers such as
+ * ({@code kinotic.managementApi.github.disable=true}): a stream that never emits, so subscribers such as
  * the deployment listener start normally and simply never see a push.
  */
 @Component
-@ConditionalOnProperty(value = "kinotic.disableGithub", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.managementApi.github.disable", havingValue = "true")
 public class MockGitHubProjectEventService implements GitHubProjectEventService {
 
     @Override

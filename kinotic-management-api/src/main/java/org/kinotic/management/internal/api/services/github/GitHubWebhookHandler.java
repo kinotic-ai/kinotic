@@ -76,7 +76,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
         // HMAC verification runs in executeBlocking so a 25 MiB payload doesn't pin
         // the event loop. ordered=false lets concurrent webhooks run in parallel.
         byte[] bodyBytes = body.getBytes();
-        String secret = properties.getGithub().getWebhookSecret();
+        String secret = properties.getManagementApi().getGithub().getWebhookSecret();
         Future<Boolean> verify = vertx.executeBlocking(
                 () -> verifySignature(bodyBytes, secret, signature),
                 false);

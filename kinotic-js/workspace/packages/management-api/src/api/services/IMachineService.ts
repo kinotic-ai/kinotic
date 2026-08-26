@@ -49,7 +49,7 @@ export class MachineService implements IMachineService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.security.MachineService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.security.MachineService`)
     }
 
     public createMachine(displayName: string, applicationId: string): Promise<MachineProvisionResult> {

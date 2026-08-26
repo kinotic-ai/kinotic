@@ -22,7 +22,7 @@ export interface IInviteEmailTemplateService extends ICrudServiceProxy<InviteEma
 export class InviteEmailTemplateService extends CrudServiceProxy<InviteEmailTemplate> implements IInviteEmailTemplateService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.InviteEmailTemplateService`))
+        super(kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.InviteEmailTemplateService`))
     }
 
     public findByApplication(applicationId: string): Promise<InviteEmailTemplate | null> {

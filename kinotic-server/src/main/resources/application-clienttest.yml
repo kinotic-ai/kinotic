@@ -4,7 +4,9 @@ kinotic:
   # System-api goes off with them: its repositories extend the domain
   # AbstractRepository, which needs CrudServiceTemplate.
   disableDomain: true
-  disableOsApi: true
+  disableManagement: true
   disablePersistence: true
-  disableGithub: true
+  managementApi:
+    github:
+      disable: true
   disableSystemApi: true

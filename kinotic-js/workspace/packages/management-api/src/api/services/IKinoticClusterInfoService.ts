@@ -19,7 +19,7 @@ export class KinoticClusterInfoService implements IKinoticClusterInfoService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.os.api.services.KinoticClusterInfoService`)
+        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.management.api.services.KinoticClusterInfoService`)
     }
 
     public getClusterInfo(): Promise<KinoticClusterInfo> {

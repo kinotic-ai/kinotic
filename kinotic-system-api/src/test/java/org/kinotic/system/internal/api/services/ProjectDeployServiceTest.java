@@ -14,10 +14,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Listener behavior over a scripted event stream: only pushes to the default branch
- * deploy, and per-project serialization collapses queued pushes to the newest commit.
+ * Event handling over a scripted stream: only pushes to the default branch deploy, and
+ * per-project serialization collapses queued pushes to the newest commit.
  */
-public class ProjectDeploymentListenerTest {
+public class ProjectDeployServiceTest {
 
     private static final String SHA_1 = "1".repeat(40);
     private static final String SHA_2 = "2".repeat(40);
@@ -25,20 +25,18 @@ public class ProjectDeploymentListenerTest {
 
     private Sinks.Many<GitHubProjectEvent> events;
     private RecordingProjectDeployService deploys;
-    private ProjectDeploymentListener listener;
 
     @BeforeEach
     void setUp() {
         events = Sinks.many().multicast().onBackpressureBuffer();
-        deploys = new RecordingProjectDeployService();
         GitHubProjectEventService eventService = events::asFlux;
-        listener = new ProjectDeploymentListener(eventService, deploys);
-        listener.start();
+        deploys = new RecordingProjectDeployService(eventService);
+        deploys.start();
     }
 
     @AfterEach
     void tearDown() {
-        listener.stop();
+        deploys.stop();
     }
 
     @Test

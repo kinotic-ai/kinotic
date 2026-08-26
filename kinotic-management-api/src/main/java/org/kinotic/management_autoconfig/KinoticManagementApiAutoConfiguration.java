@@ -1,4 +1,4 @@
-package org.kinotic.os_autoconfig;
+package org.kinotic.management_autoconfig;
 
 import org.kinotic.management.KinoticManagementApiLibrary;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
