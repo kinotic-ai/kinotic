@@ -22,7 +22,6 @@ public interface ProjectDeploymentService {
      * @return a {@link Future} emitting the deployment record, or {@code null} when the
      *         project has never been deployed
      */
-    @McpTool(title = "Find Project Deployment", readOnlyHint = true)
     Future<ProjectDeployment> findByProjectId(String projectId);
 
 }

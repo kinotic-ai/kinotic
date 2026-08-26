@@ -63,6 +63,10 @@ Use `enum` for any field whose value is constrained to a known set — never `St
 
 When bridging a `CompletableFuture` into Vert.x, always pass the context: `Future.fromCompletionStage(stage, vertx.getOrCreateContext())`, never the single-argument overload. The stage may complete on a foreign thread (Azure SDK, Caffeine loader, JDK executor), and without the context argument everything composed after it leaves the request's Vert.x context — breaking anything downstream that reads a context-local, such as `SecurityContext`'s participant. For delays, use `vertx.timer(...)` instead of a JDK scheduled executor for the same reason.
 
+## MCP tools
+
+`@McpTool` on a `@Publish`ed service interface exposes every function as an MCP tool, and everything about each tool is derived: the title from the service and method names, the description from the method's Javadoc, and the behavior hints from the words in the method name (`find`/`get` → read-only, `save`/`delete` → destructive and idempotent, `create`/`send` → neither, `...IfNotExist` → idempotent). Don't add a method-level `@McpTool` that restates what derivation already produces — use one only to override a derivation that comes out wrong, e.g. `ProjectService.findByRepoFullName` retitles itself "Find by GitHub Repo", and `retryRepoInitialization` sets `openWorldHint` which no name can imply.
+
 ## Package Structure (Crucial!!)
 
 Both Java and TypeScript modules follow the same layout convention. The rule is: if something will be used by another module/node, it belongs in `api/`. If not, it belongs in `internal/`. The `internal/` structure mirrors `api/` for implementations.
