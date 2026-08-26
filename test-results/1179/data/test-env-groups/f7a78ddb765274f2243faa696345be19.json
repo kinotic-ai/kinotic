@@ -1,1 +1,0 @@
-{"id":"f7a78ddb765274f2243faa696345be19","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects a second zone delimiter in the host part","name":"rejects a second zone delimiter in the host part","status":"passed","testResultsByEnv":{"default":"dabc24fefbb2ff2106152ce1ed793ab5"}}
