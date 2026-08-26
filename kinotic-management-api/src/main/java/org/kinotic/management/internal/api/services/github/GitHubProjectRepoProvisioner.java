@@ -8,7 +8,7 @@ import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.management.api.config.github.GithubProperties;
+import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
 import org.kinotic.management.internal.api.services.github.client.CreatedRepository;

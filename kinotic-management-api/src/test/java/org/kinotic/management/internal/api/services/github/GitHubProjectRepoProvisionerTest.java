@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
-import org.kinotic.management.api.config.github.GithubProperties;
+import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.model.GitHubToken;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;

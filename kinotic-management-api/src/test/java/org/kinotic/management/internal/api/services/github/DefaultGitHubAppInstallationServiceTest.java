@@ -12,7 +12,7 @@ import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
-import org.kinotic.management.api.config.github.GithubProperties;
+import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.model.GitHubInstallCompletion;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;

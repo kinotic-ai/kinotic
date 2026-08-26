@@ -1,7 +1,6 @@
 package org.kinotic.management.api.config;
 
 import jakarta.validation.Valid;
-import org.kinotic.management.api.config.github.GithubProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

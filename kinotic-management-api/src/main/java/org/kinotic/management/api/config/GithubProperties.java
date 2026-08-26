@@ -1,4 +1,4 @@
-package org.kinotic.management.api.config.github;
+package org.kinotic.management.api.config;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;

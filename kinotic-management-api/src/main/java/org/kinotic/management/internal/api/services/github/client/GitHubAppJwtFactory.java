@@ -3,7 +3,7 @@ package org.kinotic.management.internal.api.services.github.client;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.config.github.GithubProperties;
+import org.kinotic.management.api.config.GithubProperties;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
