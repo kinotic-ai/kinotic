@@ -17,6 +17,7 @@ import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.system.api.services.JobService;
+import org.kinotic.system.api.services.JobWatchRemoteService;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.management.api.model.grind.ResultType;
@@ -51,7 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultJobService implements JobService, ApplicationContextAware {
+public class DefaultJobService implements JobService, JobWatchRemoteService, ApplicationContextAware {
 
     private static final int RECORD_PAGE_SIZE = 500;
 

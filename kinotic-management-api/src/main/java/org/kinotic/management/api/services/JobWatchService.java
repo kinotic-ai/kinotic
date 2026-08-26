@@ -1,22 +1,16 @@
 package org.kinotic.management.api.services;
 
-import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Version;
-import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.management.api.model.grind.ResultType;
 import org.kinotic.management.api.model.grind.TaskRecord;
-import org.kinotic.domain.api.utils.DomainUtil;
 import reactor.core.publisher.Flux;
 
 /**
  * Live view of grind job runs executing in this process. The full job engine lives in
  * kinotic-system-api; this seam exposes only watching, so modules that monitor runs need
- * no dependency on the engine.
+ * no dependency on the engine. Remote access goes through the published
+ * {@code JobWatchRemoteService} in kinotic-system-api.
  */
-@Publish
-@Version("1.0.0")
-@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface JobWatchService {
 
     /**

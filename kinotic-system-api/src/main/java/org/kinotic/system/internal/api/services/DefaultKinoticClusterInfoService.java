@@ -1,14 +1,14 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.cluster.ClusterNode;
-import org.kinotic.management.api.model.cluster.KinoticClusterInfo;
-import org.kinotic.management.api.model.cluster.KinoticClusterInfo.KinoticClusterInfoBuilder;
-import org.kinotic.management.api.model.cluster.KinoticNodeInfo;
-import org.kinotic.management.api.services.KinoticClusterInfoService;
+import org.kinotic.system.api.model.cluster.KinoticClusterInfo;
+import org.kinotic.system.api.model.cluster.KinoticClusterInfo.KinoticClusterInfoBuilder;
+import org.kinotic.system.api.model.cluster.KinoticNodeInfo;
+import org.kinotic.system.api.services.KinoticClusterInfoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 

@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -14,7 +14,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.management.internal.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.security.PendingInviteSummary;
-import org.kinotic.management.api.services.SystemOrganizationService;
+import org.kinotic.system.api.services.SystemOrganizationService;
 import org.springframework.stereotype.Component;
 
 @Component

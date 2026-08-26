@@ -1,4 +1,4 @@
-import { SYSTEM_API_ZONE } from '@/api/PlatformZones'
+import { SYSTEM_API_ZONE } from '@/api/SystemZone'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import { KinoticClusterInfo } from '@/api/model/KinoticClusterInfo'
 
@@ -19,7 +19,7 @@ export class KinoticClusterInfoService implements IKinoticClusterInfoService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.management.api.services.KinoticClusterInfoService`)
+        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.KinoticClusterInfoService`)
     }
 
     public getClusterInfo(): Promise<KinoticClusterInfo> {

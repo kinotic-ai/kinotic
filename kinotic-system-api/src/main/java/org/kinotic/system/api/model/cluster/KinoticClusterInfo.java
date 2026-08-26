@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.cluster;
+package org.kinotic.system.api.model.cluster;
 
 import lombok.Builder;
 import lombok.Data;

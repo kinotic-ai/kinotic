@@ -33,3 +33,6 @@ declare module '@kinotic-ai/core' {
 }
 export * from '@/api/services/ILogManager'
 export * from '@/api/services/LogManager'
+export * from '@/api/model/KinoticClusterInfo'
+export * from '@/api/model/KinoticNodeInfo'
+export * from '@/api/services/IKinoticClusterInfoService'

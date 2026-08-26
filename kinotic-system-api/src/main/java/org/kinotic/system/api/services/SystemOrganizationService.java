@@ -1,15 +1,13 @@
-package org.kinotic.management.api.services;
+package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.security.PendingInviteSummary;
 
 /**
@@ -18,7 +16,6 @@ import org.kinotic.management.api.model.security.PendingInviteSummary;
  * instead of resolving it from the caller's scope.
  */
 @Publish
-@Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface SystemOrganizationService {
 
     /**

@@ -40,7 +40,7 @@ export class SystemOrganizationService implements ISystemOrganizationService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.management.api.services.SystemOrganizationService`)
+        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.SystemOrganizationService`)
     }
 
     public findOrganizations(pageable: Pageable): Promise<Page<Organization>> {
