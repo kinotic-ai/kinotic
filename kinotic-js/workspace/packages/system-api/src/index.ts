@@ -31,3 +31,5 @@ import type { ISystemApiExtension } from '@/api/SystemApiPlugin'
 declare module '@kinotic-ai/core' {
     interface KinoticSingleton extends ISystemApiExtension {}
 }
+export * from '@/api/services/ILogManager'
+export * from '@/api/services/LogManager'

@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.log;
+package org.kinotic.system.api.model.log;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/5/23.

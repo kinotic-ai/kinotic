@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.log;
+package org.kinotic.system.api.model.log;
 
 import org.springframework.boot.logging.LoggerConfiguration;
 

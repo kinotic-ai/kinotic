@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.log;
+package org.kinotic.management.api.model;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

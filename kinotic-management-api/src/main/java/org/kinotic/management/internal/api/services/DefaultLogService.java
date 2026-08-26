@@ -8,7 +8,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.management.api.model.log.LogQuery;
+import org.kinotic.management.api.model.LogQuery;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.SystemParticipant;

@@ -145,7 +145,7 @@ public class StompAuthorizerFactoryTest {
 
         // never another organization's applications or the platform internals
         assertFalse(authorizer.sendAllowed(CRI.create("srv://app.other-org.orders-app~OrderService/create#1.0.0")));
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://system-api~org.kinotic.management.api.services.LogManager/query#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://system-api~org.kinotic.system.api.services.LogManager/query#1.0.0")));
     }
 
     @Test

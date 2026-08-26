@@ -3,7 +3,7 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.management.api.model.log.LogQuery;
+import org.kinotic.management.api.model.LogQuery;
 import reactor.core.publisher.Flux;
 
 /**

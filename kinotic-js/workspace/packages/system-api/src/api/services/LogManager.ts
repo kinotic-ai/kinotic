@@ -1,4 +1,4 @@
-import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
+import { SYSTEM_API_ZONE } from '@/api/SystemZone'
 import {
     type ILogManager,
     LogLevel,
@@ -12,7 +12,7 @@ export class LogManager implements ILogManager {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.LogManager`)
+        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.LogManager`)
     }
 
     loggers(nodeId: string): Promise<LoggersDescriptor> {

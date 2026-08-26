@@ -1,5 +1,3 @@
-import type { ILogManager } from '@/api/services/ILogManager'
-import { LogManager } from '@/api/services/LogManager'
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
@@ -24,7 +22,6 @@ export interface IManagementApiExtension {
     clusterInfo: IKinoticClusterInfoService
     systemOrganizations: ISystemOrganizationService
     projects: IProjectService
-    logManager: ILogManager
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
@@ -47,7 +44,6 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             clusterInfo: new KinoticClusterInfoService(kinotic),
             systemOrganizations: new SystemOrganizationService(kinotic),
             projects: new ProjectService(kinotic),
-            logManager: new LogManager(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
