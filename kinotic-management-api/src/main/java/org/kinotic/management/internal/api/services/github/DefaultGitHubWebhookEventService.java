@@ -10,7 +10,7 @@ import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
-import org.kinotic.management.internal.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;

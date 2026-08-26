@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 @Component
 @RequiredArgsConstructor
-public class ProjectDeployJobDefinitionService {
+public class ProjectDeployJobFactory {
 
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;

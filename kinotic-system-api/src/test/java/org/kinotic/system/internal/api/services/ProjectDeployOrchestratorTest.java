@@ -17,20 +17,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * Event handling over a scripted stream: only pushes to the default branch deploy, and
  * per-project serialization collapses queued pushes to the newest commit.
  */
-public class ProjectDeployServiceTest {
+public class ProjectDeployOrchestratorTest {
 
     private static final String SHA_1 = "1".repeat(40);
     private static final String SHA_2 = "2".repeat(40);
     private static final String SHA_3 = "3".repeat(40);
 
     private Sinks.Many<GitHubProjectEvent> events;
-    private RecordingProjectDeployService deploys;
+    private RecordingProjectDeployOrchestrator deploys;
 
     @BeforeEach
     void setUp() {
         events = Sinks.many().multicast().onBackpressureBuffer();
         GitHubProjectEventService eventService = events::asFlux;
-        deploys = new RecordingProjectDeployService(eventService);
+        deploys = new RecordingProjectDeployOrchestrator(eventService);
         deploys.start();
     }
 

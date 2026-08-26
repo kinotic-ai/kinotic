@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.repositories;
+package org.kinotic.management.api.repositories;
 
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 

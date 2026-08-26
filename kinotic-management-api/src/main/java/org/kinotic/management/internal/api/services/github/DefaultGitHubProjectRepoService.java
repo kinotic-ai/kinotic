@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectRepoToken;
-import org.kinotic.management.internal.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.services.github.GitHubProjectRepoService;
 import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;

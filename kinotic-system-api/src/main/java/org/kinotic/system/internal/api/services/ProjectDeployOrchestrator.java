@@ -13,8 +13,8 @@ import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.ProjectDeploymentStatus;
 import org.kinotic.management.api.model.ProjectDeploymentStatusType;
 import org.kinotic.management.api.model.grind.JobOwner;
-import org.kinotic.management.internal.api.repositories.ProjectDeploymentRepository;
-import org.kinotic.management.internal.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.services.github.GitHubProjectEventService;
@@ -36,7 +36,7 @@ import java.util.Set;
 /**
  * Deploys a project whenever a commit lands on its repository's default branch. Listens to
  * the verified GitHub deliveries {@link GitHubProjectEventService} emits, runs each
- * qualifying push as a grind job assembled by {@link ProjectDeployJobDefinitionService},
+ * qualifying push as a grind job assembled by {@link ProjectDeployJobFactory},
  * and records the outcome on the project's {@link ProjectDeployment}. The project's own
  * repository has no CI — this job is it, so a commit whose build fails never reaches the
  * runtime workload.
@@ -49,14 +49,14 @@ import java.util.Set;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ProjectDeployService {
+public class ProjectDeployOrchestrator {
 
     /** The sha GitHub sends as {@code after} when a push deletes a ref. */
     private static final String ZERO_SHA = "0".repeat(40);
 
     private final GitHubProjectEventService gitHubProjectEventService;
     private final JobService jobService;
-    private final ProjectDeployJobDefinitionService jobDefinitionService;
+    private final ProjectDeployJobFactory jobFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepository projectRepository;
 
@@ -159,7 +159,7 @@ public class ProjectDeployService {
     }
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
-        ProjectDeployJob job = jobDefinitionService.createJob(project, existing, commitSha);
+        ProjectDeployJob job = jobFactory.createJob(project, existing, commitSha);
         JobExecution execution = jobService.execute(job.getDefinition(),
                                                     JobOwner.ofApplication(project.getOrganizationId(),
                                                                            project.getApplicationId()));

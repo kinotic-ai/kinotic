@@ -16,7 +16,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
 import org.kinotic.management.api.services.LokiClient;
-import org.kinotic.management.internal.api.repositories.WorkloadRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;

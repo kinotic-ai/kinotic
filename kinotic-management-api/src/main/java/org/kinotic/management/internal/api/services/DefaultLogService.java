@@ -13,7 +13,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.SystemParticipant;
 import org.kinotic.management.api.services.LokiClient;
-import org.kinotic.management.internal.api.repositories.WorkloadRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.LogService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;

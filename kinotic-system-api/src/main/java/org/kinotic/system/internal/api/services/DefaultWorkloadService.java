@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.services.WorkloadService;
-import org.kinotic.management.internal.api.repositories.WorkloadRepository;
+import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;

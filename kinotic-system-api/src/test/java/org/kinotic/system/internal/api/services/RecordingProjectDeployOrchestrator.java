@@ -11,12 +11,12 @@ import java.util.List;
  * Records deploy requests and lets the test settle each one, so the event filtering and
  * per-project serialization can be observed without running real jobs.
  */
-public class RecordingProjectDeployService extends ProjectDeployService {
+public class RecordingProjectDeployOrchestrator extends ProjectDeployOrchestrator {
 
     public final List<String> deployedShas = new ArrayList<>();
     public final List<Promise<Void>> outcomes = new ArrayList<>();
 
-    public RecordingProjectDeployService(GitHubProjectEventService eventService) {
+    public RecordingProjectDeployOrchestrator(GitHubProjectEventService eventService) {
         super(eventService, null, null, null, null);
     }
 
