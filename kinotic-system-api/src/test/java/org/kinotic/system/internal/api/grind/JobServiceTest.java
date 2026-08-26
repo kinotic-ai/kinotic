@@ -2,12 +2,12 @@ package org.kinotic.system.internal.api.grind;
 
 import jakarta.annotation.PreDestroy;
 import org.junit.jupiter.api.Test;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.system.api.model.grind.Task;
 import org.kinotic.system.api.model.grind.Tasks;
@@ -52,7 +52,7 @@ public class JobServiceTest extends AbstractGrindTest {
                 public String call() { return greeting; }
             }));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -63,14 +63,14 @@ public class JobServiceTest extends AbstractGrindTest {
         assertNotNull(run);
         assertEquals("injection-test", run.getName());
         assertEquals("1", run.getVersion());
-        assertEquals(ExecutionStatus.COMPLETED, run.getStatus());
+        assertEquals(RunStatus.COMPLETED, run.getStatus());
         assertNotNull(run.getStarted());
         assertNotNull(run.getFinished());
 
         // 3 tasks + the root job = 4 records, all COMPLETED
         assertEquals(4, records.forRun(execution.getJobRunId()).size());
         assertTrue(records.forRun(execution.getJobRunId()).stream()
-                          .allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
+                          .allMatch(record -> record.getStatus() == RunStatus.COMPLETED));
 
         TaskRecord greeting = recordFor(execution.getJobRunId(), "read widget");
         assertEquals("greeting", greeting.getResultName());
@@ -142,26 +142,26 @@ public class JobServiceTest extends AbstractGrindTest {
             .task(Tasks.fromRunnable("boom task", () -> { throw new IllegalStateException("boom"); }))
             .task(Tasks.fromCallable("never runs", () -> "unreachable"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertTrue(outcome.failed());
 
         JobRun run = records.savedJobRuns.get(execution.getJobRunId());
-        assertEquals(ExecutionStatus.FAILED, run.getStatus());
+        assertEquals(RunStatus.FAILED, run.getStatus());
         assertTrue(run.getError().contains("boom"));
 
-        assertEquals(ExecutionStatus.FAILED, recordFor(execution.getJobRunId(), "boom task").getStatus());
-        assertEquals(ExecutionStatus.COMPLETED, recordFor(execution.getJobRunId(), "ok task").getStatus());
+        assertEquals(RunStatus.FAILED, recordFor(execution.getJobRunId(), "boom task").getStatus());
+        assertEquals(RunStatus.COMPLETED, recordFor(execution.getJobRunId(), "ok task").getStatus());
         // discovered at run start, never reached
-        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
+        assertEquals(RunStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
     }
 
     @Test
     public void staticStepsAreSeededPendingBeforeTheyExecute() throws Exception {
         AtomicReference<String> runId = new AtomicReference<>();
         // the recorder mutates the record instances it saved, so observations must snapshot values
-        AtomicReference<ExecutionStatus> secondStatusWhileFirstRuns = new AtomicReference<>();
+        AtomicReference<RunStatus> secondStatusWhileFirstRuns = new AtomicReference<>();
         AtomicReference<String> secondPathWhileFirstRuns = new AtomicReference<>();
         JobDefinition def = JobDefinition.create("seeding test").name("seeding-test")
             .task(Tasks.fromRunnable("first", () -> {
@@ -173,27 +173,27 @@ public class JobServiceTest extends AbstractGrindTest {
             }))
             .task(Tasks.fromCallable("second", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         runId.set(execution.getJobRunId());
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
         // while "first" executed, "second" was already discovered with its definition description
-        assertEquals(ExecutionStatus.PENDING, secondStatusWhileFirstRuns.get());
+        assertEquals(RunStatus.PENDING, secondStatusWhileFirstRuns.get());
         assertEquals("0/2", secondPathWhileFirstRuns.get());
 
         // the root job seeds too, and every seeded record reaches COMPLETED through the same id
-        assertEquals(ExecutionStatus.COMPLETED, records.savedTaskRecords.get(execution.getJobRunId() + ":0").getStatus());
+        assertEquals(RunStatus.COMPLETED, records.savedTaskRecords.get(execution.getJobRunId() + ":0").getStatus());
         assertEquals(3, records.forRun(execution.getJobRunId()).size());
         assertTrue(records.forRun(execution.getJobRunId()).stream()
-                          .allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
+                          .allMatch(record -> record.getStatus() == RunStatus.COMPLETED));
     }
 
     @Test
     public void dynamicallyDiscoveredStepsAreSeededPendingTogether() throws Exception {
         AtomicReference<String> runId = new AtomicReference<>();
         // the recorder mutates the record instances it saved, so observations must snapshot values
-        AtomicReference<ExecutionStatus> siblingStatusWhileInner1Runs = new AtomicReference<>();
+        AtomicReference<RunStatus> siblingStatusWhileInner1Runs = new AtomicReference<>();
         AtomicReference<String> siblingPathWhileInner1Runs = new AtomicReference<>();
         JobDefinition def = JobDefinition.create("dynamic seeding").name("dynamic-seeding")
             .task(Tasks.fromCallable("generator", () ->
@@ -207,17 +207,17 @@ public class JobServiceTest extends AbstractGrindTest {
                     }))
                     .task(Tasks.fromCallable("inner 2", () -> "ok"))));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         runId.set(execution.getJobRunId());
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
         // both inner steps were seeded the moment the generator revealed them
-        assertEquals(ExecutionStatus.PENDING, siblingStatusWhileInner1Runs.get());
+        assertEquals(RunStatus.PENDING, siblingStatusWhileInner1Runs.get());
         assertEquals("0/1/1/2", siblingPathWhileInner1Runs.get());
 
         assertTrue(recordFor(execution.getJobRunId(), "generator").isDynamicSteps());
-        assertEquals(ExecutionStatus.COMPLETED, recordFor(execution.getJobRunId(), "generated").getStatus());
+        assertEquals(RunStatus.COMPLETED, recordFor(execution.getJobRunId(), "generated").getStatus());
         assertEquals("0/1/1", recordFor(execution.getJobRunId(), "generated").getStepPath());
     }
 
@@ -227,7 +227,7 @@ public class JobServiceTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("multicast test").name("multicast-test")
             .task(Tasks.fromCallable("count executions", executions::incrementAndGet));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         await(execution);
         // a late second subscriber joins the finished run instead of re-executing it
         RunOutcome second = await(execution);
@@ -250,7 +250,7 @@ public class JobServiceTest extends AbstractGrindTest {
                 public String call() { return fetched + "/" + kept.label; }
             }));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -273,7 +273,7 @@ public class JobServiceTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("owned job").name("owned-job")
             .task(Tasks.fromCallable("work", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def, JobOwner.ofApplication("org-1", "app-1", "proj-1"));
+        JobRunHandle execution = jobService.execute(def, JobOwner.ofApplication("org-1", "app-1", "proj-1"));
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -298,7 +298,7 @@ public class JobServiceTest extends AbstractGrindTest {
             .taskStoreState(Tasks.fromCallable("make widget", () -> new Widget("hello")))
             .task(Tasks.fromClass(GreetingTask.class));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertFalse(outcome.failed());
@@ -381,7 +381,7 @@ public class JobServiceTest extends AbstractGrindTest {
             .taskStoreState(Tasks.fromCallable("bare list", () -> List.of(new Widget("a"), new Widget("b"))), "widgets")
             .task(Tasks.fromCallable("never runs", () -> "unreachable"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertTrue(outcome.failed());
@@ -389,9 +389,9 @@ public class JobServiceTest extends AbstractGrindTest {
                    "the failure must point authors at the wrapper pattern");
 
         TaskRecord bad = recordFor(execution.getJobRunId(), "bare list");
-        assertEquals(ExecutionStatus.FAILED, bad.getStatus());
+        assertEquals(RunStatus.FAILED, bad.getStatus());
         // discovered at run start, never reached
-        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
+        assertEquals(RunStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
     }
 
     @Test
@@ -416,21 +416,21 @@ public class JobServiceTest extends AbstractGrindTest {
             .taskStoreState(Tasks.fromCallable("bad state", Cyclic::new), "bad")
             .task(Tasks.fromCallable("never runs", () -> "unreachable"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         RunOutcome outcome = await(execution);
 
         assertTrue(outcome.failed());
         assertTrue(outcome.error().getMessage().contains("not serializable"));
 
         JobRun run = records.savedJobRuns.get(execution.getJobRunId());
-        assertEquals(ExecutionStatus.FAILED, run.getStatus());
+        assertEquals(RunStatus.FAILED, run.getStatus());
         assertTrue(run.getError().contains("taskStoreState"));
 
         TaskRecord bad = recordFor(execution.getJobRunId(), "bad state");
-        assertEquals(ExecutionStatus.FAILED, bad.getStatus());
+        assertEquals(RunStatus.FAILED, bad.getStatus());
         assertTrue(bad.getError().contains("not serializable"));
         // discovered at run start, never reached
-        assertEquals(ExecutionStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
+        assertEquals(RunStatus.PENDING, recordFor(execution.getJobRunId(), "never runs").getStatus());
     }
 
 }

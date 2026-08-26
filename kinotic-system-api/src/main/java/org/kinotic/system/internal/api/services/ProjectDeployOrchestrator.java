@@ -18,7 +18,7 @@ import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.services.github.GitHubProjectEventService;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.system.api.services.JobService;
 import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
 import org.kinotic.system.internal.api.model.deployment.ProjectDeployJob;
@@ -160,7 +160,7 @@ public class ProjectDeployOrchestrator {
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
         ProjectDeployJob job = jobFactory.createJob(project, existing, commitSha);
-        JobExecution execution = jobService.execute(job.getDefinition(),
+        JobRunHandle execution = jobService.execute(job.getDefinition(),
                                                     JobOwner.ofApplication(project.getOrganizationId(),
                                                                            project.getApplicationId()));
 

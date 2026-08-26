@@ -1,17 +1,17 @@
-import { ExecutionStatus } from '@kinotic-ai/management-api'
+import { RunStatus } from '@kinotic-ai/management-api'
 
 /**
- * Maps an ExecutionStatus to the PrimeVue Tag severity it renders with.
+ * Maps an RunStatus to the PrimeVue Tag severity it renders with.
  */
-export function executionStatusSeverity(status: ExecutionStatus): string {
+export function runStatusSeverity(status: RunStatus): string {
   let ret: string
-  if (status === ExecutionStatus.COMPLETED) {
+  if (status === RunStatus.COMPLETED) {
     ret = 'success'
-  } else if (status === ExecutionStatus.RUNNING) {
+  } else if (status === RunStatus.RUNNING) {
     ret = 'info'
-  } else if (status === ExecutionStatus.FAILED) {
+  } else if (status === RunStatus.FAILED) {
     ret = 'danger'
-  } else if (status === ExecutionStatus.CANCELLED) {
+  } else if (status === RunStatus.CANCELLED) {
     ret = 'warn'
   } else {
     ret = 'secondary'

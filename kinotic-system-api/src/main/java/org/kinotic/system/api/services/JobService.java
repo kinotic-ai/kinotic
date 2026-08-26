@@ -3,7 +3,7 @@
 package org.kinotic.system.api.services;
 
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
@@ -39,23 +39,23 @@ public interface JobService extends JobWatchService {
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
      * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
-     * {@link JobExecution#getResults()} is subscribed to.
+     * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution execute(JobDefinition jobDefinition);
+    JobRunHandle execute(JobDefinition jobDefinition);
 
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
      * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
-     * {@link JobExecution#getResults()} is subscribed to.
+     * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
      * @param options the {@link ResultOptions} to use when executing the {@link JobDefinition}
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution execute(JobDefinition jobDefinition, ResultOptions options);
+    JobRunHandle execute(JobDefinition jobDefinition, ResultOptions options);
 
     /**
      * Prepares a recorded execution of the given {@link JobDefinition} on behalf of the given
@@ -63,9 +63,9 @@ public interface JobService extends JobWatchService {
      * itself stays a system-wide template - ownership belongs to this execution
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
      * @param owner the hierarchy this run executes on behalf of, or null for a platform run
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution execute(JobDefinition jobDefinition, JobOwner owner);
+    JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner);
 
     /**
      * Prepares a recorded execution of the given {@link JobDefinition} on behalf of the given
@@ -73,9 +73,9 @@ public interface JobService extends JobWatchService {
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
      * @param owner the hierarchy this run executes on behalf of, or null for a platform run
      * @param options the {@link ResultOptions} to use when executing
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options);
+    JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options);
 
     /**
      * Prepares a recorded execution that resumes a previous run: steps the original run completed
@@ -90,9 +90,9 @@ public interface JobService extends JobWatchService {
      * be unchanged, or replayed steps will not line up with their records
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
      * @param jobDefinition the freshly built definition to execute
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution resume(String jobRunId, JobDefinition jobDefinition);
+    JobRunHandle resume(String jobRunId, JobDefinition jobDefinition);
 
     /**
      * Prepares a recorded execution that resumes a previous run, as {@link #resume(String, JobDefinition)},
@@ -100,8 +100,8 @@ public interface JobService extends JobWatchService {
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
      * @param jobDefinition the freshly built definition to execute
      * @param options the {@link ResultOptions} to use when executing
-     * @return the prepared {@link JobExecution}
+     * @return the prepared {@link JobRunHandle}
      */
-    JobExecution resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
+    JobRunHandle resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
 
 }

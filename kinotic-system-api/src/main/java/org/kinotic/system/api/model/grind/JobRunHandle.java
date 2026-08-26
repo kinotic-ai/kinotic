@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link JobRun} record with the {@link Result} stream
  * that performs the run.
  */
-public class JobExecution {
+public class JobRunHandle {
 
     /**
      * The id of the {@link JobRun} recorded for this execution.
@@ -26,7 +26,7 @@ public class JobExecution {
      * The stream performing the run. The job executes exactly once no matter how many
      * subscribers attach: execution starts when the first subscriber subscribes, and every
      * subscriber receives the full result history from the beginning, buffered in memory
-     * for the lifetime of this {@link JobExecution}.
+     * for the lifetime of this {@link JobRunHandle}.
      * A subscriber cancelling only detaches that subscriber - use {@link #cancel()} to abort the run.
      */
     @Getter
@@ -34,7 +34,7 @@ public class JobExecution {
 
     private final AtomicReference<Disposable> connection = new AtomicReference<>();
 
-    public JobExecution(String jobRunId, Flux<Result<?>> upstream) {
+    public JobRunHandle(String jobRunId, Flux<Result<?>> upstream) {
         this.jobRunId = jobRunId;
         // replay() rather than publish(): a subscriber arriving after completion would otherwise
         // wait forever for a connection that autoConnect has already spent
@@ -43,7 +43,7 @@ public class JobExecution {
 
     /**
      * Cancels the run if it has started, recording it as
-     * {@link org.kinotic.management.api.model.grind.ExecutionStatus#CANCELLED}.
+     * {@link org.kinotic.management.api.model.grind.RunStatus#CANCELLED}.
      * Does nothing if the run has not started or has already finished.
      */
     public void cancel() {

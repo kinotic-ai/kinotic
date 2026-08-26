@@ -1,11 +1,11 @@
 package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.system.api.model.grind.JobScope;
 import org.kinotic.system.api.model.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,10 +28,10 @@ public class JobResumeTest extends AbstractGrindTest {
      * Runs the definition built by {@code definitionBuilder} to its (expected) failure,
      * then flips the failure off and resumes.
      */
-    private JobExecution failThenResume(Supplier<JobDefinition> definitionBuilder,
+    private JobRunHandle failThenResume(Supplier<JobDefinition> definitionBuilder,
                                         AtomicBoolean shouldFail) throws Exception {
         shouldFail.set(true);
-        JobExecution firstRun = jobService.execute(definitionBuilder.get());
+        JobRunHandle firstRun = jobService.execute(definitionBuilder.get());
         RunOutcome firstOutcome = await(firstRun);
         assertTrue(firstOutcome.failed(), "first run should fail");
 
@@ -45,7 +45,7 @@ public class JobResumeTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("round trip").name("round-trip")
             .taskStoreState(Tasks.fromCallable("store widget", () -> original), "widget");
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         await(execution);
 
         TaskRecord record = records.forRun(execution.getJobRunId()).stream()
@@ -86,7 +86,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 }
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -116,7 +116,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 public String call() { return widget.label; }
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -124,7 +124,7 @@ public class JobResumeTest extends AbstractGrindTest {
         assertTrue(outcome.values().contains("checkpointed"), "downstream must be wired from the replayed value");
 
         JobRun resumedRun = records.savedJobRuns.get(resumed.getJobRunId());
-        assertEquals(ExecutionStatus.COMPLETED, resumedRun.getStatus());
+        assertEquals(RunStatus.COMPLETED, resumedRun.getStatus());
         assertNotNull(resumedRun.getResumedFrom(), "resumed run must reference the original");
         assertEquals(2, records.savedJobRuns.size());
     }
@@ -157,7 +157,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 public String call() { return thing; }
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -180,7 +180,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 return "ok";
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -201,7 +201,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 return "ok";
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -236,7 +236,7 @@ public class JobResumeTest extends AbstractGrindTest {
                 public String call() { return innerWidget.label; }
             }));
 
-        JobExecution resumed = failThenResume(builder, shouldFail);
+        JobRunHandle resumed = failThenResume(builder, shouldFail);
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -256,13 +256,13 @@ public class JobResumeTest extends AbstractGrindTest {
                 return "ok";
             }));
 
-        JobExecution firstRun = jobService.execute(builder.get(),
+        JobRunHandle firstRun = jobService.execute(builder.get(),
                                                    org.kinotic.management.api.model.grind.JobOwner.ofApplication("org-1", "app-1"));
         await(firstRun);
 
         shouldFail.set(false);
         // resume takes no owner - it comes from the original run
-        JobExecution resumed = jobService.resume(firstRun.getJobRunId(), builder.get());
+        JobRunHandle resumed = jobService.resume(firstRun.getJobRunId(), builder.get());
         RunOutcome outcome = await(resumed);
 
         assertFalse(outcome.failed());
@@ -277,7 +277,7 @@ public class JobResumeTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("done").name("done-job")
             .task(Tasks.fromCallable("fine", () -> "ok"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         await(execution);
 
         RunOutcome outcome = await(jobService.resume(execution.getJobRunId(),
@@ -293,7 +293,7 @@ public class JobResumeTest extends AbstractGrindTest {
         JobDefinition def = JobDefinition.create("original").name("original-job")
             .task(Tasks.fromRunnable("boom", () -> { throw new IllegalStateException("boom"); }));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         await(execution);
 
         RunOutcome outcome = await(jobService.resume(execution.getJobRunId(),

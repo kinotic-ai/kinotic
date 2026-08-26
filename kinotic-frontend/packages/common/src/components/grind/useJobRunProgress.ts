@@ -1,7 +1,7 @@
 import { onScopeDispose, reactive, ref, type Ref } from 'vue'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import {
-  ExecutionStatus,
+  RunStatus,
   ResultType,
   stepPathOf,
   type JobRun,
@@ -41,7 +41,7 @@ export function useJobRunProgress(jobRunId: string) {
         stepPath,
         sequence: Number(stepPath.slice(separator + 1)),
         description: '',
-        status: ExecutionStatus.PENDING,
+        status: RunStatus.PENDING,
         dynamicSteps: false,
         error: null,
         started: null,
@@ -70,7 +70,7 @@ export function useJobRunProgress(jobRunId: string) {
     node.error = record.error
     node.started = record.started
     node.finished = record.finished
-    if (record.status !== ExecutionStatus.RUNNING) {
+    if (record.status !== RunStatus.RUNNING) {
       node.progress = null
     }
   }
@@ -81,21 +81,21 @@ export function useJobRunProgress(jobRunId: string) {
       case ResultType.STEP_STARTED: {
         const node = nodeAt(stepPath)
         node.description = result.value as string
-        node.status = ExecutionStatus.RUNNING
+        node.status = RunStatus.RUNNING
         // records carry the durable timestamps; the local clock only bridges until the next record load
         node.started = node.started ?? Date.now()
         break
       }
       case ResultType.STEP_COMPLETED: {
         const node = nodeAt(stepPath)
-        node.status = ExecutionStatus.COMPLETED
+        node.status = RunStatus.COMPLETED
         node.finished = node.finished ?? Date.now()
         node.progress = null
         break
       }
       case ResultType.STEP_FAILED: {
         const node = nodeAt(stepPath)
-        node.status = ExecutionStatus.FAILED
+        node.status = RunStatus.FAILED
         node.error = String(result.value)
         node.finished = node.finished ?? Date.now()
         break
@@ -159,7 +159,7 @@ export function useJobRunProgress(jobRunId: string) {
     } catch (err) {
       error.value = err instanceof Error ? err.message : String(err)
     }
-    if (run.value?.status === ExecutionStatus.RUNNING && !live.value) {
+    if (run.value?.status === RunStatus.RUNNING && !live.value) {
       scheduleRefresh()
     }
   }
@@ -183,7 +183,7 @@ export function useJobRunProgress(jobRunId: string) {
     try {
       await loadRun()
       await loadRecords()
-      if (run.value?.status === ExecutionStatus.RUNNING) {
+      if (run.value?.status === RunStatus.RUNNING) {
         startWatching()
       }
     } catch (err) {

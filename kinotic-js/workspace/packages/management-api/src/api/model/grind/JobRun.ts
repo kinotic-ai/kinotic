@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
+import { RunStatus } from '@/api/model/grind/RunStatus'
 
 /**
  * The persistent record of one execution of a grind job definition. The individual steps
@@ -48,7 +48,7 @@ export class JobRun implements Identifiable<string> {
     /**
      * Current status of the run.
      */
-    public status: ExecutionStatus = ExecutionStatus.RUNNING
+    public status: RunStatus = RunStatus.RUNNING
 
     /**
      * The failure message when status is FAILED.

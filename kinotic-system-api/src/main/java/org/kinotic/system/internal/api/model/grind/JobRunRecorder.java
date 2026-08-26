@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.model.grind;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
@@ -75,7 +75,7 @@ public class JobRunRecorder {
     }
 
     public void runStarted() {
-        jobRun.setStatus(ExecutionStatus.RUNNING)
+        jobRun.setStatus(RunStatus.RUNNING)
               .setStarted(new Date());
         enqueue(() -> jobRecordService.saveJobRun(jobRun));
         // Discoverable structure at start is the definition's static step tree; dynamic
@@ -124,7 +124,7 @@ public class JobRunRecorder {
                                       .setJobRunId(jobRunId)
                                       .setStepPath(stepPath)
                                       .setDescription(step.getDescription())
-                                      .setStatus(ExecutionStatus.PENDING));
+                                      .setStatus(RunStatus.PENDING));
         if(step instanceof JobDefinitionStep definitionStep){
             for(Step child : definitionStep.getSteps()){
                 collectDiscovered(jobRunId, stepPath, child, collected);
@@ -140,22 +140,22 @@ public class JobRunRecorder {
     }
 
     public void runCompleted() {
-        jobRun.setStatus(ExecutionStatus.COMPLETED)
+        jobRun.setStatus(RunStatus.COMPLETED)
               .setFinished(new Date());
         enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     public void runFailed(Throwable throwable) {
-        finishRemainingRecords(ExecutionStatus.CANCELLED);
-        jobRun.setStatus(ExecutionStatus.FAILED)
+        finishRemainingRecords(RunStatus.CANCELLED);
+        jobRun.setStatus(RunStatus.FAILED)
               .setError(throwable.toString())
               .setFinished(new Date());
         enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
 
     public void runCancelled() {
-        finishRemainingRecords(ExecutionStatus.CANCELLED);
-        jobRun.setStatus(ExecutionStatus.CANCELLED)
+        finishRemainingRecords(RunStatus.CANCELLED);
+        jobRun.setStatus(RunStatus.CANCELLED)
               .setFinished(new Date());
         enqueue(() -> jobRecordService.saveJobRun(jobRun));
     }
@@ -168,7 +168,7 @@ public class JobRunRecorder {
                                                                                   .setJobRunId(jobRunId)
                                                                                   .setStepPath(path));
         record.setDescription(description)
-              .setStatus(ExecutionStatus.RUNNING)
+              .setStatus(RunStatus.RUNNING)
               .setStarted(new Date());
         enqueue(() -> jobRecordService.saveTaskRecord(record));
     }
@@ -178,7 +178,7 @@ public class JobRunRecorder {
         if(record == null){
             log.warn("STEP_COMPLETED for unknown step path {} in run {}", stepPath, jobRunId);
         }else{
-            record.setStatus(ExecutionStatus.COMPLETED)
+            record.setStatus(RunStatus.COMPLETED)
                   .setFinished(new Date())
                   .setStoreType(completion.getStoreType())
                   .setResultName(completion.getStoredName());
@@ -225,7 +225,7 @@ public class JobRunRecorder {
      * as the run's error signal.
      */
     private void failStep(TaskRecord record, String message, Exception cause) {
-        record.setStatus(ExecutionStatus.FAILED)
+        record.setStatus(RunStatus.FAILED)
               .setError(message)
               .setFinished(new Date());
         enqueue(() -> jobRecordService.saveTaskRecord(record));
@@ -237,7 +237,7 @@ public class JobRunRecorder {
         if(record == null){
             log.warn("STEP_FAILED for unknown step path {} in run {}", stepPath, jobRunId);
         }else{
-            record.setStatus(ExecutionStatus.FAILED)
+            record.setStatus(RunStatus.FAILED)
                   .setError(throwable.toString())
                   .setFinished(new Date());
             enqueue(() -> jobRecordService.saveTaskRecord(record));
@@ -248,9 +248,9 @@ public class JobRunRecorder {
      * Marks every record still RUNNING with the given terminal status. Used when the run
      * terminates abnormally and in-flight steps will never report completion.
      */
-    private void finishRemainingRecords(ExecutionStatus status) {
+    private void finishRemainingRecords(RunStatus status) {
         for(TaskRecord record : recordsByPath.values()){
-            if(record.getStatus() == ExecutionStatus.RUNNING){
+            if(record.getStatus() == RunStatus.RUNNING){
                 record.setStatus(status)
                       .setFinished(new Date());
                 enqueue(() -> jobRecordService.saveTaskRecord(record));

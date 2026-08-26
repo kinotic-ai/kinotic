@@ -1,4 +1,4 @@
-import type { ExecutionStatus, Progress } from '@kinotic-ai/management-api'
+import type { RunStatus, Progress } from '@kinotic-ai/management-api'
 
 /**
  * One discovered step of a job run, positioned by its stepPath, with the children discovered
@@ -10,7 +10,7 @@ export interface JobStepNode {
   /** The node's position within its parent: the last stepPath segment, 0 for the run's root. */
   sequence: number
   description: string
-  status: ExecutionStatus
+  status: RunStatus
   /** True once the step's task revealed dynamically generated child steps. */
   dynamicSteps: boolean
   error: string | null

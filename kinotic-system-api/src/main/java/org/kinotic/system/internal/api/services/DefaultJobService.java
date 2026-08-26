@@ -7,13 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRecordService;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.system.api.services.JobService;
 import org.kinotic.management.api.model.grind.Result;
@@ -57,7 +57,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final JobRecordService jobRecordService;
     private final ObjectMapper objectMapper;
 
-    private final Map<String, JobExecution> activeExecutions = new ConcurrentHashMap<>();
+    private final Map<String, JobRunHandle> activeExecutions = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
@@ -76,22 +76,22 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     @Override
-    public JobExecution execute(JobDefinition jobDefinition) {
+    public JobRunHandle execute(JobDefinition jobDefinition) {
         return execute(jobDefinition, null, new ResultOptions(DiagnosticLevel.NONE, false));
     }
 
     @Override
-    public JobExecution execute(JobDefinition jobDefinition, ResultOptions options) {
+    public JobRunHandle execute(JobDefinition jobDefinition, ResultOptions options) {
         return execute(jobDefinition, null, options);
     }
 
     @Override
-    public JobExecution execute(JobDefinition jobDefinition, JobOwner owner) {
+    public JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner) {
         return execute(jobDefinition, owner, new ResultOptions(DiagnosticLevel.NONE, false));
     }
 
     @Override
-    public JobExecution execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options) {
+    public JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options) {
         Validate.notNull(jobDefinition, "JobDefinition Must not be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to execute");
         Validate.notNull(options, "Options Must not be null");
@@ -107,12 +107,12 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     @Override
-    public JobExecution resume(String jobRunId, JobDefinition jobDefinition) {
+    public JobRunHandle resume(String jobRunId, JobDefinition jobDefinition) {
         return resume(jobRunId, jobDefinition, new ResultOptions(DiagnosticLevel.NONE, false));
     }
 
     @Override
-    public JobExecution resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options) {
+    public JobRunHandle resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options) {
         Validate.notBlank(jobRunId, "jobRunId Must not be blank");
         Validate.notNull(jobDefinition, "JobDefinition Must not be null");
         Validate.notBlank(jobDefinition.getName(), "JobDefinition name must be set to resume");
@@ -136,8 +136,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                      }else if(originalRun.getVersion() != null && !originalRun.getVersion().equals(jobDefinition.getVersion())){
                                          ret = Flux.error(new IllegalArgumentException("JobDefinition version " + jobDefinition.getVersion()
                                                  + " does not match the version " + originalRun.getVersion() + " recorded for run " + jobRunId));
-                                     }else if(originalRun.getStatus() != ExecutionStatus.FAILED
-                                             && originalRun.getStatus() != ExecutionStatus.CANCELLED){
+                                     }else if(originalRun.getStatus() != RunStatus.FAILED
+                                             && originalRun.getStatus() != RunStatus.CANCELLED){
                                          ret = Flux.error(new IllegalStateException("Run " + jobRunId + " is " + originalRun.getStatus()
                                                  + ", only FAILED or CANCELLED runs can be resumed"));
                                      }else{
@@ -171,9 +171,9 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         });
     }
 
-    private JobExecution executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
+    private JobRunHandle executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
         String jobRunId = recorder.getJobRunId();
-        AtomicReference<JobExecution> executionRef = new AtomicReference<>();
+        AtomicReference<JobRunHandle> executionRef = new AtomicReference<>();
         Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> {
                                               // Registered on first subscription rather than at creation, so a
                                               // watcher can only attach to a run that has started and can never
@@ -187,8 +187,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                           .doOnComplete(recorder::runCompleted)
                                           .doFinally(signalType -> activeExecutions.remove(jobRunId));
 
-        // JobExecution multicasts, so these hooks see one subscription no matter how many subscribers attach
-        JobExecution execution = new JobExecution(jobRunId, recorded);
+        // JobRunHandle multicasts, so these hooks see one subscription no matter how many subscribers attach
+        JobRunHandle execution = new JobRunHandle(jobRunId, recorded);
         executionRef.set(execution);
         return execution;
     }
@@ -196,7 +196,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     @Override
     public Flux<Result<?>> watchExecution(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId Must not be blank");
-        JobExecution execution = activeExecutions.get(jobRunId);
+        JobRunHandle execution = activeExecutions.get(jobRunId);
         Flux<Result<?>> ret;
         if(execution == null){
             ret = Flux.empty();
@@ -249,7 +249,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         return jobRecordService.findTaskRecordsForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
                                 .compose(recordPage -> {
                                     for(TaskRecord record : recordPage.getContent()){
-                                        if(record.getStatus() == ExecutionStatus.COMPLETED){
+                                        if(record.getStatus() == RunStatus.COMPLETED){
                                             entries.put(record.getStepPath(), toReplayEntry(record));
                                         }
                                     }

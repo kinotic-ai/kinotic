@@ -7,7 +7,7 @@
       <div class="flex w-28 shrink-0 flex-col items-center gap-2 px-1">
         <div class="relative flex h-9 w-9 items-center justify-center rounded-full border-2"
              :class="nodeClass(step)">
-          <span v-if="step.status === ExecutionStatus.RUNNING"
+          <span v-if="step.status === RunStatus.RUNNING"
                 class="absolute inset-0 animate-ping rounded-full border-2 border-sky-400 opacity-60" />
           <i :class="nodeIcon(step)" class="text-sm" />
         </div>
@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import { ExecutionStatus } from '@kinotic-ai/management-api'
+import { RunStatus } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 
 /**
@@ -32,13 +32,13 @@ defineProps<{
 
 function nodeClass(step: JobStepNode): string {
   let ret: string
-  if (step.status === ExecutionStatus.COMPLETED) {
+  if (step.status === RunStatus.COMPLETED) {
     ret = 'border-emerald-500 text-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.45)]'
-  } else if (step.status === ExecutionStatus.RUNNING) {
+  } else if (step.status === RunStatus.RUNNING) {
     ret = 'border-sky-400 text-sky-400 shadow-[0_0_12px_rgba(56,189,248,0.45)]'
-  } else if (step.status === ExecutionStatus.FAILED) {
+  } else if (step.status === RunStatus.FAILED) {
     ret = 'border-red-500 text-red-400 shadow-[0_0_14px_rgba(239,68,68,0.55)]'
-  } else if (step.status === ExecutionStatus.CANCELLED) {
+  } else if (step.status === RunStatus.CANCELLED) {
     ret = 'border-amber-500 text-amber-400'
   } else {
     ret = 'border-surface text-muted-color'
@@ -48,13 +48,13 @@ function nodeClass(step: JobStepNode): string {
 
 function nodeIcon(step: JobStepNode): string {
   let ret: string
-  if (step.status === ExecutionStatus.COMPLETED) {
+  if (step.status === RunStatus.COMPLETED) {
     ret = 'pi pi-check'
-  } else if (step.status === ExecutionStatus.RUNNING) {
+  } else if (step.status === RunStatus.RUNNING) {
     ret = 'pi pi-spin pi-spinner'
-  } else if (step.status === ExecutionStatus.FAILED) {
+  } else if (step.status === RunStatus.FAILED) {
     ret = 'pi pi-times'
-  } else if (step.status === ExecutionStatus.CANCELLED) {
+  } else if (step.status === RunStatus.CANCELLED) {
     ret = 'pi pi-ban'
   } else {
     ret = 'pi pi-clock'
@@ -64,11 +64,11 @@ function nodeIcon(step: JobStepNode): string {
 
 function connectorClass(previous: JobStepNode): string {
   let ret: string
-  if (previous.status === ExecutionStatus.COMPLETED) {
+  if (previous.status === RunStatus.COMPLETED) {
     ret = 'bg-emerald-500/60'
-  } else if (previous.status === ExecutionStatus.FAILED) {
+  } else if (previous.status === RunStatus.FAILED) {
     ret = 'bg-red-500/60'
-  } else if (previous.status === ExecutionStatus.RUNNING) {
+  } else if (previous.status === RunStatus.RUNNING) {
     ret = 'bg-sky-400/40'
   } else {
     ret = 'bg-[var(--p-content-border-color)]'

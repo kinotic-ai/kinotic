@@ -37,7 +37,7 @@ export * from '@/api/model/insights/InsightRequest'
 
 export * from '@/api/model/grind/Diagnostic'
 export * from '@/api/model/grind/DiagnosticLevel'
-export * from '@/api/model/grind/ExecutionStatus'
+export * from '@/api/model/grind/RunStatus'
 export * from '@/api/model/grind/JobRun'
 export * from '@/api/model/grind/Progress'
 export * from '@/api/model/grind/Result'

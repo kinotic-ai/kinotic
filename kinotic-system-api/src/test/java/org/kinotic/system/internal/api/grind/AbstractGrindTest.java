@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.ResultType;
 import org.kinotic.system.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Base for grind tests: a real application context for injection, an in-memory record service,
- * and a synchronous await over a {@link JobExecution}.
+ * and a synchronous await over a {@link JobRunHandle}.
  */
 public abstract class AbstractGrindTest {
 
@@ -46,7 +46,7 @@ public abstract class AbstractGrindTest {
     /**
      * Subscribes the execution and blocks until it terminates, collecting VALUE results.
      */
-    protected RunOutcome await(JobExecution execution) throws InterruptedException {
+    protected RunOutcome await(JobRunHandle execution) throws InterruptedException {
         List<Object> values = Collections.synchronizedList(new ArrayList<>());
         AtomicReference<Throwable> error = new AtomicReference<>();
         CountDownLatch done = new CountDownLatch(1);

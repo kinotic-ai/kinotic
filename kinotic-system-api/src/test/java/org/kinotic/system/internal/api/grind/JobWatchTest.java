@@ -2,9 +2,9 @@ package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.Progress;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
@@ -33,7 +33,7 @@ public class JobWatchTest extends AbstractGrindTest {
      * Subscribes the execution on a background thread so a gate task can block without
      * deadlocking the test thread.
      */
-    private void startInBackground(JobExecution execution) {
+    private void startInBackground(JobRunHandle execution) {
         execution.getResults()
                  .subscribeOn(Schedulers.boundedElastic())
                  .subscribe(result -> { }, throwable -> { });
@@ -57,7 +57,7 @@ public class JobWatchTest extends AbstractGrindTest {
             }))
             .task(Tasks.fromCallable("after gate", () -> "done"));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         startInBackground(execution);
         assertTrue(gateReached.await(5, TimeUnit.SECONDS), "gate task did not start");
 
@@ -93,7 +93,7 @@ public class JobWatchTest extends AbstractGrindTest {
                 JobDefinition.create("generated")
                     .task(Tasks.fromCallable("inner", () -> "inner value"))));
 
-        JobExecution execution = jobService.execute(def, new ResultOptions(DiagnosticLevel.NONE, true));
+        JobRunHandle execution = jobService.execute(def, new ResultOptions(DiagnosticLevel.NONE, true));
         startInBackground(execution);
         assertTrue(gateReached.await(5, TimeUnit.SECONDS), "gate task did not start");
 
@@ -122,7 +122,7 @@ public class JobWatchTest extends AbstractGrindTest {
         List<TaskRecord> discovered = (List<TaskRecord>) discoveries.getFirst().getValue();
         assertEquals(List.of("0/3/1", "0/3/1/1"),
                      discovered.stream().map(TaskRecord::getStepPath).toList());
-        assertTrue(discovered.stream().allMatch(record -> record.getStatus() == ExecutionStatus.PENDING));
+        assertTrue(discovered.stream().allMatch(record -> record.getStatus() == RunStatus.PENDING));
         assertEquals("0/3", discoveries.getFirst().getStepInfo().path());
 
         // progress passes through untouched
@@ -142,7 +142,7 @@ public class JobWatchTest extends AbstractGrindTest {
             }))
             .task(Tasks.fromRunnable("boom", () -> { throw new IllegalStateException("boom"); }));
 
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
         startInBackground(execution);
         assertTrue(gateReached.await(5, TimeUnit.SECONDS), "gate task did not start");
 
@@ -171,7 +171,7 @@ public class JobWatchTest extends AbstractGrindTest {
     public void watchIsEmptyBeforeStartAndAfterCompletion() throws Exception {
         JobDefinition def = JobDefinition.create("unwatched job").name("unwatched-job")
             .task(Tasks.fromCallable("work", () -> "ok"));
-        JobExecution execution = jobService.execute(def);
+        JobRunHandle execution = jobService.execute(def);
 
         // before anything subscribes the run has not started, so there is nothing to watch
         List<Result<?>> results = jobService.watchExecution(execution.getJobRunId())

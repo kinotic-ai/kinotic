@@ -11,7 +11,7 @@
     @on-row-click="row => emit('open', row.id)"
   >
     <template #item.status="{ item }">
-      <Tag :value="item.status" :severity="executionStatusSeverity(item.status)" />
+      <Tag :value="item.status" :severity="runStatusSeverity(item.status)" />
     </template>
 
     <template #item.organizationId="{ item }">
@@ -38,7 +38,7 @@ import { useCrudTablePage } from '../useCrudTablePage'
 import type { CrudHeader } from '../../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
 import DatetimeUtil from '../../util/DatetimeUtil'
-import { executionStatusSeverity } from './jobRunDisplay'
+import { runStatusSeverity } from './jobRunDisplay'
 
 /**
  * The job runs the caller may view, newest knowledge first as the facade returns them.

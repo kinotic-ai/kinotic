@@ -17,9 +17,9 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
-import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.RunStatus;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.system.api.model.grind.JobExecution;
+import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.Result;
@@ -120,8 +120,8 @@ class DefaultJobMonitoringServiceTest {
 
     @Test
     void organizationParticipantMayNotReadAnotherOrganizationsRun() throws Throwable {
-        JobExecution globexRun = executeAndAwait(twoTaskJob("globex deploy"), JobOwner.ofOrganization("globex"));
-        JobExecution platformRun = executeAndAwait(twoTaskJob("platform maintenance"), null);
+        JobRunHandle globexRun = executeAndAwait(twoTaskJob("globex deploy"), JobOwner.ofOrganization("globex"));
+        JobRunHandle platformRun = executeAndAwait(twoTaskJob("platform maintenance"), null);
 
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.findJobRun(globexRun.getJobRunId())));
@@ -140,14 +140,14 @@ class DefaultJobMonitoringServiceTest {
 
     @Test
     void taskRecordsServeTheRunsStepLedger() throws Throwable {
-        JobExecution execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
+        JobRunHandle execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
 
         Page<TaskRecord> page = callAs(ACME_USER, () -> service.findTaskRecords(execution.getJobRunId(),
                                                                                 Pageable.create(0, 50, null)));
 
         // the root job and both tasks, all terminal since the run completed
         assertEquals(3, page.getContent().size());
-        assertTrue(page.getContent().stream().allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
+        assertTrue(page.getContent().stream().allMatch(record -> record.getStatus() == RunStatus.COMPLETED));
     }
 
     @Test
@@ -162,7 +162,7 @@ class DefaultJobMonitoringServiceTest {
             }))
             .task(Tasks.fromCallable("after gate", () -> "done"));
 
-        JobExecution execution = jobService.execute(def, JobOwner.ofOrganization("acme"));
+        JobRunHandle execution = jobService.execute(def, JobOwner.ofOrganization("acme"));
         execution.getResults().subscribeOn(Schedulers.boundedElastic()).subscribe(result -> { }, throwable -> { });
         assertTrue(gateReached.await(5, TimeUnit.SECONDS), "gate task did not start");
 
@@ -197,7 +197,7 @@ class DefaultJobMonitoringServiceTest {
                 return "opened";
             }));
 
-        JobExecution execution = jobService.execute(def, JobOwner.ofOrganization("acme"));
+        JobRunHandle execution = jobService.execute(def, JobOwner.ofOrganization("acme"));
         execution.getResults().subscribeOn(Schedulers.boundedElastic()).subscribe(result -> { }, throwable -> { });
         assertTrue(gateReached.await(5, TimeUnit.SECONDS), "gate task did not start");
         try {
@@ -212,7 +212,7 @@ class DefaultJobMonitoringServiceTest {
 
     @Test
     void watchIsEmptyForAFinishedRun() throws Throwable {
-        JobExecution execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
+        JobRunHandle execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
 
         Flux<Result<?>> watchFlux = onContextAs(ACME_USER, () -> service.watch(execution.getJobRunId()));
         List<Result<?>> results = watchFlux.collectList().toFuture().get(10, TimeUnit.SECONDS);
@@ -226,8 +226,8 @@ class DefaultJobMonitoringServiceTest {
                             .task(Tasks.fromCallable("second", () -> "two"));
     }
 
-    private JobExecution executeAndAwait(JobDefinition def, JobOwner owner) throws InterruptedException {
-        JobExecution execution = owner != null ? jobService.execute(def, owner) : jobService.execute(def);
+    private JobRunHandle executeAndAwait(JobDefinition def, JobOwner owner) throws InterruptedException {
+        JobRunHandle execution = owner != null ? jobService.execute(def, owner) : jobService.execute(def);
         CountDownLatch done = new CountDownLatch(1);
         execution.getResults().subscribe(result -> { }, throwable -> done.countDown(), done::countDown);
         assertTrue(done.await(15, TimeUnit.SECONDS), "job did not terminate within 15s");
