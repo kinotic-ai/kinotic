@@ -10,7 +10,7 @@ import java.util.Date;
 
 /**
  * The persistent record of one execution of a grind {@code JobDefinition}.
- * The individual steps executed during the run are recorded as {@link TaskRecord}s
+ * The individual steps executed during the run are recorded as {@link StepRecord}s
  * referencing this run's id.
  */
 @Getter

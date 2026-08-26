@@ -9,8 +9,8 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.StoreType;
-import org.kinotic.management.api.model.grind.TaskRecord;
-import org.kinotic.management.api.services.JobRecordService;
+import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.services.JobRunService;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobRunHandle;
@@ -54,10 +54,10 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private static final int RECORD_PAGE_SIZE = 500;
 
-    private final JobRecordService jobRecordService;
+    private final JobRunService jobRunService;
     private final ObjectMapper objectMapper;
 
-    private final Map<String, JobRunHandle> activeExecutions = new ConcurrentHashMap<>();
+    private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
@@ -100,7 +100,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                      jobDefinition,
                                                      owner,
                                                      null,
-                                                     jobRecordService,
+                                                     jobRunService,
                                                      objectMapper);
 
         return executeRecorded(recorder, assembleInternal(jobDefinition, options, null));
@@ -122,11 +122,11 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                                      jobDefinition,
                                                      null,
                                                      jobRunId,
-                                                     jobRecordService,
+                                                     jobRunService,
                                                      objectMapper);
 
         Flux<Result<?>> results =
-            Flux.defer(() -> Mono.fromCompletionStage(() -> jobRecordService.findJobRunById(jobRunId).toCompletionStage())
+            Flux.defer(() -> Mono.fromCompletionStage(() -> jobRunService.findById(jobRunId).toCompletionStage())
                                  .switchIfEmpty(Mono.error(() -> new IllegalArgumentException("No JobRun found with id " + jobRunId)))
                                  .flatMapMany(originalRun -> {
                                      Flux<Result<?>> ret;
@@ -173,35 +173,35 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private JobRunHandle executeRecorded(JobRunRecorder recorder, Flux<Result<?>> results) {
         String jobRunId = recorder.getJobRunId();
-        AtomicReference<JobRunHandle> executionRef = new AtomicReference<>();
+        AtomicReference<JobRunHandle> handleRef = new AtomicReference<>();
         Flux<Result<?>> recorded = results.doOnSubscribe(subscription -> {
                                               // Registered on first subscription rather than at creation, so a
                                               // watcher can only attach to a run that has started and can never
                                               // be the subscription that triggers execution
-                                              activeExecutions.put(jobRunId, executionRef.get());
+                                              activeRuns.put(jobRunId, handleRef.get());
                                               recorder.runStarted();
                                           })
                                           .doOnNext(recorder::record)
                                           .doOnError(recorder::runFailed)
                                           .doOnCancel(recorder::runCancelled)
                                           .doOnComplete(recorder::runCompleted)
-                                          .doFinally(signalType -> activeExecutions.remove(jobRunId));
+                                          .doFinally(signalType -> activeRuns.remove(jobRunId));
 
         // JobRunHandle multicasts, so these hooks see one subscription no matter how many subscribers attach
-        JobRunHandle execution = new JobRunHandle(jobRunId, recorded);
-        executionRef.set(execution);
-        return execution;
+        JobRunHandle handle = new JobRunHandle(jobRunId, recorded);
+        handleRef.set(handle);
+        return handle;
     }
 
     @Override
-    public Flux<Result<?>> watchExecution(String jobRunId) {
+    public Flux<Result<?>> watchRun(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId Must not be blank");
-        JobRunHandle execution = activeExecutions.get(jobRunId);
+        JobRunHandle handle = activeRuns.get(jobRunId);
         Flux<Result<?>> ret;
-        if(execution == null){
+        if(handle == null){
             ret = Flux.empty();
         }else{
-            ret = execution.getResults().map(result -> toWireSafeResult(jobRunId, result));
+            ret = handle.getResults().map(result -> toWireSafeResult(jobRunId, result));
         }
         return ret;
     }
@@ -246,9 +246,9 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private Future<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
-        return jobRecordService.findTaskRecordsForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
+        return jobRunService.findSteps(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
                                 .compose(recordPage -> {
-                                    for(TaskRecord record : recordPage.getContent()){
+                                    for(StepRecord record : recordPage.getContent()){
                                         if(record.getStatus() == ExecutionStatus.COMPLETED){
                                             entries.put(record.getStepPath(), toReplayEntry(record));
                                         }
@@ -263,7 +263,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                 });
     }
 
-    private ReplayEntry toReplayEntry(TaskRecord record) {
+    private ReplayEntry toReplayEntry(StepRecord record) {
         Object value = null;
         if(record.getStoreType() == StoreType.STATE && record.getResultValue() != null && record.getResultValueType() != null){
             try {

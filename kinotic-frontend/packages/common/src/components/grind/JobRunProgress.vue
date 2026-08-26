@@ -29,7 +29,7 @@
                    :show-value="false"
                    class="!h-2" />
 
-      <JobTaskTree v-if="root" :root="root" :now="now" />
+      <JobStepTree v-if="root" :root="root" :now="now" />
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading job run…</div>
@@ -43,7 +43,7 @@ import ProgressBar from 'primevue/progressbar'
 import Tag from 'primevue/tag'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import JobStepPipeline from './JobStepPipeline.vue'
-import JobTaskTree from './JobTaskTree.vue'
+import JobStepTree from './JobStepTree.vue'
 import { executionStatusSeverity } from './jobRunDisplay'
 import { useJobRunProgress } from './useJobRunProgress'
 

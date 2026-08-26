@@ -22,7 +22,7 @@ import java.util.HexFormat;
 
 /**
  * {@code POST /api/github/webhook}: HMAC-verifies the delivery, parses the JSON, and
- * hands a {@link GitHubWebhookEvent} to {@link GitHubWebhookEventService}.
+ * hands a {@link GitHubWebhookEvent} to {@link GitHubWebhookProcessor}.
  * <p>
  * The {@link BodyHandler} is route-scoped (not global) with a 25 MiB cap matching
  * GitHub's documented webhook ceiling; oversized payloads are rejected with 413
@@ -50,7 +50,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
 
     private final Vertx vertx;
     private final GithubProperties githubProperties;
-    private final GitHubWebhookEventService webhookEventService;
+    private final GitHubWebhookProcessor webhookProcessor;
 
     public void mountRoutes(Router router) {
         router.post("/api/github/webhook")
@@ -102,7 +102,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
 
             log.trace("Processing webhook {} {} with payload {}", eventType, deliveryId, payload);
 
-            webhookEventService.process(event).onFailure(err ->
+            webhookProcessor.process(event).onFailure(err ->
                     log.warn("Webhook processing failed for {} {}: {}",
                              eventType, deliveryId, err.getMessage()));
         });

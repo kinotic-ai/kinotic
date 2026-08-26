@@ -30,7 +30,7 @@ public enum ResultType {
      */
     DYNAMIC_STEPS,
     /**
-     * The result value is a {@link Throwable} indicating that an error occurred at the given step
+     * The result value is a String describing an error that occurred at the given step
      */
     EXCEPTION,
     /**

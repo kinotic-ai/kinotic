@@ -1,5 +1,5 @@
 /**
- * How a step's result was stored in the job scope, recorded on the TaskRecord and governing
+ * How a step's result was stored in the job scope, recorded on the StepRecord and governing
  * how the step is rehydrated when a run is resumed.
  */
 export enum StoreType {
@@ -13,7 +13,7 @@ export enum StoreType {
      */
     RESULT = 'RESULT',
     /**
-     * The step stored durable state. The value is serialized into the TaskRecord and on
+     * The step stored durable state. The value is serialized into the StepRecord and on
      * resume is replayed from the record instead of re-executing the step.
      */
     STATE = 'STATE'

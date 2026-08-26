@@ -9,7 +9,7 @@ export enum ExecutionStatus {
      */
     PENDING = 'PENDING',
     /**
-     * The execution is currently in progress. A TaskRecord that keeps this status after its
+     * The execution is currently in progress. A StepRecord that keeps this status after its
      * JobRun reached a terminal status indicates the step never finished.
      */
     RUNNING = 'RUNNING',

@@ -45,7 +45,6 @@ dependencies {
 
     testImplementation 'org.mockito:mockito-core'
     // DefaultJobMonitoringServiceTest drives the real grind engine through the JobWatchService seam
-    testImplementation project(':kinotic-system-api')
 }
 
 // GraalJsSpawnRenderer executes the published @kinotic-ai/spawn npm package.

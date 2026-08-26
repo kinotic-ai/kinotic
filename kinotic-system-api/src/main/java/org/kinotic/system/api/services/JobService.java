@@ -9,14 +9,13 @@ import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.management.api.model.grind.ResultType;
 import org.kinotic.system.api.model.grind.Task;
-import org.kinotic.management.api.services.JobWatchService;
 import reactor.core.publisher.Flux;
 
 /**
  *
  * Created by Navid Mitchell on 3/19/20
  */
-public interface JobService extends JobWatchService {
+public interface JobService {
 
     /**
      * Takes the given {@link JobDefinition} and assembles a {@link Flux} that when subscribed to will execute all of the {@link Task}'s within the {@link JobDefinition}
@@ -37,7 +36,7 @@ public interface JobService extends JobWatchService {
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
+     * {@link org.kinotic.management.api.model.grind.StepRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -48,7 +47,7 @@ public interface JobService extends JobWatchService {
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
+     * {@link org.kinotic.management.api.model.grind.StepRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -103,5 +102,21 @@ public interface JobService extends JobWatchService {
      * @return the prepared {@link JobRunHandle}
      */
     JobRunHandle resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
+
+    /**
+     * Opens a view of a run currently executing in this process. The returned {@link Flux} replays
+     * every {@link Result} emitted since the run started, then continues live until the run
+     * terminates. Watching never starts a run - subscribing attaches to the in-flight execution only.
+     * <p>
+     * Result values are reduced to what a monitoring caller can consume remotely:
+     * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
+     * {@link org.kinotic.management.api.model.grind.StepRecord}s in discovery order,
+     * {@link ResultType#STEP_FAILED} carries the failure message, and
+     * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
+     * @param jobRunId the id of the run to watch
+     * @return the run's {@link Result} stream, or an empty {@link Flux} when no run with the
+     *         given id is executing in this process
+     */
+    Flux<Result<?>> watchRun(String jobRunId);
 
 }

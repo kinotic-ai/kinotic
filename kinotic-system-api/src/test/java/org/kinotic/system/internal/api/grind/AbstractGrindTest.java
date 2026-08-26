@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public abstract class AbstractGrindTest {
 
     protected AnnotationConfigApplicationContext appCtx;
-    protected StubJobRecordService records;
+    protected StubJobRunService records;
     protected ObjectMapper objectMapper;
     protected DefaultJobService jobService;
 
@@ -32,7 +32,7 @@ public abstract class AbstractGrindTest {
     void setUpGrind() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
-        records = new StubJobRecordService();
+        records = new StubJobRunService();
         objectMapper = new ObjectMapper();
         jobService = new DefaultJobService(records, objectMapper);
         jobService.setApplicationContext(appCtx);

@@ -372,8 +372,8 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     finished DATE
 );
 
--- Create the task_record table for the per-step history of a job run
-CREATE TABLE IF NOT EXISTS kinotic_task_record (
+-- Create the step_record table for the per-step history of a job run
+CREATE TABLE IF NOT EXISTS kinotic_step_record (
     id KEYWORD,
     jobRunId KEYWORD,
     stepPath KEYWORD,

@@ -7,7 +7,7 @@ import {
   type JobRun,
   type Progress,
   type Result,
-  type TaskRecord
+  type StepRecord
 } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 
@@ -62,7 +62,7 @@ export function useJobRunProgress(jobRunId: string) {
     return node
   }
 
-  function applyRecord(record: TaskRecord): void {
+  function applyRecord(record: StepRecord): void {
     const node = nodeAt(record.stepPath)
     node.description = record.description ?? node.description
     node.status = record.status
@@ -105,7 +105,7 @@ export function useJobRunProgress(jobRunId: string) {
         break
       }
       case ResultType.DYNAMIC_STEPS: {
-        for (const record of result.value as TaskRecord[]) {
+        for (const record of result.value as StepRecord[]) {
           applyRecord(record)
         }
         nodeAt(stepPath).dynamicSteps = true
@@ -122,7 +122,7 @@ export function useJobRunProgress(jobRunId: string) {
 
   async function loadRecords(): Promise<void> {
     for (let pageNumber = 0; pageNumber < MAX_RECORD_PAGES; pageNumber++) {
-      const page = await Kinotic.jobMonitoring.findTaskRecords(jobRunId, Pageable.create(pageNumber, RECORD_PAGE_SIZE))
+      const page = await Kinotic.jobMonitoring.findSteps(jobRunId, Pageable.create(pageNumber, RECORD_PAGE_SIZE))
       const content = page.content ?? []
       content.forEach(applyRecord)
       if (content.length < RECORD_PAGE_SIZE) {

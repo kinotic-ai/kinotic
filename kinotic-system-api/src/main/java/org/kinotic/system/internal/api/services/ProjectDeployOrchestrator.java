@@ -136,11 +136,11 @@ public class ProjectDeployOrchestrator {
             pendingDeploys.put(projectId, new PendingDeploy(organizationId, commitSha));
         } else {
             deployingProjects.add(projectId);
-            deploy(organizationId, projectId, commitSha);
+            deployAndContinue(organizationId, projectId, commitSha);
         }
     }
 
-    private void deploy(String organizationId, String projectId, String commitSha) {
+    private void deployAndContinue(String organizationId, String projectId, String commitSha) {
         log.info("Deploying project {} at commit {}", projectId, commitSha);
         deployProject(organizationId, projectId, commitSha)
                 .onSuccess(unused -> log.info("Deployed project {} at commit {}", projectId, commitSha))
@@ -152,7 +152,7 @@ public class ProjectDeployOrchestrator {
     private synchronized void deployNextOrRelease(String projectId) {
         PendingDeploy next = pendingDeploys.remove(projectId);
         if (next != null) {
-            deploy(next.organizationId(), projectId, next.commitSha());
+            deployAndContinue(next.organizationId(), projectId, next.commitSha());
         } else {
             deployingProjects.remove(projectId);
         }
@@ -160,16 +160,16 @@ public class ProjectDeployOrchestrator {
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
         ProjectDeployJob job = jobFactory.createJob(project, existing, commitSha);
-        JobRunHandle execution = jobService.execute(job.getDefinition(),
+        JobRunHandle handle = jobService.execute(job.getDefinition(),
                                                     JobOwner.ofApplication(project.getOrganizationId(),
                                                                            project.getApplicationId()));
 
         Promise<Void> outcome = Promise.promise();
-        recordDeploying(project, existing, execution.getJobRunId())
+        recordDeploying(project, existing, handle.getJobRunId())
                 .onFailure(outcome::fail)
                 // The job starts when its results are subscribed, so the DEPLOYING record
                 // is in place before any step runs
-                .onSuccess(deployment -> execution.getResults().subscribe(
+                .onSuccess(deployment -> handle.getResults().subscribe(
                         result -> { },
                         error -> recordOutcome(deployment, job, null,
                                                new ProjectDeploymentStatus(ProjectDeploymentStatusType.FAILED,

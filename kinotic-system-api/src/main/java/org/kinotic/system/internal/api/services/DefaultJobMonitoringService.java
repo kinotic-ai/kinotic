@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -14,9 +14,9 @@ import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.Result;
-import org.kinotic.management.api.model.grind.TaskRecord;
-import org.kinotic.management.api.services.JobRecordService;
-import org.kinotic.management.api.services.JobWatchService;
+import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.services.JobRunService;
+import org.kinotic.system.api.services.JobService;
 import org.kinotic.management.api.services.JobMonitoringService;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
 /**
  * Default {@link JobMonitoringService} that authorizes access through the run's recorded
  * owner - an organization or application participant may only view runs its organization
- * owns - and serves reads from {@link JobRecordService} and live
+ * owns - and serves reads from {@link JobRunService} and live
  * views from {@link JobWatchService}.
  */
 @Slf4j
@@ -33,8 +33,8 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class DefaultJobMonitoringService implements JobMonitoringService {
 
-    private final JobRecordService jobRecordService;
-    private final JobWatchService jobWatchService;
+    private final JobRunService jobRunService;
+    private final JobService jobService;
     private final SecurityContext securityContext;
 
     @Override
@@ -44,12 +44,12 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         Future<Page<JobRun>> ret;
         if(scope.organizationId() == null){
             // operators troubleshoot every run, not only the platform-owned ones findAllForOwner would give
-            ret = jobRecordService.findAllJobRuns(pageable);
+            ret = jobRunService.findAll(pageable);
         }else if(scope.applicationId() != null){
-            ret = jobRecordService.findJobRunsForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId()),
+            ret = jobRunService.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId()),
                                                 pageable);
         }else{
-            ret = jobRecordService.findJobRunsForOwner(JobOwner.ofOrganization(scope.organizationId()), pageable);
+            ret = jobRunService.findAllForOwner(JobOwner.ofOrganization(scope.organizationId()), pageable);
         }
         return ret;
     }
@@ -60,9 +60,9 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     }
 
     @Override
-    public Future<Page<TaskRecord>> findTaskRecords(String jobRunId, Pageable pageable) {
+    public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        return authorizedJobRun(jobRunId).compose(run -> jobRecordService.findTaskRecordsForJobRun(run.getId(), pageable));
+        return authorizedJobRun(jobRunId).compose(run -> jobRunService.findSteps(run.getId(), pageable));
     }
 
     @Override
@@ -70,14 +70,14 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
         Future<JobRun> authorized = authorizedJobRun(jobRunId);
         return Mono.fromCompletionStage(authorized.toCompletionStage())
-                   .flatMapMany(run -> jobWatchService.watchExecution(run.getId()));
+                   .flatMapMany(run -> jobService.watchRun(run.getId()));
     }
 
     private Future<JobRun> authorizedJobRun(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         ScopedParticipant participant = currentParticipant();
         String organizationId = participant.getScope().organizationId();
-        return jobRecordService.findJobRunById(jobRunId).map(run -> {
+        return jobRunService.findById(jobRunId).map(run -> {
             if(run == null){
                 throw new IllegalArgumentException("JobRun not found: " + jobRunId);
             }

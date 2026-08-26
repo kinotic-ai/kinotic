@@ -15,7 +15,7 @@ import reactor.core.publisher.Flux;
  * gateway's webhook handler, in-process. {@link GitHubProjectEventService} publishes the event
  * stream to remote subscribers, scoped to the organization they belong to.
  */
-public interface GitHubWebhookEventService {
+public interface GitHubWebhookProcessor {
 
     /**
      * Processes one verified GitHub delivery. Always completes successfully (never

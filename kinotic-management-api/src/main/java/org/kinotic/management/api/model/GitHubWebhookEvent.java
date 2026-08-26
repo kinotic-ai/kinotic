@@ -8,7 +8,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Pre-parsed webhook delivery the gateway hands to {@code GitHubWebhookEventService}
+ * Pre-parsed webhook delivery the gateway hands to {@code GitHubWebhookProcessor}
  * after HMAC verification. {@code installationId} and {@code repoFullName} are pulled
  * out for fast lookup; the full payload is preserved so the dispatcher can surface
  * the relevant fields per event type.

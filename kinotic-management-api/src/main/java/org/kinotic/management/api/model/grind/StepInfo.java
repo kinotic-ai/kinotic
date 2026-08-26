@@ -42,7 +42,7 @@ public class StepInfo {
 
     /**
      * The {@code /} separated sequence path from the run's root down to the step that created
-     * this info, matching the {@code stepPath} recorded on a {@code TaskRecord}.
+     * this info, matching the {@code stepPath} recorded on a {@code StepRecord}.
      * @return the step path, complete once the {@link Result} carrying this info has been
      *         delivered to a subscriber of the run
      */

@@ -25,7 +25,7 @@ public interface Result<T> {
      * For {@link ResultType#NOOP} the value will be null
      * For {@link ResultType#DIAGNOSTIC} the value will be a simple message describing something that happened
      * For {@link ResultType#PROGRESS} the value will be a {@link Progress} object
-     * For {@link ResultType#EXCEPTION} the value will be a {@link Throwable} object
+     * For {@link ResultType#EXCEPTION} the value will be a String describing the error
      * For {@link ResultType#STEP_STARTED} the value will be the step description
      * For {@link ResultType#STEP_COMPLETED} the value will be a {@link StepCompletion} object
      * For {@link ResultType#STEP_FAILED} the value will be a {@link Throwable} object

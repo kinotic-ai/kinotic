@@ -21,7 +21,7 @@ import reactor.core.publisher.Flux;
 @RequiredArgsConstructor
 public class DefaultGitHubProjectEventService implements GitHubProjectEventService {
 
-    private final GitHubWebhookEventService webhookEventService;
+    private final GitHubWebhookProcessor webhookProcessor;
     private final SecurityContext securityContext;
 
     @Override
@@ -31,10 +31,10 @@ public class DefaultGitHubProjectEventService implements GitHubProjectEventServi
         Participant participant = securityContext.currentParticipant();
         Flux<GitHubProjectEvent> ret;
         if (participant instanceof SystemParticipant) {
-            ret = webhookEventService.events();
+            ret = webhookProcessor.events();
         } else if (participant instanceof OrganizationParticipant organizationParticipant) {
             String organizationId = organizationParticipant.getOrganizationId();
-            ret = webhookEventService.events()
+            ret = webhookProcessor.events()
                                      .filter(event -> organizationId.equals(event.getOrganizationId()));
         } else {
             // Name the participant server-side; surface only a generic message to the caller

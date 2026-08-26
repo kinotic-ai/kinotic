@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;
@@ -24,10 +24,9 @@ import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.management.api.model.grind.ResultType;
-import org.kinotic.management.api.model.grind.TaskRecord;
+import org.kinotic.management.api.model.grind.StepRecord;
 import org.kinotic.system.api.model.grind.Tasks;
-import org.kinotic.management.api.services.JobRecordService;
-import org.kinotic.system.internal.api.services.DefaultJobService;
+import org.kinotic.management.api.services.JobRunService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
@@ -63,7 +62,7 @@ class DefaultJobMonitoringServiceTest {
     private static Vertx vertx;
 
     private AnnotationConfigApplicationContext appCtx;
-    private InMemoryJobRecordService records;
+    private InMemoryJobRunService records;
     private DefaultJobService jobService;
     private DefaultJobMonitoringService service;
 
@@ -84,7 +83,7 @@ class DefaultJobMonitoringServiceTest {
     void setupServices() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
-        records = new InMemoryJobRecordService();
+        records = new InMemoryJobRunService();
         jobService = new DefaultJobService(records, new ObjectMapper());
         jobService.setApplicationContext(appCtx);
         service = new DefaultJobMonitoringService(records, jobService, securityContext);
@@ -128,7 +127,7 @@ class DefaultJobMonitoringServiceTest {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.findJobRun(platformRun.getJobRunId())));
         assertInstanceOf(AuthorizationException.class,
-                         failureOf(ACME_USER, () -> service.findTaskRecords(globexRun.getJobRunId(),
+                         failureOf(ACME_USER, () -> service.findSteps(globexRun.getJobRunId(),
                                                                             Pageable.create(0, 50, null))));
     }
 
@@ -142,7 +141,7 @@ class DefaultJobMonitoringServiceTest {
     void taskRecordsServeTheRunsStepLedger() throws Throwable {
         JobRunHandle execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
 
-        Page<TaskRecord> page = callAs(ACME_USER, () -> service.findTaskRecords(execution.getJobRunId(),
+        Page<StepRecord> page = callAs(ACME_USER, () -> service.findSteps(execution.getJobRunId(),
                                                                                 Pageable.create(0, 50, null)));
 
         // the root job and both tasks, all terminal since the run completed
@@ -293,23 +292,23 @@ class DefaultJobMonitoringServiceTest {
     }
 
     /**
-     * In-memory stand-in for the Elasticsearch backed {@link JobRecordService}. findJobRunById
+     * In-memory stand-in for the Elasticsearch backed {@link JobRunService}. findById
      * completes on another thread like the real service, so any SecurityContext read after
      * that hop loses the Vert.x context and fails.
      */
-    private static class InMemoryJobRecordService implements JobRecordService {
+    private static class InMemoryJobRunService implements JobRunService {
 
         final Map<String, JobRun> savedJobRuns = new LinkedHashMap<>();
-        final Map<String, TaskRecord> savedTaskRecords = new LinkedHashMap<>();
+        final Map<String, StepRecord> savedTaskRecords = new LinkedHashMap<>();
 
         @Override
-        public Future<JobRun> saveJobRun(JobRun jobRun) {
+        public Future<JobRun> save(JobRun jobRun) {
             savedJobRuns.put(jobRun.getId(), jobRun);
             return Future.succeededFuture(jobRun);
         }
 
         @Override
-        public Future<JobRun> findJobRunById(String jobRunId) {
+        public Future<JobRun> findById(String jobRunId) {
             // Completes on another thread like the real ES-backed service, so any
             // SecurityContext read after this hop loses the Vert.x context and fails
             Promise<JobRun> promise = Promise.promise();
@@ -318,13 +317,13 @@ class DefaultJobMonitoringServiceTest {
         }
 
         @Override
-        public Future<Page<JobRun>> findAllJobRuns(Pageable pageable) {
+        public Future<Page<JobRun>> findAll(Pageable pageable) {
             List<JobRun> all = List.copyOf(savedJobRuns.values());
             return Future.succeededFuture(new Page<>(all, (long) all.size()));
         }
 
         @Override
-        public Future<Page<JobRun>> findJobRunsForOwner(JobOwner owner, Pageable pageable) {
+        public Future<Page<JobRun>> findAllForOwner(JobOwner owner, Pageable pageable) {
             List<JobRun> matching = savedJobRuns.values().stream()
                                                 .filter(run -> matchesOwner(owner, run))
                                                 .toList();
@@ -344,14 +343,14 @@ class DefaultJobMonitoringServiceTest {
         }
 
         @Override
-        public Future<TaskRecord> saveTaskRecord(TaskRecord taskRecord) {
-            savedTaskRecords.put(taskRecord.getId(), taskRecord);
-            return Future.succeededFuture(taskRecord);
+        public Future<StepRecord> saveStep(StepRecord stepRecord) {
+            savedTaskRecords.put(stepRecord.getId(), stepRecord);
+            return Future.succeededFuture(stepRecord);
         }
 
         @Override
-        public Future<Page<TaskRecord>> findTaskRecordsForJobRun(String jobRunId, Pageable pageable) {
-            List<TaskRecord> matching = savedTaskRecords.values().stream()
+        public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
+            List<StepRecord> matching = savedTaskRecords.values().stream()
                                                         .filter(record -> jobRunId.equals(record.getJobRunId()))
                                                         .toList();
             int pageNumber = ((OffsetPageable) pageable).getPageNumber();

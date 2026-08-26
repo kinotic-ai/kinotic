@@ -45,7 +45,7 @@ export * from '@/api/model/grind/ResultType'
 export * from '@/api/model/grind/StepCompletion'
 export * from '@/api/model/grind/StepInfo'
 export * from '@/api/model/grind/StoreType'
-export * from '@/api/model/grind/TaskRecord'
+export * from '@/api/model/grind/StepRecord'
 
 export * from '@/api/model/log/LogQuery'
 

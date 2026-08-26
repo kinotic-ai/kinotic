@@ -36,7 +36,7 @@ import java.util.List;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class DefaultGitHubWebhookEventService implements GitHubWebhookEventService {
+public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
 
     private final GitHubAppInstallationRepository installationRepository;
     private final ProjectRepository projectRepository;

@@ -10,7 +10,7 @@ import org.kinotic.management.api.model.grind.Result;
 import org.kinotic.system.api.model.grind.ResultOptions;
 import org.kinotic.management.api.model.grind.ResultType;
 import org.kinotic.management.api.model.grind.StepCompletion;
-import org.kinotic.management.api.model.grind.TaskRecord;
+import org.kinotic.management.api.model.grind.StepRecord;
 import org.kinotic.system.api.model.grind.Tasks;
 import reactor.core.scheduler.Schedulers;
 
@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Behavior of {@code JobService.watchExecution}: attach only to started runs, full replay for
+ * Behavior of {@code JobService.watchRun}: attach only to started runs, full replay for
  * late watchers, and wire-safe result values.
  */
 public class JobWatchTest extends AbstractGrindTest {
@@ -63,7 +63,7 @@ public class JobWatchTest extends AbstractGrindTest {
 
         List<Result<?>> watched = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch watchTerminal = new CountDownLatch(1);
-        jobService.watchExecution(execution.getJobRunId())
+        jobService.watchRun(execution.getJobRunId())
                   .subscribe(watched::add, throwable -> watchTerminal.countDown(), watchTerminal::countDown);
 
         // the gate's STEP_STARTED was emitted before the watcher attached, so it can only come from replay
@@ -99,7 +99,7 @@ public class JobWatchTest extends AbstractGrindTest {
 
         List<Result<?>> watched = Collections.synchronizedList(new ArrayList<>());
         CountDownLatch watchTerminal = new CountDownLatch(1);
-        jobService.watchExecution(execution.getJobRunId())
+        jobService.watchRun(execution.getJobRunId())
                   .subscribe(watched::add, throwable -> watchTerminal.countDown(), watchTerminal::countDown);
         release.countDown();
         assertTrue(watchTerminal.await(15, TimeUnit.SECONDS), "watch stream did not terminate");
@@ -119,9 +119,9 @@ public class JobWatchTest extends AbstractGrindTest {
         List<Result<?>> discoveries = ofType(watched, ResultType.DYNAMIC_STEPS);
         assertEquals(1, discoveries.size());
         @SuppressWarnings("unchecked")
-        List<TaskRecord> discovered = (List<TaskRecord>) discoveries.getFirst().getValue();
+        List<StepRecord> discovered = (List<StepRecord>) discoveries.getFirst().getValue();
         assertEquals(List.of("0/3/1", "0/3/1/1"),
-                     discovered.stream().map(TaskRecord::getStepPath).toList());
+                     discovered.stream().map(StepRecord::getStepPath).toList());
         assertTrue(discovered.stream().allMatch(record -> record.getStatus() == ExecutionStatus.PENDING));
         assertEquals("0/3", discoveries.getFirst().getStepInfo().path());
 
@@ -149,7 +149,7 @@ public class JobWatchTest extends AbstractGrindTest {
         List<Result<?>> watched = Collections.synchronizedList(new ArrayList<>());
         AtomicReference<Throwable> watchError = new AtomicReference<>();
         CountDownLatch watchTerminal = new CountDownLatch(1);
-        jobService.watchExecution(execution.getJobRunId())
+        jobService.watchRun(execution.getJobRunId())
                   .subscribe(watched::add,
                              throwable -> {
                                  watchError.set(throwable);
@@ -174,7 +174,7 @@ public class JobWatchTest extends AbstractGrindTest {
         JobRunHandle execution = jobService.execute(def);
 
         // before anything subscribes the run has not started, so there is nothing to watch
-        List<Result<?>> results = jobService.watchExecution(execution.getJobRunId())
+        List<Result<?>> results = jobService.watchRun(execution.getJobRunId())
                                             .collectList().block();
         assertTrue(results.isEmpty());
         assertTrue(records.savedJobRuns.isEmpty(), "watching must never start the run");
@@ -182,7 +182,7 @@ public class JobWatchTest extends AbstractGrindTest {
         RunOutcome outcome = await(execution);
         assertFalse(outcome.failed());
 
-        results = jobService.watchExecution(execution.getJobRunId())
+        results = jobService.watchRun(execution.getJobRunId())
                             .collectList().block();
         assertTrue(results.isEmpty(), "a finished run is served from its records, not the registry");
     }
