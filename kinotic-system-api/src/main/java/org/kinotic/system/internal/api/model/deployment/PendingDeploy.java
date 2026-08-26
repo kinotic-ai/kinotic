@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.deployment;
+package org.kinotic.system.internal.api.model.deployment;
 
 /**
  * The newest push waiting for a project's in-flight deployment to finish.

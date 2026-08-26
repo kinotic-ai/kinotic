@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.deployment;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.json.JsonObject;
 import jakarta.annotation.PostConstruct;
@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.os.api.model.GitHubProjectEvent;
 import org.kinotic.os.api.model.GitHubWebhookEvent;
 import org.kinotic.os.api.services.GitHubProjectEventService;
+import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.util.retry.Retry;

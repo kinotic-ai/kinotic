@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.deployment;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;

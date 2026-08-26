@@ -1,15 +1,11 @@
-package org.kinotic.system.internal.api.deployment;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.model.Project;
-import org.kinotic.domain.api.model.ProjectDeployment;
-import org.kinotic.domain.api.model.ProjectDeploymentStatus;
-import org.kinotic.domain.api.model.ProjectDeploymentStatusType;
-import org.kinotic.domain.api.model.ProjectRepoToken;
+import org.kinotic.domain.api.model.*;
 import org.kinotic.domain.api.model.grind.JobOwner;
 import org.kinotic.domain.api.model.workload.VolumeMount;
 import org.kinotic.domain.api.model.workload.Workload;
@@ -25,6 +21,7 @@ import org.kinotic.system.api.model.grind.Tasks;
 import org.kinotic.system.api.services.JobService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.internal.api.model.deployment.DeployTarget;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -190,10 +187,10 @@ public class ProjectDeployService {
     private Future<String> ensureRuntimeWorkload(Project project, AtomicReference<DeployTarget> targetRef) {
         DeployTarget target = targetRef.get();
         Future<String> ret;
-        if (target.getRuntimeWorkloadId() != null) {
+        if (target.runtimeWorkloadId() != null) {
             // The running supervisor picks the new commit up through the reload sentinel
             // the sync workload wrote — nothing to deploy
-            ret = Future.succeededFuture(target.getRuntimeWorkloadId());
+            ret = Future.succeededFuture(target.runtimeWorkloadId());
         } else {
             ret = workloadOrchestrationService.deployWorkload(runtimeWorkload(project, target))
                                               .map(Workload::getId);
@@ -205,7 +202,7 @@ public class ProjectDeployService {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setDescription("Checkout and entity sync for project " + project.getId());
-        workload.setNodeId(target.getNodeId());
+        workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
@@ -217,7 +214,7 @@ public class ProjectDeployService {
         // Machine credential distribution is not built yet: without KINOTIC_CLIENT_ID or
         // KINOTIC_TOKEN the runner checks out and builds but skips entity sync
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
-        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.getHostDir())
+        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setSizeLimitMb(deployment.getSyncMountLimitMb()));
         workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment));
@@ -228,12 +225,12 @@ public class ProjectDeployService {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-runtime-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setDescription("Microservice runtime for project " + project.getId());
-        workload.setNodeId(target.getNodeId());
+        workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
         putServerEnvironment(workload, deployment);
-        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.getHostDir())
+        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/app")
                                                         .setReadOnly(true));
         workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getRuntimeAllowedHosts(), deployment));
@@ -271,8 +268,8 @@ public class ProjectDeployService {
                                                     ProjectDeploymentStatus status) {
         DeployTarget target = targetRef.get();
         if (target != null) {
-            deployment.setNodeId(target.getNodeId());
-            deployment.setHostDir(target.getHostDir());
+            deployment.setNodeId(target.nodeId());
+            deployment.setHostDir(target.hostDir());
         }
         if (runtimeWorkloadIdRef.get() != null) {
             deployment.setRuntimeWorkloadId(runtimeWorkloadIdRef.get());
