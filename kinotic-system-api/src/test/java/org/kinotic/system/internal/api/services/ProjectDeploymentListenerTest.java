@@ -4,9 +4,9 @@ import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.os.api.model.GitHubProjectEvent;
-import org.kinotic.os.api.model.GitHubWebhookEvent;
-import org.kinotic.os.api.services.GitHubProjectEventService;
+import org.kinotic.management.api.model.GitHubProjectEvent;
+import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.services.github.GitHubProjectEventService;
 import reactor.core.publisher.Sinks;
 
 import java.util.List;

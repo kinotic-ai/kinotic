@@ -1,0 +1,41 @@
+package org.kinotic.management.internal.api.services.github;
+
+import io.vertx.core.Future;
+import org.kinotic.management.api.model.GitHubProjectEvent;
+import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.management.api.services.github.GitHubProjectEventService;
+import reactor.core.publisher.Flux;
+
+/**
+ * Internal-only service the gateway's webhook handler calls after HMAC verification.
+ * Resolves the delivery to a Kinotic Project, mutates installation state for management
+ * events, and republishes repository events to subscribers of {@link #events()}.
+ * <p>
+ * Not {@code @Publish}ed — {@link #process(GitHubWebhookEvent)} may only ever be called by the
+ * gateway's webhook handler, in-process. {@link GitHubProjectEventService} publishes the event
+ * stream to remote subscribers, scoped to the organization they belong to.
+ */
+public interface GitHubWebhookEventService {
+
+    /**
+     * Processes one verified GitHub delivery. Always completes successfully (never
+     * failed) so the gateway can return 204 quickly even when downstream resolution
+     * can't find a backing project. There is no platform-side delivery dedup —
+     * GitHub may redeliver, and subscribers must be idempotent.
+     */
+    Future<Void> process(GitHubWebhookEvent event);
+
+    /**
+     * A hot stream of repository deliveries that resolved to a Kinotic Project, shared by every
+     * subscriber and carrying <strong>every organization's</strong> events — anything reachable by a
+     * participant must filter by {@link GitHubProjectEvent#getOrganizationId()} first, the way
+     * {@link GitHubProjectEventService} does.
+     * <p>
+     * The stream never completes, and delivery is best-effort: a subscriber that can't keep up
+     * loses events rather than applying backpressure to the webhook handler. Only deliveries
+     * arriving while subscribed are seen, and only on the node that received them.
+     *
+     * @return a {@link Flux} emitting one {@link GitHubProjectEvent} per backing project
+     */
+    Flux<GitHubProjectEvent> events();
+}

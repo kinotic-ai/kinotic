@@ -113,7 +113,7 @@ override):
   are already mostly commented out pending Spring AI 2 (`DataInsightsConfiguration`'s
   `ChatClient` bean is disabled), so this completes an unwiring that is half-done today.
 - **Single binary, two profiles, no role concept in code** (owner decision). Every library
-  module already has a whole-module gate (`kinotic.disableOsApi`, `disableGithub`,
+  module already has a whole-module gate (`kinotic.disableOsApi`, `disableManagement`,
   `disablePersistence`, `disableApiGateway`, `disableDomain` — see current state), so
   composition-by-config is the established idiom. Two profiles in
   `kinotic-server/src/main/resources` — `application-os-server.yml` and
@@ -435,7 +435,7 @@ Work items in this phase:
    today.)
 2. **Auth-route surface via flags, not profiles.** Org users never log in at an app gateway —
    they log in at the OS server and present the minted JWT to the gateway. So the route split
-   is coarse and flag-shaped: GitHub routes already disappear via `disableGithub`; add a small
+   is coarse and flag-shaped: GitHub routes already disappear via `disableManagement`; add a small
    number of `disable*`-idiom flags for the kinotic-domain route groups (e.g.
    `kinotic.domain.disableOrgAuthRoutes` covering org login/signup/CLI device-login,
    `kinotic.domain.disableAppAuthRoutes` covering app login) set in the profile YAML — gateway:
@@ -472,8 +472,8 @@ Work items in this phase:
    | Service | Zone | In a gateway process? |
    |---|---|---|
    | `JsonEntitiesRepository`, `AdminJsonEntitiesRepository`, `NamedQueriesService` (persistence — its entire published surface after Phase 3) | `app-api` (explicit `@Zone`) | yes — the data plane |
-   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EntityDefinitionService`/`NamedQueriesDefinitionService`/`MigrationService` (moved in Phase 3), `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all management-api | `management-api` | no — `disableOsApi` (app-gateway profile) gates the whole `KinoticOsApiLibrary` |
-   | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `management-api` | no — `disableGithub` (app-gateway profile) |
+   | `ApplicationService`, `ProjectService`, `MemberService`, `LogService`/`LogManager`, `DeviceApprovalService`, `InviteEmailTemplateService`, `KinoticClusterInfoService`, `EntityDefinitionService`/`NamedQueriesDefinitionService`/`MigrationService` (moved in Phase 3), `EnvironmentService` (Phase 1), `PromotionService` (Phase 9) — all management-api | `management-api` | no — `disableOsApi` (app-gateway profile) gates the whole `KinoticManagementApiLibrary` |
+   | `GitHubAppInstallationService`, `GitHubWebhookEventService`, `GitHubProjectRepoService` (github) | `management-api` | no — `disableManagement` (app-gateway profile) |
    | `WorkloadOrchestrationService`, `VmNodeOrchestrationService` (orchestrator, once Phase 6 wires it in) | `system-api` (`@Zone` in `api/workload/package-info.java`) | no — verify the orchestrator library has (or add) the same `disable*` gate, set in the deployment profiles |
    | `DataInsightsService` | `management-api` (`insights/package-info.java`) | published nowhere — dropped from scope (see design decisions) |
 
