@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.sample;
+package org.kinotic.test.support.sample;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.EqualsAndHashCode;

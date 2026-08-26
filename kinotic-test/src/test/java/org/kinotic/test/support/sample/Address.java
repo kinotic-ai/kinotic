@@ -1,12 +1,10 @@
-package org.kinotic.persistence.internal.sample;
+package org.kinotic.test.support.sample;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-
-import java.util.List;
 
 /**
  * Created by Navíd Mitchell 🤪 on 5/11/23.
@@ -16,11 +14,10 @@ import java.util.List;
 @Accessors(chain = true)
 @NoArgsConstructor
 @EqualsAndHashCode
-public class Person {
+public class Address {
 
-    private String id;
-    private String firstName;
-    private String lastName;
-    private List<Address> addresses;
-
+    private String street;
+    private String city;
+    private String state;
+    private String zip;
 }

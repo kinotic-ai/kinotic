@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.sample;
+package org.kinotic.test.support.sample;
 
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.CacheLoader;

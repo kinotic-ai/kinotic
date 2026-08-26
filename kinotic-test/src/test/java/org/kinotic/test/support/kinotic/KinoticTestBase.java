@@ -10,7 +10,7 @@ import org.kinotic.domain.api.model.security.ApplicationParticipant;
 import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
-import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
