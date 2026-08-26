@@ -2,9 +2,15 @@
 kinotic:
   debug: true
   disableClustering: false
+  disableProvisioner: true
+  # placeholder GitHub App config; the github beans are registered but never called in tests
   managementApi:
     github:
-      disable: true
+      appId: "-"
+      appSlug: "-"
+      appPrivateKey: "-"
+      webhookSecret: "-"
+      repoTemplate: "-"
   maxNumberOfCoresToUse: 4
   systemApi:
     deployment:

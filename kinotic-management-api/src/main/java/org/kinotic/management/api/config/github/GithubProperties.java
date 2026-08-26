@@ -24,7 +24,6 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public class GithubProperties {
 
-    private boolean disable = false;
 
     /** Numeric GitHub App id (from the App's settings page). */
     @NotBlank

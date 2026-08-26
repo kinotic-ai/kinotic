@@ -6,7 +6,4 @@ kinotic:
   disableDomain: true
   disableManagement: true
   disablePersistence: true
-  managementApi:
-    github:
-      disable: true
   disableSystemApi: true

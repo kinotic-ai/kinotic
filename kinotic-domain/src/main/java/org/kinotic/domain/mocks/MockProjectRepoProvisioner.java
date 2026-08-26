@@ -9,15 +9,14 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * Fallback {@link ProjectRepoProvisioner} used when the GitHub module is disabled
- * ({@code kinotic.managementApi.github.disable=true}) or absent from the classpath. Skips the
- * GitHub API call entirely and stamps deterministic fake repo metadata on the
- * project, so project-create flows work in development and tests without a
- * configured GitHub App.
+ * Fallback {@link ProjectRepoProvisioner} used when repository provisioning is disabled
+ * ({@code kinotic.disableProvisioner=true}). Skips the GitHub API call entirely and stamps
+ * deterministic fake repo metadata on the project, so project-create flows work in
+ * development and tests without a configured GitHub App.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.managementApi.github.disable", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.disableProvisioner", havingValue = "true")
 public class MockProjectRepoProvisioner implements ProjectRepoProvisioner {
 
     private static final String FAKE_OWNER = "kinotic-mock";

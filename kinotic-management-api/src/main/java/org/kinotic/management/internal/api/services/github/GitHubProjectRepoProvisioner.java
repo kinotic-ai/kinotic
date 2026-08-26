@@ -17,6 +17,7 @@ import org.kinotic.management.internal.api.services.github.client.TreeEntry;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
 import org.kinotic.domain.api.services.ProjectRepoProvisioner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -59,6 +60,7 @@ import java.util.concurrent.TimeUnit;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(value = "kinotic.disableProvisioner", havingValue = "false", matchIfMissing = true)
 @RequiredArgsConstructor
 public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
 
