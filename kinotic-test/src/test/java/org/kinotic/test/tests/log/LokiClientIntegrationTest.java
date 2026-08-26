@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.internal.api.services.DefaultLokiClient;
+import org.kinotic.management.internal.api.services.DefaultLokiClient;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;

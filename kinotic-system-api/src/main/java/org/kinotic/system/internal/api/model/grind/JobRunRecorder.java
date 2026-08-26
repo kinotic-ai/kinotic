@@ -2,16 +2,16 @@ package org.kinotic.system.internal.api.model.grind;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.grind.ExecutionStatus;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.model.grind.StoreType;
-import org.kinotic.domain.api.model.grind.TaskRecord;
-import org.kinotic.domain.api.services.JobRunService;
-import org.kinotic.domain.api.services.TaskRecordService;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.JobRun;
+import org.kinotic.management.api.model.grind.StoreType;
+import org.kinotic.management.api.model.grind.TaskRecord;
+import org.kinotic.management.api.services.JobRunService;
+import org.kinotic.management.api.services.TaskRecordService;
 import org.kinotic.system.api.model.grind.JobDefinition;
-import org.kinotic.domain.api.model.grind.JobOwner;
-import org.kinotic.domain.api.model.grind.Result;
-import org.kinotic.domain.api.model.grind.StepCompletion;
+import org.kinotic.management.api.model.grind.JobOwner;
+import org.kinotic.management.api.model.grind.Result;
+import org.kinotic.management.api.model.grind.StepCompletion;
 import tools.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;

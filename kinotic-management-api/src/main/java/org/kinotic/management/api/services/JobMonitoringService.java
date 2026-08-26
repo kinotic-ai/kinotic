@@ -4,10 +4,10 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.model.grind.Result;
-import org.kinotic.domain.api.model.grind.ResultType;
-import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.management.api.model.grind.JobRun;
+import org.kinotic.management.api.model.grind.Result;
+import org.kinotic.management.api.model.grind.ResultType;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import reactor.core.publisher.Flux;
 
 /**

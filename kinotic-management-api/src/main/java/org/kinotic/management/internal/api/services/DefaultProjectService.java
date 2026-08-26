@@ -5,12 +5,12 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.Project;
-import org.kinotic.domain.api.model.RepositoryConnectionStatus;
-import org.kinotic.domain.internal.api.repositories.ProjectRepository;
+import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.internal.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.api.services.ProjectRepoProvisioner;
+import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
 import org.springframework.stereotype.Component;
 

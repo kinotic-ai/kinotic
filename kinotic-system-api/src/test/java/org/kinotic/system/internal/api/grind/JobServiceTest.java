@@ -2,13 +2,13 @@ package org.kinotic.system.internal.api.grind;
 
 import jakarta.annotation.PreDestroy;
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.api.model.grind.ExecutionStatus;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.model.grind.StoreType;
-import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.JobRun;
+import org.kinotic.management.api.model.grind.StoreType;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
-import org.kinotic.domain.api.model.grind.JobOwner;
+import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.system.api.model.grind.Task;
 import org.kinotic.system.api.model.grind.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;

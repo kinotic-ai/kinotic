@@ -3,7 +3,7 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.model.cluster.KinoticClusterInfo;
+import org.kinotic.management.api.model.cluster.KinoticClusterInfo;
 import org.kinotic.domain.api.utils.DomainUtil;
 
 /**

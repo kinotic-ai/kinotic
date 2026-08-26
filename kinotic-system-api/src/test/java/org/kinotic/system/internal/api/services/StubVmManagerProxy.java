@@ -2,8 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import org.kinotic.domain.api.model.workload.Workload;
-import org.kinotic.domain.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.workload.VmManagerProxy;
 
 import java.util.ArrayList;

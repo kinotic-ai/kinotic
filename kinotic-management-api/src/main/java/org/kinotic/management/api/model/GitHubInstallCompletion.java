@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.GitHubAppInstallation;
+import org.kinotic.management.api.model.GitHubAppInstallation;
 
 /**
  * Result of finalising a GitHub install round-trip. Returned to the SPA's callback

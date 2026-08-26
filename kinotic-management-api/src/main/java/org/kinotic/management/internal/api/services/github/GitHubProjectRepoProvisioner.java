@@ -9,14 +9,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.config.github.GithubProperties;
-import org.kinotic.domain.api.model.GitHubAppInstallation;
+import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
 import org.kinotic.management.internal.api.services.github.client.CreatedRepository;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.kinotic.management.internal.api.services.github.client.TreeEntry;
-import org.kinotic.domain.api.model.Project;
-import org.kinotic.domain.api.model.RepositoryConnectionStatus;
-import org.kinotic.domain.api.services.ProjectRepoProvisioner;
+import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

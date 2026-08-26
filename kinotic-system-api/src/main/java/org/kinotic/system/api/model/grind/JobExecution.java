@@ -1,7 +1,7 @@
 package org.kinotic.system.api.model.grind;
 
-import org.kinotic.domain.api.model.grind.Result;
-import org.kinotic.domain.api.model.grind.JobRun;
+import org.kinotic.management.api.model.grind.Result;
+import org.kinotic.management.api.model.grind.JobRun;
 
 import lombok.Getter;
 import reactor.core.Disposable;
@@ -43,7 +43,7 @@ public class JobExecution {
 
     /**
      * Cancels the run if it has started, recording it as
-     * {@link org.kinotic.domain.api.model.grind.ExecutionStatus#CANCELLED}.
+     * {@link org.kinotic.management.api.model.grind.ExecutionStatus#CANCELLED}.
      * Does nothing if the run has not started or has already finished.
      */
     public void cancel() {

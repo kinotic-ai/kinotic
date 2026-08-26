@@ -2,9 +2,9 @@
 
 package org.kinotic.system.internal.api.model.grind;
 
-import org.kinotic.domain.api.model.grind.Result;
-import org.kinotic.domain.api.model.grind.ResultType;
-import org.kinotic.domain.api.model.grind.StepInfo;
+import org.kinotic.management.api.model.grind.Result;
+import org.kinotic.management.api.model.grind.ResultType;
+import org.kinotic.management.api.model.grind.StepInfo;
 
 /**
  *

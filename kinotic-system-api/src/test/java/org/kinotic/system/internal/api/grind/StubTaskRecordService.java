@@ -4,8 +4,8 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.OffsetPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.grind.TaskRecord;
-import org.kinotic.domain.api.services.TaskRecordService;
+import org.kinotic.management.api.model.grind.TaskRecord;
+import org.kinotic.management.api.services.TaskRecordService;
 
 import java.util.LinkedHashMap;
 import java.util.List;

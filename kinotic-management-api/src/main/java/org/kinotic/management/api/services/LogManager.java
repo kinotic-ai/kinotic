@@ -3,9 +3,9 @@ package org.kinotic.management.api.services;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.model.log.LogLevel;
-import org.kinotic.domain.api.model.log.LoggerLevelsDescriptor;
-import org.kinotic.domain.api.model.log.LoggersDescriptor;
+import org.kinotic.management.api.model.log.LogLevel;
+import org.kinotic.management.api.model.log.LoggerLevelsDescriptor;
+import org.kinotic.management.api.model.log.LoggersDescriptor;
 import org.kinotic.domain.api.utils.DomainUtil;
 
 /**

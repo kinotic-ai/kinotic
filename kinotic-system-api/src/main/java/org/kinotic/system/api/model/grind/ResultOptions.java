@@ -2,7 +2,7 @@
 
 package org.kinotic.system.api.model.grind;
 
-import org.kinotic.domain.api.model.grind.DiagnosticLevel;
+import org.kinotic.management.api.model.grind.DiagnosticLevel;
 
 /**
  *

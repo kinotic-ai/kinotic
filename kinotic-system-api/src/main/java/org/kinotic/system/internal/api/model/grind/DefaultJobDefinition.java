@@ -2,7 +2,7 @@
 
 package org.kinotic.system.internal.api.model.grind;
 
-import org.kinotic.domain.api.model.grind.StoreType;
+import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobScope;
 import org.kinotic.system.api.model.grind.Task;

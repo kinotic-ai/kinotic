@@ -1,7 +1,7 @@
 package org.kinotic.management.api.services.github;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.services.ProjectRepoTokenProvider;
+import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 
 /**
  * Operations against a Kinotic Project's backing GitHub repository: minting

@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.Application;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.model.Project;
+import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.security.UserParticipantIdentity;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.security.PendingInviteSummary;

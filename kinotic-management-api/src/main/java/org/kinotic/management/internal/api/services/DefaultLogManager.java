@@ -4,11 +4,11 @@ package org.kinotic.management.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
-import org.kinotic.domain.api.model.log.GroupLoggerLevelsDescriptor;
-import org.kinotic.domain.api.model.log.LogLevel;
-import org.kinotic.domain.api.model.log.LoggerLevelsDescriptor;
-import org.kinotic.domain.api.model.log.LoggersDescriptor;
-import org.kinotic.domain.api.model.log.SingleLoggerLevelsDescriptor;
+import org.kinotic.management.api.model.log.GroupLoggerLevelsDescriptor;
+import org.kinotic.management.api.model.log.LogLevel;
+import org.kinotic.management.api.model.log.LoggerLevelsDescriptor;
+import org.kinotic.management.api.model.log.LoggersDescriptor;
+import org.kinotic.management.api.model.log.SingleLoggerLevelsDescriptor;
 import org.kinotic.management.api.services.LogManager;
 import org.springframework.boot.logging.*;
 import org.springframework.stereotype.Component;

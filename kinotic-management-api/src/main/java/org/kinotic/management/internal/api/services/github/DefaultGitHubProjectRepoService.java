@@ -5,12 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.Project;
-import org.kinotic.domain.api.model.ProjectRepoToken;
-import org.kinotic.domain.internal.api.repositories.ProjectRepository;
-import org.kinotic.domain.api.model.GitHubAppInstallation;
+import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectRepoToken;
+import org.kinotic.management.internal.api.repositories.ProjectRepository;
+import org.kinotic.management.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.services.github.GitHubProjectRepoService;
-import org.kinotic.domain.internal.api.repositories.GitHubAppInstallationRepository;
+import org.kinotic.management.internal.api.repositories.GitHubAppInstallationRepository;
 import org.kinotic.management.internal.api.services.github.client.GitHubApiClient;
 import org.springframework.stereotype.Component;
 

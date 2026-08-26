@@ -5,7 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.Workload;
 
 /**
  * Service for managing {@link Workload} entities.

@@ -1,9 +1,9 @@
 package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.api.model.grind.ExecutionStatus;
-import org.kinotic.domain.api.model.grind.JobRun;
-import org.kinotic.domain.api.model.grind.TaskRecord;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
+import org.kinotic.management.api.model.grind.JobRun;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobExecution;
 import org.kinotic.system.api.model.grind.JobScope;
@@ -257,7 +257,7 @@ public class JobResumeTest extends AbstractGrindTest {
             }));
 
         JobExecution firstRun = jobService.execute(builder.get(),
-                                                   org.kinotic.domain.api.model.grind.JobOwner.ofApplication("org-1", "app-1"));
+                                                   org.kinotic.management.api.model.grind.JobOwner.ofApplication("org-1", "app-1"));
         await(firstRun);
 
         shouldFail.set(false);
