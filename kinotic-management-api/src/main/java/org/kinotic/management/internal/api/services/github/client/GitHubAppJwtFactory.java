@@ -3,7 +3,7 @@ package org.kinotic.management.internal.api.services.github.client;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
@@ -41,7 +41,7 @@ public class GitHubAppJwtFactory {
     /** Forward lifetime from "now". {@code IAT_BACKDATE + JWT_TTL} must be <= 600s (GitHub's max). */
     private static final long JWT_TTL_SECONDS = 9 * 60;
 
-    private final KinoticManagementApiProperties properties;
+    private final GithubProperties githubProperties;
 
     private final AtomicReference<PrivateKey> cachedKey = new AtomicReference<>();
     private final AtomicReference<CachedJwt> cachedJwt = new AtomicReference<>();
@@ -74,7 +74,7 @@ public class GitHubAppJwtFactory {
         PrivateKey key = ensureKey();
         Instant expiresAt = now.plus(JWT_TTL_SECONDS, ChronoUnit.SECONDS);
         String token = Jwts.builder()
-                .issuer(properties.getManagementApi().getGithub().getAppId())
+                .issuer(githubProperties.getAppId())
                 .issuedAt(Date.from(now.minusSeconds(IAT_BACKDATE_SECONDS)))
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.RS256)
@@ -87,7 +87,7 @@ public class GitHubAppJwtFactory {
         if (existing != null) {
             return existing;
         }
-        PrivateKey parsed = parsePem(properties.getManagementApi().getGithub().getAppPrivateKey());
+        PrivateKey parsed = parsePem(githubProperties.getAppPrivateKey());
         cachedKey.set(parsed);
         return parsed;
     }

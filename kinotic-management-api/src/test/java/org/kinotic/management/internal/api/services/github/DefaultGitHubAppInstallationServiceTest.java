@@ -12,7 +12,7 @@ import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.model.GitHubInstallCompletion;
 import org.kinotic.domain.internal.api.repositories.GitHubAppInstallationRepository;
@@ -60,8 +60,7 @@ class DefaultGitHubAppInstallationServiceTest {
         SecurityContext securityContext = mock(SecurityContext.class);
         when(securityContext.requireParticipant(OrganizationParticipant.class)).thenReturn(participant);
 
-        KinoticManagementApiProperties properties = new KinoticManagementApiProperties();
-        properties.getManagementApi().getGithub().setAppId(APP_ID);
+        GithubProperties githubProperties = new GithubProperties().setAppId(APP_ID);
 
         // Real state store (Caffeine path) so staging + single-use consumption are exercised
         stateService = new GitHubInstallStateService(null);
@@ -84,7 +83,7 @@ class DefaultGitHubAppInstallationServiceTest {
 
         service = new DefaultGitHubAppInstallationService(repository,
                                                           securityContext,
-                                                          properties,
+                                                          githubProperties,
                                                           stateService,
                                                           apiClient,
                                                           oidcConfigurationService,

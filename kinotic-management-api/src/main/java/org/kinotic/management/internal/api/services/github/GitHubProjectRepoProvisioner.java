@@ -8,7 +8,7 @@ import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
 import org.kinotic.management.internal.api.services.github.client.CreatedRepository;
@@ -72,7 +72,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
     private final Vertx vertx;
     private final GitHubAppInstallationService installationService;
     private final GitHubApiClient apiClient;
-    private final KinoticManagementApiProperties properties;
+    private final GithubProperties githubProperties;
     private final GraalJsSpawnRenderer spawnRenderer;
 
     @Override
@@ -87,7 +87,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
             return apiClient.getToken(installationId, null, GitHubApiClient.CREATE_REPOSITORY)
                             .compose(token -> apiClient.createRepoFromTemplate(
                                     token.getToken(),
-                                    properties.getManagementApi().getGithub().getRepoTemplate(),
+                                    githubProperties.getRepoTemplate(),
                                     install.getAccountLogin(),
                                     repoName,
                                     project.getDescription(),

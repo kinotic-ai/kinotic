@@ -9,7 +9,7 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.domain.internal.api.services.AbstractOrganizationScopedService;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.model.GitHubInstallCompletion;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
@@ -34,7 +34,7 @@ public class DefaultGitHubAppInstallationService
         implements GitHubAppInstallationService {
 
     private final GitHubAppInstallationRepository installationRepository;
-    private final KinoticManagementApiProperties properties;
+    private final GithubProperties githubProperties;
     private final GitHubInstallStateService stateService;
     private final GitHubApiClient apiClient;
     private final OrgSignupOidcConfigurationService orgSignupOidcConfigurationService;
@@ -42,14 +42,14 @@ public class DefaultGitHubAppInstallationService
 
     public DefaultGitHubAppInstallationService(GitHubAppInstallationRepository repository,
                                                SecurityContext securityContext,
-                                               KinoticManagementApiProperties properties,
+                                               GithubProperties githubProperties,
                                                GitHubInstallStateService stateService,
                                                GitHubApiClient apiClient,
                                                OrgSignupOidcConfigurationService orgSignupOidcConfigurationService,
                                                SecretReferenceResolver secretReferenceResolver) {
         super(repository, securityContext);
         this.installationRepository = repository;
-        this.properties = properties;
+        this.githubProperties = githubProperties;
         this.stateService = stateService;
         this.apiClient = apiClient;
         this.orgSignupOidcConfigurationService = orgSignupOidcConfigurationService;
@@ -64,7 +64,7 @@ public class DefaultGitHubAppInstallationService
                 .setReturnTo(returnTo);
         String state = stateService.stage(staged);
         return Future.succeededFuture(
-                "https://github.com/apps/" + properties.getManagementApi().getGithub().getAppSlug()
+                "https://github.com/apps/" + githubProperties.getAppSlug()
                         + "/installations/new?state=" + state);
     }
 
@@ -130,7 +130,7 @@ public class DefaultGitHubAppInstallationService
 
     private Future<InstallationDetails> requireAccessible(List<InstallationDetails> installations,
                                                           long installationId) {
-        String appId = properties.getManagementApi().getGithub().getAppId();
+        String appId = githubProperties.getAppId();
         // app_id pin: a credential that is not this App's fails closed instead of
         // vouching from another app's installation list
         InstallationDetails match = installations.stream()

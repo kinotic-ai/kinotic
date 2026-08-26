@@ -10,7 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.domain.api.model.Project;
 import org.kinotic.domain.api.model.RepositoryConnectionStatus;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.kinotic.domain.api.model.GitHubAppInstallation;
 import org.kinotic.management.api.model.GitHubToken;
 import org.kinotic.management.api.services.github.GitHubAppInstallationService;
@@ -59,11 +59,10 @@ class GitHubProjectRepoProvisionerTest {
     void setUp() {
         installationService = mock(GitHubAppInstallationService.class);
         apiClient = mock(GitHubApiClient.class);
-        KinoticManagementApiProperties properties = new KinoticManagementApiProperties();
-        properties.getManagementApi().getGithub().setRepoTemplate("kinotic-ai/project-template");
+        GithubProperties githubProperties = new GithubProperties().setRepoTemplate("kinotic-ai/project-template");
         vertx = Vertx.vertx();
         provisioner = new GitHubProjectRepoProvisioner(vertx, installationService, apiClient,
-                                                       properties, new GraalJsSpawnRenderer());
+                                                       githubProperties, new GraalJsSpawnRenderer());
 
         GitHubAppInstallation install = new GitHubAppInstallation();
         install.setGithubInstallationId(42L);

@@ -10,7 +10,7 @@ import io.vertx.ext.web.handler.BodyHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.github.GithubProperties;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.springframework.stereotype.Component;
 
@@ -49,7 +49,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
     private static final long WEBHOOK_BODY_LIMIT_BYTES = 25L * 1024 * 1024;
 
     private final Vertx vertx;
-    private final KinoticManagementApiProperties properties;
+    private final GithubProperties githubProperties;
     private final GitHubWebhookEventService webhookEventService;
 
     public void mountRoutes(Router router) {
@@ -76,7 +76,7 @@ public class GitHubWebhookHandler implements SuppliesGatewayRoutes {
         // HMAC verification runs in executeBlocking so a 25 MiB payload doesn't pin
         // the event loop. ordered=false lets concurrent webhooks run in parallel.
         byte[] bodyBytes = body.getBytes();
-        String secret = properties.getManagementApi().getGithub().getWebhookSecret();
+        String secret = githubProperties.getWebhookSecret();
         Future<Boolean> verify = vertx.executeBlocking(
                 () -> verifySignature(bodyBytes, secret, signature),
                 false);
