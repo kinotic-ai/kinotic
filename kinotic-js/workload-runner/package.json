@@ -12,7 +12,6 @@
   },
   "license": "Elastic License 2.0",
   "scripts": {
-    "publish": "docker build -t ghcr.io/kinotic-ai/workload-runner:latest . && docker push ghcr.io/kinotic-ai/workload-runner:latest",
     "type-check": "tsc --noEmit",
     "test": "bun test --pass-with-no-tests",
     "coverage": "bun test --coverage --pass-with-no-tests"
