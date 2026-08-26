@@ -56,7 +56,7 @@ export class GitHubAppInstallationService implements IGitHubAppInstallationServi
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.github.api.services.GitHubAppInstallationService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.os.api.services.GitHubAppInstallationService`)
     }
 
     public startInstall(returnTo: string | null): Promise<string> {
