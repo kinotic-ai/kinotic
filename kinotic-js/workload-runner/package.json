@@ -8,7 +8,7 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kinotic-ai/kinotic.git",
-    "directory": "kinotic-js/workspace/packages/workload-runner"
+    "directory": "kinotic-js/workload-runner"
   },
   "license": "Elastic License 2.0",
   "scripts": {

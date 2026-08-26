@@ -1,0 +1,13 @@
+[install]
+minimumReleaseAge = 86400 # seconds; third-party releases younger than 24h are rejected
+minimumReleaseAgeExcludes = [
+    "@kinotic-ai/core",
+    "@kinotic-ai/idl",
+    "@kinotic-ai/kinotic-cli",
+    "@kinotic-ai/management-api",
+    # transitive of the published CLI until it is rebuilt against management-api
+    "@kinotic-ai/os-api",
+    "@kinotic-ai/persistence",
+    "@kinotic-ai/spawn",
+    "@kinotic-ai/system-api"
+]
