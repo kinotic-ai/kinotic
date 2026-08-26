@@ -9,8 +9,7 @@ import io.vertx.ext.web.client.WebClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.config.LokiProperties;
+import org.kinotic.management.api.config.LokiProperties;
 import org.kinotic.management.api.services.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -36,9 +35,9 @@ public class DefaultLokiClient implements LokiClient {
     private WebClient webClient;
     private WebSocketClient webSocketClient;
 
-    public DefaultLokiClient(Vertx vertx, KinoticDomainProperties properties) {
+    public DefaultLokiClient(Vertx vertx, LokiProperties lokiProperties) {
         this.vertx = vertx;
-        this.lokiProperties = properties.getDomain().getLoki();
+        this.lokiProperties = lokiProperties;
     }
 
     @PostConstruct

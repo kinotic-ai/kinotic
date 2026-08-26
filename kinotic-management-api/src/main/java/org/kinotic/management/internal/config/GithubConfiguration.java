@@ -1,7 +1,7 @@
 package org.kinotic.management.internal.config;
 
 import org.kinotic.management.api.config.github.GithubProperties;
-import org.kinotic.management.api.config.github.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

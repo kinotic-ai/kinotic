@@ -5,7 +5,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.management.api.config.LokiProperties;
 import org.kinotic.management.internal.api.services.DefaultLokiClient;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.GenericContainer;
@@ -61,9 +61,7 @@ class LokiClientIntegrationTest {
 
         lokiUrl = "http://" + loki.getHost() + ":" + loki.getMappedPort(3100);
         vertx = Vertx.vertx();
-        KinoticDomainProperties properties = new KinoticDomainProperties();
-        properties.getDomain().getLoki().setUrl(lokiUrl);
-        lokiClient = new DefaultLokiClient(vertx, properties);
+        lokiClient = new DefaultLokiClient(vertx, new LokiProperties().setUrl(lokiUrl));
         lokiClient.start();
     }
 

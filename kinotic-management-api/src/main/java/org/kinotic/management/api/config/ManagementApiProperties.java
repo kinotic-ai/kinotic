@@ -1,6 +1,7 @@
-package org.kinotic.management.api.config.github;
+package org.kinotic.management.api.config;
 
 import jakarta.validation.Valid;
+import org.kinotic.management.api.config.github.GithubProperties;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -18,5 +19,11 @@ public class ManagementApiProperties {
 
     @Valid
     private GithubProperties github = new GithubProperties();
+
+    /**
+     * Loki configuration for the {@code LogService}.
+     */
+    @Valid
+    private LokiProperties loki = new LokiProperties();
 
 }
