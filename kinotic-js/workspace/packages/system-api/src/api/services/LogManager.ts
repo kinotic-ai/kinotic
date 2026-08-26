@@ -1,4 +1,4 @@
-import { SYSTEM_API_ZONE } from '@/api/SystemZone'
+import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import {
     type ILogManager,
     LogLevel,

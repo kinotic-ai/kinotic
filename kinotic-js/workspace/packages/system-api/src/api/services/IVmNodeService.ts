@@ -1,4 +1,4 @@
-import { SYSTEM_API_ZONE } from '@/api/SystemZone'
+import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import type { IKinotic } from '@kinotic-ai/core'
 import { CrudServiceProxy, type ICrudServiceProxy } from '@kinotic-ai/core'
 import { VmNode } from '@/api/model/workload/VmNode'

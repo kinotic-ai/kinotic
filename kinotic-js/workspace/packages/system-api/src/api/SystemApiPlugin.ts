@@ -5,6 +5,7 @@ import { WorkloadOrchestrationService, type IWorkloadOrchestrationService } from
 import { LogManager } from '@/api/services/LogManager'
 import type { ILogManager } from '@/api/services/ILogManager'
 import { KinoticClusterInfoService, type IKinoticClusterInfoService } from '@/api/services/IKinoticClusterInfoService'
+import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 
 export interface ISystemApiExtension {
     vmNodes: IVmNodeService
@@ -12,6 +13,7 @@ export interface ISystemApiExtension {
     workloadOrchestration: IWorkloadOrchestrationService
     logManager: ILogManager
     clusterInfo: IKinoticClusterInfoService
+    systemOrganizations: ISystemOrganizationService
 }
 
 export const SystemApiPlugin: KinoticPlugin<ISystemApiExtension> = {
@@ -22,6 +24,7 @@ export const SystemApiPlugin: KinoticPlugin<ISystemApiExtension> = {
             workloadOrchestration: new WorkloadOrchestrationService(kinotic),
             logManager: new LogManager(kinotic),
             clusterInfo: new KinoticClusterInfoService(kinotic),
+            systemOrganizations: new SystemOrganizationService(kinotic),
         }
     }
 }

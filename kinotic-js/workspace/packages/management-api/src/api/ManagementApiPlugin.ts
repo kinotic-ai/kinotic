@@ -14,11 +14,9 @@ import { ProfileService, type IProfileService } from '@/api/services/IProfileSer
 import { MachineService, type IMachineService } from '@/api/services/IMachineService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
-import { SystemOrganizationService, type ISystemOrganizationService } from '@/api/services/ISystemOrganizationService'
 
 export interface IManagementApiExtension {
     applications: IApplicationService
-    systemOrganizations: ISystemOrganizationService
     projects: IProjectService
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
@@ -39,7 +37,6 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
     install(kinotic: IKinotic): IManagementApiExtension {
         return {
             applications: new ApplicationService(kinotic),
-            systemOrganizations: new SystemOrganizationService(kinotic),
             projects: new ProjectService(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),

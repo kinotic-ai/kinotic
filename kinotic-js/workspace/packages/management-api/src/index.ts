@@ -76,7 +76,6 @@ export * from '@/api/model/security/ParticipantGuards'
 
 // Services
 export * from '@/api/services/IApplicationService'
-export * from '@/api/services/ISystemOrganizationService'
 export * from '@/api/services/IProjectService'
 export * from '@/api/services/ILogService'
 export * from '@/api/services/IEntityDefinitionService'

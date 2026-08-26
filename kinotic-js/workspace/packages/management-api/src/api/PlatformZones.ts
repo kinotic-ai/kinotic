@@ -18,9 +18,10 @@ export { APP_API_ZONE } from '@kinotic-ai/persistence'
  */
 export const MANAGEMENT_API_ZONE = 'management-api'
 
-// The system zone lives in @kinotic-ai/system-api, whose services occupy it, and is
-// re-exported here for the same one-import reason
-export { SYSTEM_API_ZONE } from '@kinotic-ai/system-api'
+/**
+ * The zone for services internal to the platform, only reachable by system participants
+ */
+export const SYSTEM_API_ZONE = 'system-api'
 
 /**
  * The leading label of application zones, which follow the form app.<organizationId>.<applicationId>

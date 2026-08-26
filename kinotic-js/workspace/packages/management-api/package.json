@@ -42,7 +42,6 @@
   "dependencies": {
     "@kinotic-ai/idl": "workspace:*",
     "@kinotic-ai/persistence": "workspace:*",
-    "@kinotic-ai/system-api": "workspace:*",
     "rxjs": "^7.8.2"
   },
   "devDependencies": {

@@ -1,10 +1,10 @@
-import { SYSTEM_API_ZONE } from '@/api/PlatformZones'
+import { Application,
+         Organization,
+         Project,
+         SYSTEM_API_ZONE,
+         type PendingInviteSummary,
+         type UserParticipantIdentity } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
-import { Application } from '@/api/model/Application'
-import { Organization } from '@/api/model/Organization'
-import { Project } from '@/api/model/Project'
-import type { PendingInviteSummary } from '@/api/model/security/PendingInviteSummary'
-import type { UserParticipantIdentity } from '@/api/model/security/UserParticipantIdentity'
 
 /**
  * Cross-organization reads for platform operators. Published in the system zone, which only
