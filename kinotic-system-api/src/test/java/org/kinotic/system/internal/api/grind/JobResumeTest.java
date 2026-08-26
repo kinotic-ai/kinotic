@@ -1,7 +1,7 @@
 package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.management.api.model.grind.RunStatus;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.system.api.model.grind.JobDefinition;
@@ -124,7 +124,7 @@ public class JobResumeTest extends AbstractGrindTest {
         assertTrue(outcome.values().contains("checkpointed"), "downstream must be wired from the replayed value");
 
         JobRun resumedRun = records.savedJobRuns.get(resumed.getJobRunId());
-        assertEquals(RunStatus.COMPLETED, resumedRun.getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, resumedRun.getStatus());
         assertNotNull(resumedRun.getResumedFrom(), "resumed run must reference the original");
         assertEquals(2, records.savedJobRuns.size());
     }

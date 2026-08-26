@@ -6,7 +6,7 @@
       <div class="flex flex-col gap-1">
         <div class="flex flex-wrap items-center gap-3">
           <h2 class="text-xl font-semibold">{{ run.name }}</h2>
-          <Tag :value="run.status" :severity="runStatusSeverity(run.status)" />
+          <Tag :value="run.status" :severity="executionStatusSeverity(run.status)" />
           <span v-if="live" class="flex items-center gap-1.5 text-xs text-sky-400">
             <span class="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
             live
@@ -44,7 +44,7 @@ import Tag from 'primevue/tag'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import JobStepPipeline from './JobStepPipeline.vue'
 import JobTaskTree from './JobTaskTree.vue'
-import { runStatusSeverity } from './jobRunDisplay'
+import { executionStatusSeverity } from './jobRunDisplay'
 import { useJobRunProgress } from './useJobRunProgress'
 
 /**

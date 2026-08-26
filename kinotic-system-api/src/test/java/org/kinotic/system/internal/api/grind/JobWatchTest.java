@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.grind;
 
 import org.junit.jupiter.api.Test;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
-import org.kinotic.management.api.model.grind.RunStatus;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.Progress;
@@ -122,7 +122,7 @@ public class JobWatchTest extends AbstractGrindTest {
         List<TaskRecord> discovered = (List<TaskRecord>) discoveries.getFirst().getValue();
         assertEquals(List.of("0/3/1", "0/3/1/1"),
                      discovered.stream().map(TaskRecord::getStepPath).toList());
-        assertTrue(discovered.stream().allMatch(record -> record.getStatus() == RunStatus.PENDING));
+        assertTrue(discovered.stream().allMatch(record -> record.getStatus() == ExecutionStatus.PENDING));
         assertEquals("0/3", discoveries.getFirst().getStepInfo().path());
 
         // progress passes through untouched

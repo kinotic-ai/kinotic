@@ -17,7 +17,7 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
 import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
-import org.kinotic.management.api.model.grind.RunStatus;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.system.api.model.grind.JobRunHandle;
 import org.kinotic.management.api.model.grind.JobOwner;
@@ -147,7 +147,7 @@ class DefaultJobMonitoringServiceTest {
 
         // the root job and both tasks, all terminal since the run completed
         assertEquals(3, page.getContent().size());
-        assertTrue(page.getContent().stream().allMatch(record -> record.getStatus() == RunStatus.COMPLETED));
+        assertTrue(page.getContent().stream().allMatch(record -> record.getStatus() == ExecutionStatus.COMPLETED));
     }
 
     @Test

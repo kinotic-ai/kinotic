@@ -43,7 +43,7 @@ public class JobRunHandle {
 
     /**
      * Cancels the run if it has started, recording it as
-     * {@link org.kinotic.management.api.model.grind.RunStatus#CANCELLED}.
+     * {@link org.kinotic.management.api.model.grind.ExecutionStatus#CANCELLED}.
      * Does nothing if the run has not started or has already finished.
      */
     public void cancel() {

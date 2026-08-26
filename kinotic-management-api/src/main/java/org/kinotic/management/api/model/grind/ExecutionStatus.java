@@ -3,7 +3,7 @@ package org.kinotic.management.api.model.grind;
 /**
  * The lifecycle state of a recorded execution, shared by {@link JobRun}s and {@link TaskRecord}s.
  */
-public enum RunStatus {
+public enum ExecutionStatus {
 
     /**
      * The execution has been discovered but has not started. Only {@link TaskRecord}s carry

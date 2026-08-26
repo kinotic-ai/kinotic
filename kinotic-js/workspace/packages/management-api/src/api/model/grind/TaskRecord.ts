@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import { RunStatus } from '@/api/model/grind/RunStatus'
+import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 import { StoreType } from '@/api/model/grind/StoreType'
 
 /**
@@ -33,7 +33,7 @@ export class TaskRecord implements Identifiable<string> {
     /**
      * Current status of the step.
      */
-    public status: RunStatus = RunStatus.RUNNING
+    public status: ExecutionStatus = ExecutionStatus.RUNNING
 
     /**
      * How the step's result was stored in the job scope.

@@ -13,13 +13,13 @@
         <span v-else class="w-5 shrink-0" />
 
         <span class="relative flex h-2.5 w-2.5 shrink-0">
-          <span v-if="row.node.status === RunStatus.RUNNING"
+          <span v-if="row.node.status === ExecutionStatus.RUNNING"
                 class="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-60" />
           <span class="relative inline-flex h-2.5 w-2.5 rounded-full" :class="dotClass(row.node)" />
         </span>
 
         <span class="truncate text-sm"
-              :class="row.node.status === RunStatus.PENDING ? 'text-muted-color' : ''"
+              :class="row.node.status === ExecutionStatus.PENDING ? 'text-muted-color' : ''"
               :title="row.node.description">{{ row.node.description || `Step ${row.node.sequence}` }}</span>
         <i v-if="row.node.dynamicSteps"
            v-tooltip.top="'This step generated further steps while running'"
@@ -31,7 +31,7 @@
         </span>
       </div>
 
-      <div v-if="row.node.progress && row.node.status === RunStatus.RUNNING"
+      <div v-if="row.node.progress && row.node.status === ExecutionStatus.RUNNING"
            class="pb-2 pr-3"
            :style="{ paddingLeft: `${row.depth * 1.25 + 2.5}rem` }">
         <ProgressBar :value="row.node.progress.percentageComplete" :show-value="false" class="!h-1.5" />
@@ -54,7 +54,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ProgressBar from 'primevue/progressbar'
-import { RunStatus } from '@kinotic-ai/management-api'
+import { ExecutionStatus } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 import DatetimeUtil from '../../util/DatetimeUtil'
 
@@ -102,13 +102,13 @@ function toggle(stepPath: string): void {
 
 function dotClass(node: JobStepNode): string {
   let ret: string
-  if (node.status === RunStatus.COMPLETED) {
+  if (node.status === ExecutionStatus.COMPLETED) {
     ret = 'bg-emerald-500'
-  } else if (node.status === RunStatus.RUNNING) {
+  } else if (node.status === ExecutionStatus.RUNNING) {
     ret = 'bg-sky-400'
-  } else if (node.status === RunStatus.FAILED) {
+  } else if (node.status === ExecutionStatus.FAILED) {
     ret = 'bg-red-500'
-  } else if (node.status === RunStatus.CANCELLED) {
+  } else if (node.status === ExecutionStatus.CANCELLED) {
     ret = 'bg-amber-500'
   } else {
     ret = 'bg-[var(--p-content-border-color)]'

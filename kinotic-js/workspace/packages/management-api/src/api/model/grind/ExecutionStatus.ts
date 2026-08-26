@@ -1,7 +1,7 @@
 /**
  * The lifecycle state of a recorded execution, shared by JobRuns and TaskRecords.
  */
-export enum RunStatus {
+export enum ExecutionStatus {
     /**
      * The execution has been discovered but has not started. Only TaskRecords carry this
      * status: a step is recorded PENDING the moment it becomes known. A record that keeps

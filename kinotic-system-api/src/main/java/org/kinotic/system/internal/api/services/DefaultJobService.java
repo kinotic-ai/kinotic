@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.management.api.model.grind.RunStatus;
+import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.StoreType;
 import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRecordService;
@@ -136,8 +136,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                      }else if(originalRun.getVersion() != null && !originalRun.getVersion().equals(jobDefinition.getVersion())){
                                          ret = Flux.error(new IllegalArgumentException("JobDefinition version " + jobDefinition.getVersion()
                                                  + " does not match the version " + originalRun.getVersion() + " recorded for run " + jobRunId));
-                                     }else if(originalRun.getStatus() != RunStatus.FAILED
-                                             && originalRun.getStatus() != RunStatus.CANCELLED){
+                                     }else if(originalRun.getStatus() != ExecutionStatus.FAILED
+                                             && originalRun.getStatus() != ExecutionStatus.CANCELLED){
                                          ret = Flux.error(new IllegalStateException("Run " + jobRunId + " is " + originalRun.getStatus()
                                                  + ", only FAILED or CANCELLED runs can be resumed"));
                                      }else{
@@ -249,7 +249,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         return jobRecordService.findTaskRecordsForJobRun(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
                                 .compose(recordPage -> {
                                     for(TaskRecord record : recordPage.getContent()){
-                                        if(record.getStatus() == RunStatus.COMPLETED){
+                                        if(record.getStatus() == ExecutionStatus.COMPLETED){
                                             entries.put(record.getStepPath(), toReplayEntry(record));
                                         }
                                     }
