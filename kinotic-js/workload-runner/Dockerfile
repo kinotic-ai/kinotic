@@ -12,8 +12,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /opt/workload-runner
-COPY package.json tsconfig.json ./
-RUN bun install --production
+COPY package.json bun.lock bunfig.toml tsconfig.json ./
+RUN bun install --production --frozen-lockfile
 COPY src ./src
 
 ENTRYPOINT ["bun", "src/supervise.ts"]
