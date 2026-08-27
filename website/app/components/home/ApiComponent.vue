@@ -142,7 +142,7 @@ function onTabKeydown(event: KeyboardEvent) {
     <div class="api__glow" />
     <div class="k-wrap api__inner">
       <div class="k-eyebrow api__eyebrow" data-reveal>
-        <span>STUPID SIMPLE API</span>
+        <span>&quot;STUPID SIMPLE&quot; API</span>
       </div>
       <h2 class="k-heading api__title" data-reveal>Unparalleled time to delivery</h2>
 
