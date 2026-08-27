@@ -1,35 +1,3 @@
-<script setup lang="ts">
-const columns = [
-  {
-    title: 'PLATFORM',
-    links: [
-      { label: 'Architecture', to: '/platform/architecture' },
-      { label: 'Deployment', to: '/platform/deployment-guide' },
-      { label: 'Configuration', to: '/platform/configuration' },
-      { label: 'Observability', to: '/platform/observability' },
-    ],
-  },
-  {
-    title: 'DEVELOPERS',
-    links: [
-      { label: 'Documentation', to: '/apps/introduction' },
-      { label: 'Quick start', to: '/apps/quick-start' },
-      { label: 'CLI reference', to: '/apps/cli-reference' },
-      { label: 'MCP tools', to: '/platform/mcp-tools' },
-    ],
-  },
-  {
-    title: 'PROJECT',
-    links: [
-      { label: 'GitHub', to: 'https://github.com/kinotic-ai/kinotic', external: true },
-      { label: 'Contributing', to: '/platform/contributing' },
-      { label: 'Security', to: '/platform/system-security' },
-      { label: 'Test reports', to: '/test-results/', external: true },
-    ],
-  },
-]
-</script>
-
 <template>
   <footer class="kfoot">
     <div class="k-wrap">
@@ -39,23 +7,24 @@ const columns = [
           <p>The crystallization of thought into software. Where ideas become applications.</p>
         </div>
 
-        <div class="kfoot__cols">
-          <div v-for="column in columns" :key="column.title">
-            <div class="kfoot__coltitle">{{ column.title }}</div>
-            <div class="kfoot__collinks">
-              <template v-for="link in column.links" :key="link.label">
-                <a v-if="link.external" :href="link.to">{{ link.label }}</a>
-                <NuxtLink v-else :to="link.to">{{ link.label }}</NuxtLink>
-              </template>
-            </div>
-          </div>
+        <div class="kfoot__social">
+          <a href="https://www.linkedin.com/company/kinotic/" target="_blank" rel="noreferrer" aria-label="Kinotic on LinkedIn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="3" />
+              <path d="M7.4 10.6V17" />
+              <path d="M7.4 7.4h.01" />
+              <path d="M11.4 17v-6.4" />
+              <path d="M11.4 13.4a2.6 2.6 0 0 1 5.2 0V17" />
+            </svg>
+          </a>
         </div>
       </div>
 
       <div class="kfoot__bottom">
-        <span>Copyright © 2018–present Kinotic</span>
+        <span>© 2018–present Kinotic</span>
         <span class="kfoot__legal">
           <NuxtLink to="/terms">Terms of use</NuxtLink>
+          <span class="kfoot__sep" aria-hidden="true">|</span>
           <NuxtLink to="/privacy">Privacy policy</NuxtLink>
         </span>
       </div>
@@ -73,13 +42,14 @@ const columns = [
 .kfoot__top {
   display: flex;
   flex-wrap: wrap;
-  gap: 48px;
+  align-items: center;
+  gap: 32px 48px;
   justify-content: space-between;
   margin-bottom: 56px;
 }
 
 .kfoot__brand {
-  max-width: 300px;
+  max-width: 340px;
 }
 
 .kfoot__brand p {
@@ -89,35 +59,26 @@ const columns = [
   margin: 20px 0 0;
 }
 
-.kfoot__cols {
+.kfoot__social {
   display: flex;
-  flex-wrap: wrap;
-  gap: 72px;
+  align-items: center;
+  gap: 34px;
 }
 
-.kfoot__coltitle {
-  font-family: var(--k-font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  color: var(--k-fainter);
-  margin-bottom: 16px;
-}
-
-.kfoot__collinks {
-  display: flex;
-  flex-direction: column;
-  gap: 11px;
-}
-
-.kfoot__collinks a {
-  font-size: 14px;
-  color: var(--k-muted);
-  text-decoration: none;
+.kfoot__social a {
+  display: inline-flex;
+  color: var(--k-dim);
   transition: color 0.2s ease;
 }
 
-.kfoot__collinks a:hover {
+.kfoot__social a:hover {
   color: var(--k-text);
+}
+
+.kfoot__social svg {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .kfoot__bottom {
@@ -134,7 +95,7 @@ const columns = [
 
 .kfoot__legal {
   display: flex;
-  gap: 18px;
+  gap: 10px;
 }
 
 .kfoot__legal a {
@@ -147,9 +108,7 @@ const columns = [
   color: var(--k-text);
 }
 
-@media (max-width: 600px) {
-  .kfoot__cols {
-    gap: 34px 44px;
-  }
+.kfoot__sep {
+  color: #3A3A40;
 }
 </style>
