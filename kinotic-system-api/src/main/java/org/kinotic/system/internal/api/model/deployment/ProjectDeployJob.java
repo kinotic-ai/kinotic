@@ -2,7 +2,7 @@ package org.kinotic.system.internal.api.model.deployment;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.system.api.model.grind.JobDefinition;
+import org.kinotic.grind.api.model.JobDefinition;
 
 import java.util.concurrent.atomic.AtomicReference;
 

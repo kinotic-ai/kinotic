@@ -6,11 +6,8 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
+    implementation project(':kinotic-grind')
     implementation project(':kinotic-management-api')
-
-    implementation 'co.elastic.clients:elasticsearch-java'
-
-    implementation 'commons-io:commons-io'
 
     implementation 'io.projectreactor:reactor-core'
 
@@ -20,11 +17,7 @@ dependencies {
 
     implementation 'io.vertx:vertx-core'
 
-    implementation 'org.reactivestreams:reactive-streams'
-
-    implementation 'tools.jackson.core:jackson-core'
-    implementation 'tools.jackson.core:jackson-databind'
-
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'tools.jackson.core:jackson-databind'
 }
