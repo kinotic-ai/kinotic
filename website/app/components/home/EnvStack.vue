@@ -39,6 +39,9 @@ const PIPELINE_STEPS = [
   width: 260px;
   height: 132px;
   perspective: 820px;
+  /* One trip through all four stages. Each card's phase is a quarter of this,
+     so the pace of the whole deck is tuned from here. */
+  --envstack-cycle: 26s;
 }
 
 .envstack__card {
@@ -56,7 +59,7 @@ const PIPELINE_STEPS = [
   transform-origin: 50% 0%;
   backface-visibility: hidden;
   will-change: transform, opacity;
-  animation-duration: 13.6s;
+  animation-duration: var(--envstack-cycle);
   animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
   animation-iteration-count: infinite;
   animation-delay: var(--envstack-phase);
@@ -71,7 +74,7 @@ const PIPELINE_STEPS = [
   gap: 14px;
   height: 100%;
   opacity: 0;
-  animation-duration: 13.6s;
+  animation-duration: var(--envstack-cycle);
   animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
   animation-iteration-count: infinite;
   animation-delay: var(--envstack-phase);
@@ -122,10 +125,10 @@ const PIPELINE_STEPS = [
   animation-name: envstack-fold-reveal;
 }
 
-.envstack--v1 .envstack__card:nth-child(1) { --envstack-phase: -6.8s; }
-.envstack--v1 .envstack__card:nth-child(2) { --envstack-phase: -3.4s; }
+.envstack--v1 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.5); }
+.envstack--v1 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.25); }
 .envstack--v1 .envstack__card:nth-child(3) { --envstack-phase: 0s; }
-.envstack--v1 .envstack__card:nth-child(4) { --envstack-phase: -10.2s; }
+.envstack--v1 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.75); }
 
 @keyframes envstack-fold {
   0%, 15% {
@@ -207,9 +210,9 @@ const PIPELINE_STEPS = [
 }
 
 .envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: 0s; }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: -10.2s; }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: -6.8s; }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: -3.4s; }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.75); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.5); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.25); }
 
 @keyframes envstack-rise {
   0%, 15% {

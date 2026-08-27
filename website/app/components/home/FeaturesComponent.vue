@@ -13,7 +13,7 @@ const HEAD_X = 278
 /** Where the red probe is pinned; it only ever travels vertically. */
 const RED_X = 120
 /** viewBox units the line travels per second. */
-const SCROLL_SPEED = 16
+const SCROLL_SPEED = 7
 const PEAK_TOP = 26
 const PEAK_SPAN = 30
 const VALLEY_TOP = 66
