@@ -322,6 +322,20 @@ html.k-canvas-dark body {
 
 /* Scroll reveal. Elements start displaced and are un-hidden by the
    IntersectionObserver in pages/index.vue adding `.in`. */
+/* Every animation is held at its first frame until the block containing it scrolls
+   into view, so a reader arriving at a section watches one start instead of catching
+   it half-finished. The rule has to be static CSS rather than something the observer
+   applies, or the animation would already have run for however long hydration took.
+   useMarketingMotion() releases a block by adding the class, which frees everything
+   inside it — including nodes rendered later, such as the code panes' rows.
+   The `!important` is load-bearing: a component's scoped `.foo[data-v-x] { animation }`
+   ties this rule on specificity and wins on source order, since the components are
+   injected after this sheet. A released element stops matching, so the running side
+   needs no override. */
+.k-marketing :not(.k-motion-run, .k-motion-run *) {
+  animation-play-state: paused !important;
+}
+
 [data-reveal] {
   opacity: 0;
   transform: translateY(26px);
