@@ -7,9 +7,9 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.StepRecord;
 import org.kinotic.grind.internal.api.repositories.JobRunRepository;
-import org.kinotic.grind.internal.api.repositories.TaskRecordRepository;
+import org.kinotic.grind.internal.api.repositories.StepRecordRepository;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class DefaultJobRunService implements JobRunService {
 
     private final JobRunRepository jobRunRepository;
-    private final TaskRecordRepository taskRecordRepository;
+    private final StepRecordRepository stepRecordRepository;
 
     @Override
     public Future<JobRun> save(JobRun jobRun) {
@@ -49,19 +49,19 @@ public class DefaultJobRunService implements JobRunService {
     }
 
     @Override
-    public Future<TaskRecord> saveStep(TaskRecord taskRecord) {
-        Validate.notNull(taskRecord, "TaskRecord cannot be null");
-        Validate.notNull(taskRecord.getId(), "TaskRecord id cannot be null");
-        Validate.notNull(taskRecord.getJobRunId(), "TaskRecord jobRunId cannot be null");
-        Validate.notNull(taskRecord.getStepPath(), "TaskRecord stepPath cannot be null");
-        Validate.notNull(taskRecord.getStatus(), "TaskRecord status cannot be null");
-        return taskRecordRepository.save(taskRecord);
+    public Future<StepRecord> saveStep(StepRecord stepRecord) {
+        Validate.notNull(stepRecord, "StepRecord cannot be null");
+        Validate.notNull(stepRecord.getId(), "StepRecord id cannot be null");
+        Validate.notNull(stepRecord.getJobRunId(), "StepRecord jobRunId cannot be null");
+        Validate.notNull(stepRecord.getStepPath(), "StepRecord stepPath cannot be null");
+        Validate.notNull(stepRecord.getStatus(), "StepRecord status cannot be null");
+        return stepRecordRepository.save(stepRecord);
     }
 
     @Override
-    public Future<Page<TaskRecord>> findSteps(String jobRunId, Pageable pageable) {
+    public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
-        return taskRecordRepository.findAllForJobRun(jobRunId, pageable);
+        return stepRecordRepository.findAllForJobRun(jobRunId, pageable);
     }
 
 }

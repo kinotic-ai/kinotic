@@ -24,7 +24,7 @@ import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.Result;
 import org.kinotic.grind.api.model.ResultType;
-import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.StepRecord;
 import org.kinotic.grind.api.model.Tasks;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import reactor.core.publisher.Flux;
@@ -137,10 +137,10 @@ class DefaultJobMonitoringServiceTest {
     }
 
     @Test
-    void taskRecordsServeTheRunsStepLedger() throws Throwable {
+    void stepRecordsServeTheRunsStepLedger() throws Throwable {
         JobRunHandle execution = executeAndAwait(twoTaskJob("acme deploy"), JobOwner.ofOrganization("acme"));
 
-        Page<TaskRecord> page = callAs(ACME_USER, () -> service.findSteps(execution.getJobRunId(),
+        Page<StepRecord> page = callAs(ACME_USER, () -> service.findSteps(execution.getJobRunId(),
                                                                                 Pageable.create(0, 50, null)));
 
         // the root job and both tasks, all terminal since the run completed
@@ -298,7 +298,7 @@ class DefaultJobMonitoringServiceTest {
     private static class InMemoryJobRunService implements JobRunService {
 
         final Map<String, JobRun> savedJobRuns = new LinkedHashMap<>();
-        final Map<String, TaskRecord> savedTaskRecords = new LinkedHashMap<>();
+        final Map<String, StepRecord> savedStepRecords = new LinkedHashMap<>();
 
         @Override
         public Future<JobRun> save(JobRun jobRun) {
@@ -342,14 +342,14 @@ class DefaultJobMonitoringServiceTest {
         }
 
         @Override
-        public Future<TaskRecord> saveStep(TaskRecord taskRecord) {
-            savedTaskRecords.put(taskRecord.getId(), taskRecord);
-            return Future.succeededFuture(taskRecord);
+        public Future<StepRecord> saveStep(StepRecord stepRecord) {
+            savedStepRecords.put(stepRecord.getId(), stepRecord);
+            return Future.succeededFuture(stepRecord);
         }
 
         @Override
-        public Future<Page<TaskRecord>> findSteps(String jobRunId, Pageable pageable) {
-            List<TaskRecord> matching = savedTaskRecords.values().stream()
+        public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
+            List<StepRecord> matching = savedStepRecords.values().stream()
                                                         .filter(record -> jobRunId.equals(record.getJobRunId()))
                                                         .toList();
             int pageNumber = ((OffsetPageable) pageable).getPageNumber();

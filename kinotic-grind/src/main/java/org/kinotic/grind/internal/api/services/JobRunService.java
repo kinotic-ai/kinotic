@@ -5,11 +5,11 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.StepRecord;
 
 /**
  * The persistent record of grind job executions: each {@link JobRun} and its per-step
- * {@link TaskRecord} ledger. The grind engine writes through this service as a run
+ * {@link StepRecord} ledger. The grind engine writes through this service as a run
  * executes; readers see a run's history whether it is live or long finished.
  */
 public interface JobRunService {
@@ -47,10 +47,10 @@ public interface JobRunService {
 
     /**
      * Saves the given step record, creating or updating it.
-     * @param taskRecord the record to save; its id, jobRunId, stepPath, and status must be set
+     * @param stepRecord the record to save; its id, jobRunId, stepPath, and status must be set
      * @return a future that will complete with the saved record
      */
-    Future<TaskRecord> saveStep(TaskRecord taskRecord);
+    Future<StepRecord> saveStep(StepRecord stepRecord);
 
     /**
      * Finds the step records of the given run.
@@ -58,6 +58,6 @@ public interface JobRunService {
      * @param pageable the page of records to return
      * @return a future that will complete with the page of records
      */
-    Future<Page<TaskRecord>> findSteps(String jobRunId, Pageable pageable);
+    Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable);
 
 }

@@ -10,14 +10,15 @@ import tools.jackson.databind.JsonNode;
 import java.util.Date;
 
 /**
- * The persistent record of one {@code Task} execution within a {@link JobRun}, identified
- * by its {@link #stepPath} - the task's position in the run's step tree.
+ * The persistent record of one step's execution within a {@link JobRun} - a {@code Task} or a
+ * nested {@code JobDefinition} - identified by its {@link #stepPath}, the step's position in
+ * the run's step tree.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class TaskRecord implements Identifiable<String> {
+public class StepRecord implements Identifiable<String> {
 
     /**
      * Unique identifier for this record, composed of the {@link #jobRunId} and the {@link #stepPath},

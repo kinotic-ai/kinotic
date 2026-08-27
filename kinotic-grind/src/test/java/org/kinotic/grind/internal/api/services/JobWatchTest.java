@@ -10,7 +10,7 @@ import org.kinotic.grind.api.model.Result;
 import org.kinotic.grind.api.model.ResultOptions;
 import org.kinotic.grind.api.model.ResultType;
 import org.kinotic.grind.api.model.StepCompletion;
-import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.StepRecord;
 import org.kinotic.grind.api.model.Tasks;
 import reactor.core.scheduler.Schedulers;
 
@@ -119,9 +119,9 @@ public class JobWatchTest extends AbstractGrindTest {
         List<Result<?>> discoveries = ofType(watched, ResultType.DYNAMIC_STEPS);
         assertEquals(1, discoveries.size());
         @SuppressWarnings("unchecked")
-        List<TaskRecord> discovered = (List<TaskRecord>) discoveries.getFirst().getValue();
+        List<StepRecord> discovered = (List<StepRecord>) discoveries.getFirst().getValue();
         assertEquals(List.of("0/3/1", "0/3/1/1"),
-                     discovered.stream().map(TaskRecord::getStepPath).toList());
+                     discovered.stream().map(StepRecord::getStepPath).toList());
         assertTrue(discovered.stream().allMatch(record -> record.getStatus() == ExecutionStatus.PENDING));
         assertEquals("0/3", discoveries.getFirst().getStepInfo().path());
 

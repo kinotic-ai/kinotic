@@ -3,7 +3,7 @@ package org.kinotic.grind.internal.api.services;
 import org.junit.jupiter.api.Test;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.StepRecord;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.JobScope;
@@ -48,7 +48,7 @@ public class JobResumeTest extends AbstractGrindTest {
         JobRunHandle execution = jobService.execute(def);
         await(execution);
 
-        TaskRecord record = records.forRun(execution.getJobRunId()).stream()
+        StepRecord record = records.forRun(execution.getJobRunId()).stream()
                                    .filter(r -> "widget".equals(r.getResultName()))
                                    .findFirst().orElseThrow();
 
