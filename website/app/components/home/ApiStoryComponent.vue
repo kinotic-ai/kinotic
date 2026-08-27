@@ -62,7 +62,7 @@ const steps: Step[] = [
     id: 'model',
     number: '02',
     title: 'Model the domain',
-    summary: 'Describe your data and who may see it. Storage, search and enforcement come with it.',
+    summary: 'Describe your data once. Storage, search and tenant isolation come with it.',
     icon: 'Persistence',
     slides: [
       {
@@ -78,17 +78,15 @@ const steps: Step[] = [
         got: ['storage', 'full-text search', 'per-contractor isolation', 'a typed repository'],
       },
       {
-        ask: ['Dispatchers see every job. Only a lead can delete one.'],
+        ask: ['Support needs to look across every contractor.'],
         reply: [
-          'Say it on the entity. The platform enforces it on every read and write, so you never write the filter and can never forget it.',
+          'You get two repositories. The everyday one is scoped to whoever is calling; the admin one crosses contractors, for the cases that need it.',
         ],
         code: [
-          [t('a', '@Policy'), t('p', '([['), t('t', "'job:read'"), t('p', ']])')],
-          [t('a', '@EntityServiceDecorators'), t('p', '({')],
-          [t('p', '  allDelete: ['), t('b', '$Role'), t('p', '(['), t('t', "'lead'"), t('p', '])]')],
-          [t('p', '})')],
+          [t('k', 'new'), t('p', ' JobRepository()')],
+          [t('k', 'new'), t('p', ' JobAdminRepository()')],
         ],
-        got: ['enforced on every query', 'per operation, field or method', 'no filter to remember', 'no way to forget it'],
+        got: ['scoped by default', 'an admin repository for support', 'both generated from @TenantId', 'no cross-tenant leak by accident'],
       },
       {
         ask: ['How many jobs are still open at each contractor?'],
