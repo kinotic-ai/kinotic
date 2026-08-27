@@ -7,7 +7,7 @@ import {
   type JobRun,
   type Progress,
   type Result,
-  type StepRecord
+  type TaskRecord
 } from '@kinotic-ai/management-api'
 import type { JobStepNode } from './JobStepNode'
 
@@ -62,7 +62,7 @@ export function useJobRunProgress(jobRunId: string) {
     return node
   }
 
-  function applyRecord(record: StepRecord): void {
+  function applyRecord(record: TaskRecord): void {
     const node = nodeAt(record.stepPath)
     node.description = record.description ?? node.description
     node.status = record.status
@@ -105,7 +105,7 @@ export function useJobRunProgress(jobRunId: string) {
         break
       }
       case ResultType.DYNAMIC_STEPS: {
-        for (const record of result.value as StepRecord[]) {
+        for (const record of result.value as TaskRecord[]) {
           applyRecord(record)
         }
         nodeAt(stepPath).dynamicSteps = true

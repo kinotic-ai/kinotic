@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.StoreType;
-import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRunService;
 import org.kinotic.system.api.model.grind.JobDefinition;
 import org.kinotic.management.api.model.grind.JobOwner;
@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
- * Writes the {@link JobRun} and {@link StepRecord}s for one job execution as its
+ * Writes the {@link JobRun} and {@link TaskRecord}s for one job execution as its
  * {@link Result} stream emits step lifecycle events.
  */
 @Slf4j
@@ -33,7 +33,7 @@ public class JobRunRecorder {
     private final JobRunService jobRunService;
     private final ObjectMapper objectMapper;
 
-    private final Map<String, StepRecord> recordsByPath = new ConcurrentHashMap<>();
+    private final Map<String, TaskRecord> recordsByPath = new ConcurrentHashMap<>();
     // Persistence calls are chained so writes for the same document can never race each other
     private Future<Void> writeChain = Future.succeededFuture();
 
@@ -94,7 +94,7 @@ public class JobRunRecorder {
     }
 
     private void stepProducedDynamicSteps(String stepPath, Step dynamicStep) {
-        StepRecord record = recordsByPath.get(stepPath);
+        TaskRecord record = recordsByPath.get(stepPath);
         if(record != null){
             record.setDynamicSteps(true);
             enqueue(() -> jobRunService.saveStep(record));
@@ -103,7 +103,7 @@ public class JobRunRecorder {
     }
 
     /**
-     * Builds one PENDING {@link StepRecord} for the given step and each of its static
+     * Builds one PENDING {@link TaskRecord} for the given step and each of its static
      * descendants, rooted under {@code parentPath}. Dynamic descendants are unknowable until
      * their tasks execute; each later discovery walks only the newly revealed subtree.
      * @param jobRunId the run the records belong to
@@ -111,16 +111,16 @@ public class JobRunRecorder {
      * @param step the revealed step
      * @return the records, in discovery order
      */
-    public static List<StepRecord> discoveredStepRecords(String jobRunId, String parentPath, Step step) {
-        List<StepRecord> ret = new ArrayList<>();
+    public static List<TaskRecord> discoveredStepRecords(String jobRunId, String parentPath, Step step) {
+        List<TaskRecord> ret = new ArrayList<>();
         collectDiscovered(jobRunId, parentPath, step, ret);
         return ret;
     }
 
-    private static void collectDiscovered(String jobRunId, String parentPath, Step step, List<StepRecord> collected) {
+    private static void collectDiscovered(String jobRunId, String parentPath, Step step, List<TaskRecord> collected) {
         String stepPath = parentPath.isEmpty() ? String.valueOf(step.getSequence())
                                                : parentPath + "/" + step.getSequence();
-        collected.add(new StepRecord().setId(jobRunId + ":" + stepPath)
+        collected.add(new TaskRecord().setId(jobRunId + ":" + stepPath)
                                       .setJobRunId(jobRunId)
                                       .setStepPath(stepPath)
                                       .setDescription(step.getDescription())
@@ -132,8 +132,8 @@ public class JobRunRecorder {
         }
     }
 
-    private void seedDiscovered(List<StepRecord> discovered) {
-        for(StepRecord record : discovered){
+    private void seedDiscovered(List<TaskRecord> discovered) {
+        for(TaskRecord record : discovered){
             recordsByPath.put(record.getStepPath(), record);
             enqueue(() -> jobRunService.saveStep(record));
         }
@@ -163,8 +163,8 @@ public class JobRunRecorder {
     private void stepStarted(String stepPath, String description) {
         // Normally seeded PENDING at discovery; creating here is load-bearing against a step
         // shape the discovery walk cannot see, so its lifecycle is still recorded
-        StepRecord record = recordsByPath.computeIfAbsent(stepPath,
-                                                          path -> new StepRecord().setId(jobRunId + ":" + path)
+        TaskRecord record = recordsByPath.computeIfAbsent(stepPath,
+                                                          path -> new TaskRecord().setId(jobRunId + ":" + path)
                                                                                   .setJobRunId(jobRunId)
                                                                                   .setStepPath(path));
         record.setDescription(description)
@@ -174,7 +174,7 @@ public class JobRunRecorder {
     }
 
     private void stepCompleted(String stepPath, StepCompletion completion) {
-        StepRecord record = recordsByPath.get(stepPath);
+        TaskRecord record = recordsByPath.get(stepPath);
         if(record == null){
             log.warn("STEP_COMPLETED for unknown step path {} in run {}", stepPath, jobRunId);
         }else{
@@ -224,7 +224,7 @@ public class JobRunRecorder {
      * Thrown from record(), the exception propagates through the result stream's doOnNext
      * as the run's error signal.
      */
-    private void failStep(StepRecord record, String message, Exception cause) {
+    private void failStep(TaskRecord record, String message, Exception cause) {
         record.setStatus(ExecutionStatus.FAILED)
               .setError(message)
               .setFinished(new Date());
@@ -233,7 +233,7 @@ public class JobRunRecorder {
     }
 
     private void stepFailed(String stepPath, Throwable throwable) {
-        StepRecord record = recordsByPath.get(stepPath);
+        TaskRecord record = recordsByPath.get(stepPath);
         if(record == null){
             log.warn("STEP_FAILED for unknown step path {} in run {}", stepPath, jobRunId);
         }else{
@@ -249,7 +249,7 @@ public class JobRunRecorder {
      * terminates abnormally and in-flight steps will never report completion.
      */
     private void finishRemainingRecords(ExecutionStatus status) {
-        for(StepRecord record : recordsByPath.values()){
+        for(TaskRecord record : recordsByPath.values()){
             if(record.getStatus() == ExecutionStatus.RUNNING){
                 record.setStatus(status)
                       .setFinished(new Date());

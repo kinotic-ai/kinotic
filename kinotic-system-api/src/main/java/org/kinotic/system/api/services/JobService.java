@@ -36,7 +36,7 @@ public interface JobService {
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.management.api.model.grind.StepRecord} for every step executed.
+     * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -47,7 +47,7 @@ public interface JobService {
     /**
      * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
      * {@link org.kinotic.management.api.model.grind.JobRun} for the run and a
-     * {@link org.kinotic.management.api.model.grind.StepRecord} for every step executed.
+     * {@link org.kinotic.management.api.model.grind.TaskRecord} for every step executed.
      * The run starts, and its records are written, when the returned
      * {@link JobRunHandle#getResults()} is subscribed to.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
@@ -110,7 +110,7 @@ public interface JobService {
      * <p>
      * Result values are reduced to what a monitoring caller can consume remotely:
      * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
-     * {@link org.kinotic.management.api.model.grind.StepRecord}s in discovery order,
+     * {@link org.kinotic.management.api.model.grind.TaskRecord}s in discovery order,
      * {@link ResultType#STEP_FAILED} carries the failure message, and
      * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
      * @param jobRunId the id of the run to watch

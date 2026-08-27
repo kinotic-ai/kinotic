@@ -14,7 +14,7 @@ import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.JobRun;
 import org.kinotic.management.api.model.grind.Result;
-import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRunService;
 import org.kinotic.system.api.services.JobService;
 import org.kinotic.management.api.services.JobMonitoringService;
@@ -60,7 +60,7 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     }
 
     @Override
-    public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
+    public Future<Page<TaskRecord>> findSteps(String jobRunId, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
         return authorizedJobRun(jobRunId).compose(run -> jobRunService.findSteps(run.getId(), pageable));
     }

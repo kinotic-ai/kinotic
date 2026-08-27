@@ -6,7 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.grind.JobOwner;
 import org.kinotic.management.api.model.grind.JobRun;
-import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRunService;
 
 import java.util.LinkedHashMap;
@@ -21,12 +21,12 @@ import java.util.Map;
 public class StubJobRunService implements JobRunService {
 
     public final Map<String, JobRun> savedJobRuns = new LinkedHashMap<>();
-    public final Map<String, StepRecord> savedTaskRecords = new LinkedHashMap<>();
+    public final Map<String, TaskRecord> savedTaskRecords = new LinkedHashMap<>();
 
     /**
      * Returns the captured records belonging to the given run.
      */
-    public List<StepRecord> forRun(String jobRunId) {
+    public List<TaskRecord> forRun(String jobRunId) {
         return savedTaskRecords.values().stream()
                                .filter(record -> jobRunId.equals(record.getJobRunId()))
                                .toList();
@@ -54,14 +54,14 @@ public class StubJobRunService implements JobRunService {
     }
 
     @Override
-    public Future<StepRecord> saveStep(StepRecord stepRecord) {
-        savedTaskRecords.put(stepRecord.getId(), stepRecord);
-        return Future.succeededFuture(stepRecord);
+    public Future<TaskRecord> saveStep(TaskRecord taskRecord) {
+        savedTaskRecords.put(taskRecord.getId(), taskRecord);
+        return Future.succeededFuture(taskRecord);
     }
 
     @Override
-    public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
-        List<StepRecord> matching = forRun(jobRunId);
+    public Future<Page<TaskRecord>> findSteps(String jobRunId, Pageable pageable) {
+        List<TaskRecord> matching = forRun(jobRunId);
         int pageNumber = ((OffsetPageable) pageable).getPageNumber();
         int from = Math.min(pageNumber * pageable.getPageSize(), matching.size());
         int to = Math.min(from + pageable.getPageSize(), matching.size());

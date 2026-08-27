@@ -16,7 +16,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class StepRecord implements Identifiable<String> {
+public class TaskRecord implements Identifiable<String> {
 
     /**
      * Unique identifier for this record, composed of the {@link #jobRunId} and the {@link #stepPath},

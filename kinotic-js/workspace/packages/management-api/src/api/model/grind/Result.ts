@@ -18,7 +18,7 @@ export class Result {
     public resultType!: ResultType
 
     /**
-     * The value, shaped by resultType: a Progress for PROGRESS, a StepRecord array for
+     * The value, shaped by resultType: a Progress for PROGRESS, a TaskRecord array for
      * DYNAMIC_STEPS, a StepCompletion for STEP_COMPLETED, a message string for
      * STEP_STARTED, STEP_FAILED, and EXCEPTION, a Diagnostic for DIAGNOSTIC, and null
      * for VALUE and NOOP.

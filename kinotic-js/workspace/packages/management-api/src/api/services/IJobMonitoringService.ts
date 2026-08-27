@@ -3,7 +3,7 @@ import type { IKinotic, IServiceProxy, Page, Pageable } from '@kinotic-ai/core'
 import type { Observable } from 'rxjs'
 import type { JobRun } from '@/api/model/grind/JobRun'
 import type { Result } from '@/api/model/grind/Result'
-import type { StepRecord } from '@/api/model/grind/StepRecord'
+import type { TaskRecord } from '@/api/model/grind/TaskRecord'
 
 /**
  * Read access to grind job runs for the authenticated participant: an organization or
@@ -30,7 +30,7 @@ export interface IJobMonitoringService {
      * @param jobRunId the id of the run
      * @param pageable the page of records to return
      */
-    findSteps(jobRunId: string, pageable: Pageable): Promise<Page<StepRecord>>
+    findSteps(jobRunId: string, pageable: Pageable): Promise<Page<TaskRecord>>
 
     /**
      * Opens a live view of a job run the participant may view, replaying every Result
@@ -57,7 +57,7 @@ export class JobMonitoringService implements IJobMonitoringService {
         return this.serviceProxy.invoke('findJobRun', [jobRunId])
     }
 
-    public findSteps(jobRunId: string, pageable: Pageable): Promise<Page<StepRecord>> {
+    public findSteps(jobRunId: string, pageable: Pageable): Promise<Page<TaskRecord>> {
         return this.serviceProxy.invoke('findSteps', [jobRunId, pageable])
     }
 

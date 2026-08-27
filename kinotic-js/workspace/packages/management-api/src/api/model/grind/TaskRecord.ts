@@ -6,7 +6,7 @@ import { StoreType } from '@/api/model/grind/StoreType'
  * The persistent record of one step within a JobRun. Every discovered step has a record,
  * PENDING until it starts executing, so a run's records are its complete step ledger.
  */
-export class StepRecord implements Identifiable<string> {
+export class TaskRecord implements Identifiable<string> {
 
     /**
      * Unique identifier for this record, composed of the jobRunId and the stepPath,

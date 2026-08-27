@@ -9,7 +9,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.grind.ExecutionStatus;
 import org.kinotic.management.api.model.grind.StoreType;
-import org.kinotic.management.api.model.grind.StepRecord;
+import org.kinotic.management.api.model.grind.TaskRecord;
 import org.kinotic.management.api.services.JobRunService;
 import org.kinotic.management.api.model.grind.DiagnosticLevel;
 import org.kinotic.system.api.model.grind.JobDefinition;
@@ -248,7 +248,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private Future<Void> loadRecordsPage(String jobRunId, int page, Map<String, ReplayEntry> entries) {
         return jobRunService.findSteps(jobRunId, Pageable.create(page, RECORD_PAGE_SIZE, null))
                                 .compose(recordPage -> {
-                                    for(StepRecord record : recordPage.getContent()){
+                                    for(TaskRecord record : recordPage.getContent()){
                                         if(record.getStatus() == ExecutionStatus.COMPLETED){
                                             entries.put(record.getStepPath(), toReplayEntry(record));
                                         }
@@ -263,7 +263,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                 });
     }
 
-    private ReplayEntry toReplayEntry(StepRecord record) {
+    private ReplayEntry toReplayEntry(TaskRecord record) {
         Object value = null;
         if(record.getStoreType() == StoreType.STATE && record.getResultValue() != null && record.getResultValueType() != null){
             try {

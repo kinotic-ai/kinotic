@@ -1,7 +1,7 @@
 package org.kinotic.management.api.model.grind;
 
 /**
- * How a step's result was stored in the job scope, recorded on the {@link StepRecord}
+ * How a step's result was stored in the job scope, recorded on the {@link TaskRecord}
  * and governing how the step is rehydrated when a run is resumed.
  */
 public enum StoreType {
@@ -18,7 +18,7 @@ public enum StoreType {
     RESULT,
 
     /**
-     * The step stored durable state. The value is serialized into the {@link StepRecord}
+     * The step stored durable state. The value is serialized into the {@link TaskRecord}
      * and on resume is replayed from the record instead of re-executing the step.
      * The value must survive a JSON round trip: a plain class or record with concrete field
      * types. Generic types (List, Map, Optional, ...) are rejected because their erased type
