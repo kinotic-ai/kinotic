@@ -117,7 +117,7 @@ onBeforeUnmount(() => {
     <div class="k-wrap hero__inner">
       <div class="hero__copy">
         <div class="k-eyebrow" data-reveal>
-          <span>APPLICATION API</span>
+          <span>KINOTIC OS</span>
         </div>
         <h1 class="k-heading hero__title" data-reveal>Prototype to production</h1>
         <p class="hero__lede" data-reveal>
