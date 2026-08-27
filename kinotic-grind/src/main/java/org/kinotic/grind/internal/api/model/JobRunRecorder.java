@@ -180,11 +180,11 @@ public class JobRunRecorder {
         }else{
             record.setStatus(ExecutionStatus.COMPLETED)
                   .setFinished(new Date())
-                  .setStoreType(completion.getStoreType())
-                  .setResultName(completion.getStoredName());
-            if(completion.getStoreType() == StoreType.STATE){
+                  .setStoreType(completion.storeType())
+                  .setResultName(completion.storedName());
+            if(completion.storeType() == StoreType.STATE){
                 // STATE is a contract: the value must be persistable, or the run fails here and now
-                if(completion.getStoredValue() == null){
+                if(completion.storedValue() == null){
                     failStep(record, "Step " + stepPath + " (" + record.getDescription()
                              + ") is declared taskStoreState but produced no value", null);
                 }
@@ -194,7 +194,7 @@ public class JobRunRecorder {
                 // cause. Checking declared type parameters catches every such class in one rule while
                 // letting reified subclasses (class WidgetList extends ArrayList<Widget>) through,
                 // since their bindings survive erasure and round-trip correctly.
-                Class<?> valueClass = completion.getStoredValue().getClass();
+                Class<?> valueClass = completion.storedValue().getClass();
                 if(valueClass.getTypeParameters().length > 0){
                     failStep(record, "Step " + stepPath + " (" + record.getDescription()
                              + ") is declared taskStoreState but produced a " + valueClass.getName()
@@ -208,11 +208,11 @@ public class JobRunRecorder {
                 }
                 record.setResultValueType(valueClass.getName());
                 try {
-                    record.setResultValue(objectMapper.valueToTree(completion.getStoredValue()));
+                    record.setResultValue(objectMapper.valueToTree(completion.storedValue()));
                 } catch (Exception e) {
                     failStep(record, "Step " + stepPath + " (" + record.getDescription()
                              + ") is declared taskStoreState but its value of type "
-                             + completion.getStoredValue().getClass().getName() + " is not serializable", e);
+                             + completion.storedValue().getClass().getName() + " is not serializable", e);
                 }
             }
             enqueue(() -> jobRunService.saveStep(record));

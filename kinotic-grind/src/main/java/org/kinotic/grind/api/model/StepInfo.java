@@ -2,6 +2,8 @@
 
 package org.kinotic.grind.api.model;
 
+import lombok.Getter;
+
 /**
  * The sequence of steps that have been executed to get to a specific {@link Result}
  *
@@ -9,22 +11,19 @@ package org.kinotic.grind.api.model;
  */
 public class StepInfo {
 
+    /**
+     *  The sequence of the step that created this
+     */
+    @Getter
     private final int sequence;
 
+    @Getter
     private StepInfo ancestor = null;
 
     private StepInfo top = null;
 
     public StepInfo(int sequence) {
         this.sequence = sequence;
-    }
-
-    /**
-     * The sequence of the step that created this
-     * @return the sequence number
-     */
-    public int getSequence() {
-        return sequence;
     }
 
     public void addAncestor(StepInfo ancestor){
@@ -34,10 +33,6 @@ public class StepInfo {
             this.top.addAncestor(ancestor);
         }
         this.top = ancestor;
-    }
-
-    public StepInfo getAncestor() {
-        return ancestor;
     }
 
     /**

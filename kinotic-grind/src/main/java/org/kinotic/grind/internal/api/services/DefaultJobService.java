@@ -213,7 +213,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                 StepCompletion completion = (StepCompletion) result.getValue();
                 ret = new DefaultResult<>(result.getStepInfo(),
                                           ResultType.STEP_COMPLETED,
-                                          new StepCompletion(completion.getStoreType(), completion.getStoredName(), null));
+                                          new StepCompletion(completion.storeType(), completion.storedName(), null));
             }
             case VALUE -> ret = new DefaultResult<>(result.getStepInfo(), ResultType.VALUE, null);
             default -> ret = result;

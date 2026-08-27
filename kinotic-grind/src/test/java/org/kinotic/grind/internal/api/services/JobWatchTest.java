@@ -111,9 +111,9 @@ public class JobWatchTest extends AbstractGrindTest {
         // completions keep their store metadata but drop the stored object
         StepCompletion widgetCompletion = ofType(watched, ResultType.STEP_COMPLETED).stream()
                 .map(result -> (StepCompletion) result.getValue())
-                .filter(completion -> "widget".equals(completion.getStoredName()))
+                .filter(completion -> "widget".equals(completion.storedName()))
                 .findFirst().orElseThrow();
-        assertNull(widgetCompletion.getStoredValue());
+        assertNull(widgetCompletion.storedValue());
 
         // dynamic discoveries arrive as the PENDING records seeded for the revealed subtree
         List<Result<?>> discoveries = ofType(watched, ResultType.DYNAMIC_STEPS);
