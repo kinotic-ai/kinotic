@@ -1,0 +1,349 @@
+/* Kinotic brand palette and type stacks.
+   Declared with Tailwind's `--color-*` / `--font-*` namespaces so each token is
+   both a CSS variable the component styles read and a generated utility
+   (`bg-k-bg`, `text-k-mint`, `font-k-mono`). Docus imports this file into the
+   sheet that owns `@import "tailwindcss"`, which is what registers them. */
+@theme {
+  --font-k-display: 'Figtree', sans-serif;
+  --font-k-body: 'Inter', sans-serif;
+  --font-k-mono: 'Fira Code', monospace;
+
+  --color-k-red: #EC1F52;
+  --color-k-red-hover: #D11646;
+  --color-k-mint: #28FEB4;
+  --color-k-mint-hover: #5CFEC6;
+
+  --color-k-bg: #08090A;
+  --color-k-bg-panel: #0C0D0F;
+  --color-k-bg-card: #0A0A0B;
+  --color-k-bg-chip: #101012;
+  --color-k-border: #2B2A32;
+
+  --color-k-heading: #FCFCFD;
+  --color-k-text: #EDEDEF;
+  --color-k-body: #B4B4BB;
+  --color-k-muted: #9A9AA2;
+  --color-k-dim: #8A8A92;
+  --color-k-faint: #6B6B73;
+  --color-k-fainter: #5D5D66;
+}
+
+/* Figtree · latin-ext */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/figtree-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Figtree · latin */
+@font-face {
+  font-family: 'Figtree';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/figtree-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Inter · cyrillic-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* Inter · cyrillic */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* Inter · greek-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-greek-ext.woff2') format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* Inter · greek */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* Inter · vietnamese */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-vietnamese.woff2') format('woff2');
+  unicode-range: U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+0300-0301, U+0303-0304, U+0308-0309, U+0323, U+0329, U+1EA0-1EF9, U+20AB;
+}
+/* Inter · latin-ext */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Inter · latin */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+/* Fira Code · cyrillic-ext */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-cyrillic-ext.woff2') format('woff2');
+  unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+}
+/* Fira Code · cyrillic */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-cyrillic.woff2') format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+/* Fira Code · greek-ext */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-greek-ext.woff2') format('woff2');
+  unicode-range: U+1F00-1FFF;
+}
+/* Fira Code · greek */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-greek.woff2') format('woff2');
+  unicode-range: U+0370-0377, U+037A-037F, U+0384-038A, U+038C, U+038E-03A1, U+03A3-03FF;
+}
+/* Fira Code · symbols2 */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-symbols2.woff2') format('woff2');
+  unicode-range: U+2000-2001, U+2004-2008, U+200A, U+23B8-23BD, U+2500-259F;
+}
+/* Fira Code · latin-ext */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-latin-ext.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+/* Fira Code · latin */
+@font-face {
+  font-family: 'Fira Code';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('/fonts/fira-code-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face { font-family: BauhausNanoDisplayRegular; src: url("/fonts/BauhausNanoDisplay-Regular.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Regular.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Regular.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayMedium; src: url("/fonts/BauhausNanoDisplay-Medium.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Medium.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Medium.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayLight; src: url("/fonts/BauhausNanoDisplay-Light.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Light.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Light.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayBold; src: url("/fonts/BauhausNanoDisplay-Bold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Bold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Bold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayExtraBold; src: url("/fonts/BauhausNanoDisplay-ExtraBold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-ExtraBold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-ExtraBold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplaySemiBold; src: url("/fonts/BauhausNanoDisplay-SemiBold.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-SemiBold.woff") format("woff"), url("/fonts/BauhausNanoDisplay-SemiBold.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayBlack; src: url("/fonts/BauhausNanoDisplay-Black.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Black.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Black.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayExtraLight; src: url("/fonts/BauhausNanoDisplay-ExtraLight.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-ExtraLight.woff") format("woff"), url("/fonts/BauhausNanoDisplay-ExtraLight.otf") format("opentype"); }
+@font-face { font-family: BauhausNanoDisplayThin; src: url("/fonts/BauhausNanoDisplay-Thin.woff2") format("woff2"), url("/fonts/BauhausNanoDisplay-Thin.woff") format("woff"), url("/fonts/BauhausNanoDisplay-Thin.otf") format("opentype"); }
+@font-face { font-family: InterRegular; src: url('/fonts/Inter-Regular.otf') format('opentype'); }
+@font-face { font-family: InterMedium; src: url('/fonts/Inter-Medium.otf') format('opentype'); }
+@font-face { font-family: InterBold; src: url('/fonts/Inter-Bold.otf') format('opentype'); }
+@font-face { font-family: InterSemiBold; src: url('/fonts/Inter-SemiBold.otf') format('opentype'); }
+
+/* ── Marketing page primitives ──────────────────────────────────────────────
+   Shared by the home sections, the site header and the footer. Section-local
+   styling stays in the component that owns it. */
+
+/* Scopes the brand selection colour to the marketing pages; the docs layer keeps
+   the theme's own. */
+.k-marketing ::selection {
+  background: rgba(236, 31, 82, 0.35);
+  color: #fff;
+}
+
+.k-wrap {
+  width: 100%;
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 40px;
+}
+
+.k-section {
+  padding: var(--k-section-padding, 110px 0);
+}
+
+/* An eyebrow: a skewed red tick followed by a spaced-out mono label. */
+.k-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.k-eyebrow::before {
+  content: '';
+  width: 14px;
+  height: 3px;
+  background: var(--color-k-red);
+  transform: skewX(-30deg);
+}
+
+.k-eyebrow > span {
+  font-family: var(--font-k-mono);
+  font-size: 12.5px;
+  letter-spacing: 0.18em;
+  color: var(--color-k-muted);
+}
+
+.k-heading {
+  font-family: var(--font-k-display);
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-k-heading);
+  margin: 0;
+}
+
+.k-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-k-mono);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 15px 28px;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.k-btn--mint {
+  color: var(--color-k-bg);
+  background: var(--color-k-mint);
+}
+
+.k-btn--mint:hover {
+  color: var(--color-k-bg);
+  background: var(--color-k-mint-hover);
+}
+
+.k-btn--red {
+  color: #fff;
+  background: var(--color-k-red);
+}
+
+.k-btn--red:hover {
+  color: #fff;
+  background: var(--color-k-red-hover);
+}
+
+.k-btn--ghost {
+  color: var(--color-k-text);
+  background: transparent;
+  border: 1px solid #757575;
+}
+
+.k-btn--ghost:hover {
+  color: #fff;
+  border-color: #fff;
+}
+
+/* A pulsing status dot, next to "live" labels. */
+.k-livedot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-k-mint);
+  animation: k-pulse 1.8s ease-in-out infinite;
+}
+
+/* A blinking terminal caret, trailing the mono chips. */
+.k-caret {
+  display: inline-block;
+  width: 6px;
+  height: 12px;
+  background: var(--color-k-mint);
+  vertical-align: -2px;
+  animation: k-blink 1.05s steps(1) infinite;
+}
+
+@keyframes k-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes k-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+/* Scroll reveal. Elements start displaced and are un-hidden by the
+   IntersectionObserver in pages/index.vue adding `.in`. */
+[data-reveal] {
+  opacity: 0;
+  transform: translateY(26px);
+  transition:
+    opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-reveal].in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (max-width: 768px) {
+  .k-wrap {
+    padding: 0 22px;
+  }
+
+  .k-section {
+    padding: 64px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  * {
+    animation: none !important;
+  }
+}

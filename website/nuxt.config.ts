@@ -1,6 +1,5 @@
 export default defineNuxtConfig({
   extends: ['docus'],
-  css: ['~/assets/css/main.css'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
   // links). Without it they fall back to http://localhost, which leaks into the deployed
   // robots.txt Sitemap line and OG/canonical URLs.

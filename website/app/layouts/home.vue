@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen flex flex-col dark:bg-[#101010] bg-white">
+  <div class="k-marketing flex min-h-screen flex-col overflow-x-hidden bg-k-bg font-k-body text-k-text antialiased">
     <Header />
     <main class="flex-1">
       <slot />
