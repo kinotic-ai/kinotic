@@ -18,10 +18,13 @@ import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.services.github.GitHubProjectEventService;
+import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
+import org.kinotic.grind.api.model.ResultType;
+import org.kinotic.grind.api.model.StepCompletion;
 import org.kinotic.grind.api.services.JobService;
+import org.kinotic.system.internal.api.model.deployment.DeployTarget;
 import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
-import org.kinotic.system.internal.api.model.deployment.ProjectDeployJob;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
 import reactor.util.retry.Retry;
@@ -32,11 +35,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Deploys a project whenever a commit lands on its repository's default branch. Listens to
  * the verified GitHub deliveries {@link GitHubProjectEventService} emits, runs each
- * qualifying push as a grind job assembled by {@link ProjectDeployJobFactory},
+ * qualifying push as a grind job created by {@link ProjectDeployJobDefinitionFactory},
  * and records the outcome on the project's {@link ProjectDeployment}. The project's own
  * repository has no CI — this job is it, so a commit whose build fails never reaches the
  * runtime workload.
@@ -56,7 +60,7 @@ public class ProjectDeployOrchestrator {
 
     private final GitHubProjectEventService gitHubProjectEventService;
     private final JobService jobService;
-    private final ProjectDeployJobFactory jobFactory;
+    private final ProjectDeployJobDefinitionFactory jobDefinitionFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepository projectRepository;
 
@@ -159,10 +163,15 @@ public class ProjectDeployOrchestrator {
     }
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
-        ProjectDeployJob job = jobFactory.createJob(project, existing, commitSha);
-        JobRunHandle handle = jobService.execute(job.getDefinition(),
-                                                    JobOwner.ofApplication(project.getOrganizationId(),
-                                                                           project.getApplicationId()));
+        JobDefinition definition = jobDefinitionFactory.createJobDefinition(project, existing, commitSha);
+        JobRunHandle handle = jobService.execute(definition,
+                                                 JobOwner.ofApplication(project.getOrganizationId(),
+                                                                        project.getApplicationId()));
+
+        // Captured from the run's STEP_COMPLETED results as the steps store them in the job
+        // scope, so the outcome record reflects how far the run got whatever the outcome
+        AtomicReference<DeployTarget> target = new AtomicReference<>();
+        AtomicReference<String> runtimeWorkloadId = new AtomicReference<>();
 
         Promise<Void> outcome = Promise.promise();
         recordDeploying(project, existing, handle.getJobRunId())
@@ -170,12 +179,23 @@ public class ProjectDeployOrchestrator {
                 // The job starts when its results are subscribed, so the DEPLOYING record
                 // is in place before any step runs
                 .onSuccess(deployment -> handle.getResults().subscribe(
-                        result -> { },
-                        error -> recordOutcome(deployment, job, null,
+                        result -> {
+                            if (result.getResultType() == ResultType.STEP_COMPLETED
+                                    && result.getValue() instanceof StepCompletion completion) {
+                                if (ProjectDeployJobDefinitionFactory.DEPLOY_TARGET.equals(completion.storedName())
+                                        && completion.storedValue() instanceof DeployTarget resolved) {
+                                    target.set(resolved);
+                                } else if (ProjectDeployJobDefinitionFactory.RUNTIME_WORKLOAD_ID.equals(completion.storedName())
+                                        && completion.storedValue() instanceof String workloadId) {
+                                    runtimeWorkloadId.set(workloadId);
+                                }
+                            }
+                        },
+                        error -> recordOutcome(deployment, target.get(), runtimeWorkloadId.get(), null,
                                                new ProjectDeploymentStatus(ProjectDeploymentStatusType.FAILED,
                                                                            error.getMessage()))
                                 .onComplete(unused -> outcome.fail(error)),
-                        () -> recordOutcome(deployment, job, commitSha,
+                        () -> recordOutcome(deployment, target.get(), runtimeWorkloadId.get(), commitSha,
                                             new ProjectDeploymentStatus(ProjectDeploymentStatusType.RUNNING, null))
                                 .<Void>mapEmpty()
                                 .onComplete(outcome)));
@@ -195,15 +215,16 @@ public class ProjectDeployOrchestrator {
     }
 
     private Future<ProjectDeployment> recordOutcome(ProjectDeployment deployment,
-                                                    ProjectDeployJob job,
+                                                    DeployTarget target,
+                                                    String runtimeWorkloadId,
                                                     String syncedCommitSha,
                                                     ProjectDeploymentStatus status) {
-        if (job.getTarget() != null) {
-            deployment.setNodeId(job.getTarget().nodeId());
-            deployment.setHostDir(job.getTarget().hostDir());
+        if (target != null) {
+            deployment.setNodeId(target.nodeId());
+            deployment.setHostDir(target.hostDir());
         }
-        if (job.getRuntimeWorkloadId() != null) {
-            deployment.setRuntimeWorkloadId(job.getRuntimeWorkloadId());
+        if (runtimeWorkloadId != null) {
+            deployment.setRuntimeWorkloadId(runtimeWorkloadId);
         }
         if (syncedCommitSha != null) {
             deployment.setCommitSha(syncedCommitSha);

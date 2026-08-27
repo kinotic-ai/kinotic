@@ -16,22 +16,35 @@ import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.internal.api.model.deployment.DeployTarget;
-import org.kinotic.system.internal.api.model.deployment.ProjectDeployJob;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Assembles the grind {@link JobDefinition} that deploys one commit of a project: resolve
+ * Creates the grind {@link JobDefinition} that deploys one commit of a project: resolve
  * the target node and checkout directory, bring the checkout to the commit with a
  * foreground sync workload, and ensure the long-lived runtime workload serving it.
+ * The resolved {@link DeployTarget} and runtime workload id are stored in the job scope
+ * under {@link #DEPLOY_TARGET} and {@link #RUNTIME_WORKLOAD_ID}, so the run's
+ * STEP_COMPLETED results carry them to the caller.
  */
 @Component
 @RequiredArgsConstructor
-public class ProjectDeployJobFactory {
+public class ProjectDeployJobDefinitionFactory {
+
+    /**
+     * The job scope name the resolved {@link DeployTarget} is stored under.
+     */
+    public static final String DEPLOY_TARGET = "deployTarget";
+
+    /**
+     * The job scope name the id of the runtime workload serving the deployment is stored under.
+     */
+    public static final String RUNTIME_WORKLOAD_ID = "runtimeWorkloadId";
 
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
@@ -39,36 +52,45 @@ public class ProjectDeployJobFactory {
     private final KinoticSystemApiProperties properties;
 
     /**
-     * Creates the single-use job deploying the given commit of the project.
+     * Creates the job definition deploying the given commit of the project.
+     * The definition is one run's worth of steps - create a fresh one for each run.
      *
      * @param project the project to deploy
      * @param existing the project's current {@link ProjectDeployment}, or {@code null} when
      *                 it has never been deployed
      * @param commitSha the commit to bring the node's checkout to
-     * @return the assembled job
+     * @return the assembled definition
      */
-    public ProjectDeployJob createJob(Project project, ProjectDeployment existing, String commitSha) {
+    public JobDefinition createJobDefinition(Project project, ProjectDeployment existing, String commitSha) {
         String projectId = project.getId();
-        // Tasks run sequentially and hand resolved state to later tasks through these
-        // references, which also let the caller record how far the run got
-        AtomicReference<DeployTarget> targetRef = new AtomicReference<>();
-        AtomicReference<String> runtimeWorkloadIdRef = new AtomicReference<>();
-
-        JobDefinition definition = JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
+        return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
-                .task(Tasks.fromCallable("Resolve deployment target",
-                                         () -> resolveTarget(projectId, existing)
-                                                 .onSuccess(targetRef::set)
-                                                 .toCompletionStage().toCompletableFuture()))
-                .task(Tasks.fromCallable("Sync project source",
-                                         () -> syncSource(project, targetRef, commitSha)))
-                .task(Tasks.fromCallable("Ensure runtime workload",
-                                         () -> ensureRuntimeWorkload(project, targetRef)
-                                                 .onSuccess(runtimeWorkloadIdRef::set)
-                                                 .toCompletionStage().toCompletableFuture()));
+                // taskStoreResult so a resumed run re-resolves the target instead of skipping the step
+                .taskStoreResult(Tasks.fromCallable("Resolve deployment target",
+                                                    () -> resolveTarget(projectId, existing)
+                                                            .toCompletionStage().toCompletableFuture()),
+                                 DEPLOY_TARGET)
+                .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
 
-        return new ProjectDeployJob(definition, targetRef, runtimeWorkloadIdRef);
+                    @Autowired
+                    private DeployTarget target;
+
+                    @Override
+                    public CompletableFuture<String> call() {
+                        return syncSource(project, target, commitSha);
+                    }
+                }))
+                .taskStoreResult(Tasks.fromCallable("Ensure runtime workload", new Callable<CompletableFuture<String>>() {
+
+                    @Autowired
+                    private DeployTarget target;
+
+                    @Override
+                    public CompletableFuture<String> call() {
+                        return ensureRuntimeWorkload(project, target).toCompletionStage().toCompletableFuture();
+                    }
+                }), RUNTIME_WORKLOAD_ID);
     }
 
     /**
@@ -111,10 +133,10 @@ public class ProjectDeployJobFactory {
      * exit destroys the workload, freeing its allocation; a failed run keeps it so its
      * logs remain inspectable, and fails the job.
      */
-    private CompletableFuture<String> syncSource(Project project, AtomicReference<DeployTarget> targetRef, String commitSha) {
+    private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
                 .compose(token -> workloadOrchestrationService.deployWorkload(
-                        syncWorkload(project, targetRef.get(), token, commitSha)))
+                        syncWorkload(project, target, token, commitSha)))
                 .compose(finished -> {
                     Future<String> ret;
                     if (finished.getStatus() == WorkloadStatus.STOPPED
@@ -132,8 +154,7 @@ public class ProjectDeployJobFactory {
                 .toCompletionStage().toCompletableFuture();
     }
 
-    private Future<String> ensureRuntimeWorkload(Project project, AtomicReference<DeployTarget> targetRef) {
-        DeployTarget target = targetRef.get();
+    private Future<String> ensureRuntimeWorkload(Project project, DeployTarget target) {
         Future<String> ret;
         if (target.runtimeWorkloadId() != null) {
             // The running supervisor picks the new commit up through the reload sentinel
