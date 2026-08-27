@@ -62,19 +62,6 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
 
     @Override
-    public Flux<Result<?>> assemble(JobDefinition jobDefinition) {
-        return assemble(jobDefinition, new ResultOptions(DiagnosticLevel.NONE, false));
-    }
-
-    @Override
-    public Flux<Result<?>> assemble(JobDefinition jobDefinition, ResultOptions options) {
-        Validate.notNull(jobDefinition, "JobDefinition Must not be null");
-        Validate.notNull(options, "Options Must not be null");
-
-        return assembleInternal(jobDefinition, options, null);
-    }
-
-    @Override
     public JobRunHandle execute(JobDefinition jobDefinition) {
         return execute(jobDefinition, null, new ResultOptions(DiagnosticLevel.NONE, false));
     }
