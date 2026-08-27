@@ -11,7 +11,4 @@ import org.kinotic.sql.domain.WhereClause;
 public record DeleteStatement(String tableName,
                             WhereClause whereClause,
                             boolean refresh) implements Statement {
-    public DeleteStatement(String tableName, WhereClause whereClause) {
-        this(tableName, whereClause, false);
-    }
 }

@@ -1,16 +1,13 @@
 package org.kinotic.core.api.config;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
 /**
  *
@@ -69,7 +66,14 @@ public class KinoticProperties {
      */
     private IgniteProperties ignite = new IgniteProperties();
 
-    private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
+    /**
+     * The largest event payload the platform accepts, in bytes. It bounds the STOMP body, the
+     * WebSocket frame carrying it, and the JSON document the invoker will parse. A frame's payload is
+     * allocated off heap in full as it arrives, so this also sets how much direct memory a single
+     * connection can demand and must be raised together with {@code -XX:MaxDirectMemorySize}.
+     * NOTE: {@code -XX:MaxDirectMemorySize} will need to be maxEventPayloadSize x (maxNumberOfConnections sending frames at this size)
+     */
+    private int maxEventPayloadSize = 1024 * 1024 * 2; // 2MB
 
     /**
      * The maximum number of CPU cores if not set or less than 1, this will default to the available number of cores.

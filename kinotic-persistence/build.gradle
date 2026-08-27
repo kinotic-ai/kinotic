@@ -6,7 +6,7 @@ plugins {
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
-	implementation project(':kinotic-os-api')
+	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-api-gateway')
     implementation project(':kinotic-idl')
 	implementation project(':kinotic-sql')

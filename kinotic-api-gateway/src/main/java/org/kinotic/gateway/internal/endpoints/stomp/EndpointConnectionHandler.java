@@ -5,6 +5,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
@@ -35,6 +36,8 @@ import java.util.UUID;
 public class EndpointConnectionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(EndpointConnectionHandler.class);
+    /** Upgrade header carrying the client secret; also read by name in KinoticSecurityService. */
+    private static final String CLIENT_SECRET_HEADER = "clientSecret";
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
@@ -53,11 +56,22 @@ public class EndpointConnectionHandler {
         session = routingContext.session();
         this.connectedInfo = connectedInfoFromSession();
 
+        // vertx-stomp-lite upgrades the request only after this future completes, and the
+        // ServerWebSocket it creates keeps the request's header MultiMap for the life of the
+        // connection. Credentials left in it stay reachable through ServerWebSocket#headers() and in
+        // any heap dump, so they are dropped here -- on both paths, since a client may present a
+        // bearer token alongside a session that authenticates it. The Cookie header is deliberately
+        // left alone: Vert.x also keeps the parsed jar on the response for the connection's life, so
+        // removing the header halves the copies without keeping the session cookie out of a dump.
+        Map<String, String> authenticationInfo = toCaseInsensitiveMap(routingContext.request().headers());
+        routingContext.request().headers().remove(HttpHeaders.AUTHORIZATION);
+        routingContext.request().headers().remove(CLIENT_SECRET_HEADER);
+
         if (connectedInfo != null && connectedInfo.getParticipant() != null) {
             return Future.succeededFuture(MultiMap.caseInsensitiveMultiMap());
         }
 
-        return securityService.authenticate(toCaseInsensitiveMap(routingContext.request().headers()))
+        return securityService.authenticate(authenticationInfo)
                               .recover(throwable -> {
                                   Throwable cause;
                                   if(throwable instanceof AuthenticationException){

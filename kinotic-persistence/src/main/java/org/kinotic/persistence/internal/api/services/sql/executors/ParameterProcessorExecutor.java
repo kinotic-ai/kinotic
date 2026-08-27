@@ -9,7 +9,7 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.persistence.api.model.QueryParameter;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.PageableC3Type;
 import org.kinotic.persistence.api.model.idl.QueryOptionsC3Type;
 import org.kinotic.persistence.api.model.idl.TenantSelectionC3Type;
@@ -35,10 +35,10 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
     private final QueryExecutor delegate;
     private final QueryMetadata queryMetadata;
 
-    public ParameterProcessorExecutor(EntityDefinition entityDefinition,
+    public ParameterProcessorExecutor(EntityDescriptor entityDescriptor,
                                       FunctionDefinition namedQueryDefinition,
                                       QueryExecutor delegate) {
-        super(entityDefinition);
+        super(entityDescriptor);
         this.delegate = delegate;
         this.queryMetadata = buildQueryMetadata(namedQueryDefinition);
     }

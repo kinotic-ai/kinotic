@@ -26,8 +26,8 @@ importers:
         specifier: ^5.0.0-beta.0
         version: 5.0.0-beta.1
       '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.15
-        version: 5.0.0-beta.15(@kinotic-ai/core@5.0.0-beta.5)
+        specifier: ^5.0.0-beta.16
+        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
       '@kinotic-ai/persistence':
         specifier: ^5.0.0-beta.3
         version: 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.5)
@@ -147,8 +147,8 @@ importers:
         specifier: workspace:*
         version: link:../../packages/common
       '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.15
-        version: 5.0.0-beta.15(@kinotic-ai/core@5.0.0-beta.5)
+        specifier: ^5.0.0-beta.16
+        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -210,6 +210,9 @@ importers:
       '@kinotic-ai/core':
         specifier: ^5.0.0-beta.5
         version: 5.0.0-beta.5
+      '@kinotic-ai/os-api':
+        specifier: ^5.0.0-beta.16
+        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -327,8 +330,8 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/os-api@5.0.0-beta.15':
-    resolution: {integrity: sha512-HpRTZWJ9h8bjORucz5oOp04ncCGcIVxqNmKaQaYIMHnUYpjP6ZMRhsHKJhV8ReSRatP4tiDVvJAQ2sZwmmHqQA==}
+  '@kinotic-ai/os-api@5.0.0-beta.16':
+    resolution: {integrity: sha512-DptsTrpmzuuKc2ZL0m6xwvPnEEp2XohPbPzeobVNI5JoJ9ge+YuLlnNgnFg0g0rXMThZfDAKRIO0qfBsnUi+ig==}
     peerDependencies:
       '@kinotic-ai/core': '>=5.0.0-beta.5'
 
@@ -1714,7 +1717,7 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/os-api@5.0.0-beta.15(@kinotic-ai/core@5.0.0-beta.5)':
+  '@kinotic-ai/os-api@5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.5
       '@kinotic-ai/idl': 5.0.0-beta.1

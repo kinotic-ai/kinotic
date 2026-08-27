@@ -37,6 +37,30 @@ public static formatEpochDate(epochMillis: number | null): string {
     return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'
 }
 
+/**
+ * Formats the elapsed time between two epoch timestamps, measuring against nowMs while
+ * finished is absent. Returns an em dash when started is absent.
+ */
+public static formatDuration(started: number | null, finished: number | null, nowMs: number = Date.now()): string {
+    let ret: string
+    if (!started) {
+        ret = '—'
+    } else {
+        const totalSeconds = Math.max(0, Math.floor(((finished ?? nowMs) - started) / 1000))
+        const hours = Math.floor(totalSeconds / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const seconds = totalSeconds % 60
+        if (hours > 0) {
+            ret = `${hours}h ${minutes}m`
+        } else if (minutes > 0) {
+            ret = `${minutes}m ${seconds}s`
+        } else {
+            ret = `${seconds}s`
+        }
+    }
+    return ret
+}
+
 /** Renders epoch millis as the locale date and time, or an em dash when absent. */
 public static formatEpochDateTime(epochMillis: number | null): string {
     return epochMillis ? new Date(epochMillis).toLocaleString() : '—'

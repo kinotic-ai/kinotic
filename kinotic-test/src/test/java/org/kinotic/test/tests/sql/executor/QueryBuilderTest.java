@@ -135,8 +135,8 @@ class QueryBuilderTest {
     @Test
     void whenUsingParameterizedQuery_thenParameterSubstituted() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", "?");
-        parameters.put("field", "'value'");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
+        parameters.put("wanted", "value");
 
         // When
         Query query = QueryBuilder.buildQuery(condition, parameters);
@@ -145,13 +145,31 @@ class QueryBuilderTest {
         assertTrue(query.isTerm());
         TermQuery termQuery = query.term();
         assertEquals("field", termQuery.field());
-        assertEquals("'value'", termQuery.value().stringValue());
+        assertEquals("value", termQuery.value().stringValue());
+    }
+
+    @Test
+    void whenTwoParametersCompareOneField_thenEachResolvesSeparately() {
+        // Given the parameter name, not the field, identifies the value
+        WhereClause.AndClause range = new WhereClause.AndClause(
+                new WhereClause.Condition("age", ">", ":minAge"),
+                new WhereClause.Condition("age", "<", ":maxAge"));
+        parameters.put("minAge", 18);
+        parameters.put("maxAge", 65);
+
+        // When
+        Query query = QueryBuilder.buildQuery(range, parameters);
+
+        // Then
+        BoolQuery boolQuery = query.bool();
+        assertEquals(18.0, boolQuery.filter().get(0).range().number().gt());
+        assertEquals(65.0, boolQuery.filter().get(1).range().number().lt());
     }
 
     @Test
     void whenUsingParameterizedQueryWithoutParameters_thenExceptionThrown() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", "?");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
 
         // When/Then
         assertThrows(IllegalStateException.class, () -> 
@@ -162,7 +180,7 @@ class QueryBuilderTest {
     @Test
     void whenUsingParameterizedQueryWithMissingParameter_thenExceptionThrown() {
         // Given
-        WhereClause.Condition condition = new WhereClause.Condition("field", "==", "?");
+        WhereClause.Condition condition = new WhereClause.Condition("field", "==", ":wanted");
 
         // When/Then
         assertThrows(IllegalArgumentException.class, () -> 

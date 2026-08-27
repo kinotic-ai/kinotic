@@ -111,6 +111,15 @@ Never hardcode a dependency version in a module `build.gradle`. Every version li
 
 One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
 
+## Never work around an unpublished npm package
+
+When a change needs an npm package version that is not on the registry yet — a new
+package, or a cross-boundary bump like the CLI depending on a new workspace package —
+declare the real dependency and ask the maintainer to publish. Never dodge the publish
+with an image-level install, a `file:`/`link:` reference, a vendored tarball, or a
+downgrade to an older published version that lacks what the change needs. The publish is
+part of the change, and asking for it is always cheaper than the workaround.
+
 ## Snapshot versions — nothing is in stone
 
 While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.

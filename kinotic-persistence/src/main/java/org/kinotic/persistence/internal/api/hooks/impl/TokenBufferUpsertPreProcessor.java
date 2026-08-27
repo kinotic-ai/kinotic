@@ -5,7 +5,7 @@ import io.vertx.core.Future;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.services.EntityHolder;
 import tools.jackson.databind.json.JsonMapper;
@@ -23,9 +23,9 @@ public class TokenBufferUpsertPreProcessor extends AbstractJsonUpsertPreProcesso
 
     public TokenBufferUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                          JsonMapper jsonMapper,
-                                         EntityDefinition entityDefinition,
+                                         EntityDescriptor entityDescriptor,
                                          Map<String, DecoratorLogic> fieldPreProcessors) {
-        super(persistenceProperties, jsonMapper, entityDefinition, fieldPreProcessors);
+        super(persistenceProperties, jsonMapper, entityDescriptor, fieldPreProcessors);
     }
 
     @Override

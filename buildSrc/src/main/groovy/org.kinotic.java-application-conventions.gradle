@@ -44,6 +44,14 @@ bootBuildImage {
         "BP_HEALTH_CHECKER_ENABLED": "true",
         "THC_PATH": "/health", // Health check path for https://github.com/dmikusa/tiny-health-checker#usageor which is provided by the health-checker buildpack
         "BPE_DELIM_JAVA_TOOL_OPTIONS" : " ",
+        // Netty exhausts the Paketo memory calculator's 10M default after a few dozen concurrent
+        // WebSocket connections and then drops every new one with an OutOfDirectMemoryError before a
+        // STOMP frame is read, so the image carries the same 512m the compose and helm deployments
+        // pass. Prepended, not appended: a deployment's own JAVA_TOOL_OPTIONS lands after this, so its
+        // value is the one HotSpot keeps and the one the calculator sizes the heap around. Whatever
+        // wins is subtracted from the container limit, so it reserves that memory as well as capping
+        // Netty — Ignite's data regions are malloc'd outside it and need their own room.
+        "BPE_PREPEND_JAVA_TOOL_OPTIONS": "-XX:MaxDirectMemorySize=512m",
         "BPE_APPEND_JAVA_TOOL_OPTIONS": "-XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED",
     ]
     buildpacks = [

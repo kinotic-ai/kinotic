@@ -172,6 +172,9 @@ nothing. The rules that matter:
   `http.server.request.duration` → `http_server_request_duration_seconds_bucket`) because
   `mimir.yml` sets `otel_metric_suffixes_enabled: true`. Mimir defaults that off, which stores
   bare `jvm_memory_used` and leaves every stock dashboard empty.
+- **Vert.x metrics** (`vertx_http_server_active_connections`, `vertx_http_server_active_ws_connections`,
+  `vertx_eventbus_*`, `vertx_pool_*`) arrive through Micrometer's global registry, which the agent
+  bridges onto the OTLP exporter — so they are only exported when the agent is attached.
 - **Tempo's metrics-generator** writes its own series to Mimir — `traces_spanmetrics_calls_total`
   and `traces_spanmetrics_latency_bucket`, labelled `service`, `span_name`, `span_kind`,
   `status_code`. These only exist because `tempo.yml` enables the processors under `overrides`;

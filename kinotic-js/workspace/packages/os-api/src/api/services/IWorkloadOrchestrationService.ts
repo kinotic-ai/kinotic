@@ -9,7 +9,12 @@ import { Workload } from '@/api/model/workload/Workload'
 export interface IWorkloadOrchestrationService {
 
     /**
-     * Deploys a new workload to an appropriate node in the cluster.
+     * Deploys a new workload to an appropriate node in the cluster. A workload carrying a
+     * nodeId is deployed to that node instead, failing when the node is not registered, not
+     * taking workloads, or lacks the capacity the workload requires. When the workload is not
+     * detached the returned Promise resolves only once the run has ended — STOPPED or
+     * FAILED, with the exit code set; otherwise it resolves as soon as the workload is
+     * started.
      * @param workload the workload configuration to deploy
      * @return a Promise resolving to the deployed workload (including assigned nodeId and id)
      */
@@ -18,6 +23,7 @@ export interface IWorkloadOrchestrationService {
     /**
      * Restarts a stopped workload in place on the node it is deployed to. Fails unless the
      * workload is stopped; a workload stopped with autoRemove true has no VM left to restart.
+     * Honors the workload's detached flag the same way as {@link deployWorkload}.
      * @param workloadId the id of the workload to restart
      * @return a Promise resolving to the restarted workload
      */

@@ -64,7 +64,7 @@ public interface EntitiesService {
 
     /**
      * Deletes the entity with the given id.
-     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @param entityDefinitionId the id of the {@link EntityDefinition} to delete the entity for. (this is the {@link EntityDefinition#getApplicationId()} + "." + {@link EntityDefinition#getName()})
      * @param id          must not be {@literal null}
@@ -107,7 +107,7 @@ public interface EntitiesService {
 
     /**
      * Retrieves an entity by its id.
-     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @param entityDefinitionId the id of the {@link EntityDefinition} to find the entity for. (this is the {@link EntityDefinition#getApplicationId()} + "." + {@link EntityDefinition#getName()})
      * @param id          must not be {@literal null}
@@ -130,7 +130,7 @@ public interface EntitiesService {
 
     /**
      * Retrieves a list of entities by their id.
-     * NOTE: this method is only allowed if the {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: this method is only allowed if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @param entityDefinitionId the id of the {@link EntityDefinition} to find the entity for. (this is the {@link EntityDefinition#getApplicationId()} + "." + {@link EntityDefinition#getName()})
      * @param ids         must not be {@literal null}

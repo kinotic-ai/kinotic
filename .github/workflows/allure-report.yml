@@ -24,6 +24,10 @@ jobs:
     env:
       # Allure 3 CLI version, pinned for reproducible report output and history handling.
       ALLURE_VERSION: "3.12.0"
+      # Number of newest reports kept under test-results/, and the history depth passed to
+      # `allure generate`. One number for both: the report folders retained on gh-pages and the
+      # trend entries embedded in them describe the same window of runs.
+      RETAINED_RUNS: "10"
       RUN_NUMBER: ${{ github.event.workflow_run.run_number }}
     steps:
       # Sparse-checkout just allurerc.mjs (needed for historyPath). Must precede the download below,
@@ -58,10 +62,27 @@ jobs:
           ref: gh-pages
           path: gh-pages
 
+      # The deploy below replaces the whole branch (keep_files:false) so the prune step can actually
+      # delete report folders — peaceiris only ever adds files when keep_files is true. Replacing
+      # means the publish dir must start as a copy of what is already on gh-pages, or the website,
+      # CNAME and .nojekyll would be dropped along with the stale reports.
+      - name: Seed publish dir from current gh-pages
+        run: |
+          mkdir -p allure-history
+          if [ -d gh-pages ] && [ -n "$(ls -A gh-pages 2>/dev/null)" ]; then
+            rm -rf gh-pages/.git
+            cp -a gh-pages/. allure-history/
+          elif git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            # The checkout above is continue-on-error; seeding an empty publish dir from a failed
+            # checkout would wipe the live site on deploy, so fail instead.
+            echo "gh-pages exists but was not checked out; refusing to publish an empty branch." >&2
+            exit 1
+          fi
+
       # Allure 3 has no drop-in publish action, so do the history round-trip explicitly:
       #   1. restore the prior run's history.jsonl from gh-pages (absent on run 1),
       #   2. `allure generate` reads it (historyPath in allurerc.mjs), writes the report, appends this run,
-      #   3. persist the updated history.jsonl for the next run.
+      #   3. persist the newest RETAINED_RUNS entries for the next run.
       # Each run is an immutable folder under test-results/<run_number>/.
       - name: Generate Allure report
         run: |
@@ -74,9 +95,12 @@ jobs:
           fi
           npx --yes "allure@${ALLURE_VERSION}" generate allure-results \
             --config allurerc.mjs \
+            --history-limit "${RETAINED_RUNS}" \
             --output "allure-history/test-results/${RUN_NUMBER}"
           mkdir -p allure-history/test-results
-          cp history.jsonl allure-history/test-results/history.jsonl
+          # --history-limit caps what generate reads back, but Allure only appends to history.jsonl
+          # and never truncates it; drop the entries past the limit that nothing will read again.
+          tail -n "${RETAINED_RUNS}" history.jsonl > allure-history/test-results/history.jsonl
 
       # Stable noindex entry point: /test-results/ redirects to the newest run, linkable without
       # exposing report pages to search engines.
@@ -98,13 +122,23 @@ jobs:
           </html>
           EOF
 
+      # Reports are immutable and never overwritten, so without a prune the branch grows without
+      # bound: it reached 11 GB across 248 run folders, past the 10 GB artifact cap that
+      # actions/deploy-pages enforces, and the Pages deployment started failing.
+      - name: Prune stale reports
+        run: |
+          cd allure-history/test-results
+          ls -1 | grep -xE '[0-9]+' | sort -rn | tail -n "+$((RETAINED_RUNS + 1))" | while read -r stale; do
+            rm -rf "$stale"
+          done
+
       - name: Deploy report to Github Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: allure-history
           publish_branch: gh-pages
-          keep_files: true
+          keep_files: false
 
       - name: Add status to Commit
         uses: guibranco/github-status-action-v2@v1.2.4

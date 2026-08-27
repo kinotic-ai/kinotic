@@ -105,7 +105,7 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
         // disk than it asked for, and leave the boxlite default when nothing was asked.
         // MAX_WORKLOAD_DISK_MB keeps this at the one size the provider actually honors
         ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
-        env: workload.environment,
+        env: { ...workload.environment, ...workload.secrets },
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
         // CMD is suppressed unless the workload declares its own cmd
         ...(workload.entrypoint.length > 0
@@ -205,6 +205,14 @@ export class BoxliteProvider implements IVmProvider {
     }
 
     async start(workload: Workload): Promise<Workload> {
+        // boxlite cannot observe a guest's exit (the box reports running after the entrypoint
+        // ends — see boxlite-test/src/batch-workload-test.ts), so the foreground contract of
+        // a non-detached workload — start resolving at run end — cannot be honored
+        if (!(workload.detached ?? true)) {
+            throw new Error('Non-detached workloads are not supported on the boxlite provider: '
+                            + 'boxlite cannot observe a workload\'s exit. Deploy it detached instead.')
+        }
+
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING

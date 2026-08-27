@@ -3,6 +3,7 @@ minimumReleaseAge = 86400 # seconds; third-party releases younger than 24h are r
 minimumReleaseAgeExcludes = [
     "@kinotic-ai/core",
     "@kinotic-ai/idl",
+    "@kinotic-ai/kinotic-cli",
     "@kinotic-ai/os-api",
     "@kinotic-ai/persistence",
     "@kinotic-ai/spawn",

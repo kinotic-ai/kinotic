@@ -1,5 +1,6 @@
 package org.kinotic.core.internal.config;
 
+import io.micrometer.core.instrument.Metrics;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
@@ -8,6 +9,8 @@ import io.vertx.core.eventbus.EventBusOptions;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.spi.cluster.ClusterManager;
+import io.vertx.micrometer.MicrometerMetricsFactory;
+import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
@@ -68,7 +71,13 @@ public class KinoticVertxConfig {
         // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
         VertxJackson3Codec.setMapper(jsonMapper);
 
-        VertxBuilder builder = Vertx.builder();
+        // The agent bridges Micrometer's global registry onto the OTLP exporter, so Vert.x's meters
+        // need no exporter of their own. With no agent attached the registry has no backends.
+        VertxOptions options = new VertxOptions()
+                .setMetricsOptions(new MicrometerMetricsOptions().setEnabled(true));
+
+        VertxBuilder builder = Vertx.builder()
+                                    .withMetrics(new MicrometerMetricsFactory(Metrics.globalRegistry));
         Vertx vertx;
 
         if (clusterManager != null) {
@@ -84,17 +93,14 @@ public class KinoticVertxConfig {
                 eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
             }
 
-            VertxOptions options = new VertxOptions()
-                    .setEventBusOptions(eventBusOptions);
-
-            vertx = builder.with(options)
+            vertx = builder.with(options.setEventBusOptions(eventBusOptions))
                            .withClusterManager(clusterManager)
                            .buildClustered()
                            .toCompletionStage()
                            .toCompletableFuture()
                            .get(2, MINUTES);
         }else{
-            vertx = builder.build();
+            vertx = builder.with(options).build();
         }
 
         // Register the Event codec and auto-select it for any Event body, so callers never set a codec
