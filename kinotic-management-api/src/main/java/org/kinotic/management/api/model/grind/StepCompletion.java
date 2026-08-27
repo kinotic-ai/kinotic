@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * The value of a {@link ResultType#STEP_COMPLETED} result, describing what the completed step
- * stored in the {@link JobContext} when it finished.
+ * stored in the {@code JobContext} when it finished.
  */
 @Getter
 @RequiredArgsConstructor
@@ -25,7 +25,7 @@ public class StepCompletion {
     private final String storedName;
 
     /**
-     * The value the step stored in the {@link JobContext}, or null if the step stored nothing.
+     * The value the step stored in the {@code JobContext}, or null if the step stored nothing.
      */
     private final Object storedValue;
 

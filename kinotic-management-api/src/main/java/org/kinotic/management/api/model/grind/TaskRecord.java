@@ -10,7 +10,8 @@ import tools.jackson.databind.JsonNode;
 import java.util.Date;
 
 /**
- * The persistent record of one step execution within a {@link JobRun}.
+ * The persistent record of one {@code Task} execution within a {@link JobRun}, identified
+ * by its {@link #stepPath} - the task's position in the run's step tree.
  */
 @Getter
 @Setter

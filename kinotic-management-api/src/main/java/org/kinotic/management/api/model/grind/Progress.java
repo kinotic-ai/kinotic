@@ -3,7 +3,7 @@
 package org.kinotic.management.api.model.grind;
 
 /**
- * Represents the progress of a {@link JobDefinition} or {@link Task}
+ * Represents the progress of a {@code JobDefinition} or {@code Task}
  *
  *
  * Created by Navid Mitchell on 11/11/20
