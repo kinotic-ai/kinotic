@@ -12,8 +12,8 @@ const principles = [
   },
   {
     number: '03',
-    title: 'Governed by default',
-    body: 'Cedar policies, document-level security, PII tracking on any field, and OIDC providers you already use.',
+    title: 'Isolated by default',
+    body: 'Every request path crosses at least two independent enforcement layers, so no single defect can widen access.',
   },
 ]
 </script>
