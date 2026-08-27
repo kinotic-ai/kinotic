@@ -15,5 +15,7 @@ minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rej
 minimumReleaseAgeExclude:
   - '@kinotic-ai/core'
   - '@kinotic-ai/idl'
+  - '@kinotic-ai/management-api'
   - '@kinotic-ai/os-api'
   - '@kinotic-ai/persistence'
+  - '@kinotic-ai/system-api'

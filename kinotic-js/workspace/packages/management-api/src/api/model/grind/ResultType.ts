@@ -20,7 +20,7 @@ export enum ResultType {
     PROGRESS = 'PROGRESS',
     /**
      * A task returned further steps that will execute under its stepPath. Over the
-     * monitoring stream the value is the discovered steps as PENDING TaskRecords,
+     * monitoring stream the value is the discovered steps as PENDING StepRecords,
      * in discovery order.
      */
     DYNAMIC_STEPS = 'DYNAMIC_STEPS',

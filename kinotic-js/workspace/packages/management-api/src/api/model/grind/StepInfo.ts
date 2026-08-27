@@ -17,7 +17,7 @@ export class StepInfo {
 
 /**
  * The `/` separated sequence path from the run's root down to the step that created the
- * given info, matching the stepPath recorded on a TaskRecord.
+ * given info, matching the stepPath recorded on a StepRecord.
  * @param info the step info of a received Result
  * @return the step path, e.g. "0/2/1"
  */

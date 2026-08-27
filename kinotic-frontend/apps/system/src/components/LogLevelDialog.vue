@@ -37,7 +37,7 @@ import Select from 'primevue/select'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { LogLevel } from '@kinotic-ai/management-api'
+import { LogLevel } from '@kinotic-ai/system-api'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 const props = defineProps<{
