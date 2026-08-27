@@ -19,7 +19,7 @@
         </div>
       </div>
 
-      <div class="cta__visual">
+      <div class="cta__visual" data-reveal>
         <div class="cta__glow cta__glow--red" />
         <div class="cta__glow cta__glow--mint" />
         <svg class="cta__cubes" viewBox="0 0 560 470" fill="none" preserveAspectRatio="xMidYMid meet" aria-hidden="true">

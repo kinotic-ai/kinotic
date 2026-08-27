@@ -321,7 +321,7 @@ html.k-canvas-dark body {
 }
 
 /* Scroll reveal. Elements start displaced and are un-hidden by the
-   IntersectionObserver in pages/index.vue adding `.in`. */
+   IntersectionObserver in useMarketingMotion() adding `.in`. */
 [data-reveal] {
   opacity: 0;
   transform: translateY(26px);
@@ -333,6 +333,24 @@ html.k-canvas-dark body {
 [data-reveal].in {
   opacity: 1;
   transform: none;
+}
+
+/* Animations inside a reveal target are held at their first frame until that
+   target scrolls in, so each one is met at its beginning rather than part-way
+   through. Pausing keeps every animation's own delay, so a set staggered by
+   negative delays still holds its formation and resumes in step.
+
+   The `animation` shorthand resets play-state to running, so any component
+   declaring its animation that way — most of them — overrides this from its
+   own scoped rule unless the override is forced. */
+[data-reveal],
+[data-reveal] * {
+  animation-play-state: paused !important;
+}
+
+[data-reveal].in,
+[data-reveal].in * {
+  animation-play-state: running !important;
 }
 
 @media (max-width: 768px) {
