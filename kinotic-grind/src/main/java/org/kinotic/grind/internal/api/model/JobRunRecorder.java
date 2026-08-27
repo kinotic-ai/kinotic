@@ -1,6 +1,7 @@
 package org.kinotic.grind.internal.api.model;
 
 import io.vertx.core.Future;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
@@ -27,6 +28,7 @@ import java.util.function.Supplier;
 @Slf4j
 public class JobRunRecorder {
 
+    @Getter
     private final String jobRunId;
     private final JobRun jobRun;
     private final JobDefinition jobDefinition;
@@ -57,10 +59,6 @@ public class JobRunRecorder {
                   .setApplicationId(owner.getApplicationId())
                   .setProjectId(owner.getProjectId());
         }
-    }
-
-    public String getJobRunId() {
-        return jobRunId;
     }
 
     /**
