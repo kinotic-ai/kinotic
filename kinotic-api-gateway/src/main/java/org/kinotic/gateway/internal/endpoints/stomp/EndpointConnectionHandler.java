@@ -5,22 +5,19 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
@@ -143,18 +140,9 @@ public class EndpointConnectionHandler {
                 return services.eventBusService
                         .sendWithAck(incomingEvent)
                         .recover(throwable -> {
-                            // map errors that occurred because no Service invoker was listening
-                            if (throwable instanceof ReplyException replyException) {
-                                if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                    // every gateway RPC doubles as a liveness probe, so the directory
-                                    // self-heals from ordinary traffic; with no directory bean nothing happens
-                                    ServiceDirectory serviceDirectory = services.serviceDirectoryProvider.getIfAvailable();
-                                    if (serviceDirectory != null) {
-                                        serviceDirectory.reportUnreachable(incomingEvent.cri().raw());
-                                    }
-                                    throwable = new RpcMissingServiceException(throwable);
-                                }
-                            }
+                            throwable = KinoticUtil.mapSendFailure(throwable,
+                                                                   incomingEvent.cri(),
+                                                                   services.serviceDirectoryProvider.getIfAvailable());
                             try {
                                 Event<byte[]> convertedEvent = services.exceptionConverter.convert(incomingEvent.metadata(), throwable);
                                 // since we don't know the subscription id used by the stomp client for this request we send through the eventbus
