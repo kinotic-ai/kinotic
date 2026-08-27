@@ -81,7 +81,6 @@ watch(() => route.fullPath, () => {
 .knav--solid {
   background: rgba(8, 9, 10, 0.85);
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border-bottom-color: #1B1C1F;
 }
 
@@ -162,7 +161,6 @@ watch(() => route.fullPath, () => {
   padding: 4px 22px 18px;
   background: rgba(8, 9, 10, 0.97);
   backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid #1B1C1F;
 }
 
