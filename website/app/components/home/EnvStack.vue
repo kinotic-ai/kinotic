@@ -179,17 +179,11 @@ const PIPELINE_STEPS = [
   }
 
   /* Drops behind the rest of the deck for the whole fold, otherwise the card it
-     is sliding under would be the one that gets covered. The fold leads with its
-     travel so the card is clear of the front slot before the one replacing it
-     brings its own label up. */
+     is sliding under would be the one that gets covered. Nothing else belongs in
+     here: a keyframe between 72% and 80% that carried a position would restart
+     the easing and stall the card halfway through the fold. */
   72.01% {
     z-index: 0;
-    animation-timing-function: cubic-bezier(0.3, 0.85, 0.4, 1);
-  }
-
-  76% {
-    transform: translateY(32px) scale(0.96) rotateX(44deg);
-    opacity: 0.55;
   }
 
   80% {
@@ -218,8 +212,8 @@ const PIPELINE_STEPS = [
 }
 
 @keyframes envstack-fold-reveal {
-  0%, 56% { opacity: 0; }
-  59%, 80% { opacity: 1; }
+  0%, 52% { opacity: 0; }
+  60%, 80% { opacity: 1; }
   80.01%, 100% { opacity: 0; }
 }
 
@@ -282,18 +276,15 @@ const PIPELINE_STEPS = [
   }
 
   /* Under the deck, still invisible: the drop has to happen in one frame or the
-     card would be seen crossing the deck on its way down. */
+     card would be seen crossing the deck on its way down. A keyframe part-way
+     through the rise would restart the easing and stall the card mid-flight, so
+     the whole rise is left as one segment on the deck's own curve. */
   80.01%, 92% {
     transform: translateY(52px) scale(0.92) rotateX(72deg);
     opacity: 0;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 4;
-  }
-
-  96% {
-    transform: translateY(26px) scale(0.96) rotateX(38deg);
-    opacity: 0.75;
   }
 
   100% {
@@ -307,8 +298,8 @@ const PIPELINE_STEPS = [
 
 @keyframes envstack-rise-reveal {
   0%, 12% { opacity: 1; }
-  15%, 92% { opacity: 0; }
-  98%, 100% { opacity: 1; }
+  17%, 92% { opacity: 0; }
+  100% { opacity: 1; }
 }
 
 .envstack__icon {
