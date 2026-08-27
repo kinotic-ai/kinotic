@@ -26,7 +26,7 @@ import reactor.core.publisher.Mono;
  * Default {@link JobMonitoringService} that authorizes access through the run's recorded
  * owner - an organization or application participant may only view runs its organization
  * owns - and serves reads from {@link JobRunService} and live
- * views from {@link JobWatchService}.
+ * views from {@link JobService#watchRun(String)}.
  */
 @Slf4j
 @Component

@@ -2,6 +2,8 @@
 
 package org.kinotic.system.api.model.grind;
 
+import org.kinotic.management.api.model.grind.Result;
+
 /**
  * A general definition of a task that can be executed at some point in the future.
  *
