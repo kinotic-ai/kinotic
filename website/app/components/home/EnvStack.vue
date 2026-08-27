@@ -9,13 +9,17 @@
  */
 defineProps<{ version: 'v1' | 'v2' }>()
 
-/** The stages a pushed branch moves through, one per card in the deck. */
+/**
+ * The stages a pushed branch moves through, one per card in the deck. The stage
+ * is what the card leads with — it is the only line that changes for most of the
+ * run, so the branch it is working on rides underneath as context.
+ */
 const PIPELINE_STEPS = [
-  { branch: 'feature/checkout', stage: 'PUSH · a41f9c', icon: 'Folder', live: false },
-  { branch: 'feature/checkout', stage: 'BUILD · 3 SERVICES', icon: 'Cog', live: false },
-  { branch: 'feature/checkout', stage: 'UNIT TESTS · 248 OK', icon: 'ThLarge', live: false },
-  { branch: 'feature/checkout', stage: 'INTEGRATION · 36 OK', icon: 'Database', live: false },
-  { branch: 'main', stage: 'DEPLOY · PRODUCTION', icon: 'Refresh', live: true },
+  { stage: 'Push feature', context: 'feature/checkout', icon: 'Folder', live: false },
+  { stage: 'Build', context: 'feature/checkout', icon: 'Cog', live: false },
+  { stage: 'Unit tests', context: 'feature/checkout', icon: 'ThLarge', live: false },
+  { stage: 'Integration tests', context: 'feature/checkout', icon: 'Database', live: false },
+  { stage: 'Deploy to prod', context: 'main · production', icon: 'Refresh', live: true },
 ] as const
 </script>
 
@@ -25,8 +29,8 @@ const PIPELINE_STEPS = [
       <span class="envstack__body">
         <span class="envstack__icon"><KinoticIcon :name="step.icon" :size="16" /></span>
         <span class="envstack__meta">
-          <span class="envstack__branch">{{ step.branch }}</span>
-          <span class="envstack__tags">{{ step.stage }}</span>
+          <span class="envstack__stage">{{ step.stage }}</span>
+          <span class="envstack__context">{{ step.context }}</span>
         </span>
         <span class="k-livedot envstack__dot" :class="{ 'envstack__dot--live': step.live }" />
       </span>
@@ -323,15 +327,16 @@ const PIPELINE_STEPS = [
   flex: 1;
 }
 
-.envstack__branch {
+.envstack__stage {
   display: block;
   font-family: var(--font-k-mono);
   font-size: 13.5px;
   font-weight: 600;
   color: var(--color-k-text);
+  white-space: nowrap;
 }
 
-.envstack__tags {
+.envstack__context {
   display: block;
   font-family: var(--font-k-mono);
   font-size: 9.5px;
