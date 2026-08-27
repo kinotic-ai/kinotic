@@ -191,6 +191,14 @@
    Shared by the home sections, the site header and the footer. Section-local
    styling stays in the component that owns it. */
 
+/* The marketing layout adds .k-canvas-dark to <html>. Setting it on the root
+   element is what makes the browser paint the overscroll area dark; body is set
+   too so nothing flashes white before the layout paints. */
+html.k-canvas-dark,
+html.k-canvas-dark body {
+  background-color: var(--color-k-bg);
+}
+
 /* Scopes the brand selection colour to the marketing pages; the docs layer keeps
    the theme's own. */
 .k-marketing ::selection {
