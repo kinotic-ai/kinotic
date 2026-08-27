@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /**
- * The branch-environment deck on the CI/CD feature card. Four cards run the same
- * cycle one slot apart, so the deck always holds a front, a mid and a back card
- * while a fourth is off-deck, and each pipeline stage takes the front slot in turn.
+ * The branch-environment deck on the CI/CD feature card. Five cards run the same
+ * cycle one slot apart, so the deck always holds a front, a mid, a back and a deep
+ * card while a fifth is off-deck, and each pipeline stage takes the front slot in turn.
  *
  * `v1` folds the front card down and under the deck. `v2` runs that in reverse:
  * the next stage rises up in front while the cards already there recede.
@@ -13,8 +13,9 @@ defineProps<{ version: 'v1' | 'v2' }>()
 const PIPELINE_STEPS = [
   { branch: 'feature/checkout', stage: 'PUSH · a41f9c', icon: 'Folder', live: false },
   { branch: 'feature/checkout', stage: 'BUILD · 3 SERVICES', icon: 'Cog', live: false },
-  { branch: 'feature/checkout', stage: 'DEPLOY · POD PENDING', icon: 'Refresh', live: false },
-  { branch: 'feature/checkout', stage: 'LIVE · DEV · ENV', icon: 'ThLarge', live: true },
+  { branch: 'feature/checkout', stage: 'UNIT TESTS · 248 OK', icon: 'ThLarge', live: false },
+  { branch: 'feature/checkout', stage: 'INTEGRATION · 36 OK', icon: 'Database', live: false },
+  { branch: 'main', stage: 'DEPLOY · PRODUCTION', icon: 'Refresh', live: true },
 ] as const
 </script>
 
@@ -37,17 +38,17 @@ const PIPELINE_STEPS = [
 .envstack {
   position: relative;
   width: 260px;
-  height: 132px;
+  height: 150px;
   perspective: 820px;
-  /* One trip through all four stages. Each card's phase is a quarter of this,
-     so the pace of the whole deck is tuned from here. */
-  --envstack-cycle: 26s;
+  /* One trip through all five stages. Each card's phase is a fifth of this, so
+     the pace of the whole deck is tuned from here. */
+  --envstack-cycle: 32.5s;
 }
 
 .envstack__card {
   position: absolute;
   left: 0;
-  top: 30px;
+  top: 36px;
   width: 260px;
   height: 72px;
   padding: 0 20px;
@@ -82,12 +83,12 @@ const PIPELINE_STEPS = [
 
 /* ── Slot poses ──
    Where each card sits before its animation takes over, and what reduced motion
-   freezes it at. The two versions travel the deck in opposite directions, so
-   they disagree about which card starts at mid and which starts off-deck. */
+   freezes it at. The two versions travel the deck in opposite directions, so they
+   disagree about which card starts in which slot. */
 .envstack__card:nth-child(1) {
   transform: translateY(0) scale(1);
   opacity: 1;
-  z-index: 3;
+  z-index: 4;
   box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
 }
 
@@ -95,22 +96,31 @@ const PIPELINE_STEPS = [
   opacity: 1;
 }
 
-.envstack__card:nth-child(3) {
-  transform: translateY(-27px) scale(0.86);
-  opacity: 0.45;
-  z-index: 1;
-  border-color: rgba(40, 254, 180, 0.25);
+.envstack--v1 .envstack__card:nth-child(2),
+.envstack--v2 .envstack__card:nth-child(5) {
+  transform: translateY(-12px) scale(0.94);
+  opacity: 0.72;
+  z-index: 3;
+  border-color: rgba(40, 254, 180, 0.45);
 }
 
-.envstack--v1 .envstack__card:nth-child(2),
+.envstack--v1 .envstack__card:nth-child(3),
 .envstack--v2 .envstack__card:nth-child(4) {
-  transform: translateY(-14px) scale(0.93);
-  opacity: 0.7;
+  transform: translateY(-23px) scale(0.885);
+  opacity: 0.5;
   z-index: 2;
-  border-color: rgba(40, 254, 180, 0.4);
+  border-color: rgba(40, 254, 180, 0.3);
 }
 
 .envstack--v1 .envstack__card:nth-child(4),
+.envstack--v2 .envstack__card:nth-child(3) {
+  transform: translateY(-33px) scale(0.83);
+  opacity: 0.3;
+  z-index: 1;
+  border-color: rgba(40, 254, 180, 0.2);
+}
+
+.envstack--v1 .envstack__card:nth-child(5),
 .envstack--v2 .envstack__card:nth-child(2) {
   opacity: 0;
   z-index: 0;
@@ -125,79 +135,88 @@ const PIPELINE_STEPS = [
   animation-name: envstack-fold-reveal;
 }
 
-.envstack--v1 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.5); }
-.envstack--v1 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.25); }
-.envstack--v1 .envstack__card:nth-child(3) { --envstack-phase: 0s; }
-.envstack--v1 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.75); }
+.envstack--v1 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
+.envstack--v1 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
+.envstack--v1 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
+.envstack--v1 .envstack__card:nth-child(4) { --envstack-phase: 0s; }
+.envstack--v1 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.8); }
 
 @keyframes envstack-fold {
-  0%, 15% {
-    transform: translateY(-27px) scale(0.86);
-    opacity: 0.45;
-    border-color: rgba(40, 254, 180, 0.25);
+  0%, 12% {
+    transform: translateY(-33px) scale(0.83);
+    opacity: 0.3;
+    border-color: rgba(40, 254, 180, 0.2);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 1;
   }
 
-  25%, 40% {
-    transform: translateY(-14px) scale(0.93);
-    opacity: 0.7;
-    border-color: rgba(40, 254, 180, 0.4);
+  20%, 32% {
+    transform: translateY(-23px) scale(0.885);
+    opacity: 0.5;
+    border-color: rgba(40, 254, 180, 0.3);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 2;
   }
 
-  50%, 65% {
+  40%, 52% {
+    transform: translateY(-12px) scale(0.94);
+    opacity: 0.72;
+    border-color: rgba(40, 254, 180, 0.45);
+    box-shadow: 0 0 0 rgba(40, 254, 180, 0);
+    z-index: 3;
+  }
+
+  60%, 72% {
     transform: translateY(0) scale(1);
     opacity: 1;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
-    z-index: 3;
+    z-index: 4;
   }
 
   /* Drops behind the rest of the deck for the whole fold, otherwise the card it
      is sliding under would be the one that gets covered. The fold leads with its
      travel so the card is clear of the front slot before the one replacing it
      brings its own label up. */
-  65.01% {
+  72.01% {
     z-index: 0;
     animation-timing-function: cubic-bezier(0.3, 0.85, 0.4, 1);
   }
 
-  69% {
+  76% {
     transform: translateY(32px) scale(0.96) rotateX(44deg);
     opacity: 0.55;
   }
 
-  75% {
+  80% {
     transform: translateY(52px) scale(0.92) rotateX(72deg);
     opacity: 0;
     z-index: 0;
   }
 
-  /* Back of the deck, still invisible: the return trip has to happen in one
-     frame or the card would be seen travelling back up. */
-  75.01%, 90% {
-    transform: translateY(-27px) scale(0.86);
+  /* Back of the deck, still invisible: the return trip has to happen in one frame
+     or the card would be seen travelling back up. */
+  80.01%, 92% {
+    transform: translateY(-33px) scale(0.83);
     opacity: 0;
-    border-color: rgba(40, 254, 180, 0.25);
+    border-color: rgba(40, 254, 180, 0.2);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 1;
   }
 
   100% {
-    transform: translateY(-27px) scale(0.86);
-    opacity: 0.45;
-    border-color: rgba(40, 254, 180, 0.25);
+    transform: translateY(-33px) scale(0.83);
+    opacity: 0.3;
+    border-color: rgba(40, 254, 180, 0.2);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 1;
   }
 }
 
 @keyframes envstack-fold-reveal {
-  0%, 45% { opacity: 0; }
-  49%, 75% { opacity: 1; }
-  75.01%, 100% { opacity: 0; }
+  0%, 56% { opacity: 0; }
+  59%, 80% { opacity: 1; }
+  80.01%, 100% { opacity: 0; }
 }
 
 /* ── v2: the next card rises in front and the deck recedes behind it ── */
@@ -210,57 +229,65 @@ const PIPELINE_STEPS = [
 }
 
 .envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: 0s; }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.75); }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.5); }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.25); }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.8); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
+.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
 
 @keyframes envstack-rise {
-  0%, 15% {
+  0%, 12% {
     transform: translateY(0) scale(1) rotateX(0deg);
     opacity: 1;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
-    z-index: 3;
+    z-index: 4;
   }
 
   /* Gives up the top of the deck the moment it starts receding, so the card
      rising out from under it passes in front rather than behind. */
-  15.01% {
-    z-index: 2;
+  12.01% {
+    z-index: 3;
   }
 
-  25%, 40% {
-    transform: translateY(-14px) scale(0.93) rotateX(0deg);
-    opacity: 0.7;
-    border-color: rgba(40, 254, 180, 0.4);
+  20%, 32% {
+    transform: translateY(-12px) scale(0.94) rotateX(0deg);
+    opacity: 0.72;
+    border-color: rgba(40, 254, 180, 0.45);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
+    z-index: 3;
+  }
+
+  40%, 52% {
+    transform: translateY(-23px) scale(0.885) rotateX(0deg);
+    opacity: 0.5;
+    border-color: rgba(40, 254, 180, 0.3);
     z-index: 2;
   }
 
-  50%, 65% {
-    transform: translateY(-27px) scale(0.86) rotateX(0deg);
-    opacity: 0.45;
-    border-color: rgba(40, 254, 180, 0.25);
+  60%, 72% {
+    transform: translateY(-33px) scale(0.83) rotateX(0deg);
+    opacity: 0.3;
+    border-color: rgba(40, 254, 180, 0.2);
     z-index: 1;
   }
 
-  72% {
-    transform: translateY(-38px) scale(0.8) rotateX(0deg);
+  80% {
+    transform: translateY(-42px) scale(0.78) rotateX(0deg);
     opacity: 0;
     z-index: 1;
   }
 
   /* Under the deck, still invisible: the drop has to happen in one frame or the
      card would be seen crossing the deck on its way down. */
-  72.01%, 90% {
+  80.01%, 92% {
     transform: translateY(52px) scale(0.92) rotateX(72deg);
     opacity: 0;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
-    z-index: 3;
+    z-index: 4;
   }
 
-  95% {
+  96% {
     transform: translateY(26px) scale(0.96) rotateX(38deg);
     opacity: 0.75;
   }
@@ -270,14 +297,14 @@ const PIPELINE_STEPS = [
     opacity: 1;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
-    z-index: 3;
+    z-index: 4;
   }
 }
 
 @keyframes envstack-rise-reveal {
-  0%, 15% { opacity: 1; }
-  18%, 90% { opacity: 0; }
-  97%, 100% { opacity: 1; }
+  0%, 12% { opacity: 1; }
+  15%, 92% { opacity: 0; }
+  98%, 100% { opacity: 1; }
 }
 
 .envstack__icon {
@@ -311,6 +338,7 @@ const PIPELINE_STEPS = [
   letter-spacing: 0.1em;
   color: var(--color-k-dim);
   margin-top: 3px;
+  white-space: nowrap;
 }
 
 .envstack__dot {
