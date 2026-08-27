@@ -1,19 +1,40 @@
 <script setup lang="ts">
-/** A line glyph from the Kinotic design system, painted in the inherited text color. */
-withDefaults(defineProps<{
-  name: 'Cog' | 'Database' | 'Folder' | 'Key' | 'Refresh' | 'ThLarge'
+/**
+ * A line glyph, painted in the inherited text color.
+ *
+ * The design system draws its glyphs on a 14-unit grid at 1.1px; the capability
+ * glyphs on the home page's API panel are drawn on a 20-unit grid at 1.5px, so
+ * each name carries the grid and weight it was authored at.
+ */
+const GLYPHS = {
+  Cog: { grid: 14, stroke: 1.1 },
+  Database: { grid: 14, stroke: 1.1 },
+  Folder: { grid: 14, stroke: 1.1 },
+  Key: { grid: 14, stroke: 1.1 },
+  Refresh: { grid: 14, stroke: 1.1 },
+  ThLarge: { grid: 14, stroke: 1.1 },
+  Frontends: { grid: 20, stroke: 1.5 },
+  Microservices: { grid: 20, stroke: 1.5 },
+  McpTools: { grid: 20, stroke: 1.5 },
+  Persistence: { grid: 20, stroke: 1.5 },
+} as const
+
+const props = withDefaults(defineProps<{
+  name: keyof typeof GLYPHS
   size?: number
 }>(), { size: 18 })
+
+const glyph = computed(() => GLYPHS[props.name])
 </script>
 
 <template>
   <svg
     :width="size"
     :height="size"
-    viewBox="0 0 14 14"
+    :viewBox="`0 0 ${glyph.grid} ${glyph.grid}`"
     fill="none"
     stroke="currentColor"
-    stroke-width="1.1"
+    :stroke-width="glyph.stroke"
     stroke-linecap="round"
     stroke-linejoin="round"
     aria-hidden="true"
@@ -35,6 +56,25 @@ withDefaults(defineProps<{
     </template>
     <template v-else-if="name === 'ThLarge'">
       <path d="M 1.909 1.273 C 1.558 1.273 1.273 1.558 1.273 1.909 M 4.455 1.273 L 1.909 1.273 M 5.091 1.909 C 5.091 1.558 4.806 1.273 4.455 1.273 M 5.091 4.455 L 5.091 1.909 M 4.455 5.091 C 4.806 5.091 5.091 4.806 5.091 4.455 M 1.909 5.091 L 4.455 5.091 M 1.273 4.455 C 1.273 4.806 1.558 5.091 1.909 5.091 M 1.273 1.909 L 1.273 4.455 Z M 0 1.909 C 0 0.855 0.855 0 1.909 0 M 0 4.455 L 0 1.909 M 1.909 6.364 C 0.855 6.364 0 5.509 0 4.455 M 4.455 6.364 L 1.909 6.364 M 6.364 4.455 C 6.364 5.509 5.509 6.364 4.455 6.364 M 6.364 1.909 L 6.364 4.455 M 4.455 0 C 5.509 0 6.364 0.855 6.364 1.909 M 1.909 0 L 4.455 0 Z M 1.909 8.909 C 1.558 8.909 1.273 9.194 1.273 9.545 M 4.455 8.909 L 1.909 8.909 M 5.091 9.545 C 5.091 9.194 4.806 8.909 4.455 8.909 M 5.091 12.091 L 5.091 9.545 M 4.455 12.727 C 4.806 12.727 5.091 12.442 5.091 12.091 M 1.909 12.727 L 4.455 12.727 M 1.273 12.091 C 1.273 12.442 1.558 12.727 1.909 12.727 M 1.273 9.545 L 1.273 12.091 Z M 0 9.545 C 0 8.491 0.855 7.636 1.909 7.636 M 0 12.091 L 0 9.545 M 1.909 14 C 0.855 14 0 13.145 0 12.091 M 4.455 14 L 1.909 14 M 6.364 12.091 C 6.364 13.145 5.509 14 4.455 14 M 6.364 9.545 L 6.364 12.091 M 4.455 7.636 C 5.509 7.636 6.364 8.491 6.364 9.545 M 1.909 7.636 L 4.455 7.636 Z M 8.909 1.909 C 8.909 1.558 9.194 1.273 9.545 1.273 M 8.909 4.455 L 8.909 1.909 M 9.545 5.091 C 9.194 5.091 8.909 4.806 8.909 4.455 M 12.091 5.091 L 9.545 5.091 M 12.727 4.455 C 12.727 4.806 12.442 5.091 12.091 5.091 M 12.727 1.909 L 12.727 4.455 M 12.091 1.273 C 12.442 1.273 12.727 1.558 12.727 1.909 M 9.545 1.273 L 12.091 1.273 Z M 9.545 0 C 8.491 0 7.636 0.855 7.636 1.909 M 12.091 0 L 9.545 0 M 14 1.909 C 14 0.855 13.145 0 12.091 0 M 14 4.455 L 14 1.909 M 12.091 6.364 C 13.145 6.364 14 5.509 14 4.455 M 9.545 6.364 L 12.091 6.364 M 7.636 4.455 C 7.636 5.509 8.491 6.364 9.545 6.364 M 7.636 1.909 L 7.636 4.455 Z M 9.545 8.909 C 9.194 8.909 8.909 9.194 8.909 9.545 M 12.091 8.909 L 9.545 8.909 M 12.727 9.545 C 12.727 9.194 12.442 8.909 12.091 8.909 M 12.727 12.091 L 12.727 9.545 M 12.091 12.727 C 12.442 12.727 12.727 12.442 12.727 12.091 M 9.545 12.727 L 12.091 12.727 M 8.909 12.091 C 8.909 12.442 9.194 12.727 9.545 12.727 M 8.909 9.545 L 8.909 12.091 Z M 7.636 9.545 C 7.636 8.491 8.491 7.636 9.545 7.636 M 7.636 12.091 L 7.636 9.545 M 9.545 14 C 8.491 14 7.636 13.145 7.636 12.091 M 12.091 14 L 9.545 14 M 14 12.091 C 14 13.145 13.145 14 12.091 14 M 14 9.545 L 14 12.091 M 12.091 7.636 C 13.145 7.636 14 8.491 14 9.545 M 9.545 7.636 L 12.091 7.636 Z"/>
+    </template>
+    <template v-else-if="name === 'Frontends'">
+      <rect x="2.5" y="3.5" width="15" height="13" rx="1.5" />
+      <path d="M2.5 7.5H17.5M6.5 7.5V16.5" />
+    </template>
+    <template v-else-if="name === 'Microservices'">
+      <circle cx="10" cy="4.5" r="2" />
+      <circle cx="4.5" cy="14.5" r="2" />
+      <circle cx="15.5" cy="14.5" r="2" />
+      <path d="M8.9 6.2L5.6 12.8M11.1 6.2L14.4 12.8M6.5 14.5H13.5" />
+    </template>
+    <template v-else-if="name === 'McpTools'">
+      <path d="M10 2.5V6M10 14V17.5M2.5 10H6M14 10H17.5" />
+      <circle cx="10" cy="10" r="3.2" />
+    </template>
+    <template v-else-if="name === 'Persistence'">
+      <ellipse cx="10" cy="4.5" rx="6" ry="2.3" />
+      <path d="M4 4.5V15.5C4 16.8 6.7 17.8 10 17.8C13.3 17.8 16 16.8 16 15.5V4.5" />
+      <path d="M4 10C4 11.3 6.7 12.3 10 12.3C13.3 12.3 16 11.3 16 10" />
     </template>
   </svg>
 </template>

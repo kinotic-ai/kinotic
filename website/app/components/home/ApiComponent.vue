@@ -12,8 +12,7 @@ interface Capability {
   id: string
   title: string
   summary: string
-  /** Inline SVG body for the 20x20 glyph, authored below — never user input. */
-  glyph: string
+  icon: 'Frontends' | 'Microservices' | 'McpTools' | 'Persistence'
   file: string
   code: Token[][]
 }
@@ -25,7 +24,7 @@ const capabilities: Capability[] = [
     id: 'frontends',
     title: 'Frontends',
     summary: 'Complete UIs deployed as static sites, wired to your services with auth included.',
-    glyph: '<rect x="2.5" y="3.5" width="15" height="13" rx="1.5" /><path d="M2.5 7.5H17.5M6.5 7.5V16.5" />',
+    icon: 'Frontends',
     file: 'orders/ui.k',
     code: [
       [t('c', '// a complete frontend')],
@@ -45,7 +44,7 @@ const capabilities: Capability[] = [
     id: 'microservices',
     title: 'Microservices',
     summary: 'Long-running services with a generated proxy for every published call.',
-    glyph: '<circle cx="10" cy="4.5" r="2" /><circle cx="4.5" cy="14.5" r="2" /><circle cx="15.5" cy="14.5" r="2" /><path d="M8.9 6.2L5.6 12.8M11.1 6.2L14.4 12.8M6.5 14.5H13.5" />',
+    icon: 'Microservices',
     file: 'orders/service.k',
     code: [
       [t('c', '// long-running service')],
@@ -65,7 +64,7 @@ const capabilities: Capability[] = [
     id: 'mcp-tools',
     title: 'MCP Tools',
     summary: 'Every service doubles as an MCP tool — build against live data with Claude, ChatGPT or Cursor.',
-    glyph: '<path d="M10 2.5V6M10 14V17.5M2.5 10H6M14 10H17.5" /><circle cx="10" cy="10" r="3.2" />',
+    icon: 'McpTools',
     file: 'orders/mcp.k',
     code: [
       [t('c', '// every service, an MCP tool')],
@@ -85,7 +84,7 @@ const capabilities: Capability[] = [
     id: 'persistence',
     title: 'Persistence',
     summary: 'Domain models with generated CRUD, named queries and PII annotations on any field.',
-    glyph: '<ellipse cx="10" cy="4.5" rx="6" ry="2.3" /><path d="M4 4.5V15.5C4 16.8 6.7 17.8 10 17.8C13.3 17.8 16 16.8 16 15.5V4.5" /><path d="M4 10C4 11.3 6.7 12.3 10 12.3C13.3 12.3 16 11.3 16 10" />',
+    icon: 'Persistence',
     file: 'orders/model.k',
     code: [
       [t('c', '// define the domain model')],
@@ -151,18 +150,7 @@ function onTabKeydown(event: KeyboardEvent) {
             @click="activeIndex = index"
           >
             <span class="api__tabicon">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                v-html="capability.glyph"
-              />
+              <KinoticIcon :name="capability.icon" :size="20" />
             </span>
             <span>
               <span class="api__tabtitle">{{ capability.title }}</span>
