@@ -12,6 +12,14 @@ export default defineNuxtConfig({
   robots: {
     disallow: ['/test-results/'],
   },
+  // /V2 is an unlinked preview shared by URL, so prerendering never discovers it by crawling —
+  // without this, `nuxt generate` emits no page for it and the deployed URL 404s. It is kept out
+  // of search results by its own `noindex` meta tag; the sitemap covers content pages only.
+  nitro: {
+    prerender: {
+      routes: ['/V2'],
+    },
+  },
   runtimeConfig: {
     public: {
       clarityProjectId: 'waw4oqkd0y',
