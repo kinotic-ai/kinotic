@@ -272,7 +272,7 @@ onBeforeUnmount(() => {
 .hero__lede {
   font-size: 16.5px;
   line-height: 1.65;
-  color: var(--k-body);
+  color: var(--color-k-body);
   max-width: 480px;
   margin: 26px 0 0;
 }
@@ -304,10 +304,10 @@ onBeforeUnmount(() => {
 .hero__label {
   position: absolute;
   transform: translate(-100%, -50%);
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 11px;
-  color: var(--k-dim);
-  background: var(--k-bg-chip);
+  color: var(--color-k-dim);
+  background: var(--color-k-bg-chip);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 5px 10px;
   border-radius: 6px;
@@ -343,10 +343,10 @@ onBeforeUnmount(() => {
 }
 
 .hero__corelabel {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 10.5px;
   letter-spacing: 0.08em;
-  color: var(--k-faint);
+  color: var(--color-k-faint);
 }
 
 .hero__chip {
@@ -360,9 +360,9 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(40, 254, 180, 0.3);
   padding: 6px 11px;
   border-radius: 7px;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 11px;
-  color: var(--k-mint);
+  color: var(--color-k-mint);
 }
 
 @media (max-width: 768px) {

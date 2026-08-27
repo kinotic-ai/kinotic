@@ -51,8 +51,8 @@
 
 <style scoped>
 .cta {
-  border-top: 1px solid var(--k-border);
-  border-bottom: 1px solid var(--k-border);
+  border-top: 1px solid var(--color-k-border);
+  border-bottom: 1px solid var(--color-k-border);
   scroll-margin-top: 90px;
 }
 
@@ -69,7 +69,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 40px 0 max(40px, calc((100vw - 1140px) / 2));
-  border-right: 1px solid var(--k-border);
+  border-right: 1px solid var(--color-k-border);
 }
 
 .cta__eyebrow {
@@ -109,7 +109,7 @@
 .cta__github {
   font-size: 14px;
   padding: 17px 30px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   border: 1px solid #3A3A40;
 }
 
@@ -187,7 +187,7 @@
   .cta__copy {
     padding: 64px 30px;
     border-right: none;
-    border-bottom: 1px solid var(--k-border);
+    border-bottom: 1px solid var(--color-k-border);
   }
 
   .cta__visual {

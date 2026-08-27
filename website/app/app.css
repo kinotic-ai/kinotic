@@ -1,29 +1,31 @@
-:root {
-  --ui-container: 90rem;
+/* Kinotic brand palette and type stacks.
+   Declared with Tailwind's `--color-*` / `--font-*` namespaces so each token is
+   both a CSS variable the component styles read and a generated utility
+   (`bg-k-bg`, `text-k-mint`, `font-k-mono`). Docus imports this file into the
+   sheet that owns `@import "tailwindcss"`, which is what registers them. */
+@theme {
+  --font-k-display: 'Figtree', sans-serif;
+  --font-k-body: 'Inter', sans-serif;
+  --font-k-mono: 'Fira Code', monospace;
 
-  /* Kinotic brand palette and type stacks, shared by the marketing pages. */
-  --k-font-display: 'Figtree', sans-serif;
-  --k-font-body: 'Inter', sans-serif;
-  --k-font-mono: 'Fira Code', monospace;
+  --color-k-red: #EC1F52;
+  --color-k-red-hover: #D11646;
+  --color-k-mint: #28FEB4;
+  --color-k-mint-hover: #5CFEC6;
 
-  --k-red: #EC1F52;
-  --k-red-hover: #D11646;
-  --k-mint: #28FEB4;
-  --k-mint-hover: #5CFEC6;
+  --color-k-bg: #08090A;
+  --color-k-bg-panel: #0C0D0F;
+  --color-k-bg-card: #0A0A0B;
+  --color-k-bg-chip: #101012;
+  --color-k-border: #2B2A32;
 
-  --k-bg: #08090A;
-  --k-bg-panel: #0C0D0F;
-  --k-bg-card: #0A0A0B;
-  --k-bg-chip: #101012;
-  --k-border: #2B2A32;
-
-  --k-heading: #FCFCFD;
-  --k-text: #EDEDEF;
-  --k-body: #B4B4BB;
-  --k-muted: #9A9AA2;
-  --k-dim: #8A8A92;
-  --k-faint: #6B6B73;
-  --k-fainter: #5D5D66;
+  --color-k-heading: #FCFCFD;
+  --color-k-text: #EDEDEF;
+  --color-k-body: #B4B4BB;
+  --color-k-muted: #9A9AA2;
+  --color-k-dim: #8A8A92;
+  --color-k-faint: #6B6B73;
+  --color-k-fainter: #5D5D66;
 }
 
 /* Figtree · latin-ext */
@@ -218,22 +220,22 @@
   content: '';
   width: 14px;
   height: 3px;
-  background: var(--k-red);
+  background: var(--color-k-red);
   transform: skewX(-30deg);
 }
 
 .k-eyebrow > span {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 12.5px;
   letter-spacing: 0.18em;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
 }
 
 .k-heading {
-  font-family: var(--k-font-display);
+  font-family: var(--font-k-display);
   font-weight: 600;
   letter-spacing: -0.015em;
-  color: var(--k-heading);
+  color: var(--color-k-heading);
   margin: 0;
 }
 
@@ -241,7 +243,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 13.5px;
   font-weight: 500;
   padding: 15px 28px;
@@ -251,27 +253,27 @@
 }
 
 .k-btn--mint {
-  color: var(--k-bg);
-  background: var(--k-mint);
+  color: var(--color-k-bg);
+  background: var(--color-k-mint);
 }
 
 .k-btn--mint:hover {
-  color: var(--k-bg);
-  background: var(--k-mint-hover);
+  color: var(--color-k-bg);
+  background: var(--color-k-mint-hover);
 }
 
 .k-btn--red {
   color: #fff;
-  background: var(--k-red);
+  background: var(--color-k-red);
 }
 
 .k-btn--red:hover {
   color: #fff;
-  background: var(--k-red-hover);
+  background: var(--color-k-red-hover);
 }
 
 .k-btn--ghost {
-  color: var(--k-text);
+  color: var(--color-k-text);
   background: transparent;
   border: 1px solid #757575;
 }
@@ -286,7 +288,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--k-mint);
+  background: var(--color-k-mint);
   animation: k-pulse 1.8s ease-in-out infinite;
 }
 
@@ -295,7 +297,7 @@
   display: inline-block;
   width: 6px;
   height: 12px;
-  background: var(--k-mint);
+  background: var(--color-k-mint);
   vertical-align: -2px;
   animation: k-blink 1.05s steps(1) infinite;
 }

@@ -4,7 +4,7 @@ useHead({ title: 'Terms of Service' })
 </script>
 
 <template>
-  <section class="bg-[#08090A] pt-[100px]">
+  <section class="bg-k-bg pt-[100px]">
     <BaseContainer>
       <article class="px-5 py-16 lg:px-[110px] lg:py-24 text-[#AFAFB4]">
         <h1 class="font-[InterBold] text-[44px] leading-[120%] tracking-[-0.02em] text-white sm:text-[52px]">

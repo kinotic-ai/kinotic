@@ -108,9 +108,9 @@ watch(() => route.fullPath, () => {
 }
 
 .knav__links a {
-  font-family: var(--k-font-body);
+  font-family: var(--font-k-body);
   font-size: 14px;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
   text-decoration: none;
   transition: color 0.2s ease;
 }
@@ -121,11 +121,11 @@ watch(() => route.fullPath, () => {
 }
 
 .knav__cta {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 13px;
   font-weight: 500;
   color: #fff;
-  background: var(--k-red);
+  background: var(--color-k-red);
   padding: 11px 22px;
   border-radius: 4px;
   text-decoration: none;
@@ -134,7 +134,7 @@ watch(() => route.fullPath, () => {
 
 .knav__cta:hover {
   color: #fff;
-  background: var(--k-red-hover);
+  background: var(--color-k-red-hover);
 }
 
 .knav__toggle {
@@ -145,7 +145,7 @@ watch(() => route.fullPath, () => {
   padding: 0;
   background: none;
   border: none;
-  color: var(--k-text);
+  color: var(--color-k-text);
   cursor: pointer;
   align-items: center;
   justify-content: center;
@@ -167,9 +167,9 @@ watch(() => route.fullPath, () => {
 }
 
 .knav__menu a {
-  font-family: var(--k-font-body);
+  font-family: var(--font-k-body);
   font-size: 16px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   text-decoration: none;
   padding: 15px 2px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);

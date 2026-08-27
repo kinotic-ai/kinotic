@@ -11,6 +11,14 @@ useSeoMeta({
 let observer: IntersectionObserver | undefined
 
 onMounted(() => {
+  // SMIL is outside the CSS animation model, so the `animation: none` rule in
+  // app.css never reaches the <animate>/<animateMotion> elements in the section
+  // illustrations, and `display: none` on them is ignored. Pausing each SVG's
+  // own timeline is what actually freezes them at their first frame.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll('svg').forEach(svg => svg.pauseAnimations())
+  }
+
   const targets = document.querySelectorAll('[data-reveal]')
 
   // Without an observer the reveal targets would stay at opacity 0 forever, so

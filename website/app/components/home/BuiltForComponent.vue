@@ -117,7 +117,7 @@
   width: 41%;
   position: relative;
   overflow: hidden;
-  background: var(--k-bg-panel);
+  background: var(--color-k-bg-panel);
   border-right: 1px solid #232527;
 }
 
@@ -144,16 +144,16 @@
 }
 
 .builtfor__lead {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 24px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-bottom: 14px;
 }
 
 .builtfor__copy p {
   font-size: 18px;
   line-height: 1.6;
-  color: var(--k-body);
+  color: var(--color-k-body);
   margin: 0;
   max-width: 460px;
 }

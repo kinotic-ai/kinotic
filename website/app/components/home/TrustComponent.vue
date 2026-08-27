@@ -113,7 +113,7 @@ const principles = [
 .trust__panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  border: 1px solid var(--k-border);
+  border: 1px solid var(--color-k-border);
 }
 
 .trust__visual {
@@ -122,8 +122,8 @@ const principles = [
   align-items: center;
   overflow: hidden;
   padding: 44px 40px;
-  background: var(--k-bg-panel);
-  border-right: 1px solid var(--k-border);
+  background: var(--color-k-bg-panel);
+  border-right: 1px solid var(--color-k-border);
 }
 
 .trust__glow {
@@ -145,7 +145,7 @@ const principles = [
   display: flex;
   gap: 22px;
   padding: 34px 38px;
-  border-bottom: 1px solid var(--k-border);
+  border-bottom: 1px solid var(--color-k-border);
 }
 
 .trust__row:last-child {
@@ -159,8 +159,8 @@ const principles = [
   border-radius: 6px;
   background: rgba(40, 254, 180, 0.1);
   border: 1px solid rgba(40, 254, 180, 0.4);
-  color: var(--k-mint);
-  font-family: var(--k-font-mono);
+  color: var(--color-k-mint);
+  font-family: var(--font-k-mono);
   font-size: 15px;
   display: inline-flex;
   align-items: center;
@@ -169,9 +169,9 @@ const principles = [
 
 .trust__rowtitle {
   display: block;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 16.5px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-bottom: 7px;
 }
 
@@ -179,7 +179,7 @@ const principles = [
   display: block;
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
 }
 
 /* ── Generated app console ── */
@@ -200,10 +200,10 @@ const principles = [
 
 .console__url {
   display: block;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 11.5px;
-  color: var(--k-dim);
-  background: var(--k-bg-chip);
+  color: var(--color-k-dim);
+  background: var(--color-k-bg-chip);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 7px;
   padding: 8px 12px;
@@ -228,7 +228,7 @@ const principles = [
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  color: var(--k-faint);
+  color: var(--color-k-faint);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -236,7 +236,7 @@ const principles = [
 
 .console__railicon--active {
   background: rgba(236, 31, 82, 0.14);
-  color: var(--k-red);
+  color: var(--color-k-red);
 }
 
 .console__main {
@@ -250,19 +250,19 @@ const principles = [
 }
 
 .console__apptitle {
-  font-family: var(--k-font-display);
+  font-family: var(--font-k-display);
   font-weight: 700;
   font-size: 15px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .console__appid {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 10px;
-  color: var(--k-faint);
+  color: var(--color-k-faint);
   margin-top: 2px;
 }
 
@@ -281,22 +281,22 @@ const principles = [
 }
 
 .console__statlabel {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 8.5px;
   letter-spacing: 0.05em;
-  color: var(--k-faint);
+  color: var(--color-k-faint);
 }
 
 .console__statvalue {
-  font-family: var(--k-font-display);
+  font-family: var(--font-k-display);
   font-weight: 700;
   font-size: 16px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-top: 2px;
 }
 
 .console__statvalue--good {
-  color: var(--k-mint);
+  color: var(--color-k-mint);
 }
 
 .console__table {
@@ -309,14 +309,14 @@ const principles = [
 .console__trow {
   display: flex;
   padding: 7px 12px;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
 }
 
 .console__thead {
   background: #121214;
   font-size: 9px;
   letter-spacing: 0.05em;
-  color: var(--k-faint);
+  color: var(--color-k-faint);
 }
 
 .console__trow {
@@ -326,7 +326,7 @@ const principles = [
 }
 
 .console__trow span:last-child {
-  color: var(--k-dim);
+  color: var(--color-k-dim);
 }
 
 .console__thead span:first-child,
@@ -346,7 +346,7 @@ const principles = [
 
   .trust__visual {
     border-right: none;
-    border-bottom: 1px solid var(--k-border);
+    border-bottom: 1px solid var(--color-k-border);
   }
 }
 

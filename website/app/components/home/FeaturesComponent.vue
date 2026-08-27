@@ -137,8 +137,8 @@
 }
 
 .features__card {
-  border: 1px solid var(--k-border);
-  background: var(--k-bg-card);
+  border: 1px solid var(--color-k-border);
+  background: var(--color-k-bg-card);
 }
 
 .features__visual {
@@ -147,7 +147,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid var(--k-border);
+  border-bottom: 1px solid var(--color-k-border);
 }
 
 .features__visual--mint {
@@ -169,13 +169,13 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 11px;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
 }
 
 .features__badgedot {
-  background: var(--k-red);
+  background: var(--color-k-red);
 }
 
 .features__chart {
@@ -201,16 +201,16 @@
 }
 
 .features__lead {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 19px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-bottom: 10px;
 }
 
 .features__caption p {
   font-size: 14px;
   line-height: 1.65;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
   margin: 0;
   max-width: 380px;
 }
@@ -225,7 +225,7 @@
 .envstack__shadow {
   position: absolute;
   border-radius: 10px;
-  background: var(--k-bg-panel);
+  background: var(--color-k-bg-panel);
 }
 
 .envstack__shadow--back {
@@ -267,7 +267,7 @@
   height: 34px;
   border-radius: 8px;
   border: 1px solid rgba(40, 254, 180, 0.5);
-  color: var(--k-mint);
+  color: var(--color-k-mint);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -279,25 +279,25 @@
 
 .envstack__branch {
   display: block;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 13.5px;
   font-weight: 600;
-  color: var(--k-text);
+  color: var(--color-k-text);
 }
 
 .envstack__tags {
   display: block;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 9.5px;
   letter-spacing: 0.1em;
-  color: var(--k-dim);
+  color: var(--color-k-dim);
   margin-top: 3px;
 }
 
 .envstack__dot {
   width: 8px;
   height: 8px;
-  background: var(--k-red);
+  background: var(--color-k-red);
 }
 
 /* ── Globe ── */

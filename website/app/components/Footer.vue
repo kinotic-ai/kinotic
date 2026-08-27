@@ -36,7 +36,7 @@
 .kfoot {
   padding: 70px 0 44px;
   background: #050506;
-  font-family: var(--k-font-body);
+  font-family: var(--font-k-body);
 }
 
 .kfoot__top {
@@ -55,7 +55,7 @@
 .kfoot__brand p {
   font-size: 14px;
   line-height: 1.65;
-  color: var(--k-dim);
+  color: var(--color-k-dim);
   margin: 20px 0 0;
 }
 
@@ -67,12 +67,12 @@
 
 .kfoot__social a {
   display: inline-flex;
-  color: var(--k-dim);
+  color: var(--color-k-dim);
   transition: color 0.2s ease;
 }
 
 .kfoot__social a:hover {
-  color: var(--k-text);
+  color: var(--color-k-text);
 }
 
 .kfoot__social svg {
@@ -90,7 +90,7 @@
   padding-top: 28px;
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   font-size: 13px;
-  color: var(--k-fainter);
+  color: var(--color-k-fainter);
 }
 
 .kfoot__legal {
@@ -99,13 +99,13 @@
 }
 
 .kfoot__legal a {
-  color: var(--k-fainter);
+  color: var(--color-k-fainter);
   text-decoration: none;
   transition: color 0.2s ease;
 }
 
 .kfoot__legal a:hover {
-  color: var(--k-text);
+  color: var(--color-k-text);
 }
 
 .kfoot__sep {

@@ -234,14 +234,14 @@ function onTabKeydown(event: KeyboardEvent) {
 .api__panel {
   display: grid;
   grid-template-columns: 5fr 7fr;
-  border: 1px solid var(--k-border);
-  background: var(--k-bg);
+  border: 1px solid var(--color-k-border);
+  background: var(--color-k-bg);
 }
 
 .api__list {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--k-border);
+  border-right: 1px solid var(--color-k-border);
 }
 
 .api__tab {
@@ -252,7 +252,7 @@ function onTabKeydown(event: KeyboardEvent) {
   text-align: left;
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--k-border);
+  border-bottom: 1px solid var(--color-k-border);
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -275,8 +275,8 @@ function onTabKeydown(event: KeyboardEvent) {
   height: 44px;
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  color: var(--k-dim);
-  background: var(--k-bg-panel);
+  color: var(--color-k-dim);
+  background: var(--color-k-bg-panel);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -285,14 +285,14 @@ function onTabKeydown(event: KeyboardEvent) {
 
 .api__tab--active .api__tabicon {
   border-color: rgba(40, 254, 180, 0.55);
-  color: var(--k-mint);
+  color: var(--color-k-mint);
 }
 
 .api__tabtitle {
   display: block;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 16.5px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-bottom: 7px;
 }
 
@@ -300,7 +300,7 @@ function onTabKeydown(event: KeyboardEvent) {
   display: block;
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--k-muted);
+  color: var(--color-k-muted);
 }
 
 .api__code {
@@ -330,7 +330,7 @@ function onTabKeydown(event: KeyboardEvent) {
 }
 
 .api__dots span:nth-child(2) {
-  background: var(--k-fainter);
+  background: var(--color-k-fainter);
 }
 
 .api__dots span:nth-child(3) {
@@ -338,29 +338,29 @@ function onTabKeydown(event: KeyboardEvent) {
 }
 
 .api__file {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 11.5px;
-  color: var(--k-fainter);
+  color: var(--color-k-fainter);
 }
 
 .api__pre {
   margin: 0;
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 13px;
   line-height: 2.05;
-  color: var(--k-body);
+  color: var(--color-k-body);
   white-space: pre-wrap;
 }
 
-.tok--c { color: var(--k-fainter); }
-.tok--k { color: var(--k-mint); }
-.tok--p { color: var(--k-body); }
+.tok--c { color: var(--color-k-fainter); }
+.tok--k { color: var(--color-k-mint); }
+.tok--p { color: var(--color-k-body); }
 .tok--t { color: #EC5C7F; }
-.tok--a { color: var(--k-mint); }
-.tok--g { color: var(--k-dim); }
-.tok--d { color: var(--k-fainter); }
-.tok--b { color: var(--k-text); }
-.tok--s { color: var(--k-mint); }
+.tok--a { color: var(--color-k-mint); }
+.tok--g { color: var(--color-k-dim); }
+.tok--d { color: var(--color-k-fainter); }
+.tok--b { color: var(--color-k-text); }
+.tok--s { color: var(--color-k-mint); }
 
 .api__cta {
   display: flex;
@@ -375,7 +375,7 @@ function onTabKeydown(event: KeyboardEvent) {
 
   .api__list {
     border-right: none;
-    border-bottom: 1px solid var(--k-border);
+    border-bottom: 1px solid var(--color-k-border);
   }
 }
 

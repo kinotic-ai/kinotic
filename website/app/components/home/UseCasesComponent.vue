@@ -67,8 +67,8 @@ const stories = [
 }
 
 .usecases__card {
-  border: 1px solid var(--k-border);
-  background: var(--k-bg-card);
+  border: 1px solid var(--color-k-border);
+  background: var(--color-k-bg-card);
 }
 
 .usecases__image {
@@ -90,16 +90,16 @@ const stories = [
 }
 
 .usecases__name {
-  font-family: var(--k-font-mono);
+  font-family: var(--font-k-mono);
   font-size: 23px;
-  color: var(--k-text);
+  color: var(--color-k-text);
   margin-bottom: 14px;
 }
 
 .usecases__copy p {
   font-size: 16px;
   line-height: 1.6;
-  color: var(--k-body);
+  color: var(--color-k-body);
   margin: 0;
 }
 
