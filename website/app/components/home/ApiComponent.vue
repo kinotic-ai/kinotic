@@ -28,10 +28,14 @@ const capabilities: Capability[] = [
     file: 'web/src/todos.ts',
     code: [
       [t('c', '// your UI — React, Vue, or plain TS')],
+      [t('k', 'await'), t('p', ' Kinotic.connect()')],
+      [t('c', '// call any repository or microservice')],
       [t('k', 'const'), t('p', ' todos = '), t('k', 'new'), t('p', ' TodoRepository()')],
       [t('k', 'const'), t('p', ' page = '), t('k', 'await'), t('p', ' todos.findAll({')],
       [t('p', '  page: '), t('t', '0'), t('p', ', size: '), t('t', '25'), t('p', ' })')],
-      [t('p', 'page.content.forEach(renderRow)')],
+      [t('k', 'await'), t('k', ' new'), t('p', ' TodoService(Kinotic)')],
+      [t('p', '  .complete(page.content['), t('t', '0'), t('p', '].id)')],
+      [],
       [t('c', '// the platform provides:')],
       [t('g', '→ static hosting on a CDN')],
       [t('g', '→ session wiring to your services')],
@@ -48,7 +52,6 @@ const capabilities: Capability[] = [
     file: 'services/src/TodoService.ts',
     code: [
       [t('c', '// callee — publish the service')],
-      [t('a', '@Version'), t('p', '('), t('t', "'1.0.0'"), t('p', ')')],
       [t('a', '@Publish'), t('p', '('), t('t', "'com.example'"), t('p', ')')],
       [t('k', 'class'), t('p', ' TodoService {')],
       [t('p', '  complete(id: '), t('t', 'string'), t('p', ') { ... }')],
@@ -56,6 +59,7 @@ const capabilities: Capability[] = [
       [t('c', '// caller — another service or your UI')],
       [t('k', 'const'), t('p', ' todos = '), t('k', 'new'), t('p', ' TodoService(Kinotic)')],
       [t('k', 'const'), t('p', ' todo = '), t('k', 'await'), t('p', ' todos.complete(id)')],
+      [],
       [t('c', '// the platform provides:')],
       [t('g', '→ a typed proxy for every call')],
       [t('g', '→ tracing across service boundaries')],
@@ -71,7 +75,6 @@ const capabilities: Capability[] = [
     file: 'services/src/TodoService.ts',
     code: [
       [t('c', '// the same service, now an MCP tool')],
-      [t('a', '@Version'), t('p', '('), t('t', "'1.0.0'"), t('p', ')')],
       [t('a', '@Publish'), t('p', '('), t('t', "'com.example'"), t('p', ')')],
       [t('k', 'class'), t('p', ' TodoService {')],
       [t('p', '  '), t('a', '@McpTool'), t('p', '({')],
@@ -81,6 +84,7 @@ const capabilities: Capability[] = [
       [t('p', '  })')],
       [t('p', '  findById(id: '), t('t', 'string'), t('p', ') { ... }')],
       [t('p', '}')],
+      [],
       [t('c', '// the platform provides:')],
       [t('g', '→ tools served at POST /mcp')],
       [t('g', '→ callers see only their own tools')],
@@ -101,11 +105,11 @@ const capabilities: Capability[] = [
       [t('p', '  id: '), t('t', 'string | null'), t('p', ' = '), t('t', 'null')],
       [t('p', '  '), t('a', '@NotNull')],
       [t('p', '  title: '), t('t', 'string'), t('p', ' = '), t('t', "''")],
-      [t('p', '  done: '), t('t', 'boolean'), t('p', ' = '), t('t', 'false')],
       [t('p', '}')],
+      [],
       [t('d', '$ '), t('b', 'kinotic generate')],
       [t('s', '✓ '), t('b', 'TodoRepository '), t('s', 'generated')],
-      [t('c', '// use it before you deploy:')],
+      [t('c', '// Crud operations for free')],
       [t('k', 'const'), t('p', ' todos = '), t('k', 'new'), t('p', ' TodoRepository()')],
       [t('k', 'const'), t('p', ' saved = '), t('k', 'await'), t('p', ' todos.save(todo)')],
       [t('k', 'const'), t('p', ' found = '), t('k', 'await'), t('p', ' todos.findById(id)')],
@@ -338,6 +342,12 @@ function onTabKeydown(event: KeyboardEvent) {
   font-family: var(--font-k-mono);
   font-size: 11.5px;
   color: var(--color-k-fainter);
+}
+
+/* A row carrying no tokens is a deliberate blank line between the code and the
+   commentary under it; an empty div would otherwise collapse to no height. */
+.api__pre > div:empty {
+  height: 1lh;
 }
 
 .api__pre {
