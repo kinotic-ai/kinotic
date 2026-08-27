@@ -139,6 +139,9 @@ const PIPELINE_STEPS = [
   animation-name: envstack-fold-reveal;
 }
 
+/* Whole slots, unlike v2 below: a card folding away keeps its label the whole
+   way down, so holding this version part-way through a handover would open the
+   section with two labels on screen at once. */
 .envstack--v1 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
 .envstack--v1 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
 .envstack--v1 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
@@ -226,11 +229,17 @@ const PIPELINE_STEPS = [
   animation-name: envstack-rise-reveal;
 }
 
-.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: 0s; }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.8); }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
-.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
+/* Still a slot apart, but the whole cycle is backed up by a fifth of a slot, so
+   the first card is mid-rise when the deck is released rather than already
+   landed. Held on a whole slot it is the one card that never animates into
+   place, which reads as a mistake next to every card that follows it. The
+   fifth is what it takes for the card stepping back to have shed its label by
+   then, so only the arriving one is legible. */
+.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.96); }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.76); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.56); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.36); }
+.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.16); }
 
 @keyframes envstack-rise {
   0%, 12% {
