@@ -66,11 +66,13 @@ public class ProjectDeployJobDefinitionFactory {
         return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
-                // taskStoreResult so a resumed run re-resolves the target instead of skipping the step
-                .taskStoreResult(Tasks.fromCallable("Resolve deployment target",
-                                                    () -> resolveTarget(projectId, existing)
-                                                            .toCompletionStage().toCompletableFuture()),
-                                 DEPLOY_TARGET)
+                // taskStoreState: the target is a decision later effects are bound to - the sync
+                // checkout lives on this node - so a resume must replay the recorded choice from
+                // the run's own records, never re-derive it and risk landing on a different node
+                .taskStoreState(Tasks.fromCallable("Resolve deployment target",
+                                                   () -> resolveTarget(projectId, existing)
+                                                           .toCompletionStage().toCompletableFuture()),
+                                DEPLOY_TARGET)
                 .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
