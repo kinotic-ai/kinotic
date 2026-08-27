@@ -1,7 +1,5 @@
 package org.kinotic.management.api.model.grind;
 
-import org.kinotic.management.api.model.grind.StoreType;
-
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
