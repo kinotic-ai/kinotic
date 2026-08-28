@@ -2,8 +2,8 @@ import type { Identifiable } from '@kinotic-ai/core'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 
 /**
- * The persistent record of one execution of a grind job definition. The individual steps
- * executed during the run are recorded as StepRecords referencing this run's id.
+ * The persistent record of one execution of a grind job definition. The individual tasks
+ * executed during the run are recorded as TaskRecords referencing this run's id.
  */
 export class JobRun implements Identifiable<string> {
 

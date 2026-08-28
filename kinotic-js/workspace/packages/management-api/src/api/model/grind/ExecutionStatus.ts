@@ -1,16 +1,16 @@
 /**
- * The lifecycle state of a recorded execution, shared by JobRuns and StepRecords.
+ * The lifecycle state of a recorded execution, shared by JobRuns and TaskRecords.
  */
 export enum ExecutionStatus {
     /**
-     * The execution has been discovered but has not started. Only StepRecords carry this
-     * status: a step is recorded PENDING the moment it becomes known. A record that keeps
+     * The execution has been discovered but has not started. Only TaskRecords carry this
+     * status: a task is recorded PENDING the moment it becomes known. A record that keeps
      * this status after its JobRun reached a terminal status was never reached.
      */
     PENDING = 'PENDING',
     /**
-     * The execution is currently in progress. A StepRecord that keeps this status after its
-     * JobRun reached a terminal status indicates the step never finished.
+     * The execution is currently in progress. A TaskRecord that keeps this status after its
+     * JobRun reached a terminal status indicates the task never finished.
      */
     RUNNING = 'RUNNING',
     /**

@@ -3,14 +3,14 @@ import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 import { StoreType } from '@/api/model/grind/StoreType'
 
 /**
- * The persistent record of one step within a JobRun. Every discovered step has a record,
- * PENDING until it starts executing, so a run's records are its complete step ledger.
+ * The persistent record of one task within a JobRun. Every discovered task has a record,
+ * PENDING until it starts executing, so a run's records are its complete task ledger.
  */
-export class StepRecord implements Identifiable<string> {
+export class TaskRecord implements Identifiable<string> {
 
     /**
-     * Unique identifier for this record, composed of the jobRunId and the stepPath,
-     * so a step has exactly one record per run.
+     * Unique identifier for this record, composed of the jobRunId and the taskPath,
+     * so a task has exactly one record per run.
      */
     public id: string | null = null
 
@@ -20,10 +20,10 @@ export class StepRecord implements Identifiable<string> {
     public jobRunId: string = ''
 
     /**
-     * The position of the step within the run's step tree, as the `/` separated sequence
-     * numbers from the root job definition down to the step.
+     * The position of the task within the run's task tree, as the `/` separated sequence
+     * numbers from the root job definition down to the task.
      */
-    public stepPath: string = ''
+    public taskPath: string = ''
 
     /**
      * The description of the executed task or job definition.
@@ -31,23 +31,23 @@ export class StepRecord implements Identifiable<string> {
     public description: string | null = null
 
     /**
-     * Current status of the step.
+     * Current status of the task.
      */
     public status: ExecutionStatus = ExecutionStatus.RUNNING
 
     /**
-     * How the step's result was stored in the job scope.
-     * Null until the step completes.
+     * How the task's result was stored in the job scope.
+     * Null until the task completes.
      */
     public storeType: StoreType | null = null
 
     /**
-     * True if the step's task returned further steps that were executed dynamically.
+     * True if the task produced further tasks that were executed dynamically.
      */
-    public dynamicSteps: boolean = false
+    public dynamicTasks: boolean = false
 
     /**
-     * The name the step's result was stored under in the job scope,
+     * The name the task's result was stored under in the job scope,
      * or null if the result was not stored.
      */
     public resultName: string | null = null
@@ -63,9 +63,10 @@ export class StepRecord implements Identifiable<string> {
     public resultValue: any = null
 
     /**
-     * Output produced by the step while executing, such as command output.
+     * The stored result as JSON for watchers of the run. Only set when the task's store
+     * declared wire publication.
      */
-    public output: string | null = null
+    public wireValue: any = null
 
     /**
      * The failure message when status is FAILED.
@@ -73,12 +74,12 @@ export class StepRecord implements Identifiable<string> {
     public error: string | null = null
 
     /**
-     * When the step started executing, as epoch milliseconds.
+     * When the task started executing, as epoch milliseconds.
      */
     public started: number | null = null
 
     /**
-     * When the step reached a terminal status, as epoch milliseconds.
+     * When the task reached a terminal status, as epoch milliseconds.
      */
     public finished: number | null = null
 
