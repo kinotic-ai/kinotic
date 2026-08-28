@@ -221,10 +221,11 @@ const attended = ref(false)
 // isn't burning frames.
 const advancing = computed(() => playing.value && onscreen.value && !attended.value)
 
-// Pointer or focus on the play control is an instruction to run, so it must not
-// register as attention the way the rail and the transcript do. Hence mouseover
-// rather than mouseenter: it reports the element actually under the pointer.
-function onAttend(event: Event) {
+// Only focus counts as attention, never the pointer: the panel covers most of the
+// viewport, so a cursor left resting anywhere over it would hold the walkthrough
+// for as long as someone read — which is exactly when it should be running.
+// Focusing the play control is an instruction to run, so it is excluded.
+function onAttend(event: FocusEvent) {
   attended.value = !(event.target as HTMLElement).closest('.api__play')
 }
 
@@ -347,8 +348,6 @@ onBeforeUnmount(() => {
       <div
         class="api__panel"
         data-reveal
-        @mouseover="onAttend"
-        @mouseleave="attended = false"
         @focusin="onAttend"
         @focusout="attended = false"
       >
