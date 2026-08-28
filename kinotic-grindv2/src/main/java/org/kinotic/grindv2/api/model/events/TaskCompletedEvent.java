@@ -12,7 +12,7 @@ import org.kinotic.grindv2.api.model.StoreType;
  *                    subscribers; remote watchers receive null
  */
 public record TaskCompletedEvent(String taskPath,
-                            StoreType storeType,
-                            String storedName,
-                            Object storedValue) implements JobRunEvent {
+                                 StoreType storeType,
+                                 String storedName,
+                                 Object storedValue) implements JobRunEvent {
 }

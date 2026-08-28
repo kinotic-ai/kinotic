@@ -1,11 +1,8 @@
 package org.kinotic.grindv2.api.services;
 
-import org.kinotic.grindv2.api.model.JobDefinition;
-import org.kinotic.grindv2.api.model.JobOwner;
-import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.JobRun;
-import org.kinotic.grindv2.api.model.TaskRecord;
-import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.*;
+import org.kinotic.grindv2.api.repositories.JobRunRepository;
+
 
 /**
  * Executes {@link JobDefinition}s as recorded runs: a {@link JobRun} is persisted for the run
