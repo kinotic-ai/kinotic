@@ -12,8 +12,11 @@ import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.DefaultEventBusService;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
+import org.reactivestreams.Publisher;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.core.ReactiveAdapterRegistry;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -47,7 +50,9 @@ public class EventFabricTests {
         // Same codec wiring KinoticVertxConfig applies, so events cross the bus exactly as in production
         vertx.eventBus().registerCodec(new EventMessageCodec(jsonMapper));
         vertx.eventBus().codecSelector(body -> body instanceof Event ? EventMessageCodec.NAME : null);
-        eventFabric = new EventFabric(new DefaultEventBusService(null, vertx), jsonMapper);
+        eventFabric = new EventFabric(new DefaultEventBusService(null, vertx),
+                                      jsonMapper,
+                                      ReactiveAdapterRegistry.getSharedInstance());
         postProcessor = new EventFabricBeanPostProcessor(eventFabric);
     }
 
@@ -105,9 +110,26 @@ public class EventFabricTests {
     }
 
     @Test
+    public void emitterMayReturnAnyMultiValueReactiveType() throws Exception {
+        PublisherProducer producer = wire(new PublisherProducer());
+        TestReceiver receiver = wire(new TestReceiver(1));
+
+        producer.emit(new TestEvent("publisher", 7));
+
+        assertTrue(receiver.latch.await(5, TimeUnit.SECONDS), "event from a Publisher emitter was not received");
+        assertEquals(new TestEvent("publisher", 7), receiver.received.getFirst());
+    }
+
+    @Test
     public void invalidEmitterFailsBeanInitialization() {
         assertThrows(FatalBeanException.class,
                      () -> postProcessor.postProcessAfterInitialization(new InvalidEmitter(), "invalidEmitter"));
+    }
+
+    @Test
+    public void singleValueEmitterFailsBeanInitialization() {
+        assertThrows(FatalBeanException.class,
+                     () -> postProcessor.postProcessAfterInitialization(new SingleValueEmitter(), "singleValueEmitter"));
     }
 
     @Test
@@ -164,10 +186,30 @@ public class EventFabricTests {
         }
     }
 
+    public static class PublisherProducer {
+        private final Sinks.Many<TestEvent> sink = Sinks.many().multicast().directBestEffort();
+
+        @Emitter
+        Publisher<TestEvent> events() {
+            return sink.asFlux();
+        }
+
+        void emit(TestEvent event) {
+            sink.tryEmitNext(event);
+        }
+    }
+
     public static class InvalidEmitter {
         @Emitter
         Flux<TestEvent> events(String unexpectedParameter) {
             return Flux.empty();
+        }
+    }
+
+    public static class SingleValueEmitter {
+        @Emitter
+        Mono<TestEvent> event() {
+            return Mono.empty();
         }
     }
 

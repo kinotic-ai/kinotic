@@ -11,6 +11,8 @@ import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.Metadata;
+import org.springframework.core.ReactiveAdapter;
+import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
@@ -43,6 +45,7 @@ public class EventFabric {
 
     private final EventBusService eventBusService;
     private final JsonMapper jsonMapper;
+    private final ReactiveAdapterRegistry reactiveAdapterRegistry;
 
     // Keyed by bean identity: bean equals() must not merge two beans' wirings
     private final Map<Object, BeanWiring> wirings = Collections.synchronizedMap(new IdentityHashMap<>());
@@ -60,16 +63,20 @@ public class EventFabric {
         if(method.getParameterCount() != 0){
             throw new IllegalArgumentException("@Emitter method must take no parameters: " + method);
         }
-        if(!Flux.class.isAssignableFrom(method.getReturnType())){
-            throw new IllegalArgumentException("@Emitter method must return a Flux: " + method);
+        // Any multi-value reactive type works, resolved the same way ServiceInvocationSupervisor
+        // adapts invocation results
+        ReactiveAdapter adapter = reactiveAdapterRegistry.getAdapter(method.getReturnType());
+        if(adapter == null || !adapter.isMultiValue()){
+            throw new IllegalArgumentException("@Emitter method must return a multi-value reactive type such as Flux: " + method);
         }
         Class<?> eventType = resolveEventType(ResolvableType.forMethodReturnType(method).getGeneric(0), method);
 
         ReflectionUtils.makeAccessible(method);
-        Flux<?> flux = (Flux<?>) ReflectionUtils.invokeMethod(method, bean);
-        if(flux == null){
+        Object stream = ReflectionUtils.invokeMethod(method, bean);
+        if(stream == null){
             throw new IllegalArgumentException("@Emitter method returned null: " + method);
         }
+        Flux<?> flux = Flux.from(adapter.toPublisher(stream));
 
         CRI cri = CRI.create(EventConstants.TOPIC_DESTINATION_SCHEME, eventType.getName());
         Disposable uplink = flux.subscribe(element -> publishElement(cri, eventType, element),
