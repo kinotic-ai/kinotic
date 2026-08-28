@@ -1,4 +1,6 @@
-package org.kinotic.grindv2.api.model;
+package org.kinotic.grindv2.api.model.events;
+
+import org.kinotic.grindv2.api.model.StoreType;
 
 /**
  * A task finished successfully, describing what it stored in the job scope.

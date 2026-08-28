@@ -5,12 +5,12 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRun;
-import org.kinotic.grindv2.api.model.JobRunEvent;
+import org.kinotic.grindv2.api.model.events.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.TaskCompletedEvent;
-import org.kinotic.grindv2.api.model.TaskFailedEvent;
-import org.kinotic.grindv2.api.model.TaskStartedEvent;
-import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
+import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
+import org.kinotic.grindv2.api.model.events.TaskFailedEvent;
+import org.kinotic.grindv2.api.model.events.TaskStartedEvent;
+import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 

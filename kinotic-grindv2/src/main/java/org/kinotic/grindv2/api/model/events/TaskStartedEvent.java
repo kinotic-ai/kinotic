@@ -1,4 +1,4 @@
-package org.kinotic.grindv2.api.model;
+package org.kinotic.grindv2.api.model.events;
 
 /**
  * A task began executing.

@@ -4,7 +4,7 @@ import io.vertx.core.Vertx;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.grindv2.api.model.JobRunEvent;
+import org.kinotic.grindv2.api.model.events.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;

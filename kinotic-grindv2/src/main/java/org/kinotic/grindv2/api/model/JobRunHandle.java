@@ -3,6 +3,7 @@ package org.kinotic.grindv2.api.model;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import lombok.Getter;
+import org.kinotic.grindv2.api.model.events.JobRunEvent;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 

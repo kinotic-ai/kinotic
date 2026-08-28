@@ -1,12 +1,12 @@
 package org.kinotic.grindv2.internal.api.services;
 
 import org.kinotic.grindv2.internal.model.SerializedState;
-import org.kinotic.grindv2.api.model.JobRunEvent;
-import org.kinotic.grindv2.api.model.TaskCompletedEvent;
-import org.kinotic.grindv2.api.model.TaskFailedEvent;
+import org.kinotic.grindv2.api.model.events.JobRunEvent;
+import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
+import org.kinotic.grindv2.api.model.events.TaskFailedEvent;
 import org.kinotic.grindv2.api.model.TaskRecord;
-import org.kinotic.grindv2.api.model.TaskStartedEvent;
-import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
+import org.kinotic.grindv2.api.model.events.TaskStartedEvent;
+import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.StoreType;
 import reactor.core.publisher.FluxSink;
 

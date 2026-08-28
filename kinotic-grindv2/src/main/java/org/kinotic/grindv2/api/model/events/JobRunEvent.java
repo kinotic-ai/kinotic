@@ -1,4 +1,6 @@
-package org.kinotic.grindv2.api.model;
+package org.kinotic.grindv2.api.model.events;
+
+import org.kinotic.grindv2.api.model.TaskRecord;
 
 /**
  * One emission from a running job's event stream: the lifecycle of each task as it happens.

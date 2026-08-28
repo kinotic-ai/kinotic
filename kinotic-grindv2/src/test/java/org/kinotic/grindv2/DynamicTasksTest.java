@@ -5,7 +5,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
+import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
