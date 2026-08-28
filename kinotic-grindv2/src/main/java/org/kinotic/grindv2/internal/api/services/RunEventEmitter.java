@@ -4,6 +4,7 @@ import org.kinotic.grindv2.internal.model.SerializedState;
 import org.kinotic.grindv2.api.model.events.JobRunEvent;
 import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
 import org.kinotic.grindv2.api.model.events.TaskFailedEvent;
+import org.kinotic.grindv2.api.model.events.TaskProgressEvent;
 import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.events.TaskStartedEvent;
 import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
@@ -39,6 +40,11 @@ public class RunEventEmitter implements RunListener {
     @Override
     public void taskStarted(String taskPath, String description) {
         sink.next(new TaskStartedEvent(taskPath, description));
+    }
+
+    @Override
+    public void taskProgress(String taskPath, int percentageComplete, String message) {
+        sink.next(new TaskProgressEvent(taskPath, percentageComplete, message));
     }
 
     @Override

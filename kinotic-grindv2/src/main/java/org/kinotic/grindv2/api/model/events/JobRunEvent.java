@@ -7,7 +7,7 @@ import org.kinotic.grindv2.api.model.TaskRecord;
  * Watchers replay every event from the start of the run, so a late subscriber sees the full
  * history before continuing live.
  */
-public sealed interface JobRunEvent permits TaskStartedEvent, TaskCompletedEvent, TaskFailedEvent, TasksDiscoveredEvent {
+public sealed interface JobRunEvent permits TaskStartedEvent, TaskProgressEvent, TaskCompletedEvent, TaskFailedEvent, TasksDiscoveredEvent {
 
     /**
      * The position of the task this event concerns, as the {@code /} separated sequence path

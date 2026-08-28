@@ -12,6 +12,7 @@ import lombok.SneakyThrows;
 import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobScope;
+import org.kinotic.grindv2.api.model.ProgressReporter;
 import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
@@ -47,6 +48,9 @@ public class JobInterpreter {
     private final RunThreadFactory runThreads;
     // Serializes listener dispatch so parallel definitions cannot interleave callbacks
     private final Object dispatchLock = new Object();
+    // The task path executing on each thread, stamped around Task.execute so the scope's
+    // ProgressReporter can attribute reports; parallel children stamp their own threads
+    private final ThreadLocal<String> executingTaskPath = new ThreadLocal<>();
 
     public JobInterpreter(ConfigurableApplicationContext applicationContext,
                           String runId,
@@ -75,6 +79,7 @@ public class JobInterpreter {
             List<TaskRecord> staticTree = new ArrayList<>();
             collectRecords("", new DefinitionNode(0, rootDefinition), staticTree);
             notifyTasksDiscovered("0", staticTree, false);
+            rootScope.storeBean("progressReporter", progressReporter());
             seedInputs(rootScope);
             executeDefinition("0", rootScope, rootDefinition);
             notifyRunCompleted();
@@ -152,7 +157,7 @@ public class JobInterpreter {
                 ? node.store().getReloadTask() : node.task();
         notifyTaskStarted(path, node.description());
         try {
-            Object raw = taskToRun.execute(scope);
+            Object raw = executeOnPath(path, taskToRun, scope);
             if (raw instanceof Task<?> dynamicTask) {
                 // The dynamic task carries this task's store, so it stores the value
                 TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.store());
@@ -172,6 +177,29 @@ public class JobInterpreter {
         } catch (Throwable t) {
             handleTaskFailure(path, t);
         }
+    }
+
+    private Object executeOnPath(String path, Task<?> task, DefaultJobContext scope) throws Exception {
+        executingTaskPath.set(path);
+        try {
+            return task.execute(scope);
+        } finally {
+            executingTaskPath.remove();
+        }
+    }
+
+    /**
+     * The {@link ProgressReporter} every job scope carries: reports attach to the task
+     * executing on the calling thread, and a report from a thread no task is executing on -
+     * one the task spawned itself - is dropped.
+     */
+    private ProgressReporter progressReporter() {
+        return (percentageComplete, message) -> {
+            String path = executingTaskPath.get();
+            if (path != null) {
+                notifyTaskProgress(path, percentageComplete, message);
+            }
+        };
     }
 
     /**
@@ -344,6 +372,12 @@ public class JobInterpreter {
     private void notifyTaskStarted(String taskPath, String description) {
         synchronized (dispatchLock) {
             listeners.forEach(listener -> listener.taskStarted(taskPath, description));
+        }
+    }
+
+    private void notifyTaskProgress(String taskPath, int percentageComplete, String message) {
+        synchronized (dispatchLock) {
+            listeners.forEach(listener -> listener.taskProgress(taskPath, percentageComplete, message));
         }
     }
 

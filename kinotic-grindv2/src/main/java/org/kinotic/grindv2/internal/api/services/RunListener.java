@@ -36,6 +36,14 @@ public interface RunListener {
     void taskStarted(String taskPath, String description);
 
     /**
+     * A running task reported its progress.
+     * @param taskPath the task's position in the run's task tree
+     * @param percentageComplete how close the task is to completion, 0 to 100
+     * @param message what the task is currently doing, or null
+     */
+    void taskProgress(String taskPath, int percentageComplete, String message);
+
+    /**
      * A task finished successfully.
      * @param taskPath the task's position in the run's task tree
      * @param store how the task's result was kept

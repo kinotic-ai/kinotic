@@ -97,6 +97,12 @@ public class RunRecorder implements RunListener {
     }
 
     @Override
+    public void taskProgress(String taskPath, int percentageComplete, String message) {
+        // progress is transient stream data: persisting every tick would churn the write
+        // chain, and a resumed or reloaded run has no use for a stale percentage
+    }
+
+    @Override
     public void taskCompleted(String taskPath, Store store, String storedName,
                               Object storedValue, SerializedState serializedState) {
         TaskRecord record = recordsByPath.get(taskPath);
