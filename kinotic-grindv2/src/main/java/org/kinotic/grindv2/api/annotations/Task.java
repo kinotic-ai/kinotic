@@ -38,4 +38,11 @@ public @interface Task {
      */
     StoreType store() default StoreType.RESULT;
 
+    /**
+     * True to publish the task's return value to watchers of the run, serialized as JSON onto
+     * the run's {@code TaskCompletedEvent} and {@code TaskRecord}. The value must be
+     * JSON-serializable.
+     */
+    boolean wire() default false;
+
 }

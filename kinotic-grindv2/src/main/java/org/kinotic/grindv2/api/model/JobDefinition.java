@@ -77,61 +77,14 @@ public interface JobDefinition {
     JobDefinition task(Task<?> task);
 
     /**
-     * Adds a {@link Task} and stores its result in the job scope for later tasks. The stored
-     * value is transient wiring: it is not persisted with the run's records, and on resume
-     * the task re-executes to regenerate it, so it must be safe to re-run.
+     * Adds a {@link Task} whose result is kept as the given {@link Store} declares: its
+     * {@link StoreType} governs resume behavior, its name places the value in the job scope
+     * for later tasks, and its wire flag publishes the value to watchers of the run.
      * @param task to add
+     * @param store how the result is kept
      * @return this for fluent use
      */
-    JobDefinition taskStoreResult(Task<?> task);
-
-    /**
-     * Adds a {@link Task} and stores its result in the job scope under the given name, as
-     * {@link #taskStoreResult(Task)}.
-     * @param task to add
-     * @param resultName the name to store the result under
-     * @return this for fluent use
-     */
-    JobDefinition taskStoreResult(Task<?> task, String resultName);
-
-    /**
-     * Adds a {@link Task} that creates external state, paired with the {@link Task} that
-     * reloads that state from its source of truth. On the first run {@code createTask}
-     * executes; when a resumed run finds this task already completed, {@code reloadTask}
-     * executes instead, so the creation is never repeated.
-     * @param createTask executed to create the state and store the result
-     * @param reloadTask executed on resume to reload the state and store the result
-     * @return this for fluent use
-     */
-    JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask);
-
-    /**
-     * Adds a create/reload {@link Task} pair storing under the given name, as
-     * {@link #taskStoreResult(Task, Task)}.
-     * @param createTask executed to create the state and store the result
-     * @param reloadTask executed on resume to reload the state and store the result
-     * @param resultName the name to store the result under
-     * @return this for fluent use
-     */
-    JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask, String resultName);
-
-    /**
-     * Adds a {@link Task} and stores its result as durable state: the value is serialized
-     * into the run's {@link TaskRecord}, and on resume it is replayed from the record instead
-     * of executing the task again. See {@link StoreType#STATE} for what values qualify.
-     * @param task to add
-     * @return this for fluent use
-     */
-    JobDefinition taskStoreState(Task<?> task);
-
-    /**
-     * Adds a {@link Task} storing durable state under the given name, as
-     * {@link #taskStoreState(Task)}.
-     * @param task to add
-     * @param resultName the name to store the result under
-     * @return this for fluent use
-     */
-    JobDefinition taskStoreState(Task<?> task, String resultName);
+    JobDefinition task(Task<?> task, Store store);
 
     /**
      * Adds a nested {@link JobDefinition} executed as one task of this definition.

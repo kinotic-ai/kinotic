@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,11 +62,11 @@ public class VertxContextTest extends AbstractGrindV2Test {
     public void tasksCanAwaitVertxFuturesOnTheRunThread() throws Exception {
         JobDefinition job = JobDefinition.create("awaiting")
                 .name("awaiting").version("1")
-                .taskStoreResult(Tasks.fromCallable("await a timer",
-                                                    // Future.await parks the run's virtual thread until the
-                                                    // event loop completes the timer
-                                                    () -> new Widget(vertx.timer(20).map(v -> "ticked").await())),
-                                 "widget");
+                .task(Tasks.fromCallable("await a timer",
+                                         // Future.await parks the run's virtual thread until the
+                                         // event loop completes the timer
+                                         () -> new Widget(vertx.timer(20).map(v -> "ticked").await())),
+                      Store.result("widget"));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 

@@ -7,7 +7,7 @@ import lombok.Getter;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobScope;
-import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.Task;
 
 import java.util.ArrayList;
@@ -68,43 +68,14 @@ public class DefaultJobDefinition implements JobDefinition {
 
     @Override
     public JobDefinition task(Task<?> task) {
-        tasks.add(new TaskNode(tasks.size() + 1, task, null, StoreType.NONE, null));
+        tasks.add(new TaskNode(tasks.size() + 1, task, Store.none()));
         return this;
     }
 
     @Override
-    public JobDefinition taskStoreResult(Task<?> task) {
-        tasks.add(new TaskNode(tasks.size() + 1, task, null, StoreType.RESULT, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> task, String resultName) {
-        tasks.add(new TaskNode(tasks.size() + 1, task, null, StoreType.RESULT, resultName));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask) {
-        tasks.add(new TaskNode(tasks.size() + 1, createTask, reloadTask, StoreType.RESULT, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask, String resultName) {
-        tasks.add(new TaskNode(tasks.size() + 1, createTask, reloadTask, StoreType.RESULT, resultName));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreState(Task<?> task) {
-        tasks.add(new TaskNode(tasks.size() + 1, task, null, StoreType.STATE, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreState(Task<?> task, String resultName) {
-        tasks.add(new TaskNode(tasks.size() + 1, task, null, StoreType.STATE, resultName));
+    public JobDefinition task(Task<?> task, Store store) {
+        Validate.notNull(store, "store cannot be null");
+        tasks.add(new TaskNode(tasks.size() + 1, task, store));
         return this;
     }
 

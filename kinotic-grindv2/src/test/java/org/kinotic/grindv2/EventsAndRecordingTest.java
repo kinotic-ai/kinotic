@@ -11,6 +11,7 @@ import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
 import org.kinotic.grindv2.api.model.events.TaskFailedEvent;
 import org.kinotic.grindv2.api.model.events.TaskStartedEvent;
 import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
@@ -62,7 +63,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
     public void completionCarriesStoredValueInProcess() throws Exception {
         JobDefinition job = JobDefinition.create("carrying")
                 .name("carrying").version("1")
-                .taskStoreResult(Tasks.fromValue("produce widget", new Widget("carried")));
+                .task(Tasks.fromValue("produce widget", new Widget("carried")), Store.result());
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 

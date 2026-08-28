@@ -2,6 +2,7 @@ package org.kinotic.grindv2.internal.api.services;
 
 import org.kinotic.grindv2.internal.model.SerializedState;
 import org.kinotic.grindv2.api.model.TaskRecord;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 
 import java.util.List;
@@ -37,14 +38,14 @@ public interface RunListener {
     /**
      * A task finished successfully.
      * @param taskPath the task's position in the run's task tree
-     * @param storeType how the task stored its result
+     * @param store how the task's result was kept
      * @param storedName the name the result was stored under, or null
      * @param storedValue the stored value, or null
-     * @param serializedState the serialized durable state, or null unless
-     *                        {@code storeType} is {@link StoreType#STATE}
+     * @param serializedState the value's JSON form, or null unless the store is
+     *                        {@link StoreType#STATE} or wire-published
      */
     void taskCompleted(String taskPath,
-                       StoreType storeType,
+                       Store store,
                        String storedName,
                        Object storedValue,
                        SerializedState serializedState);

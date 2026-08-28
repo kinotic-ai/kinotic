@@ -9,6 +9,7 @@ import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRun;
 import org.kinotic.grindv2.api.repositories.JobRunRepository;
 import org.kinotic.grindv2.api.model.TaskRecord;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 
 import java.util.Date;
@@ -96,7 +97,7 @@ public class RunRecorder implements RunListener {
     }
 
     @Override
-    public void taskCompleted(String taskPath, StoreType storeType, String storedName,
+    public void taskCompleted(String taskPath, Store store, String storedName,
                               Object storedValue, SerializedState serializedState) {
         TaskRecord record = recordsByPath.get(taskPath);
         if (record == null) {
@@ -104,11 +105,14 @@ public class RunRecorder implements RunListener {
         } else {
             record.setStatus(ExecutionStatus.COMPLETED)
                   .setFinished(new Date())
-                  .setStoreType(storeType)
+                  .setStoreType(store.getType())
                   .setResultName(storedName);
-            if (serializedState != null) {
+            if (store.getType() == StoreType.STATE && serializedState != null) {
                 record.setResultValueType(serializedState.valueType())
                       .setResultValue(serializedState.value());
+            }
+            if (store.isWire() && serializedState != null) {
+                record.setWireValue(serializedState.value());
             }
             enqueue(() -> repository.saveTask(record));
         }

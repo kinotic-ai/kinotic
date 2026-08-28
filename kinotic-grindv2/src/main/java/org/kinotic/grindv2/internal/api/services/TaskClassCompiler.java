@@ -7,6 +7,7 @@ import org.kinotic.grindv2.api.model.JobContext;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobScope;
 
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Task;
 
@@ -51,13 +52,8 @@ public class TaskClassCompiler {
             org.kinotic.grindv2.api.annotations.Task meta = method.getAnnotation(org.kinotic.grindv2.api.annotations.Task.class);
             String description = meta.value().isEmpty() ? method.getName() : meta.value();
             Class<?> produced = producedType(method);
-            StoreType store = effectiveStoreType(taskClass, method, meta, produced);
             Task<Object> task = methodTask(taskClass, method, description);
-            switch (store) {
-                case NONE -> ret.task(task);
-                case RESULT -> ret.taskStoreResult(task, Introspector.decapitalize(produced.getSimpleName()));
-                case STATE -> ret.taskStoreState(task, Introspector.decapitalize(produced.getSimpleName()));
-            }
+            ret.task(task, effectiveStore(taskClass, method, meta, produced));
         }
         return ret;
     }
@@ -132,17 +128,31 @@ public class TaskClassCompiler {
         return ret;
     }
 
-    private static StoreType effectiveStoreType(Class<?> taskClass, Method method, org.kinotic.grindv2.api.annotations.Task meta, Class<?> produced) {
-        StoreType ret;
+    private static Store effectiveStore(Class<?> taskClass, Method method, org.kinotic.grindv2.api.annotations.Task meta, Class<?> produced) {
+        Store ret;
         if (produced != null) {
-            ret = meta.store();
+            Validate.isTrue(!meta.wire() || meta.store() != StoreType.NONE,
+                            "%s.%s declares wire but stores nothing, there is no value to publish",
+                            taskClass.getSimpleName(), method.getName());
+            String name = Introspector.decapitalize(produced.getSimpleName());
+            ret = switch (meta.store()) {
+                case NONE -> Store.none();
+                case RESULT -> Store.result(name);
+                case STATE -> Store.state(name);
+            };
+            if (meta.wire()) {
+                ret = ret.wire();
+            }
         } else {
             // nothing storable is produced: the RESULT default quietly becomes NONE, but an
-            // explicit STATE declaration is a contract the method cannot honor
+            // explicit STATE or wire declaration is a contract the method cannot honor
             Validate.isTrue(meta.store() != StoreType.STATE,
                             "%s.%s declares STATE but produces no storable value",
                             taskClass.getSimpleName(), method.getName());
-            ret = StoreType.NONE;
+            Validate.isTrue(!meta.wire(),
+                            "%s.%s declares wire but produces no storable value",
+                            taskClass.getSimpleName(), method.getName());
+            ret = Store.none();
         }
         return ret;
     }

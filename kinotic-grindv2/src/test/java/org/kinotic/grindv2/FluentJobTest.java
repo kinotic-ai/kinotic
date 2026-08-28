@@ -6,6 +6,7 @@ import org.kinotic.grindv2.api.model.JobContext;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobScope;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,7 +49,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
         AtomicReference<Widget> seen = new AtomicReference<>();
         JobDefinition job = JobDefinition.create("inject")
                 .name("inject").version("1")
-                .taskStoreResult(Tasks.fromValue("produce widget", new Widget("w1")))
+                .task(Tasks.fromValue("produce widget", new Widget("w1")), Store.result())
                 .task(Tasks.fromCallable("consume widget", new Callable<Void>() {
 
                     @Autowired
@@ -72,7 +73,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
         AtomicReference<String> seen = new AtomicReference<>();
         JobDefinition job = JobDefinition.create("placeholders")
                 .name("placeholders").version("1")
-                .taskStoreResult(Tasks.fromValue("produce greeting", "hello grind"), "greeting")
+                .task(Tasks.fromValue("produce greeting", "hello grind"), Store.result("greeting"))
                 .task(Tasks.fromCallable("consume greeting", new Callable<Void>() {
 
                     @Value("${greeting}")
@@ -95,7 +96,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
     public void childScopeValuesAreDiscarded() throws Exception {
         AtomicReference<Widget> seenAfterNested = new AtomicReference<>(new Widget("sentinel"));
         JobDefinition nested = JobDefinition.create("nested child", JobScope.CHILD)
-                .taskStoreResult(Tasks.fromValue("produce widget", new Widget("scoped")));
+                .task(Tasks.fromValue("produce widget", new Widget("scoped")), Store.result());
         JobDefinition job = JobDefinition.create("child scope")
                 .name("child-scope").version("1")
                 .jobDefinition(nested)
@@ -111,7 +112,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
     public void parentScopeValuesRemainVisible() throws Exception {
         AtomicReference<Widget> seenAfterNested = new AtomicReference<>();
         JobDefinition nested = JobDefinition.create("nested parent", JobScope.PARENT)
-                .taskStoreResult(Tasks.fromValue("produce widget", new Widget("shared")));
+                .task(Tasks.fromValue("produce widget", new Widget("shared")), Store.result());
         JobDefinition job = JobDefinition.create("parent scope")
                 .name("parent-scope").version("1")
                 .jobDefinition(nested)
@@ -142,11 +143,12 @@ public class FluentJobTest extends AbstractGrindV2Test {
         AtomicReference<Widget> seen = new AtomicReference<>();
         JobDefinition job = JobDefinition.create("async")
                 .name("async").version("1")
-                .taskStoreResult(Tasks.fromCallable("produce later",
-                                                    () -> CompletableFuture.supplyAsync(
-                                                            () -> new Widget("eventually"),
-                                                            CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS,
-                                                                                              Executors.newSingleThreadExecutor()))))
+                .task(Tasks.fromCallable("produce later",
+                                         () -> CompletableFuture.supplyAsync(
+                                                 () -> new Widget("eventually"),
+                                                 CompletableFuture.delayedExecutor(50, TimeUnit.MILLISECONDS,
+                                                                                   Executors.newSingleThreadExecutor()))),
+                      Store.result())
                 .task(probe(seen));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));

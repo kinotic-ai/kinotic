@@ -13,6 +13,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobScope;
 import org.kinotic.grindv2.api.model.TaskRecord;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Task;
 import org.reactivestreams.Publisher;
@@ -104,7 +105,7 @@ public class JobInterpreter {
                     executeChild(path, scope, child);
                 }
             }
-            notifyTaskCompleted(path, StoreType.NONE, null, null, null);
+            notifyTaskCompleted(path, Store.none(), null, null, null);
         } catch (Throwable t) {
             handleTaskFailure(path, t);
         } finally {
@@ -132,46 +133,60 @@ public class JobInterpreter {
         // the regenerated tasks then consult the replay entries at their own paths
         boolean completedInOriginal = entry != null && !entry.dynamicTasks();
 
-        if (completedInOriginal && node.storeType() == StoreType.NONE) {
+        if (completedInOriginal && node.store().getType() == StoreType.NONE) {
             notifyTaskStarted(path, node.description());
-            notifyTaskCompleted(path, StoreType.NONE, null, null, null);
+            notifyTaskCompleted(path, node.store(), null, null, null);
             return;
         }
-        if (completedInOriginal && node.storeType() == StoreType.STATE && entry.value() != null) {
+        if (completedInOriginal && node.store().getType() == StoreType.STATE && entry.value() != null) {
             notifyTaskStarted(path, node.description());
-            String storedName = ScopeWriter.store(scope, node.storeType(), node.resultName(), entry.value());
+            String storedName = ScopeWriter.store(scope, node.store().getType(), node.store().getName(), entry.value());
             SerializedState state = stateSerializer.serialize(node.description(), entry.value());
-            notifyTaskCompleted(path, StoreType.STATE, storedName, entry.value(), state);
+            notifyTaskCompleted(path, node.store(), storedName, entry.value(), state);
             return;
         }
 
         // RESULT reloads from its source of truth: the declared reload task when there is one,
         // otherwise the task itself, which must then be safe to re-run
-        Task<?> taskToRun = completedInOriginal && node.reloadTask() != null ? node.reloadTask() : node.task();
+        Task<?> taskToRun = completedInOriginal && node.store().getReloadTask() != null
+                ? node.store().getReloadTask() : node.task();
         notifyTaskStarted(path, node.description());
         try {
             Object raw = taskToRun.execute(scope);
             if (raw instanceof Task<?> dynamicTask) {
-                // The dynamic task carries this task's store settings, so it stores the value
-                TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.reloadTask(), node.storeType(), node.resultName());
+                // The dynamic task carries this task's store, so it stores the value
+                TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.store());
                 discoverDynamic(path, dynamicNode);
                 executeTask(path + "/1", scope, dynamicNode);
-                notifyTaskCompleted(path, StoreType.NONE, null, null, null);
+                notifyTaskCompleted(path, Store.none(), null, null, null);
             } else if (raw instanceof JobDefinition dynamicDefinition) {
                 DefinitionNode dynamicNode = new DefinitionNode(1, (DefaultJobDefinition) dynamicDefinition);
                 discoverDynamic(path, dynamicNode);
                 executeDefinition(path + "/1", scope, dynamicNode.definition());
-                notifyTaskCompleted(path, StoreType.NONE, null, null, null);
+                notifyTaskCompleted(path, Store.none(), null, null, null);
             } else {
                 Object value = awaitValue(raw);
-                String storedName = ScopeWriter.store(scope, node.storeType(), node.resultName(), value);
-                SerializedState state = node.storeType() == StoreType.STATE
-                        ? stateSerializer.serialize(node.description(), value) : null;
-                notifyTaskCompleted(path, node.storeType(), storedName, value, state);
+                String storedName = ScopeWriter.store(scope, node.store().getType(), node.store().getName(), value);
+                notifyTaskCompleted(path, node.store(), storedName, value, serializeIfNeeded(node, value));
             }
         } catch (Throwable t) {
             handleTaskFailure(path, t);
         }
+    }
+
+    /**
+     * Serializes the completed value when something needs its JSON form: durable state always,
+     * under the strict {@link StoreType#STATE} contract, otherwise a wire-published value,
+     * which only has to serialize since it is never restored.
+     */
+    private SerializedState serializeIfNeeded(TaskNode node, Object value) {
+        SerializedState ret = null;
+        if (node.store().getType() == StoreType.STATE) {
+            ret = stateSerializer.serialize(node.description(), value);
+        } else if (node.store().isWire()) {
+            ret = stateSerializer.serializeWireValue(node.description(), value);
+        }
+        return ret;
     }
 
     private void executeChildrenParallel(String parentPath, DefaultJobContext scope, List<JobNode> children) {
@@ -332,10 +347,10 @@ public class JobInterpreter {
         }
     }
 
-    private void notifyTaskCompleted(String taskPath, StoreType storeType, String storedName,
+    private void notifyTaskCompleted(String taskPath, Store store, String storedName,
                                      Object storedValue, SerializedState serializedState) {
         synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.taskCompleted(taskPath, storeType, storedName,
+            listeners.forEach(listener -> listener.taskCompleted(taskPath, store, storedName,
                                                                  storedValue, serializedState));
         }
     }

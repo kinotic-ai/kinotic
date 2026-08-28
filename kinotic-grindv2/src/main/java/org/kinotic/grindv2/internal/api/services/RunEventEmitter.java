@@ -7,7 +7,7 @@ import org.kinotic.grindv2.api.model.events.TaskFailedEvent;
 import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.events.TaskStartedEvent;
 import org.kinotic.grindv2.api.model.events.TasksDiscoveredEvent;
-import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.Store;
 import reactor.core.publisher.FluxSink;
 
 import java.util.List;
@@ -42,9 +42,10 @@ public class RunEventEmitter implements RunListener {
     }
 
     @Override
-    public void taskCompleted(String taskPath, StoreType storeType, String storedName,
+    public void taskCompleted(String taskPath, Store store, String storedName,
                               Object storedValue, SerializedState serializedState) {
-        sink.next(new TaskCompletedEvent(taskPath, storeType, storedName, storedValue));
+        sink.next(new TaskCompletedEvent(taskPath, store.getType(), storedName, storedValue,
+                                         store.isWire() && serializedState != null ? serializedState.value() : null));
     }
 
     @Override

@@ -6,6 +6,7 @@ import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
+import org.kinotic.grindv2.api.model.Store;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
@@ -109,7 +110,7 @@ public class ResumeTest extends AbstractGrindV2Test {
     public void genericStateValueFailsTheRun() throws Exception {
         JobDefinition job = JobDefinition.create("bad state")
                 .name("bad-state").version("1")
-                .taskStoreState(Tasks.fromValue("produce list", new ArrayList<>(List.of("a"))), "values");
+                .task(Tasks.fromValue("produce list", new ArrayList<>(List.of("a"))), Store.state("values"));
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
@@ -206,18 +207,19 @@ public class ResumeTest extends AbstractGrindV2Test {
     private JobDefinition resultJob(AtomicInteger calls, AtomicBoolean fail) {
         return JobDefinition.create("result job")
                 .name("result-job").version("1")
-                .taskStoreResult(Tasks.fromCallable("produce widget",
-                                                    () -> new Widget("w" + calls.incrementAndGet())))
+                .task(Tasks.fromCallable("produce widget",
+                                         () -> new Widget("w" + calls.incrementAndGet())),
+                      Store.result())
                 .task(failGate(fail));
     }
 
     private JobDefinition reloadJob(AtomicInteger creates, AtomicInteger reloads, AtomicBoolean fail) {
         return JobDefinition.create("reload job")
                 .name("reload-job").version("1")
-                .taskStoreResult(Tasks.fromCallable("create widget",
-                                                    () -> new Widget("created " + creates.incrementAndGet())),
-                                 Tasks.fromCallable("reload widget",
-                                                    () -> new Widget("reloaded " + reloads.incrementAndGet())))
+                .task(Tasks.fromCallable("create widget",
+                                         () -> new Widget("created " + creates.incrementAndGet())),
+                      Store.result().reload(Tasks.fromCallable("reload widget",
+                                                               () -> new Widget("reloaded " + reloads.incrementAndGet()))))
                 .task(failGate(fail));
     }
 
@@ -225,10 +227,10 @@ public class ResumeTest extends AbstractGrindV2Test {
                                    AtomicReference<WidgetState> seenByLaterTask) {
         return JobDefinition.create("state job")
                 .name("state-job").version("1")
-                .taskStoreState(Tasks.fromCallable("decide", () -> {
+                .task(Tasks.fromCallable("decide", () -> {
                     creates.incrementAndGet();
                     return new WidgetState("decided");
-                }), "widgetState")
+                }), Store.state("widgetState"))
                 .task(Tasks.fromCallable("observe decision", new java.util.concurrent.Callable<Void>() {
 
                     @org.springframework.beans.factory.annotation.Autowired

@@ -6,9 +6,10 @@ import org.kinotic.grindv2.api.model.StoreType;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Enforces the {@link StoreType#STATE} contract: a durable value must survive a JSON round
- * trip, so a run fails at the offending task instead of persisting state that cannot be
- * restored on resume.
+ * Enforces the serialization contracts a {@code Store} can declare: a {@link StoreType#STATE}
+ * value must survive a JSON round trip, so a run fails at the offending task instead of
+ * persisting state that cannot be restored on resume, and a wire-published value must
+ * serialize so it can reach watchers of the run.
  */
 @Slf4j
 public class StateSerializer {
@@ -29,25 +30,47 @@ public class StateSerializer {
     public SerializedState serialize(String taskDescription, Object value) {
         if (value == null) {
             throw new IllegalStateException("Task '" + taskDescription
-                    + "' is declared taskStoreState but produced no value");
+                    + "' is declared Store.state but produced no value");
         }
         // Type erasure makes any generic value unrestorable: the record can only capture the
         // runtime class, not its type arguments, so replay would deserialize the contents as
         // Maps. Checking declared type parameters catches every such class in one rule.
         Class<?> valueClass = value.getClass();
         if (valueClass.getTypeParameters().length > 0) {
-            throw new IllegalStateException("Task '" + taskDescription + "' is declared taskStoreState but produced a "
+            throw new IllegalStateException("Task '" + taskDescription + "' is declared Store.state but produced a "
                     + valueClass.getName() + ", a generic type. Generic values such as List, Map, and Optional"
                     + " cannot be stored as STATE because Java erases their type arguments. Wrap the value in a"
-                    + " domain class whose field keeps the element type, or use taskStoreResult so the task"
+                    + " domain class whose field keeps the element type, or use Store.result so the task"
                     + " reloads on resume instead");
         }
         try {
             return new SerializedState(valueClass.getName(), objectMapper.valueToTree(value));
         } catch (Exception e) {
-            throw new IllegalStateException("Task '" + taskDescription + "' is declared taskStoreState but its value"
+            throw new IllegalStateException("Task '" + taskDescription + "' is declared Store.state but its value"
                     + " of type " + valueClass.getName() + " is not serializable", e);
         }
+    }
+
+    /**
+     * Serializes a wire-published value. The wire form is only ever rendered, never restored,
+     * so unlike {@link #serialize} it accepts generic types, and a null value returns null -
+     * there is simply nothing to publish.
+     * @param taskDescription names the task in failure messages
+     * @param value the value to publish
+     * @return the serialized value, or null when the value is null
+     * @throws IllegalStateException if the value is not serializable
+     */
+    public SerializedState serializeWireValue(String taskDescription, Object value) {
+        SerializedState ret = null;
+        if (value != null) {
+            try {
+                ret = new SerializedState(value.getClass().getName(), objectMapper.valueToTree(value));
+            } catch (Exception e) {
+                throw new IllegalStateException("Task '" + taskDescription + "' is declared wire but its value"
+                        + " of type " + value.getClass().getName() + " is not serializable", e);
+            }
+        }
+        return ret;
     }
 
     /**
