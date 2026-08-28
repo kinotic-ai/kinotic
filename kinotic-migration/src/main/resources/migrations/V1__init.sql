@@ -372,19 +372,19 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     finished DATE
 );
 
--- Create the step_record table for the per-step history of a job run
-CREATE TABLE IF NOT EXISTS kinotic_step_record (
+-- Create the task_record table for the per-task history of a job run
+CREATE TABLE IF NOT EXISTS kinotic_task_record (
     id KEYWORD,
     jobRunId KEYWORD,
-    stepPath KEYWORD,
+    taskPath KEYWORD,
     description TEXT,
     status KEYWORD,
     storeType KEYWORD,
-    dynamicSteps BOOLEAN,
+    dynamicTasks BOOLEAN,
     resultName KEYWORD,
     resultValueType KEYWORD,
     resultValue JSON NOT INDEXED,
-    output TEXT,
+    wireValue JSON NOT INDEXED,
     error TEXT,
     started DATE,
     finished DATE

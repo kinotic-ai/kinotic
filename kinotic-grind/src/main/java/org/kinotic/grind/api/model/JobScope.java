@@ -1,25 +1,20 @@
-
-
 package org.kinotic.grind.api.model;
 
 /**
- * The "Scope" that a {@link JobDefinition} should be executed in.
- * This affects where the {@link Task} results from the job will be stored if required
- *
- *
- * Created by Navid Mitchell on 8/5/20
+ * The scope a nested {@link JobDefinition} executes in, governing where the values its tasks
+ * store remain visible.
  */
 public enum JobScope {
 
     /**
-     * The {@link JobDefinition} will use the scope of the parent {@link JobDefinition},
-     * so results it stores remain available to the caller after it completes
+     * The nested definition uses its parent's scope, so values it stores remain available to
+     * the parent's later tasks after it completes.
      */
     PARENT,
 
     /**
-     * The {@link JobDefinition} will create a new scope that is the child of the parent scope,
-     * so results it stores are discarded when it completes
+     * The nested definition creates a child scope, so values it stores are discarded when it
+     * completes.
      */
     CHILD
 

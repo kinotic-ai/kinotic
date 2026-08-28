@@ -9,9 +9,8 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * The persistent record of one execution of a grind {@code JobDefinition}.
- * The individual steps executed during the run are recorded as {@link StepRecord}s
- * referencing this run's id.
+ * The persistent record of one execution of a {@link JobDefinition}. The individual tasks
+ * executed during the run are recorded as {@link TaskRecord}s referencing this run's id.
  */
 @Getter
 @Setter
@@ -25,35 +24,32 @@ public class JobRun implements Identifiable<String> {
     private String id;
 
     /**
-     * The name of the {@code JobDefinition} this run executed.
+     * The name of the {@link JobDefinition} this run executed.
      */
     private String name;
 
     /**
-     * The Organization this run executed on behalf of.
-     * {@code null} for platform runs (SYSTEM scope).
+     * The Organization this run executed on behalf of, or {@code null} for platform runs.
      */
     private String organizationId;
 
     /**
      * The Application this run executed on behalf of, or {@code null} if none.
-     * When set, {@link #organizationId} must also be set.
      */
     private String applicationId;
 
     /**
      * The Project this run executed on behalf of, or {@code null} if none.
-     * When set, {@link #organizationId} must also be set.
      */
     private String projectId;
 
     /**
-     * The version of the {@code JobDefinition} this run executed.
+     * The version of the {@link JobDefinition} this run executed.
      */
     private String version;
 
     /**
-     * The description of the executed {@code JobDefinition}.
+     * The description of the executed {@link JobDefinition}.
      */
     private String description;
 

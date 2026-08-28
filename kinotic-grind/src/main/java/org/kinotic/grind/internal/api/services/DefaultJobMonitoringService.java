@@ -13,10 +13,13 @@ import org.kinotic.domain.api.model.security.ParticipantScope;
 import org.kinotic.domain.api.model.security.ScopedParticipant;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.model.Result;
-import org.kinotic.grind.api.model.StepRecord;
-import org.kinotic.grind.api.services.JobService;
+import org.kinotic.grind.api.model.TaskRecord;
+import org.kinotic.grind.api.model.events.JobRunEvent;
+import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.services.JobMonitoringService;
+import org.kinotic.grind.api.services.JobService;
+import org.kinotic.grind.internal.api.repositories.DefaultJobRunRepository;
+import org.kinotic.grind.internal.api.repositories.TaskRecordRepository;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,15 +27,16 @@ import reactor.core.publisher.Mono;
 /**
  * Default {@link JobMonitoringService} that authorizes access through the run's recorded
  * owner - an organization or application participant may only view runs its organization
- * owns - and serves reads from {@link JobRunService} and live
- * views from {@link JobService#watchRun(String)}.
+ * owns - and serves reads from the run repositories and live views from
+ * {@link JobService#watchRun(String)}.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultJobMonitoringService implements JobMonitoringService {
 
-    private final JobRunService jobRunService;
+    private final DefaultJobRunRepository jobRunRepository;
+    private final TaskRecordRepository taskRecordRepository;
     private final JobService jobService;
     private final SecurityContext securityContext;
 
@@ -43,12 +47,12 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
         Future<Page<JobRun>> ret;
         if(scope.organizationId() == null){
             // operators troubleshoot every run, not only the platform-owned ones findAllForOwner would give
-            ret = jobRunService.findAll(pageable);
+            ret = jobRunRepository.findAll(pageable);
         }else if(scope.applicationId() != null){
-            ret = jobRunService.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId()),
-                                                pageable);
+            ret = jobRunRepository.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId()),
+                                                   pageable);
         }else{
-            ret = jobRunService.findAllForOwner(JobOwner.ofOrganization(scope.organizationId()), pageable);
+            ret = jobRunRepository.findAllForOwner(JobOwner.ofOrganization(scope.organizationId(), null), pageable);
         }
         return ret;
     }
@@ -59,24 +63,45 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
     }
 
     @Override
-    public Future<Page<StepRecord>> findSteps(String jobRunId, Pageable pageable) {
+    public Future<Page<TaskRecord>> findTasks(String jobRunId, Pageable pageable) {
         Validate.notNull(pageable, "pageable cannot be null");
-        return authorizedJobRun(jobRunId).compose(run -> jobRunService.findSteps(run.getId(), pageable));
+        return authorizedJobRun(jobRunId).compose(run -> taskRecordRepository.findAllForJobRun(run.getId(), pageable));
     }
 
     @Override
-    public Flux<Result<?>> watch(String jobRunId) {
+    public Flux<JobRunEvent> watch(String jobRunId) {
         // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
         Future<JobRun> authorized = authorizedJobRun(jobRunId);
         return Mono.fromCompletionStage(authorized.toCompletionStage())
-                   .flatMapMany(run -> jobService.watchRun(run.getId()));
+                   .flatMapMany(run -> jobService.watchRun(run.getId()))
+                   .map(DefaultJobMonitoringService::toWireEvent);
+    }
+
+    /**
+     * Rebuilds a {@link TaskCompletedEvent} without the live {@code storedValue} it carries
+     * for in-process subscribers: an arbitrary user object that cannot cross a serialization
+     * boundary. The {@code wireValue} the task's store published is already JSON, so it
+     * stays. Every other event passes through untouched.
+     */
+    private static JobRunEvent toWireEvent(JobRunEvent event) {
+        JobRunEvent ret;
+        if(event instanceof TaskCompletedEvent completed){
+            ret = new TaskCompletedEvent(completed.taskPath(),
+                                         completed.storeType(),
+                                         completed.storedName(),
+                                         null,
+                                         completed.wireValue());
+        }else{
+            ret = event;
+        }
+        return ret;
     }
 
     private Future<JobRun> authorizedJobRun(String jobRunId) {
         Validate.notBlank(jobRunId, "jobRunId cannot be blank");
         ScopedParticipant participant = currentParticipant();
         String organizationId = participant.getScope().organizationId();
-        return jobRunService.findById(jobRunId).map(run -> {
+        return jobRunRepository.findRun(jobRunId).map(run -> {
             if(run == null){
                 throw new IllegalArgumentException("JobRun not found: " + jobRunId);
             }
