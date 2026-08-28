@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.hooks;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -30,20 +30,20 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
 
     public DelegatingUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                         JsonMapper jsonMapper,
-                                        EntityDefinition entityDefinition,
+                                        EntityDescriptor entityDescriptor,
                                         Map<String, DecoratorLogic> fieldPreProcessors) {
 
         tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
-                                                                          entityDefinition,
+                                                                          entityDescriptor,
                                                                           fieldPreProcessors);
 
         rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(persistenceProperties,
                                                                   jsonMapper,
-                                                                  entityDefinition,
+                                                                  entityDescriptor,
                                                                   fieldPreProcessors);
 
-        mapUpsertPreProcessor = new MapUpsertPreProcessor(entityDefinition,
+        mapUpsertPreProcessor = new MapUpsertPreProcessor(entityDescriptor,
                                                           persistenceProperties,
                                                           fieldPreProcessors);
         pojoUpsertPreProcessor = new PojoUpsertPreProcessor();

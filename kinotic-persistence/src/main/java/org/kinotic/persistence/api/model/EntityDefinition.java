@@ -100,19 +100,24 @@ public class EntityDefinition implements ProjectScoped<String> {
         return new HashCodeBuilder(17, 37).append(id).toHashCode();
     }
 
+    /**
+     * Creates the node-local view of this {@link EntityDefinition} for use by the storage layer.
+     *
+     * @return the {@link EntityDescriptor} for this
+     */
     @JsonIgnore
-    public boolean isOptimisticLockingEnabled(){
-        return versionFieldName != null;
-    }
-
-    @JsonIgnore
-    public boolean isMultiTenantSelectionEnabled() {
-        return tenantIdFieldName != null;
-    }
-
-    @JsonIgnore
-    public boolean isStream() {
-        return timeReferenceFieldName != null;
+    public EntityDescriptor toDescriptor(){
+        return EntityDescriptor.builder()
+                               .id(id)
+                               .organizationId(organizationId)
+                               .applicationId(applicationId)
+                               .name(name)
+                               .itemIndex(itemIndex)
+                               .multiTenancyType(multiTenancyType)
+                               .tenantIdFieldName(tenantIdFieldName)
+                               .versionFieldName(versionFieldName)
+                               .timeReferenceFieldName(timeReferenceFieldName)
+                               .build();
     }
 
     @Override

@@ -51,6 +51,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         }
         ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
                                           new Docker(),
+                                          config.workloadDataDir,
                                           egress,
                                           config.workloadDns ?? null,
                                           reportStatus)
@@ -64,6 +65,7 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     return {
         workloadId: workload.id!,
         status: workload.status,
+        exitCode: workload.exitCode ?? null,
         updated: workload.updated ?? Date.now(),
     }
 }
@@ -125,6 +127,7 @@ async function start() {
     registration.totalCpus = os.cpus().length
     registration.totalMemoryMb = Math.floor(os.totalmem() / (1024 * 1024))
     registration.totalDiskMb = await provider.totalDiskMb()
+    registration.workloadDataDir = config.workloadDataDir
 
     // Register this node with the VmNodeOrchestrationService on the server
     await nodeOrchestrator.registerNode(registration)

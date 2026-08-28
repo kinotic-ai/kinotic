@@ -8,6 +8,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationServiceFactory;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
@@ -73,7 +74,7 @@ public class EntityServiceCache {
         this.cache = cacheFactory.<CacheKey, EntityService>newBuilder()
                                  .name("entityServiceCache")
                                  .expireAfterAccess(Duration.ofHours(20))
-                                 .maximumSize(2000)
+                                 .maximumSize(persistenceProperties.getEntityServiceCacheMaxSize())
                                  .buildAsync(this::load);
     }
 
@@ -128,19 +129,21 @@ public class EntityServiceCache {
             }
         }
 
+        EntityDescriptor entityDescriptor = entityDefinition.toDescriptor();
+
         return authServiceFactory.createEntityDefinitionAuthorizationService(entityDefinition)
                                  .map(authService -> new DefaultEntityService(
                                          authService,
                                          crudServiceTemplate,
                                          new DelegatingUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
-                                                                          entityDefinition,
+                                                                          entityDescriptor,
                                                                           fieldPreProcessors),
                                          esAsyncClient,
                                          namedQueriesService,
                                          jsonMapper,
                                          readPreProcessor,
-                                         entityDefinition,
+                                         entityDescriptor,
                                          persistenceProperties));
     }
 

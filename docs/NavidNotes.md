@@ -199,6 +199,70 @@ What the feature needs:
 The access-token window is a separate decision from the connection kill — a shorter TTL and a
 revocation check at the entry points are two different answers and only the second closes it.
 
+### Alert on `OutOfDirectMemoryError` in the gateway logs
+
+Set up an alert that fires when `io.netty.util.internal.OutOfDirectMemoryError` appears in a
+kinotic-server log. It is logged at ERROR by `DefaultStompServerHandler` as "Client Caused
+Exception", so the string is there to match on without any code change.
+
+It needs an alert because nothing else will tell us. Verified by exhausting a gateway's direct
+memory on purpose: Netty refuses the allocation inside the frame decoder and the connection is
+closed with **no STOMP ERROR frame** — `clientCausedException(t, false)` calls `close()` — so the
+client sees a bare socket reset and simply reconnects. The JVM does **not** exit, even though
+`OutOfDirectMemoryError` extends `OutOfMemoryError` and the image sets `-XX:+ExitOnOutOfMemoryError`
+(that flag hooks the JVM's own OOM path, not an error thrown by library code — tested with the flag
+on, the process stayed up). `/health` keeps returning 204 throughout.
+
+Worse, the damage is not confined to whoever caused it: direct memory is one process-wide budget, so
+a connection that was idle and sending nothing gets dropped too — measured. So the observable symptom
+is a healthy-looking pod quietly dropping arbitrary connections while clients reconnect in a loop,
+which is exactly what sent us chasing a client bug at the start of this. Pair the log alert with a
+gauge on `jvm.buffer.memory.used{pool=direct}` approaching `MaxDirectMemorySize`.
+
+### Sign the session cookie (`SessionHandler.setSigningSecret`)
+
+Deferred until the platform-secret layout in Azure is reworked — this needs one more secret and it
+is not worth adding to the current arrangement.
+
+`SessionHandler` never gets a signing secret today, so a session id is accepted or rejected purely
+by whether the store has it. Signing makes the handler verify the cookie before it looks anything
+up. What that buys here is narrower than the usual pitch: ids are already 16 bytes of randomness
+(`SessionHandler.DEFAULT_SESSIONID_MIN_LENGTH`), so signing does not make them harder to guess. It
+means a forged id is rejected at the signature check instead of costing a lookup in the clustered
+Ignite session cache, plus the retry window in `ApiGatewayConfiguration.sessionStore`. It is a
+store-probing mitigation, not an authentication one.
+
+**What makes it a secret-storage question rather than a one-line change.** The secret has to be
+identical on every node and stable across restarts, or a rolling deploy invalidates every live
+session. So it belongs next to `PlatformSecretsProperties.jwtSigningKeysPath`, mounted the same way,
+not generated per instance.
+
+**Rotation is a fleet-wide logout.** `setSigningSecret` takes a single secret with no
+accepted-previous window, so rotating it fails verification for every outstanding cookie at once.
+That is the opposite of how the JWT signing keys are meant to rotate, and it is the thing to decide
+before wiring it up: either this secret is deliberately non-rotating, or a mass logout on rotation is
+accepted.
+
+**Two related suggestions that were looked at and rejected.**
+
+* `setSessionCookieName(...)` to hide that the stack is Vert.x. The stack is already named by the
+  `v12.stomp` subprotocol, the `/v1` upgrade path, and the `/api/auth/*` route shapes, so the
+  obscurity does not survive. It also breaks `/api/auth/me`: `SessionEndpointHandler` checks
+  `SessionHandler.DEFAULT_SESSION_COOKIE_NAME`, the constant rather than the configured value, so a
+  rename makes that route return 401 for authenticated callers. Doing it properly means making the
+  name shared config across two modules first.
+* `setNagHttps(true)` is already in effect — `DEFAULT_NAG_HTTPS` is true and nothing disables it.
+  That is the "session cookies without https" line in the dev logs. It is a log warning, not a
+  control.
+
+**Where this came from.** Chasing credentials that sit in a heap dump for the life of a WebSocket.
+`clientSecret` and `Authorization` are now dropped from the upgrade request in
+`EndpointConnectionHandler.handshake`, verified to zero. The session cookie is not: removing the
+`Cookie` header only halves the copies because Vert.x also keeps the parsed jar on the response
+(`Http1ServerResponse.cookies()`) for the connection's life, and clearing that is the same object
+`SessionHandler` uses to emit `Set-Cookie`. Signing does not change that either — it is a separate
+concern from what a dump contains.
+
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core
 * Fix OidcFlowOrchestrator.java to not secretReferenceResolver.resolve for finding secrets. This won't work for our customers’ configs and should be done differently for our signup configs. 

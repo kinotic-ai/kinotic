@@ -22,7 +22,7 @@ configurations {
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
-	implementation project(':kinotic-os-api')
+	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-github')
     implementation project(':kinotic-api-gateway')

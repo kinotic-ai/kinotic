@@ -42,7 +42,7 @@ public interface EntityContext {
 
     /**
      * Gets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @return the lists of tenants that data is being requested for
      */
@@ -50,7 +50,7 @@ public interface EntityContext {
 
     /**
      * Sets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @param tenantSelection the lists of tenants that data is being requested for
      */

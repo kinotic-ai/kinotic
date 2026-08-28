@@ -22,8 +22,8 @@ importers:
         specifier: ^5.0.0-beta.1
         version: 5.0.0-beta.1
       '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.5
-        version: 5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4)
+        specifier: ^5.0.0-beta.15
+        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.4)
       '@kinotic-ai/persistence':
         specifier: ^5.0.0-beta.4
         version: 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.4)
@@ -455,15 +455,20 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/os-api@5.0.0-beta.5':
-    resolution: {integrity: sha512-irDD3OHLTOv2L0BOI2DWbd+RDgFAoWbLlgjgLi+GFTC3QeuyBGBYZAylFjPRCo6VSRZSdMxN/MFmFbMTP8qzWA==}
+  '@kinotic-ai/os-api@5.0.0-beta.16':
+    resolution: {integrity: sha512-DptsTrpmzuuKc2ZL0m6xwvPnEEp2XohPbPzeobVNI5JoJ9ge+YuLlnNgnFg0g0rXMThZfDAKRIO0qfBsnUi+ig==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.4'
+      '@kinotic-ai/core': '>=5.0.0-beta.5'
 
   '@kinotic-ai/persistence@5.0.0-beta.4':
     resolution: {integrity: sha512-IKkNHpVz4n6vDXNq4PzAANFSpiV1TgfhKbCo201qQw+wRlS8WS9U+3XQme8R3DDpfiyHLz70884IokXAuGQ+rg==}
     peerDependencies:
       '@kinotic-ai/core': '>=5.0.0-beta.4'
+
+  '@kinotic-ai/persistence@5.0.0-beta.5':
+    resolution: {integrity: sha512-OhpkJbOvb1gcDHrbAi5F+OhXs9HzLOocTForm9J77HiryY7n3Dwr38A2ukm9MYsiO0mRdXGr7m20880iUzKQZQ==}
+    peerDependencies:
+      '@kinotic-ai/core': '>=5.0.0-beta.5'
 
   '@kinotic-ai/spawn@5.0.0-beta.1':
     resolution: {integrity: sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw==}
@@ -818,6 +823,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
@@ -1855,14 +1861,20 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/os-api@5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4)':
+  '@kinotic-ai/os-api@5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.4)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.4
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.4)
+      '@kinotic-ai/persistence': 5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4)
       rxjs: 7.8.2
 
   '@kinotic-ai/persistence@5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.4)':
+    dependencies:
+      '@kinotic-ai/core': 5.0.0-beta.4
+      '@kinotic-ai/idl': 5.0.0-beta.1
+      rxjs: 7.8.2
+
+  '@kinotic-ai/persistence@5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.4
       '@kinotic-ai/idl': 5.0.0-beta.1
