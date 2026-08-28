@@ -1,7 +1,7 @@
 package org.kinotic.grindv2.api.model;
 
 /**
- * A unit of work executed as one step of a {@link JobDefinition}.
+ * A unit of work executed as one task of a {@link JobDefinition}.
  */
 public interface Task<T> {
 
@@ -16,7 +16,7 @@ public interface Task<T> {
      * @return the result of this {@link Task}. A returned {@code Future},
      *         {@code CompletionStage}, or {@code Publisher} is awaited and its value used.
      *         A returned {@link Task} or {@link JobDefinition} is executed as dynamically
-     *         discovered steps. Any other value is the task's result.
+     *         discovered tasks. Any other value is the task's result.
      */
     T execute(JobContext context) throws Exception;
 

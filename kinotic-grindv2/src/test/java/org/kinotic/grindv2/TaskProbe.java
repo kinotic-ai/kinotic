@@ -7,10 +7,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * An application bean steps classes record into, so tests observe construction counts and
- * step order without statics.
+ * An application bean tasks classes record into, so tests observe construction counts and
+ * task order without statics.
  */
-public class StepProbe {
+public class TaskProbe {
 
     public final List<String> recorded = Collections.synchronizedList(new ArrayList<>());
     public final AtomicInteger instantiations = new AtomicInteger();

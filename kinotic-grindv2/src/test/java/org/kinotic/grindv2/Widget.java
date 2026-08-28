@@ -1,7 +1,7 @@
 package org.kinotic.grindv2;
 
 /**
- * A bean-candidate value produced and consumed by test steps.
+ * A bean-candidate value produced and consumed by test tasks.
  *
  * @param name identifies the widget in assertions
  */

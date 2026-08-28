@@ -1,14 +1,14 @@
 package org.kinotic.grindv2.api.repositories;
 
 import org.kinotic.grindv2.api.model.JobRun;
-import org.kinotic.grindv2.api.model.StepRecord;
+import org.kinotic.grindv2.api.model.TaskRecord;
 import io.vertx.core.Future;
 
 import java.util.List;
 
 /**
- * Persistence port for the run ledger: each {@link JobRun} and its per-step
- * {@link StepRecord}s. The engine writes through this port as a run executes and reads it
+ * Persistence port for the run ledger: each {@link JobRun} and its per-task
+ * {@link TaskRecord}s. The engine writes through this port as a run executes and reads it
  * back to resume a failed run; deployments provide the backing implementation.
  */
 public interface JobRunRepository {
@@ -21,11 +21,11 @@ public interface JobRunRepository {
     Future<JobRun> saveRun(JobRun jobRun);
 
     /**
-     * Saves the given step record, creating or updating it.
-     * @param stepRecord the record to save
+     * Saves the given task record, creating or updating it.
+     * @param taskRecord the record to save
      * @return a future that will complete with the saved record
      */
-    Future<StepRecord> saveStep(StepRecord stepRecord);
+    Future<TaskRecord> saveTask(TaskRecord taskRecord);
 
     /**
      * Finds a run by id.
@@ -35,10 +35,10 @@ public interface JobRunRepository {
     Future<JobRun> findRun(String jobRunId);
 
     /**
-     * Finds every step record of the given run.
+     * Finds every task record of the given run.
      * @param jobRunId the id of the run
      * @return a future that will complete with the run's records
      */
-    Future<List<StepRecord>> findSteps(String jobRunId);
+    Future<List<TaskRecord>> findTasks(String jobRunId);
 
 }

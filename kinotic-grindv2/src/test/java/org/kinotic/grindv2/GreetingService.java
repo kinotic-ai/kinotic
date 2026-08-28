@@ -1,7 +1,7 @@
 package org.kinotic.grindv2;
 
 /**
- * An application bean injected into steps-class constructors.
+ * An application bean injected into tasks-class constructors.
  */
 public class GreetingService {
 

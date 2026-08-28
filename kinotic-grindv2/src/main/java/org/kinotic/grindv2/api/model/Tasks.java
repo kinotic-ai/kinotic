@@ -7,7 +7,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- * Static factories for the common {@link Task} shapes, so a single step does not require a
+ * Static factories for the common {@link Task} shapes, so a single task does not require a
  * class of its own.
  */
 public class Tasks {
@@ -15,7 +15,7 @@ public class Tasks {
     /**
      * Creates a {@link Task} that constructs a new instance of the given class on every
      * execution, with full injection against the job scope, then invokes
-     * {@link Callable#call()} for the result. The step description is the class's simple name.
+     * {@link Callable#call()} for the result. The task description is the class's simple name.
      * @param taskClass the class to construct and invoke
      * @param <R> the result type
      * @return the task
@@ -142,8 +142,8 @@ public class Tasks {
     }
 
     /**
-     * Creates a {@link Task} that does nothing, so a dynamic step can decline to add work.
-     * @param description of why the step is a noop
+     * Creates a {@link Task} that does nothing, so a dynamic task can decline to add work.
+     * @param description of why the task is a noop
      * @param <R> the result type
      * @return the noop task
      */

@@ -13,7 +13,7 @@ import org.kinotic.grindv2.api.model.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.api.repositories.JobRunRepository;
 import org.kinotic.grindv2.api.services.JobService;
-import org.kinotic.grindv2.api.model.StepRecord;
+import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -112,7 +112,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
     /**
      * Loads the original run, validates it can be resumed by this definition, and builds the
-     * replay entries for its COMPLETED steps.
+     * replay entries for its COMPLETED tasks.
      */
     private Map<String, ReplayEntry> loadReplay(String jobRunId, DefaultJobDefinition definition,
                                                 RunRecorder recorder) {
@@ -136,7 +136,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         recorder.ownerResolved(original.getOrganizationId(), original.getApplicationId(), original.getProjectId());
 
         Map<String, ReplayEntry> ret = new HashMap<>();
-        for (StepRecord record : await(repository.findSteps(jobRunId))) {
+        for (TaskRecord record : await(repository.findTasks(jobRunId))) {
             if (record.getStatus() == ExecutionStatus.COMPLETED) {
                 Object value = null;
                 if (record.getStoreType() == StoreType.STATE
@@ -145,7 +145,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                             new SerializedState(record.getResultValueType(), record.getResultValue()));
                 }
                 StoreType storeType = record.getStoreType() != null ? record.getStoreType() : StoreType.NONE;
-                ret.put(record.getStepPath(), new ReplayEntry(storeType, record.isDynamicSteps(), value));
+                ret.put(record.getTaskPath(), new ReplayEntry(storeType, record.isDynamicTasks(), value));
             }
         }
         return ret;

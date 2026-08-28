@@ -9,8 +9,8 @@ import org.kinotic.core.api.crud.Identifiable;
 import java.util.Date;
 
 /**
- * The persistent record of one execution of a {@link JobDefinition}. The individual steps
- * executed during the run are recorded as {@link StepRecord}s referencing this run's id.
+ * The persistent record of one execution of a {@link JobDefinition}. The individual tasks
+ * executed during the run are recorded as {@link TaskRecord}s referencing this run's id.
  */
 @Getter
 @Setter

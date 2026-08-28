@@ -17,24 +17,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The {@link JobDefinition#fromSteps(Class)} layer: constructor injection from the
+ * The {@link JobDefinition#fromTasks(Class)} layer: constructor injection from the
  * application context, parameter injection from the job scope, ordering, storage modes,
  * dynamic returns, wiring validation, and resume through the annotation's STATE declaration.
  */
-public class StepsClassTest extends AbstractGrindV2Test {
+public class TaskClassTest extends AbstractGrindV2Test {
 
-    private StepProbe probe;
+    private TaskProbe probe;
 
     @BeforeEach
-    void registerStepBeans() {
-        probe = new StepProbe();
+    void registerTaskBeans() {
+        probe = new TaskProbe();
         appCtx.getBeanFactory().registerSingleton("greetingService", new GreetingService());
-        appCtx.getBeanFactory().registerSingleton("stepProbe", probe);
+        appCtx.getBeanFactory().registerSingleton("taskProbe", probe);
     }
 
     @Test
     public void compilesAndRunsEndToEnd() throws Exception {
-        JobDefinition job = JobDefinition.fromSteps(DeploySteps.class)
+        JobDefinition job = JobDefinition.fromTasks(DeployTasks.class)
                 .name("deploy").version("1")
                 .input(new ProjectRef("p1"));
 
@@ -44,8 +44,8 @@ public class StepsClassTest extends AbstractGrindV2Test {
         assertNull(result.error());
         assertEquals(List.of("resolve:p1", "sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
         assertEquals(1, probe.instantiations.get());
-        assertEquals(StoreType.STATE, repository.stepAt(handle.getJobRunId(), "0/1").getStoreType());
-        assertNotNull(repository.stepAt(handle.getJobRunId(), "0/1").getResultValue());
+        assertEquals(StoreType.STATE, repository.taskAt(handle.getJobRunId(), "0/1").getStoreType());
+        assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getResultValue());
         assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }
 
@@ -61,49 +61,49 @@ public class StepsClassTest extends AbstractGrindV2Test {
         RunResult resumed = await(jobService.resume(original.getJobRunId(), deployJob()));
 
         assertNull(resumed.error());
-        // the STATE decision replays without executing; the RESULT sync re-runs; the failed step retries
+        // the STATE decision replays without executing; the RESULT sync re-runs; the failed task retries
         assertEquals(List.of("sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
         assertEquals(2, probe.instantiations.get());
     }
 
     @Test
-    public void stepReturningJobDefinitionExpandsDynamically() throws Exception {
-        JobDefinition job = JobDefinition.fromSteps(DynamicReturnSteps.class)
-                .name("dynamic-steps").version("1");
+    public void taskReturningJobDefinitionExpandsDynamically() throws Exception {
+        JobDefinition job = JobDefinition.fromTasks(DynamicReturnTasks.class)
+                .name("dynamic-tasks").version("1");
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());
         assertEquals(List.of("expanded:a", "expanded:b"), probe.recorded);
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1/2").getStatus());
-        assertTrue(repository.stepAt(handle.getJobRunId(), "0/1").isDynamicSteps());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1/2").getStatus());
+        assertTrue(repository.taskAt(handle.getJobRunId(), "0/1").isDynamicTasks());
     }
 
     @Test
     public void duplicateOrdersAreRejectedAtCompile() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                                                      () -> JobDefinition.fromSteps(DuplicateOrderSteps.class));
+                                                      () -> JobDefinition.fromTasks(DuplicateOrderTasks.class));
         assertTrue(error.getMessage().contains("order 1 more than once"));
     }
 
     @Test
     public void consumingBeforeProducingIsRejectedAtCompile() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                                                      () -> JobDefinition.fromSteps(ConsumedBeforeProducedSteps.class));
-        assertTrue(error.getMessage().contains("only a later step produces"));
+                                                      () -> JobDefinition.fromTasks(ConsumedBeforeProducedTasks.class));
+        assertTrue(error.getMessage().contains("only a later task produces"));
     }
 
     @Test
-    public void durableStateOnAValuelessStepIsRejectedAtCompile() {
+    public void durableStateOnAValuelessTaskIsRejectedAtCompile() {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
-                                                      () -> JobDefinition.fromSteps(StateOnVoidSteps.class));
+                                                      () -> JobDefinition.fromTasks(StateOnVoidTasks.class));
         assertTrue(error.getMessage().contains("produces no storable value"));
     }
 
     @Test
-    public void missingScopeDependencyFailsTheStepClearly() throws Exception {
-        JobDefinition job = JobDefinition.fromSteps(MissingDependencySteps.class)
+    public void missingScopeDependencyFailsTheTaskClearly() throws Exception {
+        JobDefinition job = JobDefinition.fromTasks(MissingDependencyTasks.class)
                 .name("missing-dependency").version("1");
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
@@ -113,7 +113,7 @@ public class StepsClassTest extends AbstractGrindV2Test {
     }
 
     private JobDefinition deployJob() {
-        return JobDefinition.fromSteps(DeploySteps.class)
+        return JobDefinition.fromTasks(DeployTasks.class)
                 .name("deploy").version("1")
                 .input(new ProjectRef("p1"));
     }

@@ -1,14 +1,14 @@
 package org.kinotic.grindv2.api.model;
 
 import org.kinotic.grindv2.internal.api.model.DefaultJobDefinition;
-import org.kinotic.grindv2.internal.api.services.StepsClassCompiler;
+import org.kinotic.grindv2.internal.api.services.TaskClassCompiler;
 
 /**
  * A {@link JobDefinition} is a unit of work comprised of {@link Task}s and nested
- * {@link JobDefinition}s, executed by a {@link JobService}. Steps share a {@link JobContext}
- * scope, so values stored by earlier steps can be injected into later ones.
+ * {@link JobDefinition}s, executed by a {@link JobService}. Tasks share a {@link JobContext}
+ * scope, so values stored by earlier tasks can be injected into later ones.
  *
- * A definition is one run's worth of bound steps: its {@link Task} instances receive
+ * A definition is one run's worth of bound tasks: its {@link Task} instances receive
  * injection per execution, so build a fresh definition for each run - executing the same
  * instance concurrently is not supported.
  */
@@ -42,7 +42,7 @@ public interface JobDefinition {
     JobScope getScope();
 
     /**
-     * True if this definition's steps execute concurrently instead of sequentially.
+     * True if this definition's tasks execute concurrently instead of sequentially.
      * @return true when parallel
      */
     boolean isParallel();
@@ -62,8 +62,8 @@ public interface JobDefinition {
     JobDefinition version(String version);
 
     /**
-     * Seeds the given values into the job scope before the first step runs, each stored as a
-     * bean so steps can inject it by type.
+     * Seeds the given values into the job scope before the first task runs, each stored as a
+     * bean so tasks can inject it by type.
      * @param values to seed
      * @return this for fluent use
      */
@@ -77,7 +77,7 @@ public interface JobDefinition {
     JobDefinition task(Task<?> task);
 
     /**
-     * Adds a {@link Task} and stores its result in the job scope for later steps. The stored
+     * Adds a {@link Task} and stores its result in the job scope for later tasks. The stored
      * value is transient wiring: it is not persisted with the run's records, and on resume
      * the task re-executes to regenerate it, so it must be safe to re-run.
      * @param task to add
@@ -97,7 +97,7 @@ public interface JobDefinition {
     /**
      * Adds a {@link Task} that creates external state, paired with the {@link Task} that
      * reloads that state from its source of truth. On the first run {@code createTask}
-     * executes; when a resumed run finds this step already completed, {@code reloadTask}
+     * executes; when a resumed run finds this task already completed, {@code reloadTask}
      * executes instead, so the creation is never repeated.
      * @param createTask executed to create the state and store the result
      * @param reloadTask executed on resume to reload the state and store the result
@@ -117,7 +117,7 @@ public interface JobDefinition {
 
     /**
      * Adds a {@link Task} and stores its result as durable state: the value is serialized
-     * into the run's {@link StepRecord}, and on resume it is replayed from the record instead
+     * into the run's {@link TaskRecord}, and on resume it is replayed from the record instead
      * of executing the task again. See {@link StoreType#STATE} for what values qualify.
      * @param task to add
      * @return this for fluent use
@@ -134,7 +134,7 @@ public interface JobDefinition {
     JobDefinition taskStoreState(Task<?> task, String resultName);
 
     /**
-     * Adds a nested {@link JobDefinition} executed as one step of this definition.
+     * Adds a nested {@link JobDefinition} executed as one task of this definition.
      * @param jobDefinition to nest
      * @return this for fluent use
      */
@@ -171,7 +171,7 @@ public interface JobDefinition {
      * Creates a new {@link JobDefinition}.
      * @param description of the definition
      * @param scope the definition executes in when nested
-     * @param parallel true to execute the definition's steps concurrently
+     * @param parallel true to execute the definition's tasks concurrently
      * @return the new definition
      */
     static JobDefinition create(String description, JobScope scope, boolean parallel) {
@@ -179,18 +179,18 @@ public interface JobDefinition {
     }
 
     /**
-     * Compiles a steps class into a {@link JobDefinition}: each {@link Step} method becomes
-     * one step, executed in {@link Step#order()}. The class is instantiated once per run with
+     * Compiles a tasks class into a {@link JobDefinition}: each {@link Task} method becomes
+     * one task, executed in {@link Task#order()}. The class is instantiated once per run with
      * constructor arguments resolved against the application context - it is never a Spring
      * bean itself. Method parameters are injected from the job scope by type, and return
-     * values are stored back into the scope under the method's {@link Step#store()} mode.
-     * @param stepsClass the class to compile
+     * values are stored back into the scope under the method's {@link Task#store()} mode.
+     * @param taskClass the class to compile
      * @return the definition
-     * @throws IllegalArgumentException if the class declares no steps, duplicate orders, or a
-     *         step consuming a type that only a later step produces
+     * @throws IllegalArgumentException if the class declares no tasks, duplicate orders, or a
+     *         task consuming a type that only a later task produces
      */
-    static JobDefinition fromSteps(Class<?> stepsClass) {
-        return StepsClassCompiler.compile(stepsClass);
+    static JobDefinition fromTasks(Class<?> taskClass) {
+        return TaskClassCompiler.compile(taskClass);
     }
 
 }

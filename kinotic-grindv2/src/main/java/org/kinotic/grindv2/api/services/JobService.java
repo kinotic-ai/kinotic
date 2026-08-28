@@ -4,12 +4,12 @@ import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.api.model.JobRun;
-import org.kinotic.grindv2.api.model.StepRecord;
+import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.StoreType;
 
 /**
  * Executes {@link JobDefinition}s as recorded runs: a {@link JobRun} is persisted for the run
- * and a {@link StepRecord} for every step, through the configured {@link JobRunRepository}.
+ * and a {@link TaskRecord} for every task, through the configured {@link JobRunRepository}.
  */
 public interface JobService {
 
@@ -25,14 +25,14 @@ public interface JobService {
     JobRunHandle run(JobDefinition jobDefinition, JobOwner owner);
 
     /**
-     * Prepares a recorded execution that resumes a previous run: steps the original run
-     * completed are not executed again, according to each step's {@link StoreType}. The
+     * Prepares a recorded execution that resumes a previous run: tasks the original run
+     * completed are not executed again, according to each task's {@link StoreType}. The
      * resume is recorded as a new {@link JobRun} referencing the original, owned by the
      * original run's owner.
      *
      * The given {@link JobDefinition} must be freshly built by the same code that built the
      * original run's definition: its name and version must match the recorded run, and its
-     * step structure must be unchanged, or replayed steps will not line up with their records.
+     * task structure must be unchanged, or replayed tasks will not line up with their records.
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
      * @param jobDefinition the freshly built definition to execute
      * @return the prepared {@link JobRunHandle}

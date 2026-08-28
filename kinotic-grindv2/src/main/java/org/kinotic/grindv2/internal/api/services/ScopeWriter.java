@@ -12,8 +12,8 @@ import java.util.Date;
 import java.util.UUID;
 
 /**
- * Writes a step's result into the job scope according to its {@link StoreType}: bean
- * candidates register as beans so later steps can inject them by type, simple values store as
+ * Writes a task's result into the job scope according to its {@link StoreType}: bean
+ * candidates register as beans so later tasks can inject them by type, simple values store as
  * named properties, and an unnamed collection registers each element as its own bean.
  */
 @Slf4j

@@ -5,7 +5,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.StepCompleted;
+import org.kinotic.grindv2.api.model.TaskCompleted;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
@@ -23,13 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Resume semantics per {@link StoreType}: NONE skips, RESULT re-runs or reloads, STATE
- * replays the recorded value, dynamic steps regenerate, and the original run's identity
+ * replays the recorded value, dynamic tasks regenerate, and the original run's identity
  * guards the resume.
  */
 public class ResumeTest extends AbstractGrindV2Test {
 
     @Test
-    public void completedNoneStepIsSkippedOnResume() throws Exception {
+    public void completedNoneTaskIsSkippedOnResume() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
@@ -45,7 +45,7 @@ public class ResumeTest extends AbstractGrindV2Test {
     }
 
     @Test
-    public void completedResultStepRerunsOnResume() throws Exception {
+    public void completedResultTaskRerunsOnResume() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
@@ -61,7 +61,7 @@ public class ResumeTest extends AbstractGrindV2Test {
     }
 
     @Test
-    public void completedResultStepUsesDeclaredReloadTask() throws Exception {
+    public void completedResultTaskUsesDeclaredReloadTask() throws Exception {
         AtomicInteger creates = new AtomicInteger();
         AtomicInteger reloads = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
@@ -80,26 +80,26 @@ public class ResumeTest extends AbstractGrindV2Test {
     }
 
     @Test
-    public void completedStateStepReplaysWithoutExecuting() throws Exception {
+    public void completedStateTaskReplaysWithoutExecuting() throws Exception {
         AtomicInteger creates = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
-        AtomicReference<WidgetState> seenByLaterStep = new AtomicReference<>();
+        AtomicReference<WidgetState> seenByLaterTask = new AtomicReference<>();
 
-        JobRunHandle original = jobService.run(stateJob(creates, fail, seenByLaterStep), JobOwner.system());
+        JobRunHandle original = jobService.run(stateJob(creates, fail, seenByLaterTask), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, creates.get());
 
         fail.set(false);
-        RunResult resumed = await(jobService.resume(original.getJobRunId(), stateJob(creates, fail, seenByLaterStep)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), stateJob(creates, fail, seenByLaterTask)));
 
         assertNull(resumed.error());
         assertEquals(1, creates.get());
-        assertEquals(new WidgetState("decided"), seenByLaterStep.get());
+        assertEquals(new WidgetState("decided"), seenByLaterTask.get());
 
-        StepCompleted replayed = resumed.events().stream()
-                                        .filter(StepCompleted.class::isInstance)
-                                        .map(StepCompleted.class::cast)
-                                        .filter(event -> event.stepPath().equals("0/1"))
+        TaskCompleted replayed = resumed.events().stream()
+                                        .filter(TaskCompleted.class::isInstance)
+                                        .map(TaskCompleted.class::cast)
+                                        .filter(event -> event.taskPath().equals("0/1"))
                                         .findFirst().orElseThrow();
         assertEquals(StoreType.STATE, replayed.storeType());
         assertEquals(new WidgetState("decided"), replayed.storedValue());
@@ -118,11 +118,11 @@ public class ResumeTest extends AbstractGrindV2Test {
         assertInstanceOf(IllegalStateException.class, result.error());
         assertTrue(result.error().getMessage().contains("generic"));
         assertEquals(ExecutionStatus.FAILED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
-        assertEquals(ExecutionStatus.FAILED, repository.stepAt(handle.getJobRunId(), "0/1").getStatus());
+        assertEquals(ExecutionStatus.FAILED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
     }
 
     @Test
-    public void dynamicStepsRegenerateAndTheirCompletedChildrenSkip() throws Exception {
+    public void dynamicTasksRegenerateAndTheirCompletedChildrenSkip() throws Exception {
         AtomicInteger builds = new AtomicInteger();
         AtomicInteger innerA = new AtomicInteger();
         AtomicInteger innerB = new AtomicInteger();
@@ -222,7 +222,7 @@ public class ResumeTest extends AbstractGrindV2Test {
     }
 
     private JobDefinition stateJob(AtomicInteger creates, AtomicBoolean fail,
-                                   AtomicReference<WidgetState> seenByLaterStep) {
+                                   AtomicReference<WidgetState> seenByLaterTask) {
         return JobDefinition.create("state job")
                 .name("state-job").version("1")
                 .taskStoreState(Tasks.fromCallable("decide", () -> {
@@ -236,7 +236,7 @@ public class ResumeTest extends AbstractGrindV2Test {
 
                     @Override
                     public Void call() {
-                        seenByLaterStep.set(widgetState);
+                        seenByLaterTask.set(widgetState);
                         return null;
                     }
                 }))

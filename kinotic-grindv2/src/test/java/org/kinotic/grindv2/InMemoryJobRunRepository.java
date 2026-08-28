@@ -3,7 +3,7 @@ package org.kinotic.grindv2;
 import io.vertx.core.Future;
 import org.kinotic.grindv2.api.model.JobRun;
 import org.kinotic.grindv2.api.repositories.JobRunRepository;
-import org.kinotic.grindv2.api.model.StepRecord;
+import org.kinotic.grindv2.api.model.TaskRecord;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -17,7 +17,7 @@ import java.util.Map;
 public class InMemoryJobRunRepository implements JobRunRepository {
 
     public final Map<String, JobRun> savedRuns = new LinkedHashMap<>();
-    public final Map<String, StepRecord> savedSteps = new LinkedHashMap<>();
+    public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
 
     @Override
     public synchronized Future<JobRun> saveRun(JobRun jobRun) {
@@ -26,9 +26,9 @@ public class InMemoryJobRunRepository implements JobRunRepository {
     }
 
     @Override
-    public synchronized Future<StepRecord> saveStep(StepRecord stepRecord) {
-        savedSteps.put(stepRecord.getId(), stepRecord);
-        return Future.succeededFuture(stepRecord);
+    public synchronized Future<TaskRecord> saveTask(TaskRecord taskRecord) {
+        savedTasks.put(taskRecord.getId(), taskRecord);
+        return Future.succeededFuture(taskRecord);
     }
 
     @Override
@@ -37,25 +37,25 @@ public class InMemoryJobRunRepository implements JobRunRepository {
     }
 
     @Override
-    public synchronized Future<List<StepRecord>> findSteps(String jobRunId) {
-        return Future.succeededFuture(stepsOf(jobRunId));
+    public synchronized Future<List<TaskRecord>> findTasks(String jobRunId) {
+        return Future.succeededFuture(tasksOf(jobRunId));
     }
 
     /**
-     * The captured records of the given run, ordered by step path.
+     * The captured records of the given run, ordered by task path.
      */
-    public synchronized List<StepRecord> stepsOf(String jobRunId) {
-        return savedSteps.values().stream()
+    public synchronized List<TaskRecord> tasksOf(String jobRunId) {
+        return savedTasks.values().stream()
                          .filter(record -> jobRunId.equals(record.getJobRunId()))
-                         .sorted(Comparator.comparing(StepRecord::getStepPath))
+                         .sorted(Comparator.comparing(TaskRecord::getTaskPath))
                          .toList();
     }
 
     /**
      * The captured record at the given path of the given run, or null.
      */
-    public synchronized StepRecord stepAt(String jobRunId, String stepPath) {
-        return savedSteps.get(jobRunId + ":" + stepPath);
+    public synchronized TaskRecord taskAt(String jobRunId, String taskPath) {
+        return savedTasks.get(jobRunId + ":" + taskPath);
     }
 
 }

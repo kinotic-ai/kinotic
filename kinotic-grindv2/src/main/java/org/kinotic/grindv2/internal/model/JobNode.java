@@ -1,10 +1,10 @@
 package org.kinotic.grindv2.internal.model;
 
 /**
- * One node of a {@link DefaultJobDefinition}'s step tree, executed by the
+ * One node of a {@link DefaultJobDefinition}'s task tree, executed by the
  * {@link JobInterpreter}.
  */
-public sealed interface StepNode permits TaskNode, DefinitionNode {
+public sealed interface JobNode permits TaskNode, DefinitionNode {
 
     /**
      * The 1-based position of this node within its parent definition.

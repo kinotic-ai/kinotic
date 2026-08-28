@@ -12,13 +12,13 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Cancellation: the run and its in-flight steps are recorded CANCELLED, completed steps keep
+ * Cancellation: the run and its in-flight tasks are recorded CANCELLED, completed tasks keep
  * their outcome.
  */
 public class CancelTest extends AbstractGrindV2Test {
 
     @Test
-    public void cancelMarksRunAndInFlightStepCancelled() throws Exception {
+    public void cancelMarksRunAndInFlightTaskCancelled() throws Exception {
         JobDefinition job = JobDefinition.create("cancellable")
                 .name("cancellable").version("1")
                 .task(Tasks.fromRunnable("quick", () -> { }))
@@ -27,8 +27,8 @@ public class CancelTest extends AbstractGrindV2Test {
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         handle.getEvents().subscribe(event -> { }, error -> { });
 
-        awaitUntil("the stuck step to start", () -> {
-            var record = repository.stepAt(handle.getJobRunId(), "0/2");
+        awaitUntil("the stuck task to start", () -> {
+            var record = repository.taskAt(handle.getJobRunId(), "0/2");
             return record != null && record.getStatus() == ExecutionStatus.RUNNING;
         });
 
@@ -38,9 +38,9 @@ public class CancelTest extends AbstractGrindV2Test {
             var run = repository.savedRuns.get(handle.getJobRunId());
             return run != null && run.getStatus() == ExecutionStatus.CANCELLED;
         });
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1").getStatus());
-        assertEquals(ExecutionStatus.CANCELLED, repository.stepAt(handle.getJobRunId(), "0/2").getStatus());
-        assertEquals(ExecutionStatus.CANCELLED, repository.stepAt(handle.getJobRunId(), "0").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
+        assertEquals(ExecutionStatus.CANCELLED, repository.taskAt(handle.getJobRunId(), "0/2").getStatus());
+        assertEquals(ExecutionStatus.CANCELLED, repository.taskAt(handle.getJobRunId(), "0").getStatus());
     }
 
 }

@@ -1,0 +1,10 @@
+package org.kinotic.grindv2.api.model;
+
+/**
+ * A task began executing.
+ *
+ * @param taskPath    the task's position in the run's task tree
+ * @param description the task's description
+ */
+public record TaskStarted(String taskPath, String description) implements JobRunEvent {
+}

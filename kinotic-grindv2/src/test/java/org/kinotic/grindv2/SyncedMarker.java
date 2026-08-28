@@ -1,7 +1,7 @@
 package org.kinotic.grindv2;
 
 /**
- * An effect marker produced by the steps-class test's second step.
+ * An effect marker produced by the tasks-class test's second task.
  *
  * @param sha the synced commit
  */

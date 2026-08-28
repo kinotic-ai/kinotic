@@ -6,13 +6,13 @@ import org.kinotic.grindv2.internal.model.DefinitionNode;
 import org.kinotic.grindv2.internal.model.ReplayEntry;
 import org.kinotic.grindv2.internal.model.RunCancelledException;
 import org.kinotic.grindv2.internal.model.SerializedState;
-import org.kinotic.grindv2.internal.model.StepNode;
+import org.kinotic.grindv2.internal.model.JobNode;
 import org.kinotic.grindv2.internal.model.TaskNode;
 import lombok.SneakyThrows;
 import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobScope;
-import org.kinotic.grindv2.api.model.StepRecord;
+import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Task;
 import org.reactivestreams.Publisher;
@@ -28,11 +28,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Executes one run of a {@link JobDefinition} by walking its step tree on the run's thread,
+ * Executes one run of a {@link JobDefinition} by walking its task tree on the run's thread,
  * reporting every lifecycle transition to the {@link RunListener}s. Dynamic structure - a
  * task returning a {@link Task} or {@link JobDefinition} - is discovered, reported, and
  * descended into as it appears. Cancellation arrives as thread interruption and unwinds as
- * {@link RunCancelledException} without recording step failures.
+ * {@link RunCancelledException} without recording task failures.
  */
 public class JobInterpreter {
 
@@ -67,11 +67,11 @@ public class JobInterpreter {
         DefaultJobContext rootScope = new DefaultJobContext(applicationContext);
         try {
             notifyRunStarted();
-            List<StepRecord> staticTree = new ArrayList<>();
+            List<TaskRecord> staticTree = new ArrayList<>();
             collectRecords("", new DefinitionNode(0, rootDefinition), staticTree);
-            notifyStepsDiscovered("0", staticTree, false);
+            notifyTasksDiscovered("0", staticTree, false);
             seedInputs(rootScope);
-            executeDefinitionStep("0", rootScope, rootDefinition);
+            executeDefinitionTask("0", rootScope, rootDefinition);
             notifyRunCompleted();
         } catch (RunCancelledException e) {
             notifyRunCancelled();
@@ -88,21 +88,21 @@ public class JobInterpreter {
         }
     }
 
-    private void executeDefinitionStep(String path, DefaultJobContext parentScope, DefaultJobDefinition definition) {
-        notifyStepStarted(path, definition.getDescription());
+    private void executeDefinitionTask(String path, DefaultJobContext parentScope, DefaultJobDefinition definition) {
+        notifyTaskStarted(path, definition.getDescription());
         boolean destroyOnExit = definition.getScope() == JobScope.CHILD;
         DefaultJobContext scope = destroyOnExit ? parentScope.createChild() : parentScope;
         try {
             if (definition.isParallel()) {
-                executeChildrenParallel(path, scope, definition.getSteps());
+                executeChildrenParallel(path, scope, definition.getTasks());
             } else {
-                for (StepNode child : definition.getSteps()) {
+                for (JobNode child : definition.getTasks()) {
                     executeChild(path, scope, child);
                 }
             }
-            notifyStepCompleted(path, StoreType.NONE, null, null, null);
+            notifyTaskCompleted(path, StoreType.NONE, null, null, null);
         } catch (Throwable t) {
-            handleStepFailure(path, t);
+            handleTaskFailure(path, t);
         } finally {
             if (destroyOnExit) {
                 scope.destroy();
@@ -110,70 +110,70 @@ public class JobInterpreter {
         }
     }
 
-    private void executeChild(String parentPath, DefaultJobContext scope, StepNode child) {
+    private void executeChild(String parentPath, DefaultJobContext scope, JobNode child) {
         if (Thread.currentThread().isInterrupted()) {
             throw new RunCancelledException();
         }
         String childPath = parentPath + "/" + child.sequence();
         if (child instanceof TaskNode taskNode) {
-            executeTaskStep(childPath, scope, taskNode);
+            executeTaskTask(childPath, scope, taskNode);
         } else if (child instanceof DefinitionNode definitionNode) {
-            executeDefinitionStep(childPath, scope, definitionNode.definition());
+            executeDefinitionTask(childPath, scope, definitionNode.definition());
         }
     }
 
-    private void executeTaskStep(String path, DefaultJobContext scope, TaskNode node) {
+    private void executeTaskTask(String path, DefaultJobContext scope, TaskNode node) {
         ReplayEntry entry = replay.get(path);
-        // A step that produced dynamic steps must re-execute so they are regenerated;
-        // the regenerated steps then consult the replay entries at their own paths
-        boolean completedInOriginal = entry != null && !entry.dynamicSteps();
+        // A task that produced dynamic tasks must re-execute so they are regenerated;
+        // the regenerated tasks then consult the replay entries at their own paths
+        boolean completedInOriginal = entry != null && !entry.dynamicTasks();
 
         if (completedInOriginal && node.storeType() == StoreType.NONE) {
-            notifyStepStarted(path, node.description());
-            notifyStepCompleted(path, StoreType.NONE, null, null, null);
+            notifyTaskStarted(path, node.description());
+            notifyTaskCompleted(path, StoreType.NONE, null, null, null);
             return;
         }
         if (completedInOriginal && node.storeType() == StoreType.STATE && entry.value() != null) {
-            notifyStepStarted(path, node.description());
+            notifyTaskStarted(path, node.description());
             String storedName = ScopeWriter.store(scope, node.storeType(), node.resultName(), entry.value());
             SerializedState state = stateSerializer.serialize(node.description(), entry.value());
-            notifyStepCompleted(path, StoreType.STATE, storedName, entry.value(), state);
+            notifyTaskCompleted(path, StoreType.STATE, storedName, entry.value(), state);
             return;
         }
 
         // RESULT reloads from its source of truth: the declared reload task when there is one,
         // otherwise the task itself, which must then be safe to re-run
         Task<?> taskToRun = completedInOriginal && node.reloadTask() != null ? node.reloadTask() : node.task();
-        notifyStepStarted(path, node.description());
+        notifyTaskStarted(path, node.description());
         try {
             Object raw = taskToRun.execute(scope);
             if (raw instanceof Task<?> dynamicTask) {
-                // The dynamic step carries this step's store settings, so it stores the value
+                // The dynamic task carries this task's store settings, so it stores the value
                 TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.reloadTask(), node.storeType(), node.resultName());
                 discoverDynamic(path, dynamicNode);
-                executeTaskStep(path + "/1", scope, dynamicNode);
-                notifyStepCompleted(path, StoreType.NONE, null, null, null);
+                executeTaskTask(path + "/1", scope, dynamicNode);
+                notifyTaskCompleted(path, StoreType.NONE, null, null, null);
             } else if (raw instanceof JobDefinition dynamicDefinition) {
                 DefinitionNode dynamicNode = new DefinitionNode(1, (DefaultJobDefinition) dynamicDefinition);
                 discoverDynamic(path, dynamicNode);
-                executeDefinitionStep(path + "/1", scope, dynamicNode.definition());
-                notifyStepCompleted(path, StoreType.NONE, null, null, null);
+                executeDefinitionTask(path + "/1", scope, dynamicNode.definition());
+                notifyTaskCompleted(path, StoreType.NONE, null, null, null);
             } else {
                 Object value = awaitValue(raw);
                 String storedName = ScopeWriter.store(scope, node.storeType(), node.resultName(), value);
                 SerializedState state = node.storeType() == StoreType.STATE
                         ? stateSerializer.serialize(node.description(), value) : null;
-                notifyStepCompleted(path, node.storeType(), storedName, value, state);
+                notifyTaskCompleted(path, node.storeType(), storedName, value, state);
             }
         } catch (Throwable t) {
-            handleStepFailure(path, t);
+            handleTaskFailure(path, t);
         }
     }
 
-    private void executeChildrenParallel(String parentPath, DefaultJobContext scope, List<StepNode> children) {
+    private void executeChildrenParallel(String parentPath, DefaultJobContext scope, List<JobNode> children) {
         List<Thread> threads = new ArrayList<>();
         AtomicReference<Throwable> firstError = new AtomicReference<>();
-        for (StepNode child : children) {
+        for (JobNode child : children) {
             threads.add(Thread.ofVirtual()
                               .name("grindv2-" + runId + "-" + parentPath + "/" + child.sequence())
                               .unstarted(() -> {
@@ -277,12 +277,12 @@ public class JobInterpreter {
 
     /**
      * Reports the failure and rethrows it. Cancellation passes through unreported: the
-     * recorder marks in-flight steps CANCELLED when the run terminates.
+     * recorder marks in-flight tasks CANCELLED when the run terminates.
      */
     @SneakyThrows
-    private void handleStepFailure(String path, Throwable error) {
+    private void handleTaskFailure(String path, Throwable error) {
         if (!(error instanceof RunCancelledException)) {
-            notifyStepFailed(path, error);
+            notifyTaskFailed(path, error);
         }
         throw error;
     }
@@ -292,22 +292,22 @@ public class JobInterpreter {
         throw error;
     }
 
-    private void discoverDynamic(String producerPath, StepNode node) {
-        List<StepRecord> records = new ArrayList<>();
+    private void discoverDynamic(String producerPath, JobNode node) {
+        List<TaskRecord> records = new ArrayList<>();
         collectRecords(producerPath, node, records);
-        notifyStepsDiscovered(producerPath, records, true);
+        notifyTasksDiscovered(producerPath, records, true);
     }
 
-    private void collectRecords(String parentPath, StepNode node, List<StepRecord> collected) {
+    private void collectRecords(String parentPath, JobNode node, List<TaskRecord> collected) {
         String path = parentPath.isEmpty() ? String.valueOf(node.sequence())
                                            : parentPath + "/" + node.sequence();
-        collected.add(new StepRecord().setId(runId + ":" + path)
+        collected.add(new TaskRecord().setId(runId + ":" + path)
                                       .setJobRunId(runId)
-                                      .setStepPath(path)
+                                      .setTaskPath(path)
                                       .setDescription(node.description())
                                       .setStatus(ExecutionStatus.PENDING));
         if (node instanceof DefinitionNode definitionNode) {
-            for (StepNode child : definitionNode.definition().getSteps()) {
+            for (JobNode child : definitionNode.definition().getTasks()) {
                 collectRecords(path, child, collected);
             }
         }
@@ -319,29 +319,29 @@ public class JobInterpreter {
         }
     }
 
-    private void notifyStepsDiscovered(String parentPath, List<StepRecord> discovered, boolean dynamic) {
+    private void notifyTasksDiscovered(String parentPath, List<TaskRecord> discovered, boolean dynamic) {
         synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.stepsDiscovered(parentPath, discovered, dynamic));
+            listeners.forEach(listener -> listener.tasksDiscovered(parentPath, discovered, dynamic));
         }
     }
 
-    private void notifyStepStarted(String stepPath, String description) {
+    private void notifyTaskStarted(String taskPath, String description) {
         synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.stepStarted(stepPath, description));
+            listeners.forEach(listener -> listener.taskStarted(taskPath, description));
         }
     }
 
-    private void notifyStepCompleted(String stepPath, StoreType storeType, String storedName,
+    private void notifyTaskCompleted(String taskPath, StoreType storeType, String storedName,
                                      Object storedValue, SerializedState serializedState) {
         synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.stepCompleted(stepPath, storeType, storedName,
+            listeners.forEach(listener -> listener.taskCompleted(taskPath, storeType, storedName,
                                                                  storedValue, serializedState));
         }
     }
 
-    private void notifyStepFailed(String stepPath, Throwable error) {
+    private void notifyTaskFailed(String taskPath, Throwable error) {
         synchronized (dispatchLock) {
-            listeners.forEach(listener -> listener.stepFailed(stepPath, error));
+            listeners.forEach(listener -> listener.taskFailed(taskPath, error));
         }
     }
 

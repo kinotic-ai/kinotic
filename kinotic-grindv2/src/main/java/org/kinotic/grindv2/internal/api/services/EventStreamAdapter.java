@@ -2,11 +2,11 @@ package org.kinotic.grindv2.internal.api.services;
 
 import org.kinotic.grindv2.internal.model.SerializedState;
 import org.kinotic.grindv2.api.model.JobRunEvent;
-import org.kinotic.grindv2.api.model.StepCompleted;
-import org.kinotic.grindv2.api.model.StepFailed;
-import org.kinotic.grindv2.api.model.StepRecord;
-import org.kinotic.grindv2.api.model.StepStarted;
-import org.kinotic.grindv2.api.model.StepsDiscovered;
+import org.kinotic.grindv2.api.model.TaskCompleted;
+import org.kinotic.grindv2.api.model.TaskFailed;
+import org.kinotic.grindv2.api.model.TaskRecord;
+import org.kinotic.grindv2.api.model.TaskStarted;
+import org.kinotic.grindv2.api.model.TasksDiscovered;
 import org.kinotic.grindv2.api.model.StoreType;
 import reactor.core.publisher.FluxSink;
 
@@ -30,26 +30,26 @@ public class EventStreamAdapter implements RunListener {
     }
 
     @Override
-    public void stepsDiscovered(String parentPath, List<StepRecord> discovered, boolean dynamic) {
+    public void tasksDiscovered(String parentPath, List<TaskRecord> discovered, boolean dynamic) {
         // snapshots rather than the recorder's live records, whose statuses keep changing
-        List<StepRecord> snapshot = discovered.stream().map(this::copyOf).toList();
-        sink.next(new StepsDiscovered(parentPath, snapshot));
+        List<TaskRecord> snapshot = discovered.stream().map(this::copyOf).toList();
+        sink.next(new TasksDiscovered(parentPath, snapshot));
     }
 
     @Override
-    public void stepStarted(String stepPath, String description) {
-        sink.next(new StepStarted(stepPath, description));
+    public void taskStarted(String taskPath, String description) {
+        sink.next(new TaskStarted(taskPath, description));
     }
 
     @Override
-    public void stepCompleted(String stepPath, StoreType storeType, String storedName,
+    public void taskCompleted(String taskPath, StoreType storeType, String storedName,
                               Object storedValue, SerializedState serializedState) {
-        sink.next(new StepCompleted(stepPath, storeType, storedName, storedValue));
+        sink.next(new TaskCompleted(taskPath, storeType, storedName, storedValue));
     }
 
     @Override
-    public void stepFailed(String stepPath, Throwable error) {
-        sink.next(new StepFailed(stepPath, error.toString()));
+    public void taskFailed(String taskPath, Throwable error) {
+        sink.next(new TaskFailed(taskPath, error.toString()));
     }
 
     @Override
@@ -67,10 +67,10 @@ public class EventStreamAdapter implements RunListener {
         sink.complete();
     }
 
-    private StepRecord copyOf(StepRecord record) {
-        return new StepRecord().setId(record.getId())
+    private TaskRecord copyOf(TaskRecord record) {
+        return new TaskRecord().setId(record.getId())
                                .setJobRunId(record.getJobRunId())
-                               .setStepPath(record.getStepPath())
+                               .setTaskPath(record.getTaskPath())
                                .setDescription(record.getDescription())
                                .setStatus(record.getStatus());
     }

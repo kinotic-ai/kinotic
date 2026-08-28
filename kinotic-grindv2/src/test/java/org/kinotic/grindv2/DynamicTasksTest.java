@@ -5,7 +5,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.StepsDiscovered;
+import org.kinotic.grindv2.api.model.TasksDiscovered;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Runtime-discovered structure: tasks returning a {@link org.kinotic.grindv2.api.model.Task} or a
  * {@link JobDefinition}, their records, and their discovery events.
  */
-public class DynamicStepsTest extends AbstractGrindV2Test {
+public class DynamicTasksTest extends AbstractGrindV2Test {
 
     @Test
     public void taskReturningTaskExecutesIt() throws Exception {
@@ -34,12 +34,12 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
 
         assertNull(result.error());
         assertEquals(List.of("decided"), seen);
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1").getStatus());
-        assertTrue(repository.stepAt(handle.getJobRunId(), "0/1").isDynamicSteps());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1").getStatus());
+        assertTrue(repository.taskAt(handle.getJobRunId(), "0/1").isDynamicTasks());
     }
 
     @Test
-    public void taskReturningJobDefinitionExecutesItsSteps() throws Exception {
+    public void taskReturningJobDefinitionExecutesItsTasks() throws Exception {
         List<String> seen = new ArrayList<>();
         JobDefinition job = JobDefinition.create("dynamic definition")
                 .name("dynamic-definition").version("1")
@@ -56,17 +56,17 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
 
         assertNull(result.error());
         assertEquals(List.of("a", "b"), seen);
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1").getStatus());
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1/1").getStatus());
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1/2").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1/1").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1/2").getStatus());
 
-        StepsDiscovered discovery = result.events().stream()
-                                          .filter(StepsDiscovered.class::isInstance)
-                                          .map(StepsDiscovered.class::cast)
-                                          .filter(event -> event.stepPath().equals("0/1"))
+        TasksDiscovered discovery = result.events().stream()
+                                          .filter(TasksDiscovered.class::isInstance)
+                                          .map(TasksDiscovered.class::cast)
+                                          .filter(event -> event.taskPath().equals("0/1"))
                                           .findFirst().orElseThrow();
         assertEquals(List.of("0/1/1", "0/1/1/1", "0/1/1/2"),
-                     discovery.steps().stream().map(record -> record.getStepPath()).toList());
+                     discovery.tasks().stream().map(record -> record.getTaskPath()).toList());
     }
 
     @Test
@@ -79,7 +79,7 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
         RunResult result = await(handle);
 
         assertNull(result.error());
-        assertEquals(ExecutionStatus.COMPLETED, repository.stepAt(handle.getJobRunId(), "0/1/1").getStatus());
+        assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1").getStatus());
     }
 
 }

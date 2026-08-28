@@ -53,8 +53,8 @@ public class ParallelTest extends AbstractGrindV2Test {
         awaitUntil("ledger to settle", () ->
                 repository.savedRuns.get(handle.getJobRunId()) != null
                         && repository.savedRuns.get(handle.getJobRunId()).getStatus() == ExecutionStatus.FAILED);
-        assertEquals(ExecutionStatus.FAILED, repository.stepAt(handle.getJobRunId(), "0/2").getStatus());
-        assertEquals(ExecutionStatus.CANCELLED, repository.stepAt(handle.getJobRunId(), "0/1").getStatus());
+        assertEquals(ExecutionStatus.FAILED, repository.taskAt(handle.getJobRunId(), "0/2").getStatus());
+        assertEquals(ExecutionStatus.CANCELLED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
     }
 
 }

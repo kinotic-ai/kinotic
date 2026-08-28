@@ -1,8 +1,8 @@
 package org.kinotic.grindv2.api.model;
 
 /**
- * The scope shared by the steps of a running job. Values stored by earlier steps are
- * available to later steps: beans by type through {@code @Autowired} injection or
+ * The scope shared by the tasks of a running job. Values stored by earlier tasks are
+ * available to later tasks: beans by type through {@code @Autowired} injection or
  * {@link #getBean(Class)}, named values through {@code @Value("${name}")} or
  * {@link #getProperty(String)}. Lookups fall through parent scopes down to the
  * application's own beans and configuration.
