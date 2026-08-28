@@ -1,8 +1,8 @@
 package org.kinotic.grindv2;
 
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.Step;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.annotations.Step;
+import org.kinotic.grindv2.api.model.Tasks;
 
 /**
  * A steps class whose step builds dynamic structure at runtime by returning a

@@ -1,12 +1,12 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.StepsDiscovered;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.StepsDiscovered;
+import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Runtime-discovered structure: tasks returning a {@link org.kinotic.grindv2.api.Task} or a
+ * Runtime-discovered structure: tasks returning a {@link org.kinotic.grindv2.api.model.Task} or a
  * {@link JobDefinition}, their records, and their discovery events.
  */
 public class DynamicStepsTest extends AbstractGrindV2Test {
@@ -29,7 +29,7 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
                 .task(Tasks.fromCallable("decide",
                                          () -> Tasks.fromRunnable("decided work", () -> seen.add("decided"))));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());
@@ -51,7 +51,7 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
                     return inner;
                 }));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());
@@ -75,7 +75,7 @@ public class DynamicStepsTest extends AbstractGrindV2Test {
                 .name("declined").version("1")
                 .task(Tasks.fromCallable("decide", () -> Tasks.noop("nothing to do")));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());

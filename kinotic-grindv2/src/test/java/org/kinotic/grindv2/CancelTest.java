@@ -1,11 +1,11 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -24,7 +24,7 @@ public class CancelTest extends AbstractGrindV2Test {
                 .task(Tasks.fromRunnable("quick", () -> { }))
                 .task(Tasks.fromCallable("stuck", CompletableFuture::new));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         handle.getEvents().subscribe(event -> { }, error -> { });
 
         awaitUntil("the stuck step to start", () -> {

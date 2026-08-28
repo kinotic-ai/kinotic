@@ -1,6 +1,6 @@
 package org.kinotic.grindv2;
 
-import org.kinotic.grindv2.api.Step;
+import org.kinotic.grindv2.api.annotations.Step;
 
 /**
  * Invalid fixture: the first step consumes a type only the later step produces.

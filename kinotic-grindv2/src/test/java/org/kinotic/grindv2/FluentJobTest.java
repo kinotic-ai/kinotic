@@ -1,12 +1,12 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobContext;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobScope;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobContext;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobScope;
+import org.kinotic.grindv2.api.model.Tasks;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
@@ -36,7 +36,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                 .task(Tasks.fromRunnable("two", () -> seen.add("two")))
                 .task(Tasks.fromRunnable("three", () -> seen.add("three")));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals(List.of("one", "two", "three"), seen);
@@ -61,7 +61,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                     }
                 }));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals(new Widget("w1"), seen.get());
@@ -85,7 +85,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                     }
                 }));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals("hello grind", seen.get());
@@ -101,7 +101,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                 .jobDefinition(nested)
                 .task(probe(seenAfterNested));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertNull(seenAfterNested.get());
@@ -117,7 +117,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                 .jobDefinition(nested)
                 .task(probe(seenAfterNested));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals(new Widget("shared"), seenAfterNested.get());
@@ -131,7 +131,7 @@ public class FluentJobTest extends AbstractGrindV2Test {
                 .input(new Widget("seeded"))
                 .task(probe(seen));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals(new Widget("seeded"), seen.get());
@@ -149,14 +149,14 @@ public class FluentJobTest extends AbstractGrindV2Test {
                                                                                               Executors.newSingleThreadExecutor()))))
                 .task(probe(seen));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         assertEquals(new Widget("eventually"), seen.get());
     }
 
-    private org.kinotic.grindv2.api.Task<Void> probe(AtomicReference<Widget> target) {
-        return new org.kinotic.grindv2.api.Task<>() {
+    private org.kinotic.grindv2.api.model.Task<Void> probe(AtomicReference<Widget> target) {
+        return new org.kinotic.grindv2.api.model.Task<>() {
             @Override
             public String getDescription() {
                 return "probe widget";

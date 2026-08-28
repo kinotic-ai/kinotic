@@ -1,7 +1,7 @@
 package org.kinotic.grindv2;
 
-import org.kinotic.grindv2.api.Step;
-import org.kinotic.grindv2.api.StoreType;
+import org.kinotic.grindv2.api.annotations.Step;
+import org.kinotic.grindv2.api.model.StoreType;
 
 import java.util.concurrent.CompletableFuture;
 

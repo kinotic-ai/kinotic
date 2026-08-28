@@ -1,18 +1,18 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRun;
-import org.kinotic.grindv2.api.JobRunEvent;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.StepCompleted;
-import org.kinotic.grindv2.api.StepFailed;
-import org.kinotic.grindv2.api.StepStarted;
-import org.kinotic.grindv2.api.StepsDiscovered;
-import org.kinotic.grindv2.api.StoreType;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRun;
+import org.kinotic.grindv2.api.model.JobRunEvent;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.StepCompleted;
+import org.kinotic.grindv2.api.model.StepFailed;
+import org.kinotic.grindv2.api.model.StepStarted;
+import org.kinotic.grindv2.api.model.StepsDiscovered;
+import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,7 +38,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .task(Tasks.fromRunnable("first", () -> { }))
                 .task(Tasks.fromRunnable("second", () -> { }));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
         List<JobRunEvent> events = result.events();
@@ -64,7 +64,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .name("carrying").version("1")
                 .taskStoreResult(Tasks.fromValue("produce widget", new Widget("carried")));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         StepCompleted completed = result.events().stream()
                                         .filter(StepCompleted.class::isInstance)
@@ -82,7 +82,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .name("recorded").version("2.0")
                 .task(Tasks.fromRunnable("only", () -> { }));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.ofApplication("org1", "app1"));
+        JobRunHandle handle = jobService.run(job, JobOwner.ofApplication("org1", "app1"));
         await(handle);
 
         JobRun run = repository.savedRuns.get(handle.getJobRunId());
@@ -110,7 +110,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .task(Tasks.fromCallable("explodes", () -> { throw boom; }))
                 .task(Tasks.fromRunnable("never reached", () -> { }));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertSame(boom, result.error());
@@ -133,7 +133,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .name("lazy").version("1")
                 .task(Tasks.fromRunnable("only", () -> executed.set(true)));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         Thread.sleep(100);
         assertFalse(executed.get());
         assertTrue(repository.savedRuns.isEmpty());
@@ -148,7 +148,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
                 .name("replayed").version("1")
                 .task(Tasks.fromRunnable("only", () -> { }));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult first = await(handle);
         RunResult second = await(handle);
 

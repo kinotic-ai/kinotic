@@ -1,6 +1,6 @@
 package org.kinotic.grindv2;
 
-import org.kinotic.grindv2.api.JobRunEvent;
+import org.kinotic.grindv2.api.model.JobRunEvent;
 
 import java.util.List;
 

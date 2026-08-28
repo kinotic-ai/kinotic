@@ -1,9 +1,9 @@
 package org.kinotic.grindv2;
 
 import io.vertx.core.Future;
-import org.kinotic.grindv2.api.JobRun;
-import org.kinotic.grindv2.api.JobRunRepository;
-import org.kinotic.grindv2.api.StepRecord;
+import org.kinotic.grindv2.api.model.JobRun;
+import org.kinotic.grindv2.api.repositories.JobRunRepository;
+import org.kinotic.grindv2.api.model.StepRecord;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;

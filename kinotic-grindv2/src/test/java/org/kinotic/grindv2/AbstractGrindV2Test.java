@@ -2,9 +2,9 @@ package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.kinotic.grindv2.api.JobRunEvent;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.internal.DefaultJobRunner;
+import org.kinotic.grindv2.api.model.JobRunEvent;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.internal.api.services.DefaultJobService;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import tools.jackson.databind.ObjectMapper;
 
@@ -26,15 +26,15 @@ public abstract class AbstractGrindV2Test {
 
     protected AnnotationConfigApplicationContext appCtx;
     protected InMemoryJobRunRepository repository;
-    protected DefaultJobRunner jobRunner;
+    protected DefaultJobService jobService;
 
     @BeforeEach
     void setUpGrindV2() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
         repository = new InMemoryJobRunRepository();
-        jobRunner = new DefaultJobRunner(repository, new ObjectMapper());
-        jobRunner.setApplicationContext(appCtx);
+        jobService = new DefaultJobService(repository, new ObjectMapper());
+        jobService.setApplicationContext(appCtx);
     }
 
     @AfterEach

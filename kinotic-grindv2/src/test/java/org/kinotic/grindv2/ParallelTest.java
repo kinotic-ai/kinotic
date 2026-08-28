@@ -1,12 +1,12 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.JobScope;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.JobScope;
+import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
@@ -32,7 +32,7 @@ public class ParallelTest extends AbstractGrindV2Test {
                 .task(Tasks.fromCallable("left", () -> bothRunning.await(5, TimeUnit.SECONDS)))
                 .task(Tasks.fromCallable("right", () -> bothRunning.await(5, TimeUnit.SECONDS)));
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
     }
@@ -45,7 +45,7 @@ public class ParallelTest extends AbstractGrindV2Test {
                 .task(Tasks.fromCallable("stuck", CompletableFuture::new))
                 .task(Tasks.fromCallable("failing", () -> { throw boom; }));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNotNull(result.error());

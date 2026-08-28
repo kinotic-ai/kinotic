@@ -2,11 +2,11 @@ package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.StoreType;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.StoreType;
 
 import java.util.List;
 
@@ -38,7 +38,7 @@ public class StepsClassTest extends AbstractGrindV2Test {
                 .name("deploy").version("1")
                 .input(new ProjectRef("p1"));
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());
@@ -52,13 +52,13 @@ public class StepsClassTest extends AbstractGrindV2Test {
     @Test
     public void annotatedStateReplaysOnResume() throws Exception {
         probe.failNext.set(true);
-        JobRunHandle original = jobRunner.run(deployJob(), JobOwner.system());
+        JobRunHandle original = jobService.run(deployJob(), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(List.of("resolve:p1", "sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
 
         probe.failNext.set(false);
         probe.recorded.clear();
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), deployJob()));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), deployJob()));
 
         assertNull(resumed.error());
         // the STATE decision replays without executing; the RESULT sync re-runs; the failed step retries
@@ -71,7 +71,7 @@ public class StepsClassTest extends AbstractGrindV2Test {
         JobDefinition job = JobDefinition.fromSteps(DynamicReturnSteps.class)
                 .name("dynamic-steps").version("1");
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNull(result.error());
@@ -106,7 +106,7 @@ public class StepsClassTest extends AbstractGrindV2Test {
         JobDefinition job = JobDefinition.fromSteps(MissingDependencySteps.class)
                 .name("missing-dependency").version("1");
 
-        RunResult result = await(jobRunner.run(job, JobOwner.system()));
+        RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNotNull(result.error());
         assertTrue(result.error().getMessage().contains("requires a WidgetState"));

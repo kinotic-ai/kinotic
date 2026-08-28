@@ -1,6 +1,6 @@
 package org.kinotic.grindv2;
 
-import org.kinotic.grindv2.api.Step;
+import org.kinotic.grindv2.api.annotations.Step;
 
 /**
  * Fixture whose step consumes a type nothing provides, to observe the runtime error.

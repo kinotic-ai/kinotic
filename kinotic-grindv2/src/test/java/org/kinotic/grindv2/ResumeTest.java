@@ -1,13 +1,13 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
-import org.kinotic.grindv2.api.ExecutionStatus;
-import org.kinotic.grindv2.api.JobDefinition;
-import org.kinotic.grindv2.api.JobOwner;
-import org.kinotic.grindv2.api.JobRunHandle;
-import org.kinotic.grindv2.api.StepCompleted;
-import org.kinotic.grindv2.api.StoreType;
-import org.kinotic.grindv2.api.Tasks;
+import org.kinotic.grindv2.api.model.ExecutionStatus;
+import org.kinotic.grindv2.api.model.JobDefinition;
+import org.kinotic.grindv2.api.model.JobOwner;
+import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.StepCompleted;
+import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,12 +33,12 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobRunner.run(noneJob(calls, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, calls.get());
 
         fail.set(false);
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), noneJob(calls, fail)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), noneJob(calls, fail)));
 
         assertNull(resumed.error());
         assertEquals(1, calls.get());
@@ -49,12 +49,12 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobRunner.run(resultJob(calls, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(resultJob(calls, fail), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, calls.get());
 
         fail.set(false);
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), resultJob(calls, fail)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), resultJob(calls, fail)));
 
         assertNull(resumed.error());
         assertEquals(2, calls.get());
@@ -66,13 +66,13 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicInteger reloads = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobRunner.run(reloadJob(creates, reloads, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(reloadJob(creates, reloads, fail), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, creates.get());
         assertEquals(0, reloads.get());
 
         fail.set(false);
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), reloadJob(creates, reloads, fail)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), reloadJob(creates, reloads, fail)));
 
         assertNull(resumed.error());
         assertEquals(1, creates.get());
@@ -85,12 +85,12 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicBoolean fail = new AtomicBoolean(true);
         AtomicReference<WidgetState> seenByLaterStep = new AtomicReference<>();
 
-        JobRunHandle original = jobRunner.run(stateJob(creates, fail, seenByLaterStep), JobOwner.system());
+        JobRunHandle original = jobService.run(stateJob(creates, fail, seenByLaterStep), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, creates.get());
 
         fail.set(false);
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), stateJob(creates, fail, seenByLaterStep)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), stateJob(creates, fail, seenByLaterStep)));
 
         assertNull(resumed.error());
         assertEquals(1, creates.get());
@@ -111,7 +111,7 @@ public class ResumeTest extends AbstractGrindV2Test {
                 .name("bad-state").version("1")
                 .taskStoreState(Tasks.fromValue("produce list", new ArrayList<>(List.of("a"))), "values");
 
-        JobRunHandle handle = jobRunner.run(job, JobOwner.system());
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);
 
         assertNotNull(result.error());
@@ -128,14 +128,14 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicInteger innerB = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobRunner.run(dynamicJob(builds, innerA, innerB, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(dynamicJob(builds, innerA, innerB, fail), JobOwner.system());
         assertNotNull(await(original).error());
         assertEquals(1, builds.get());
         assertEquals(1, innerA.get());
         assertEquals(1, innerB.get());
 
         fail.set(false);
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(),
+        RunResult resumed = await(jobService.resume(original.getJobRunId(),
                                                    dynamicJob(builds, innerA, innerB, fail)));
 
         assertNull(resumed.error());
@@ -149,11 +149,11 @@ public class ResumeTest extends AbstractGrindV2Test {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobRunner.run(noneJob(calls, fail), JobOwner.ofApplication("org1", "app1"));
+        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.ofApplication("org1", "app1"));
         await(original);
 
         fail.set(false);
-        JobRunHandle resumed = jobRunner.resume(original.getJobRunId(), noneJob(calls, fail));
+        JobRunHandle resumed = jobService.resume(original.getJobRunId(), noneJob(calls, fail));
         await(resumed);
 
         var run = repository.savedRuns.get(resumed.getJobRunId());
@@ -167,20 +167,20 @@ public class ResumeTest extends AbstractGrindV2Test {
     public void resumeGuardsTheOriginalRunsIdentity() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
-        JobRunHandle original = jobRunner.run(noneJob(calls, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.system());
         await(original);
 
         JobDefinition wrongName = JobDefinition.create("renamed").name("some-other-job").version("1")
                 .task(Tasks.fromRunnable("noop", () -> { }));
-        RunResult nameMismatch = await(jobRunner.resume(original.getJobRunId(), wrongName));
+        RunResult nameMismatch = await(jobService.resume(original.getJobRunId(), wrongName));
         assertTrue(nameMismatch.error().getMessage().contains("does not match the name"));
 
         JobDefinition wrongVersion = noneJob(calls, fail);
         wrongVersion.version("999");
-        RunResult versionMismatch = await(jobRunner.resume(original.getJobRunId(), wrongVersion));
+        RunResult versionMismatch = await(jobService.resume(original.getJobRunId(), wrongVersion));
         assertTrue(versionMismatch.error().getMessage().contains("does not match the version"));
 
-        RunResult unknownRun = await(jobRunner.resume("no-such-run", noneJob(calls, fail)));
+        RunResult unknownRun = await(jobService.resume("no-such-run", noneJob(calls, fail)));
         assertTrue(unknownRun.error().getMessage().contains("No JobRun found"));
     }
 
@@ -188,10 +188,10 @@ public class ResumeTest extends AbstractGrindV2Test {
     public void onlyFailedOrCancelledRunsCanResume() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(false);
-        JobRunHandle original = jobRunner.run(noneJob(calls, fail), JobOwner.system());
+        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.system());
         assertNull(await(original).error());
 
-        RunResult resumed = await(jobRunner.resume(original.getJobRunId(), noneJob(calls, fail)));
+        RunResult resumed = await(jobService.resume(original.getJobRunId(), noneJob(calls, fail)));
 
         assertTrue(resumed.error().getMessage().contains("only FAILED or CANCELLED"));
     }
@@ -256,7 +256,7 @@ public class ResumeTest extends AbstractGrindV2Test {
                 .task(failGate(fail));
     }
 
-    private org.kinotic.grindv2.api.Task<Void> failGate(AtomicBoolean fail) {
+    private org.kinotic.grindv2.api.model.Task<Void> failGate(AtomicBoolean fail) {
         return Tasks.fromCallable("fail gate", () -> {
             if (fail.get()) {
                 throw new IllegalStateException("first run fails here");
