@@ -9,7 +9,6 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
-import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.Metadata;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -22,13 +21,10 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Wires {@link Emitter} and {@link Consumer} methods to the clustered event bus: an emitter's flux is
@@ -201,21 +197,4 @@ public class EventFabric {
         return eventType;
     }
 
-    private static class BeanWiring {
-        private final List<Disposable> uplinks = new ArrayList<>();
-        private final List<ConsumerRegistration> consumerTargets = new ArrayList<>();
-    }
-
-    private record ConsumerRegistration(Class<?> eventType, MethodTarget target) {}
-
-    private record MethodTarget(Object bean, Method method) {}
-
-    private static class Downlink {
-        private final EventConsumer busConsumer;
-        private final List<MethodTarget> targets = new CopyOnWriteArrayList<>();
-
-        private Downlink(EventConsumer busConsumer) {
-            this.busConsumer = busConsumer;
-        }
-    }
 }
