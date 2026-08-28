@@ -2,13 +2,12 @@ package org.kinotic.grind.api.services;
 
 import org.kinotic.grind.api.model.*;
 import org.kinotic.grind.api.model.events.JobRunEvent;
-import org.kinotic.grind.api.repositories.JobRunRepository;
 import reactor.core.publisher.Flux;
 
 
 /**
  * Executes {@link JobDefinition}s as recorded runs: a {@link JobRun} is persisted for the run
- * and a {@link TaskRecord} for every task, through the configured {@link JobRunRepository}.
+ * and a {@link TaskRecord} for every task.
  */
 public interface JobService {
 

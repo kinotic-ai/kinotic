@@ -8,45 +8,62 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.TaskRecord;
-import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Elasticsearch-backed {@link JobRunRepository}: runs live in the {@code kinotic_job_run}
- * index this repository owns, their task records in the {@link TaskRecordRepository}'s.
+ * Repository for the run ledger: each {@link JobRun} and its per-task {@link TaskRecord}s.
+ * The engine writes through it as a run executes and reads it back to resume a failed run.
+ * Runs live in the {@code kinotic_job_run} index this repository owns, their task records in
+ * the {@link TaskRecordRepository}'s.
  */
 @Component
-public class DefaultJobRunRepository extends AbstractRepository<JobRun> implements JobRunRepository {
+public class JobRunRepository extends AbstractRepository<JobRun> {
 
     private static final int RECORD_PAGE_SIZE = 500;
 
     private final TaskRecordRepository taskRecordRepository;
 
-    public DefaultJobRunRepository(CrudServiceTemplate crudServiceTemplate,
-                                   TaskRecordRepository taskRecordRepository) {
+    public JobRunRepository(CrudServiceTemplate crudServiceTemplate,
+                            TaskRecordRepository taskRecordRepository) {
         super("kinotic_job_run", JobRun.class, crudServiceTemplate);
         this.taskRecordRepository = taskRecordRepository;
     }
 
-    @Override
+    /**
+     * Saves the given run, creating or updating its record.
+     * @param jobRun the run to save
+     * @return a future that will complete with the saved run
+     */
     public Future<JobRun> saveRun(JobRun jobRun) {
         return save(jobRun);
     }
 
-    @Override
+    /**
+     * Saves the given task record, creating or updating it.
+     * @param taskRecord the record to save
+     * @return a future that will complete with the saved record
+     */
     public Future<TaskRecord> saveTask(TaskRecord taskRecord) {
         return taskRecordRepository.save(taskRecord);
     }
 
-    @Override
+    /**
+     * Finds a run by id.
+     * @param jobRunId the id of the run
+     * @return a future that will complete with the run, or {@code null} when none exists
+     */
     public Future<JobRun> findRun(String jobRunId) {
         return findById(jobRunId);
     }
 
-    @Override
+    /**
+     * Finds every task record of the given run.
+     * @param jobRunId the id of the run
+     * @return a future that will complete with the run's records
+     */
     public Future<List<TaskRecord>> findTasks(String jobRunId) {
         List<TaskRecord> collected = new ArrayList<>();
         return readTaskPage(jobRunId, 0, collected).map(collected);

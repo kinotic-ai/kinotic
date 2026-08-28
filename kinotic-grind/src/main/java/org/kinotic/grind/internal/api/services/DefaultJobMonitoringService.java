@@ -18,7 +18,7 @@ import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.services.JobMonitoringService;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.grind.internal.api.repositories.DefaultJobRunRepository;
+import org.kinotic.grind.internal.api.repositories.JobRunRepository;
 import org.kinotic.grind.internal.api.repositories.TaskRecordRepository;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -35,7 +35,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class DefaultJobMonitoringService implements JobMonitoringService {
 
-    private final DefaultJobRunRepository jobRunRepository;
+    private final JobRunRepository jobRunRepository;
     private final TaskRecordRepository taskRecordRepository;
     private final JobService jobService;
     private final SecurityContext securityContext;

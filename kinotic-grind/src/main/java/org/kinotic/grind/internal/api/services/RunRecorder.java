@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.repositories.JobRunRepository;
+import org.kinotic.grind.internal.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;

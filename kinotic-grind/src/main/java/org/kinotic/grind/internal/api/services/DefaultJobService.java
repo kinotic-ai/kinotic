@@ -9,7 +9,7 @@ import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.TaskRecord;
-import org.kinotic.grind.api.repositories.JobRunRepository;
+import org.kinotic.grind.internal.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.ReplayEntry;

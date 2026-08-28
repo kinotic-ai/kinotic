@@ -2,7 +2,7 @@ package org.kinotic.grind;
 
 import io.vertx.core.Future;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.api.repositories.JobRunRepository;
+import org.kinotic.grind.internal.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
 
 import java.util.Comparator;
@@ -11,13 +11,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * In-memory stand-in for a persistent {@link JobRunRepository}, capturing what the engine
- * writes so tests can assert on the ledger.
+ * In-memory stand-in for the persistent {@link JobRunRepository}, capturing what the engine
+ * writes so tests can assert on the ledger. Overrides every method the engine calls, so the
+ * Elasticsearch template the superclass would use is never touched.
  */
-public class InMemoryJobRunRepository implements JobRunRepository {
+public class InMemoryJobRunRepository extends JobRunRepository {
 
     public final Map<String, JobRun> savedRuns = new LinkedHashMap<>();
     public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
+
+    public InMemoryJobRunRepository() {
+        super(null, null);
+    }
 
     @Override
     public synchronized Future<JobRun> saveRun(JobRun jobRun) {
