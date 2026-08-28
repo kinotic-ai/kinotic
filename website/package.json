@@ -2,6 +2,7 @@
   "name": "Kinotic",
   "private": true,
   "scripts": {
+    "postinstall": "nuxt prepare",
     "dev": "nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate"

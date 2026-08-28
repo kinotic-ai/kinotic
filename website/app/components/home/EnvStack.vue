@@ -229,17 +229,17 @@ const PIPELINE_STEPS = [
   animation-name: envstack-rise-reveal;
 }
 
-/* Still a slot apart, but the whole cycle is backed up by a fifth of a slot, so
-   the first card is mid-rise when the deck is released rather than already
-   landed. Held on a whole slot it is the one card that never animates into
-   place, which reads as a mistake next to every card that follows it. The
-   fifth is what it takes for the card stepping back to have shed its label by
-   then, so only the arriving one is legible. */
-.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.96); }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.76); }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.56); }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.36); }
-.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.16); }
+/* Still a slot apart, but the whole cycle is backed up a little, so the first
+   card is still climbing when the deck is released rather than already landed.
+   Held on a whole slot it is the one card that never animates into place, which
+   reads as a mistake next to every card that follows it. How far back is set by
+   the two labels: any earlier and the card being replaced still has a readable
+   label, so the section would open on the wrong one. */
+.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.94); }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.74); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.54); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.34); }
+.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.14); }
 
 @keyframes envstack-rise {
   0%, 12% {
@@ -287,13 +287,17 @@ const PIPELINE_STEPS = [
   /* Under the deck, still invisible: the drop has to happen in one frame or the
      card would be seen crossing the deck on its way down. A keyframe part-way
      through the rise would restart the easing and stall the card mid-flight, so
-     the whole rise is left as one segment on the deck's own curve. */
+     the whole rise is one segment. It decelerates rather than easing in and out:
+     a card dealt up from under the deck should leave with intent and settle, and
+     the curve carries opacity too, so it is legible while it travels instead of
+     only once it lands. */
   80.01%, 92% {
     transform: translateY(52px) scale(0.92) rotateX(72deg);
     opacity: 0;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 4;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.3, 1);
   }
 
   100% {
@@ -305,9 +309,13 @@ const PIPELINE_STEPS = [
   }
 }
 
+/* Both ends are set by the card climbing over the one it replaces. It is still
+   part transparent on the way up, so the outgoing label has to be gone before it
+   passes over it or the two read through each other, and the arriving label has
+   to wait until the card is opaque enough to cover what is behind it. */
 @keyframes envstack-rise-reveal {
   0%, 12% { opacity: 1; }
-  17%, 92% { opacity: 0; }
+  15%, 92% { opacity: 0; }
   100% { opacity: 1; }
 }
 
