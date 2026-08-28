@@ -382,10 +382,9 @@ CREATE TABLE IF NOT EXISTS kinotic_task_record (
     status KEYWORD,
     storeType KEYWORD,
     dynamicTasks BOOLEAN,
-    resultName KEYWORD,
-    resultValueType KEYWORD,
-    resultValue JSON NOT INDEXED,
-    wireValue JSON NOT INDEXED,
+    storedName KEYWORD,
+    stateValueType KEYWORD,
+    stateValue JSON NOT INDEXED,
     error TEXT,
     started DATE,
     finished DATE

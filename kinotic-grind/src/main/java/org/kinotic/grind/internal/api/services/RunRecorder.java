@@ -114,13 +114,12 @@ public class RunRecorder implements RunListener {
             record.setStatus(ExecutionStatus.COMPLETED)
                   .setFinished(new Date())
                   .setStoreType(store.getType())
-                  .setResultName(storedName);
+                  .setStoredName(storedName);
+            // wire publication rides the event stream only; the record persists just the
+            // durable STATE the resume replays
             if (store.getType() == StoreType.STATE && serializedState != null) {
-                record.setResultValueType(serializedState.valueType())
-                      .setResultValue(serializedState.value());
-            }
-            if (store.isWire() && serializedState != null) {
-                record.setWireValue(serializedState.value());
+                record.setStateValueType(serializedState.valueType())
+                      .setStateValue(serializedState.value());
             }
             enqueue(() -> repository.saveTask(record));
         }

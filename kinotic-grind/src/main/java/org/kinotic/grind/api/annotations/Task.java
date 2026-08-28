@@ -40,8 +40,7 @@ public @interface Task {
 
     /**
      * True to publish the task's return value to watchers of the run, serialized as JSON onto
-     * the run's {@code TaskCompletedEvent} and {@code TaskRecord}. The value must be
-     * JSON-serializable.
+     * the run's {@code TaskCompletedEvent}. The value must be JSON-serializable.
      */
     boolean wire() default false;
 

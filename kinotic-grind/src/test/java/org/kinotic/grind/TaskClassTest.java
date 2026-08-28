@@ -45,7 +45,7 @@ public class TaskClassTest extends AbstractGrindTest {
         assertEquals(List.of("resolve:p1", "sync:p1-node", "ensure:hello p1-node:sha1"), probe.recorded);
         assertEquals(1, probe.instantiations.get());
         assertEquals(StoreType.STATE, repository.taskAt(handle.getJobRunId(), "0/1").getStoreType());
-        assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getResultValue());
+        assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getStateValue());
         assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }
 

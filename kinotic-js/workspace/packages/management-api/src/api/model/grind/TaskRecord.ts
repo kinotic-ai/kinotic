@@ -47,26 +47,21 @@ export class TaskRecord implements Identifiable<string> {
     public dynamicTasks: boolean = false
 
     /**
-     * The name the task's result was stored under in the job scope,
-     * or null if the result was not stored.
+     * The name the task's value was stored under in the job scope,
+     * or null if nothing was stored.
      */
-    public resultName: string | null = null
+    public storedName: string | null = null
 
     /**
-     * The Java type of the stored result. Only set when storeType is STATE.
+     * The Java type of the durable state. Only set when storeType is STATE.
      */
-    public resultValueType: string | null = null
+    public stateValueType: string | null = null
 
     /**
-     * The stored result as JSON. Only set when storeType is STATE.
+     * The durable state as JSON, replayed when the run is resumed. Only set when storeType
+     * is STATE.
      */
-    public resultValue: any = null
-
-    /**
-     * The stored result as JSON for watchers of the run. Only set when the task's store
-     * declared wire publication.
-     */
-    public wireValue: any = null
+    public stateValue: any = null
 
     /**
      * The failure message when status is FAILED.
