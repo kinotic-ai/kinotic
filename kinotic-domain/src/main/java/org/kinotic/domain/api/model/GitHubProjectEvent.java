@@ -1,4 +1,4 @@
-package org.kinotic.github.api.model;
+package org.kinotic.domain.api.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
