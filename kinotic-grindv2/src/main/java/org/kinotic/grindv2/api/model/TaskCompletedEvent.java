@@ -9,7 +9,7 @@ package org.kinotic.grindv2.api.model;
  * @param storedValue the stored value, or null if nothing was stored. Carried for in-process
  *                    subscribers; remote watchers receive null
  */
-public record TaskCompleted(String taskPath,
+public record TaskCompletedEvent(String taskPath,
                             StoreType storeType,
                             String storedName,
                             Object storedValue) implements JobRunEvent {

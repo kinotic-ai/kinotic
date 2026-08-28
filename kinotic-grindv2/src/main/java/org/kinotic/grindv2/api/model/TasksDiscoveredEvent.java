@@ -9,5 +9,5 @@ import java.util.List;
  * @param taskPath the position of the task that produced the discovery
  * @param tasks    the discovered tasks, recorded PENDING
  */
-public record TasksDiscovered(String taskPath, List<TaskRecord> tasks) implements JobRunEvent {
+public record TasksDiscoveredEvent(String taskPath, List<TaskRecord> tasks) implements JobRunEvent {
 }

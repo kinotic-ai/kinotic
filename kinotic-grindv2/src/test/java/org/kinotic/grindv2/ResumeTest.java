@@ -5,7 +5,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.TaskCompleted;
+import org.kinotic.grindv2.api.model.TaskCompletedEvent;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
@@ -96,9 +96,9 @@ public class ResumeTest extends AbstractGrindV2Test {
         assertEquals(1, creates.get());
         assertEquals(new WidgetState("decided"), seenByLaterTask.get());
 
-        TaskCompleted replayed = resumed.events().stream()
-                                        .filter(TaskCompleted.class::isInstance)
-                                        .map(TaskCompleted.class::cast)
+        TaskCompletedEvent replayed = resumed.events().stream()
+                                        .filter(TaskCompletedEvent.class::isInstance)
+                                        .map(TaskCompletedEvent.class::cast)
                                         .filter(event -> event.taskPath().equals("0/1"))
                                         .findFirst().orElseThrow();
         assertEquals(StoreType.STATE, replayed.storeType());

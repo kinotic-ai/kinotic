@@ -5,7 +5,7 @@ import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.TasksDiscovered;
+import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
@@ -60,9 +60,9 @@ public class DynamicTasksTest extends AbstractGrindV2Test {
         assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1/1").getStatus());
         assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1/1/2").getStatus());
 
-        TasksDiscovered discovery = result.events().stream()
-                                          .filter(TasksDiscovered.class::isInstance)
-                                          .map(TasksDiscovered.class::cast)
+        TasksDiscoveredEvent discovery = result.events().stream()
+                                          .filter(TasksDiscoveredEvent.class::isInstance)
+                                          .map(TasksDiscoveredEvent.class::cast)
                                           .filter(event -> event.taskPath().equals("0/1"))
                                           .findFirst().orElseThrow();
         assertEquals(List.of("0/1/1", "0/1/1/1", "0/1/1/2"),

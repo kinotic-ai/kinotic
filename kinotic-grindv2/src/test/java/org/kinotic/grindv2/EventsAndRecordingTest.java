@@ -7,10 +7,10 @@ import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRun;
 import org.kinotic.grindv2.api.model.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
-import org.kinotic.grindv2.api.model.TaskCompleted;
-import org.kinotic.grindv2.api.model.TaskFailed;
-import org.kinotic.grindv2.api.model.TaskStarted;
-import org.kinotic.grindv2.api.model.TasksDiscovered;
+import org.kinotic.grindv2.api.model.TaskCompletedEvent;
+import org.kinotic.grindv2.api.model.TaskFailedEvent;
+import org.kinotic.grindv2.api.model.TaskStartedEvent;
+import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
@@ -42,18 +42,18 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
 
         assertNull(result.error());
         List<JobRunEvent> events = result.events();
-        TasksDiscovered discovered = assertInstanceOf(TasksDiscovered.class, events.get(0));
+        TasksDiscoveredEvent discovered = assertInstanceOf(TasksDiscoveredEvent.class, events.get(0));
         assertEquals(List.of("0", "0/1", "0/2"),
                      discovered.tasks().stream().map(record -> record.getTaskPath()).toList());
         assertEquals(List.of(ExecutionStatus.PENDING, ExecutionStatus.PENDING, ExecutionStatus.PENDING),
                      discovered.tasks().stream().map(record -> record.getStatus()).toList());
-        assertEquals(new TaskStarted("0", "two tasks"), events.get(1));
-        assertEquals(new TaskStarted("0/1", "first"), events.get(2));
-        assertInstanceOf(TaskCompleted.class, events.get(3));
+        assertEquals(new TaskStartedEvent("0", "two tasks"), events.get(1));
+        assertEquals(new TaskStartedEvent("0/1", "first"), events.get(2));
+        assertInstanceOf(TaskCompletedEvent.class, events.get(3));
         assertEquals("0/1", events.get(3).taskPath());
-        assertEquals(new TaskStarted("0/2", "second"), events.get(4));
+        assertEquals(new TaskStartedEvent("0/2", "second"), events.get(4));
         assertEquals("0/2", events.get(5).taskPath());
-        TaskCompleted rootCompleted = assertInstanceOf(TaskCompleted.class, events.get(6));
+        TaskCompletedEvent rootCompleted = assertInstanceOf(TaskCompletedEvent.class, events.get(6));
         assertEquals("0", rootCompleted.taskPath());
         assertEquals(7, events.size());
     }
@@ -66,9 +66,9 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
-        TaskCompleted completed = result.events().stream()
-                                        .filter(TaskCompleted.class::isInstance)
-                                        .map(TaskCompleted.class::cast)
+        TaskCompletedEvent completed = result.events().stream()
+                                        .filter(TaskCompletedEvent.class::isInstance)
+                                        .map(TaskCompletedEvent.class::cast)
                                         .filter(event -> event.taskPath().equals("0/1"))
                                         .findFirst().orElseThrow();
         assertEquals(StoreType.RESULT, completed.storeType());
@@ -114,7 +114,7 @@ public class EventsAndRecordingTest extends AbstractGrindV2Test {
         RunResult result = await(handle);
 
         assertSame(boom, result.error());
-        assertTrue(result.events().stream().anyMatch(event -> event instanceof TaskFailed failed
+        assertTrue(result.events().stream().anyMatch(event -> event instanceof TaskFailedEvent failed
                 && failed.taskPath().equals("0/2")));
 
         JobRun run = repository.savedRuns.get(handle.getJobRunId());

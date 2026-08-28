@@ -2,11 +2,11 @@ package org.kinotic.grindv2.internal.api.services;
 
 import org.kinotic.grindv2.internal.model.SerializedState;
 import org.kinotic.grindv2.api.model.JobRunEvent;
-import org.kinotic.grindv2.api.model.TaskCompleted;
-import org.kinotic.grindv2.api.model.TaskFailed;
+import org.kinotic.grindv2.api.model.TaskCompletedEvent;
+import org.kinotic.grindv2.api.model.TaskFailedEvent;
 import org.kinotic.grindv2.api.model.TaskRecord;
-import org.kinotic.grindv2.api.model.TaskStarted;
-import org.kinotic.grindv2.api.model.TasksDiscovered;
+import org.kinotic.grindv2.api.model.TaskStartedEvent;
+import org.kinotic.grindv2.api.model.TasksDiscoveredEvent;
 import org.kinotic.grindv2.api.model.StoreType;
 import reactor.core.publisher.FluxSink;
 
@@ -33,23 +33,23 @@ public class EventStreamAdapter implements RunListener {
     public void tasksDiscovered(String parentPath, List<TaskRecord> discovered, boolean dynamic) {
         // snapshots rather than the recorder's live records, whose statuses keep changing
         List<TaskRecord> snapshot = discovered.stream().map(this::copyOf).toList();
-        sink.next(new TasksDiscovered(parentPath, snapshot));
+        sink.next(new TasksDiscoveredEvent(parentPath, snapshot));
     }
 
     @Override
     public void taskStarted(String taskPath, String description) {
-        sink.next(new TaskStarted(taskPath, description));
+        sink.next(new TaskStartedEvent(taskPath, description));
     }
 
     @Override
     public void taskCompleted(String taskPath, StoreType storeType, String storedName,
                               Object storedValue, SerializedState serializedState) {
-        sink.next(new TaskCompleted(taskPath, storeType, storedName, storedValue));
+        sink.next(new TaskCompletedEvent(taskPath, storeType, storedName, storedValue));
     }
 
     @Override
     public void taskFailed(String taskPath, Throwable error) {
-        sink.next(new TaskFailed(taskPath, error.toString()));
+        sink.next(new TaskFailedEvent(taskPath, error.toString()));
     }
 
     @Override
