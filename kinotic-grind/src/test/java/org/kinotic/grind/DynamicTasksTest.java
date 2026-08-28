@@ -67,6 +67,7 @@ public class DynamicTasksTest extends AbstractGrindTest {
                                           .findFirst().orElseThrow();
         assertEquals(List.of("0/1/1", "0/1/1/1", "0/1/1/2"),
                      discovery.tasks().stream().map(record -> record.getTaskPath()).toList());
+        assertTrue(discovery.dynamic());
     }
 
     @Test

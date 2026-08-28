@@ -122,9 +122,10 @@ export function useJobRunProgress(jobRunId: string) {
         break
       }
       case JobRunEventType.TASKS_DISCOVERED: {
-        // the event does not say whether the discovery was dynamic, so the dynamicTasks
-        // marker on the producing node comes from its record on the next load
         event.tasks.forEach(applyRecord)
+        if (event.dynamic) {
+          nodeAt(event.taskPath).dynamicTasks = true
+        }
         break
       }
     }

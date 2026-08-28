@@ -44,6 +44,7 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         assertNull(result.error());
         List<JobRunEvent> events = result.events();
         TasksDiscoveredEvent discovered = assertInstanceOf(TasksDiscoveredEvent.class, events.get(0));
+        assertFalse(discovered.dynamic());
         assertEquals(List.of("0", "0/1", "0/2"),
                      discovered.tasks().stream().map(record -> record.getTaskPath()).toList());
         assertEquals(List.of(ExecutionStatus.PENDING, ExecutionStatus.PENDING, ExecutionStatus.PENDING),

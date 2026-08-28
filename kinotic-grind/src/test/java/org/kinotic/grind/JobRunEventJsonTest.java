@@ -18,6 +18,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The wire form of the event family: every event names its concrete type so a remote watcher
@@ -29,7 +30,7 @@ public class JobRunEventJsonTest {
 
     @Test
     public void everyEventCarriesItsTypeDiscriminator() {
-        assertEquals("tasksDiscovered", typeOf(new TasksDiscoveredEvent("0", List.of())));
+        assertEquals("tasksDiscovered", typeOf(new TasksDiscoveredEvent("0", List.of(), false)));
         assertEquals("taskStarted", typeOf(new TaskStartedEvent("0/1", "work")));
         assertEquals("taskProgress", typeOf(new TaskProgressEvent("0/1", 40, "halfway")));
         assertEquals("taskCompleted", typeOf(new TaskCompletedEvent("0/1", StoreType.NONE, null, null, null)));
@@ -60,12 +61,13 @@ public class JobRunEventJsonTest {
                                             .setStatus(ExecutionStatus.PENDING);
 
         JobRunEvent restored = objectMapper.readValue(
-                objectMapper.writeValueAsString(new TasksDiscoveredEvent("0", List.of(record))), JobRunEvent.class);
+                objectMapper.writeValueAsString(new TasksDiscoveredEvent("0", List.of(record), true)), JobRunEvent.class);
 
         TasksDiscoveredEvent event = assertInstanceOf(TasksDiscoveredEvent.class, restored);
         assertEquals("0", event.taskPath());
         assertEquals(List.of("0/1"), event.tasks().stream().map(TaskRecord::getTaskPath).toList());
         assertEquals(ExecutionStatus.PENDING, event.tasks().getFirst().getStatus());
+        assertTrue(event.dynamic());
     }
 
     private String typeOf(JobRunEvent event) {

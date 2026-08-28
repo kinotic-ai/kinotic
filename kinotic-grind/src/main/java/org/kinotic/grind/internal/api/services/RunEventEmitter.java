@@ -34,7 +34,7 @@ public class RunEventEmitter implements RunListener {
     public void tasksDiscovered(String parentPath, List<TaskRecord> discovered, boolean dynamic) {
         // snapshots rather than the recorder's live records, whose statuses keep changing
         List<TaskRecord> snapshot = discovered.stream().map(this::copyOf).toList();
-        sink.next(new TasksDiscoveredEvent(parentPath, snapshot));
+        sink.next(new TasksDiscoveredEvent(parentPath, snapshot, dynamic));
     }
 
     @Override

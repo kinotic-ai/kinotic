@@ -19,4 +19,10 @@ export class TasksDiscoveredEvent {
      */
     public tasks: TaskRecord[] = []
 
+    /**
+     * True when the task at taskPath produced the discovery at runtime, false for the
+     * definition's own tasks at the start of the run.
+     */
+    public dynamic: boolean = false
+
 }
