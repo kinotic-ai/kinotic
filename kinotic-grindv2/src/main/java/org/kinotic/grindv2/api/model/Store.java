@@ -45,8 +45,9 @@ public class Store {
     }
 
     /**
-     * Keeps nothing: the task's value is discarded. Equivalent to adding the task without a
-     * {@code Store}.
+     * Keeps nothing: the task's value never enters the job scope and is not replayed on
+     * resume. Equivalent to adding the task without a {@code Store}. Combine with
+     * {@link #wire()} for a value that exists only for watchers of the run.
      * @return the store
      */
     public static Store none() {
@@ -112,13 +113,13 @@ public class Store {
     /**
      * Publishes the completed value to watchers of the run, serialized as JSON onto the run's
      * {@code TaskCompletedEvent} and persisted on its {@code TaskRecord}. Independent of the
-     * {@link StoreType}: a result store can publish without being durable, and durable state
-     * stays private unless it opts in. The value must be JSON-serializable.
+     * {@link StoreType}: a result store can publish without being durable, durable state stays
+     * private unless it opts in, and a {@link #none()} store can publish a value that exists
+     * only for observers - never entering the job scope, and gone when a resume skips the
+     * task. The value must be JSON-serializable.
      * @return a store that publishes its value
-     * @throws IllegalStateException if this store keeps nothing - there is no value to publish
      */
     public Store wire() {
-        Validate.validState(type != StoreType.NONE, "a store that keeps nothing has no value to publish");
         return new Store(type, name, reloadTask, true);
     }
 

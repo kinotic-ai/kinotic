@@ -23,11 +23,6 @@ public class StoreTest {
     }
 
     @Test
-    public void aStoreKeepingNothingCannotPublish() {
-        assertThrows(IllegalStateException.class, () -> Store.none().wire());
-    }
-
-    @Test
     public void withMethodsReturnNewInstances() {
         Store base = Store.result("widget");
         Store wired = base.wire();
@@ -36,6 +31,15 @@ public class StoreTest {
         assertTrue(wired.isWire());
         assertEquals(StoreType.RESULT, wired.getType());
         assertEquals("widget", wired.getName());
+    }
+
+    @Test
+    public void wiringTheSharedNoneLeavesItUntouched() {
+        Store wired = Store.none().wire();
+
+        assertEquals(StoreType.NONE, wired.getType());
+        assertTrue(wired.isWire());
+        assertFalse(Store.none().isWire());
     }
 
 }

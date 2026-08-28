@@ -131,9 +131,6 @@ public class TaskClassCompiler {
     private static Store effectiveStore(Class<?> taskClass, Method method, org.kinotic.grindv2.api.annotations.Task meta, Class<?> produced) {
         Store ret;
         if (produced != null) {
-            Validate.isTrue(!meta.wire() || meta.store() != StoreType.NONE,
-                            "%s.%s declares wire but stores nothing, there is no value to publish",
-                            taskClass.getSimpleName(), method.getName());
             String name = Introspector.decapitalize(produced.getSimpleName());
             ret = switch (meta.store()) {
                 case NONE -> Store.none();

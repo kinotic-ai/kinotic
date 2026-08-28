@@ -1,16 +1,19 @@
 package org.kinotic.grindv2;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.grindv2.api.model.JobContext;
 import org.kinotic.grindv2.api.model.JobDefinition;
 import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.api.model.events.TaskCompletedEvent;
 import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.model.Store;
+import org.kinotic.grindv2.api.model.StoreType;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -83,6 +86,53 @@ public class WireTest extends AbstractGrindV2Test {
         TaskRecord record = repository.taskAt(handle.getJobRunId(), "0/1");
         assertEquals("shown", record.getWireValue().get("name").stringValue());
         assertNotNull(record.getResultValue());
+    }
+
+    @Test
+    public void wireOnlyValueIsPublishedWithoutEnteringTheScope() throws Exception {
+        AtomicReference<Widget> inScope = new AtomicReference<>(new Widget("sentinel"));
+        JobDefinition job = JobDefinition.create("wire only")
+                .name("wire-only").version("1")
+                .task(Tasks.fromValue("observe widget", new Widget("observed")), Store.none().wire())
+                .task(new org.kinotic.grindv2.api.model.Task<Void>() {
+                    @Override
+                    public String getDescription() {
+                        return "probe scope";
+                    }
+
+                    @Override
+                    public Void execute(JobContext context) {
+                        inScope.set(context.getBeanOrNull(Widget.class));
+                        return null;
+                    }
+                });
+
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
+        RunResult result = await(handle);
+
+        assertNull(result.error());
+        TaskCompletedEvent completed = completionAt(result, "0/1");
+        assertEquals(StoreType.NONE, completed.storeType());
+        assertNull(completed.storedName());
+        assertEquals("observed", completed.wireValue().get("name").stringValue());
+        assertNull(inScope.get());
+
+        TaskRecord record = repository.taskAt(handle.getJobRunId(), "0/1");
+        assertEquals("observed", record.getWireValue().get("name").stringValue());
+        assertNull(record.getResultName());
+        assertNull(record.getResultValue());
+    }
+
+    @Test
+    public void taskAnnotationCanDeclareAWireOnlyValue() throws Exception {
+        JobDefinition job = JobDefinition.fromTasks(WireTasks.class).name("wire-tasks").version("1");
+
+        RunResult result = await(jobService.run(job, JobOwner.system()));
+
+        assertNull(result.error());
+        TaskCompletedEvent completed = completionAt(result, "0/1");
+        assertEquals(StoreType.NONE, completed.storeType());
+        assertEquals("observed", completed.wireValue().get("name").stringValue());
     }
 
     @Test
