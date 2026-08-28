@@ -48,7 +48,7 @@ import { ProjectDeploymentStatusType, type ProjectDeployment } from '@kinotic-ai
 
 /**
  * The project's deployment: current status and commit, and the latest deployment job's
- * steps rendered live by JobRunProgress. Polls the deployment record so a new push
+ * tasks rendered live by JobRunProgress. Polls the deployment record so a new push
  * swaps in its job run while the page is open.
  */
 const props = defineProps<{
