@@ -18,6 +18,6 @@ useMarketingMotion()
   <HomeFeaturesComponent />
   <HomeBuiltForComponent />
   <HomeTrustComponent />
-  <HomeUseCasesComponent />
+<!--  <HomeUseCasesComponent />-->
   <HomeCtaComponent />
 </template>
