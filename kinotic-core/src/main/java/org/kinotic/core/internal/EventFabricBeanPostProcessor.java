@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.annotations.Consumer;
 import org.kinotic.core.api.annotations.Emitter;
-import org.kinotic.core.internal.api.event.EventFabric;
+import org.kinotic.core.internal.api.event.fabric.EventFabric;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;

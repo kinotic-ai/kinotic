@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.event;
+package org.kinotic.core.internal.api.event.fabric;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;

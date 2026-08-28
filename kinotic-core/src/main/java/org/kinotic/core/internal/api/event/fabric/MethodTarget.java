@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.event;
+package org.kinotic.core.internal.api.event.fabric;
 
 import java.lang.reflect.Method;
 
