@@ -6,7 +6,6 @@ import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.github.api.model.GitHubProjectEvent;
 import org.kinotic.github.api.model.GitHubWebhookEvent;
 import org.kinotic.domain.api.model.Project;
@@ -24,9 +23,7 @@ import java.util.List;
 /**
  * Default impl: mutates installation state for management events, flips backing
  * projects to {@link RepositoryConnectionStatus#DISCONNECTED} when GitHub revokes
- * access, and emits a {@link GitHubProjectEvent} per backing project for repo events
- * onto the event fabric, so consumers on every node receive it regardless of which
- * node GitHub delivered to.
+ * access, and emits a {@link GitHubProjectEvent} per backing project for repo events.
  * <p>
  * Webhook deliveries have no Kinotic participant attached, so reads go through the
  * repositories' find-by-field finders (which need no org context, the search key is
@@ -45,7 +42,7 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
     private final ProjectRepository projectRepository;
     private final Vertx vertx;
 
-    // Hot sink feeding the @Emitter uplink; never terminates. Best-effort delivery keeps a
+    // Hot sink shared by every events() subscriber; never terminates. Best-effort delivery keeps a
     // slow subscriber from stalling the webhook handler, matching GitHub's at-most-once semantics.
     private final Sinks.Many<GitHubProjectEvent> sink = Sinks.many().multicast().directBestEffort();
 
@@ -59,8 +56,8 @@ public class DefaultGitHubWebhookEventService implements GitHubWebhookEventServi
         deliveryContext = vertx.getOrCreateContext();
     }
 
-    @Emitter
-    Flux<GitHubProjectEvent> projectEvents() {
+    @Override
+    public Flux<GitHubProjectEvent> events() {
         return sink.asFlux();
     }
 
