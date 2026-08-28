@@ -1,9 +1,5 @@
 package org.kinotic.grindv2.internal.api.services;
 
-import org.kinotic.grindv2.internal.api.model.DefaultJobDefinition;
-import org.kinotic.grindv2.internal.model.ReplayEntry;
-import org.kinotic.grindv2.internal.model.RunCancelledException;
-import org.kinotic.grindv2.internal.model.SerializedState;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.grindv2.api.model.ExecutionStatus;
 import org.kinotic.grindv2.api.model.JobDefinition;
@@ -11,10 +7,14 @@ import org.kinotic.grindv2.api.model.JobOwner;
 import org.kinotic.grindv2.api.model.JobRun;
 import org.kinotic.grindv2.api.model.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
+import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.api.model.TaskRecord;
 import org.kinotic.grindv2.api.repositories.JobRunRepository;
 import org.kinotic.grindv2.api.services.JobService;
-import org.kinotic.grindv2.api.model.TaskRecord;
-import org.kinotic.grindv2.api.model.StoreType;
+import org.kinotic.grindv2.internal.api.model.DefaultJobDefinition;
+import org.kinotic.grindv2.internal.model.ReplayEntry;
+import org.kinotic.grindv2.internal.model.RunCancelledException;
+import org.kinotic.grindv2.internal.model.SerializedState;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -28,24 +28,29 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Default {@link JobService}: each run executes on its own virtual thread, recorded through
- * the {@link JobRunRepository} and observable through the handle's event stream. Execution
- * begins when the handle's events are first subscribed.
+ * Default {@link JobService}: each run executes on its own Vert.x virtual-thread context, so
+ * tasks may block on their results while {@code Vertx.currentContext()} - and the platform
+ * services that hang off it - resolve throughout the run. Runs are recorded through the
+ * {@link JobRunRepository} and observable through the handle's event stream. Execution begins
+ * when the handle's events are first subscribed.
  */
 public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
+    private final RunThreadFactory runThreads;
 
     private ConfigurableApplicationContext applicationContext;
 
-    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper) {
+    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx) {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
+        this.runThreads = new RunThreadFactory(vertx);
     }
 
     @Override
@@ -75,18 +80,18 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
                 startRunThread(sink, runId, () -> {
-                    EventStreamAdapter adapter = new EventStreamAdapter(sink);
+                    RunEventEmitter emitter = new RunEventEmitter(sink);
                     try {
                         Map<String, ReplayEntry> replay = loadReplay(jobRunId, definition, recorder);
                         new JobInterpreter(applicationContext, runId, definition,
-                                           List.of(recorder, adapter), replay, stateSerializer).run();
+                                           List.of(recorder, emitter), replay, stateSerializer, runThreads).run();
                     } catch (RunCancelledException e) {
                         recorder.runCancelled();
-                        adapter.runCancelled();
+                        emitter.runCancelled();
                     } catch (Throwable t) {
                         // loading or validating the original run failed before execution began
                         recorder.runFailed(t);
-                        adapter.runFailed(t);
+                        emitter.runFailed(t);
                     }
                 }));
         return new JobRunHandle(runId, upstream);
@@ -101,13 +106,12 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                                        DefaultJobDefinition definition, RunRecorder recorder,
                                        Map<String, ReplayEntry> replay) {
         return new JobInterpreter(applicationContext, runId, definition,
-                                  List.of(recorder, new EventStreamAdapter(sink)), replay, stateSerializer);
+                                  List.of(recorder, new RunEventEmitter(sink)), replay, stateSerializer, runThreads);
     }
 
     private void startRunThread(FluxSink<JobRunEvent> sink, String runId, Runnable body) {
-        Thread thread = Thread.ofVirtual().name("grindv2-run-" + runId).unstarted(body);
-        sink.onCancel(thread::interrupt);
-        thread.start();
+        RunThread runThread = runThreads.start("grindv2-run-" + runId, body);
+        sink.onCancel(runThread::interrupt);
     }
 
     /**

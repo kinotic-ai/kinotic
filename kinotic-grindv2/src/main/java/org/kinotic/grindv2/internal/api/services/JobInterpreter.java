@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -42,6 +43,7 @@ public class JobInterpreter {
     private final List<RunListener> listeners;
     private final Map<String, ReplayEntry> replay;
     private final StateSerializer stateSerializer;
+    private final RunThreadFactory runThreads;
     // Serializes listener dispatch so parallel definitions cannot interleave callbacks
     private final Object dispatchLock = new Object();
 
@@ -50,13 +52,15 @@ public class JobInterpreter {
                           DefaultJobDefinition rootDefinition,
                           List<RunListener> listeners,
                           Map<String, ReplayEntry> replay,
-                          StateSerializer stateSerializer) {
+                          StateSerializer stateSerializer,
+                          RunThreadFactory runThreads) {
         this.applicationContext = applicationContext;
         this.runId = runId;
         this.rootDefinition = rootDefinition;
         this.listeners = listeners;
         this.replay = replay;
         this.stateSerializer = stateSerializer;
+        this.runThreads = runThreads;
     }
 
     /**
@@ -71,7 +75,7 @@ public class JobInterpreter {
             collectRecords("", new DefinitionNode(0, rootDefinition), staticTree);
             notifyTasksDiscovered("0", staticTree, false);
             seedInputs(rootScope);
-            executeDefinitionTask("0", rootScope, rootDefinition);
+            executeDefinition("0", rootScope, rootDefinition);
             notifyRunCompleted();
         } catch (RunCancelledException e) {
             notifyRunCancelled();
@@ -88,7 +92,7 @@ public class JobInterpreter {
         }
     }
 
-    private void executeDefinitionTask(String path, DefaultJobContext parentScope, DefaultJobDefinition definition) {
+    private void executeDefinition(String path, DefaultJobContext parentScope, DefaultJobDefinition definition) {
         notifyTaskStarted(path, definition.getDescription());
         boolean destroyOnExit = definition.getScope() == JobScope.CHILD;
         DefaultJobContext scope = destroyOnExit ? parentScope.createChild() : parentScope;
@@ -116,13 +120,13 @@ public class JobInterpreter {
         }
         String childPath = parentPath + "/" + child.sequence();
         if (child instanceof TaskNode taskNode) {
-            executeTaskTask(childPath, scope, taskNode);
+            executeTask(childPath, scope, taskNode);
         } else if (child instanceof DefinitionNode definitionNode) {
-            executeDefinitionTask(childPath, scope, definitionNode.definition());
+            executeDefinition(childPath, scope, definitionNode.definition());
         }
     }
 
-    private void executeTaskTask(String path, DefaultJobContext scope, TaskNode node) {
+    private void executeTask(String path, DefaultJobContext scope, TaskNode node) {
         ReplayEntry entry = replay.get(path);
         // A task that produced dynamic tasks must re-execute so they are regenerated;
         // the regenerated tasks then consult the replay entries at their own paths
@@ -151,12 +155,12 @@ public class JobInterpreter {
                 // The dynamic task carries this task's store settings, so it stores the value
                 TaskNode dynamicNode = new TaskNode(1, dynamicTask, node.reloadTask(), node.storeType(), node.resultName());
                 discoverDynamic(path, dynamicNode);
-                executeTaskTask(path + "/1", scope, dynamicNode);
+                executeTask(path + "/1", scope, dynamicNode);
                 notifyTaskCompleted(path, StoreType.NONE, null, null, null);
             } else if (raw instanceof JobDefinition dynamicDefinition) {
                 DefinitionNode dynamicNode = new DefinitionNode(1, (DefaultJobDefinition) dynamicDefinition);
                 discoverDynamic(path, dynamicNode);
-                executeDefinitionTask(path + "/1", scope, dynamicNode.definition());
+                executeDefinition(path + "/1", scope, dynamicNode.definition());
                 notifyTaskCompleted(path, StoreType.NONE, null, null, null);
             } else {
                 Object value = awaitValue(raw);
@@ -171,24 +175,29 @@ public class JobInterpreter {
     }
 
     private void executeChildrenParallel(String parentPath, DefaultJobContext scope, List<JobNode> children) {
-        List<Thread> threads = new ArrayList<>();
+        // each child gets its own virtual-thread context, so context-locals never cross siblings
+        List<RunThread> threads = new CopyOnWriteArrayList<>();
         AtomicReference<Throwable> firstError = new AtomicReference<>();
         for (JobNode child : children) {
-            threads.add(Thread.ofVirtual()
-                              .name("grindv2-" + runId + "-" + parentPath + "/" + child.sequence())
-                              .unstarted(() -> {
-                                  try {
-                                      executeChild(parentPath, scope, child);
-                                  } catch (Throwable t) {
-                                      // first failure wins and cancels the siblings; a sibling's own
-                                      // RunCancelledException from that interrupt is swallowed here
-                                      if (firstError.compareAndSet(null, t)) {
-                                          interruptOthers(threads);
-                                      }
-                                  }
-                              }));
+            threads.add(runThreads.start("grindv2-" + runId + "-" + parentPath + "/" + child.sequence(),
+                                         () -> {
+                                             try {
+                                                 executeChild(parentPath, scope, child);
+                                             } catch (Throwable t) {
+                                                 // first failure wins and cancels the siblings; a sibling's
+                                                 // own RunCancelledException from that interrupt is
+                                                 // swallowed here. Interrupting the failed child itself is
+                                                 // harmless - its body is already unwinding
+                                                 if (firstError.compareAndSet(null, t)) {
+                                                     threads.forEach(RunThread::interrupt);
+                                                 }
+                                             }
+                                         }));
         }
-        threads.forEach(Thread::start);
+        if (firstError.get() != null) {
+            // an early failure may have run before later siblings were added to the list
+            threads.forEach(RunThread::interrupt);
+        }
         joinAll(threads);
         Throwable error = firstError.get();
         if (error != null) {
@@ -196,24 +205,16 @@ public class JobInterpreter {
         }
     }
 
-    private void interruptOthers(List<Thread> threads) {
-        for (Thread thread : threads) {
-            if (thread != Thread.currentThread()) {
-                thread.interrupt();
-            }
-        }
-    }
-
-    private void joinAll(List<Thread> threads) {
+    private void joinAll(List<RunThread> threads) {
         boolean cancelled = false;
-        for (Thread thread : threads) {
+        for (RunThread thread : threads) {
             try {
                 thread.join();
             } catch (InterruptedException e) {
                 // the run itself was cancelled: stop the children, then keep joining so no
                 // child outlives the run
                 cancelled = true;
-                threads.forEach(Thread::interrupt);
+                threads.forEach(RunThread::interrupt);
                 joinUninterruptibly(thread);
             }
         }
@@ -222,7 +223,7 @@ public class JobInterpreter {
         }
     }
 
-    private void joinUninterruptibly(Thread thread) {
+    private void joinUninterruptibly(RunThread thread) {
         boolean joined = false;
         while (!joined) {
             try {

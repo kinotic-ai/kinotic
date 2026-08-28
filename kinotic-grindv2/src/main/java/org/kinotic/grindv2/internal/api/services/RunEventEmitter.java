@@ -16,11 +16,11 @@ import java.util.List;
  * Republishes the {@link RunListener} callbacks as the run's public {@link JobRunEvent}
  * stream, terminating it with the run.
  */
-public class EventStreamAdapter implements RunListener {
+public class RunEventEmitter implements RunListener {
 
     private final FluxSink<JobRunEvent> sink;
 
-    public EventStreamAdapter(FluxSink<JobRunEvent> sink) {
+    public RunEventEmitter(FluxSink<JobRunEvent> sink) {
         this.sink = sink;
     }
 

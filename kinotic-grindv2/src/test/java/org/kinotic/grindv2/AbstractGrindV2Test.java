@@ -1,7 +1,9 @@
 package org.kinotic.grindv2;
 
+import io.vertx.core.Vertx;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.grindv2.api.model.JobRunEvent;
 import org.kinotic.grindv2.api.model.JobRunHandle;
 import org.kinotic.grindv2.internal.api.services.DefaultJobService;
@@ -19,12 +21,18 @@ import java.util.function.BooleanSupplier;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Base for grindv2 tests: a real application context for injection, an in-memory ledger, and
- * synchronous helpers over a {@link JobRunHandle}.
+ * Base for grindv2 tests: a real application context for injection, a real Vert.x instance
+ * for the run threads, an in-memory ledger, and synchronous helpers over a
+ * {@link JobRunHandle}.
  */
 public abstract class AbstractGrindV2Test {
 
+    // Instantiated before the Vertx instance below: SecurityContext registers its
+    // ContextLocal in a static initializer, which Vert.x requires to happen first
+    protected final SecurityContext securityContext = new SecurityContext();
+
     protected AnnotationConfigApplicationContext appCtx;
+    protected Vertx vertx;
     protected InMemoryJobRunRepository repository;
     protected DefaultJobService jobService;
 
@@ -32,13 +40,15 @@ public abstract class AbstractGrindV2Test {
     void setUpGrindV2() {
         appCtx = new AnnotationConfigApplicationContext();
         appCtx.refresh();
+        vertx = Vertx.vertx();
         repository = new InMemoryJobRunRepository();
-        jobService = new DefaultJobService(repository, new ObjectMapper());
+        jobService = new DefaultJobService(repository, new ObjectMapper(), vertx);
         jobService.setApplicationContext(appCtx);
     }
 
     @AfterEach
-    void tearDownGrindV2() {
+    void tearDownGrindV2() throws Exception {
+        vertx.close().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
         appCtx.close();
     }
 
