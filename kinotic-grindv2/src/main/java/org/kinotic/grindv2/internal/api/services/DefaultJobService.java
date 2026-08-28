@@ -18,6 +18,7 @@ import org.kinotic.grindv2.internal.model.SerializedState;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
@@ -25,7 +26,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -39,11 +42,14 @@ import tools.jackson.databind.ObjectMapper;
  * {@link JobRunRepository} and observable through the handle's event stream. Execution begins
  * when the handle's events are first subscribed.
  */
+@Component
 public class DefaultJobService implements JobService, ApplicationContextAware {
 
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
     private final RunThreadFactory runThreads;
+
+    private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
@@ -65,7 +71,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
                 startRunThread(sink, runId, () -> interpreter(sink, runId, definition, recorder, Map.of()).run()));
-        return new JobRunHandle(runId, upstream);
+        return registeredHandle(runId, upstream);
     }
 
     @Override
@@ -94,12 +100,41 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
                         emitter.runFailed(t);
                     }
                 }));
-        return new JobRunHandle(runId, upstream);
+        return registeredHandle(runId, upstream);
+    }
+
+    @Override
+    public Flux<JobRunEvent> watchRun(String jobRunId) {
+        Validate.notBlank(jobRunId, "jobRunId cannot be blank");
+        JobRunHandle handle = activeRuns.get(jobRunId);
+        Flux<JobRunEvent> ret;
+        if (handle == null) {
+            ret = Flux.empty();
+        } else {
+            ret = handle.getEvents();
+        }
+        return ret;
     }
 
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) {
         this.applicationContext = (ConfigurableApplicationContext) applicationContext;
+    }
+
+    /**
+     * Wraps the run's event stream in the handle a watcher can attach to, registering the run
+     * as active for as long as it executes.
+     */
+    private JobRunHandle registeredHandle(String runId, Flux<JobRunEvent> upstream) {
+        AtomicReference<JobRunHandle> handleRef = new AtomicReference<>();
+        // JobRunHandle multicasts, so these hooks see one subscription no matter how many
+        // subscribers attach. Registering on that subscription rather than at creation keeps a
+        // watcher from ever being the subscription that triggers execution
+        Flux<JobRunEvent> registered = upstream.doOnSubscribe(subscription -> activeRuns.put(runId, handleRef.get()))
+                                               .doFinally(signalType -> activeRuns.remove(runId));
+        JobRunHandle handle = new JobRunHandle(runId, registered);
+        handleRef.set(handle);
+        return handle;
     }
 
     private JobInterpreter interpreter(FluxSink<JobRunEvent> sink, String runId,

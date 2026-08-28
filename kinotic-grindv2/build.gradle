@@ -4,6 +4,9 @@ plugins {
 
 dependencies {
     implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
+
+    implementation 'co.elastic.clients:elasticsearch-java'
 
     implementation 'io.projectreactor:reactor-core'
 

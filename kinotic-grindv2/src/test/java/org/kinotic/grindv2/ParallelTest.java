@@ -9,6 +9,7 @@ import org.kinotic.grindv2.api.model.JobScope;
 import org.kinotic.grindv2.api.model.Tasks;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
@@ -40,10 +41,18 @@ public class ParallelTest extends AbstractGrindV2Test {
     @Test
     public void firstFailureCancelsInFlightSiblings() throws Exception {
         IllegalStateException boom = new IllegalStateException("right side failed");
+        CountDownLatch stuckRunning = new CountDownLatch(1);
         JobDefinition job = JobDefinition.create("fail fast", JobScope.CHILD, true)
                 .name("fail-fast").version("1")
-                .task(Tasks.fromCallable("stuck", CompletableFuture::new))
-                .task(Tasks.fromCallable("failing", () -> { throw boom; }));
+                .task(Tasks.fromCallable("stuck", () -> {
+                    stuckRunning.countDown();
+                    return new CompletableFuture<>();
+                }))
+                .task(Tasks.fromCallable("failing", () -> {
+                    // the sibling must be in flight, or the failure has nothing to cancel
+                    assertTrue(stuckRunning.await(5, TimeUnit.SECONDS), "stuck task did not start");
+                    throw boom;
+                }));
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         RunResult result = await(handle);

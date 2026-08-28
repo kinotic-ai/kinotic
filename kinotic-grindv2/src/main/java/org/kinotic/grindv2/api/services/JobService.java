@@ -1,7 +1,9 @@
 package org.kinotic.grindv2.api.services;
 
 import org.kinotic.grindv2.api.model.*;
+import org.kinotic.grindv2.api.model.events.JobRunEvent;
 import org.kinotic.grindv2.api.repositories.JobRunRepository;
+import reactor.core.publisher.Flux;
 
 
 /**
@@ -35,5 +37,16 @@ public interface JobService {
      * @return the prepared {@link JobRunHandle}
      */
     JobRunHandle resume(String jobRunId, JobDefinition jobDefinition);
+
+    /**
+     * Opens a view of a run currently executing in this process. The returned {@link Flux}
+     * replays every {@link JobRunEvent} emitted since the run started, then continues live
+     * until the run terminates. Watching never starts a run - subscribing attaches to the
+     * in-flight execution only.
+     * @param jobRunId the id of the run to watch
+     * @return the run's event stream, or an empty {@link Flux} when no run with the given id
+     *         is executing in this process
+     */
+    Flux<JobRunEvent> watchRun(String jobRunId);
 
 }
