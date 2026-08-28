@@ -20,8 +20,7 @@ import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.services.github.GitHubProjectEventService;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
-import org.kinotic.grind.api.model.ResultType;
-import org.kinotic.grind.api.model.StepCompletion;
+import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.system.internal.api.model.deployment.DeployTarget;
 import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
@@ -92,7 +91,7 @@ public class ProjectDeployOrchestrator {
      * Deploys the given commit of the project, completing when the deployment has finished
      * and its {@link ProjectDeployment} record reflects the outcome. Fails when the sync
      * workload's run fails — the workload is then kept so its logs can be inspected — or
-     * when any other step of the deployment fails.
+     * when any other task of the deployment fails.
      *
      * @param organizationId the organization owning the project
      * @param projectId the project to deploy
@@ -164,11 +163,11 @@ public class ProjectDeployOrchestrator {
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
         JobDefinition definition = jobDefinitionFactory.createJobDefinition(project, existing, commitSha);
-        JobRunHandle handle = jobService.execute(definition,
-                                                 JobOwner.ofApplication(project.getOrganizationId(),
-                                                                        project.getApplicationId()));
+        JobRunHandle handle = jobService.run(definition,
+                                             JobOwner.ofApplication(project.getOrganizationId(),
+                                                                    project.getApplicationId()));
 
-        // Captured from the run's STEP_COMPLETED results as the steps store them in the job
+        // Captured from the run's TaskCompletedEvents as the tasks store them in the job
         // scope, so the outcome record reflects how far the run got whatever the outcome
         AtomicReference<DeployTarget> target = new AtomicReference<>();
         AtomicReference<String> runtimeWorkloadId = new AtomicReference<>();
@@ -176,17 +175,16 @@ public class ProjectDeployOrchestrator {
         Promise<Void> outcome = Promise.promise();
         recordDeploying(project, existing, handle.getJobRunId())
                 .onFailure(outcome::fail)
-                // The job starts when its results are subscribed, so the DEPLOYING record
-                // is in place before any step runs
-                .onSuccess(deployment -> handle.getResults().subscribe(
-                        result -> {
-                            if (result.getResultType() == ResultType.STEP_COMPLETED
-                                    && result.getValue() instanceof StepCompletion completion) {
-                                if (ProjectDeployJobDefinitionFactory.DEPLOY_TARGET.equals(completion.storedName())
-                                        && completion.storedValue() instanceof DeployTarget resolved) {
+                // The job starts when its events are subscribed, so the DEPLOYING record
+                // is in place before any task runs
+                .onSuccess(deployment -> handle.getEvents().subscribe(
+                        event -> {
+                            if (event instanceof TaskCompletedEvent completed) {
+                                if (ProjectDeployJobDefinitionFactory.DEPLOY_TARGET.equals(completed.storedName())
+                                        && completed.storedValue() instanceof DeployTarget resolved) {
                                     target.set(resolved);
-                                } else if (ProjectDeployJobDefinitionFactory.RUNTIME_WORKLOAD_ID.equals(completion.storedName())
-                                        && completion.storedValue() instanceof String workloadId) {
+                                } else if (ProjectDeployJobDefinitionFactory.RUNTIME_WORKLOAD_ID.equals(completed.storedName())
+                                        && completed.storedValue() instanceof String workloadId) {
                                     runtimeWorkloadId.set(workloadId);
                                 }
                             }

@@ -1,71 +1,40 @@
-
-
 package org.kinotic.grind.api.model;
 
-import org.apache.commons.io.IOUtils;
-import org.kinotic.grind.internal.api.model.ClassTask;
-import org.kinotic.grind.internal.api.model.InstanceTask;
-import org.kinotic.grind.internal.api.model.NoopTask;
-import org.kinotic.grind.internal.api.model.ValueTask;
+import org.apache.commons.lang3.Validate;
 
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
- *
- * Created by Navid Mitchell on 3/24/20
+ * Static factories for the common {@link Task} shapes, so a single task does not require a
+ * class of its own.
  */
 public class Tasks {
 
     /**
-     * Creates a {@link Task} that constructs a new instance of the given class on every execution,
-     * with full injection - constructor parameters and annotated members resolve against the job
-     * scope and the application - then invokes {@link Callable#call()} for the result.
-     * Because the instance is per execution, tasks defined this way hold no state between runs.
-     * The step description is the class's simple name
+     * Creates a {@link Task} that constructs a new instance of the given class on every
+     * execution, with full injection against the job scope, then invokes
+     * {@link Callable#call()} for the result. The task description is the class's simple name.
      * @param taskClass the class to construct and invoke
      * @param <R> the result type
      * @return the task
      */
     public static <R> Task<R> fromClass(Class<? extends Callable<R>> taskClass) {
-        return fromClass(null, taskClass);
+        return fromClass(taskClass.getSimpleName(), taskClass);
     }
 
     /**
-     * Creates a {@link Task} that constructs a new instance of the given class on every execution,
-     * with full injection - constructor parameters and annotated members resolve against the job
-     * scope and the application - then invokes {@link Callable#call()} for the result.
-     * Because the instance is per execution, tasks defined this way hold no state between runs
+     * Creates a {@link Task} that constructs a new instance of the given class on every
+     * execution, with full injection against the job scope, then invokes
+     * {@link Callable#call()} for the result.
      * @param description of the task
      * @param taskClass the class to construct and invoke
      * @param <R> the result type
      * @return the task
      */
     public static <R> Task<R> fromClass(String description, Class<? extends Callable<R>> taskClass) {
-        return new ClassTask<>(description, taskClass);
-    }
-
-    public static <R> Task<R> fromCallable(Callable<R> instance) {
-        return fromCallable(null, instance);
-    }
-
-    public static <R> Task<R> fromCallable(String description,
-                                           Callable<R> instance) {
-        return new InstanceTask<>(description,
-                                  instance,
-                                  callable -> {
-                                      try {
-                                          return callable.call();
-                                      } catch (Exception e) {
-                                          throw new RuntimeException(e);
-                                      }
-                                  });
-    }
-
-    public static Task<String> fromExec(String description,
-                                        String... command) {
+        Validate.notNull(taskClass, "taskClass cannot be null");
         return new Task<>() {
             @Override
             public String getDescription() {
@@ -73,73 +42,124 @@ public class Tasks {
             }
 
             @Override
-            public String execute(JobContext context) throws Exception {
-                Process process = new ProcessBuilder(command).start();
-                String out =  IOUtils.toString(process.getInputStream(), StandardCharsets.UTF_8);
-                int exitCode = process.waitFor();
-                if (exitCode != 0) {
-                    throw new RuntimeException(out);
-                }
-                return out;
+            public R execute(JobContext context) throws Exception {
+                return context.instantiate(taskClass).call();
             }
         };
     }
 
-    public static <R> Task<R> fromSupplier(Supplier<R> instance) {
-        return fromSupplier(null, instance);
-    }
+    /**
+     * Creates a {@link Task} that injects the given instance's annotated members against the
+     * job scope, then invokes {@link Callable#call()} for the result.
+     * @param description of the task
+     * @param callable to inject and invoke
+     * @param <R> the result type
+     * @return the task
+     */
+    public static <R> Task<R> fromCallable(String description, Callable<R> callable) {
+        Validate.notNull(callable, "callable cannot be null");
+        return new Task<>() {
+            @Override
+            public String getDescription() {
+                return description;
+            }
 
-    public static <R> Task<R> fromSupplier(String description,
-                                           Supplier<R> instance) {
-        return new InstanceTask<>(description,
-                                  instance,
-                                  Supplier::get);
-    }
-
-    public static <T> Task<T> fromValue(T value) {
-        return fromValue(null, value);
-    }
-
-    public static <T> Task<T> fromValue(String description,
-                                        T value) {
-        return new ValueTask<>(description, value);
-    }
-
-    public static Task<Void> fromRunnable(Runnable instance) {
-        return fromRunnable(null, instance);
-    }
-
-    public static Task<Void> fromRunnable(String description,
-                                          Runnable instance) {
-        return new InstanceTask<>(description,
-                                  instance,
-                                  runnable -> {
-                                      runnable.run();
-                                      return null;
-                                  });
+            @Override
+            public R execute(JobContext context) throws Exception {
+                context.autowire(callable);
+                return callable.call();
+            }
+        };
     }
 
     /**
-     * Special type of task that allows a step to be skipped if needed.
-     * This is useful if a {@link Supplier<Task>} needs to only supply a task under certain conditions
-     * @param description of why the task is a noop task.
-     * @return the noop task
+     * Creates a {@link Task} that injects the given instance's annotated members against the
+     * job scope, then invokes {@link Supplier#get()} for the result.
+     * @param description of the task
+     * @param supplier to inject and invoke
+     * @param <R> the result type
+     * @return the task
      */
-    public static <T> Task<T> noop(String description){
-        return new NoopTask<>(description);
+    public static <R> Task<R> fromSupplier(String description, Supplier<R> supplier) {
+        Validate.notNull(supplier, "supplier cannot be null");
+        return new Task<>() {
+            @Override
+            public String getDescription() {
+                return description;
+            }
+
+            @Override
+            public R execute(JobContext context) {
+                context.autowire(supplier);
+                return supplier.get();
+            }
+        };
     }
 
     /**
-     * Special type of task that allows a step to be skipped if needed.
-     * This is useful if a {@link Supplier<Task>} needs to only supply a task under certain conditions
-     * @return the noop task
+     * Creates a {@link Task} that injects the given instance's annotated members against the
+     * job scope, then invokes {@link Runnable#run()}.
+     * @param description of the task
+     * @param runnable to inject and invoke
+     * @return the task
      */
-    public static <T> Task<T> noop(){
-        return new NoopTask<>();
+    public static Task<Void> fromRunnable(String description, Runnable runnable) {
+        Validate.notNull(runnable, "runnable cannot be null");
+        return new Task<>() {
+            @Override
+            public String getDescription() {
+                return description;
+            }
+
+            @Override
+            public Void execute(JobContext context) {
+                context.autowire(runnable);
+                runnable.run();
+                return null;
+            }
+        };
     }
 
+    /**
+     * Creates a {@link Task} that passes the given value straight through without invocation.
+     * @param description of the task
+     * @param value the task's result
+     * @param <R> the result type
+     * @return the task
+     */
+    public static <R> Task<R> fromValue(String description, R value) {
+        return new Task<>() {
+            @Override
+            public String getDescription() {
+                return description;
+            }
 
-    public static <T, R> Task<R> transformResult(Task<T> from, Function<T, R> transformer){
+            @Override
+            public R execute(JobContext context) {
+                return value;
+            }
+        };
+    }
+
+    /**
+     * Creates a {@link Task} that does nothing, so a dynamic task can decline to add work.
+     * @param description of why the task is a noop
+     * @param <R> the result type
+     * @return the noop task
+     */
+    public static <R> Task<R> noop(String description) {
+        return fromValue(description, null);
+    }
+
+    /**
+     * Creates a {@link Task} applying the given transformation to another task's result.
+     * @param from the task producing the value
+     * @param transformer applied to the produced value
+     * @param <T> the produced type
+     * @param <R> the transformed type
+     * @return the task
+     */
+    public static <T, R> Task<R> transformResult(Task<T> from, Function<T, R> transformer) {
         return new Task<>() {
             @Override
             public String getDescription() {

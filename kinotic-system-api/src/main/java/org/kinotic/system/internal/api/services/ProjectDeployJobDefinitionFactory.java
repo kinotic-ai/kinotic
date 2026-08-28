@@ -12,6 +12,7 @@ import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
+import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
@@ -30,7 +31,7 @@ import java.util.concurrent.CompletableFuture;
  * foreground sync workload, and ensure the long-lived runtime workload serving it.
  * The resolved {@link DeployTarget} and runtime workload id are stored in the job scope
  * under {@link #DEPLOY_TARGET} and {@link #RUNTIME_WORKLOAD_ID}, so the run's
- * STEP_COMPLETED results carry them to the caller.
+ * {@code TaskCompletedEvent}s carry them to the caller.
  */
 @Component
 @RequiredArgsConstructor
@@ -53,7 +54,7 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Creates the job definition deploying the given commit of the project.
-     * The definition is one run's worth of steps - create a fresh one for each run.
+     * The definition is one run's worth of tasks - create a fresh one for each run.
      *
      * @param project the project to deploy
      * @param existing the project's current {@link ProjectDeployment}, or {@code null} when
@@ -66,13 +67,13 @@ public class ProjectDeployJobDefinitionFactory {
         return JobDefinition.create("Deploy project " + projectId + " at " + commitSha)
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
-                // taskStoreState: the target is a decision later effects are bound to - the sync
+                // Store.state: the target is a decision later effects are bound to - the sync
                 // checkout lives on this node - so a resume must replay the recorded choice from
                 // the run's own records, never re-derive it and risk landing on a different node
-                .taskStoreState(Tasks.fromCallable("Resolve deployment target",
-                                                   () -> resolveTarget(projectId, existing)
-                                                           .toCompletionStage().toCompletableFuture()),
-                                DEPLOY_TARGET)
+                .task(Tasks.fromCallable("Resolve deployment target",
+                                         () -> resolveTarget(projectId, existing)
+                                                 .toCompletionStage().toCompletableFuture()),
+                      Store.state(DEPLOY_TARGET))
                 .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
@@ -83,7 +84,9 @@ public class ProjectDeployJobDefinitionFactory {
                         return syncSource(project, target, commitSha);
                     }
                 }))
-                .taskStoreResult(Tasks.fromCallable("Ensure runtime workload", new Callable<CompletableFuture<String>>() {
+                // wired so watchers of the run can tail the workload's logs mid-run, before
+                // the deployment finishes and the id reaches the ProjectDeployment record
+                .task(Tasks.fromCallable("Ensure runtime workload", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
                     private DeployTarget target;
@@ -92,7 +95,7 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<String> call() {
                         return ensureRuntimeWorkload(project, target).toCompletionStage().toCompletableFuture();
                     }
-                }), RUNTIME_WORKLOAD_ID);
+                }), Store.result(RUNTIME_WORKLOAD_ID).wire());
     }
 
     /**

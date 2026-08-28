@@ -1,75 +1,36 @@
-
-
 package org.kinotic.grind.api.services;
 
-import org.kinotic.grind.api.model.JobDefinition;
-import org.kinotic.grind.api.model.JobRunHandle;
-import org.kinotic.grind.api.model.JobOwner;
-import org.kinotic.grind.api.model.Result;
-import org.kinotic.grind.api.model.ResultOptions;
-import org.kinotic.grind.api.model.ResultType;
+import org.kinotic.grind.api.model.*;
+import org.kinotic.grind.api.model.events.JobRunEvent;
 import reactor.core.publisher.Flux;
 
+
 /**
- *
- * Created by Navid Mitchell on 3/19/20
+ * Executes {@link JobDefinition}s as recorded runs: a {@link JobRun} is persisted for the run
+ * and a {@link TaskRecord} for every task.
  */
 public interface JobService {
 
     /**
-     * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
-     * {@link org.kinotic.grind.api.model.JobRun} for the run and a
-     * {@link org.kinotic.grind.api.model.StepRecord} for every step executed.
-     * The run starts, and its records are written, when the returned
-     * {@link JobRunHandle#getResults()} is subscribed to.
-     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
-     * @return the prepared {@link JobRunHandle}
-     */
-    JobRunHandle execute(JobDefinition jobDefinition);
-
-    /**
-     * Prepares a recorded execution of the given {@link JobDefinition}, persisting a
-     * {@link org.kinotic.grind.api.model.JobRun} for the run and a
-     * {@link org.kinotic.grind.api.model.StepRecord} for every step executed.
-     * The run starts, and its records are written, when the returned
-     * {@link JobRunHandle#getResults()} is subscribed to.
-     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
-     * @param options the {@link ResultOptions} to use when executing the {@link JobDefinition}
-     * @return the prepared {@link JobRunHandle}
-     */
-    JobRunHandle execute(JobDefinition jobDefinition, ResultOptions options);
-
-    /**
      * Prepares a recorded execution of the given {@link JobDefinition} on behalf of the given
-     * {@link JobOwner}, recorded on the run so runs can be filtered by owner. The definition
-     * itself stays a system-wide template - ownership belongs to this execution
+     * {@link JobOwner}. The run starts, and its records are written, when the returned
+     * handle's events are first subscribed - {@link JobRunHandle#completion()} subscribes.
      * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
-     * @param owner the hierarchy this run executes on behalf of, or null for a platform run
+     * @param owner the hierarchy this run executes on behalf of, {@link JobOwner#system()}
+     *              for a platform run
      * @return the prepared {@link JobRunHandle}
      */
-    JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner);
+    JobRunHandle run(JobDefinition jobDefinition, JobOwner owner);
 
     /**
-     * Prepares a recorded execution of the given {@link JobDefinition} on behalf of the given
-     * {@link JobOwner}, as {@link #execute(JobDefinition, JobOwner)}, with the given {@link ResultOptions}
-     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
-     * @param owner the hierarchy this run executes on behalf of, or null for a platform run
-     * @param options the {@link ResultOptions} to use when executing
-     * @return the prepared {@link JobRunHandle}
-     */
-    JobRunHandle execute(JobDefinition jobDefinition, JobOwner owner, ResultOptions options);
-
-    /**
-     * Prepares a recorded execution that resumes a previous run: steps the original run completed
-     * are not executed again. A completed {@code taskStoreState} step replays its recorded value, a
-     * completed {@code taskStoreResult} step re-runs (or runs its reload task when one was declared),
-     * and a completed step that stored nothing is skipped. Everything else executes normally.
-     * The resume is recorded as a new {@link org.kinotic.grind.api.model.JobRun} referencing
-     * the original via {@code resumedFrom}, owned by the original run's owner.
+     * Prepares a recorded execution that resumes a previous run: tasks the original run
+     * completed are not executed again, according to each task's {@link StoreType}. The
+     * resume is recorded as a new {@link JobRun} referencing the original, owned by the
+     * original run's owner.
      *
-     * The given {@link JobDefinition} must be freshly built by the same code that built the original
-     * run's definition: its name and version must match the recorded run, and its step structure must
-     * be unchanged, or replayed steps will not line up with their records
+     * The given {@link JobDefinition} must be freshly built by the same code that built the
+     * original run's definition: its name and version must match the recorded run, and its
+     * task structure must be unchanged, or replayed tasks will not line up with their records.
      * @param jobRunId the id of the FAILED or CANCELLED run to resume
      * @param jobDefinition the freshly built definition to execute
      * @return the prepared {@link JobRunHandle}
@@ -77,29 +38,14 @@ public interface JobService {
     JobRunHandle resume(String jobRunId, JobDefinition jobDefinition);
 
     /**
-     * Prepares a recorded execution that resumes a previous run, as {@link #resume(String, JobDefinition)},
-     * with the given {@link ResultOptions}
-     * @param jobRunId the id of the FAILED or CANCELLED run to resume
-     * @param jobDefinition the freshly built definition to execute
-     * @param options the {@link ResultOptions} to use when executing
-     * @return the prepared {@link JobRunHandle}
-     */
-    JobRunHandle resume(String jobRunId, JobDefinition jobDefinition, ResultOptions options);
-
-    /**
-     * Opens a view of a run currently executing in this process. The returned {@link Flux} replays
-     * every {@link Result} emitted since the run started, then continues live until the run
-     * terminates. Watching never starts a run - subscribing attaches to the in-flight execution only.
-     * <p>
-     * Result values are reduced to what a monitoring caller can consume remotely:
-     * {@link ResultType#DYNAMIC_STEPS} carries the discovered steps as PENDING
-     * {@link org.kinotic.grind.api.model.StepRecord}s in discovery order,
-     * {@link ResultType#STEP_FAILED} carries the failure message, and
-     * {@link ResultType#STEP_COMPLETED} and {@link ResultType#VALUE} carry no produced value.
+     * Opens a view of a run currently executing in this process. The returned {@link Flux}
+     * replays every {@link JobRunEvent} emitted since the run started, then continues live
+     * until the run terminates. Watching never starts a run - subscribing attaches to the
+     * in-flight execution only.
      * @param jobRunId the id of the run to watch
-     * @return the run's {@link Result} stream, or an empty {@link Flux} when no run with the
-     *         given id is executing in this process
+     * @return the run's event stream, or an empty {@link Flux} when no run with the given id
+     *         is executing in this process
      */
-    Flux<Result<?>> watchRun(String jobRunId);
+    Flux<JobRunEvent> watchRun(String jobRunId);
 
 }

@@ -2,8 +2,8 @@ import type { Identifiable } from '@kinotic-ai/core'
 import { ExecutionStatus } from '@/api/model/grind/ExecutionStatus'
 
 /**
- * The persistent record of one execution of a grind job definition. The individual steps
- * executed during the run are recorded as StepRecords referencing this run's id.
+ * The persistent record of one execution of a grind job definition. The individual tasks
+ * executed during the run are recorded as TaskRecords referencing this run's id.
  */
 export class JobRun implements Identifiable<string> {
 
@@ -59,6 +59,12 @@ export class JobRun implements Identifiable<string> {
      * The id of the JobRun this run resumed, or null if this run was not a resume.
      */
     public resumedFrom: string | null = null
+
+    /**
+     * The id of the node executing this run. While the run executes, its live event stream is
+     * available only on this node, so watch requests are routed to it.
+     */
+    public nodeId: string | null = null
 
     /**
      * When the run started executing, as epoch milliseconds.

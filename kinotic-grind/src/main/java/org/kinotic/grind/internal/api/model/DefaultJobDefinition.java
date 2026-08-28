@@ -1,51 +1,48 @@
-
-
 package org.kinotic.grind.internal.api.model;
 
-import org.kinotic.grind.api.model.StoreType;
+import org.kinotic.grind.internal.model.DefinitionNode;
+import org.kinotic.grind.internal.model.JobNode;
+import org.kinotic.grind.internal.model.TaskNode;
+import lombok.Getter;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobScope;
+import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Task;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 /**
- * NOTE: should not be instantiated directly
- *
- * Created by Navid Mitchell on 3/19/20
+ * The task tree behind a {@link JobDefinition}, built by the fluent methods and walked by the
+ * {@link JobInterpreter}.
  */
 public class DefaultJobDefinition implements JobDefinition {
 
+    @Getter
     private final String description;
-    private final JobScope jobScope;
+
+    @Getter
+    private final JobScope scope;
+
+    @Getter
     private final boolean parallel;
+
+    @Getter
     private String name;
+
+    @Getter
     private String version;
 
-    private final LinkedList<Step> steps = new LinkedList<>();
+    private final List<JobNode> tasks = new ArrayList<>();
 
+    private final List<Object> inputs = new ArrayList<>();
 
-    public DefaultJobDefinition(String description, JobScope jobScope, boolean parallel) {
-        this.description = description != null ? description : UUID.randomUUID().toString();
-        this.jobScope = jobScope;
+    public DefaultJobDefinition(String description, JobScope scope, boolean parallel) {
+        this.description = description;
+        this.scope = scope;
         this.parallel = parallel;
-    }
-
-    @Override
-    public String getDescription() {
-        return description;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getVersion() {
-        return version;
     }
 
     @Override
@@ -61,64 +58,45 @@ public class DefaultJobDefinition implements JobDefinition {
     }
 
     @Override
-    public boolean isParallel() {
-        return parallel;
-    }
-
-    @Override
-    public JobScope getScope() {
-        return jobScope;
+    public JobDefinition input(Object... values) {
+        for (Object value : values) {
+            Validate.notNull(value, "input values cannot be null");
+            inputs.add(value);
+        }
+        return this;
     }
 
     @Override
     public JobDefinition task(Task<?> task) {
-        steps.add(new TaskStep(steps.size() + 1, task));
+        tasks.add(new TaskNode(tasks.size() + 1, task, Store.none()));
         return this;
     }
 
     @Override
-    public JobDefinition taskStoreResult(Task<?> task) {
-        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.RESULT, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> task, String variableName) {
-        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.RESULT, variableName));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask) {
-        steps.add(new TaskStep(steps.size() + 1, createTask, reloadTask, StoreType.RESULT, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreResult(Task<?> createTask, Task<?> reloadTask, String variableName) {
-        steps.add(new TaskStep(steps.size() + 1, createTask, reloadTask, StoreType.RESULT, variableName));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreState(Task<?> task) {
-        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.STATE, null));
-        return this;
-    }
-
-    @Override
-    public JobDefinition taskStoreState(Task<?> task, String variableName) {
-        steps.add(new TaskStep(steps.size() + 1, task, null, StoreType.STATE, variableName));
+    public JobDefinition task(Task<?> task, Store store) {
+        Validate.notNull(store, "store cannot be null");
+        tasks.add(new TaskNode(tasks.size() + 1, task, store));
         return this;
     }
 
     @Override
     public JobDefinition jobDefinition(JobDefinition jobDefinition) {
-        steps.add(new JobDefinitionStep(steps.size() + 1, jobDefinition));
+        tasks.add(new DefinitionNode(tasks.size() + 1, (DefaultJobDefinition) jobDefinition));
         return this;
     }
 
-    public List<Step> getSteps(){
-        return steps;
+    /**
+     * The nodes of this definition in execution order.
+     */
+    public List<JobNode> getTasks() {
+        return Collections.unmodifiableList(tasks);
     }
+
+    /**
+     * The values seeded into the job scope before the first task runs.
+     */
+    public List<Object> getInputs() {
+        return Collections.unmodifiableList(inputs);
+    }
+
 }

@@ -1,27 +1,28 @@
 package org.kinotic.grind.api.model;
 
 /**
- * How a step's result was stored in the job scope, recorded on the {@link StepRecord}
- * and governing how the step is rehydrated when a run is resumed.
+ * How a task's result is kept for the rest of the run, and what a resumed run does when it
+ * finds the task already completed.
  */
 public enum StoreType {
 
     /**
-     * The step stored nothing. On resume a completed step is skipped.
+     * The result is not kept. On resume a completed task is skipped.
      */
     NONE,
 
     /**
-     * The step stored transient wiring for later steps in the same run. The value is not
-     * persisted; on resume the value is reloaded from its external source of truth.
+     * The result is stored in the job scope for later tasks but not persisted. On resume a
+     * completed task re-executes - or executes its declared reload task - to regenerate the
+     * value from its source of truth.
      */
     RESULT,
 
     /**
-     * The step stored durable state. The value is serialized into the {@link StepRecord}
-     * and on resume is replayed from the record instead of re-executing the step.
-     * The value must survive a JSON round trip: a plain class or record with concrete field
-     * types. Generic types (List, Map, Optional, ...) are rejected because their erased type
+     * The result is stored in the job scope and serialized into the run's {@link TaskRecord}.
+     * On resume a completed task replays the recorded value instead of executing. The value
+     * must survive a JSON round trip: a plain class or record with concrete field types.
+     * Generic types (List, Map, Optional, ...) are rejected because their erased type
      * arguments cannot be restored.
      */
     STATE

@@ -7,14 +7,9 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.CommonAnnotationBeanPostProcessor;
 import org.springframework.context.annotation.ContextAnnotationAutowireCandidateResolver;
-import org.springframework.context.expression.BeanFactoryResolver;
 import org.springframework.core.env.Environment;
-import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.util.PropertyPlaceholderHelper;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,12 +17,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * A {@link JobContext} backed by a {@link DefaultListableBeanFactory} chained to its parent scope's factory,
- * so bean lookups traverse the scope hierarchy down to the application's own beans.
+ * A {@link JobContext} backed by a {@link DefaultListableBeanFactory} chained to its parent
+ * scope's factory, so bean lookups traverse the scope hierarchy down to the application's own
+ * beans and configuration.
  */
 public class DefaultJobContext implements JobContext {
-
-    private static final SpelExpressionParser SPEL_PARSER = new SpelExpressionParser();
 
     private final DefaultJobContext parent;
     // Non-null only on the root scope, so property lookups end at the application configuration
@@ -39,11 +33,14 @@ public class DefaultJobContext implements JobContext {
     private final PropertyPlaceholderHelper placeholderHelper = new PropertyPlaceholderHelper("${", "}", ":", null, false);
 
     /**
-     * Creates the root {@link JobContext} for a job execution.
-     * @param applicationContext supplies the parent {@link BeanFactory} and fallback {@link Environment}
+     * Creates the root scope for a job execution.
+     * @param applicationContext supplies the parent {@link BeanFactory} and fallback
+     *                           {@link Environment}, or null for a standalone scope
      */
     public DefaultJobContext(ConfigurableApplicationContext applicationContext) {
-        this(null, applicationContext.getBeanFactory(), applicationContext.getEnvironment());
+        this(null,
+             applicationContext != null ? applicationContext.getBeanFactory() : null,
+             applicationContext != null ? applicationContext.getEnvironment() : null);
     }
 
     private DefaultJobContext(DefaultJobContext parent, BeanFactory parentBeanFactory, Environment fallbackEnvironment) {
@@ -80,35 +77,13 @@ public class DefaultJobContext implements JobContext {
     @Override
     public Object getProperty(String name) {
         Object ret = properties.get(name);
-        if(ret == null && parent != null){
+        if (ret == null && parent != null) {
             ret = parent.getProperty(name);
         }
-        if(ret == null && fallbackEnvironment != null){
+        if (ret == null && fallbackEnvironment != null) {
             ret = fallbackEnvironment.getProperty(name);
         }
         return ret;
-    }
-
-    @Override
-    public String resolvePlaceholders(String value) {
-        return placeholderHelper.replacePlaceholders(value, name -> Objects.toString(getProperty(name), null));
-    }
-
-    @Override
-    public <T> T evaluate(String spelExpression, Class<T> resultType) {
-        StandardEvaluationContext evalContext = new StandardEvaluationContext();
-        evalContext.setBeanResolver(new BeanFactoryResolver(beanFactory));
-
-        // Root-first so a child scope's value wins over an ancestor's for the same name
-        Deque<DefaultJobContext> chain = new ArrayDeque<>();
-        for(DefaultJobContext ctx = this; ctx != null; ctx = ctx.parent){
-            chain.addFirst(ctx);
-        }
-        for(DefaultJobContext ctx : chain){
-            evalContext.setVariables(ctx.properties);
-        }
-
-        return SPEL_PARSER.parseExpression(spelExpression).getValue(evalContext, resultType);
     }
 
     @Override
@@ -135,18 +110,28 @@ public class DefaultJobContext implements JobContext {
         beanFactory.registerSingleton(name, bean);
     }
 
-    @Override
-    public JobContext createChild() {
+    /**
+     * Creates a new scope with this one as its parent.
+     * @return the new child scope
+     */
+    public DefaultJobContext createChild() {
         return new DefaultJobContext(this, beanFactory, null);
     }
 
-    @Override
+    /**
+     * Destroys this scope, invoking {@code @PreDestroy} on everything it manages. The scope
+     * must not be used after this is called.
+     */
     public void destroy() {
-        for(Object instance : managedInstances){
+        for (Object instance : managedInstances) {
             beanFactory.destroyBean(instance);
         }
         managedInstances.clear();
         beanFactory.destroySingletons();
+    }
+
+    private String resolvePlaceholders(String value) {
+        return placeholderHelper.replacePlaceholders(value, name -> Objects.toString(getProperty(name), null));
     }
 
 }
