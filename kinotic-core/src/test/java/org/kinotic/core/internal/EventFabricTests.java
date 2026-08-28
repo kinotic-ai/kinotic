@@ -11,6 +11,7 @@ import org.kinotic.core.api.annotations.Consumer;
 import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.internal.api.event.DefaultEventBusService;
+import org.kinotic.core.internal.api.fabric.EventFabric;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.FatalBeanException;

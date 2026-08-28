@@ -1,4 +1,4 @@
-package org.kinotic.core.internal;
+package org.kinotic.core.internal.api.fabric;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +30,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * Wires {@link Emitter} and {@link Consumer} methods to the clustered event bus: an emitter's flux is
  * subscribed once and each element published to the topic address derived from the element type, and
  * one bus consumer per event type per node dispatches incoming events to every {@link Consumer}
- * method of that type. {@link EventFabricBeanPostProcessor} drives wiring from the bean lifecycle.
+ * method of that type. {@link org.kinotic.core.internal.EventFabricBeanPostProcessor} drives wiring
+ * from the bean lifecycle.
  *
  * Created by Navid Mitchell on 2026-08-23.
  */

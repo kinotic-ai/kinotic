@@ -1,4 +1,4 @@
-package org.kinotic.core.internal;
+package org.kinotic.core.internal.api.fabric;
 
 /**
  * One {@link org.kinotic.core.api.annotations.Consumer} method's membership in the {@link Downlink}

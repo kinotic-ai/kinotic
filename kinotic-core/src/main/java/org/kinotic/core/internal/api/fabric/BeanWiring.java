@@ -1,4 +1,4 @@
-package org.kinotic.core.internal;
+package org.kinotic.core.internal.api.fabric;
 
 import reactor.core.Disposable;
 

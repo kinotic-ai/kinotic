@@ -1,4 +1,4 @@
-package org.kinotic.core.internal;
+package org.kinotic.core.internal.api.fabric;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.core.api.event.EventConsumer;
