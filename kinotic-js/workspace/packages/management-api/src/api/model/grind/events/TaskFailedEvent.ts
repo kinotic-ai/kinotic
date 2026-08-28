@@ -1,20 +1,20 @@
-import { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
+import type { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
 
 /**
  * A task terminated with a failure.
  */
-export class TaskFailedEvent {
+export interface TaskFailedEvent {
 
-    public readonly type: JobRunEventType.TASK_FAILED = JobRunEventType.TASK_FAILED
+    readonly type: JobRunEventType.TASK_FAILED
 
     /**
      * The task's position in the run's task tree.
      */
-    public readonly taskPath: string = ''
+    readonly taskPath: string
 
     /**
      * The failure message.
      */
-    public readonly error: string = ''
+    readonly error: string
 
 }

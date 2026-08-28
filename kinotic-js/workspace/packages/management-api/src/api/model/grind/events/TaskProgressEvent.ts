@@ -1,26 +1,26 @@
-import { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
+import type { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
 
 /**
  * A running task reported its progress. Emitted between the task's TaskStartedEvent and its
  * terminal event, as often as the task reports.
  */
-export class TaskProgressEvent {
+export interface TaskProgressEvent {
 
-    public readonly type: JobRunEventType.TASK_PROGRESS = JobRunEventType.TASK_PROGRESS
+    readonly type: JobRunEventType.TASK_PROGRESS
 
     /**
      * The task's position in the run's task tree.
      */
-    public readonly taskPath: string = ''
+    readonly taskPath: string
 
     /**
      * How close the task is to completion, 0 to 100.
      */
-    public readonly percentageComplete: number = 0
+    readonly percentageComplete: number
 
     /**
      * What the task is currently doing, or null.
      */
-    public readonly message: string | null = null
+    readonly message: string | null
 
 }

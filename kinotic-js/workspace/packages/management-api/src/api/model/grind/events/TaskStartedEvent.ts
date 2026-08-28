@@ -1,20 +1,20 @@
-import { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
+import type { JobRunEventType } from '@/api/model/grind/events/JobRunEventType'
 
 /**
  * A task began executing.
  */
-export class TaskStartedEvent {
+export interface TaskStartedEvent {
 
-    public readonly type: JobRunEventType.TASK_STARTED = JobRunEventType.TASK_STARTED
+    readonly type: JobRunEventType.TASK_STARTED
 
     /**
      * The task's position in the run's task tree.
      */
-    public readonly taskPath: string = ''
+    readonly taskPath: string
 
     /**
      * The task's description.
      */
-    public readonly description: string | null = null
+    readonly description: string | null
 
 }
