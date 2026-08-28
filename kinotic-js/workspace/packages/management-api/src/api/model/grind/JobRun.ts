@@ -61,6 +61,12 @@ export class JobRun implements Identifiable<string> {
     public resumedFrom: string | null = null
 
     /**
+     * The id of the node executing this run. While the run executes, its live event stream is
+     * available only on this node, so watch requests are routed to it.
+     */
+    public nodeId: string | null = null
+
+    /**
      * When the run started executing, as epoch milliseconds.
      */
     public started: number | null = null

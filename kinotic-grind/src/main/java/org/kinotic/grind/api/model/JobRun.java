@@ -69,6 +69,12 @@ public class JobRun implements Identifiable<String> {
     private String resumedFrom;
 
     /**
+     * The id of the node executing this run. While the run executes, its live event stream is
+     * available only on this node, so watch requests are routed to it.
+     */
+    private String nodeId;
+
+    /**
      * When the run started executing.
      */
     private Date started;

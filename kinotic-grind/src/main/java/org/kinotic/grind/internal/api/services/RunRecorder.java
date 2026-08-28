@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.internal.api.repositories.JobRunRepository;
+import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.StoreType;
@@ -37,6 +37,7 @@ public class RunRecorder implements RunListener {
                        DefaultJobDefinition definition,
                        JobOwner owner,
                        String resumedFrom,
+                       String nodeId,
                        JobRunRepository repository) {
         this.jobRunId = jobRunId;
         this.repository = repository;
@@ -44,7 +45,8 @@ public class RunRecorder implements RunListener {
                                   .setName(definition.getName())
                                   .setVersion(definition.getVersion())
                                   .setDescription(definition.getDescription())
-                                  .setResumedFrom(resumedFrom);
+                                  .setResumedFrom(resumedFrom)
+                                  .setNodeId(nodeId);
         if (owner != null) {
             jobRun.setOrganizationId(owner.getOrganizationId())
                   .setApplicationId(owner.getApplicationId())

@@ -154,10 +154,16 @@ export function useJobRunProgress(jobRunId: string) {
   }
 
   function startWatching(): void {
+    const nodeId = run.value?.nodeId
+    if (!nodeId) {
+      // a run recorded before node routing existed - stay on the records
+      scheduleRefresh()
+      return
+    }
     live.value = true
-    subscription = Kinotic.jobMonitoring.watch(jobRunId).subscribe({
+    subscription = Kinotic.jobWatch.watch(nodeId, jobRunId).subscribe({
       next: applyEvent,
-      // the stream is unreachable (e.g. the run executes on another node) - stay on the records
+      // the stream is unreachable (e.g. the node is gone) - stay on the records
       error: () => {
         live.value = false
         scheduleRefresh()

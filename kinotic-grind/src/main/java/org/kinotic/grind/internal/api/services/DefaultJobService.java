@@ -1,6 +1,7 @@
 package org.kinotic.grind.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
@@ -9,7 +10,7 @@ import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.TaskRecord;
-import org.kinotic.grind.internal.api.repositories.JobRunRepository;
+import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.ReplayEntry;
@@ -48,15 +49,17 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
     private final RunThreadFactory runThreads;
+    private final Kinotic kinotic;
 
     private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
 
     private ConfigurableApplicationContext applicationContext;
 
-    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx) {
+    public DefaultJobService(JobRunRepository repository, ObjectMapper objectMapper, Vertx vertx, Kinotic kinotic) {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
         this.runThreads = new RunThreadFactory(vertx);
+        this.kinotic = kinotic;
     }
 
     @Override
@@ -67,7 +70,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
-        RunRecorder recorder = new RunRecorder(runId, definition, owner, null, repository);
+        RunRecorder recorder = new RunRecorder(runId, definition, owner, null,
+                                               kinotic.serverInfo().getNodeId(), repository);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
                 startRunThread(sink, runId, () -> interpreter(sink, runId, definition, recorder, Map.of()).run()));
@@ -82,7 +86,8 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
 
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
-        RunRecorder recorder = new RunRecorder(runId, definition, null, jobRunId, repository);
+        RunRecorder recorder = new RunRecorder(runId, definition, null, jobRunId,
+                                               kinotic.serverInfo().getNodeId(), repository);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
                 startRunThread(sink, runId, () -> {

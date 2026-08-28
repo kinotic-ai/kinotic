@@ -368,6 +368,7 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     status KEYWORD,
     error TEXT,
     resumedFrom KEYWORD,
+    nodeId KEYWORD,
     started DATE,
     finished DATE
 );

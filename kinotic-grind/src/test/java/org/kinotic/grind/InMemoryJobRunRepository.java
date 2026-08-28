@@ -2,7 +2,7 @@ package org.kinotic.grind;
 
 import io.vertx.core.Future;
 import org.kinotic.grind.api.model.JobRun;
-import org.kinotic.grind.internal.api.repositories.JobRunRepository;
+import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
 
 import java.util.Comparator;

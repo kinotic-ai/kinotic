@@ -1,4 +1,4 @@
-package org.kinotic.grind.internal.api.repositories;
+package org.kinotic.grind.api.repositories;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
