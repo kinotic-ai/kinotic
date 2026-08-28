@@ -12,17 +12,17 @@ export class TasksDiscoveredEvent {
     /**
      * The position of the task the discovered tasks belong under.
      */
-    public taskPath: string = ''
+    public readonly taskPath: string = ''
 
     /**
      * The discovered tasks, recorded PENDING, in discovery order.
      */
-    public tasks: TaskRecord[] = []
+    public readonly tasks: TaskRecord[] = []
 
     /**
      * True when the task at taskPath produced the discovery at runtime, false for the
      * definition's own tasks at the start of the run.
      */
-    public dynamic: boolean = false
+    public readonly dynamic: boolean = false
 
 }

@@ -128,6 +128,13 @@ export function useJobRunProgress(jobRunId: string) {
         }
         break
       }
+      default: {
+        // exhaustiveness: fails to compile when JobRunEvent gains a member this switch
+        // does not handle; at runtime an unknown event from a newer server is ignored
+        const unhandled: never = event
+        void unhandled
+        break
+      }
     }
   }
 

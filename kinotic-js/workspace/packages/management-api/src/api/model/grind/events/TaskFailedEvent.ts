@@ -10,11 +10,11 @@ export class TaskFailedEvent {
     /**
      * The task's position in the run's task tree.
      */
-    public taskPath: string = ''
+    public readonly taskPath: string = ''
 
     /**
      * The failure message.
      */
-    public error: string = ''
+    public readonly error: string = ''
 
 }

@@ -10,11 +10,11 @@ export class TaskStartedEvent {
     /**
      * The task's position in the run's task tree.
      */
-    public taskPath: string = ''
+    public readonly taskPath: string = ''
 
     /**
      * The task's description.
      */
-    public description: string | null = null
+    public readonly description: string | null = null
 
 }

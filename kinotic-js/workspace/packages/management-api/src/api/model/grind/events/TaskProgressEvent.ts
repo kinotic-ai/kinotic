@@ -11,16 +11,16 @@ export class TaskProgressEvent {
     /**
      * The task's position in the run's task tree.
      */
-    public taskPath: string = ''
+    public readonly taskPath: string = ''
 
     /**
      * How close the task is to completion, 0 to 100.
      */
-    public percentageComplete: number = 0
+    public readonly percentageComplete: number = 0
 
     /**
      * What the task is currently doing, or null.
      */
-    public message: string | null = null
+    public readonly message: string | null = null
 
 }
