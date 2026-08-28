@@ -161,7 +161,7 @@ export function useJobRunProgress(jobRunId: string) {
       return
     }
     live.value = true
-    subscription = Kinotic.jobWatch.watch(nodeId, jobRunId).subscribe({
+    subscription = Kinotic.jobMonitoring.watch(nodeId, jobRunId).subscribe({
       next: applyEvent,
       // the stream is unreachable (e.g. the node is gone) - stay on the records
       error: () => {
