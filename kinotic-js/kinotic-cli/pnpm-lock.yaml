@@ -16,19 +16,19 @@ importers:
         specifier: ^8.5.2
         version: 8.5.2(@types/node@25.9.5)
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.4
-        version: 5.0.0-beta.4(supports-color@8.1.1)
+        specifier: 5.0.0-beta.7
+        version: 5.0.0-beta.7
       '@kinotic-ai/idl':
-        specifier: ^5.0.0-beta.1
+        specifier: 5.0.0-beta.1
         version: 5.0.0-beta.1
       '@kinotic-ai/management-api':
-        specifier: ^5.0.0-beta.17
-        version: 5.0.0-beta.17(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))
+        specifier: 5.0.0-beta.21
+        version: 5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)
       '@kinotic-ai/persistence':
-        specifier: ^5.0.0-beta.4
-        version: 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))
+        specifier: 5.0.0-beta.7
+        version: 5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)
       '@kinotic-ai/spawn':
-        specifier: ^5.0.0-beta.1
+        specifier: 5.0.0-beta.1
         version: 5.0.0-beta.1
       '@oclif/core':
         specifier: ^4.13.3
@@ -53,7 +53,7 @@ importers:
         version: 12.1.1
       simple-git:
         specifier: 3.36.0
-        version: 3.36.0(supports-color@8.1.1)
+        version: 3.36.0
       ts-morph:
         specifier: ^27.0.2
         version: 27.0.2
@@ -72,10 +72,10 @@ importers:
         version: 6.2.2
       eslint:
         specifier: ^9.39.5
-        version: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
+        version: 9.39.5(jiti@2.7.0)
       eslint-config-prettier:
         specifier: ^10.1.8
-        version: 10.1.8(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
+        version: 10.1.8(eslint@9.39.5(jiti@2.7.0))
       mocha:
         specifier: ^11.8.0
         version: 11.8.0
@@ -449,26 +449,21 @@ packages:
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
     engines: {node: '>=12'}
 
-  '@kinotic-ai/core@5.0.0-beta.4':
-    resolution: {integrity: sha512-loAF90XFnlFRxHWtsgM2lR7FXXQ1O/WBYrELu+m7kNqRayWauQhikgXbwTf+OIUze8lLypBDanaRl80Crqzd0g==}
+  '@kinotic-ai/core@5.0.0-beta.7':
+    resolution: {integrity: sha512-pmqAzM3wb2TrAhZJGx47Dv7AxhxDNZupVkMoS4yQQtXRfgkHAu66+O1M3TqtIGdHJD7IKhrgfvbsAJ2erKKFCA==}
 
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/management-api@5.0.0-beta.17':
-    resolution: {integrity: sha512-P3VZMOcZMcileQUJOdnehgujZdjh+4pzcFPPLitsArcs71kE5hyKjSGRkB4RDlA9M4+CbH2SiQWFfzVF/59+uA==}
+  '@kinotic-ai/management-api@5.0.0-beta.21':
+    resolution: {integrity: sha512-UxHdcptEds5/MMwW4UseZ4MIjdIB+zfWHR7vYdoFQahLIUFq+l5Om7H2Tae3DPQBRsjbfhjegxrxxL9bIkQ1kg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.5'
+      '@kinotic-ai/core': '>=5.0.0-beta.7'
 
-  '@kinotic-ai/persistence@5.0.0-beta.4':
-    resolution: {integrity: sha512-IKkNHpVz4n6vDXNq4PzAANFSpiV1TgfhKbCo201qQw+wRlS8WS9U+3XQme8R3DDpfiyHLz70884IokXAuGQ+rg==}
+  '@kinotic-ai/persistence@5.0.0-beta.7':
+    resolution: {integrity: sha512-SaHGPDpI/BNgd5In4B1hdbEcpiu4dRQESca3Q7UWZYlMZ7SVMQWF0oRKhyAyEmc/jg+N3ZCeByPHtsWwPtAReg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.4'
-
-  '@kinotic-ai/persistence@5.0.0-beta.5':
-    resolution: {integrity: sha512-OhpkJbOvb1gcDHrbAi5F+OhXs9HzLOocTForm9J77HiryY7n3Dwr38A2ukm9MYsiO0mRdXGr7m20880iUzKQZQ==}
-    peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.5'
+      '@kinotic-ai/core': '>=5.0.0-beta.7'
 
   '@kinotic-ai/spawn@5.0.0-beta.1':
     resolution: {integrity: sha512-54l4rcIo3Z6kYxWCqfpagNm4KZXvDbOdlK6D9Kg9XdImH731nEhiws6OJ/EDHFnEU0ykUJU0vekmaw2Khs/EDw==}
@@ -1652,14 +1647,14 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@eslint-community/eslint-utils@4.10.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))':
+  '@eslint-community/eslint-utils@4.10.1(eslint@9.39.5(jiti@2.7.0))':
     dependencies:
-      eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
+      eslint: 9.39.5(jiti@2.7.0)
       eslint-visitor-keys: 3.4.3
 
   '@eslint-community/regexpp@4.12.2': {}
 
-  '@eslint/config-array@0.21.2(supports-color@8.1.1)':
+  '@eslint/config-array@0.21.2':
     dependencies:
       '@eslint/object-schema': 2.1.7
       debug: 4.4.3(supports-color@8.1.1)
@@ -1675,7 +1670,7 @@ snapshots:
     dependencies:
       '@types/json-schema': 7.0.15
 
-  '@eslint/eslintrc@3.3.6(supports-color@8.1.1)':
+  '@eslint/eslintrc@3.3.6':
     dependencies:
       ajv: 6.15.0
       debug: 4.4.3(supports-color@8.1.1)
@@ -1842,7 +1837,7 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1)':
+  '@kinotic-ai/core@5.0.0-beta.7':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.43.0
@@ -1861,22 +1856,16 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/management-api@5.0.0-beta.17(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))':
+  '@kinotic-ai/management-api@5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.4(supports-color@8.1.1)
+      '@kinotic-ai/core': 5.0.0-beta.7
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))
+      '@kinotic-ai/persistence': 5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))':
+  '@kinotic-ai/persistence@5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.4(supports-color@8.1.1)
-      '@kinotic-ai/idl': 5.0.0-beta.1
-      rxjs: 7.8.2
-
-  '@kinotic-ai/persistence@5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.4(supports-color@8.1.1))':
-    dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.4(supports-color@8.1.1)
+      '@kinotic-ai/core': 5.0.0-beta.7
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
@@ -1885,7 +1874,7 @@ snapshots:
       liquidjs: 10.28.0
       zod: 4.4.3
 
-  '@kwsites/file-exists@1.1.1(supports-color@8.1.1)':
+  '@kwsites/file-exists@1.1.1':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
@@ -2215,9 +2204,9 @@ snapshots:
 
   escape-string-regexp@4.0.0: {}
 
-  eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1)):
+  eslint-config-prettier@10.1.8(eslint@9.39.5(jiti@2.7.0)):
     dependencies:
-      eslint: 9.39.5(jiti@2.7.0)(supports-color@8.1.1)
+      eslint: 9.39.5(jiti@2.7.0)
 
   eslint-scope@8.4.0:
     dependencies:
@@ -2228,14 +2217,14 @@ snapshots:
 
   eslint-visitor-keys@4.2.1: {}
 
-  eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1):
+  eslint@9.39.5(jiti@2.7.0):
     dependencies:
-      '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0)(supports-color@8.1.1))
+      '@eslint-community/eslint-utils': 4.10.1(eslint@9.39.5(jiti@2.7.0))
       '@eslint-community/regexpp': 4.12.2
-      '@eslint/config-array': 0.21.2(supports-color@8.1.1)
+      '@eslint/config-array': 0.21.2
       '@eslint/config-helpers': 0.4.2
       '@eslint/core': 0.17.0
-      '@eslint/eslintrc': 3.3.6(supports-color@8.1.1)
+      '@eslint/eslintrc': 3.3.6
       '@eslint/js': 9.39.5
       '@eslint/plugin-kit': 0.4.1
       '@humanfs/node': 0.16.8
@@ -2775,9 +2764,9 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-git@3.36.0(supports-color@8.1.1):
+  simple-git@3.36.0:
     dependencies:
-      '@kwsites/file-exists': 1.1.1(supports-color@8.1.1)
+      '@kwsites/file-exists': 1.1.1
       '@kwsites/promise-deferred': 1.1.1
       '@simple-git/args-pathspec': 1.0.3
       '@simple-git/argv-parser': 1.1.1
