@@ -36,7 +36,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
 
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
-    private final ServiceRegistry serviceRegistry;
+    // Resolved through a provider rather than injected directly: a BeanPostProcessor's constructor
+    // dependencies are instantiated during the post-processor registration phase, and the registry's
+    // own dependencies (Vertx, EventBusService, Kinotic) would come up before the rest of the context
+    // and be ineligible for later post-processors. The first @Publish bean materializes the registry
+    // during ordinary singleton initialization instead.
+    private final ObjectProvider<ServiceRegistry> serviceRegistryProvider;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
 
     @Override
@@ -47,7 +52,8 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Registering Service {}", serviceIdentifier);
 
             try {
-                serviceRegistry.register(serviceIdentifier, clazz, bean)
+                serviceRegistryProvider.getObject()
+                               .register(serviceIdentifier, clazz, bean)
                                .toCompletionStage()
                                .toCompletableFuture()
                                .join();
@@ -80,7 +86,8 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Un-Registering Service {}", serviceIdentifier);
 
             try {
-                serviceRegistry.unregister(serviceIdentifier)
+                serviceRegistryProvider.getObject()
+                               .unregister(serviceIdentifier)
                                .toCompletionStage()
                                .toCompletableFuture()
                                .join();

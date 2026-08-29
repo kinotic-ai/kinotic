@@ -8,6 +8,7 @@ import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.core.internal.api.event.fabric.EventFabric;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ReflectionUtils;
@@ -33,7 +34,15 @@ public class EventFabricBeanPostProcessor implements DestructionAwareBeanPostPro
             !method.isSynthetic()
                     && (method.isAnnotationPresent(Emitter.class) || method.isAnnotationPresent(Consumer.class));
 
-    private final EventFabric eventFabric;
+    // Resolved through a provider rather than injected directly: a BeanPostProcessor's constructor
+    // dependencies are instantiated during the post-processor registration phase, which would drag
+    // EventBusService and Vertx up before the rest of the context and leave them ineligible for
+    // later post-processors. The first bean carrying fabric methods materializes the fabric during
+    // ordinary singleton initialization instead.
+    private final ObjectProvider<EventFabric> eventFabricProvider;
+
+    // Cached on first wiring; null means the fabric was never created, so no bean is wired
+    private volatile EventFabric eventFabric;
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
@@ -48,14 +57,14 @@ public class EventFabricBeanPostProcessor implements DestructionAwareBeanPostPro
                 }
                 try {
                     if(method.isAnnotationPresent(Emitter.class)){
-                        eventFabric.wireEmitter(bean, method);
+                        eventFabric().wireEmitter(bean, method);
                     }else{
                         // Blocking until registration completes makes startup ordering deterministic,
                         // the same trade ServiceRegistrationBeanPostProcessor makes for service registration
-                        eventFabric.wireConsumer(bean, method)
-                                   .toCompletionStage()
-                                   .toCompletableFuture()
-                                   .join();
+                        eventFabric().wireConsumer(bean, method)
+                                     .toCompletionStage()
+                                     .toCompletableFuture()
+                                     .join();
                     }
                 } catch (IllegalArgumentException e) {
                     throw new FatalBeanException("Invalid event fabric wiring on bean " + beanName, e);
@@ -71,11 +80,22 @@ public class EventFabricBeanPostProcessor implements DestructionAwareBeanPostPro
 
     @Override
     public boolean requiresDestruction(Object bean) {
-        return eventFabric.isWired(bean);
+        EventFabric fabric = eventFabric;
+        return fabric != null && fabric.isWired(bean);
     }
 
     @Override
     public void postProcessBeforeDestruction(Object bean, String beanName) throws BeansException {
+        // Only reached for beans requiresDestruction accepted, so the fabric exists
         eventFabric.unwire(bean);
+    }
+
+    private EventFabric eventFabric() {
+        EventFabric fabric = eventFabric;
+        if(fabric == null){
+            fabric = eventFabricProvider.getObject();
+            eventFabric = fabric;
+        }
+        return fabric;
     }
 }
