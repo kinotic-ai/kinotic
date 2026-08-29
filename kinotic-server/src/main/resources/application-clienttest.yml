@@ -1,9 +1,10 @@
 kinotic:
   # A lightweight gateway for the @kinotic-ai/core RPC tests — domain/persistence/management-api/github
   # are all off, so TestSecurityService handles STOMP auth and no Elasticsearch is required.
-  # System-api goes off with them: its repositories extend the domain
+  # System-api and grind go off with them: their repositories extend the domain
   # AbstractRepository, which needs CrudServiceTemplate.
   disableDomain: true
+  disableGrind: true
   disableManagement: true
   disablePersistence: true
   disableSystemApi: true
