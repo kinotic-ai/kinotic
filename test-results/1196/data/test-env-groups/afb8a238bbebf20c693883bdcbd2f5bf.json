@@ -1,0 +1,1 @@
+{"id":"afb8a238bbebf20c693883bdcbd2f5bf","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenCreateTableIfNotExists_thenNoErrorOnSecondCreate","name":"whenCreateTableIfNotExists_thenNoErrorOnSecondCreate()","status":"broken","testResultsByEnv":{"default":"c2d59aaa6a03ab33016a35ddc29a6c6d"}}
