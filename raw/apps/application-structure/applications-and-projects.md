@@ -25,7 +25,7 @@ the project repository. It is a TypeScript module exporting a `KinoticProjectCon
 your editor type-checks it:
 
 ```ts
-import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import type { KinoticProjectConfig } from '@kinotic-ai/management-api'
 
 const config: KinoticProjectConfig = {
   organizationId: "my-org",

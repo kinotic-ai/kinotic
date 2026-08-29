@@ -58,6 +58,9 @@
     <loc>/apps/deployment/environments</loc>
   </url>
   <url>
+    <loc>/apps/deployment/push-to-deploy</loc>
+  </url>
+  <url>
     <loc>/apps/cli-reference</loc>
   </url>
   <url>
@@ -98,5 +101,8 @@
   </url>
   <url>
     <loc>/platform/reference/cri-format</loc>
+  </url>
+  <url>
+    <loc>/platform/reference/grind-jobs</loc>
   </url>
 </urlset>

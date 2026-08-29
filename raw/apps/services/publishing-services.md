@@ -30,7 +30,7 @@ Every service address lives in a zone — the isolation boundary the gateway val
 
 ```typescript
 import { Kinotic } from '@kinotic-ai/core'
-import { appZone } from '@kinotic-ai/os-api'
+import { appZone } from '@kinotic-ai/management-api'
 import config from './.config/kinotic.config'
 
 // In your application's entry point, before any @Publish class is instantiated

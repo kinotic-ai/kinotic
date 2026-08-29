@@ -47,19 +47,19 @@ The server reads workload logs from Grafana Loki (see [Observability](/platform/
   <tr>
     <td>
       <code>
-        kinotic.domain.loki.url
+        kinotic.managementApi.loki.url
       </code>
     </td>
     
     <td>
       <code>
-        KINOTIC_DOMAIN_LOKI_URL
+        KINOTIC_MANAGEMENTAPI_LOKI_URL
       </code>
     </td>
     
     <td>
       <code>
-        kinotic.domain.loki.url
+        kinotic.managementApi.loki.url
       </code>
     </td>
     
@@ -537,6 +537,227 @@ Each node re-checks these and sends what it can no longer guarantee with its hea
 A workload's `diskSizeMb` caps the guest rootfs, which is sparse and grows up to that cap. Host directories a workload mounts through `volumeMounts` are not part of it — their contents are bound from the host filesystem and are not counted against the node's disk.
 
 On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: the node mounts a log directory into every workload's VM, and boxlite supports two mounts per VM in total, so a second declared mount is rejected when the workload is started. `CLOUD_HYPERVISOR` nodes impose no such limit and capture logs without a mount.
+
+## Project deployment
+
+The system server deploys a project on every push to its repository's default branch (see
+[Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs two workloads per
+project — a short-lived sync VM per deployment and one long-lived runtime VM — configured
+under `kinotic.systemApi.deployment.*`:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        serverHost
+      </code>
+    </td>
+    
+    <td>
+      <strong>
+        required
+      </strong>
+    </td>
+    
+    <td>
+      Host the deployed workloads use to reach the api-gateway (<code>
+        KINOTIC_SERVER_HOST
+      </code>
+      
+       in the guest). The server has no advertised address of its own, so startup fails without it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        serverPort
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        58503
+      </code>
+    </td>
+    
+    <td>
+      Port the deployed workloads use to reach the api-gateway
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        serverUseSsl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Whether the deployed workloads reach the api-gateway over TLS
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        workloadRunnerImage
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        ghcr.io/kinotic-ai/workload-runner:latest
+      </code>
+    </td>
+    
+    <td>
+      OCI image both workloads run — the checkout/sync entrypoint and the microservice supervisor
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        syncAllowedHosts
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        []
+      </code>
+    </td>
+    
+    <td>
+      Destinations (IPv4 addresses or CIDRs) the sync workload may reach beyond the gateway — the repository host's ranges, so <code>
+        git fetch
+      </code>
+      
+       works under default-deny egress
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        runtimeAllowedHosts
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        []
+      </code>
+    </td>
+    
+    <td>
+      Destinations the runtime workload may reach beyond the gateway
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        serverAllowedHosts
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        []
+      </code>
+    </td>
+    
+    <td>
+      Destinations that resolve the gateway itself, granted to both workloads on top of the lists above
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        syncMemoryMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        2048
+      </code>
+    </td>
+    
+    <td>
+      Memory of the sync VM — it compiles the project's entity sources, which needs more headroom than serving does
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        syncMountLimitMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        4096
+      </code>
+    </td>
+    
+    <td>
+      Size cap on the project checkout mount (clone plus installs), enforced by the node's filesystem quota
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        runtimeMemoryMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        1024
+      </code>
+    </td>
+    
+    <td>
+      Memory of the runtime VM
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The pipeline also requires the GitHub module (it mints the short-lived fetch token from
+the org's App installation) and at least one online node advertising a workload data
+directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
+the node that first deployed it, mounted read-write into the sync VM and read-only into
+the runtime VM.
 
 ## Workload storage and log limits
 

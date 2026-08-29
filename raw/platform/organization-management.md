@@ -290,7 +290,7 @@ Email verification is the security gate — no `Organization` or `ParticipantIde
     token, and binds the installation only when GitHub's /user/installations reports
     that user can access it (see [Defense in Depth](/platform/defense-in-depth)). It
     then lands on /applications — project creation requires the install, so the new org
-    arrives ready. If the install can't start (e.g. a kinotic.disableGithub deployment)
+    arrives ready. If the install can't start (e.g. a kinotic.disableManagement deployment)
     the page falls back to /applications directly.
 ```
 

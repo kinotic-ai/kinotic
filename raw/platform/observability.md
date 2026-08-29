@@ -198,7 +198,7 @@ Loki runs multi-tenant. A workload's logs are stored in its organization's tenan
 
 ### Reading workload logs
 
-The `LogService` (`@kinotic-ai/os-api`) streams (`tail`) and queries (`history`) the logs of workloads the caller may view: an organization participant sees its own organization's workloads, a system participant sees any. Both methods return raw Loki response bytes for the caller to parse.
+The `LogService` (`@kinotic-ai/management-api`) streams (`tail`) and queries (`history`) the logs of workloads the caller may view: an organization participant sees its own organization's workloads, a system participant sees any. Both methods return raw Loki response bytes for the caller to parse.
 
 ### Configuration
 
@@ -219,11 +219,11 @@ The `LogService` (`@kinotic-ai/os-api`) streams (`tail`) and queries (`history`)
   <tr>
     <td>
       <code>
-        kinotic.domain.loki.url
+        kinotic.managementApi.loki.url
       </code>
       
        / <code>
-        KINOTIC_DOMAIN_LOKI_URL
+        KINOTIC_MANAGEMENTAPI_LOKI_URL
       </code>
       
        (server)

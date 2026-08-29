@@ -19,7 +19,7 @@ Everything in brackets (`[]`) is optional.
 Every part keeps the case it was written with, and addresses match by exact string comparison — `OrderService` and `OrderService` are two different addresses. Service names carry the case of the class that published them, so a typical address looks like:
 
 ```text
-srv://os-api~org.kinotic.os.api.services.ProjectService/findByRepoFullName
+srv://management-api~org.kinotic.management.api.services.ProjectService/findByRepoFullName
 ```
 
 ## Components
@@ -128,7 +128,7 @@ The optional zone places the resource in the isolation boundary the gateway vali
   <tr>
     <td>
       <code>
-        os-api
+        management-api
       </code>
     </td>
     
@@ -140,7 +140,7 @@ The optional zone places the resource in the isolation boundary the gateway vali
   <tr>
     <td>
       <code>
-        system
+        system-api
       </code>
     </td>
     
@@ -151,7 +151,7 @@ The optional zone places the resource in the isolation boundary the gateway vali
 </tbody>
 </table>
 
-Organization and application ids become zone labels, but only ever after the `app` prefix, so they cannot collide with the platform's own zones. The one exception is guarded explicitly: creating an organization or application whose name slugifies to `system` is rejected.
+Organization and application ids become zone labels, but only ever after the `app` prefix, so they cannot collide with the platform's own zones. The one exception is guarded explicitly: creating an organization or application whose name slugifies to `system-api` is rejected.
 
 Which zones a connection may address is determined by the authenticated participant. A participant may also address any sub-zone of a zone it is allowed, so `app.acme-org.orders-app.billing` is reachable by whoever may reach `app.acme-org.orders-app`. An address without a `~` carries no zone at all and is only reachable by system participants.
 
@@ -200,7 +200,7 @@ Which zones a connection may address is determined by the authenticated particip
     
     <td>
       <code>
-        os-api
+        management-api
       </code>
       
       , <code>
@@ -232,7 +232,7 @@ Which zones a connection may address is determined by the authenticated particip
     
     <td>
       <code>
-        system
+        system-api
       </code>
     </td>
   </tr>
@@ -244,7 +244,7 @@ Which zones a connection may address is determined by the authenticated particip
 The name of the resource being addressed, excluding the zone. For services, this is the fully qualified service name. For streams, this is the event type name.
 
 ```text
-srv://os-api~com.example.UserService
+srv://management-api~com.example.UserService
 stream://app.acme-org.orders-app~temperature
 ```
 
@@ -253,7 +253,7 @@ stream://app.acme-org.orders-app~temperature
 An optional path that identifies a specific part of the resource, such as a method name on a service. The path's case is preserved.
 
 ```text
-srv://os-api~com.example.UserService/findById
+srv://management-api~com.example.UserService/findById
 stream://app.acme-org.orders-app~temperature/sensor-1
 ```
 
@@ -262,8 +262,8 @@ stream://app.acme-org.orders-app~temperature/sensor-1
 An optional semantic version for the resource. Enables versioned service routing so multiple versions of a service can coexist.
 
 ```text
-srv://os-api~com.example.UserService/findById#1.0.0
-srv://os-api~com.example.UserService#2.0.0
+srv://management-api~com.example.UserService/findById#1.0.0
+srv://management-api~com.example.UserService#2.0.0
 ```
 
 ## Factory Function
@@ -274,16 +274,16 @@ The `createCRI` function provides several overloads for constructing CRI instanc
 import { createCRI } from '@kinotic-ai/core'
 
 // From a raw string
-const cri1 = createCRI('srv://os-api~com.example.UserService/findById#1.0.0')
+const cri1 = createCRI('srv://management-api~com.example.UserService/findById#1.0.0')
 
 // From scheme and resource name (which may carry a zone)
-const cri2 = createCRI('srv', 'os-api~com.example.UserService')
+const cri2 = createCRI('srv', 'management-api~com.example.UserService')
 
 // From scheme, scope, and resource name
 const cri3 = createCRI('stream', 'tenant-123', 'app.acme-org.orders-app~orders')
 
 // From all components
-const cri4 = createCRI('srv', null, 'os-api~com.example.UserService', 'findById', '1.0.0')
+const cri4 = createCRI('srv', null, 'management-api~com.example.UserService', 'findById', '1.0.0')
 ```
 
 ### CRI Interface
@@ -326,13 +326,13 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   <tr>
     <td>
       <code>
-        srv://os-api~org.kinotic.os.api.services.security.MemberService
+        srv://management-api~org.kinotic.management.api.services.security.MemberService
       </code>
     </td>
     
     <td>
       A platform service in the <code>
-        os-api
+        management-api
       </code>
       
        zone
@@ -378,7 +378,7 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   <tr>
     <td>
       <code>
-        srv://system~org.kinotic.orchestrator.api.services.WorkloadOrchestrationService
+        srv://system-api~org.kinotic.system.api.services.WorkloadOrchestrationService
       </code>
     </td>
     
@@ -402,7 +402,7 @@ cri.raw()           // 'srv://tenant-123@app.acme-org.orders-app~OrderService/pl
   <tr>
     <td>
       <code>
-        srv://node1@system~kinotic-ai.vm-manager.VmManager
+        srv://node1@system-api~kinotic-ai.vm-manager.VmManager
       </code>
     </td>
     

@@ -37,12 +37,12 @@ We welcome contributions to Kinotic OS. This guide covers the repository structu
   <tr>
     <td>
       <code>
-        kinotic-os-api/
+        kinotic-management-api/
       </code>
     </td>
     
     <td>
-      Domain model and OS API services — application, project, and cluster management
+      Domain model and management API services — application, project, and cluster management
     </td>
   </tr>
   

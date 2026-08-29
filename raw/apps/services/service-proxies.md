@@ -30,7 +30,7 @@ export class NotificationService implements INotificationService {
 
     constructor(kinotic: IKinotic) {
         // A proxy targets the service's full address, including its zone (see CRI Format).
-        // A platform service is reached in os-api or app-api; an application's own service
+        // A platform service is reached in management-api or app-api; an application's own service
         // is reached in its app zone, e.g. app.acme-org.orders-app~com.example.NotificationService
         this.serviceProxy = kinotic.serviceProxy('app.acme-org.orders-app~com.example.NotificationService')
     }

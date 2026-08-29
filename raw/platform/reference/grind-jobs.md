@@ -1,0 +1,208 @@
+# Grind Jobs
+
+> The declarative job framework for long-running platform work.
+
+## Overview
+
+Grind (the `kinotic-grind` module) is the platform's job framework: multi-step work such as a project deployment or a provisioning pipeline, expressed as a **job** of **tasks** that share a scope. Its core idea is declarative state injection — instead of threading an ever-growing context object through every step, each task declares what it consumes, injected from the job scope, and what it produces, stored back under a `Store`. Every run is recorded, resumable after a failure, and observable as a live event stream.
+
+## Defining a job
+
+A `JobDefinition` is built fluently. Tasks execute in the order they are added, and each task's result is kept according to the `Store` given with it:
+
+```java
+JobDefinition job = JobDefinition.create("Deploy project")
+        .name("project-deploy").version("1")
+        .input(project)                       // seeds the scope before the first task
+        .task(Tasks.fromCallable("Resolve deploy target", new Callable<DeployTarget>() {
+
+            @Autowired
+            private Project project;          // injected from the job scope
+
+            @Override
+            public DeployTarget call() {
+                return resolveTarget(project);
+            }
+        }), Store.state("deployTarget"))
+        .task(Tasks.fromCallable("Sync project source", new Callable<String>() {
+
+            @Autowired
+            private DeployTarget target;      // stored by the previous task
+
+            @Override
+            public String call() {
+                return syncSource(target);
+            }
+        }));
+```
+
+`name` and `version` identify the job across runs and are required to run it. `input(...)` stores values in the scope as beans, so the first task's dependencies resolve the same way as any other.
+
+Definitions nest: `jobDefinition(...)` adds a whole `JobDefinition` as one task of another. A nested definition declares a `JobScope` — `CHILD` (the default) gives it a scope of its own that is destroyed when it finishes, while `PARENT` lets it store directly into its parent's scope. Passing `parallel = true` to `JobDefinition.create` makes the definition's tasks execute concurrently; the first failure cancels the in-flight siblings.
+
+### Task factories
+
+The `Tasks` class adapts plain functional types into tasks. The instance-taking factories inject the given instance's `@Autowired` and `@Value` members against the job scope before invoking it:
+
+- `Tasks.fromCallable(description, callable)` — the result is the callable's return value
+- `Tasks.fromSupplier(description, supplier)` / `Tasks.fromRunnable(description, runnable)`
+- `Tasks.fromValue(description, value)` — a constant
+- `Tasks.fromClass(description, callableClass)` — a new instance is constructed on each execution, with full injection against the scope
+- `Tasks.noop(description)` — does nothing
+- `Tasks.transformResult(task, transformer)` — maps another task's result
+
+### Task classes
+
+A whole job can be one annotated class, compiled with `JobDefinition.fromTasks(...)`. Each `@Task` method is a task, executed in `order`; parameters are injected from the scope by type, and the return value is stored back under the method's `store` mode with a name derived from the returned type:
+
+```java
+public class ProvisioningTasks {
+
+    @Task(order = 1)
+    public ClusterSpec resolveCluster(Project project) { ... }   // stored as "clusterSpec"
+
+    @Task(order = 2, store = StoreType.STATE)
+    public TopicPlan planTopics(ClusterSpec cluster) { ... }     // durable decision
+
+}
+
+JobDefinition job = JobDefinition.fromTasks(ProvisioningTasks.class)
+                                 .name("provision-kafka").version("1");
+```
+
+The class is instantiated once per run with constructor arguments resolved against the application context — it is never a Spring bean itself. Compilation fails fast on duplicate orders and on a task consuming a type that only a later task produces.
+
+## The job scope
+
+`JobContext` is the scope tasks share. Values stored by earlier tasks are available to later ones: beans by type through `@Autowired` injection or `getBean(Class)`, named values through `@Value("${name}")` or `getProperty(String)`. Lookups fall through parent scopes down to the application's own beans and configuration, so a task can inject platform services and job-produced values through the same mechanism.
+
+## Storing results
+
+How a value behaves on resume and whether watchers of the run may see it are independent choices, declared together on an immutable `Store`:
+
+```java
+.task(task)                               // keep nothing
+.task(task, Store.none().wire())          // keep nothing, publish to watchers
+.task(task, Store.result("widget"))       // scope value, re-derived on resume
+.task(task, Store.result("widget").wire())
+.task(task, Store.state("decision"))      // durable, replayed on resume
+.task(task, Store.state("decision").wire())
+```
+
+The `StoreType` axis answers *what survives a resume*:
+
+- **NONE** — the value is discarded. On resume a completed task is skipped.
+- **RESULT** — the value is stored in the scope but not persisted. On resume the task re-executes to regenerate it — or its declared reload task runs instead: `Store.result("workload").reload(reloadTask)` pairs a task that creates external state with the task that reloads it from its source of truth, so the creation is never repeated.
+- **STATE** — the value is stored in the scope and serialized into the run's `TaskRecord`. On resume it is replayed from the record without executing. The value must survive a JSON round trip: a plain class or record with concrete field types. Generic values such as `List`, `Map`, and `Optional` are rejected at completion, because type erasure would make the record unrestorable.
+
+The `wire()` axis answers *who may see it*: a wired value is serialized as JSON onto the run's `TaskCompletedEvent`, so watchers — including remote ones, which never receive live objects — can read it. Publication rides the event stream only — a watcher joining mid-run replays it, and what outlives the run is decided by the `StoreType` alone. Durable state stays private unless it opts in, a result store can publish without being durable, and `Store.none().wire()` publishes a value that exists only for observers. Wire values only have to serialize, never deserialize, so the `STATE` restrictions on generics do not apply to them.
+
+Use `STATE` for decisions and allocations the rest of the run depends on; use `RESULT` for lookups whose source of truth can answer again; add `wire()` for any value the run's watchers need, such as the workload id a deploy task allocates so the UI can tail that workload's logs mid-run.
+
+## Dynamic tasks
+
+Structure can be decided at runtime: a task may return another `Task`, or a whole `JobDefinition`, instead of a value. The returned work is discovered, reported to watchers as a `TasksDiscoveredEvent` flagged `dynamic` and carrying the producing task's path, and executed in place under that path. A dynamic `Task` inherits the producing task's `Store`.
+
+## Asynchronous results and Vert.x
+
+A task may return its value directly, or asynchronously as a `CompletionStage`, a Vert.x `Future`, or a `Publisher` (whose last emission is the value) — the framework awaits it before storing.
+
+Every run executes on its own Vert.x virtual-thread context, and each parallel child gets its own. Inside a task, `Vertx.currentContext()` resolves, context-locals such as the platform `SecurityContext` participant work, blocking is permitted, and Vert.x futures can be awaited in place:
+
+```java
+String answer = vertx.timer(20).map(v -> "ticked").await();   // parks the virtual thread
+```
+
+## Running and watching
+
+`JobService` executes definitions:
+
+```java
+JobRunHandle handle = jobService.run(job, JobOwner.ofApplication(orgId, appId));
+```
+
+`JobOwner` records which tier the run executes on behalf of — `system()`, `ofOrganization(...)`, or `ofApplication(...)` — so runs can be filtered by owner.
+
+The handle pairs the persistent run's id with the run's event stream. **Execution is lazy**: nothing runs until the first subscriber attaches to `handle.getEvents()`, the job executes exactly once no matter how many subscribers attach, and every subscriber replays the full event history from the beginning. `handle.completion()` returns a future for the terminal outcome (subscribing, and so starting the run, if nothing else has), and `handle.cancel()` aborts the run, recording it as `CANCELLED`.
+
+The stream emits the sealed `JobRunEvent` family, each carrying the task's `taskPath` — its `/`-separated position in the run's task tree:
+
+- **TasksDiscoveredEvent** — the task tree, at the start of the run and again as dynamic tasks appear; its `dynamic` flag says which, so watchers can mark the producing task the moment it reveals a subtree
+- **TaskStartedEvent** — a task began executing
+- **TaskProgressEvent** — a running task reported progress: a percentage and a message
+- **TaskCompletedEvent** — a task finished, carrying what it stored: the live value for in-process subscribers, and the JSON `wireValue` for wired stores
+- **TaskFailedEvent** — a task terminated with a failure
+
+The stream completes when the run does, and errors with the run's failure.
+
+A run's live stream exists only in the process executing it. The run records the executing
+node's id as `JobRun.nodeId`, so remote watchers route their watch request to that node - in a
+cluster, any node can serve the persisted runs and records, while the live stream comes from
+the one node named on the run.
+
+## Reporting progress
+
+Every job scope carries a `ProgressReporter`, so a task with known progress injects it like any other dependency and reports as it works:
+
+```java
+@Task(order = 1)
+public void pullImage(ProgressReporter progress) {
+    progress.report(30, "downloading layers");
+    progress.report(80, "extracting");
+}
+```
+
+Each report reaches watchers as a `TaskProgressEvent` attributed to the reporting task. Reports attach to the task executing on the calling thread, so a report made from a thread the task spawned itself is dropped. Progress is stream-only — it is not persisted with the run's records. Run-level progress needs no reports at all: watchers compute it from the discovered task tree and the completion events.
+
+## Resuming a run
+
+A `FAILED` or `CANCELLED` run can be resumed with a definition whose `name` and `version` match the recorded run:
+
+```java
+JobRunHandle resumed = jobService.resume(originalRunId, buildJob());
+```
+
+The resumed run is a new run — with its own id and records, linked to the original through `resumedFrom` and owned by whoever owned the original. Tasks the original run completed are handled by their `StoreType` as described above: skipped, re-run or reloaded, or replayed. A task that produced dynamic tasks re-executes so the dynamic structure is regenerated; the regenerated tasks then consult the original run's records at their own paths.
+
+## Run records
+
+Every run persists a `JobRun` — name, version, owner, status, timestamps, error, `resumedFrom`, and the `nodeId` of the executing node — and one `TaskRecord` per task: its `taskPath`, description, status, timestamps, `storeType` and `storedName`, the serialized `STATE` value in `stateValue`, and the failure message when it failed. The records are the run's durable history: what a dashboard renders after the event stream is gone, and what a resume replays from.
+
+## Watching a run remotely
+
+`JobService.watchRun(jobRunId)` attaches to a run executing in this process, replaying it from the start; it returns an empty stream for a run that has finished or never started, and subscribing never starts one. `JobMonitoringService` publishes that stream, and the records behind it, to remote callers in the management-api zone. Each node publishes its own instance, scoped by its node id: the finders are `@ScopeOptional`, so any instance answers an unscoped call, while `watch` must be invoked with the scope recorded on `JobRun.nodeId` — the node whose process holds the live stream:
+
+```java
+@Publish
+public interface JobMonitoringService {
+
+    @Scope
+    String nodeId();
+
+    @ScopeOptional
+    Future<Page<JobRun>> findJobRuns(Pageable pageable);
+
+    @ScopeOptional
+    Future<JobRun> findJobRun(String jobRunId);
+
+    @ScopeOptional
+    Future<Page<TaskRecord>> findTasks(String jobRunId, Pageable pageable);
+
+    Flux<JobRunEvent> watch(String jobRunId);
+
+}
+```
+
+Every call is authorized against the run's recorded owner: an organization or application participant sees only the runs its organization owns, a system participant sees every run. Events cross the wire as JSON carrying a `type` discriminator, and a `TaskCompletedEvent` arrives carrying only its `wireValue` — the live `storedValue` never leaves the executing process:
+
+```json
+{
+  "type": "taskCompleted",
+  "taskPath": "0/3",
+  "storeType": "RESULT",
+  "storedName": "runtimeWorkloadId",
+  "wireValue": "wl-8f21"
+}
+```
+
+A run that is no longer live is rendered from `findJobRun` and `findTasks` alone, so a watcher that reaches a finished run sees the same history the stream would have delivered.
