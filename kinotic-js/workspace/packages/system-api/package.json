@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/system-api",
-  "version": "5.0.0-beta.1",
+  "version": "5.0.0-beta.2",
   "type": "module",
   "description": "Client API for the Kinotic platform's system plane: the workload and node orchestration services platform machines and operators use.",
   "files": [
@@ -41,7 +41,7 @@
     "@kinotic-ai/management-api": "workspace:*"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.5"
+    "@kinotic-ai/core": ">=5.0.0-beta.6"
   },
   "devDependencies": {
     "@kinotic-ai/core": "workspace:*",
