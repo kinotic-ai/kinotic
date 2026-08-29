@@ -24,8 +24,35 @@ jobs:
     name: Prune Staged Images
     runs-on: ubuntu-latest
     permissions:
+      actions: read
+      contents: read
       packages: write
     steps:
+      # A run stages sha-<commit> in build/migration_image and pulls it back in the suites that
+      # follow, so any commit whose run has not finished is still live no matter how old the image
+      # is. older-than alone does not settle this: it filters on the package version's updated_at,
+      # and a rebuild of an unchanged commit does not always advance that. Archives are byte
+      # identical for identical inputs (java-common-conventions.gradle sets preserveFileTimestamps
+      # and reproducibleFileOrder) and CNB pins the image creation date, so the nightly rebuild of a
+      # branch tip that has not moved re-pushes the digest already on the tag — a no-op push, and
+      # updated_at can still read from the first build a month earlier. Hence both branch tips are
+      # protected too: they are what the next scheduled run, or a re-run of the last one, will pull.
+      - name: Collect the tags a pipeline could still pull
+        id: live
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          runs="repos/${GITHUB_REPOSITORY}/actions/runs"
+          # Each capture is its own assignment so that -e aborts the step on a failed call. Piping
+          # the four together instead would swallow the failure and quietly protect fewer tags.
+          in_progress=$(gh api "${runs}?status=in_progress&per_page=100" --jq '.workflow_runs[].head_sha')
+          queued=$(gh api "${runs}?status=queued&per_page=100" --jq '.workflow_runs[].head_sha')
+          develop=$(gh api "repos/${GITHUB_REPOSITORY}/branches/develop" --jq '.commit.sha')
+          main=$(gh api "repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')
+          tags=$(printf '%s\n' $in_progress $queued $develop $main | sort -u | sed 's/^/sha-/' | paste -sd, -)
+          echo "Protected from this sweep: ${tags}"
+          echo "tags=${tags}" >> "$GITHUB_OUTPUT"
+
       # ghcr.io/kinotic-ai/workload-runner is intentionally absent: unlike the two staging packages
       # its tags are consumed outside CI — DeploymentProperties.workloadRunnerImage pulls :latest.
       - name: Delete staged images past the re-run window
@@ -34,8 +61,10 @@ jobs:
           packages: kinotic-migration,kinotic-server
           # Untagged versions here are prior builds of a sha the workflow built twice, orphaned when
           # the re-run pushed the same tag to a new digest. Both packages are single-platform, so no
-          # untagged version is a multi-arch child of a tag being kept.
+          # untagged version is a multi-arch child of a tag being kept. Nothing resolves a staged
+          # image by digest, so an untagged one is unreachable and needs no exclusion.
           delete-tags: 'sha-*'
           delete-untagged: true
+          exclude-tags: ${{ steps.live.outputs.tags }}
           older-than: 7 days
           dry-run: ${{ inputs.dry_run == true }}
