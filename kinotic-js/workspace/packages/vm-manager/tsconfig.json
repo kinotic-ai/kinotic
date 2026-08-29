@@ -10,5 +10,8 @@
 			]
 		}
 	},
-	"include": ["src/**/*", "test/**/*"]
+	"include": ["src/**/*", "test/**/*"],
+	// test/fixtures holds stand-in customer projects, compiled by the workload that runs them
+	// against their own dependencies — not part of this package's build
+	"exclude": ["test/fixtures"]
 }
