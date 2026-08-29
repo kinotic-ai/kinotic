@@ -1,20 +1,17 @@
 package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.json.JsonObject;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
-import org.kinotic.management.api.services.github.GitHubProjectEventService;
-import reactor.core.publisher.Sinks;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Event handling over a scripted stream: only pushes to the default branch deploy, and
+ * Event handling over scripted deliveries: only pushes to the default branch deploy, and
  * per-project serialization collapses queued pushes to the newest commit.
  */
 public class ProjectDeployOrchestratorTest {
@@ -23,38 +20,29 @@ public class ProjectDeployOrchestratorTest {
     private static final String SHA_2 = "2".repeat(40);
     private static final String SHA_3 = "3".repeat(40);
 
-    private Sinks.Many<GitHubProjectEvent> events;
     private RecordingProjectDeployOrchestrator deploys;
 
     @BeforeEach
     void setUp() {
-        events = Sinks.many().multicast().onBackpressureBuffer();
-        GitHubProjectEventService eventService = events::asFlux;
-        deploys = new RecordingProjectDeployOrchestrator(eventService);
-        deploys.start();
-    }
-
-    @AfterEach
-    void tearDown() {
-        deploys.stop();
+        deploys = new RecordingProjectDeployOrchestrator();
     }
 
     @Test
     public void onlyPushesToTheDefaultBranchDeploy() {
-        events.tryEmitNext(event("proj-1", push(SHA_1, "refs/heads/feature", "main", false)));
-        events.tryEmitNext(event("proj-1", webhook("pull_request", new JsonObject())));
-        events.tryEmitNext(event("proj-1", push("0".repeat(40), "refs/heads/main", "main", false)));
-        events.tryEmitNext(event("proj-1", push(SHA_1, "refs/heads/main", "main", true)));
-        events.tryEmitNext(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_1, "refs/heads/feature", "main", false)));
+        deploys.onEvent(event("proj-1", webhook("pull_request", new JsonObject())));
+        deploys.onEvent(event("proj-1", push("0".repeat(40), "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_1, "refs/heads/main", "main", true)));
+        deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
 
         assertEquals(List.of(SHA_2), deploys.deployedShas);
     }
 
     @Test
     public void pushesDuringADeploymentCollapseToTheNewestCommit() {
-        events.tryEmitNext(event("proj-1", push(SHA_1, "refs/heads/main", "main", false)));
-        events.tryEmitNext(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
-        events.tryEmitNext(event("proj-1", push(SHA_3, "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_1, "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_3, "refs/heads/main", "main", false)));
         assertEquals(List.of(SHA_1), deploys.deployedShas);
 
         // Finishing the first run deploys only the newest queued commit; SHA_2 is skipped
@@ -65,7 +53,7 @@ public class ProjectDeployOrchestratorTest {
         deploys.outcomes.get(1).complete();
         assertEquals(2, deploys.deployedShas.size());
 
-        events.tryEmitNext(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
+        deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
         assertEquals(List.of(SHA_1, SHA_3, SHA_2), deploys.deployedShas);
     }
 

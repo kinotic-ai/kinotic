@@ -106,6 +106,17 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
+    public void publish(Event<byte[]> event) {
+        Validate.notNull(event, "Event must not be null");
+        String baseResource = event.cri().baseResource();
+        // createDeliveryOptions only pins srv destinations local, so a publish is never confined
+        // to this node by the local-preference logic
+        vertx.eventBus().publish(baseResource,
+                                 event,
+                                 createDeliveryOptions(event, baseResource));
+    }
+
+    @Override
     public Future<Void> sendWithAck(Event<byte[]> event) {
         Validate.notNull(event, "Event must not be null");
         String baseResource = event.cri().baseResource();

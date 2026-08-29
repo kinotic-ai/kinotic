@@ -6,6 +6,7 @@ import io.vertx.core.Vertx;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.annotations.Emitter;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.management.api.model.Project;
@@ -23,7 +24,8 @@ import java.util.List;
 /**
  * Default impl: mutates installation state for management events, flips backing
  * projects to {@link RepositoryConnectionStatus#DISCONNECTED} when GitHub revokes
- * access, and emits a {@link GitHubProjectEvent} per backing project for repo events.
+ * access, and publishes a {@link GitHubProjectEvent} per backing project to the event
+ * fabric for repo events.
  * <p>
  * Webhook deliveries have no Kinotic participant attached, so reads go through the
  * repositories' find-by-field finders (which need no org context, the search key is
@@ -42,8 +44,8 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
     private final ProjectRepository projectRepository;
     private final Vertx vertx;
 
-    // Hot sink shared by every events() subscriber; never terminates. Best-effort delivery keeps a
-    // slow subscriber from stalling the webhook handler, matching GitHub's at-most-once semantics.
+    // Hot source of the @Emitter stream; never terminates. Best-effort delivery keeps a slow
+    // fabric uplink from stalling the webhook handler, matching GitHub's at-most-once semantics.
     private final Sinks.Many<GitHubProjectEvent> sink = Sinks.many().multicast().directBestEffort();
 
     // One shared context every emission is delivered on: it serializes concurrent deliveries (Sinks
@@ -56,8 +58,8 @@ public class DefaultGitHubWebhookProcessor implements GitHubWebhookProcessor {
         deliveryContext = vertx.getOrCreateContext();
     }
 
-    @Override
-    public Flux<GitHubProjectEvent> events() {
+    @Emitter
+    Flux<GitHubProjectEvent> projectEvents() {
         return sink.asFlux();
     }
 

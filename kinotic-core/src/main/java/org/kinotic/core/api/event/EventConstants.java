@@ -91,6 +91,18 @@ public class EventConstants {
     public static final String STREAM_DESTINATION_SCHEME = "stream";
 
     /**
+     * Scheme for cluster-wide fan-out event destinations. An event published to a topic destination
+     * is delivered to every registered consumer on every node (never round-robined), fire-and-forget
+     * with at-most-once delivery. The resource name is the fully qualified name of the event type.
+     */
+    public static final String TOPIC_DESTINATION_SCHEME = "topic";
+
+    /**
+     * Content type for a JSON encoded event body.
+     */
+    public static final String CONTENT_TYPE_JSON = "application/json";
+
+    /**
      * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a
      * single connected client: it receives responses to requests that client made, is never
      * itself invoked, and a reply event never carries its own reply-to.

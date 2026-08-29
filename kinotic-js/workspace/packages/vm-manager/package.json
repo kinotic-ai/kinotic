@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/vm-manager",
-  "version": "5.0.0-beta.11",
+  "version": "5.0.0-beta.13",
   "type": "module",
   "files": [
     "bin",
@@ -39,7 +39,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.5",
+    "@kinotic-ai/core": ">=5.0.0-beta.7",
     "@kinotic-ai/system-api": ">=5.0.0-beta.1"
   },
   "dependencies": {

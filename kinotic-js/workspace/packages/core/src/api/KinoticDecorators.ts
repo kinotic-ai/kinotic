@@ -10,6 +10,7 @@ import { validateZone } from '@/api/ZoneUtil'
  * @since 3/25/2025
  */
 const scopeFunctions = new WeakSet<Function>()
+const scopeOptionalFunctions = new WeakSet<Function>()
 const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
@@ -58,6 +59,38 @@ function resolveScope(instance: object): unknown {
  */
 export function Scope(value: Function, _context: ClassGetterDecoratorContext | ClassMethodDecoratorContext): void {
     scopeFunctions.add(value)
+}
+
+/**
+ * Marks a method of a scoped published service that any instance may answer, because its
+ * result does not depend on which instance executes it - typically a read of shared state
+ * rather than of the instance's own.
+ *
+ * A scoped service normally listens only at its scoped address, so every invocation must name
+ * an instance. When at least one method carries ScopeOptional, each instance also listens on
+ * the service's shared unscoped address, where only the annotated methods may be invoked: an
+ * unscoped invocation of any other method is rejected, since it would execute on whichever
+ * instance happened to receive it.
+ */
+export function ScopeOptional(value: Function, _context: ClassMethodDecoratorContext): void {
+    scopeOptionalFunctions.add(value)
+}
+
+// Scans prototype descriptors for methods marked @ScopeOptional; keyed by function identity
+// like resolveScope, and descriptors are used so getters are not invoked while scanning.
+export function scopeOptionalMethodNames(instance: object): Set<string> {
+    const ret = new Set<string>()
+    let proto = Object.getPrototypeOf(instance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (typeof descriptor?.value === 'function' && scopeOptionalFunctions.has(descriptor.value)) {
+                ret.add(key)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return ret
 }
 
 /**

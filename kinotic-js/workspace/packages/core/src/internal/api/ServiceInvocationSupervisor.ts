@@ -7,7 +7,7 @@ import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnVa
 import { Subscription } from "rxjs"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
-import { receivesContext } from '@/api/KinoticDecorators'
+import { receivesContext, scopeOptionalMethodNames } from '@/api/KinoticDecorators'
 import opentelemetry, { context, propagation, trace, SpanKind, SpanStatusCode, type Span, type Tracer } from '@opentelemetry/api'
 import info from '../../../package.json' with { type: 'json' }
 
@@ -28,7 +28,11 @@ export class ServiceInvocationSupervisor {
     private readonly serviceInstance: any
     // Subscription for the address the service is addressable by
     private methodSubscription: Subscription | null = null
+    // Present only for a scoped service with ScopeOptional methods: the shared unscoped
+    // address every instance listens on for the methods any instance can answer
+    private unscopedSubscription: Subscription | null = null
     private readonly methodMap: Record<string, (...args: any[]) => any>
+    private readonly scopeOptionalMethods: Set<string>
     private readonly tracer: Tracer
 
     constructor(
@@ -57,6 +61,7 @@ export class ServiceInvocationSupervisor {
         this.returnValueConverter = options.returnValueConverter || new BasicReturnValueConverter()
 
         this.methodMap = this.buildMethodMap(serviceInstance)
+        this.scopeOptionalMethods = scopeOptionalMethodNames(serviceInstance)
         // Names the instrumentation scope, which is the library emitting the span rather than the
         // application being traced. The application identifies itself through the SDK's resource.
         this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
@@ -89,23 +94,35 @@ export class ServiceInvocationSupervisor {
 
         // Subscribe at the service's zone address, dispatching to the invocation machinery
         const criBase = this.serviceIdentifier.cri().baseResource()
-        this.methodSubscription = this._eventBus
-                                      .observe(criBase)
-                                      .subscribe({
-                                                     next: async (event: IEvent) => {
-                                                         await this.processEvent(event);
-                                                     },
-                                                     error: (error: Error) => {
-                                                         this.log.error("Event listener error", error)
-                                                         this.active = false
-                                                     },
-                                                     complete: () => {
-                                                         this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
-                                                         this.active = false
-                                                     },
-                                                 })
-
+        this.methodSubscription = this.subscribeAt(criBase)
         this.log.info(`ServiceInvocationSupervisor started for ${criBase}`)
+
+        // a scoped service with ScopeOptional methods also joins the shared unscoped
+        // address, where any instance may answer the methods that opted in
+        if (this.serviceIdentifier.scope && this.scopeOptionalMethods.size > 0) {
+            const unscopedBase = this.serviceIdentifier.unscopedCri().baseResource()
+            this.unscopedSubscription = this.subscribeAt(unscopedBase)
+            this.log.info(`ServiceInvocationSupervisor also listening for ScopeOptional methods at ${unscopedBase}`)
+        }
+    }
+
+    private subscribeAt(criBase: string): Subscription {
+        return this._eventBus
+                   .observe(criBase)
+                   .subscribe({
+                                  next: async (event: IEvent) => {
+                                      await this.processEvent(event);
+                                  },
+                                  error: (error: Error) => {
+                                      this.log.error("Event listener error", error)
+                                      this.active = false
+                                  },
+                                  // losing either of the supervisor's addresses makes it inactive
+                                  complete: () => {
+                                      this.log.error("Event listener stopped unexpectedly. Setting supervisor inactive.")
+                                      this.active = false
+                                  },
+                              })
     }
 
     public stop(): void {
@@ -116,6 +133,8 @@ export class ServiceInvocationSupervisor {
 
         this.methodSubscription?.unsubscribe()
         this.methodSubscription = null
+        this.unscopedSubscription?.unsubscribe()
+        this.unscopedSubscription = null
 
         this.log.info("ServiceInvocationSupervisor stopped")
     }
@@ -166,7 +185,8 @@ export class ServiceInvocationSupervisor {
     }
 
     private async processInvocationRequest(event: IEvent): Promise<void> {
-        const path = createCRI(event.cri).path()
+        const incomingCri = createCRI(event.cri)
+        const path = incomingCri.path()
         if (!path) {
             throw new Error("The methodId must not be blank")
         }
@@ -174,6 +194,13 @@ export class ServiceInvocationSupervisor {
         const handlerMethod = this.methodMap[path]
         if (!handlerMethod) {
             throw new Error(`No method resolved for methodId ${path}`)
+        }
+
+        // A scoped service answers on the shared unscoped address only for methods that
+        // declared themselves instance-independent: an instance-affine method invoked without
+        // a scope would execute on whichever instance received it, so it fails loud instead
+        if (this.serviceIdentifier.scope && !incomingCri.hasScope() && !this.scopeOptionalMethods.has(path)) {
+            throw new Error(`Method ${path} of ${this.serviceIdentifier.qualifiedName()} requires a scoped invocation naming the service instance`)
         }
 
         const methodName = path;

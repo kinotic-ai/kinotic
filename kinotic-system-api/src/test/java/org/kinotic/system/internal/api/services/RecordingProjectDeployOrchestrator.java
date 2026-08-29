@@ -2,7 +2,6 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import org.kinotic.management.api.services.github.GitHubProjectEventService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,8 +15,8 @@ public class RecordingProjectDeployOrchestrator extends ProjectDeployOrchestrato
     public final List<String> deployedShas = new ArrayList<>();
     public final List<Promise<Void>> outcomes = new ArrayList<>();
 
-    public RecordingProjectDeployOrchestrator(GitHubProjectEventService eventService) {
-        super(eventService, null, null, null, null);
+    public RecordingProjectDeployOrchestrator() {
+        super(null, null, null, null);
     }
 
     @Override

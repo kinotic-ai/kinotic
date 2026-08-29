@@ -1,6 +1,5 @@
 export default defineNuxtConfig({
   extends: ['docus'],
-  css: ['~/assets/css/main.css'],
   // Canonical site URL for nuxt-site-config consumers (robots, sitemap, OG images, canonical
   // links). Without it they fall back to http://localhost, which leaks into the deployed
   // robots.txt Sitemap line and OG/canonical URLs.
@@ -12,6 +11,15 @@ export default defineNuxtConfig({
   // layer; this emits `Disallow: /test-results/` into the generated robots.txt.
   robots: {
     disallow: ['/test-results/'],
+  },
+  // /V2, /V3 and /logo-demo are unlinked pages shared by URL, so prerendering never discovers them
+  // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
+  // They are kept out of search results by their own `noindex` meta tag; the sitemap covers
+  // content pages only.
+  nitro: {
+    prerender: {
+      routes: ['/V2', '/V3', '/logo-demo'],
+    },
   },
   runtimeConfig: {
     public: {
