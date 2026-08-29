@@ -1,1 +1,0 @@
-{"id":"bfd49b1d759b83b3074f9edf4965dc8b","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenParameterNestedInObjectLiteral_thenResolvedInPlace","name":"whenParameterNestedInObjectLiteral_thenResolvedInPlace()","status":"passed","testResultsByEnv":{"default":"7fad64070aacdfa1c3fc5951cf04c746"}}
