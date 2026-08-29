@@ -12,7 +12,7 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "5.0.0-beta.5",
+      "version": "5.0.0-beta.6",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
@@ -59,7 +59,7 @@
     },
     "packages/management-api": {
       "name": "@kinotic-ai/management-api",
-      "version": "5.0.0-beta.19",
+      "version": "5.0.0-beta.20",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -72,12 +72,12 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.5",
+        "@kinotic-ai/core": ">=5.0.0-beta.6",
       },
     },
     "packages/persistence": {
       "name": "@kinotic-ai/persistence",
-      "version": "5.0.0-beta.5",
+      "version": "5.0.0-beta.6",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "rxjs": "^7.8.2",
@@ -89,7 +89,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.5",
+        "@kinotic-ai/core": ">=5.0.0-beta.6",
       },
     },
     "packages/spawn": {
@@ -108,7 +108,7 @@
     },
     "packages/system-api": {
       "name": "@kinotic-ai/system-api",
-      "version": "5.0.0-beta.1",
+      "version": "5.0.0-beta.2",
       "dependencies": {
         "@kinotic-ai/management-api": "workspace:*",
       },
@@ -118,12 +118,12 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.5",
+        "@kinotic-ai/core": ">=5.0.0-beta.6",
       },
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.11",
+      "version": "5.0.0-beta.12",
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.9.7",
         "dockerode": "^5.0.1",
@@ -136,7 +136,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.5",
+        "@kinotic-ai/core": ">=5.0.0-beta.6",
         "@kinotic-ai/system-api": ">=5.0.0-beta.1",
       },
     },
