@@ -3,7 +3,7 @@
 # The sync workload runs `bun src/sync.ts` (set as the workload entrypoint) and the
 # runtime workload runs the default supervisor entrypoint.
 #
-# Build from this directory: docker build -t ghcr.io/kinotic-ai/workload-runner .
+# Build from this directory: docker build -t kinoticai/workload-runner .
 FROM oven/bun:1-slim
 
 # git for the checkout, ca-certificates for https to github.com and the Kinotic server
