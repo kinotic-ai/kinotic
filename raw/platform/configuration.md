@@ -630,7 +630,7 @@ under `kinotic.systemApi.deployment.*`:
     
     <td>
       <code>
-        ghcr.io/kinotic-ai/workload-runner:latest
+        kinoticai/workload-runner:latest
       </code>
     </td>
     
