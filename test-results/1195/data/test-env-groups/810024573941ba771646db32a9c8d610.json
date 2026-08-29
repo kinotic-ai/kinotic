@@ -1,0 +1,1 @@
+{"id":"810024573941ba771646db32a9c8d610","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertDocumentWithUndeclaredSubField_thenRejected","name":"whenInsertDocumentWithUndeclaredSubField_thenRejected()","status":"broken","testResultsByEnv":{"default":"ca51a5bc32029992f4f5222b505bf6c3"}}

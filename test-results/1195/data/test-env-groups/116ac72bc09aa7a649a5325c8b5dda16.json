@@ -1,0 +1,1 @@
+{"id":"116ac72bc09aa7a649a5325c8b5dda16","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenCreateTableWithObjectNotIndexed_thenObjectDisabled","name":"whenCreateTableWithObjectNotIndexed_thenObjectDisabled()","status":"broken","testResultsByEnv":{"default":"ab52f06f87088351a6c0a372a29e02e1"}}
