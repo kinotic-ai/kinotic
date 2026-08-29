@@ -12,13 +12,13 @@ export default defineNuxtConfig({
   robots: {
     disallow: ['/test-results/'],
   },
-  // /V2 and /V3 are unlinked previews shared by URL, so prerendering never discovers them by
-  // crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
+  // /V2, /V3 and /logo-demo are unlinked pages shared by URL, so prerendering never discovers them
+  // by crawling — without this, `nuxt generate` emits no page for them and the deployed URLs 404.
   // They are kept out of search results by their own `noindex` meta tag; the sitemap covers
   // content pages only.
   nitro: {
     prerender: {
-      routes: ['/V2', '/V3'],
+      routes: ['/V2', '/V3', '/logo-demo'],
     },
   },
   runtimeConfig: {
