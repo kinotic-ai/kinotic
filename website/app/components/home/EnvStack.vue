@@ -230,17 +230,16 @@ const PIPELINE_STEPS = [
   animation-name: envstack-rise-reveal;
 }
 
-/* Still a slot apart, but the whole cycle is backed up a little, so the first
-   card is still climbing when the deck is released rather than already landed.
-   Held on a whole slot it is the one card that never animates into place, which
-   reads as a mistake next to every card that follows it. How far back is set by
-   the two labels: any earlier and the card being replaced still has a readable
-   label, so the section would open on the wrong one. */
-.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.94); }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.74); }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.54); }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.34); }
-.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.14); }
+/* Whole slots, so the deck is released on a settled frame. Backing the cycle up
+   to catch the first card mid-rise puts the handover on screen instead, and a
+   handover has a card that has shed its label on its way out of the front slot —
+   which is a lit, empty card sitting where the label should be. The arriving card
+   still animates in: the section's own reveal fades and lifts the whole card. */
+.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: 0s; }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.8); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
+.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
 
 @keyframes envstack-rise {
   0%, 12% {
