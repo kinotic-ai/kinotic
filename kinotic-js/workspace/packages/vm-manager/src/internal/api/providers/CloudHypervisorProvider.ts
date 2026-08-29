@@ -5,6 +5,7 @@ import { join, resolve, sep } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
+import { NetnsAnchorManager } from '@/internal/api/network/NetnsAnchorManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { Workload, WorkloadStatus, VmProviderType, NetworkMode, PortProtocol } from '@kinotic-ai/system-api'
@@ -57,35 +58,47 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly quotas = new MountQuotaManager()
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
+    private readonly anchors: NetnsAnchorManager | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
+    /**
+     * @param anchors gives each workload a namespace that is already populated when its micro VM
+     *        boots, for a node whose hypervisor cannot hot-plug a NIC into a running guest. Null
+     *        on a node that hot-plugs, which is the arrangement the platform ships.
+     */
     constructor(stateDir: string,
                 docker: Docker,
                 workloadDataDir: string,
                 egress: EgressPolicyManager = new EgressPolicyManager(),
                 resolver: string | null = null,
+                anchors: NetnsAnchorManager | null = null,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.stateDir = stateDir
         this.docker = docker
         this.workloadDataDir = resolve(workloadDataDir)
         this.egress = egress
         this.resolver = resolver
+        this.anchors = anchors
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
     }
 
-    /**
-     * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
-     * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
-     * the workload declares its own.
-     */
-    private buildCreateOptions(workload: Workload): ContainerCreateOptions {
-        // A workload deserialized from the wire or a persisted state file may predate the
-        // network field, whose absence means the policy the model defaults to
-        const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-        const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
+    // Null on a node that hot-plugs, and on a workload that asked for no network at all: with
+    // NetworkMode.DISABLED there is no namespace to populate
+    private async ensureAnchor(workload: Workload): Promise<string | null> {
+        let ret: string | null = null
+        if (this.anchors !== null && (workload.network?.mode ?? NetworkMode.ENABLED) !== NetworkMode.DISABLED) {
+            const { exposedPorts, portBindings } = this.buildPortMappings(workload)
+            ret = await this.anchors.ensure(workload.id!, exposedPorts, portBindings)
+        }
+        return ret
+    }
 
+    private buildPortMappings(workload: Workload): {
+        exposedPorts: Record<string, Record<string, never>>,
+        portBindings: Record<string, Array<{ HostIp?: string, HostPort?: string }>>
+    } {
         const exposedPorts: Record<string, Record<string, never>> = {}
         const portBindings: Record<string, Array<{ HostIp?: string, HostPort?: string }>> = {}
         for (const { hostPort, guestPort, protocol, hostIp } of workload.portMappings) {
@@ -96,6 +109,24 @@ export class CloudHypervisorProvider implements IVmProvider {
                 ...(hostPort !== undefined ? { HostPort: String(hostPort) } : {}),
             }]
         }
+        return { exposedPorts, portBindings }
+    }
+
+    /**
+     * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
+     * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
+     * the workload declares its own.
+     */
+    private buildCreateOptions(workload: Workload, anchorId: string | null): ContainerCreateOptions {
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // network field, whose absence means the policy the model defaults to
+        const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+        const logPolicy = workload.logPolicy ?? { maxSizeMb: 10, maxFiles: 3 }
+        // Ports, bindings and the resolver belong to whoever owns the namespace, and the
+        // daemon rejects a container that both joins another's namespace and declares its own
+        const { exposedPorts, portBindings } = anchorId !== null
+            ? { exposedPorts: {}, portBindings: {} }
+            : this.buildPortMappings(workload)
 
         return {
             name: workload.id!,
@@ -125,10 +156,11 @@ export class CloudHypervisorProvider implements IVmProvider {
                         'max-file': String(logPolicy.maxFiles + 1),
                     },
                 },
-                NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
+                NetworkMode: networkMode === NetworkMode.DISABLED ? 'none'
+                             : anchorId !== null ? `container:${anchorId}` : 'bridge',
                 // Pinned so the resolver the egress rules permit is the one the guest is given,
                 // rather than whatever the daemon happened to inject
-                ...(this.resolver !== null ? { Dns: [this.resolver] } : {}),
+                ...(this.resolver !== null && anchorId === null ? { Dns: [this.resolver] } : {}),
                 PortBindings: portBindings,
                 // The vm-manager owns restarts, so the daemon must not resurrect a workload
                 // behind its back and leave the server's record stale
@@ -205,11 +237,12 @@ export class CloudHypervisorProvider implements IVmProvider {
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
 
-            const container = await this.docker.createContainer(this.buildCreateOptions(workload))
+            const anchorId = await this.ensureAnchor(workload)
+            const container = await this.docker.createContainer(this.buildCreateOptions(workload, anchorId))
             await container.start()
 
             const info = await container.inspect()
-            this.applyEgressPolicy(workload, info)
+            await this.applyEgressPolicy(workload, info)
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
@@ -247,11 +280,12 @@ export class CloudHypervisorProvider implements IVmProvider {
         try {
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
+            this.anchors?.clean(workloadId)
             const container = this.docker.getContainer(workloadId)
             await container.start()
 
             const info = await container.inspect()
-            this.applyEgressPolicy(workload, info)
+            await this.applyEgressPolicy(workload, info)
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
@@ -305,6 +339,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         await this.removeContainer(workloadId)
         this.releaseMountQuotas(workload)
         this.egress.release(workloadId)
+        await this.anchors?.release(workloadId)
 
         this.containers.delete(workloadId)
         rmSync(this.stateFile(workloadId), { force: true })
@@ -449,7 +484,7 @@ export class CloudHypervisorProvider implements IVmProvider {
      * cannot honour a declared allowlist, and saying so is better than writing rules that
      * permit access nothing was withholding.
      */
-    private applyEgressPolicy(workload: Workload, info: ContainerInspectInfo): void {
+    private async applyEgressPolicy(workload: Workload, info: ContainerInspectInfo): Promise<void> {
         const allowedHosts = workload.network?.allowedHosts ?? []
         if (!this.egress.enforces()) {
             if (allowedHosts.length > 0) {
@@ -458,8 +493,12 @@ export class CloudHypervisorProvider implements IVmProvider {
             }
             return
         }
-        // A workload with no network has no address and nothing to restrict
-        const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
+        // A workload with no network has no address and nothing to restrict. One attached to an
+        // anchor has no address of its own either: it joined the anchor's namespace, so the
+        // address its traffic carries — the one the rules must match — is the anchor's.
+        const address = this.anchors !== null
+            ? await this.anchors.addressOf(workload.id!)
+            : info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
             this.egress.apply(workload.id!, address, allowedHosts)
         }

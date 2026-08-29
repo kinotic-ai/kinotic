@@ -1,6 +1,7 @@
 import os from 'node:os'
 import path from 'node:path'
 import { VmProviderType } from '@kinotic-ai/system-api'
+import { Environment } from '@/api/Environment'
 
 /**
  * Resolves KINOTIC_VM_PROVIDER, defaulting to the provider that runs anywhere a developer
@@ -21,6 +22,24 @@ function parseProviderType(value: string | undefined): VmProviderType {
 }
 
 /**
+ * Resolves KINOTIC_ENVIRONMENT, defaulting to the strict environment so a node that says
+ * nothing runs only tested paths. An unrecognised name throws rather than falling back, so a
+ * misspelled value is never read as a request for the looser one.
+ */
+function parseEnvironment(value: string | undefined): Environment {
+    let ret: Environment
+    if (!value) {
+        ret = Environment.PRODUCTION
+    } else if ((Object.values(Environment) as string[]).includes(value)) {
+        ret = value as Environment
+    } else {
+        throw new Error(`KINOTIC_ENVIRONMENT must be one of `
+                        + `${Object.values(Environment).join(', ')} but was '${value}'`)
+    }
+    return ret
+}
+
+/**
  * Typed view of the vm-manager's process configuration. Every environment variable the
  * vm-manager reads is resolved here, so all env var usage is traceable from this class.
  * Server and credential settings are not among them: Kinotic.connect() resolves those
@@ -30,6 +49,9 @@ export class VmManagerConfig {
 
     /** KINOTIC_VM_PROVIDER — the provider every workload on this node runs on. */
     readonly providerType: VmProviderType = parseProviderType(process.env.KINOTIC_VM_PROVIDER)
+
+    /** KINOTIC_ENVIRONMENT — how far this node may deviate from the tested configuration. */
+    readonly environment: Environment = parseEnvironment(process.env.KINOTIC_ENVIRONMENT)
 
     /** KINOTIC_NODE_ID — unique id of this vm-manager node. */
     readonly nodeId: string | undefined = process.env.KINOTIC_NODE_ID

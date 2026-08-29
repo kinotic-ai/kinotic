@@ -71,8 +71,13 @@ check('R1', 'guest runs its own kernel', guestKernel !== hostKernel, `guest ${gu
 // process's own command line — so compare each process's actual executable.
 const vmms = quiet(`for p in /proc/[0-9]*; do readlink -f $p/exe 2>/dev/null; done | grep -c '/cloud-hypervisor$'`)
 check('R1', 'a cloud-hypervisor process backs it', Number(vmms) > 0, `${vmms} VMM process(es)`)
-const dmi = quiet(`docker exec ${probe} sh -c ${shq('dmesg 2>/dev/null | grep -m1 -i "DMI:"')}`)
-check('R1', 'the guest names its own hypervisor', /cloud hypervisor/i.test(dmi), dmi.replace(/^.*DMI:\s*/, '').slice(0, 46) || '(no DMI line)')
+// Which of those VMMs is this workload's: the shim names the API socket after the container
+// id, so the binding is readable from the VMM's own command line. Reading it host-side rather
+// than asking the guest is what makes it portable — an x86 guest learns its hypervisor from
+// SMBIOS, but Cloud Hypervisor boots an aarch64 guest from a device tree that carries no DMI.
+const probeId = sh(`docker inspect -f '{{.Id}}' ${probe}`)
+const owner = quiet(`for p in /proc/[0-9]*; do case "$(readlink -f $p/exe 2>/dev/null)" in */cloud-hypervisor) grep -qa ${probeId} $p/cmdline && basename $p ;; esac; done`)
+check('R1', 'that VMM is this workload\'s', owner !== '', owner ? `pid ${owner} names the container` : '(no VMM names this container)')
 quiet(`docker rm -f ${probe}`)
 
 // ---------------------------------------------------------------------------------------
