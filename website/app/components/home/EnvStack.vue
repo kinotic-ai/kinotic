@@ -250,8 +250,12 @@ const PIPELINE_STEPS = [
     z-index: 4;
   }
 
-  /* Gives up the top of the deck the moment it starts receding, so the card
-     rising out from under it passes in front rather than behind. */
+  /* Every slot's z-index is surrendered on the frame the card starts leaving it:
+     the one below has to pass in front, and the card ahead in the deck steps down
+     on that same frame. Left to interpolate, z-index instead flips at the midpoint
+     of the move — half a slot after the card ahead has already stepped — so the
+     two share a level for that stretch and paint in DOM order rather than depth
+     order. */
   12.01% {
     z-index: 3;
   }
@@ -264,11 +268,19 @@ const PIPELINE_STEPS = [
     z-index: 3;
   }
 
+  32.01% {
+    z-index: 2;
+  }
+
   40%, 52% {
     transform: translateY(-23px) scale(0.885);
     opacity: 0.5;
     border-color: rgba(40, 254, 180, 0.3);
     z-index: 2;
+  }
+
+  52.01% {
+    z-index: 1;
   }
 
   60%, 72% {
@@ -278,10 +290,14 @@ const PIPELINE_STEPS = [
     z-index: 1;
   }
 
+  72.01% {
+    z-index: 0;
+  }
+
   80% {
     transform: translateY(-42px) scale(0.78);
     opacity: 0;
-    z-index: 1;
+    z-index: 0;
   }
 
   /* Below the deck, still invisible: the drop has to happen in one frame or the
