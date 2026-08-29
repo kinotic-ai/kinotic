@@ -17,7 +17,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "dependencies": {
-    "@kinotic-ai/kinotic-cli": "^5.2.0-beta.10"
+    "@kinotic-ai/kinotic-cli": "5.2.0-beta.11"
   },
   "devDependencies": {
     "@types/bun": "^1.3.9",
