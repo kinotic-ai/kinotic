@@ -23,7 +23,7 @@ public class DeploymentProperties {
      * OCI image the sync and runtime workloads run — the workload-runner image holding the
      * checkout/sync entrypoint and the microservice supervisor.
      */
-    private String workloadRunnerImage = "ghcr.io/kinotic-ai/workload-runner:latest";
+    private String workloadRunnerImage = "kinoticai/workload-runner:latest";
 
     /**
      * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
