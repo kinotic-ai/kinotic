@@ -1,0 +1,41 @@
+name: GHCR Cleanup
+
+# Every push to develop or main stages kinotic-server and kinotic-migration on ghcr.io under
+# sha-<commit> (see gradle-build.yml), and nothing outside that workflow ever reads those tags —
+# what ships is promoted to Docker Hub. So a staged image is dead weight as soon as no one is going
+# to re-run the jobs of the run that produced it, and without this job they accumulate forever.
+#
+# Deliberately not done inline at the end of a build: re-running a failed suite pulls the staged
+# image again, so deleting it the moment the run finishes would break the retry. Sweeping on a delay
+# also collects the images left behind by runs that never reached the results job — the ones
+# cancel-in-progress superseded, and those that failed before promotion.
+on:
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Log what would be deleted without deleting anything
+        type: boolean
+        default: false
+
+jobs:
+  cleanup:
+    name: Prune Staged Images
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      # ghcr.io/kinotic-ai/workload-runner is intentionally absent: unlike the two staging packages
+      # its tags are consumed outside CI — DeploymentProperties.workloadRunnerImage pulls :latest.
+      - name: Delete staged images past the re-run window
+        uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+        with:
+          packages: kinotic-migration,kinotic-server
+          # Untagged versions here are prior builds of a sha the workflow built twice, orphaned when
+          # the re-run pushed the same tag to a new digest. Both packages are single-platform, so no
+          # untagged version is a multi-arch child of a tag being kept.
+          delete-tags: 'sha-*'
+          delete-untagged: true
+          older-than: 7 days
+          dry-run: ${{ inputs.dry_run == true }}
