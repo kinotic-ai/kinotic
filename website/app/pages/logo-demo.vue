@@ -49,17 +49,17 @@ const demos: LogoDemo[] = [
   },
 ]
 
-const activeIndex = ref(0)
-const active = computed(() => demos[activeIndex.value]!)
-const stage = useTemplateRef<HTMLVideoElement>('stage')
+const players = useTemplateRef<HTMLVideoElement[]>('players')
 
-const select = async (index: number) => {
-  activeIndex.value = index
-  // Rebinding src restarts the media element's load algorithm, so play() has to
-  // wait for the patched element. The click is the user gesture that lets it
-  // start with sound; a rejected promise leaves the stage on its poster.
-  await nextTick()
-  await stage.value?.play().catch(() => {})
+const onPlay = (event: Event) => {
+  // Each clip carries its own sound design, so leaving the others running would
+  // stack three audio tracks.
+  const started = event.target
+  players.value?.forEach((player) => {
+    if (player !== started) {
+      player.pause()
+    }
+  })
 }
 </script>
 
@@ -72,47 +72,32 @@ const select = async (index: number) => {
       </div>
       <h1 class="k-heading demos__title" data-reveal>Logo demos</h1>
       <p class="demos__lede" data-reveal>
-        Three ten-second builds of the Kinotic mark, all ending on the same lockup. Pick one below
-        to watch it full size. This page is unlisted — nothing on the site links to it, so pass the
-        URL to whoever needs to weigh in.
+        Three ten-second builds of the Kinotic mark, all ending on the same lockup. This page is
+        unlisted — nothing on the site links to it, so pass the URL to whoever needs to weigh in.
       </p>
 
-      <div class="demos__stage" data-reveal>
-        <video
-          ref="stage"
-          class="demos__player"
-          :src="active.video"
-          :poster="active.poster"
-          controls
-          playsinline
-          preload="metadata"
-        />
-      </div>
-
-      <div class="demos__picker" data-reveal>
-        <button
-          v-for="(demo, index) in demos"
-          :key="demo.video"
-          type="button"
-          class="demos__tile"
-          :class="{ 'demos__tile--active': index === activeIndex }"
-          :aria-pressed="index === activeIndex"
-          @click="select(index)"
-        >
-          <span class="demos__thumb">
-            <img :src="demo.poster" alt="" width="1280" height="720">
-            <span class="demos__play" aria-hidden="true">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7.5l8 4.5-8 4.5z" fill="currentColor" /></svg>
-            </span>
-          </span>
-          <span class="demos__meta">
-            <span class="demos__label">
+      <div class="demos__list">
+        <article v-for="demo in demos" :key="demo.video" class="demos__row" data-reveal>
+          <div class="demos__frame">
+            <video
+              ref="players"
+              class="demos__player"
+              :src="demo.video"
+              :poster="demo.poster"
+              controls
+              playsinline
+              preload="metadata"
+              @play="onPlay"
+            />
+          </div>
+          <div class="demos__meta">
+            <h2 class="demos__label">
               <span class="demos__number">{{ demo.number }}</span>
               <span class="demos__name">{{ demo.title }}</span>
-            </span>
-            <span class="demos__blurb">{{ demo.blurb }}</span>
-          </span>
-        </button>
+            </h2>
+            <p class="demos__blurb">{{ demo.blurb }}</p>
+          </div>
+        </article>
       </div>
     </div>
   </section>
@@ -160,10 +145,21 @@ const select = async (index: number) => {
   margin: 0 0 44px;
 }
 
-.demos__stage {
-  position: relative;
+.demos__list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.demos__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
   border: 1px solid var(--color-k-border);
-  background: var(--color-k-bg-panel);
+  background: var(--color-k-bg-card);
+}
+
+.demos__frame {
+  border-right: 1px solid var(--color-k-border);
 }
 
 .demos__player {
@@ -173,89 +169,19 @@ const select = async (index: number) => {
   background: #000;
 }
 
-.demos__picker {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
-  margin-top: 18px;
-}
-
-.demos__tile {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 14px;
-  text-align: left;
-  cursor: pointer;
-  background: var(--color-k-bg-card);
-  border: 1px solid var(--color-k-border);
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.demos__tile:hover {
-  border-color: #4A4954;
-  background: var(--color-k-bg-chip);
-}
-
-.demos__tile--active {
-  border-color: var(--color-k-mint);
-}
-
-.demos__thumb {
-  position: relative;
-  display: block;
-  overflow: hidden;
-  background: #000;
-}
-
-.demos__thumb img {
-  display: block;
-  width: 100%;
-  height: auto;
-  opacity: 0.72;
-  transition: opacity 0.2s ease;
-}
-
-.demos__tile:hover .demos__thumb img,
-.demos__tile--active .demos__thumb img {
-  opacity: 1;
-}
-
-.demos__play {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  color: var(--color-k-bg);
-  background: rgba(255, 255, 255, 0.82);
-  transition: background 0.2s ease;
-}
-
-.demos__tile:hover .demos__play,
-.demos__tile--active .demos__play {
-  background: var(--color-k-mint);
-}
-
-.demos__play svg {
-  width: 18px;
-  height: 18px;
-}
-
 .demos__meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: center;
+  gap: 12px;
+  padding: 30px 34px;
 }
 
 .demos__label {
   display: flex;
   align-items: baseline;
   gap: 10px;
+  margin: 0;
 }
 
 .demos__number {
@@ -265,45 +191,36 @@ const select = async (index: number) => {
   color: var(--color-k-faint);
 }
 
-.demos__tile--active .demos__number {
-  color: var(--color-k-mint);
-}
-
 .demos__name {
   font-family: var(--font-k-display);
   font-weight: 600;
-  font-size: 17px;
+  font-size: 20px;
+  letter-spacing: -0.01em;
   color: var(--color-k-heading);
 }
 
 .demos__blurb {
   font-family: var(--font-k-body);
-  font-size: 13.5px;
-  line-height: 1.6;
+  font-size: 14.5px;
+  line-height: 1.65;
   color: var(--color-k-muted);
+  margin: 0;
 }
 
-@media (max-width: 900px) {
-  .demos__picker {
+/* Below this the copy column is too narrow to read beside a 16:9 frame, so the
+   copy drops under the player it describes. */
+@media (max-width: 860px) {
+  .demos__row {
     grid-template-columns: 1fr;
   }
-}
 
-/* One per row is wide enough to sit the thumbnail beside the copy, but only until
-   the copy column gets too narrow to read — below that the tiles stack again. */
-@media (min-width: 561px) and (max-width: 900px) {
-  .demos__tile {
-    flex-direction: row;
-    align-items: center;
-    gap: 16px;
-  }
-
-  .demos__thumb {
-    flex: 0 0 200px;
+  .demos__frame {
+    border-right: none;
+    border-bottom: 1px solid var(--color-k-border);
   }
 
   .demos__meta {
-    flex: 1;
+    padding: 22px 24px;
   }
 }
 
