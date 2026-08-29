@@ -1,1 +1,0 @@
-{"id":"c87b18a75d0524839670f5fe65fb85fb","fullName":"@kinotic-ai/e2e-tests:test/native/OAuthMcp.test.ts#Kinotic JS rejects a device grant that does not name the pre-registered CLI client","name":"rejects a device grant that does not name the pre-registered CLI client","status":"passed","testResultsByEnv":{"default":"d8ab2ebae549a071e6b6337ee687a0b9"}}
