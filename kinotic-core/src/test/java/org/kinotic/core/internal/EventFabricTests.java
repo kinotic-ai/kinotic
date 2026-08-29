@@ -15,6 +15,7 @@ import org.kinotic.core.internal.api.event.fabric.EventFabric;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.reactivestreams.Publisher;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -54,7 +55,12 @@ public class EventFabricTests {
         eventFabric = new EventFabric(new DefaultEventBusService(null, vertx),
                                       jsonMapper,
                                       ReactiveAdapterRegistry.getSharedInstance());
-        postProcessor = new EventFabricBeanPostProcessor(eventFabric);
+        postProcessor = new EventFabricBeanPostProcessor(new ObjectProvider<>() {
+            @Override
+            public EventFabric getObject() {
+                return eventFabric;
+            }
+        });
     }
 
     @AfterEach

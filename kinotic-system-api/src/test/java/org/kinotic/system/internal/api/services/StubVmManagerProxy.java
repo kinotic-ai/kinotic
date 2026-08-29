@@ -2,10 +2,11 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import org.kinotic.system.api.model.workload.Workload;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.workload.VmManagerProxy;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +112,9 @@ public class StubVmManagerProxy implements VmManagerProxy {
                 .setDiskSizeMb(workload.getDiskSizeMb())
                 .setEnvironment(new LinkedHashMap<>(workload.getEnvironment()))
                 .setSecrets(new LinkedHashMap<>(workload.getSecrets()))
+                .setEntrypoint(new ArrayList<>(workload.getEntrypoint()))
+                .setCmd(new ArrayList<>(workload.getCmd()))
+                .setVolumeMounts(new ArrayList<>(workload.getVolumeMounts()))
                 .setCreated(workload.getCreated())
                 .setUpdated(workload.getUpdated());
     }

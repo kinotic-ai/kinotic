@@ -6,7 +6,7 @@ import { Kinotic } from "@kinotic-ai/core";
 import {
   type IApplicationService,
   type Application,
-} from "@kinotic-ai/os-api";
+} from "@kinotic-ai/management-api";
 import { APPLICATION_STATE } from "@/states/IApplicationState";
 import { onClickOutside } from "@vueuse/core";
 import type { CrudHeader } from "@kinotic-ai/frontend-common";

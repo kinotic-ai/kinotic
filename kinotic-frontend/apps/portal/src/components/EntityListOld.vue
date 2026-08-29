@@ -10,7 +10,7 @@ import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 import { Pageable, type Page, Order, Direction, type Identifiable } from '@kinotic-ai/core'
 import { Kinotic } from '@kinotic-ai/core'
-import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/os-api'
+import { EntityDefinition, type IEntityDefinitionService } from '@kinotic-ai/management-api'
 import { type IEntitiesRepository } from '@kinotic-ai/persistence'
 
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'

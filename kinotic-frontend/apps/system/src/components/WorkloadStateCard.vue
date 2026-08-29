@@ -25,7 +25,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import VChart from 'vue-echarts'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { WorkloadStatus } from '@kinotic-ai/os-api'
+import { WorkloadStatus } from '@kinotic-ai/system-api'
 import { isDark } from '@kinotic-ai/frontend-common'
 
 import '@/charts'

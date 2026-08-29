@@ -122,7 +122,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code GET /api/auth/org/signup/social/callback/:configId} — the social IdP returns here. Validates the
-     * callback (state, code exchange, issuer) via {@link OidcFlowOrchestrator}, then hands the
+     * callback (state, code exchange, issuer) via {@code OidcFlowOrchestrator}, then hands the
      * verified claims to {@link #createPendingSignUp}.
      */
     private void handleSocialCallback(RoutingContext ctx) {

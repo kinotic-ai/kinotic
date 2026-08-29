@@ -2,7 +2,7 @@ import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { Publish, Scope } from '@kinotic-ai/core'
-import type { Workload } from '@kinotic-ai/os-api'
+import type { Workload } from '@kinotic-ai/system-api'
 
 /**
  * Default implementation of {@link IVmManager}.
@@ -11,7 +11,7 @@ import type { Workload } from '@kinotic-ai/os-api'
  * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
 // Published as 'VmManager', not the class name, so the address matches the orchestrator's
-// VmManagerProxy: srv://<nodeId>@system~kinotic-ai.vm-manager.VmManager
+// VmManagerProxy: srv://<nodeId>@system-api~kinotic-ai.vm-manager.VmManager
 @Publish('kinotic-ai.vm-manager', 'VmManager')
 export class DefaultVmManager implements IVmManager {
 

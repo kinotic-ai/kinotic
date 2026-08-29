@@ -46,13 +46,13 @@ Concurrent writes are safe by default. Optimistic locking prevents silent data c
 `@kinotic-ai/persistence` sits in the middle of the Kinotic JavaScript/TypeScript stack:
 
 ```
-@kinotic-ai/os-api      ← cloud OS management
+@kinotic-ai/management-api      ← cloud OS management
 @kinotic-ai/persistence ← schema-driven data access (this package)
 @kinotic-ai/idl         ← cross-language type schemas
 @kinotic-ai/core        ← connection & transport
 ```
 
-It depends on `@kinotic-ai/core` for the platform connection and `@kinotic-ai/idl` for schema definitions. `@kinotic-ai/os-api` builds on top of it to provide full cloud OS management.
+It depends on `@kinotic-ai/core` for the platform connection and `@kinotic-ai/idl` for schema definitions. `@kinotic-ai/management-api` builds on top of it to provide full cloud OS management.
 
 ---
 

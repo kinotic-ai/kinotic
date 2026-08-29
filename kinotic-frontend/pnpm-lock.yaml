@@ -17,20 +17,20 @@ importers:
         specifier: ^2.2.0
         version: 2.2.0(vue@3.5.41(typescript@5.8.3))
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.5
-        version: 5.0.0-beta.5
+        specifier: ^5.0.0-beta.7
+        version: 5.0.0-beta.7
       '@kinotic-ai/frontend-common':
         specifier: workspace:*
         version: link:../../packages/common
       '@kinotic-ai/idl':
         specifier: ^5.0.0-beta.0
         version: 5.0.0-beta.1
-      '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.16
-        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
+      '@kinotic-ai/management-api':
+        specifier: ^5.0.0-beta.21
+        version: 5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)
       '@kinotic-ai/persistence':
-        specifier: ^5.0.0-beta.3
-        version: 5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.5)
+        specifier: ^5.0.0-beta.7
+        version: 5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)
       '@mdi/js':
         specifier: ^7.4.47
         version: 7.4.47
@@ -141,14 +141,17 @@ importers:
   apps/system:
     dependencies:
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.5
-        version: 5.0.0-beta.5
+        specifier: ^5.0.0-beta.7
+        version: 5.0.0-beta.7
       '@kinotic-ai/frontend-common':
         specifier: workspace:*
         version: link:../../packages/common
-      '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.16
-        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
+      '@kinotic-ai/management-api':
+        specifier: ^5.0.0-beta.21
+        version: 5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)
+      '@kinotic-ai/system-api':
+        specifier: ^5.0.0-beta.3
+        version: 5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.7)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -208,11 +211,11 @@ importers:
   packages/common:
     dependencies:
       '@kinotic-ai/core':
-        specifier: ^5.0.0-beta.5
-        version: 5.0.0-beta.5
-      '@kinotic-ai/os-api':
-        specifier: ^5.0.0-beta.16
-        version: 5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)
+        specifier: ^5.0.0-beta.7
+        version: 5.0.0-beta.7
+      '@kinotic-ai/management-api':
+        specifier: ^5.0.0-beta.21
+        version: 5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -324,26 +327,26 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@kinotic-ai/core@5.0.0-beta.5':
-    resolution: {integrity: sha512-tIqDmPrE0eYgRQe9XG5MMawX8KB+74rpT55qKAIIQjDefA1j9mtHUd+/w6EhyTcXnwbFggB75j4Ma9HTwjGV0g==}
+  '@kinotic-ai/core@5.0.0-beta.7':
+    resolution: {integrity: sha512-pmqAzM3wb2TrAhZJGx47Dv7AxhxDNZupVkMoS4yQQtXRfgkHAu66+O1M3TqtIGdHJD7IKhrgfvbsAJ2erKKFCA==}
 
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/os-api@5.0.0-beta.16':
-    resolution: {integrity: sha512-DptsTrpmzuuKc2ZL0m6xwvPnEEp2XohPbPzeobVNI5JoJ9ge+YuLlnNgnFg0g0rXMThZfDAKRIO0qfBsnUi+ig==}
+  '@kinotic-ai/management-api@5.0.0-beta.21':
+    resolution: {integrity: sha512-UxHdcptEds5/MMwW4UseZ4MIjdIB+zfWHR7vYdoFQahLIUFq+l5Om7H2Tae3DPQBRsjbfhjegxrxxL9bIkQ1kg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.5'
+      '@kinotic-ai/core': '>=5.0.0-beta.7'
 
-  '@kinotic-ai/persistence@5.0.0-beta.4':
-    resolution: {integrity: sha512-IKkNHpVz4n6vDXNq4PzAANFSpiV1TgfhKbCo201qQw+wRlS8WS9U+3XQme8R3DDpfiyHLz70884IokXAuGQ+rg==}
+  '@kinotic-ai/persistence@5.0.0-beta.7':
+    resolution: {integrity: sha512-SaHGPDpI/BNgd5In4B1hdbEcpiu4dRQESca3Q7UWZYlMZ7SVMQWF0oRKhyAyEmc/jg+N3ZCeByPHtsWwPtAReg==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.4'
+      '@kinotic-ai/core': '>=5.0.0-beta.7'
 
-  '@kinotic-ai/persistence@5.0.0-beta.5':
-    resolution: {integrity: sha512-OhpkJbOvb1gcDHrbAi5F+OhXs9HzLOocTForm9J77HiryY7n3Dwr38A2ukm9MYsiO0mRdXGr7m20880iUzKQZQ==}
+  '@kinotic-ai/system-api@5.0.0-beta.3':
+    resolution: {integrity: sha512-zmAFdKwtewQx61tBkfEpQbIEd6vJ0Bs9dfCSqsbgzzAKyTQkI4qVi3GN8RB4zLlgunuzP6UIYYn89iRS+viHNw==}
     peerDependencies:
-      '@kinotic-ai/core': '>=5.0.0-beta.5'
+      '@kinotic-ai/core': '>=5.0.0-beta.7'
 
   '@mdi/js@7.4.47':
     resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
@@ -1698,7 +1701,7 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@kinotic-ai/core@5.0.0-beta.5':
+  '@kinotic-ai/core@5.0.0-beta.7':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.40.0
@@ -1717,24 +1720,23 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/os-api@5.0.0-beta.16(@kinotic-ai/core@5.0.0-beta.5)':
+  '@kinotic-ai/management-api@5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.5
+      '@kinotic-ai/core': 5.0.0-beta.7
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.5)
+      '@kinotic-ai/persistence': 5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.4(@kinotic-ai/core@5.0.0-beta.5)':
+  '@kinotic-ai/persistence@5.0.0-beta.7(@kinotic-ai/core@5.0.0-beta.7)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.5
+      '@kinotic-ai/core': 5.0.0-beta.7
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.5)':
+  '@kinotic-ai/system-api@5.0.0-beta.3(@kinotic-ai/core@5.0.0-beta.7)':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.5
-      '@kinotic-ai/idl': 5.0.0-beta.1
-      rxjs: 7.8.2
+      '@kinotic-ai/core': 5.0.0-beta.7
+      '@kinotic-ai/management-api': 5.0.0-beta.21(@kinotic-ai/core@5.0.0-beta.7)
 
   '@mdi/js@7.4.47': {}
 

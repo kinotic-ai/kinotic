@@ -1,6 +1,6 @@
 import { Pageable } from '@kinotic-ai/core';
 import { IEntityService } from '@kinotic-ai/persistence';
-import { Kinotic as KineticOs } from '@kinotic-ai/os-api';
+import { Kinotic as KineticOs } from '@kinotic-ai/management-api';
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { createVehicleEntityDefinition, createTestVehicles } from '../TestHelpers';

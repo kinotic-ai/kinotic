@@ -91,7 +91,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import type { MachineParticipantIdentity } from '@kinotic-ai/os-api'
+import type { MachineParticipantIdentity } from '@kinotic-ai/management-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'

@@ -84,7 +84,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
+import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
 
 /**
  * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`

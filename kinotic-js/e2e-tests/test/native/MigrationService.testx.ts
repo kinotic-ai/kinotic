@@ -1,5 +1,5 @@
 import {Kinotic} from '@kinotic-ai/core'
-import { Project, IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import { Project, IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/management-api'
 import { ProjectMigrationService } from '@kinotic-ai/kinotic-cli/dist/internal/ProjectMigrationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import * as allure from 'allure-js-commons'

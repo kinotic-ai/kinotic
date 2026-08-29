@@ -9,7 +9,7 @@ import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitions
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
-import { Project, RepositoryConnectionStatus } from '@kinotic-ai/os-api'
+import { Project, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import { DatetimeUtil } from "@kinotic-ai/frontend-common"
 import { createDebug } from '@kinotic-ai/frontend-common'

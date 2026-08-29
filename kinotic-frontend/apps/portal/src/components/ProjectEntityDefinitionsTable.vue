@@ -7,7 +7,7 @@ import EntityDataViewModal from '@/components/modals/EntityDataViewModal.vue'
 import Dialog from "primevue/dialog";
 import Button from "primevue/button";
 import { Kinotic } from '@kinotic-ai/core'
-import { EntityDefinition } from '@kinotic-ai/os-api'
+import { EntityDefinition } from '@kinotic-ai/management-api'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import type { IterablePage, Pageable } from '@kinotic-ai/core'

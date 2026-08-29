@@ -4,7 +4,7 @@ import path from 'path'
 import chalk from 'chalk'
 import { input } from '@inquirer/prompts'
 import { isKinoticProject, resolveKinoticConfigDir, saveKinoticProjectConfig } from '@/internal/state/KinoticProjectConfigUtil'
-import { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import { KinoticProjectConfig } from '@kinotic-ai/management-api'
 
 /**
  * Validates the application name according to server requirements:

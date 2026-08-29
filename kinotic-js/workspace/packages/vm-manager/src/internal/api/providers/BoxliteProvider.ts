@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
-import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus, VmProviderType, NetworkMode } from '@kinotic-ai/system-api'
 
 /**
  * Guest path where the per-workload host log directory is mounted. This is the log-shipping

@@ -81,7 +81,8 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/os-api'
+import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
+import type { VmNode } from '@kinotic-ai/system-api'
 
 import { PageHeader, formatMb } from '@kinotic-ai/frontend-common'
 

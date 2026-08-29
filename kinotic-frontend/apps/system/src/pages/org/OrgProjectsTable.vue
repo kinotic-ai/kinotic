@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } from '@kinotic-ai/core'
-import type { Project } from '@kinotic-ai/os-api'
+import type { Project } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,

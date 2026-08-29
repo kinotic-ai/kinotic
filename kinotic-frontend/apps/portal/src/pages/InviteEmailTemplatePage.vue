@@ -67,7 +67,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { InviteEmailTemplate } from '@kinotic-ai/os-api'
+import { InviteEmailTemplate } from '@kinotic-ai/management-api'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 

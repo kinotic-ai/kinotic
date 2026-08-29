@@ -1,6 +1,6 @@
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import { KinoticProjectConfig } from '@kinotic-ai/management-api'
 import path from 'path'
 import fs from 'fs/promises'
 

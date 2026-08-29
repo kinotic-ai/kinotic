@@ -1,4 +1,4 @@
-import { ExecutionStatus } from '@kinotic-ai/os-api'
+import { ExecutionStatus } from '@kinotic-ai/management-api'
 
 /**
  * Maps an ExecutionStatus to the PrimeVue Tag severity it renders with.

@@ -95,14 +95,14 @@ describe('Kinotic JS', () => {
     it('lists tools following the zone visibility matrix', async () => {
         expect(await toolTitles(systemClient), 'system sees every zone').toContain(CREATE_APPLICATION)
 
-        expect(await toolTitles(organizationClient), 'org participants see os-api tools')
+        expect(await toolTitles(organizationClient), 'org participants see management-api tools')
             .toContain(FIND_PROJECTS_BY_REPO)
 
-        // every os-api tool's title leads with its service's half, so this catches the os-api tools this
+        // every management-api tool's title leads with its service's half, so this catches the management-api tools this
         // suite never names as well as the three it does
         const leaked = (await toolTitles(applicationClient))
             .filter(title => title.startsWith('Project Service') || title.startsWith('Application Service'))
-        expect(leaked, 'app participants never see os-api tools').toHaveLength(0)
+        expect(leaked, 'app participants never see management-api tools').toHaveLength(0)
     })
 
     it('serves tool metadata and schemas from the service contract', async () => {
@@ -156,7 +156,7 @@ describe('Kinotic JS', () => {
     })
 
     it('refuses a call to a tool outside the caller zones', async () => {
-        // resolution is scoped to the caller's zones, so the os-api tool does not exist for an app participant
+        // resolution is scoped to the caller's zones, so the management-api tool does not exist for an app participant
         await expect(applicationClient.callTool({name: toolName(FIND_PROJECTS_BY_REPO),
                                                  arguments: {repoFullName: 'a/b'}}))
             .rejects.toThrowError(McpError)

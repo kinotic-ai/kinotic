@@ -32,7 +32,7 @@
 <script setup lang="ts">
 import Tag from 'primevue/tag'
 import { Kinotic, FunctionalIterablePage, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
-import type { JobRun } from '@kinotic-ai/os-api'
+import type { JobRun } from '@kinotic-ai/management-api'
 import CrudTable from '../CrudTable.vue'
 import { useCrudTablePage } from '../useCrudTablePage'
 import type { CrudHeader } from '../../types/CrudHeader'

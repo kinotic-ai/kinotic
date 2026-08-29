@@ -10,6 +10,10 @@ kinotic:
   github:
     webhookSecret: "-"
     appPrivateKey: "-"
+  systemApi:
+    deployment:
+      # deployed workloads reach the dev gateway on the host
+      serverHost: localhost
   domain:
     # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
     # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With

@@ -14,11 +14,11 @@ public class ServiceIdentifierTest {
 
     @Test
     public void qualifiedNameIsZonePrefixed() {
-        ServiceIdentifier identifier = new ServiceIdentifier("api", "org.kinotic.os.api.services.iam", "MemberService", null, "1.0.0");
-        assertEquals("api~org.kinotic.os.api.services.iam.MemberService", identifier.qualifiedName());
-        assertEquals("srv://api~org.kinotic.os.api.services.iam.MemberService#1.0.0", identifier.cri().raw());
+        ServiceIdentifier identifier = new ServiceIdentifier("api", "org.kinotic.management.api.services.iam", "MemberService", null, "1.0.0");
+        assertEquals("api~org.kinotic.management.api.services.iam.MemberService", identifier.qualifiedName());
+        assertEquals("srv://api~org.kinotic.management.api.services.iam.MemberService#1.0.0", identifier.cri().raw());
         assertEquals("api", identifier.cri().zone());
-        assertEquals("org.kinotic.os.api.services.iam.MemberService", identifier.cri().resourceName());
+        assertEquals("org.kinotic.management.api.services.iam.MemberService", identifier.cri().resourceName());
     }
 
     @Test

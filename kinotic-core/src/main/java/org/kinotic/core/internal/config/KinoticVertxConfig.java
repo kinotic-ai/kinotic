@@ -14,6 +14,7 @@ import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.kinotic.vertx.jackson3.VertxJackson3Codec;
@@ -62,9 +63,15 @@ public class KinoticVertxConfig {
         return vertx.sharedData();
     }
 
+    // The SecurityContext parameter is ordering, not data: its static initializer registers the
+    // participant ContextLocal, and every context sizes its locals array from the ContextLocals
+    // known when the Vertx instance is created — a registration after this point would make
+    // putLocal throw IllegalArgumentException on every context. Depending on the bean forces the
+    // registration first, whatever instantiation order the rest of the context settles on.
     @Bean
     public Vertx vertx(KinoticProperties properties,
                        JsonMapper jsonMapper,
+                       SecurityContext securityContext,
                        @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
 
         // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every

@@ -5,7 +5,7 @@ import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 // import {generateMultipleDeterministicIds} from '@/utils/DataUtil.js'
 import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {EntitiesRepository, PersistencePlugin} from '@kinotic-ai/persistence'
-import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {ManagementApiPlugin} from '@kinotic-ai/management-api'
 import { ITask } from './ITask';
 import opentelemetry, {SpanKind, SpanStatusCode, Tracer} from '@opentelemetry/api'
 import info from '../../package.json' assert {type: 'json'}
@@ -27,7 +27,7 @@ export class MultiTenantSearchTaskGenerator implements ITaskGenerator {
                 totalTenants: number) {
 
         const kinotic = new KinoticSingleton()
-        kinotic.use(OsApiPlugin).use(PersistencePlugin)
+        kinotic.use(ManagementApiPlugin).use(PersistencePlugin)
         this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,

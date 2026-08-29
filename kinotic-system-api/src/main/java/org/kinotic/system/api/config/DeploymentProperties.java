@@ -1,5 +1,6 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,7 +11,7 @@ import java.util.List;
 
 /**
  * Configuration for deploying customer project workloads from GitHub pushes.
- * Accessible via {@code kinotic.orchestrator.deployment.*}
+ * Accessible via {@code kinotic.systemApi.deployment.*}
  */
 @Getter
 @Setter
@@ -29,6 +30,7 @@ public class DeploymentProperties {
      * in the guest). There is no advertised-address the server knows about itself, so
      * deployments must configure how workloads reach it.
      */
+    @NotBlank
     private String serverHost;
 
     /**

@@ -6,7 +6,7 @@ import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import { createDebug } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
-import type {Application} from "@kinotic-ai/os-api";
+import type {Application} from "@kinotic-ai/management-api";
 import {Kinotic} from "@kinotic-ai/core";
 import { USER_STATE } from '@/states/IUserState'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'

@@ -7,16 +7,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.VmNodeProperties;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
-import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.management.api.model.workload.VmNode;
 import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
-import org.kinotic.system.api.model.workload.VmNodeStatus;
-import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.VmNodeStatus;
+import org.kinotic.management.api.model.workload.VmNodeStatusType;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
@@ -40,7 +40,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     @PostConstruct
     public void init() {
-        VmNodeProperties nodeProps = orchestratorProperties.getOrchestrator().getVmNode();
+        VmNodeProperties nodeProps = orchestratorProperties.getSystemApi().getVmNode();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "node-health-check");
             t.setDaemon(true);
@@ -203,7 +203,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      */
     private void checkNodeHealth() {
         try {
-            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getVmNode().getHeartbeatTimeoutSeconds();
+            long heartbeatTimeoutSeconds = orchestratorProperties.getSystemApi().getVmNode().getHeartbeatTimeoutSeconds();
             long cutoff = System.currentTimeMillis() - (heartbeatTimeoutSeconds * 1000);
             Date cutoffDate = new Date(cutoff);
 

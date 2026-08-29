@@ -2,7 +2,7 @@ import {expect} from 'chai'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {KinoticProjectConfig} from '@kinotic-ai/os-api'
+import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import {EntityCodeGenerationService} from '../../src/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '../../src/internal/Logger.js'
 

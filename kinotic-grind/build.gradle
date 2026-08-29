@@ -1,0 +1,19 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+dependencies {
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
+
+    implementation 'co.elastic.clients:elasticsearch-java'
+
+    implementation 'io.projectreactor:reactor-core'
+
+    implementation 'io.vertx:vertx-core'
+
+    implementation 'org.reactivestreams:reactive-streams'
+
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+}

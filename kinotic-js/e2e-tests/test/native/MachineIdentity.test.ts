@@ -1,5 +1,5 @@
 import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
-import {MachineService} from '@kinotic-ai/os-api'
+import {MachineService} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_ORGANIZATION_ID,

@@ -9,10 +9,10 @@ import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.workload.VmManagerProxy;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.model.workload.Workload;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.model.workload.VmNode;
+import org.kinotic.management.api.model.workload.VmNodeStatusType;
+import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;

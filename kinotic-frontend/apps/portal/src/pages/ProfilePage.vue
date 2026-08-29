@@ -92,7 +92,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { useToast } from 'primevue/usetoast'
 
-import { AuthType } from '@kinotic-ai/os-api'
+import { AuthType } from '@kinotic-ai/management-api'
 import { DatetimeUtil, showErrorToast, statusSeverity } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'

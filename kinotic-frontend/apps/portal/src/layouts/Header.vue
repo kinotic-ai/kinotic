@@ -126,7 +126,7 @@ import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { PROFILE_STATE } from '@/states/IProfileState';
 import { USER_STATE } from '@/states/IUserState';
 import { Kinotic } from '@kinotic-ai/core';
-import type { Application, Project } from '@kinotic-ai/os-api';
+import type { Application, Project } from '@kinotic-ai/management-api';
 import Avatar from 'primevue/avatar';
 import InputText from 'primevue/inputtext';
 import IconField from 'primevue/iconfield';

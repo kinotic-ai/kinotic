@@ -35,7 +35,7 @@ exists).
    entity data): in `application-os-server.yml`, set `disablePersistence: true` and drop
    `app-api` from `kinotic.zones`. From then on the OS bus carries no entity data plane, and
    the zones intersection automatically narrows organization participants on the OS server to
-   `os-api.**`.
+   `management-api.**`.
 7. **Secrets/TLS** — extend the `platformSecrets` mounting (JWT signing keys are shared across
    OS server and gateways — same Key Vault objects), per-gateway TLS, and the es-secret-sync
    pattern for the new env clusters.

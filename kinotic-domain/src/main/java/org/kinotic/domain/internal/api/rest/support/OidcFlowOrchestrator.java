@@ -424,7 +424,7 @@ public class OidcFlowOrchestrator {
     }
 
     /**
-     * The {@link OAuth2Auth} for {@code config} as it is currently persisted, discovered against its
+     * The {@code OAuth2Auth} for {@code config} as it is currently persisted, discovered against its
      * authority on first use and cached until an hour passes with no flow using it. Saving the
      * configuration takes effect on the next flow. A discovery that fails is not cached, so the next
      * flow retries it.

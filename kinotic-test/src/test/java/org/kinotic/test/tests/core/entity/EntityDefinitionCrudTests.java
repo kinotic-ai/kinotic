@@ -11,7 +11,7 @@ import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
-import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.sample.TestDataService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;

@@ -30,7 +30,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import Message from 'primevue/message'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import type { Organization } from '@kinotic-ai/os-api'
+import type { Organization } from '@kinotic-ai/management-api'
 import { DatetimeUtil, PageHeader } from '@kinotic-ai/frontend-common'
 
 import StatTile from '@/components/StatTile.vue'

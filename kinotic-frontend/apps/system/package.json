@@ -10,9 +10,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@kinotic-ai/core": "^5.0.0-beta.5",
+    "@kinotic-ai/core": "^5.0.0-beta.7",
     "@kinotic-ai/frontend-common": "workspace:*",
-    "@kinotic-ai/os-api": "^5.0.0-beta.16",
+    "@kinotic-ai/management-api": "^5.0.0-beta.21",
+    "@kinotic-ai/system-api": "^5.0.0-beta.3",
     "@primeuix/themes": "^2.0.3",
     "echarts": "^6.1.0",
     "primeicons": "^7.0.0",

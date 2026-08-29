@@ -1,6 +1,6 @@
 import os from 'node:os'
 import path from 'node:path'
-import { VmProviderType } from '@kinotic-ai/os-api'
+import { VmProviderType } from '@kinotic-ai/system-api'
 
 /**
  * Resolves KINOTIC_VM_PROVIDER, defaulting to the provider that runs anywhere a developer

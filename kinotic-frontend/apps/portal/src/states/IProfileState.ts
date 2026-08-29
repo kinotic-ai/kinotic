@@ -1,5 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
-import type { UserParticipantIdentity } from '@kinotic-ai/os-api'
+import type { UserParticipantIdentity } from '@kinotic-ai/management-api'
 import { avatarInitials } from '@kinotic-ai/frontend-common'
 import { reactive } from 'vue'
 

@@ -46,7 +46,7 @@ public class ZoneRules {
 
             // os-api and app-api are hosted in-process only, so no connection may ever subscribe
             // to them; the system zone stays subscribable for the vm-manager nodes that host there
-            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_ZONE));
+            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_API_ZONE));
 
             // appZone validates the ids, so an id that could shift the zone's label structure
             // fails instead of widening access
@@ -62,7 +62,7 @@ public class ZoneRules {
                 ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
                 String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
                 yield new ZoneRules(false,
-                                    Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
+                                    Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
                                     Set.of(orgAppsZone));
             }
         };

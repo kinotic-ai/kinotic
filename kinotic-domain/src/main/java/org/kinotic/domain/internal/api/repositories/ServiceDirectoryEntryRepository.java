@@ -213,7 +213,7 @@ public class ServiceDirectoryEntryRepository extends AbstractRepository<ServiceD
             ret = null;
         } else {
             List<String> zones = applicationId == null
-                    ? List.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE)
+                    ? List.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE)
                     : List.of(DomainUtil.APP_ZONE_PREFIX + "." + organizationId + "." + applicationId,
                               DomainUtil.APP_API_ZONE);
             ret = Query.of(q -> q.bool(b -> {

@@ -60,8 +60,8 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { DelegateKind } from '@kinotic-ai/os-api'
-import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/os-api'
+import { DelegateKind } from '@kinotic-ai/management-api'
+import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/management-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
