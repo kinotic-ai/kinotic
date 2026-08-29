@@ -9,9 +9,9 @@ import org.kinotic.core.internal.api.ScopedRpcTests;
  * service that never opted in keeps its scoped-only addressability.
  */
 @Publish
-public interface AffineRpcTestService {
+public interface ScopedOnlyRpcTestService {
 
-    String NODE_ID = "affine-test-node";
+    String NODE_ID = "scoped-only-test-node";
 
     @Scope
     String nodeId();

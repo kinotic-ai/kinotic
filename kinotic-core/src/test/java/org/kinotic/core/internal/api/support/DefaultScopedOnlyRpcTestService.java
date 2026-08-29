@@ -3,7 +3,7 @@ package org.kinotic.core.internal.api.support;
 import org.springframework.stereotype.Component;
 
 @Component
-public class DefaultAffineRpcTestService implements AffineRpcTestService {
+public class DefaultScopedOnlyRpcTestService implements ScopedOnlyRpcTestService {
 
     @Override
     public String nodeId() {
@@ -12,7 +12,7 @@ public class DefaultAffineRpcTestService implements AffineRpcTestService {
 
     @Override
     public String instanceValue() {
-        return "affine";
+        return "scoped-only";
     }
 
 }

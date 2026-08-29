@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.annotations.ScopeOptional;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
-import org.kinotic.core.internal.api.support.AffineRpcTestServiceUnscopedProxy;
+import org.kinotic.core.internal.api.support.ScopedOnlyRpcTestServiceUnscopedProxy;
 import org.kinotic.core.internal.api.support.ScopedRpcTestService;
 import org.kinotic.core.internal.api.support.ScopedRpcTestServiceProxy;
 import org.kinotic.core.internal.api.support.ScopedRpcTestServiceUnscopedProxy;
@@ -30,7 +30,7 @@ public class ScopedRpcTests {
     private ScopedRpcTestServiceUnscopedProxy unscopedProxy;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
     @Autowired
-    private AffineRpcTestServiceUnscopedProxy affineUnscopedProxy;
+    private ScopedOnlyRpcTestServiceUnscopedProxy scopedOnlyUnscopedProxy;
 
     @Test
     public void scopedInvocationReachesTheNamedInstance() {
@@ -54,7 +54,7 @@ public class ScopedRpcTests {
     }
 
     @Test
-    public void instanceAffineMethodRejectsUnscopedInvocation() {
+    public void scopedOnlyMethodRejectsUnscopedInvocation() {
         StepVerifier.create(unscopedProxy.instanceValue())
                     .expectError(RpcInvocationException.class)
                     .verify();
@@ -62,7 +62,7 @@ public class ScopedRpcTests {
 
     @Test
     public void serviceWithoutScopeOptionalMethodsListensOnNoUnscopedAddress() {
-        StepVerifier.create(affineUnscopedProxy.instanceValue())
+        StepVerifier.create(scopedOnlyUnscopedProxy.instanceValue())
                     .expectError(RpcMissingServiceException.class)
                     .verify();
     }
