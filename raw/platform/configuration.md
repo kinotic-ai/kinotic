@@ -178,6 +178,48 @@ Each vm-manager node runs every workload on one VM provider, chosen by the node 
 
 `CLOUD_HYPERVISOR` needs the node's Docker daemon to register a `kata-clh` runtime and to keep its data root on an XFS filesystem mounted with `prjquota`. Without the quota support the daemon refuses any workload declaring a `diskSizeMb`, since that is what caps a container's rootfs.
 
+`BOXLITE` keeps box records and every guest's rootfs disk under one directory. That directory is the filesystem workload disks grow into and the one the node reports its `totalDiskMb` from, so a node taking workloads of any size wants it on a data volume rather than the root filesystem under the service account's home.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Environment variable
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+    
+    <th>
+      Default
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        BOXLITE_HOME
+      </code>
+      
+       (vm-manager)
+    </td>
+    
+    <td>
+      Directory boxlite keeps box records and guest rootfs disks in
+    </td>
+    
+    <td>
+      <code>
+        ~/.boxlite
+      </code>
+    </td>
+  </tr>
+</tbody>
+</table>
+
 ## Workload volume mounts
 
 On a `CLOUD_HYPERVISOR` node, every workload volume mount must live under the node's workload data directory — binds are created with root's authority, so this boundary is what keeps a workload spec from mounting an arbitrary host directory. The node creates missing directories for writable mounts, refuses a read-only mount of a directory that does not exist, and reports the directory to the server at registration so deployment flows compose host paths under it. The directory should sit on an XFS filesystem with `prjquota`, since that is what enforces a writable mount's `sizeLimitMb`; a node whose directory cannot enforce it reports the problem and stops taking workloads.
@@ -322,7 +364,9 @@ Every destination comes from the workload's own `network.allowedHosts`, includin
 </tbody>
 </table>
 
-An empty list means the same on a `BOXLITE` node, which reaches it differently: boxlite treats a missing allowlist as no filter, so the provider sends an allowlist naming a single unrouted address instead. Only the accepted form of an entry differs between providers — addresses and CIDRs on `CLOUD_HYPERVISOR`, hostnames on `BOXLITE`.
+An empty list means the same on a `BOXLITE` node. Only the accepted form of an entry differs between providers — addresses and CIDRs on `CLOUD_HYPERVISOR`, hostnames on `BOXLITE`.
+
+`mode: DISABLED` leaves no interface to publish a port on, so a node refuses a workload declaring both it and `portMappings` — on either provider — rather than starting one whose published ports cannot work.
 
 A node that does not deny egress by default cannot honour a declared allowlist, so a workload declaring one is refused there rather than started with access it was supposed to be denied.
 
