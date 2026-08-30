@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.persistence.api.model.EntityContext;
 
 import java.util.List;

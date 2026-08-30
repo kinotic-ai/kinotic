@@ -2,7 +2,7 @@ import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { Publish, Scope } from '@kinotic-ai/core'
-import type { Workload } from '@kinotic-ai/system-api'
+import { NetworkMode, type Workload } from '@kinotic-ai/system-api'
 
 /**
  * Default implementation of {@link IVmManager}.
@@ -36,6 +36,14 @@ export class DefaultVmManager implements IVmManager {
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
+        // A workload with no network has no interface to publish a port on. Rejected here
+        // rather than in a provider, so the answer does not depend on where it is placed.
+        if ((workload.network?.mode ?? NetworkMode.ENABLED) === NetworkMode.DISABLED
+            && workload.portMappings.length > 0) {
+            throw new Error(`Workload ${workload.name} declares network.mode DISABLED and `
+                            + `${workload.portMappings.length} port mapping(s): a workload `
+                            + 'with no network has no interface to publish a port on')
+        }
         const started = await this.provider.start(workload)
         await this.refreshLogShipping()
         return started

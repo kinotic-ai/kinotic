@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.participant;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;

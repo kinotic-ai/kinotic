@@ -3,7 +3,7 @@ package org.kinotic.management.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 /**
  * The signed-in user's own account details, read and edited from the web app's account

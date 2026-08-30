@@ -3,9 +3,9 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.security.ConnectedInfo;
-import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 
 import java.util.List;
 import java.util.Map;

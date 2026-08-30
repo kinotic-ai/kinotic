@@ -1,11 +1,10 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { execSync, spawnSync } from 'node:child_process'
+import { execSync } from 'node:child_process'
 import { BasicCredentialsResolver, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
 import { Workload, WorkloadOrchestrationService, WorkloadStatus } from '@kinotic-ai/system-api'
-import { KATA_CLH_RUNTIME } from '@/internal/api/providers/CloudHypervisorProvider'
 
 // The whole deployment path in one run: a project checkout on the node, the workload-runner
 // image booting it as a micro VM through the server's orchestrator, and the service it
@@ -13,20 +12,30 @@ import { KATA_CLH_RUNTIME } from '@/internal/api/providers/CloudHypervisorProvid
 // unattended — it needs a registered node, a reachable server, and seeded org/app records.
 //
 // Opt in with KINOTIC_WORKLOAD_E2E=1 once the lab is up; see the runbook in
-// vmm-r&d/docker-kata-ch-test/NOTES.md. CI has no nested virtualization, so it skips.
-const OPTED_IN = process.env.KINOTIC_WORKLOAD_E2E === '1'
-const canRun = OPTED_IN
-    && process.getuid?.() === 0
-    && spawnSync('docker', ['info', '-f', '{{json .Runtimes}}'], { encoding: 'utf-8' })
-        .stdout?.includes(KATA_CLH_RUNTIME) === true
+// vmm-r&d/docker-kata-ch-test/NOTES.md. CI has no lab, so it never sets this and skips.
+//
+// Nothing here names a provider: the path it walks is the server's, and a node is a node to
+// it. What differs between providers is configuration, and all of it is read from the
+// environment below — which is the point, and worth keeping true.
+const canRun = process.env.KINOTIC_WORKLOAD_E2E === '1'
 
 /** Node the workload is pinned to — the one the vm-manager under test registered as. */
 const NODE_ID = process.env.KINOTIC_NODE_ID ?? 'lab-node-1'
 /** Where the node keeps workload mounts; must be the directory the vm-manager reported. */
 const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
-/** Address the guest reaches the server on — the node's own bridge gateway. */
+/**
+ * Address the guest reaches the server on, which is a property of the node's network rather
+ * than of the deployment: a CLOUD_HYPERVISOR guest sits on the node's docker bridge and reaches
+ * it at the gateway, a BOXLITE guest reaches the host on its routable address.
+ */
 const SERVER_FROM_GUEST = process.env.KINOTIC_E2E_GUEST_SERVER_HOST ?? '172.17.0.1'
 const SERVER_PORT = process.env.KINOTIC_SERVER_PORT ?? '58503'
+
+/**
+ * How the workload's policy names that address. Only the accepted form differs by provider —
+ * CLOUD_HYPERVISOR matches addresses and CIDRs, BOXLITE matches hostnames and refuses a CIDR.
+ */
+const ALLOWED_SERVER_HOST = process.env.KINOTIC_E2E_ALLOWED_HOST ?? `${SERVER_FROM_GUEST}/32`
 
 // Seeded by the e2e fixture migrations: an organization, an application it owns, and an
 // organization-scope user. The application record is what makes its zone routable.
@@ -85,13 +94,17 @@ describe.skipIf(!canRun)('a project deployed to a node answers calls to its serv
             KINOTIC_SERVER_PORT: SERVER_PORT,
             KINOTIC_SERVER_USE_SSL: 'false',
             KINOTIC_CLIENT_ID: ORG_USER,
-            KINOTIC_CLIENT_SECRET: ORG_PASSWORD,
             KINOTIC_ORGANIZATION_ID: ORGANIZATION_ID,
             KINOTIC_PROJECT_APPLICATION_ID: APPLICATION_ID,
         }
-        // The server is on the node itself here, which a production deployment does not do —
-        // the node permits it only because it is running as a development environment
-        workload.network.allowedHosts = [`${SERVER_FROM_GUEST}/32`]
+        // The guest receives this exactly as it receives the environment above, but the
+        // workload record keeps only the key: environment is persisted verbatim, and a
+        // credential written there is readable by anyone who can read the workload back
+        workload.secrets = { KINOTIC_CLIENT_SECRET: ORG_PASSWORD }
+        // The workload may reach the server and nothing else. Where the server is the node
+        // itself, a production node refuses even that — it is permitted only on a node running
+        // in DEVELOPMENT mode.
+        workload.network.allowedHosts = [ALLOWED_SERVER_HOST]
 
         const deployed = await new WorkloadOrchestrationService(orchestrator).deployWorkload(workload)
         expect(deployed.status).toBe(WorkloadStatus.RUNNING)

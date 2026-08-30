@@ -1,6 +1,7 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.participant;
 
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.model.security.ZoneRules;
 
 /**
  * A {@link Participant} whose authority is scoped to one layer of the platform. The permitted

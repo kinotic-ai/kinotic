@@ -1,6 +1,9 @@
 package org.kinotic.domain.api.model.security;
 
 import org.junit.jupiter.api.Test;
+import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import tools.jackson.databind.json.JsonMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

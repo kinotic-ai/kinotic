@@ -5,11 +5,11 @@ import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.DelegateKind;
-import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
-import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
-import org.kinotic.domain.api.model.security.ParticipantIdentity;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 public interface ParticipantIdentityService extends IdentifiableCrudService<ParticipantIdentity, String> {
 

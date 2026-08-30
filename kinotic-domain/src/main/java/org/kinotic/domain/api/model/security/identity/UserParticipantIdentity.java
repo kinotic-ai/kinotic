@@ -1,9 +1,10 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.identity;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.security.AuthType;
 
 /**
  * A person. Unique by email within their scope, pre-created by an administrator before they

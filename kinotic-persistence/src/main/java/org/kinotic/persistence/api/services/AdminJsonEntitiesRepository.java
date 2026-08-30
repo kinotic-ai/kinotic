@@ -9,7 +9,7 @@ import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 
 import java.util.List;
 

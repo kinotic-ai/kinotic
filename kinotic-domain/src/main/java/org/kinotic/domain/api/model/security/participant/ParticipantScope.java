@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.participant;
 
 /**
  * The scope coordinates of a {@link ScopedParticipant}, as a value usable for filtering,

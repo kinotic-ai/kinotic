@@ -1,7 +1,7 @@
 package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 
 /**

@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.identity;
 
 /**
  * What kind of principal a {@link ParticipantIdentity} represents. Mirrors the concrete

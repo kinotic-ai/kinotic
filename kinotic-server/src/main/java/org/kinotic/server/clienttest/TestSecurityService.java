@@ -4,9 +4,9 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityService;
-import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 

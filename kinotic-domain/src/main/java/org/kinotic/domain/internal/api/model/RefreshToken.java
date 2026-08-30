@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.util.Date;
 
@@ -28,7 +29,7 @@ public class RefreshToken implements Identifiable<String> {
     /** SHA-256 hash of the refresh token. The plaintext is returned to the client once and never stored. */
     private String tokenHash;
 
-    /** Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} this token authenticates. */
+    /** Id of the {@link ParticipantIdentity} this token authenticates. */
     private String identityId;
 
     /** Groups every token in one rotation lineage so that reuse can revoke the whole family. */
