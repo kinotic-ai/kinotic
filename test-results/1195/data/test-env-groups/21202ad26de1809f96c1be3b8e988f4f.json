@@ -1,1 +1,0 @@
-{"id":"21202ad26de1809f96c1be3b8e988f4f","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenObjectLiteralUnterminated_thenParseFailsNamingLine","name":"whenObjectLiteralUnterminated_thenParseFailsNamingLine()","status":"passed","testResultsByEnv":{"default":"de9ab9abcda91b323618dc5145013733"}}
