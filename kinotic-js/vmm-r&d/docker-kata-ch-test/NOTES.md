@@ -43,17 +43,25 @@ and upstream *does* ship `configuration-clh-runtime-rs.toml` for x86_64, so noth
 and nothing is guessed. On a release that still carries the Go runtime the Go branch is taken
 first, exactly as before.
 
-### Two follow-ups for the maintainers
+### Each run installs exactly one bundle
 
-- **Consider pinning `KATA_VERSION`.** A node's runtime silently changing underneath the same
-  script is what produced this. The README calls out resolving the release at run time as
-  deliberate — worth revisiting now that a minor release can remove a runtime.
-- **Extraction does not remove the previous bundle.** `tar -C /` unpacks over `/opt/kata`
-  without deleting what a previous release left there, so a node provisioned on 4.0.0 and
-  re-run on 4.1.0 keeps a stale Go shim *and* a stale `configuration-clh.toml`, and the Go
-  branch matches both — pairing a 4.0.0 shim with a 4.1.0 guest kernel and image. Adding
-  `rm -rf /opt/kata` before the untar would make each run install exactly one bundle. Left out
-  here because it changes behaviour on production nodes and is the maintainers' call.
+`tar -C /` unpacks over `/opt/kata` without deleting what a previous release left there, and
+the releases do not ship the same files. A node provisioned before 4.1.0 keeps that release's
+Go shim *and* its `configuration-clh.toml`, both of which the runtime selection finds and
+prefers — so re-running the script to move a node onto 4.1.0 would leave it running the 4.0.0
+build against a 4.1.0 kernel and image.
+
+That is not only a staleness problem. `CVE-2026-77176` (GHSA-fmg6-v47x-52wr, high) affects
+kata `<= 4.0.0`, and 4.1.0 was published the day after it. Re-provisioning to pick the fix up
+is exactly the operation that would have silently kept the vulnerable runtime. `setup-node.sh`
+now removes `/opt/kata` before extracting.
+
+### One follow-up for the maintainers
+
+- **Pinning `KATA_VERSION` cuts both ways.** A node's runtime changing underneath the same
+  script is what let 4.1.0 remove the Go runtime without warning; it is also what moved this
+  node off a release with a high-severity advisory without anyone doing anything. A pin wants
+  something that watches for advisories on the pinned version, not a pin on its own.
 
 ## Workload networking on arm64: cause and fix
 

@@ -56,6 +56,12 @@ KATA_URL="$(printf '%s' "$KATA_JSON" | jq -r --arg arch "-$KATA_ARCH.tar" '.asse
 ASSET="${KATA_URL##*/}"
 echo "  kata-containers : $KATA_VERSION ($ASSET)"
 curl -fsSL -o "/tmp/$ASSET" "$KATA_URL"
+# Removed rather than unpacked over: tar does not delete what a previous release left, and the
+# releases do not ship the same set of files. A node provisioned before 4.1.0 keeps that
+# release's Go shim and its configuration-clh.toml, both of which the selection below would
+# still find and prefer — so re-running this to pick up a fix would leave the node running the
+# very build it was upgraded away from.
+rm -rf /opt/kata
 case "$ASSET" in
     *.tar.zst) tar --use-compress-program=unzstd -xf "/tmp/$ASSET" -C / ;;
     *.tar.xz)  tar -xJf "/tmp/$ASSET" -C / ;;
