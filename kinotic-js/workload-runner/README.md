@@ -34,7 +34,7 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_REF` | commit sha or branch to deploy | required |
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
-| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID`, `KINOTIC_APPLICATION_ID` | machine identity and server the CLI connects with; sync is skipped when no credentials are present | — |
+| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI connects with; sync is skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
 Entity sync runs `kinotic sync` over the checkout. The projects have no CI of their own —

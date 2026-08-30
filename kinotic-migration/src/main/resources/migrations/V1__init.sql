@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     nodeId KEYWORD,
     hostDir KEYWORD,
     runtimeWorkloadId KEYWORD,
+    syncMachineId KEYWORD,
+    runtimeMachineId KEYWORD,
     commitSha KEYWORD,
     lastJobRunId KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),

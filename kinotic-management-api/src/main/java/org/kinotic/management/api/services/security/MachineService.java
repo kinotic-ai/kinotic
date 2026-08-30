@@ -6,15 +6,19 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
+import org.kinotic.management.api.model.ProjectDeployment;
+
+import java.util.List;
 
 /**
- * Machine-identity management for the applications of the caller's organization, used by the
- * web app. A machine is a non-human API client of one application — it connects through the
- * Kinotic client with the identity's id as {@code clientId} and a secret issued here, and
- * acts with that application's scope, exactly the position an application end-user occupies.
- * Every method derives the organization from the authenticated participant: only org members
- * may call, the application must belong to that organization, and only its machines are
- * visible or mutable.
+ * Machine-identity management for the applications and projects of the caller's organization,
+ * used by the web app. A machine is a non-human caller that connects through the Kinotic
+ * client with the identity's id as {@code clientId} and a secret issued here. An API client
+ * of one application acts with that application's scope, exactly the position an application
+ * end-user occupies; the machines the platform provisions for a project's deployment act with
+ * the organization's scope. Every method derives the organization from the authenticated
+ * participant: only org members may call, the application or project must belong to that
+ * organization, and only its machines are visible or mutable.
  */
 @Publish
 public interface MachineService {
@@ -32,6 +36,17 @@ public interface MachineService {
 
     /** Lists the machines of the given application of the caller's organization, disabled ones included. */
     Future<Page<MachineParticipantIdentity>> findMachines(String applicationId, Pageable pageable);
+
+    /**
+     * Lists the machines the deployment of one of the caller's organization's projects has
+     * provisioned for its workloads, in the order {@link ProjectDeployment} records them —
+     * the sync workload's, then the runtime workload's. They are created and their secrets
+     * reissued by the deployment itself; this listing is how the organization's members see
+     * that they exist. A project that has never deployed has none.
+     *
+     * @param projectId a project belonging to the caller's organization
+     */
+    Future<List<MachineParticipantIdentity>> findProjectMachines(String projectId);
 
     /**
      * Replaces the client secret of one of the caller's organization's machines, returning the

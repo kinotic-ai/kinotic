@@ -35,6 +35,19 @@ export class ProjectDeployment implements Identifiable<string> {
     public runtimeWorkloadId: string | null = null
 
     /**
+     * The id of the machine identity the sync workload authenticates as, or null before the
+     * project's first deployment. Its secret is reissued for every deployment.
+     */
+    public syncMachineId: string | null = null
+
+    /**
+     * The id of the machine identity the runtime workload authenticates as, or null while the
+     * first deployment is still in progress. Its secret is issued once, with the workload it
+     * belongs to.
+     */
+    public runtimeMachineId: string | null = null
+
+    /**
      * Sha of the last commit successfully synced to the node.
      */
     public commitSha: string | null = null

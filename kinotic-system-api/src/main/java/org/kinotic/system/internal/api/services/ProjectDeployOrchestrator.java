@@ -192,19 +192,26 @@ public class ProjectDeployOrchestrator {
                                                     String runtimeWorkloadId,
                                                     String syncedCommitSha,
                                                     ProjectDeploymentStatus status) {
-        if (target != null) {
-            deployment.setNodeId(target.nodeId());
-            deployment.setHostDir(target.hostDir());
-        }
-        if (runtimeWorkloadId != null) {
-            deployment.setRuntimeWorkloadId(runtimeWorkloadId);
-        }
-        if (syncedCommitSha != null) {
-            deployment.setCommitSha(syncedCommitSha);
-        }
-        deployment.setStatus(status);
-        deployment.setUpdated(new Date());
-        return projectDeploymentRepository.save(deployment, deployment.getOrganizationId())
+        // The run's own tasks write to this record — provisioning a machine records its id
+        // before handing the credential out — so the copy captured before the job started is
+        // stale by now and writing it back would drop what they wrote.
+        return projectDeploymentRepository.findById(deployment.getId(), deployment.getOrganizationId())
+                .map(current -> current != null ? current : deployment)
+                .compose(current -> {
+                    if (target != null) {
+                        current.setNodeId(target.nodeId());
+                        current.setHostDir(target.hostDir());
+                    }
+                    if (runtimeWorkloadId != null) {
+                        current.setRuntimeWorkloadId(runtimeWorkloadId);
+                    }
+                    if (syncedCommitSha != null) {
+                        current.setCommitSha(syncedCommitSha);
+                    }
+                    current.setStatus(status);
+                    current.setUpdated(new Date());
+                    return projectDeploymentRepository.save(current, current.getOrganizationId());
+                })
                 .onFailure(error -> log.error("Failed to record deployment outcome for project {}",
                                               deployment.getId(), error));
     }

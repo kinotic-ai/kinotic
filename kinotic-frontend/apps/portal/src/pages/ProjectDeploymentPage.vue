@@ -30,6 +30,29 @@
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"
                       :job-run-id="deployment.lastJobRunId" />
+
+      <section v-if="machines.length" class="mt-8">
+        <h2 class="text-base font-medium mb-1">Machine identities</h2>
+        <p class="text-sm text-muted-color mt-0 mb-3">
+          The deployment's workloads connect to Kinotic as these machines, on behalf of your
+          organization. They are created and their secrets reissued by the deployment itself —
+          a secret is never stored, so each one only ever exists inside the workload it was
+          issued for.
+        </p>
+        <DataTable :value="machines" size="small">
+          <Column field="usedFor" header="Used for" style="width: 26%" />
+          <Column field="displayName" header="Name" style="width: 26%" />
+          <Column header="Client ID" style="width: 32%">
+            <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
+          </Column>
+          <Column header="Status" style="width: 16%">
+            <template #body="{ data }">
+              <Tag :value="data.enabled ? 'Active' : 'Disabled'"
+                   :severity="data.enabled ? 'success' : 'danger'" />
+            </template>
+          </Column>
+        </DataTable>
+      </section>
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading deployment…</div>
@@ -40,16 +63,25 @@
 import { onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
+import Column from 'primevue/column'
+import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 import { DatetimeUtil, JobRunProgress, PageHeader } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
-import { ProjectDeploymentStatusType, type ProjectDeployment } from '@kinotic-ai/management-api'
+import { ProjectDeploymentStatusType,
+         type MachineParticipantIdentity,
+         type ProjectDeployment } from '@kinotic-ai/management-api'
+
+/** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
+interface MachineRow extends MachineParticipantIdentity {
+  usedFor: string
+}
 
 /**
- * The project's deployment: current status and commit, and the latest deployment job's
- * tasks rendered live by JobRunProgress. Polls the deployment record so a new push
- * swaps in its job run while the page is open.
+ * The project's deployment: current status and commit, the latest deployment job's tasks
+ * rendered live by JobRunProgress, and the machine identities its workloads connect as.
+ * Polls the deployment record so a new push swaps in its job run while the page is open.
  */
 const props = defineProps<{
   applicationId: string
@@ -62,18 +94,32 @@ const router = useRouter()
 const StatusType = ProjectDeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
+const machines = ref<MachineRow[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 
 async function loadDeployment(): Promise<void> {
   try {
+    const previousJobRunId = deployment.value?.lastJobRunId
     deployment.value = await Kinotic.projects.findDeployment(props.projectId)
     error.value = null
+    // a deployment provisions the machines it needs, so the listing only changes with a run
+    if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
+      await loadMachines()
+    }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     loading.value = false
   }
+}
+
+async function loadMachines(): Promise<void> {
+  // findProjectMachines returns the deployment's machines in the order it records them, so
+  // position is what says which workload each one authenticates
+  const listed = await Kinotic.machines.findProjectMachines(props.projectId)
+  const usedFor = ['Checkout and entity sync', 'Microservice runtime']
+  machines.value = listed.map((machine, index) => ({ ...machine, usedFor: usedFor[index] ?? '' }))
 }
 
 function deploymentStatusSeverity(type: ProjectDeploymentStatusType): string {

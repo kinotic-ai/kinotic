@@ -7,12 +7,13 @@ import lombok.experimental.Accessors;
 
 /**
  * A non-human principal that authenticates with its own credential rather than on a person's
- * behalf — a platform daemon such as the vm-manager (SYSTEM scope), or an API client of one
- * application (APPLICATION scope, acting exactly as an application end-user does). A machine
- * connects through the Kinotic client with the identity's {@code id} as {@code clientId} and
- * the secret issued at provisioning as {@code clientSecret}; the secret is verified against
- * the credential store on every handshake, so disabling a machine cuts it off on its next
- * connection.
+ * behalf — a platform daemon such as the vm-manager (SYSTEM scope), an API client of one
+ * application (APPLICATION scope, acting exactly as an application end-user does), or a
+ * process acting for a whole organization such as a project deployment's workloads
+ * (ORGANIZATION scope). A machine connects through the Kinotic client with the identity's
+ * {@code id} as {@code clientId} and the secret issued at provisioning as
+ * {@code clientSecret}; the secret is verified against the credential store on every
+ * handshake, so disabling a machine cuts it off on its next connection.
  */
 @Getter
 @Setter

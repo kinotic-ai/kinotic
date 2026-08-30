@@ -7,13 +7,19 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.security.MachineService;
 import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 @Component
 @RequiredArgsConstructor
@@ -22,6 +28,7 @@ public class DefaultMachineService implements MachineService {
     private final SecurityContext securityContext;
     private final ParticipantIdentityService identityService;
     private final ApplicationRepository applicationRepository;
+    private final ProjectDeploymentRepository projectDeploymentRepository;
 
     @Override
     public Future<MachineProvisionResult> createMachine(String displayName, String applicationId) {
@@ -43,6 +50,38 @@ public class DefaultMachineService implements MachineService {
         OrganizationParticipant participant = requireOrgParticipant();
         // scope-composed query: a foreign or unknown application matches nothing
         return identityService.findMachinesByScope(participant.getOrganizationId(), applicationId, pageable);
+    }
+
+    @Override
+    public Future<List<MachineParticipantIdentity>> findProjectMachines(String projectId) {
+        Validate.notBlank(projectId, "projectId is required");
+        OrganizationParticipant participant = requireOrgParticipant();
+        // The deployment record is stored under the organization, so loading it with the
+        // caller's organization is both the ownership check and the lookup — a project of
+        // another organization is indistinguishable from one that has never deployed.
+        return projectDeploymentRepository.findById(projectId, participant.getOrganizationId())
+                .compose(deployment -> {
+                    Future<List<MachineParticipantIdentity>> ret;
+                    if (deployment == null) {
+                        ret = Future.succeededFuture(List.of());
+                    } else {
+                        ret = loadMachines(deployment.getSyncMachineId(), deployment.getRuntimeMachineId());
+                    }
+                    return ret;
+                });
+    }
+
+    /** Resolves recorded machine ids, skipping any whose identity an org member has since removed. */
+    private Future<List<MachineParticipantIdentity>> loadMachines(String syncMachineId, String runtimeMachineId) {
+        List<Future<ParticipantIdentity>> lookups = Stream.of(syncMachineId, runtimeMachineId)
+                                                          .filter(Objects::nonNull)
+                                                          .map(identityService::findById)
+                                                          .toList();
+        return Future.all(lookups)
+                     .map(composite -> composite.<ParticipantIdentity>list().stream()
+                                                .filter(MachineParticipantIdentity.class::isInstance)
+                                                .map(MachineParticipantIdentity.class::cast)
+                                                .toList());
     }
 
     @Override
