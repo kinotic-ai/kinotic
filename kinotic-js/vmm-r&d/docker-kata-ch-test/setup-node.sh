@@ -19,6 +19,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOCKER_DATA=/var/lib/docker
 DOCKER_FS_IMAGE=/var/lib/docker-xfs.img
 DOCKER_FS_SIZE="${DOCKER_FS_SIZE:-40G}"
+# Pinned rather than resolved: a node's runtime is a decision, not whatever upstream released
+# most recently. 4.1.0 is the floor as well as the default — it is the first release carrying
+# the fix for CVE-2026-77176, which affects every version up to 4.0.0. Bumping is an edit here,
+# made against the release notes and the advisories for the version being left behind.
+KATA_VERSION="${KATA_VERSION:-4.1.0}"
 
 [ "$(id -u)" -eq 0 ] || fail "run as root (sudo $0)"
 [ -e /dev/kvm ] || fail "/dev/kvm is missing — this host has no nested virtualization"
@@ -47,46 +52,27 @@ case "$(uname -m)" in
     aarch64) KATA_ARCH=arm64 ;;
     *) fail "unsupported architecture $(uname -m)" ;;
 esac
-KATA_JSON="$(curl -fsSL https://api.github.com/repos/kata-containers/kata-containers/releases/latest)"
-KATA_VERSION="$(printf '%s' "$KATA_JSON" | jq -r .tag_name)"
-# The release has shipped kata-static as .tar.xz and as .tar.zst at different times, so the
-# asset is picked out of the release JSON rather than constructed
-KATA_URL="$(printf '%s' "$KATA_JSON" | jq -r --arg arch "-$KATA_ARCH.tar" '.assets[] | select(.name | startswith("kata-static-") and contains($arch)) | .browser_download_url' | head -n 1)"
-[ -n "$KATA_URL" ] || fail "release $KATA_VERSION has no kata-static $KATA_ARCH asset"
-ASSET="${KATA_URL##*/}"
+ASSET="kata-static-$KATA_VERSION-$KATA_ARCH.tar.zst"
+KATA_URL="https://github.com/kata-containers/kata-containers/releases/download/$KATA_VERSION/$ASSET"
 echo "  kata-containers : $KATA_VERSION ($ASSET)"
-curl -fsSL -o "/tmp/$ASSET" "$KATA_URL"
+curl -fsSL -o "/tmp/$ASSET" "$KATA_URL" || fail "no kata-static $KATA_ARCH asset for $KATA_VERSION"
 # Removed rather than unpacked over: tar does not delete what a previous release left, and the
-# releases do not ship the same set of files. A node provisioned before 4.1.0 keeps that
-# release's Go shim and its configuration-clh.toml, both of which the selection below would
-# still find and prefer — so re-running this to pick up a fix would leave the node running the
-# very build it was upgraded away from.
+# releases do not ship the same set of files, so a node that has been provisioned before would
+# otherwise keep files from every release it has ever installed — and the runtime it runs would
+# be a fact about that history rather than about the version named above.
 rm -rf /opt/kata
-case "$ASSET" in
-    *.tar.zst) tar --use-compress-program=unzstd -xf "/tmp/$ASSET" -C / ;;
-    *.tar.xz)  tar -xJf "/tmp/$ASSET" -C / ;;
-    *) fail "unhandled archive format for $ASSET" ;;
-esac
+tar --use-compress-program=unzstd -xf "/tmp/$ASSET" -C /
 # The bundle ships cloud-hypervisor/firecracker 0744, unusable by a non-root caller
 chmod 0755 /opt/kata/bin/cloud-hypervisor /opt/kata/bin/firecracker 2>/dev/null || true
 
-# Kata ships two runtimes and they do not share a config tree. The Go runtime reads
-# /etc/kata-containers/configuration.toml; runtime-rs reads
-# /etc/kata-containers/runtime-rs/configuration.toml and its own configuration-*-runtime-rs.toml
-# files. Up to 4.0.0 the bundle carried both; 4.1.0 dropped the Go runtime on every
-# architecture. The Go runtime stays first so a release that still ships it is provisioned the
-# way it always was, and runtime-rs is the fallback rather than a switch.
-if [ -x /opt/kata/bin/containerd-shim-kata-v2 ]; then
-    KATA_SHIM=/opt/kata/bin/containerd-shim-kata-v2
-    KATA_CONF_DIR=/etc/kata-containers
-    CLH_CONF=/opt/kata/share/defaults/kata-containers/configuration-clh.toml
-elif [ -x /opt/kata/runtime-rs/bin/containerd-shim-kata-v2 ]; then
-    KATA_SHIM=/opt/kata/runtime-rs/bin/containerd-shim-kata-v2
-    KATA_CONF_DIR=/etc/kata-containers/runtime-rs
-    CLH_CONF=/opt/kata/share/defaults/kata-containers/runtime-rs/configuration-clh-runtime-rs.toml
-else
-    fail "the bundle provided no kata shim"
-fi
+# Kata shipped a Go runtime and runtime-rs side by side until 4.1.0 dropped the Go one on every
+# architecture. Only runtime-rs remains, and it keeps its own config tree: the shim reads
+# /etc/kata-containers/runtime-rs/configuration.toml, and its defaults are the
+# configuration-*-runtime-rs.toml files rather than the ones beside them.
+KATA_SHIM=/opt/kata/runtime-rs/bin/containerd-shim-kata-v2
+KATA_CONF_DIR=/etc/kata-containers/runtime-rs
+CLH_CONF=/opt/kata/share/defaults/kata-containers/runtime-rs/configuration-clh-runtime-rs.toml
+[ -x "$KATA_SHIM" ] || fail "$KATA_VERSION provided no runtime-rs shim at $KATA_SHIM"
 echo "  shim            : $KATA_SHIM"
 
 # runtime-rs generates a hypervisor's config only when the arch makefile names its binary, and

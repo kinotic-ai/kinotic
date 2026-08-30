@@ -11,11 +11,17 @@ under UTM 4.7.5 on the Apple Virtualization backend, on an M4 Max running macOS 
 `/dev/kvm` is present in the guest with no extra configuration. Installed there:
 kata-containers 4.1.0, cloud-hypervisor v51.1, Docker 29.7.2.
 
-## Kata 4.1.0 removed the Go runtime — this breaks the x86_64 path too
+## Kata 4.1.0 removed the Go runtime, and the kit now pins to it
 
-`setup-node.sh` resolves the Kata release from GitHub at run time and pins nothing, so the same
-script installs a different bundle depending on when it runs. Kata 4.1.0 (21 Aug 2026) removed
-the Go runtime from `kata-static` on **every** architecture. Listing the release assets:
+`setup-node.sh` used to resolve the release from GitHub at run time, so the same script
+installed a different bundle depending on when it ran. It now pins `KATA_VERSION` — a node's
+runtime is a decision, not whatever upstream released most recently, and 4.1.0 is the first
+release carrying the fix for `CVE-2026-77176` (GHSA-fmg6-v47x-52wr, high), which affects every
+version up to 4.0.0.
+
+Kata 4.1.0 (21 Aug 2026) removed the Go runtime from `kata-static` on **every** architecture,
+so runtime-rs is the only runtime the kit supports and the only one it looks for. Listing the
+release assets:
 
 | | 3.32.0 | 4.0.0 | 4.1.0 |
 |---|---|---|---|
@@ -30,18 +36,16 @@ The amd64 bundle went from 263 entries in 4.0.0 to 171 in 4.1.0; `/opt/kata/bin`
 hypervisor binaries (`qemu-system-x86_64*`, `openvmm`, `cloud-hypervisor`).
 
 So the Azure setup did work, and still works on the release it was provisioned with. What
-changed is upstream: the next time an Azure node is provisioned, `latest` is 4.1.0 and the
-unmodified script stops at
+changed is upstream: on 4.1.0 the unmodified script stops at
 
 ```bash
 [ -x /opt/kata/bin/containerd-shim-kata-v2 ] || fail "the bundle provided no kata shim"
 ```
 
 That is a loud failure, not a silent misconfiguration — setup aborts and the node is not
-registered. The changes below restore that path: on 4.1.0 amd64 the runtime-rs branch is taken
-and upstream *does* ship `configuration-clh-runtime-rs.toml` for x86_64, so nothing is rendered
-and nothing is guessed. On a release that still carries the Go runtime the Go branch is taken
-first, exactly as before.
+registered. The kit now targets runtime-rs directly. On 4.1.0 amd64 upstream *does* ship
+`configuration-clh-runtime-rs.toml`, so nothing is rendered and nothing is guessed there; only
+arm64 needs the render below.
 
 ### Each run installs exactly one bundle
 
@@ -58,10 +62,11 @@ now removes `/opt/kata` before extracting.
 
 ### One follow-up for the maintainers
 
-- **Pinning `KATA_VERSION` cuts both ways.** A node's runtime changing underneath the same
-  script is what let 4.1.0 remove the Go runtime without warning; it is also what moved this
-  node off a release with a high-severity advisory without anyone doing anything. A pin wants
-  something that watches for advisories on the pinned version, not a pin on its own.
+- **A pin needs someone watching the advisories.** Tracking `latest` is what let 4.1.0 remove
+  the Go runtime without warning, which is why the version is pinned now — but it is also what
+  would have moved a node off an advisory-affected release with nobody doing anything. Pinned,
+  that no longer happens on its own: bumping `KATA_VERSION` is the step that picks up the next
+  fix, and something has to prompt it.
 
 ## Workload networking on arm64: cause and fix
 

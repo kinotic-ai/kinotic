@@ -20,11 +20,8 @@ echo "Node invariants"
 # --- the runtime is present and is really Cloud Hypervisor --------------------------------
 [ -e /dev/kvm ] && ok "nested virtualization" "/dev/kvm present" || bad "nested virtualization" "/dev/kvm missing"
 systemctl is-active --quiet docker && ok "docker" "active" || bad "docker" "not active"
-# The Go runtime reads /etc/kata-containers/configuration.toml, runtime-rs reads
-# /etc/kata-containers/runtime-rs/configuration.toml. setup-node.sh writes whichever the
-# installed bundle uses, so check the one that is actually there.
-KATA_CONF=/etc/kata-containers/configuration.toml
-[ -e /etc/kata-containers/runtime-rs/configuration.toml ] && KATA_CONF=/etc/kata-containers/runtime-rs/configuration.toml
+# runtime-rs is the only runtime kata ships from 4.1.0 on, and it reads its own config tree
+KATA_CONF=/etc/kata-containers/runtime-rs/configuration.toml
 [ -L "$KATA_CONF" ] \
   && case "$(readlink -f "$KATA_CONF")" in
        *clh*) ok "kata config" "-> $(basename "$(readlink -f "$KATA_CONF")")" ;;

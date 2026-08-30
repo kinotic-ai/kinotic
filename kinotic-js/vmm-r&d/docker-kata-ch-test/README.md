@@ -16,7 +16,9 @@ sudo bun run src/requirements-test.ts      # run real microVMs and check each re
 ```
 
 Needs Ubuntu 22.04 with nested virtualization, root, and outbound internet. Kata's release is
-resolved from GitHub at run time and printed, so a run reports exactly what it installed.
+pinned in the script and printed, so a run reports exactly what it installed and two nodes
+provisioned months apart are running the same thing. Bumping it is an edit, made against the
+release notes and the advisories for the version being left behind.
 
 ## Why Docker and not containerd's CRI
 
