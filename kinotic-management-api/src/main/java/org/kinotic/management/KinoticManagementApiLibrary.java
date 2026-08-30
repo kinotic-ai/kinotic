@@ -14,3 +14,4 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnProperty(value = "kinotic.disableManagement", havingValue = "false", matchIfMissing = true)
 public class KinoticManagementApiLibrary {
 }
+
