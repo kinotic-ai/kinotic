@@ -9,6 +9,9 @@ import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
+import org.kinotic.domain.api.model.security.MachineProvisionResult;
+import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -50,6 +53,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
+    private final ParticipantIdentityService participantIdentityService;
     private final KinoticSystemApiProperties properties;
 
     /**
@@ -140,8 +144,11 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
-                .compose(token -> workloadOrchestrationService.deployWorkload(
-                        syncWorkload(project, target, token, commitSha)))
+                .compose(token -> provisionMachine("project-deploy-" + project.getId(),
+                                                   "Deploy sync for project " + project.getId(),
+                                                   project.getOrganizationId())
+                        .compose(machine -> workloadOrchestrationService.deployWorkload(
+                                syncWorkload(project, target, token, machine, commitSha))))
                 .compose(finished -> {
                     Future<String> ret;
                     if (finished.getStatus() == WorkloadStatus.STOPPED
@@ -166,13 +173,36 @@ public class ProjectDeployJobDefinitionFactory {
             // the sync workload wrote — nothing to deploy
             ret = Future.succeededFuture(target.runtimeWorkloadId());
         } else {
-            ret = workloadOrchestrationService.deployWorkload(runtimeWorkload(project, target))
-                                              .map(Workload::getId);
+            // The runtime machine's secret is minted only together with the workload it is
+            // baked into: the workload is long-lived and reconnects with the same secret, so
+            // rotating it anywhere else would strand the running guest
+            ret = provisionMachine("project-runtime-" + project.getId(),
+                                   "Runtime for project " + project.getId(),
+                                   project.getOrganizationId())
+                    .compose(machine -> workloadOrchestrationService.deployWorkload(
+                            runtimeWorkload(project, target, machine)))
+                    .map(Workload::getId);
         }
         return ret;
     }
 
-    private Workload syncWorkload(Project project, DeployTarget target, ProjectRepoToken token, String commitSha) {
+    /**
+     * Provisions the ORGANIZATION-scope machine identity a workload authenticates with,
+     * returning it with a freshly generated secret.
+     */
+    private Future<MachineProvisionResult> provisionMachine(String machineId, String displayName, String organizationId) {
+        // createMachine saves by id, so the deterministic id makes this one call both create
+        // the identity on the first deploy and rotate its secret on every later one — the
+        // plaintext secret is never stored, only handed to the workload being deployed
+        return participantIdentityService.createMachine(
+                (MachineParticipantIdentity) new MachineParticipantIdentity()
+                        .setId(machineId)
+                        .setOrganizationId(organizationId)
+                        .setDisplayName(displayName));
+    }
+
+    private Workload syncWorkload(Project project, DeployTarget target, ProjectRepoToken token,
+                                  MachineProvisionResult machine, String commitSha) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setDescription("Checkout and entity sync for project " + project.getId());
@@ -185,8 +215,11 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
         putServerEnvironment(workload, deployment);
-        // Machine credential distribution is not built yet: without KINOTIC_CLIENT_ID or
-        // KINOTIC_TOKEN the runner checks out and builds but skips entity sync
+        // ORGANIZATION scope, because entity sync pushes into the management zone, which an
+        // application participant cannot reach. KINOTIC_APPLICATION_ID stays unset - it would
+        // narrow the connection to that application; the CLI reads the target application
+        // from the checkout's own project configuration.
+        putMachineEnvironment(workload, machine, project.getOrganizationId());
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
@@ -195,7 +228,7 @@ public class ProjectDeployJobDefinitionFactory {
         return workload;
     }
 
-    private Workload runtimeWorkload(Project project, DeployTarget target) {
+    private Workload runtimeWorkload(Project project, DeployTarget target, MachineProvisionResult machine) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-runtime-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setDescription("Microservice runtime for project " + project.getId());
@@ -204,11 +237,23 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
         putServerEnvironment(workload, deployment);
+        putMachineEnvironment(workload, machine, project.getOrganizationId());
+        // Names the zone the project's services publish into. Deliberately not
+        // KINOTIC_APPLICATION_ID: that would ride into the credentials and scope the
+        // connection to the application, while hosting services needs organization scope.
+        workload.getEnvironment().put("KINOTIC_PROJECT_APPLICATION_ID", project.getApplicationId());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/app")
                                                         .setReadOnly(true));
         workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getRuntimeAllowedHosts(), deployment));
         return workload;
+    }
+
+    private static void putMachineEnvironment(Workload workload, MachineProvisionResult machine, String organizationId) {
+        workload.getEnvironment().put("KINOTIC_CLIENT_ID", machine.machine().getId());
+        workload.getEnvironment().put("KINOTIC_ORGANIZATION_ID", organizationId);
+        // secrets, not environment: the workload record persists environment verbatim
+        workload.getSecrets().put("KINOTIC_CLIENT_SECRET", machine.clientSecret());
     }
 
     private static void putServerEnvironment(Workload workload, DeploymentProperties deployment) {

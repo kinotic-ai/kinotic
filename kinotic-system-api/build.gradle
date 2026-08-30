@@ -18,6 +18,9 @@ dependencies {
     implementation 'io.vertx:vertx-core'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // the factory test runs the grind engine with an in-memory JobRunRepository subclass,
+    // whose ES-backed superclass needs the client types at compile time
+    testImplementation 'co.elastic.clients:elasticsearch-java'
     testImplementation 'io.projectreactor:reactor-test'
     testImplementation 'tools.jackson.core:jackson-databind'
 }

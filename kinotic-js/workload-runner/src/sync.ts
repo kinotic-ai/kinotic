@@ -79,7 +79,10 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
  * against a server the workload cannot reach yet.
  */
 function syncEntities(workspaceDir: string): void {
-    if (!process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_TOKEN) {
+    // Matches EnvCredentialsResolver: client credentials need both halves, so an id
+    // without its secret skips here instead of failing inside the CLI's connect
+    const hasClientCredentials = process.env.KINOTIC_CLIENT_ID && process.env.KINOTIC_CLIENT_SECRET
+    if (!hasClientCredentials && !process.env.KINOTIC_TOKEN) {
         console.log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
         return
     }
