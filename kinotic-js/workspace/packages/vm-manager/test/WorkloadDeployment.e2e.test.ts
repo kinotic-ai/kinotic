@@ -25,17 +25,18 @@ const NODE_ID = process.env.KINOTIC_NODE_ID ?? 'lab-node-1'
 const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
 /**
  * Address the guest reaches the server on, which is a property of the node's network rather
- * than of the deployment: a CLOUD_HYPERVISOR guest sits on the node's docker bridge and reaches
- * it at the gateway, a BOXLITE guest reaches the host on its routable address.
+ * than of the deployment. The default is BOXLITE's: its guests reach the host on the
+ * gvisor-tap-vsock host alias, and its proxy completes the last hop over the host's loopback.
+ * A CLOUD_HYPERVISOR guest sits on the node's docker bridge and reaches it at 172.17.0.1.
  */
-const SERVER_FROM_GUEST = process.env.KINOTIC_E2E_GUEST_SERVER_HOST ?? '172.17.0.1'
+const SERVER_FROM_GUEST = process.env.KINOTIC_E2E_GUEST_SERVER_HOST ?? '192.168.127.254'
 const SERVER_PORT = process.env.KINOTIC_SERVER_PORT ?? '58503'
 
 /**
  * How the workload's policy names that address. Only the accepted form differs by provider —
  * CLOUD_HYPERVISOR matches addresses and CIDRs, BOXLITE matches hostnames and refuses a CIDR.
  */
-const ALLOWED_SERVER_HOST = process.env.KINOTIC_E2E_ALLOWED_HOST ?? `${SERVER_FROM_GUEST}/32`
+const ALLOWED_SERVER_HOST = process.env.KINOTIC_E2E_ALLOWED_HOST ?? SERVER_FROM_GUEST
 
 // Seeded by the e2e fixture migrations: an organization, an application it owns, and an
 // organization-scope user. The application record is what makes its zone routable.
@@ -101,9 +102,7 @@ describe.skipIf(!canRun)('a project deployed to a node answers calls to its serv
         // workload record keeps only the key: environment is persisted verbatim, and a
         // credential written there is readable by anyone who can read the workload back
         workload.secrets = { KINOTIC_CLIENT_SECRET: ORG_PASSWORD }
-        // The workload may reach the server and nothing else. Where the server is the node
-        // itself, a production node refuses even that — it is permitted only on a node running
-        // in DEVELOPMENT mode.
+        // The workload may reach the server and nothing else
         workload.network.allowedHosts = [ALLOWED_SERVER_HOST]
 
         const deployed = await new WorkloadOrchestrationService(orchestrator).deployWorkload(workload)

@@ -6,10 +6,8 @@ import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
-import { NetnsAnchorManager } from '@/internal/api/network/NetnsAnchorManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { NodeMode } from '@/api/NodeMode'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/system-api'
@@ -46,26 +44,16 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
-        const egress = new EgressPolicyManager(config.workloadDns ?? null, config.nodeMode)
+        const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
             console.warn('This node does not deny workload egress by default — a workload can reach '
                          + 'anything its address can route to. See docker-kata-ch/README.md')
         }
-        // A development node may need each workload's namespace populated before its micro VM
-        // boots, which a production node never does — its hypervisor hot-plugs the NIC instead
-        const docker = new Docker()
-        let anchors: NetnsAnchorManager | null = null
-        if (config.nodeMode === NodeMode.DEVELOPMENT) {
-            anchors = new NetnsAnchorManager(docker, config.workloadDns ?? null)
-            console.warn('KINOTIC_NODE_MODE is DEVELOPMENT — each workload is given a network '
-                         + 'namespace anchor, which a production node does not use')
-        }
         ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
-                                          docker,
+                                          new Docker(),
                                           config.workloadDataDir,
                                           egress,
                                           config.workloadDns ?? null,
-                                          anchors,
                                           reportStatus)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
@@ -83,26 +71,16 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
 }
 
 /**
- * Why this node cannot ship workload logs, if it cannot. A workload whose output goes nowhere
- * is not a workload this node should be given, so this joins the invariants the provider
- * checks — the node keeps what it is running and stops being offered more.
+ * Why this node cannot ship the logs of the workloads it runs, if it cannot. A workload whose
+ * output goes nowhere is not one this node should be given, so this joins the invariants the
+ * provider checks — the node keeps what it is running and stops being offered more.
  *
- * A node with no Loki configured ships nothing at all, which is the same failure on a
- * production node. A development node is allowed to run without one.
+ * Only a node that was asked to ship logs can fail to: one started without KINOTIC_LOKI_URL
+ * has already said so at startup.
  */
 function logShippingProblems(): string[] {
-    const problems: string[] = []
-    if (alloyManager === null) {
-        if (config.nodeMode === NodeMode.PRODUCTION) {
-            problems.push('KINOTIC_LOKI_URL is not set, so no workload logs leave this node')
-        }
-    } else {
-        const problem = alloyManager.shippingProblem()
-        if (problem !== null) {
-            problems.push(problem)
-        }
-    }
-    return problems
+    const problem = alloyManager?.shippingProblem() ?? null
+    return problem !== null ? [problem] : []
 }
 
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
@@ -200,4 +178,3 @@ export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/system-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'
-export { NodeMode } from '@/api/NodeMode'

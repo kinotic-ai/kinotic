@@ -46,16 +46,14 @@ dpkg --configure -a >/dev/null 2>&1 || true
 docker --version | sed 's/^/  /'
 
 step "Kata Containers (static bundle: shim, guest kernel, guest image, cloud-hypervisor)"
-# Kata names its assets with Go's GOARCH, which is not what uname reports
-case "$(uname -m)" in
-    x86_64)  KATA_ARCH=amd64 ;;
-    aarch64) KATA_ARCH=arm64 ;;
-    *) fail "unsupported architecture $(uname -m)" ;;
-esac
-ASSET="kata-static-$KATA_VERSION-$KATA_ARCH.tar.zst"
+# amd64 only. A CLOUD_HYPERVISOR node needs nested virtualization, which Azure offers on its
+# x86 sizes and not on its arm64 ones; kata does not build cloud-hypervisor support for
+# aarch64 either, and a guest there cannot see a hot-plugged NIC. See NOTES.md.
+[ "$(uname -m)" = "x86_64" ] || fail "$(uname -m) cannot host a Cloud Hypervisor node — see NOTES.md"
+ASSET="kata-static-$KATA_VERSION-amd64.tar.zst"
 KATA_URL="https://github.com/kata-containers/kata-containers/releases/download/$KATA_VERSION/$ASSET"
 echo "  kata-containers : $KATA_VERSION ($ASSET)"
-curl -fsSL -o "/tmp/$ASSET" "$KATA_URL" || fail "no kata-static $KATA_ARCH asset for $KATA_VERSION"
+curl -fsSL -o "/tmp/$ASSET" "$KATA_URL" || fail "no kata-static amd64 asset for $KATA_VERSION"
 # Removed rather than unpacked over: tar does not delete what a previous release left, and the
 # releases do not ship the same set of files, so a node that has been provisioned before would
 # otherwise keep files from every release it has ever installed — and the runtime it runs would
@@ -75,63 +73,7 @@ CLH_CONF=/opt/kata/share/defaults/kata-containers/runtime-rs/configuration-clh-r
 [ -x "$KATA_SHIM" ] || fail "$KATA_VERSION provided no runtime-rs shim at $KATA_SHIM"
 echo "  shim            : $KATA_SHIM"
 
-# runtime-rs generates a hypervisor's config only when the arch makefile names its binary, and
-# aarch64-options.mk never sets CLHCMD — so the arm64 bundle ships cloud-hypervisor and a shim
-# with CH support compiled in, but no clh config to select it. Render one from the template for
-# the exact release installed above. Delete this once upstream sets CLHCMD for aarch64.
-if [ ! -f "$CLH_CONF" ]; then
-    case "$CLH_CONF" in
-        *runtime-rs*) ;;
-        *) fail "no Cloud Hypervisor configuration in this bundle" ;;
-    esac
-    echo "  clh config      : absent from the bundle, rendering it for $KATA_VERSION"
-    TEMPLATE_URL="https://raw.githubusercontent.com/kata-containers/kata-containers/$KATA_VERSION/src/runtime-rs/config/configuration-clh-runtime-rs.toml.in"
-    curl -fsSL -o /tmp/configuration-clh-runtime-rs.toml.in "$TEMPLATE_URL" \
-        || fail "could not fetch the clh config template for $KATA_VERSION"
-    # Values are upstream's own, from src/runtime-rs/Makefile and arch/aarch64-options.mk at
-    # this tag; the sed runs on a single stream so an unsubstituted @VAR@ is caught below
-    sed -e 's|@CLHPATH@|/opt/kata/bin/cloud-hypervisor|g' \
-        -e 's|@CLHVALIDHYPERVISORPATHS@|["/opt/kata/bin/cloud-hypervisor"]|g' \
-        -e 's|@KERNELPATH_CLH@|/opt/kata/share/kata-containers/vmlinux.container|g' \
-        -e 's|@IMAGEPATH@|/opt/kata/share/kata-containers/kata-containers.img|g' \
-        -e 's|@FIRMWAREPATH@||g' \
-        -e 's|@DEFROOTFSTYPE@|"ext4"|g' \
-        -e 's|@VMROOTFSDRIVER_CLH@|virtio-blk-pci|g' \
-        -e 's|@DEFENABLEANNOTATIONS@|["enable_iommu", "kernel_params", "kernel_verity_params", "default_vcpus", "default_memory"]|g' \
-        -e 's|@KERNELPARAMS@|cgroup_no_v1=all systemd.unified_cgroup_hierarchy=1|g' \
-        -e 's|@DEFVCPUS@|1|g' \
-        -e 's|@DEFOVERHEADVCPUS_CLH@|0.2|g' \
-        -e 's|@DEFMAXVCPUS@|0|g' \
-        -e 's|@DEFMEMSZ@|2048|g' \
-        -e 's|@DEFOVERHEADMEMSZ_CLH@|32|g' \
-        -e 's|@DEFBRIDGES@|1|g' \
-        -e 's|@DEFNETQUEUES@|1|g' \
-        -e 's|@DEFSHAREDFS_CLH_VIRTIOFS@|virtio-fs|g' \
-        -e 's|@DEFVIRTIOFSDAEMON@|/opt/kata/libexec/virtiofsd|g' \
-        -e 's|@DEFVIRTIOFSCACHE@|auto|g' \
-        -e 's|@DEFVIRTIOFSCACHESIZE@|0|g' \
-        -e 's|@DEFVIRTIOFSQUEUESIZE@|1024|g' \
-        -e 's|@DEFVIRTIOFSEXTRAARGS@|["--thread-pool-size=1", "-o", "announce_submounts"]|g' \
-        -e 's|@DEFDISABLENESTEDVIRTUALIZATION_CLH@|false|g' \
-        -e 's|@DEFNETWORKMODEL_CLH@|tcfilter|g' \
-        -e 's|@DEFDISABLEGUESTSECCOMP@|true|g' \
-        -e 's|@DEFSANDBOXCGROUPONLY_CLH@|true|g' \
-        -e 's|@DEFSTATICRESOURCEMGMT_CLH@|true|g' \
-        -e 's|@DEFEMPTYDIRMODE@|shared-fs|g' \
-        -e 's|@DEFBINDMOUNTS@|[]|g' \
-        -e 's|@DEFAULTEXPFEATURES@|[]|g' \
-        -e 's|@DEFDANCONF@|/run/kata-containers/dans|g' \
-        -e 's|@DEFCREATECONTAINERTIMEOUT@|30|g' \
-        -e 's|@PIPESIZE@|1|g' \
-        -e 's|@RUNTIMENAME@|virt_container|g' \
-        -e 's|@HYPERVISOR_NAME_CLH@|clh|g' \
-        -e 's|@PROJECT_NAME@|Kata Containers|g' \
-        -e 's|@PROJECT_TYPE@|kata|g' \
-        -e 's|@CONFIG_CLH_IN@|config/configuration-clh-runtime-rs.toml.in|g' \
-        /tmp/configuration-clh-runtime-rs.toml.in > "$CLH_CONF"
-    LEFTOVER="$(grep -oE '@[A-Z0-9_]+@' "$CLH_CONF" | sort -u | tr '\n' ' ' || true)"
-    [ -z "$LEFTOVER" ] || { rm -f "$CLH_CONF"; fail "template placeholders not substituted: $LEFTOVER"; }
-fi
+[ -f "$CLH_CONF" ] || fail "$KATA_VERSION ships no Cloud Hypervisor configuration at $CLH_CONF"
 
 # containerd resolves a shim by binary name on PATH: io.containerd.kata-clh.v2 looks for
 # containerd-shim-kata-clh-v2
