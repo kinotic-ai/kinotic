@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * for a 10-minute span. Forward lifetime from "now" is therefore 9 minutes — that's
  * the refresh interval, not a conservatism margin.
  * <p>
- * The key is read from {@code kinotic.github.appPrivateKey}. Both PKCS#1
+ * The key is read from {@code kinotic.managementApi.github.appPrivateKey}. Both PKCS#1
  * ({@code BEGIN RSA PRIVATE KEY}) and PKCS#8 ({@code BEGIN PRIVATE KEY}) PEM formats
  * are accepted — GitHub's download button emits PKCS#1.
  */

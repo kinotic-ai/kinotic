@@ -11,11 +11,11 @@ import lombok.experimental.Accessors;
  * <p>
  * In production the secret values ({@link #appPrivateKey}, {@link #webhookSecret})
  * are mounted by the AKS Secret Store CSI driver as environment variables and bound
- * via Spring's relaxed property binding (e.g. {@code KINOTIC_GITHUB_APPPRIVATEKEY}).
+ * via Spring's relaxed property binding (e.g. {@code KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY}).
  * For local dev they can also be set via {@code application.yml} or any other
  * Spring-supported source.
  * <p>
- * Bound under {@code kinotic.github.*} via {@link KinoticManagementApiProperties}; required
+ * Bound under {@code kinotic.managementApi.github.*} via {@link KinoticManagementApiProperties}; required
  * fields are validated at boot via Jakarta Bean Validation.
  */
 @Getter
