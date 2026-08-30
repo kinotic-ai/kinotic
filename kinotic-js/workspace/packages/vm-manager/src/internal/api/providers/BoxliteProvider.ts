@@ -1,4 +1,4 @@
-import { SimpleBox, getJsBoxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
+import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
@@ -146,8 +146,11 @@ export class BoxliteProvider implements IVmProvider {
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
     // its logs to another tenant
     private readonly stateDir: string
-    // One boxlite runtime for the whole provider; every SimpleBox is bound to it
-    private readonly runtime = getJsBoxlite().withDefaultConfig()
+    // The process-wide boxlite runtime, whose home the executable set from the same
+    // configuration this provider is given. It cannot be a per-provider instance: a runtime
+    // holds an exclusive lock on its home, and the only way to release one stops every box
+    // it is running.
+    private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(boxliteHome: string,

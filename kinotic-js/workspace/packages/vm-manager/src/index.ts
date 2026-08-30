@@ -1,3 +1,4 @@
+import { getJsBoxlite } from '@boxlite-ai/boxlite'
 import { Kinotic } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
 import { VmNodeRegistration } from '@kinotic-ai/system-api'
@@ -42,6 +43,11 @@ let heartbeatTimer: Timer | null = null
 function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
     let ret: IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
+        // boxlite's runtime is a process-wide singleton that resolves its own home; pointing
+        // it at the configured one makes the store it writes boxes to and the directory the
+        // provider reads them from a single value, without a node having to set BOXLITE_HOME.
+        // One-shot, so it must run before anything asks for the runtime.
+        getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
