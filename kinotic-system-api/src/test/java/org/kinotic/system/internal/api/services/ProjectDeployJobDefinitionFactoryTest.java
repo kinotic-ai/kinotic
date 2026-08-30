@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.ServerInfo;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachinePurpose;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
@@ -129,7 +130,11 @@ public class ProjectDeployJobDefinitionFactoryTest {
         for (MachineParticipantIdentity machine : minted.getAllValues()) {
             assertEquals(ORG_ID, machine.getOrganizationId());
             assertEquals(null, machine.getApplicationId());
+            assertEquals(PROJECT_ID, machine.getPurposeId());
+            assertEquals(machine.getPurpose().machineId(PROJECT_ID), machine.getId());
         }
+        assertEquals(MachinePurpose.PROJECT_DEPLOY, minted.getAllValues().get(0).getPurpose());
+        assertEquals(MachinePurpose.PROJECT_RUNTIME, minted.getAllValues().get(1).getPurpose());
     }
 
     @Test

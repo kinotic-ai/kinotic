@@ -21,6 +21,18 @@ import lombok.experimental.Accessors;
 @NoArgsConstructor
 public final class MachineParticipantIdentity extends ParticipantIdentity {
 
+    /**
+     * Why this machine exists. Any purpose other than {@link MachinePurpose#API_ACCESS} is
+     * platform-managed and not editable through the portal.
+     */
+    private MachinePurpose purpose = MachinePurpose.API_ACCESS;
+
+    /**
+     * Id of the resource a platform-managed machine serves - the project id - or
+     * {@code null} for {@link MachinePurpose#API_ACCESS} machines.
+     */
+    private String purposeId;
+
     @Override
     public ParticipantIdentityType getType() {
         return ParticipantIdentityType.MACHINE;

@@ -11,6 +11,7 @@ import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.domain.api.model.security.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachinePurpose;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -144,9 +145,9 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
-                .compose(token -> provisionMachine("project-deploy-" + project.getId(),
+                .compose(token -> provisionMachine(MachinePurpose.PROJECT_DEPLOY,
                                                    "Deploy sync for project " + project.getId(),
-                                                   project.getOrganizationId())
+                                                   project)
                         .compose(machine -> workloadOrchestrationService.deployWorkload(
                                 syncWorkload(project, target, token, machine, commitSha))))
                 .compose(finished -> {
@@ -176,9 +177,9 @@ public class ProjectDeployJobDefinitionFactory {
             // The runtime machine's secret is minted only together with the workload it is
             // baked into: the workload is long-lived and reconnects with the same secret, so
             // rotating it anywhere else would strand the running guest
-            ret = provisionMachine("project-runtime-" + project.getId(),
+            ret = provisionMachine(MachinePurpose.PROJECT_RUNTIME,
                                    "Runtime for project " + project.getId(),
-                                   project.getOrganizationId())
+                                   project)
                     .compose(machine -> workloadOrchestrationService.deployWorkload(
                             runtimeWorkload(project, target, machine)))
                     .map(Workload::getId);
@@ -190,14 +191,16 @@ public class ProjectDeployJobDefinitionFactory {
      * Provisions the ORGANIZATION-scope machine identity a workload authenticates with,
      * returning it with a freshly generated secret.
      */
-    private Future<MachineProvisionResult> provisionMachine(String machineId, String displayName, String organizationId) {
-        // createMachine saves by id, so the deterministic id makes this one call both create
+    private Future<MachineProvisionResult> provisionMachine(MachinePurpose purpose, String displayName, Project project) {
+        // createMachine saves by id, so the purpose-derived id makes this one call both create
         // the identity on the first deploy and rotate its secret on every later one — the
         // plaintext secret is never stored, only handed to the workload being deployed
         return participantIdentityService.createMachine(
                 (MachineParticipantIdentity) new MachineParticipantIdentity()
-                        .setId(machineId)
-                        .setOrganizationId(organizationId)
+                        .setPurpose(purpose)
+                        .setPurposeId(project.getId())
+                        .setId(purpose.machineId(project.getId()))
+                        .setOrganizationId(project.getOrganizationId())
                         .setDisplayName(displayName));
     }
 

@@ -11,6 +11,8 @@ import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
+import org.kinotic.domain.api.model.security.identity.MachinePurpose;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
@@ -28,15 +30,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepoProvisioner repoProvisioner;
+    private final ParticipantIdentityService participantIdentityService;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
-                                 ProjectRepoProvisioner repoProvisioner) {
+                                 ProjectRepoProvisioner repoProvisioner,
+                                 ParticipantIdentityService participantIdentityService) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
         this.repoProvisioner = repoProvisioner;
+        this.participantIdentityService = participantIdentityService;
     }
 
     @Override
@@ -78,6 +83,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
+    }
+
+    @Override
+    protected Future<Void> beforeDelete(String projectId) {
+        // The deploy machines are derivable from the project id, so cleanup needs no lookup;
+        // ParticipantIdentityService.beforeDelete cascades each machine's stored credential.
+        // The runtime workload and checkout on the node are system-side resources this
+        // management-plane delete cannot reach - deleting the runtime machine cuts the
+        // orphaned guest off on its next reconnect.
+        return participantIdentityService.deleteById(MachinePurpose.PROJECT_DEPLOY.machineId(projectId))
+                .compose(v -> participantIdentityService.deleteById(MachinePurpose.PROJECT_RUNTIME.machineId(projectId)))
+                .compose(v -> projectDeploymentRepository.deleteById(projectId, requireOrganizationId()));
     }
 
     @Override
