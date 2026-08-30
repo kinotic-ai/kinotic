@@ -24,12 +24,6 @@ kinotic:
     secretStorage:
       # Dummy Base64-encoded key for tests only; lets SecretNameDeriver start in the test context.
       masterKey: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
-  persistence:
-    enable-static-file-server: true
-    web-server-port: 8989
-    cors-allowed-origin-pattern: "*"
-    cors-allowed-headers: "*"
-    cors-allow-credentials: true
 
 logging:
   level:

@@ -7,7 +7,7 @@ import lombok.experimental.Accessors;
 
 /**
  * Configuration properties for VmNode health monitoring.
- * Accessible via {@code kinotic.systemApi.node.*}
+ * Accessible via {@code kinotic.systemApi.vmNode.*}
  */
 @Getter
 @Setter

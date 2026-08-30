@@ -7,9 +7,10 @@ kinotic:
     # green and lets a developer publish far more definitions before hitting the cap.
     numberOfShards: 1
     numberOfReplicas: 0
-  github:
-    webhookSecret: "-"
-    appPrivateKey: "-"
+  managementApi:
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
   systemApi:
     deployment:
       # deployed workloads reach the dev gateway on the host
