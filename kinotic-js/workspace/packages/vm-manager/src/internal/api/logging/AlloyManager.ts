@@ -180,7 +180,10 @@ export class AlloyManager {
         if (!response.ok) {
             throw new Error(`Alloy download failed: HTTP ${response.status} for ${url}`)
         }
-        await Bun.write(zipPath, response)
+        // Buffered rather than streamed: Bun.write(path, response) never completes for this
+        // body, leaving the node with an empty version directory and no log shipping at all.
+        // The asset is ~100MB and read once per version, so holding it in memory is cheap.
+        await Bun.write(zipPath, await response.arrayBuffer())
 
         const unzip = spawnSync('unzip', ['-o', zipPath, '-d', versionDir], { stdio: 'ignore' })
         if (unzip.error || unzip.status !== 0) {
