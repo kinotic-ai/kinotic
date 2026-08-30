@@ -69,6 +69,22 @@ export class AlloyManager {
     }
 
     /**
+     * Why this node is not shipping workload logs, or null when it is.
+     *
+     * Reported rather than thrown: a node that loses log shipping keeps running, so the
+     * failure is visible and fixable, but it is not fit to take workloads whose logs would go
+     * nowhere. Silence would leave it accepting them and quietly dropping their output.
+     */
+    shippingProblem(): string | null {
+        let ret: string | null = null
+        // Shutdown is deliberate, and a node on its way down has nothing to report
+        if (!this.stopping && this.child === null) {
+            ret = `workload logs are not being shipped to ${this.options.lokiUrl}: the log shipper is not running`
+        }
+        return ret
+    }
+
+    /**
      * Stops the Alloy process, escalating to SIGKILL if it ignores SIGTERM.
      */
     async stop(): Promise<void> {

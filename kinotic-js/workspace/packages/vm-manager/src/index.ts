@@ -82,13 +82,37 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     }
 }
 
+/**
+ * Why this node cannot ship workload logs, if it cannot. A workload whose output goes nowhere
+ * is not a workload this node should be given, so this joins the invariants the provider
+ * checks — the node keeps what it is running and stops being offered more.
+ *
+ * A node with no Loki configured ships nothing at all, which is the same failure on a
+ * production node. A development node is allowed to run without one.
+ */
+function logShippingProblems(): string[] {
+    const problems: string[] = []
+    if (alloyManager === null) {
+        if (config.environment === Environment.PRODUCTION) {
+            problems.push('KINOTIC_LOKI_URL is not set, so no workload logs leave this node')
+        }
+    } else {
+        const problem = alloyManager.shippingProblem()
+        if (problem !== null) {
+            problems.push(problem)
+        }
+    }
+    return problems
+}
+
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
     heartbeatTimer = setInterval(async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
-            await nodeOrchestrator.heartbeat(nodeId!, await provider.checkNodeHealth())
+            await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
+                                                      ...logShippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
