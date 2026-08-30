@@ -11,6 +11,7 @@ import org.kinotic.management.api.model.RepositoryConnectionStatus;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.services.ProjectRepoProvisioner;
 import org.kinotic.management.api.services.ProjectService;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 @Component
 public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
@@ -28,15 +31,18 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepoProvisioner repoProvisioner;
+    private final ParticipantIdentityService participantIdentityService;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
-                                 ProjectRepoProvisioner repoProvisioner) {
+                                 ProjectRepoProvisioner repoProvisioner,
+                                 ParticipantIdentityService participantIdentityService) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
         this.repoProvisioner = repoProvisioner;
+        this.participantIdentityService = participantIdentityService;
     }
 
     @Override
@@ -78,6 +84,36 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<List<Project>> findByRepoFullName(String repoFullName) {
         Validate.notBlank(repoFullName, "repoFullName must not be blank");
         return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
+    }
+
+    @Override
+    protected Future<Void> beforeDelete(String projectId) {
+        String organizationId = requireOrganizationId();
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .compose(deployment -> {
+                    Future<Void> ret;
+                    if (deployment == null) {
+                        ret = Future.succeededFuture();
+                    } else {
+                        // The machines outlive the project unless they go with it, and they
+                        // hold the organization's authority. ParticipantIdentityService's own
+                        // beforeDelete cascades each one's stored credential. The checkout and
+                        // the runtime workload on the node are system-side resources this
+                        // management-plane delete cannot reach — deleting the runtime machine
+                        // is what cuts an orphaned guest off, on its next reconnect.
+                        ret = deleteMachines(deployment.getSyncMachineId(), deployment.getRuntimeMachineId())
+                                .compose(v -> projectDeploymentRepository.deleteById(projectId, organizationId));
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<Void> deleteMachines(String syncMachineId, String runtimeMachineId) {
+        List<Future<Void>> deletes = Stream.of(syncMachineId, runtimeMachineId)
+                                           .filter(Objects::nonNull)
+                                           .map(participantIdentityService::deleteById)
+                                           .toList();
+        return Future.all(deletes).mapEmpty();
     }
 
     @Override

@@ -126,6 +126,24 @@ describe('sync entrypoint', () => {
         expect(readFileSync(join(workspaceDir, '.kinotic', 'reload'), 'utf-8')).toBe(sha)
     }, 30_000)
 
+    it('names the missing half when a client id arrives without its secret', () => {
+        const sha = git(seedDir, 'rev-parse', 'HEAD')
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: sha,
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+            // the deployment injects the secret separately from the environment, so this is
+            // the shape a workload gets when that injection is the part that broke
+            KINOTIC_CLIENT_ID: 'machine-1',
+            KINOTIC_SERVER_HOST: 'kinotic.example',
+        })
+
+        expect(result.status).not.toBe(0)
+        expect(result.stderr).toContain('KINOTIC_CLIENT_SECRET')
+        expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)
+    }, 30_000)
+
     it('fails without touching the sentinel when the entity sync fails', () => {
         const sha = git(seedDir, 'rev-parse', 'HEAD')
         const fakeCli = join(baseDir, 'failing-cli.ts')

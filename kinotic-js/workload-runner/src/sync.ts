@@ -83,6 +83,12 @@ function syncEntities(workspaceDir: string): void {
         console.log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
         return
     }
+    // A client credential only resolves when both halves are present, so an id whose secret
+    // did not arrive would fall through to the CLI's stored-login path and fail with
+    // "Not logged in" — which names neither the secret nor the deployment that dropped it
+    if (process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_CLIENT_SECRET) {
+        throw new Error('KINOTIC_CLIENT_ID is set without KINOTIC_CLIENT_SECRET')
+    }
     // bun runs the CLI's entry script directly, so its node shebang never matters
     const cliEntry = process.env.KINOTIC_CLI_BIN
         ?? Bun.resolveSync('@kinotic-ai/kinotic-cli/bin/run.js', import.meta.dir)
