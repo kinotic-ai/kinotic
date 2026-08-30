@@ -4,7 +4,7 @@ import { createServer } from 'node:http'
 import Docker from 'dockerode'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import { NetnsAnchorManager } from '@/internal/api/network/NetnsAnchorManager'
-import { Environment } from '@/api/Environment'
+import { NodeMode } from '@/api/NodeMode'
 
 // A service on the node is refused by the INPUT chain rather than the egress chain, so whether
 // a workload reaches one is only answerable against a real firewall and a real guest.
@@ -83,7 +83,7 @@ describe.skipIf(!canRun)('a destination naming the node itself', () => {
     }
 
     it('is refused under PRODUCTION even though the rule is written', async () => {
-        const egress = new EgressPolicyManager(null, Environment.PRODUCTION)
+        const egress = new EgressPolicyManager(null, NodeMode.PRODUCTION)
         const { id, address } = await launch('prod')
         const node = gateway()
 
@@ -98,7 +98,7 @@ describe.skipIf(!canRun)('a destination naming the node itself', () => {
     }, BOOT_TIMEOUT_MS)
 
     it('is reachable under DEVELOPMENT, and only by the workload that named it', async () => {
-        const egress = new EgressPolicyManager(null, Environment.DEVELOPMENT)
+        const egress = new EgressPolicyManager(null, NodeMode.DEVELOPMENT)
         const named = await launch('dev-named')
         const silent = await launch('dev-silent')
         const node = gateway()

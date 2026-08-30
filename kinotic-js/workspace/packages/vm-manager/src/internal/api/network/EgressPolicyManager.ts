@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { networkInterfaces } from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { Environment } from '@/api/Environment'
+import { NodeMode } from '@/api/NodeMode'
 
 /**
  * Marker carried on every rule this manager writes, so the rules belonging to a workload can
@@ -64,20 +64,20 @@ const ADDRESS_OR_CIDR = /^(\d{1,3}\.){3}\d{1,3}(\/([0-9]|[12][0-9]|3[0-2]))?$/
 export class EgressPolicyManager {
 
     private readonly resolver: string | null
-    private readonly environment: Environment
+    private readonly nodeMode: NodeMode
 
     /**
      * @param resolver the DNS server workloads are given, permitted on port 53. A property of
      *        the node's network rather than of any workload's policy, so it is the one
      *        destination this manager permits that the workload did not ask for.
-     * @param environment decides whether a destination naming one of this node's own addresses
+     * @param nodeMode decides whether a destination naming one of this node's own addresses
      *        is honoured. A production deployment keeps the api-gateway off the nodes that run
-     *        workloads, so on {@link Environment.PRODUCTION} such a destination is left refused.
+     *        workloads, so on {@link NodeMode.PRODUCTION} such a destination is left refused.
      */
     constructor(resolver: string | null = null,
-                environment: Environment = Environment.PRODUCTION) {
+                nodeMode: NodeMode = NodeMode.PRODUCTION) {
         this.resolver = resolver
-        this.environment = environment
+        this.nodeMode = nodeMode
     }
 
     /**
@@ -141,7 +141,7 @@ export class EgressPolicyManager {
             // A colocated service is refused by a different chain, so permitting it takes a
             // second rule. Only an exact address counts: a CIDR that happens to contain the
             // node was written to describe a network, not to ask for the node itself.
-            if (this.environment === Environment.DEVELOPMENT && this.isThisNode(destination)) {
+            if (this.nodeMode === NodeMode.DEVELOPMENT && this.isThisNode(destination)) {
                 this.insert(HOST_CHAIN, this.hostFloorPosition(),
                             ['-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
             }

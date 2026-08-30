@@ -149,7 +149,7 @@ hit this. `docker create` + `docker start` and user-defined Docker networks were
 still hot-plug.
 
 The vm-manager implements it as `NetnsAnchorManager`, used only when
-`KINOTIC_ENVIRONMENT=DEVELOPMENT`; a production node hot-plugs exactly as before. See
+`KINOTIC_NODE_MODE=DEVELOPMENT`; a production node hot-plugs exactly as before. See
 `website/content/02.platform/03.configuration.md`.
 
 **Restarting a workload needs the namespace cleared first.** Kata does not detach its endpoint
@@ -180,7 +180,7 @@ reach a server on its own node even when the server put that address in `allowed
 
 That is correct for Azure, where the server is not on the node; the README says not to colocate
 the api-gateway with workloads. Colocation is a development arrangement, so it is gated by the
-same switch as everything else development-only — `KINOTIC_ENVIRONMENT=DEVELOPMENT`, with no
+same switch as everything else development-only — `KINOTIC_NODE_MODE=DEVELOPMENT`, with no
 marker file or second knob. The vm-manager then writes an `INPUT` rule for the workload that
 named the address, released with that workload:
 

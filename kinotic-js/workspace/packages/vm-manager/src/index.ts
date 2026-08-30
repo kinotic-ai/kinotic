@@ -9,7 +9,7 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import { NetnsAnchorManager } from '@/internal/api/network/NetnsAnchorManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { Environment } from '@/api/Environment'
+import { NodeMode } from '@/api/NodeMode'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/system-api'
@@ -46,7 +46,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
-        const egress = new EgressPolicyManager(config.workloadDns ?? null, config.environment)
+        const egress = new EgressPolicyManager(config.workloadDns ?? null, config.nodeMode)
         if (!egress.enforces()) {
             console.warn('This node does not deny workload egress by default — a workload can reach '
                          + 'anything its address can route to. See docker-kata-ch/README.md')
@@ -55,9 +55,9 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // boots, which a production node never does — its hypervisor hot-plugs the NIC instead
         const docker = new Docker()
         let anchors: NetnsAnchorManager | null = null
-        if (config.environment === Environment.DEVELOPMENT) {
+        if (config.nodeMode === NodeMode.DEVELOPMENT) {
             anchors = new NetnsAnchorManager(docker, config.workloadDns ?? null)
-            console.warn('KINOTIC_ENVIRONMENT is DEVELOPMENT — each workload is given a network '
+            console.warn('KINOTIC_NODE_MODE is DEVELOPMENT — each workload is given a network '
                          + 'namespace anchor, which a production node does not use')
         }
         ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
@@ -93,7 +93,7 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
 function logShippingProblems(): string[] {
     const problems: string[] = []
     if (alloyManager === null) {
-        if (config.environment === Environment.PRODUCTION) {
+        if (config.nodeMode === NodeMode.PRODUCTION) {
             problems.push('KINOTIC_LOKI_URL is not set, so no workload logs leave this node')
         }
     } else {
@@ -200,4 +200,4 @@ export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 export type { VolumeMount } from '@kinotic-ai/system-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'
-export { Environment } from '@/api/Environment'
+export { NodeMode } from '@/api/NodeMode'

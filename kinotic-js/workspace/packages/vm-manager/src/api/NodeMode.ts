@@ -1,10 +1,10 @@
 /**
  * How far a node may deviate from the configuration the platform ships and tests.
  *
- * A node is {@link Environment.PRODUCTION} unless it declares otherwise, so a deployment that
+ * A node is {@link NodeMode.PRODUCTION} unless it declares otherwise, so a deployment that
  * never sets the variable runs only paths that have been tested.
  */
-export enum Environment {
+export enum NodeMode {
 
     /** Only the configuration the platform ships and tests. */
     PRODUCTION = 'PRODUCTION',
