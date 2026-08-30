@@ -1,0 +1,1 @@
+{"id":"a28b33c71d3109d4e679d264170ca23b","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.rejectsBindingASecondInstallationWhileLinked","name":"rejectsBindingASecondInstallationWhileLinked()","status":"passed","testResultsByEnv":{"default":"d81db8105b46bf0fb64f7f6e9717f336"}}
