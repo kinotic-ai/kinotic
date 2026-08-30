@@ -1,0 +1,1 @@
+{"id":"29c3b6c8c48f5118274357bfd29d6d3e","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism ScopeOptional methods should reject an unscoped invocation of an instance-affine method","name":"should reject an unscoped invocation of an instance-affine method","status":"passed","testResultsByEnv":{"default":"5b326c0c0fb35b2324d391d43f3ff285"}}
