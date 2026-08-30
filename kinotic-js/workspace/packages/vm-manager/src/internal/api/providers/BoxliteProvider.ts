@@ -35,6 +35,12 @@ const MAX_WORKLOAD_VOLUME_MOUNTS = 1
 const NO_EGRESS_HOST = '192.0.2.1'
 
 /**
+ * How often a workload running in the foreground is checked for its end. boxlite's Node SDK
+ * offers no wait primitive, so the end of a run is found by polling the box's state.
+ */
+const EXIT_POLL_MS = 500
+
+/**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
  * no TS type for it (JsBox), so only the members this provider uses are declared.
  */
@@ -186,19 +192,12 @@ export class BoxliteProvider implements IVmProvider {
     }
 
     async start(workload: Workload): Promise<Workload> {
-        // A box now stops when its entrypoint exits, but the Node SDK drops the exit code the
-        // boxlite core records, so a foreground run cannot resolve with the outcome the
-        // contract requires — a successful run and a crashed one look identical
-        if (!(workload.detached ?? true)) {
-            throw new Error('Non-detached workloads are not supported on the boxlite provider: '
-                            + 'boxlite does not report a workload\'s exit code. Deploy it detached instead.')
-        }
-
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING
         workload.created = Date.now()
         workload.updated = Date.now()
+        workload.exitCode = null
 
         this.workloads.set(id, workload)
 
@@ -234,6 +233,12 @@ export class BoxliteProvider implements IVmProvider {
             this.persist(workload)
         }
 
+        // A non-detached workload runs in the foreground: start resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await this.watchExit(workload)
+        }
+
         return workload
     }
 
@@ -252,6 +257,7 @@ export class BoxliteProvider implements IVmProvider {
 
         workload.status = WorkloadStatus.STARTING
         workload.updated = Date.now()
+        workload.exitCode = null
         this.persist(workload)
 
         try {
@@ -271,6 +277,12 @@ export class BoxliteProvider implements IVmProvider {
             this.persist(workload)
         }
 
+        // A non-detached workload runs in the foreground: restart resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await this.watchExit(workload)
+        }
+
         return workload
     }
 
@@ -280,16 +292,18 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
-        const vm = this.activeVms.get(workloadId)
-        if (!vm) {
-            throw new Error(`Box not found for workload: ${workloadId}`)
-        }
+        // Taken from the runtime rather than activeVms, which a workload that ended on its
+        // own has already been dropped from
+        const box = await this.boxHandle(workloadId)
 
         workload.status = WorkloadStatus.STOPPING
         workload.updated = Date.now()
         this.persist(workload)
 
-        await vm.box.stop()
+        await box.stop()
+
+        const info = await this.runtime.getInfo(workloadId)
+        workload.exitCode = info ? this.readExitCode(info.id) : null
 
         // Implements Workload.autoRemove: boxlite forbids its own autoRemove flag on
         // detached boxes, so the provider discards the box explicitly
@@ -375,7 +389,8 @@ export class BoxliteProvider implements IVmProvider {
                 console.log(`Reattached to running workload ${id} (vm ${info.id})`)
             } else {
                 // The box ended while no vm-manager was supervising it
-                workload.status = this.exitedStatus(workload)
+                workload.exitCode = info ? this.readExitCode(info.id) : null
+                workload.status = this.exitedStatus(workload, workload.exitCode)
             }
         } catch (error) {
             console.error(`Failed to reattach workload ${id}:`, error)
@@ -393,9 +408,15 @@ export class BoxliteProvider implements IVmProvider {
             return
         }
         let status: WorkloadStatus
+        let exitCode: number | null = workload.exitCode
         try {
             const info = await this.runtime.getInfo(workload.id!)
-            status = info?.state.running ? WorkloadStatus.RUNNING : this.exitedStatus(workload)
+            if (info?.state.running) {
+                status = WorkloadStatus.RUNNING
+            } else {
+                exitCode = info ? this.readExitCode(info.id) : null
+                status = this.exitedStatus(workload, exitCode)
+            }
         } catch {
             // The box is gone while the workload record says it should be live
             status = WorkloadStatus.FAILED
@@ -405,8 +426,9 @@ export class BoxliteProvider implements IVmProvider {
         if (!this.workloads.has(workload.id!)) {
             return
         }
-        if (status !== workload.status) {
+        if (status !== workload.status || exitCode !== workload.exitCode) {
             workload.status = status
+            workload.exitCode = exitCode
             workload.updated = Date.now()
             // The log dir is kept so already-written logs remain shippable until destroy
             this.activeVms.delete(workload.id!)
@@ -414,11 +436,54 @@ export class BoxliteProvider implements IVmProvider {
         }
     }
 
-    // A guest that ended while no operation was in flight stopped cleanly only if the
-    // provider was already stopping it: boxlite's Node SDK does not surface the box's exit
-    // code, so an unrequested exit cannot be told apart from a crash
-    private exitedStatus(workload: Workload): WorkloadStatus {
-        return workload.status === WorkloadStatus.STOPPING ? WorkloadStatus.STOPPED : WorkloadStatus.FAILED
+    // Pushes the run's end the moment the guest exits, instead of leaving it for the next
+    // listWorkloads() sweep to notice. Started only for a foreground run, whose start awaits
+    // it: a detached workload would hold a poll for its whole life to learn what the sweep
+    // tells it anyway.
+    private async watchExit(workload: Workload): Promise<void> {
+        while ((await this.runtime.getInfo(workload.id!))?.state.running) {
+            await new Promise(resolve => setTimeout(resolve, EXIT_POLL_MS))
+        }
+        await this.syncStatus(workload)
+    }
+
+    // A guest that ended while no operation was in flight stopped cleanly only if it said so;
+    // anything else — including an exit whose code could not be read — is a failure
+    private exitedStatus(workload: Workload, exitCode: number | null): WorkloadStatus {
+        let ret: WorkloadStatus
+        if (workload.status === WorkloadStatus.STOPPING) {
+            ret = WorkloadStatus.STOPPED
+        } else if (exitCode === 0) {
+            ret = WorkloadStatus.STOPPED
+        } else {
+            ret = WorkloadStatus.FAILED
+        }
+        return ret
+    }
+
+    /**
+     * The exit code the guest recorded for a box's run, or null when no record can be read.
+     */
+    // boxlite's Node SDK drops the exit code its core records (boxlite PR #1237), so it is
+    // read from the record the guest writes beside the container's rootfs. A box carries one
+    // container, and the record is per-run: Container.Init removes it before starting, so its
+    // presence means this run is over. Absent or unreadable is an unknown outcome, which
+    // exitedStatus must not read as success.
+    private readExitCode(vmId: string): number | null {
+        const containers = join(this.boxliteHome, 'boxes', vmId, 'shared', 'containers')
+        let ret: number | null = null
+        try {
+            const [containerId] = readdirSync(containers)
+            if (containerId !== undefined) {
+                const record = JSON.parse(readFileSync(join(containers, containerId, 'exit.json'), 'utf-8'))
+                if (typeof record.exit_code === 'number') {
+                    ret = record.exit_code
+                }
+            }
+        } catch {
+            // No readable record: the run ended, but not with an outcome this can report
+        }
+        return ret
     }
 
     // The runtime's own handle to the box named by the workload id

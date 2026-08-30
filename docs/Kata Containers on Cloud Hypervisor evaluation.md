@@ -236,8 +236,15 @@ its connections — while the box still reported Running.
 reads it via `inspect .State.ExitCode`, but the Node binding drops the field —
 `sdks/node/src/info.rs:160` is byte-identical to 0.9.7 (`status`, `running`, `pid`).
 [PR #1237](https://github.com/boxlite-ai/boxlite/pull/1237) is the binding half and is still
-open. Until it merges the provider cannot tell a clean exit from a crash, so it still refuses
-non-detached workloads and reports any unrequested exit as FAILED.
+open.
+
+Until it merges the provider reads the record the guest writes, at
+`{BOXLITE_HOME}/boxes/{boxId}/shared/containers/{containerId}/exit.json` — one container per
+box, `{"exit_code":42}`, removed by `Container.Init` before each run, so its presence means the
+run is over. That is boxlite's private layout rather than its API, so a missing or unreadable
+record is treated as an unknown outcome and reported FAILED, never as success. With it the
+provider supports run-to-completion workloads: a foreground `start` resolves at run end with
+the status and code, measured at `exit 0` → STOPPED/0 and `exit 42` → FAILED/42.
 
 ## 1.6 What boxlite gets RIGHT (don't lose these)
 
@@ -323,12 +330,13 @@ this evaluation was run. Against **0.10.0** only two of them still hold:
 |---|---|---|
 | three volume mounts | NO | **NO** — [#935](https://github.com/boxlite-ai/boxlite/issues/935) open |
 | no-egress mode boots | NO | YES — [#1367](https://github.com/boxlite-ai/boxlite/pull/1367) |
-| run-to-completion exit code | NO | **NO** — the box stops and reports it ([#988](https://github.com/boxlite-ai/boxlite/pull/988)), but the Node SDK drops the code ([#1237](https://github.com/boxlite-ai/boxlite/pull/1237) open) |
+| run-to-completion exit code | NO | YES with a workaround — the box stops and records the code ([#988](https://github.com/boxlite-ai/boxlite/pull/988)); the Node SDK drops it ([#1237](https://github.com/boxlite-ai/boxlite/pull/1237) open), so the provider reads it off disk (§1.5) |
 | entrypoint stdout/stderr captured | NO | NO — unchanged; workloads still write log files |
 
 The disk-size lie is fixed too ([#1231](https://github.com/boxlite-ai/boxlite/pull/1231)). So
 Kata's remaining advantages over boxlite are narrower than this section reads: unlimited mounts,
-host-side stdout capture, a fail-closed egress default, and a readable exit code.
+host-side stdout capture, a fail-closed egress default, and an exit code that arrives through a
+supported API rather than off another project's private layout.
 
 ## 2.3 Resource limits are enforced
 
