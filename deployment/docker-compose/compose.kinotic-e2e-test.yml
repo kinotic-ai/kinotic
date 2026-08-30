@@ -28,6 +28,10 @@ services:
       KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY: "-"
       KINOTIC_MANAGEMENTAPI_GITHUB_WEBHOOKSECRET: "-"
       KINOTIC_MANAGEMENTAPI_GITHUB_REPOTEMPLATE: "-"
+      # DeploymentProperties.serverHost is @NotBlank and validated at boot. It is set in the
+      # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply it
+      # here. No e2e test deploys a workload, so the value only has to bind.
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST: localhost
       # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
       # them under the `development` profile, which e2e drops, so mount the dummy set below; without
       # it the OAuth token endpoints cannot mint a token.
