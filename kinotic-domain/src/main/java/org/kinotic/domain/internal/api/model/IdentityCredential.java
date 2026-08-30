@@ -5,7 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.domain.api.model.security.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 /**
  * Internal entity storing the authentication secret of a {@link ParticipantIdentity} — a

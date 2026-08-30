@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.identity;
 
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.AuthType;
 
 import java.util.Date;
 

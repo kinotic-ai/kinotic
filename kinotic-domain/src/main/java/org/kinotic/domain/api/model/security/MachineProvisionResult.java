@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+
 /**
  * The outcome of provisioning a {@link MachineParticipantIdentity}: the saved identity and
  * the one and only disclosure of its client secret. The machine connects with

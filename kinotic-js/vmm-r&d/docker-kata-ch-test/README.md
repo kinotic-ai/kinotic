@@ -16,7 +16,9 @@ sudo bun run src/requirements-test.ts      # run real microVMs and check each re
 ```
 
 Needs Ubuntu 22.04 with nested virtualization, root, and outbound internet. Kata's release is
-resolved from GitHub at run time and printed, so a run reports exactly what it installed.
+pinned in the script and printed, so a run reports exactly what it installed and two nodes
+provisioned months apart are running the same thing. Bumping it is an edit, made against the
+release notes and the advisories for the version being left behind.
 
 ## Why Docker and not containerd's CRI
 
@@ -78,7 +80,7 @@ its network probe needs.
 
 | Requirement | Checked by |
 |---|---|
-| R1 Customer code isolated in a microVM | Guest kernel differs from the host's, a `cloud-hypervisor` process backs it, and the guest's own DMI names the hypervisor |
+| R1 Customer code isolated in a microVM | Guest kernel differs from the host's, a `cloud-hypervisor` process backs it, and that process's command line names this container |
 | R2 Logs shipped host-side | stdout and stderr land in the container's json-file with `stream` labels, and `LogPolicy` maps to Docker's rotation options |
 | R3 Reaches as little as possible | IMDS and the WireServer refuse the guest, DNS still resolves, one workload cannot reach another's port, and `--network none` denies everything |
 | R4 Fast edit/redeploy | A host-side edit under the shared mount is visible to the next workload with no image rebuild |

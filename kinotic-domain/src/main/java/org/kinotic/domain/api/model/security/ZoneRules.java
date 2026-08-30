@@ -5,6 +5,10 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.Set;

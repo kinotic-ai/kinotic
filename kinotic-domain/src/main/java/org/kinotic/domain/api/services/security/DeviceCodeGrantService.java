@@ -3,7 +3,7 @@ package org.kinotic.domain.api.services.security;
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DeviceCodeGrantStart;
 import org.kinotic.domain.api.model.security.DeviceCodePollResult;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 
 /**
  * Drives the server side of the OAuth 2.0 Device Authorization Grant (RFC 8628) for CLI

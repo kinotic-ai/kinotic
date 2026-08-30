@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
+
 /**
  * Authentication method for an {@link ParticipantIdentity}.
  */

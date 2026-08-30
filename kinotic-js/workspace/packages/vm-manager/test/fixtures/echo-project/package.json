@@ -1,0 +1,9 @@
+{
+  "name": "echo-project",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@kinotic-ai/core": "^5.0.0-beta.7",
+    "@kinotic-ai/management-api": "^5.0.0-beta.17"
+  }
+}

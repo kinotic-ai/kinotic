@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.participant;
 
 /**
  * A participant authenticated against the platform SYSTEM scope. Platform operators with

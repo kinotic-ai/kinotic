@@ -12,8 +12,19 @@ kinotic:
     appPrivateKey: "-"
   systemApi:
     deployment:
-      # deployed workloads reach the dev gateway on the host
-      serverHost: localhost
+      # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
+      # Local development runs the BOXLITE provider, whose guests reach the host on the
+      # gvisor-tap-vsock host alias; boxlite's proxy completes the last hop over this machine's
+      # loopback, so the gateway needs no exposure beyond it.
+      #
+      # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge and they
+      # reach it at the gateway, 172.17.0.1 — and when the server runs beside them on that node,
+      # only a node in DEVELOPMENT mode permits it.
+      serverHost: 192.168.127.254
+      # serverHost says where the gateway is; this says a workload may reach it. They are
+      # separate lists, and a workload given the address without the permission cannot connect.
+      serverAllowedHosts:
+        - 192.168.127.254
   domain:
     # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
     # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With

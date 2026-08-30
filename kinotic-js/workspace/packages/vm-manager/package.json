@@ -43,7 +43,7 @@
     "@kinotic-ai/system-api": ">=5.0.0-beta.1"
   },
   "dependencies": {
-    "@boxlite-ai/boxlite": "^0.9.7",
+    "@boxlite-ai/boxlite": "^0.10.0",
     "dockerode": "^5.0.1"
   },
   "devDependencies": {

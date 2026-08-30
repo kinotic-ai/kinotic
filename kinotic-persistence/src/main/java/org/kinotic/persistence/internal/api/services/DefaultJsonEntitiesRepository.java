@@ -3,7 +3,7 @@ package org.kinotic.persistence.internal.api.services;
 import io.vertx.core.Future;
 import tools.jackson.databind.util.TokenBuffer;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;

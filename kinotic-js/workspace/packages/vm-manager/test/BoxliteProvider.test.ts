@@ -44,7 +44,7 @@ describe('buildBoxOptions', () => {
         const options = buildBoxOptions(workload(), '/logs/wl-1')
 
         // An empty allowlist is a denial: boxlite reads a missing allowNet as no filter
-        expect(options.network).toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+        expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['192.0.2.1'] } })
     })
 
     it('restricts egress to the hosts the workload allows', () => {
@@ -52,16 +52,17 @@ describe('buildBoxOptions', () => {
         w.network.allowedHosts = ['api.github.com']
 
         expect(buildBoxOptions(w, '/logs/wl-1').network)
-            .toEqual({ mode: 'enabled', allowNet: ['api.github.com'] })
+            .toEqual({ outbound: { mode: 'enabled', allowNet: ['api.github.com'] } })
     })
 
     it('denies every destination when the network is disabled', () => {
         const w = workload()
         w.network.mode = NetworkMode.DISABLED
 
-        // boxlite cannot boot mode 'disabled', so denial is an allowlist nothing answers on
+        // A disabled network leaves the VM with no interface at all, rather than one
+        // filtered down to nothing
         expect(buildBoxOptions(w, '/logs/wl-1').network)
-            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+            .toEqual({ outbound: { mode: 'disabled' } })
     })
 
     it('drops the allowlist of a workload whose network is disabled', () => {
@@ -70,7 +71,7 @@ describe('buildBoxOptions', () => {
         w.network.allowedHosts = ['api.github.com']
 
         expect(buildBoxOptions(w, '/logs/wl-1').network)
-            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+            .toEqual({ outbound: { mode: 'disabled' } })
     })
 
     it('denies egress to a record that carries no network policy', () => {
@@ -80,16 +81,14 @@ describe('buildBoxOptions', () => {
         // A workload whose policy cannot be read is the case least safe to guess at, so it
         // gets the same denial an empty allowlist does rather than the boxlite default
         expect(buildBoxOptions(w, '/logs/wl-1').network)
-            .toEqual({ mode: 'enabled', allowNet: ['192.0.2.1'] })
+            .toEqual({ outbound: { mode: 'enabled', allowNet: ['192.0.2.1'] } })
     })
 
-    it('rejects a rootfs larger than boxlite honors', () => {
+    it('passes a multi-gigabyte rootfs through to boxlite', () => {
         const w = workload()
-        w.diskSizeMb = 2048
+        w.diskSizeMb = 4096
 
-        // Above 1GB the backing store stops growing while the guest is told it has the
-        // full size, so the writes a workload thinks it made are lost
-        expect(() => buildBoxOptions(w, '/logs/wl-1')).toThrow('rootfs up to 1024MB')
+        expect(buildBoxOptions(w, '/logs/wl-1').diskSizeGb).toBe(4)
     })
 
     it('rounds the workload disk size up to whole GB for the guest rootfs', () => {

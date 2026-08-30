@@ -1,5 +1,7 @@
 package org.kinotic.domain.api.model.security;
 
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+
 /**
  * Result of redeeming a PKCE authorization code: the user whose consent created the grant,
  * and the client identity the grant was issued to, as the token endpoint needs both to issue

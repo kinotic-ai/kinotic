@@ -1,3 +1,4 @@
+import { getJsBoxlite } from '@boxlite-ai/boxlite'
 import { Kinotic } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
 import { VmNodeRegistration } from '@kinotic-ai/system-api'
@@ -42,6 +43,11 @@ let heartbeatTimer: Timer | null = null
 function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
     let ret: IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
+        // boxlite's runtime is a process-wide singleton that resolves its own home; pointing
+        // it at the configured one makes the store it writes boxes to and the directory the
+        // provider reads them from a single value, without a node having to set BOXLITE_HOME.
+        // One-shot, so it must run before anything asks for the runtime.
+        getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
@@ -70,13 +76,27 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     }
 }
 
+/**
+ * Why this node cannot ship the logs of the workloads it runs, if it cannot. A workload whose
+ * output goes nowhere is not one this node should be given, so this joins the invariants the
+ * provider checks — the node keeps what it is running and stops being offered more.
+ *
+ * Only a node that was asked to ship logs can fail to: one started without KINOTIC_LOKI_URL
+ * has already said so at startup.
+ */
+function logShippingProblems(): string[] {
+    const problem = alloyManager?.shippingProblem() ?? null
+    return problem !== null ? [problem] : []
+}
+
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
     heartbeatTimer = setInterval(async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
-            await nodeOrchestrator.heartbeat(nodeId!, await provider.checkNodeHealth())
+            await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
+                                                      ...logShippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()

@@ -10,6 +10,16 @@ const LISTEN_ADDR = '127.0.0.1:12345'
 // Release installed when `alloy` is not on the PATH. Bump deliberately.
 const ALLOY_VERSION = 'v1.17.1'
 
+/**
+ * Ceiling on one attempt at the release archive. Generous on purpose: it is there to catch a
+ * download that has stopped moving, not to hold the node to a transfer rate. The asset is
+ * about 100MB, so anything above roughly 7Mbit/s finishes well inside it.
+ */
+const DOWNLOAD_TIMEOUT_MS = 120_000
+
+/** Attempts before the node gives up and runs without log shipping. */
+const DOWNLOAD_ATTEMPTS = 3
+
 // Loki tenant for platform workloads with no organization (SYSTEM scope); must match
 // DefaultLogService.SYSTEM_LOG_TENANT on the server
 const SYSTEM_LOG_TENANT = 'kinotic-system'
@@ -56,6 +66,22 @@ export class AlloyManager {
         // Queueing every mutation of the process behind the previous one is what keeps
         // the child/config state coherent.
         return this.enqueue(() => this.applyTargetsInternal(targets))
+    }
+
+    /**
+     * Why this node is not shipping workload logs, or null when it is.
+     *
+     * Reported rather than thrown: a node that loses log shipping keeps running, so the
+     * failure is visible and fixable, but it is not fit to take workloads whose logs would go
+     * nowhere. Silence would leave it accepting them and quietly dropping their output.
+     */
+    shippingProblem(): string | null {
+        let ret: string | null = null
+        // Shutdown is deliberate, and a node on its way down has nothing to report
+        if (!this.stopping && this.child === null) {
+            ret = `workload logs are not being shipped to ${this.options.lokiUrl}: the log shipper is not running`
+        }
+        return ret
     }
 
     /**
@@ -176,11 +202,10 @@ export class AlloyManager {
 
         mkdirSync(versionDir, { recursive: true })
         const zipPath = join(versionDir, `${asset}.zip`)
-        const response = await fetch(url)
-        if (!response.ok) {
-            throw new Error(`Alloy download failed: HTTP ${response.status} for ${url}`)
-        }
-        await Bun.write(zipPath, response)
+        // Buffered rather than streamed: Bun.write(path, response) never completes for this
+        // body, leaving the node with an empty version directory and no log shipping at all.
+        // The asset is ~100MB and read once per version, so holding it in memory is cheap.
+        await Bun.write(zipPath, await this.fetchArchive(url))
 
         const unzip = spawnSync('unzip', ['-o', zipPath, '-d', versionDir], { stdio: 'ignore' })
         if (unzip.error || unzip.status !== 0) {
@@ -194,6 +219,30 @@ export class AlloyManager {
         chmodSync(binaryPath, 0o755)
         console.log(`Alloy installed at ${binaryPath}`)
         return binaryPath
+    }
+
+    /**
+     * Reads the release archive, giving up on an attempt that stops making progress.
+     *
+     * This runs before the node registers, so a download that never finishes takes the node
+     * with it — no workloads, no heartbeat, and nothing said about why. The bound is what
+     * turns that into a failure the caller can log and carry on without log shipping.
+     */
+    private async fetchArchive(url: string): Promise<ArrayBuffer> {
+        let lastFailure = ''
+        for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt++) {
+            try {
+                const response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`)
+                }
+                return await response.arrayBuffer()
+            } catch (error) {
+                lastFailure = (error as Error).message
+                console.warn(`Alloy download attempt ${attempt} of ${DOWNLOAD_ATTEMPTS} failed: ${lastFailure}`)
+            }
+        }
+        throw new Error(`Alloy download failed after ${DOWNLOAD_ATTEMPTS} attempts (${lastFailure}) for ${url}`)
     }
 
     /**

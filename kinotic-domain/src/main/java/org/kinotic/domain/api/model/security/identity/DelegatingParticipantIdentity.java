@@ -1,9 +1,11 @@
-package org.kinotic.domain.api.model.security;
+package org.kinotic.domain.api.model.security.identity;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.security.AuthType;
+import org.kinotic.domain.api.model.security.DelegateKind;
 
 /**
  * A client (a CLI install, an MCP host such as an LLM) a user has authorized to act on

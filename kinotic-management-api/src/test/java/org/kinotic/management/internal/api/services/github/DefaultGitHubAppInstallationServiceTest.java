@@ -10,7 +10,7 @@ import org.kinotic.core.api.secret.SecretReferenceResolver;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
-import org.kinotic.domain.api.model.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.OrgSignupOidcConfigurationService;
 import org.kinotic.management.api.config.GithubProperties;
 import org.kinotic.management.api.model.GitHubAppInstallation;

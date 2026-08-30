@@ -1,4 +1,4 @@
-import { SimpleBox, getJsBoxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
+import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
@@ -16,29 +16,29 @@ export const GUEST_LOG_DIR = '/var/log/kinotic'
 
 /**
  * How many volumes a workload may declare. Each virtio-fs mount draws from the VM's IRQ
- * budget, and on boxlite 0.9.7 a third one exhausts it — libkrun then fails the VM with
+ * budget, and on boxlite 0.10.0 a third one exhausts it — libkrun then fails the VM with
  * {@code RegisterNetDevice(IrqsExhausted)}, reported as {@code status=-22}. Ports and a
  * sized rootfs cost nothing against this. The log directory mount always occupies one of
  * the two the VM can carry.
+ * @see https://github.com/boxlite-ai/boxlite/issues/935
  */
 const MAX_WORKLOAD_VOLUME_MOUNTS = 1
 
 /**
- * The allowlist entry that denies a VM every destination. boxlite 0.9.7 cannot boot a VM
- * with {@code mode: 'disabled'}, and treats an empty allowlist as no allowlist at all, so
- * the only way to deny egress is to permit a single address nothing answers on. TEST-NET-1
- * (RFC 5737) is reserved and never routed, and boxlite's connection filter then refuses
- * every other destination by name and by address alike.
+ * The allowlist entry that denies a VM every destination while leaving it a network
+ * interface. boxlite reads an empty allowlist as no allowlist at all and grants the VM
+ * unrestricted egress, so a policy that allows nothing has to be expressed as permission
+ * to a single address nothing answers on. TEST-NET-1 (RFC 5737) is reserved and never
+ * routed, and boxlite's connection filter then refuses every other destination by name
+ * and by address alike.
  */
 const NO_EGRESS_HOST = '192.0.2.1'
 
 /**
- * The largest rootfs a workload may request. boxlite 0.9.7 grows a box's backing store to
- * about 1071 MiB whatever size was asked for, while reporting the requested size to the
- * guest, so a larger request promises the workload space that does not exist: writes are
- * lost, the file's own size still reports them as written, and the VM often dies outright.
+ * How often a workload running in the foreground is checked for its end. boxlite's Node SDK
+ * offers no wait primitive, so the end of a run is found by polling the box's state.
  */
-const MAX_WORKLOAD_DISK_MB = 1024
+const EXIT_POLL_MS = 500
 
 /**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
@@ -73,12 +73,6 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     if (boundMapping) {
         throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
     }
-    // Silently accepting a size the provider does not honor would hand the workload a disk
-    // that swallows writes, so it is refused where the reason can still be reported
-    if (workload.diskSizeMb > MAX_WORKLOAD_DISK_MB) {
-        throw new Error(`boxlite honors a rootfs up to ${MAX_WORKLOAD_DISK_MB}MB, `
-                        + `but ${workload.diskSizeMb}MB was declared`)
-    }
     // Rejected here so the operator gets the reason; letting it through surfaces only as
     // an opaque libkrun status=-22 when the VM fails to boot
     if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
@@ -88,22 +82,14 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
     // A workload deserialized from the wire or a persisted state file may predate the
     // network field, whose absence means the policy the model defaults to
     const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    // Both denials are expressed as an allowlist permitting only {@link NO_EGRESS_HOST}: a
-    // disabled network, whose own list is discarded, and an empty list, which boxlite would
-    // otherwise read as no filter at all and grant everything. Name resolution runs inside
-    // boxlite's network stack rather than over the allowlist, so it survives either.
     const allowedHosts = workload.network?.allowedHosts ?? []
-    const allowNet = networkMode === NetworkMode.ENABLED && allowedHosts.length > 0
-        ? allowedHosts
-        : [NO_EGRESS_HOST]
     return {
         image: workload.image,
         name: workload.id!,
         cpus: workload.vcpus,
         memoryMib: workload.memoryMb,
         // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
-        // disk than it asked for, and leave the boxlite default when nothing was asked.
-        // MAX_WORKLOAD_DISK_MB keeps this at the one size the provider actually honors
+        // disk than it asked for, and leave the boxlite default when nothing was asked
         ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
         env: { ...workload.environment, ...workload.secrets },
         // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
@@ -112,11 +98,12 @@ export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOp
             ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
             : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
         // Always sent rather than left to the boxlite default, so what a guest can reach is
-        // decided by the workload record alone. The mode is always 'enabled' because the
-        // disabled one cannot boot; every denial is carried by the allowlist instead
+        // decided by the workload record alone. A disabled network leaves the VM with no
+        // interface at all, which is also why boxlite refuses to publish ports on one
         network: {
-            mode: 'enabled',
-            allowNet,
+            outbound: networkMode === NetworkMode.DISABLED
+                ? { mode: 'disabled' }
+                : { mode: 'enabled', allowNet: allowedHosts.length > 0 ? allowedHosts : [NO_EGRESS_HOST] },
         },
         ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
             ...(hostPort !== undefined ? { hostPort } : {}),
@@ -159,8 +146,11 @@ export class BoxliteProvider implements IVmProvider {
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
     // its logs to another tenant
     private readonly stateDir: string
-    // One boxlite runtime for the whole provider; every SimpleBox is bound to it
-    private readonly runtime = getJsBoxlite().withDefaultConfig()
+    // The process-wide boxlite runtime, whose home the executable set from the same
+    // configuration this provider is given. It cannot be a per-provider instance: a runtime
+    // holds an exclusive lock on its home, and the only way to release one stops every box
+    // it is running.
+    private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(boxliteHome: string,
@@ -205,19 +195,12 @@ export class BoxliteProvider implements IVmProvider {
     }
 
     async start(workload: Workload): Promise<Workload> {
-        // boxlite cannot observe a guest's exit (the box reports running after the entrypoint
-        // ends — see boxlite-test/src/batch-workload-test.ts), so the foreground contract of
-        // a non-detached workload — start resolving at run end — cannot be honored
-        if (!(workload.detached ?? true)) {
-            throw new Error('Non-detached workloads are not supported on the boxlite provider: '
-                            + 'boxlite cannot observe a workload\'s exit. Deploy it detached instead.')
-        }
-
         const id = workload.id ?? crypto.randomUUID()
         workload.id = id
         workload.status = WorkloadStatus.STARTING
         workload.created = Date.now()
         workload.updated = Date.now()
+        workload.exitCode = null
 
         this.workloads.set(id, workload)
 
@@ -253,6 +236,12 @@ export class BoxliteProvider implements IVmProvider {
             this.persist(workload)
         }
 
+        // A non-detached workload runs in the foreground: start resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await this.watchExit(workload)
+        }
+
         return workload
     }
 
@@ -271,6 +260,7 @@ export class BoxliteProvider implements IVmProvider {
 
         workload.status = WorkloadStatus.STARTING
         workload.updated = Date.now()
+        workload.exitCode = null
         this.persist(workload)
 
         try {
@@ -290,6 +280,12 @@ export class BoxliteProvider implements IVmProvider {
             this.persist(workload)
         }
 
+        // A non-detached workload runs in the foreground: restart resolves only once the run
+        // has ended, with the outcome recorded on the workload by the exit watch
+        if (!(workload.detached ?? true)) {
+            await this.watchExit(workload)
+        }
+
         return workload
     }
 
@@ -299,16 +295,18 @@ export class BoxliteProvider implements IVmProvider {
             throw new Error(`Workload not found: ${workloadId}`)
         }
 
-        const vm = this.activeVms.get(workloadId)
-        if (!vm) {
-            throw new Error(`Box not found for workload: ${workloadId}`)
-        }
+        // Taken from the runtime rather than activeVms, which a workload that ended on its
+        // own has already been dropped from
+        const box = await this.boxHandle(workloadId)
 
         workload.status = WorkloadStatus.STOPPING
         workload.updated = Date.now()
         this.persist(workload)
 
-        await vm.box.stop()
+        await box.stop()
+
+        const info = await this.runtime.getInfo(workloadId)
+        workload.exitCode = info ? this.readExitCode(info.id) : null
 
         // Implements Workload.autoRemove: boxlite forbids its own autoRemove flag on
         // detached boxes, so the provider discards the box explicitly
@@ -350,11 +348,16 @@ export class BoxliteProvider implements IVmProvider {
         if (!workload) {
             throw new Error(`Workload not found: ${workloadId}`)
         }
+        await this.syncStatus(workload)
         return workload
     }
 
     async listWorkloads(): Promise<Workload[]> {
-        return Array.from(this.workloads.values())
+        const workloads = Array.from(this.workloads.values())
+        for (const workload of workloads) {
+            await this.syncStatus(workload)
+        }
+        return workloads
     }
 
     async listLogTargets(): Promise<LogTarget[]> {
@@ -389,9 +392,8 @@ export class BoxliteProvider implements IVmProvider {
                 console.log(`Reattached to running workload ${id} (vm ${info.id})`)
             } else {
                 // The box ended while no vm-manager was supervising it
-                workload.status = workload.status === WorkloadStatus.STOPPING
-                    ? WorkloadStatus.STOPPED
-                    : WorkloadStatus.FAILED
+                workload.exitCode = info ? this.readExitCode(info.id) : null
+                workload.status = this.exitedStatus(workload, workload.exitCode)
             }
         } catch (error) {
             console.error(`Failed to reattach workload ${id}:`, error)
@@ -399,6 +401,92 @@ export class BoxliteProvider implements IVmProvider {
         }
         workload.updated = Date.now()
         this.persist(workload)
+    }
+
+    // Refreshes a workload the vm-manager believes is live. A box stops when its entrypoint
+    // exits, so a guest that ended on its own is reported here rather than waiting for an
+    // operation against it to fail.
+    private async syncStatus(workload: Workload): Promise<void> {
+        if (workload.status !== WorkloadStatus.RUNNING && workload.status !== WorkloadStatus.STARTING) {
+            return
+        }
+        let status: WorkloadStatus
+        let exitCode: number | null = workload.exitCode
+        try {
+            const info = await this.runtime.getInfo(workload.id!)
+            if (info?.state.running) {
+                status = WorkloadStatus.RUNNING
+            } else {
+                exitCode = info ? this.readExitCode(info.id) : null
+                status = this.exitedStatus(workload, exitCode)
+            }
+        } catch {
+            // The box is gone while the workload record says it should be live
+            status = WorkloadStatus.FAILED
+        }
+        // destroy() can tear the workload down while getInfo is in flight; persisting here
+        // would resurrect the state file it removed
+        if (!this.workloads.has(workload.id!)) {
+            return
+        }
+        if (status !== workload.status || exitCode !== workload.exitCode) {
+            workload.status = status
+            workload.exitCode = exitCode
+            workload.updated = Date.now()
+            // The log dir is kept so already-written logs remain shippable until destroy
+            this.activeVms.delete(workload.id!)
+            this.persist(workload)
+        }
+    }
+
+    // Pushes the run's end the moment the guest exits, instead of leaving it for the next
+    // listWorkloads() sweep to notice. Started only for a foreground run, whose start awaits
+    // it: a detached workload would hold a poll for its whole life to learn what the sweep
+    // tells it anyway.
+    private async watchExit(workload: Workload): Promise<void> {
+        while ((await this.runtime.getInfo(workload.id!))?.state.running) {
+            await new Promise(resolve => setTimeout(resolve, EXIT_POLL_MS))
+        }
+        await this.syncStatus(workload)
+    }
+
+    // A guest that ended while no operation was in flight stopped cleanly only if it said so;
+    // anything else — including an exit whose code could not be read — is a failure
+    private exitedStatus(workload: Workload, exitCode: number | null): WorkloadStatus {
+        let ret: WorkloadStatus
+        if (workload.status === WorkloadStatus.STOPPING) {
+            ret = WorkloadStatus.STOPPED
+        } else if (exitCode === 0) {
+            ret = WorkloadStatus.STOPPED
+        } else {
+            ret = WorkloadStatus.FAILED
+        }
+        return ret
+    }
+
+    /**
+     * The exit code the guest recorded for a box's run, or null when no record can be read.
+     */
+    // boxlite's Node SDK drops the exit code its core records (boxlite PR #1237), so it is
+    // read from the record the guest writes beside the container's rootfs. A box carries one
+    // container, and the record is per-run: Container.Init removes it before starting, so its
+    // presence means this run is over. Absent or unreadable is an unknown outcome, which
+    // exitedStatus must not read as success.
+    private readExitCode(vmId: string): number | null {
+        const containers = join(this.boxliteHome, 'boxes', vmId, 'shared', 'containers')
+        let ret: number | null = null
+        try {
+            const [containerId] = readdirSync(containers)
+            if (containerId !== undefined) {
+                const record = JSON.parse(readFileSync(join(containers, containerId, 'exit.json'), 'utf-8'))
+                if (typeof record.exit_code === 'number') {
+                    ret = record.exit_code
+                }
+            }
+        } catch {
+            // No readable record: the run ended, but not with an outcome this can report
+        }
+        return ret
     }
 
     // The runtime's own handle to the box named by the workload id

@@ -2,6 +2,7 @@ package org.kinotic.domain.api.model.security;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 
 /**
  * The kind of client a {@link DelegatingParticipantIdentity} represents, matching the OAuth

@@ -20,12 +20,17 @@ echo "Node invariants"
 # --- the runtime is present and is really Cloud Hypervisor --------------------------------
 [ -e /dev/kvm ] && ok "nested virtualization" "/dev/kvm present" || bad "nested virtualization" "/dev/kvm missing"
 systemctl is-active --quiet docker && ok "docker" "active" || bad "docker" "not active"
-[ -L /etc/kata-containers/configuration.toml ] \
-  && case "$(readlink -f /etc/kata-containers/configuration.toml)" in
-       *clh*) ok "kata config" "-> $(basename "$(readlink -f /etc/kata-containers/configuration.toml)")" ;;
-       *) bad "kata config" "resolves to $(readlink -f /etc/kata-containers/configuration.toml), not the clh one — this node would run QEMU" ;;
+# runtime-rs is the only runtime kata ships from 4.1.0 on, and it reads its own config tree
+KATA_CONF=/etc/kata-containers/runtime-rs/configuration.toml
+[ -L "$KATA_CONF" ] \
+  && case "$(readlink -f "$KATA_CONF")" in
+       *clh*) ok "kata config" "-> $(basename "$(readlink -f "$KATA_CONF")")" ;;
+       *) bad "kata config" "resolves to $(readlink -f "$KATA_CONF"), not the clh one — this node would run QEMU" ;;
      esac \
-  || bad "kata config" "/etc/kata-containers/configuration.toml is not a symlink"
+  || bad "kata config" "$KATA_CONF is not a symlink"
+grep -q '^\[hypervisor\.clh\]' "$KATA_CONF" 2>/dev/null \
+  && ok "cloud-hypervisor selected" "[hypervisor.clh] in $(basename "$KATA_CONF")" \
+  || bad "cloud-hypervisor selected" "no [hypervisor.clh] section in $KATA_CONF"
 [ -x /usr/local/bin/containerd-shim-kata-clh-v2 ] && ok "kata-clh shim on PATH" || bad "kata-clh shim on PATH" "missing"
 docker info 2>/dev/null | grep -q 'kata-clh' && ok "kata-clh runtime registered" || bad "kata-clh runtime registered" "not in docker info"
 
