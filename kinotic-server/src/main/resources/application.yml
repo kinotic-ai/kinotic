@@ -9,10 +9,11 @@ kinotic:
         - https://claude.ai/oauth/claude-code-client-metadata
         # Claude web, desktop, and mobile custom connectors
         - https://claude.ai/oauth/mcp-oauth-client-metadata
-  github:
-    appId: 3584018
-    appSlug: kinotic-ai
-    repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
+  managementApi:
+    github:
+      appId: 3584018
+      appSlug: kinotic-ai
+      repoTemplate: kinotic-ai/kinotic-tpl-isomorphic-ts
 
 
 logging:

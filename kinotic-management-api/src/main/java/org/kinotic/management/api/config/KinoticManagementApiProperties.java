@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
 /**
- * Contributes {@link GithubProperties} to the {@code kinotic} prefix.
+ * Contributes the {@link ManagementApiProperties} to the kinotic prefix.
+ * Configuration is accessible via {@code kinotic.managementApi.*}
  */
 @Getter
 @Setter
@@ -20,9 +21,15 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public class KinoticManagementApiProperties extends KinoticProperties {
 
+    /**
+     * Management-api properties configuration.
+     */
     @Valid
     private ManagementApiProperties managementApi = new ManagementApiProperties();
 
+    /**
+     * If true, management-api functionality will not be loaded.
+     */
     private boolean disableManagement = false;
 
 }
