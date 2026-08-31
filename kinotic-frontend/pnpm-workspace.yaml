@@ -2,6 +2,16 @@ packages:
   - 'apps/*'
   - 'packages/*'
 
+# Every @kinotic-ai package is pinned once here and referenced as `catalog:` by the
+# workspace packages. management-api augments core's Kinotic singleton, so two versions
+# of it in one graph give the apps different `Kinotic.*` service types.
+catalog:
+  '@kinotic-ai/core': ^5.0.0-beta.8
+  '@kinotic-ai/idl': ^5.0.0-beta.1
+  '@kinotic-ai/management-api': ^5.0.0-beta.22
+  '@kinotic-ai/persistence': ^5.0.0-beta.8
+  '@kinotic-ai/system-api': ^5.0.0-beta.4
+
 allowBuilds:
   '@tailwindcss/oxide': true
   esbuild: true
@@ -16,6 +26,5 @@ minimumReleaseAgeExclude:
   - '@kinotic-ai/core'
   - '@kinotic-ai/idl'
   - '@kinotic-ai/management-api'
-  - '@kinotic-ai/os-api'
   - '@kinotic-ai/persistence'
   - '@kinotic-ai/system-api'
