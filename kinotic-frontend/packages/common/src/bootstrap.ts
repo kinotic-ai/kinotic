@@ -5,6 +5,7 @@ import { type App, type Component, createApp } from 'vue'
 import type { Router } from 'vue-router'
 import { KinoticPreset } from './KinoticPreset'
 import { installAuthGuard } from './session/authGuard'
+import { installSessionLossHandler } from './session/sessionLoss'
 import type { ISessionState } from './session/SessionState'
 
 export interface KinoticAppOptions {
@@ -15,7 +16,8 @@ export interface KinoticAppOptions {
 
 /**
  * Creates a Vue app with the Kinotic chrome every client shares: the PrimeVue theme preset,
- * the toast service, the router, and the authentication guard backed by {@code sessionState}.
+ * the toast service, the router, and the authentication guard and session-loss handling
+ * backed by {@code sessionState}.
  * Returns the app unmounted so the caller can add app-specific plugins before {@code mount}.
  */
 export function createKinoticApp({ root, router, sessionState }: KinoticAppOptions): App {
@@ -44,6 +46,9 @@ export function createKinoticApp({ root, router, sessionState }: KinoticAppOptio
     })
 
     app.use(ToastService)
+    // ToastService above supplies $toast, through which the handler surfaces the fatal error.
+    installSessionLossHandler(router, sessionState, app.config.globalProperties.$toast)
+
     // CrudTable's delete flow uses the confirm service, so every app hosting it needs this
     app.use(ConfirmationService)
     app.use(router)
