@@ -50,19 +50,20 @@ export class VmNode implements Identifiable<string> {
     public totalDiskMb: number = 0
 
     /**
-     * Number of vCPUs currently allocated to workloads.
+     * Number of vCPUs not allocated to any workload. What is allocated is
+     * totalCpus - availableCpus.
      */
-    public allocatedCpus: number = 0
+    public availableCpus: number = 0
 
     /**
-     * Memory currently allocated to workloads in megabytes.
+     * Memory not allocated to any workload, in megabytes.
      */
-    public allocatedMemoryMb: number = 0
+    public availableMemoryMb: number = 0
 
     /**
-     * Disk space currently allocated to workloads in megabytes.
+     * Disk space not allocated to any workload, in megabytes.
      */
-    public allocatedDiskMb: number = 0
+    public availableDiskMb: number = 0
 
     /**
      * The date and time the node was last seen/heartbeat.

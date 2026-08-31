@@ -135,9 +135,9 @@ public class WorkloadOrchestrationTest {
 
         assertEquals("node-2", deployed.getNodeId());
         assertEquals("node-2", vmManager.lastStarted.getNodeId());
-        assertEquals(deployed.getVcpus(), target.getAllocatedCpus());
-        assertEquals(deployed.getMemoryMb(), target.getAllocatedMemoryMb());
-        assertEquals(deployed.getDiskSizeMb(), target.getAllocatedDiskMb());
+        assertEquals(4 - deployed.getVcpus(), target.getAvailableCpus());
+        assertEquals(4096 - deployed.getMemoryMb(), target.getAvailableMemoryMb());
+        assertEquals(10240 - deployed.getDiskSizeMb(), target.getAvailableDiskMb());
     }
 
     @Test
@@ -203,6 +203,9 @@ public class WorkloadOrchestrationTest {
         node.setTotalCpus(cpus);
         node.setTotalMemoryMb(memoryMb);
         node.setTotalDiskMb(diskMb);
+        node.setAvailableCpus(cpus);
+        node.setAvailableMemoryMb(memoryMb);
+        node.setAvailableDiskMb(diskMb);
         nodes.saved.put(nodeId, node);
         return node;
     }

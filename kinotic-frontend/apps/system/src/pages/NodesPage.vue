@@ -30,23 +30,23 @@
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>CPU</span>
-              <span>{{ node.allocatedCpus }} / {{ node.totalCpus }} vCPU</span>
+              <span>{{ node.totalCpus - node.availableCpus }} / {{ node.totalCpus }} vCPU</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedCpus, node.totalCpus)" />
+            <CapacityBar :pct="percentOf(node.totalCpus - node.availableCpus, node.totalCpus)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Memory</span>
-              <span>{{ formatMb(node.allocatedMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
+              <span>{{ formatMb(node.totalMemoryMb - node.availableMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" />
+            <CapacityBar :pct="percentOf(node.totalMemoryMb - node.availableMemoryMb, node.totalMemoryMb)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Disk</span>
-              <span>{{ formatMb(node.allocatedDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
+              <span>{{ formatMb(node.totalDiskMb - node.availableDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedDiskMb, node.totalDiskMb)" />
+            <CapacityBar :pct="percentOf(node.totalDiskMb - node.availableDiskMb, node.totalDiskMb)" />
           </div>
         </div>
 

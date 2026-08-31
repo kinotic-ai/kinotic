@@ -321,9 +321,9 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
     totalDiskMb INTEGER,
-    allocatedCpus INTEGER,
-    allocatedMemoryMb INTEGER,
-    allocatedDiskMb INTEGER,
+    availableCpus INTEGER,
+    availableMemoryMb INTEGER,
+    availableDiskMb INTEGER,
     lastSeen DATE,
     workloadDataDir KEYWORD
 );

@@ -104,9 +104,9 @@ const capacityRows = computed(() => {
     total.cpus += node.totalCpus
     total.memoryMb += node.totalMemoryMb
     total.diskMb += node.totalDiskMb
-    used.cpus += node.allocatedCpus
-    used.memoryMb += node.allocatedMemoryMb
-    used.diskMb += node.allocatedDiskMb
+    used.cpus += node.totalCpus - node.availableCpus
+    used.memoryMb += node.totalMemoryMb - node.availableMemoryMb
+    used.diskMb += node.totalDiskMb - node.availableDiskMb
   }
   const pct = (allocated: number, all: number) => all > 0 ? Math.round((allocated / all) * 100) : 0
   return [

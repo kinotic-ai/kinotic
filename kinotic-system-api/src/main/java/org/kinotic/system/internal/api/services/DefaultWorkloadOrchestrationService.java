@@ -58,9 +58,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     // Persist the workload and update node resource allocation
                     return persistRedacted(workload)
                             .compose(savedWorkload -> {
-                                node.setAllocatedCpus(node.getAllocatedCpus() + savedWorkload.getVcpus());
-                                node.setAllocatedMemoryMb(node.getAllocatedMemoryMb() + savedWorkload.getMemoryMb());
-                                node.setAllocatedDiskMb(node.getAllocatedDiskMb() + savedWorkload.getDiskSizeMb());
+                                node.setAvailableCpus(node.getAvailableCpus() - savedWorkload.getVcpus());
+                                node.setAvailableMemoryMb(node.getAvailableMemoryMb() - savedWorkload.getMemoryMb());
+                                node.setAvailableDiskMb(node.getAvailableDiskMb() - savedWorkload.getDiskSizeMb());
                                 return vmNodeService.saveSync(node)
                                         .map(savedWorkload);
                             })
@@ -154,9 +154,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         .compose(node -> {
                                             Future<VmNode> ret;
                                             if (node != null) {
-                                                node.setAllocatedCpus(Math.max(0, node.getAllocatedCpus() - workload.getVcpus()));
-                                                node.setAllocatedMemoryMb(Math.max(0, node.getAllocatedMemoryMb() - workload.getMemoryMb()));
-                                                node.setAllocatedDiskMb(Math.max(0, node.getAllocatedDiskMb() - workload.getDiskSizeMb()));
+                                                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + workload.getVcpus()));
+                                                node.setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + workload.getMemoryMb()));
+                                                node.setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + workload.getDiskSizeMb()));
                                                 ret = vmNodeService.saveSync(node);
                                             } else {
                                                 ret = Future.succeededFuture(node);

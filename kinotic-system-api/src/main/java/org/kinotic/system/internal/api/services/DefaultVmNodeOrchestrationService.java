@@ -70,6 +70,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 .compose(existing -> {
                     Future<VmNode> ret;
                     if (existing != null) {
+                        // Read the allocation off the old capacity before overwriting it, so a node
+                        // that re-registers with different hardware keeps its running workloads
+                        // accounted for rather than appearing wholly free.
+                        int allocatedCpus = existing.getTotalCpus() - existing.getAvailableCpus();
+                        int allocatedMemoryMb = existing.getTotalMemoryMb() - existing.getAvailableMemoryMb();
+                        int allocatedDiskMb = existing.getTotalDiskMb() - existing.getAvailableDiskMb();
                         existing.setHostname(registration.getHostname())
                                 .setName(registration.getName())
                                 .setProviderType(registration.getProviderType())
@@ -77,6 +83,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 .setTotalMemoryMb(registration.getTotalMemoryMb())
                                 .setTotalDiskMb(registration.getTotalDiskMb())
                                 .setWorkloadDataDir(registration.getWorkloadDataDir())
+                                .setAvailableCpus(registration.getTotalCpus() - allocatedCpus)
+                                .setAvailableMemoryMb(registration.getTotalMemoryMb() - allocatedMemoryMb)
+                                .setAvailableDiskMb(registration.getTotalDiskMb() - allocatedDiskMb)
                                 .setStatus(new VmNodeStatus());
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
                         ret = vmNodeService.saveSync(existing);
@@ -86,6 +95,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node.setTotalCpus(registration.getTotalCpus());
                         node.setTotalMemoryMb(registration.getTotalMemoryMb());
                         node.setTotalDiskMb(registration.getTotalDiskMb());
+                        node.setAvailableCpus(registration.getTotalCpus());
+                        node.setAvailableMemoryMb(registration.getTotalMemoryMb());
+                        node.setAvailableDiskMb(registration.getTotalDiskMb());
                         node.setWorkloadDataDir(registration.getWorkloadDataDir());
                         node.setStatus(new VmNodeStatus());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
