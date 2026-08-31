@@ -9,6 +9,7 @@ import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.statements.InsertStatement;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -37,6 +38,38 @@ class InsertStatementParserTest {
         assertEquals(List.of("name", "quantity", "inStock"), statement.columns());
         assertEquals(List.of("Widget", 12, true), statement.values());
         assertTrue(statement.refresh());
+    }
+
+    @Test
+    void whenRoutingAndDocumentIdGiven_thenBothCarriedOnTheStatement() {
+        InsertStatement statement = parseInsert(
+            "INSERT INTO kinotic_application (id, organizationId) VALUES ('atlas-crm', 'kinotic-test') "
+            + "WITH REFRESH, ROUTING 'kinotic-test', DOCUMENT_ID 'kinotic-test-atlas-crm';");
+
+        assertTrue(statement.refresh());
+        assertEquals("kinotic-test", statement.routing());
+        assertEquals("kinotic-test-atlas-crm", statement.documentId());
+        assertEquals(List.of("atlas-crm", "kinotic-test"), statement.values(),
+                     "the id column keeps the entity id; only the document _id is composite");
+    }
+
+    @Test
+    void whenOptionsOutOfOrder_thenEachStillLandsOnItsOwnField() {
+        InsertStatement statement = parseInsert(
+            "INSERT INTO products (id) VALUES ('p-1') WITH DOCUMENT_ID 'acme-p-1', ROUTING 'acme';");
+
+        assertEquals("acme", statement.routing());
+        assertEquals("acme-p-1", statement.documentId());
+        assertFalse(statement.refresh());
+    }
+
+    @Test
+    void whenNoRoutingOptions_thenTheyAreAbsentSoTheDocumentRoutesByItsOwnId() {
+        InsertStatement statement = parseInsert("INSERT INTO products (id) VALUES ('p-1') WITH REFRESH;");
+
+        assertTrue(statement.refresh());
+        assertNull(statement.routing());
+        assertNull(statement.documentId());
     }
 
     @Test

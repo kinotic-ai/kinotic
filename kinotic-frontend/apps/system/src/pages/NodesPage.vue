@@ -21,9 +21,9 @@
           <span class="font-semibold">{{ node.name }}</span>
           <Tag :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
         </div>
-        <div class="flex items-center gap-2">
-          <span class="font-mono text-xs text-muted-color">{{ node.hostname }}</span>
-          <Tag :value="node.providerType" severity="secondary" />
+        <div class="flex items-start justify-between gap-2">
+          <span class="min-w-0 break-all font-mono text-xs text-muted-color">{{ node.hostname }}</span>
+          <Tag :value="node.providerType" severity="secondary" class="shrink-0" />
         </div>
 
         <div class="flex flex-col gap-2 mt-1">

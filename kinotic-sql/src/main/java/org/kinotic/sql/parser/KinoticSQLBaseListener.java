@@ -197,6 +197,18 @@ public class KinoticSQLBaseListener implements KinoticSQLListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterInsertOption(KinoticSQLParser.InsertOptionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitInsertOption(KinoticSQLParser.InsertOptionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterValueList(KinoticSQLParser.ValueListContext ctx) { }
 	/**
 	 * {@inheritDoc}

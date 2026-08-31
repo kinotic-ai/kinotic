@@ -12,10 +12,13 @@
       <div class="rounded-lg border border-surface p-4">
         <h2 class="text-base font-semibold">Worker capacity</h2>
         <p class="mb-4 text-xs text-muted-color">
-          Allocated versus total across every worker node.
+          Allocated versus total across the worker nodes that are online.
         </p>
         <div v-if="workerNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
           No worker nodes registered
+        </div>
+        <div v-else-if="onlineNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+          None of the {{ workerNodes.length }} registered worker nodes are online
         </div>
         <div v-else class="flex flex-col gap-3">
           <div v-for="row in capacityRows" :key="row.label">
@@ -82,7 +85,7 @@ import Tag from 'primevue/tag'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
-import type { VmNode } from '@kinotic-ai/system-api'
+import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
 
 import { PageHeader, formatMb } from '@kinotic-ai/frontend-common'
 
@@ -97,10 +100,14 @@ const organizationCount = ref<number | null>(null)
 const workerNodeCount = ref<number | null>(null)
 const workerNodes = ref<VmNode[]>([])
 
+// A workload can only be placed on an ONLINE node, so an offline node's free capacity is not
+// the platform's to hand out — counting it reports headroom no placement can actually use.
+const onlineNodes = computed(() => workerNodes.value.filter(node => node.status?.type === VmNodeStatusType.ONLINE))
+
 const capacityRows = computed(() => {
   const total = { cpus: 0, memoryMb: 0, diskMb: 0 }
   const used = { cpus: 0, memoryMb: 0, diskMb: 0 }
-  for (const node of workerNodes.value) {
+  for (const node of onlineNodes.value) {
     total.cpus += node.totalCpus
     total.memoryMb += node.totalMemoryMb
     total.diskMb += node.totalDiskMb
@@ -155,11 +162,11 @@ const stats = computed<Stat[]>(() => [
   },
   {
     label: 'Worker nodes',
-    value: workerNodeCount.value?.toString() ?? '—',
-    description: 'VmManager nodes available to host workloads',
+    value: workerNodeCount.value === null ? '—' : `${onlineNodes.value.length} / ${workerNodeCount.value}`,
+    description: 'VmManager nodes online, of those registered',
     to: '/worker-nodes',
     icon: 'pi-box',
-    accent: 'amber'
+    accent: workerNodeCount.value !== null && onlineNodes.value.length === 0 ? 'red' : 'amber'
   },
   {
     label: 'Organizations',

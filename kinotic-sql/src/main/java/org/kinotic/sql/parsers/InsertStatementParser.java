@@ -38,9 +38,24 @@ public class InsertStatementParser implements StatementParser {
         // Parse values from valueList
         insertContext.valueList().value().forEach(value -> values.add(valueVisitor.visitValue(value)));
 
-        // Check for WITH REFRESH
-        boolean refresh = insertContext.WITH() != null && insertContext.REFRESH() != null;
+        boolean refresh = false;
+        String routing = null;
+        String documentId = null;
+        for (KinoticSQLParser.InsertOptionContext option : insertContext.insertOption()) {
+            if (option.REFRESH() != null) {
+                refresh = true;
+            } else if (option.ROUTING() != null) {
+                routing = unquote(option.STRING().getText());
+            } else {
+                documentId = unquote(option.STRING().getText());
+            }
+        }
 
-        return new InsertStatement(tableName, columns, values, refresh);
+        return new InsertStatement(tableName, columns, values, refresh, routing, documentId);
+    }
+
+    /** Strips the single quotes the STRING token carries. */
+    private static String unquote(String literal) {
+        return literal.substring(1, literal.length() - 1);
     }
 } 

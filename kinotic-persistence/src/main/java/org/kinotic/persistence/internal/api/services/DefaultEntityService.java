@@ -84,8 +84,7 @@ public class DefaultEntityService implements EntityService {
                                           .routing(entityHolder.tenantId())
                                           .document(entityHolder.entity());
 
-                                         if(entityDescriptor.isOptimisticLockingEnabled()
-                                                 && elasticVersion != null){
+                                         if(entityDescriptor.isOptimisticLockingEnabled()){
                                              i.ifPrimaryTerm(elasticVersion.primaryTerm());
                                              i.ifSeqNo(elasticVersion.seqNo());
                                          }
@@ -336,8 +335,7 @@ public class DefaultEntityService implements EntityService {
 
                                  i.opType(OpType.Create);
 
-                             }else if(entityDescriptor.isOptimisticLockingEnabled()
-                                     && elasticVersion != null){
+                             }else if(entityDescriptor.isOptimisticLockingEnabled()){
 
                                  i.ifPrimaryTerm(elasticVersion.primaryTerm());
                                  i.ifSeqNo(elasticVersion.seqNo());

@@ -84,17 +84,23 @@ public class InsertStatementExecutor implements StatementExecutor<InsertStatemen
                     }
                 }
 
-                // Index the document with optional refresh. When an "id" column is provided,
-                // use its value as the Elasticsearch _id so callers can look the document up
-                // by that same id later (e.g. IdentityCredentialRepository#findById).
+                // DOCUMENT_ID wins over the "id" column, which is otherwise used as the
+                // Elasticsearch _id so callers can look the document up by that same id later
+                // (e.g. IdentityCredentialRepository#findById). A reader that addresses documents
+                // by some other _id must say so, since the statement cannot know how it will be read.
                 Object idValue = document.get("id");
-                String documentId = idValue instanceof String s ? s : null;
+                String documentId = statement.documentId() != null
+                        ? statement.documentId()
+                        : (idValue instanceof String s ? s : null);
                 return client.index(i -> {
                     i.index(statement.tableName())
                      .document(document)
                      .refresh(statement.refresh() ? Refresh.True : Refresh.False);
                     if (documentId != null) {
                         i.id(documentId);
+                    }
+                    if (statement.routing() != null) {
+                        i.routing(statement.routing());
                     }
                     return i;
                 }).thenApply(response -> null);

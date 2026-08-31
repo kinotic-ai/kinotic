@@ -158,6 +158,16 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitInsertStatement(KinoticSQLParser.InsertStatementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#insertOption}.
+	 * @param ctx the parse tree
+	 */
+	void enterInsertOption(KinoticSQLParser.InsertOptionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#insertOption}.
+	 * @param ctx the parse tree
+	 */
+	void exitInsertOption(KinoticSQLParser.InsertOptionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#valueList}.
 	 * @param ctx the parse tree
 	 */
