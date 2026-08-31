@@ -1,0 +1,1 @@
+{"id":"f06acbcc26f35eae82cfd00af85fd56a","fullName":"org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactoryTest.dottedScopesAreAuthorizedByTheirZone","name":"dottedScopesAreAuthorizedByTheirZone()","status":"passed","testResultsByEnv":{"default":"5ed6316a92287e64cbc3ac7a652de23d"}}

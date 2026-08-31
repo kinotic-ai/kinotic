@@ -1,0 +1,1 @@
+{"id":"4e7b877e5cc61e7fcd98b790c025c62b","fullName":"@kinotic-ai/core:test/KinoticRpc.test.ts#Kinotic JS packages/core Kinotic RPC Tests should maintain participant context isolation across concurrent requests","name":"should maintain participant context isolation across concurrent requests","status":"passed","testResultsByEnv":{"default":"0676d55b3adfe9db27dbec1b60c8dd17"}}

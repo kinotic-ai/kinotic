@@ -1,1 +1,0 @@
-{"id":"eeaee2007038b7b92f3a4f630ea000df","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenObjectLiteralAssignment_thenLiteralCarriesMap","name":"whenObjectLiteralAssignment_thenLiteralCarriesMap()","status":"passed","testResultsByEnv":{"default":"350dc0ffe452337b49770228de95a2dd"}}
