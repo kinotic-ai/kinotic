@@ -1,0 +1,1 @@
+{"id":"4d35f8caa8727d79bd4186e57515c99f","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenUnionHasConflictingFieldTypes_thenExceptionThrown","name":"whenUnionHasConflictingFieldTypes_thenExceptionThrown()","status":"passed","testResultsByEnv":{"default":"2de54f51e6f662b2abb3f3e5f56eb3b0"}}
