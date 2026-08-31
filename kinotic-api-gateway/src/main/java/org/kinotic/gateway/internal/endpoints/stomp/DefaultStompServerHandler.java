@@ -59,7 +59,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
                 .send(incomingEvent)
                 .onComplete(ar -> {
                     if(ar.failed()){
-                        stompServerConnection.sendErrorAndDisconnect(ar.cause());
+                        failConnection("send to " + frame.getDestination() + " failed", ar.cause());
                     }else{
                         stompServerConnection.sendReceiptIfNeeded(frame);
                         stompServerConnection.resume();
@@ -82,8 +82,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
 
         } catch (Exception e) {
-            log.error("Exception occurred handling subscribe", e);
-            stompServerConnection.sendErrorAndDisconnect(e);
+            failConnection("subscribe to " + frame.getDestination() + " failed", e);
         }
     }
 
@@ -97,9 +96,17 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             endpointConnectionHandler.unsubscribe(subscriptionId);
 
         } catch (Exception e) {
-            log.error("Exception occurred handling unsubscribe", e);
-            stompServerConnection.sendErrorAndDisconnect(e);
+            failConnection("unsubscribe " + frame.getHeader(Frame.ID) + " failed", e);
         }
+    }
+
+    /**
+     * Logs the failure, then sends an ERROR frame and closes the connection — the
+     * STOMP-mandated response to any frame the server cannot process.
+     */
+    private void failConnection(String detail, Throwable cause) {
+        log.error("Terminating STOMP connection: {}", detail, cause);
+        stompServerConnection.sendErrorAndDisconnect(cause);
     }
 
     @Override
