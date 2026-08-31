@@ -1,6 +1,4 @@
-package org.kinotic.domain.api.model.security;
-
-import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+package org.kinotic.domain.api.model.security.identity;
 
 /**
  * The outcome of provisioning a {@link MachineParticipantIdentity}: the saved identity and

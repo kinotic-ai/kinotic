@@ -9,7 +9,7 @@ import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
-import org.kinotic.domain.api.model.security.MachineProvisionResult;
+import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;

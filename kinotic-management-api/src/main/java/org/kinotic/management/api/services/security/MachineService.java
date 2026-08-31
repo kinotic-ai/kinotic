@@ -5,7 +5,7 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
-import org.kinotic.domain.api.model.security.MachineProvisionResult;
+import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.management.api.model.ProjectDeployment;
 
 import java.util.List;
