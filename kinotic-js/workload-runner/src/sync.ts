@@ -71,12 +71,13 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
 }
 
 /**
- * Runs `kinotic sync` over the checkout: generation compiles the entity sources and
- * refreshes the definitions — the projects have no CI of their own, so this deploy run is
- * where a project that does not build gets stopped — then the definitions and migrations
- * are pushed. The CLI authenticates with the machine identity in the environment; the sync
- * is skipped entirely when no credentials are present, so the checkout itself still works
- * against a server the workload cannot reach yet.
+ * Runs `kinotic sync --publish` over the checkout: generation compiles the entity sources
+ * and refreshes the definitions — the projects have no CI of their own, so this deploy run
+ * is where a project that does not build gets stopped — then the definitions and migrations
+ * are pushed and every entity is published, leaving it usable for data operations. The CLI
+ * authenticates with the machine identity in the environment; the sync is skipped entirely
+ * when no credentials are present, so the checkout itself still works against a server the
+ * workload cannot reach yet.
  */
 function syncEntities(workspaceDir: string): void {
     if (!process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_TOKEN) {
@@ -92,7 +93,11 @@ function syncEntities(workspaceDir: string): void {
     // bun runs the CLI's entry script directly, so its node shebang never matters
     const cliEntry = process.env.KINOTIC_CLI_BIN
         ?? Bun.resolveSync('@kinotic-ai/kinotic-cli/bin/run.js', import.meta.dir)
-    run('bun', [cliEntry, 'sync', '--server', serverUrlFromEnv()], workspaceDir)
+    // --publish creates the backing index for an entity the deploy just introduced; without
+    // it the definition lands unpublished and every repository call against it fails. The
+    // flag only acts on definitions that are not published yet, so redeploys are a no-op for
+    // entities already serving data.
+    run('bun', [cliEntry, 'sync', '--publish', '--server', serverUrlFromEnv()], workspaceDir)
 }
 
 function serverUrlFromEnv(): string {

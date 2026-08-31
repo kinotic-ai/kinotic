@@ -162,7 +162,7 @@ public class StompAuthorizerFactoryTest {
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
         assertTrue(authorizer.subscribeAllowed(CRI.create("srv://node1@system-api~kinotic-ai.vm-manager.VmManager#0.1.0")));
 
-        // os-api and app-api are hosted in-process only, so not even system may subscribe to them
+        // management-api and app-api are hosted in-process only, so not even system may subscribe to them
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://management-api~org.kinotic.some.PlatformService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app-api~org.kinotic.some.DataService#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app~OrderService#1.0.0")));
@@ -194,7 +194,7 @@ public class StompAuthorizerFactoryTest {
         // a scope carrying the zone delimiter cannot even be constructed (see CRITests)
         assertThrows(IllegalArgumentException.class,
                      () -> CRI.create("srv://app.acme-org.orders-app~x@app.acme-org.other-app~OrderService/create#1.0.0"));
-        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app@os-api~org.kinotic.management.api.services.iam.MemberService/inviteMember#1.0.0")));
+        assertFalse(authorizer.sendAllowed(CRI.create("srv://app.acme-org.orders-app@management-api~org.kinotic.management.api.services.iam.MemberService/inviteMember#1.0.0")));
         assertFalse(authorizer.subscribeAllowed(CRI.create("srv://app.acme-org.orders-app.x@app.acme-org.other-app~OrderService#1.0.0")));
         assertFalse(authorizer.sendAllowed(CRI.create("stream://app.acme-org.orders-app.x@app.acme-org.other-app~OrderEvents")));
     }

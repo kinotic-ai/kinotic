@@ -27,7 +27,7 @@ public class KinoticUtil {
      * This means the tool name called by an LLM will always be an allowed character set and should never collide with other tools.
      * Tool names are minted here and never parsed back apart.
      * @param qualifiedName the service's qualified name, as {@code ServiceIdentifier.qualifiedName()} returns
-     *                      it, such as {@code os-api~org.kinotic.management.api.services.ProjectService}
+     *                      it, such as {@code management-api~org.kinotic.management.api.services.ProjectService}
      * @param functionName the name of the function the tool calls
      * @return the tool name, made only of {@code [0-9a-z]}
      */
