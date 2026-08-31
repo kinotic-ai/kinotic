@@ -1,0 +1,1 @@
+{"id":"c2d95b7f2134054499b57587a448bd0d","fullName":"@kinotic-ai/e2e-tests:test/native/SystemLogin.test.ts#System login route leaves the org login route working for the org user","name":"leaves the org login route working for the org user","status":"passed","testResultsByEnv":{"default":"4952451ed757b85357b1d8a2ce99775e"}}
