@@ -122,7 +122,7 @@ describe('sync entrypoint', () => {
 
         expect(result.status).toBe(0)
         expect(readFileSync(join(baseDir, 'cli-invocations.log'), 'utf-8').trim())
-            .toBe('sync --server http://kinotic.example:58503')
+            .toBe('sync --publish --server http://kinotic.example:58503')
         expect(readFileSync(join(workspaceDir, '.kinotic', 'reload'), 'utf-8')).toBe(sha)
     }, 30_000)
 

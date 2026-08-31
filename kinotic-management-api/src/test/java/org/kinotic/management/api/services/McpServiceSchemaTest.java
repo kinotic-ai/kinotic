@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.function.Supplier;
 
 /**
- * Verifies every MCP-exposed os-api service converts to a ServiceDefinition with the same converter set
+ * Verifies every MCP-exposed management-api service converts to a ServiceDefinition with the same converter set
  * the server wires at startup — an unconvertible type anywhere in a signature silently drops the whole
  * service from the directory, and with it every tool it provides.
  */

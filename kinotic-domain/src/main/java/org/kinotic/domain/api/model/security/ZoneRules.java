@@ -33,10 +33,10 @@ public class ZoneRules {
     /**
      * Derives the zone rules for the given participant. Application participants send to the {@code app-api}
      * data plane and their own {@code app.<organizationId>.<applicationId>} zone and subscribe in no zone at
-     * all. Organization participants send to the {@code os-api} management surface, {@code app-api}, and their
-     * own {@code app.<organizationId>} zones, and subscribe within those same app zones — an application's
-     * runtime authenticates as an organization participant to host and call its services. System participants
-     * send everywhere and subscribe in the {@code system} zone.
+     * all. Organization participants send to the {@code management-api} management surface, {@code app-api},
+     * and their own {@code app.<organizationId>} zones, and subscribe within those same app zones — an
+     * application's runtime authenticates as an organization participant to host and call its services.
+     * System participants send everywhere and subscribe in the {@code system-api} zone.
      * @param participant the authenticated participant
      * @return the participant's zone rules
      */
@@ -48,8 +48,8 @@ public class ZoneRules {
         }
         return switch (scopedParticipant) {
 
-            // os-api and app-api are hosted in-process only, so no connection may ever subscribe
-            // to them; the system zone stays subscribable for the vm-manager nodes that host there
+            // management-api and app-api are hosted in-process only, so no connection may ever
+            // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
             case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_API_ZONE));
 
             // appZone validates the ids, so an id that could shift the zone's label structure

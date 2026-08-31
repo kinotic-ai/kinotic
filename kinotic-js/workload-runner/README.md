@@ -15,7 +15,7 @@ bun src/sync.ts                               bun src/supervise.ts   (image defa
 mounts <checkout> read-write                  mounts <checkout> read-only
 fetch + checkout GIT_REF                      runs the project's microservice entry
 bun install                                   polls .kinotic/reload for changes
-entity definition sync                        restarts the process when it changes
+entity sync + publish                         restarts the process when it changes
 write .kinotic/reload  ←──────────────────────┘
 ```
 
@@ -37,10 +37,13 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI connects with; sync is skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
-Entity sync runs `kinotic sync` over the checkout. The projects have no CI of their own —
-this deploy run is their pipeline — so the CLI's generation step recompiles the entity
-sources (a project that does not build never reaches the server) and pushes the fresh
+Entity sync runs `kinotic sync --publish` over the checkout. The projects have no CI of
+their own — this deploy run is their pipeline — so the CLI's generation step recompiles the
+entity sources (a project that does not build never reaches the server) and pushes the fresh
 definitions and migrations, authenticated by the machine identity in the environment.
+`--publish` creates the backing index for each entity the deploy introduces, so a pushed
+entity is usable for data operations without anyone publishing it by hand; entities already
+published are left alone.
 
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and
