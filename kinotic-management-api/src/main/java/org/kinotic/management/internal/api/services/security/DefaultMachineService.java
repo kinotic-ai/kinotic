@@ -65,15 +65,15 @@ public class DefaultMachineService implements MachineService {
                     if (deployment == null) {
                         ret = Future.succeededFuture(List.of());
                     } else {
-                        ret = loadMachines(deployment.getSyncMachineId(), deployment.getRuntimeMachineId());
+                        ret = loadMachines(deployment.getSyncMachineIdentityId(), deployment.getRuntimeMachineIdentityId());
                     }
                     return ret;
                 });
     }
 
     /** Resolves recorded machine ids, skipping any whose identity an org member has since removed. */
-    private Future<List<MachineParticipantIdentity>> loadMachines(String syncMachineId, String runtimeMachineId) {
-        List<Future<ParticipantIdentity>> lookups = Stream.of(syncMachineId, runtimeMachineId)
+    private Future<List<MachineParticipantIdentity>> loadMachines(String syncMachineIdentityId, String runtimeMachineIdentityId) {
+        List<Future<ParticipantIdentity>> lookups = Stream.of(syncMachineIdentityId, runtimeMachineIdentityId)
                                                           .filter(Objects::nonNull)
                                                           .map(identityService::findById)
                                                           .toList();

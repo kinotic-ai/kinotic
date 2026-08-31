@@ -101,15 +101,15 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         // the runtime workload on the node are system-side resources this
                         // management-plane delete cannot reach — deleting the runtime machine
                         // is what cuts an orphaned guest off, on its next reconnect.
-                        ret = deleteMachines(deployment.getSyncMachineId(), deployment.getRuntimeMachineId())
+                        ret = deleteMachines(deployment.getSyncMachineIdentityId(), deployment.getRuntimeMachineIdentityId())
                                 .compose(v -> projectDeploymentRepository.deleteById(projectId, organizationId));
                     }
                     return ret;
                 });
     }
 
-    private Future<Void> deleteMachines(String syncMachineId, String runtimeMachineId) {
-        List<Future<Void>> deletes = Stream.of(syncMachineId, runtimeMachineId)
+    private Future<Void> deleteMachines(String syncMachineIdentityId, String runtimeMachineIdentityId) {
+        List<Future<Void>> deletes = Stream.of(syncMachineIdentityId, runtimeMachineIdentityId)
                                            .filter(Objects::nonNull)
                                            .map(participantIdentityService::deleteById)
                                            .toList();

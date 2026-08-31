@@ -51,14 +51,14 @@ public class ProjectDeployment implements ApplicationScoped<String> {
      * The id of the machine identity the sync workload authenticates as, or {@code null}
      * before the project's first deployment. Its secret is reissued for every deployment.
      */
-    private String syncMachineId;
+    private String syncMachineIdentityId;
 
     /**
      * The id of the machine identity the runtime workload authenticates as, or {@code null}
      * while the first deployment is still in progress. Its secret is issued once, with the
      * workload it belongs to.
      */
-    private String runtimeMachineId;
+    private String runtimeMachineIdentityId;
 
     /**
      * Sha of the last commit successfully synced to the node.

@@ -43,7 +43,7 @@ public class ProjectDeployIdentityService {
      */
     public Future<MachineProvisionResult> issueSyncCredentials(Project project) {
         return issue(project, "deploy sync",
-                     ProjectDeployment::getSyncMachineId, ProjectDeployment::setSyncMachineId);
+                     ProjectDeployment::getSyncMachineIdentityId, ProjectDeployment::setSyncMachineIdentityId);
     }
 
     /**
@@ -56,13 +56,13 @@ public class ProjectDeployIdentityService {
      */
     public Future<MachineProvisionResult> issueRuntimeCredentials(Project project) {
         return issue(project, "runtime",
-                     ProjectDeployment::getRuntimeMachineId, ProjectDeployment::setRuntimeMachineId);
+                     ProjectDeployment::getRuntimeMachineIdentityId, ProjectDeployment::setRuntimeMachineIdentityId);
     }
 
     private Future<MachineProvisionResult> issue(Project project,
                                                  String role,
-                                                 Function<ProjectDeployment, String> readMachineId,
-                                                 BiConsumer<ProjectDeployment, String> writeMachineId) {
+                                                 Function<ProjectDeployment, String> readIdentityId,
+                                                 BiConsumer<ProjectDeployment, String> writeIdentityId) {
         Validate.notNull(project, "project is required");
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
                 .compose(deployment -> {
@@ -71,7 +71,7 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issueFor(project, role, deployment, readMachineId, writeMachineId);
+                        ret = issueFor(project, role, deployment, readIdentityId, writeIdentityId);
                     }
                     return ret;
                 });
@@ -80,24 +80,24 @@ public class ProjectDeployIdentityService {
     private Future<MachineProvisionResult> issueFor(Project project,
                                                     String role,
                                                     ProjectDeployment deployment,
-                                                    Function<ProjectDeployment, String> readMachineId,
-                                                    BiConsumer<ProjectDeployment, String> writeMachineId) {
-        String machineId = readMachineId.apply(deployment);
+                                                    Function<ProjectDeployment, String> readIdentityId,
+                                                    BiConsumer<ProjectDeployment, String> writeIdentityId) {
+        String identityId = readIdentityId.apply(deployment);
         Future<MachineProvisionResult> ret;
-        if (machineId == null) {
-            ret = createAndRecord(project, role, deployment, writeMachineId);
+        if (identityId == null) {
+            ret = createAndRecord(project, role, deployment, writeIdentityId);
         } else {
-            ret = identityService.findById(machineId)
+            ret = identityService.findById(identityId)
                     .compose(identity -> {
                         Future<MachineProvisionResult> issued;
                         if (identity instanceof MachineParticipantIdentity machine) {
-                            issued = identityService.rotateMachineSecret(machineId)
+                            issued = identityService.rotateMachineSecret(identityId)
                                                     .map(secret -> new MachineProvisionResult(machine, secret));
                         } else {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(project, role, deployment, writeMachineId);
+                            issued = createAndRecord(project, role, deployment, writeIdentityId);
                         }
                         return issued;
                     });
@@ -112,13 +112,13 @@ public class ProjectDeployIdentityService {
     private Future<MachineProvisionResult> createAndRecord(Project project,
                                                            String role,
                                                            ProjectDeployment deployment,
-                                                           BiConsumer<ProjectDeployment, String> writeMachineId) {
+                                                           BiConsumer<ProjectDeployment, String> writeIdentityId) {
         MachineParticipantIdentity machine = new MachineParticipantIdentity();
         machine.setDisplayName(displayName(project, role))
                .setOrganizationId(project.getOrganizationId());
         return identityService.createMachine(machine)
                 .compose(provisioned -> {
-                    writeMachineId.accept(deployment, provisioned.machine().getId());
+                    writeIdentityId.accept(deployment, provisioned.machine().getId());
                     deployment.setUpdated(new Date());
                     return projectDeploymentRepository.save(deployment, deployment.getOrganizationId())
                                                       .map(provisioned);
