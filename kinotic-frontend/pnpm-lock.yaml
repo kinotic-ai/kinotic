@@ -19,8 +19,8 @@ catalogs:
       specifier: ^5.0.0-beta.8
       version: 5.0.0-beta.8
     '@kinotic-ai/system-api':
-      specifier: ^5.0.0-beta.5
-      version: 5.0.0-beta.5
+      specifier: ^5.0.0-beta.6
+      version: 5.0.0-beta.6
 
 importers:
 
@@ -169,7 +169,7 @@ importers:
         version: 5.0.0-beta.23(@kinotic-ai/core@5.0.0-beta.8)
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.8)
+        version: 5.0.0-beta.6(@kinotic-ai/core@5.0.0-beta.8)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -361,8 +361,8 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': '>=5.0.0-beta.8'
 
-  '@kinotic-ai/system-api@5.0.0-beta.5':
-    resolution: {integrity: sha512-vrYDlUOP/JdffyBurU3z69h/7MfqoumdZe5A15zaHaB7H/Or0qgtixGNG7d2qu83xzwV6RKqjeobS5gl2ZGUwg==}
+  '@kinotic-ai/system-api@5.0.0-beta.6':
+    resolution: {integrity: sha512-Wkz24Ex8eOIU1d2WEAbjdqUJT7I4Wh1GfUEJ8WpbDvFIBqv2LdyWcfkaSpVIeea6hc+ZsnrPxrjUljNElpMYOw==}
     peerDependencies:
       '@kinotic-ai/core': '>=5.0.0-beta.8'
 
@@ -1751,7 +1751,7 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
-  '@kinotic-ai/system-api@5.0.0-beta.5(@kinotic-ai/core@5.0.0-beta.8)':
+  '@kinotic-ai/system-api@5.0.0-beta.6(@kinotic-ai/core@5.0.0-beta.8)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.8
       '@kinotic-ai/management-api': 5.0.0-beta.23(@kinotic-ai/core@5.0.0-beta.8)
