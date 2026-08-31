@@ -7,7 +7,8 @@ import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
-import { Workload, WorkloadStatus, VmProviderType, NetworkMode, PortProtocol } from '@kinotic-ai/system-api'
+import { VmProviderType } from '@kinotic-ai/system-api'
+import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
 
 /**
  * The Docker runtime that boots each container as a Cloud Hypervisor micro VM. Registered in

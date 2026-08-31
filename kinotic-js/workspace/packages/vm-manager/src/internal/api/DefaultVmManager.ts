@@ -2,7 +2,7 @@ import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { Publish, Scope } from '@kinotic-ai/core'
-import { NetworkMode, type Workload } from '@kinotic-ai/system-api'
+import { NetworkMode, type Workload } from '@kinotic-ai/management-api'
 
 /**
  * Default implementation of {@link IVmManager}.

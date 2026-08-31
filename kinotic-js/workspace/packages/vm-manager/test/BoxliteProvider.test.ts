@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { NetworkMode, PortProtocol, Workload } from '@kinotic-ai/system-api'
+import { NetworkMode, PortProtocol, Workload } from '@kinotic-ai/management-api'
 import { GUEST_LOG_DIR, buildBoxOptions } from '@/internal/api/providers/BoxliteProvider'
 
 function workload(): Workload {

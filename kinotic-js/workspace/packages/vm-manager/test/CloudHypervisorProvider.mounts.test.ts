@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type Docker from 'dockerode'
-import { Workload, WorkloadStatus } from '@kinotic-ai/system-api'
+import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
 
 // Mount validation runs before the provider touches Docker, so a stub whose first call

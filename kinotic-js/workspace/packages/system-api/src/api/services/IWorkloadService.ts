@@ -1,6 +1,5 @@
-import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
+import { SYSTEM_API_ZONE, Workload } from '@kinotic-ai/management-api'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
-import { Workload } from '@/api/model/workload/Workload'
 
 
 export interface IWorkloadService extends ICrudServiceProxy<Workload> {

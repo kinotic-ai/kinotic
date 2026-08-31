@@ -1,4 +1,4 @@
-import type { Workload } from '@kinotic-ai/system-api'
+import type { Workload } from '@kinotic-ai/management-api'
 
 /**
  * Interface for managing VM workloads on a single node.

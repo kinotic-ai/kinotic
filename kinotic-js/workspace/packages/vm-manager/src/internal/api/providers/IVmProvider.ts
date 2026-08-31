@@ -1,4 +1,5 @@
-import type { Workload, VmProviderType } from '@kinotic-ai/system-api'
+import type { VmProviderType } from '@kinotic-ai/system-api'
+import type { Workload } from '@kinotic-ai/management-api'
 import type { LogTarget } from '@/model/LogTarget'
 
 /**

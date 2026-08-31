@@ -1,12 +1,12 @@
-package org.kinotic.management.api.repositories;
+package org.kinotic.system.internal.api.repositories;
 
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.management.api.model.workload.VmNode;
-import org.kinotic.management.api.model.workload.VmNodeStatusType;
+import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 

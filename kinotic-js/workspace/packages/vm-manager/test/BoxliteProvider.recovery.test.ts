@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { accessSync, constants, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Workload, WorkloadStatus } from '@kinotic-ai/system-api'
+import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { LogFormat } from '@/model/LogFormat'
 

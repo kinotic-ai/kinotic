@@ -49,6 +49,15 @@ export * from '@/api/model/grind/events/TasksDiscoveredEvent'
 
 export * from '@/api/model/log/LogQuery'
 
+export * from '@/api/model/workload/LogPolicy'
+export * from '@/api/model/workload/NetworkMode'
+export * from '@/api/model/workload/NetworkPolicy'
+export * from '@/api/model/workload/PortMapping'
+export * from '@/api/model/workload/PortProtocol'
+export * from '@/api/model/workload/VolumeMount'
+export * from '@/api/model/workload/Workload'
+export * from '@/api/model/workload/WorkloadStatus'
+
 export * from '@/api/model/security/AuthType'
 export * from '@/api/model/security/ParticipantIdentity'
 export * from '@/api/model/security/UserParticipantIdentity'

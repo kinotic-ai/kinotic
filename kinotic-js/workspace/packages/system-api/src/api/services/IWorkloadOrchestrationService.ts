@@ -1,6 +1,5 @@
-import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
+import { SYSTEM_API_ZONE, Workload } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import { Workload } from '@/api/model/workload/Workload'
 
 /**
  * Orchestrates workload deployment across the cluster, acting as the intermediary between

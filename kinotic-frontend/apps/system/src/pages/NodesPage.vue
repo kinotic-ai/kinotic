@@ -111,7 +111,8 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
-import { VmNodeStatusType, WorkloadStatus, type VmNode, type Workload } from '@kinotic-ai/system-api'
+import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,

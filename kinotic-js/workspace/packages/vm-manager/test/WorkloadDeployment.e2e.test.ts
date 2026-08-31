@@ -4,7 +4,8 @@ import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { BasicCredentialsResolver, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
-import { Workload, WorkloadOrchestrationService, WorkloadStatus } from '@kinotic-ai/system-api'
+import { WorkloadOrchestrationService } from '@kinotic-ai/system-api'
+import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 
 // The whole deployment path in one run: a project checkout on the node, the workload-runner
 // image booting it as a micro VM through the server's orchestrator, and the service it

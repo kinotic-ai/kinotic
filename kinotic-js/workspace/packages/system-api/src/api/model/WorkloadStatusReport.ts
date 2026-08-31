@@ -1,4 +1,4 @@
-import type { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
+import type { WorkloadStatus } from '@kinotic-ai/management-api'
 
 /**
  * A vm-manager node's view of one workload's status, reported to the orchestrator.

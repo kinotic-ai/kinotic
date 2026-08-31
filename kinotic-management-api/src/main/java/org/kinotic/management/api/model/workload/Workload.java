@@ -38,7 +38,7 @@ public class Workload implements Identifiable<String> {
     private String description;
 
     /**
-     * The id of the {@link VmNode} this workload is deployed on. Assigned by the
+     * The id of the node this workload is deployed on. Assigned by the
      * orchestrator at placement, or set by the caller before deploying to pin the workload
      * to a specific node.
      */

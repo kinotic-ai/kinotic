@@ -1,4 +1,4 @@
-package org.kinotic.management.api.model.workload;
+package org.kinotic.system.api.model.workload;
 
 /**
  * Whether a {@link VmNode} is taking workloads.
