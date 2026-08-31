@@ -1,1 +1,0 @@
-{"id":"24b0ba14cb7076f4b99b23b34efe2cd5","fullName":"org.kinotic.test.tests.sql.CompositeTypeParserTest.whenParseUnionInsideObject_thenVariantsNested","name":"whenParseUnionInsideObject_thenVariantsNested()","status":"broken","testResultsByEnv":{"default":"cf85c3ff83b80abdb9d08427e4225a63"}}

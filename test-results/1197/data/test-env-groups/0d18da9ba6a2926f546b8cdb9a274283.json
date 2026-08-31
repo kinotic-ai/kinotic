@@ -1,1 +1,0 @@
-{"id":"0d18da9ba6a2926f546b8cdb9a274283","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertJsonLiteral_thenObjectStoredAndLeavesQueryable","name":"whenInsertJsonLiteral_thenObjectStoredAndLeavesQueryable()","status":"broken","testResultsByEnv":{"default":"ddc0f0a20e88184e1d989eb1ee859c97"}}
