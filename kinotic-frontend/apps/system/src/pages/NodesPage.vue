@@ -108,7 +108,8 @@ import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 
-import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
+import { Direction, FunctionalIterablePage, Kinotic, Order, Pageable, Sort,
+         type IterablePage, type Page } from '@kinotic-ai/core'
 import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import {
@@ -158,11 +159,17 @@ const nodeNames = ref<Record<string, string>>({})
 const logsWorkload = ref<{ id: string; name: string } | null>(null)
 const logsVisible = ref(false)
 
+// Nodes that can actually take a workload belong at the top. status.type is a keyword, and its
+// three values sort ONLINE, OFFLINE, DRAINING descending, so descending is the order the page
+// wants; name breaks ties so cards hold a stable position across refreshes.
+const NODE_SORT = new Sort()
+NODE_SORT.orders = [new Order('status.type', Direction.DESC), new Order('name', Direction.ASC)]
+
 async function loadNodes() {
   loadingNodes.value = true
   nodesError.value = null
   try {
-    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100))
+    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100, NODE_SORT))
     nodes.value = page.content ?? []
     nodeNames.value = Object.fromEntries(nodes.value.map(node => [node.id, node.name]))
   } catch (err) {
