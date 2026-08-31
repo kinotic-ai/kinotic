@@ -1,0 +1,1 @@
+{"id":"41854fd22bfb385ec968d7307f6d5343","fullName":"org.kinotic.system.internal.api.services.WorkloadOrchestrationTest.pinnedDeployFailsWhenNodeLacksCapacity","name":"pinnedDeployFailsWhenNodeLacksCapacity()","status":"passed","testResultsByEnv":{"default":"77814acd5e2b228049998ebfb37ba02d"}}

@@ -1,0 +1,1 @@
+{"id":"d91ea3cd3f74c77c02e658b1fd16db11","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenMultipleAssignments_thenOrderPreserved","name":"whenMultipleAssignments_thenOrderPreserved()","status":"passed","testResultsByEnv":{"default":"497df88740c19bed70839dd3f2b91973"}}
