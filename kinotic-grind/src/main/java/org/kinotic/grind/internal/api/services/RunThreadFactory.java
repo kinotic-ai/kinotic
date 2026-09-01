@@ -22,6 +22,13 @@ public class RunThreadFactory {
      * @return the started run thread
      */
     public RunThread start(String name, Runnable body) {
+        // The internal createVirtualThreadContext is the only way to get all three properties a
+        // run needs at once: unbounded blocking with no blocked-thread checker firing on a task
+        // that legitimately takes minutes, a context of its own so Vertx.currentContext() and
+        // the context-locals hung off it (the SecurityContext participant) resolve for the whole
+        // body, and a working Future.await(). Deploying each run as a virtual-thread verticle
+        // was evaluated and rejected: deployment is service lifecycle, the wrong shape for
+        // short-lived per-run work
         return new RunThread(vertx.createVirtualThreadContext(), name, body);
     }
 

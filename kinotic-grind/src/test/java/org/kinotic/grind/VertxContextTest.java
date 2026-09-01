@@ -1,6 +1,7 @@
 package org.kinotic.grind;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.Participant;
@@ -9,12 +10,15 @@ import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The run thread's Vert.x integration: every task of a run executes on the run's own
@@ -71,6 +75,44 @@ public class VertxContextTest extends AbstractGrindTest {
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
         assertNull(result.error());
+    }
+
+    @Test
+    public void tasksCanAwaitContextBoundFuturesCompletedOffTheRunThread() throws Exception {
+        CompletableFuture<String> completedOffContext = new CompletableFuture<>();
+        AtomicBoolean parkedBeforeCompletion = new AtomicBoolean();
+        JobDefinition job = JobDefinition.create("off-context completion")
+                .name("off-context-completion").version("1")
+                .task(Tasks.fromCallable("await a context-bound future", () -> {
+                          Thread runThread = Thread.currentThread();
+                          Thread completer = new Thread(() -> {
+                              parkedBeforeCompletion.set(parked(runThread));
+                              completedOffContext.complete("completed off the run context");
+                          }, "off-context-completer");
+                          completer.start();
+                          // what every platform repository and service hands back: a promise
+                          // bound to the caller's context, completed by a foreign thread
+                          return Future.fromCompletionStage(completedOffContext, Vertx.currentContext());
+                      }),
+                      Store.result("value"));
+
+        RunResult result = await(jobService.run(job, JobOwner.system()));
+
+        assertTrue(parkedBeforeCompletion.get(), "the completion must land while the run thread is parked");
+        assertNull(result.error());
+    }
+
+    /**
+     * Spins until the run thread parks, for at most ten seconds.
+     */
+    private boolean parked(Thread runThread) {
+        // a completion that lands before the interpreter registers its listener is dispatched
+        // inline by FutureBase.emitResult, which never queues the dispatch this test covers
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (runThread.getState() != Thread.State.WAITING && System.currentTimeMillis() < deadline) {
+            Thread.onSpinWait();
+        }
+        return runThread.getState() == Thread.State.WAITING;
     }
 
 }

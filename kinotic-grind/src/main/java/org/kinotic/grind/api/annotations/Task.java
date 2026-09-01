@@ -16,6 +16,9 @@ import java.lang.annotation.Target;
  *
  * A method may return the value directly, a {@code Future}/{@code CompletionStage} of it, or a
  * {@link JobDefinition} to expand dynamically discovered tasks at runtime.
+ *
+ * See {@link org.kinotic.grind.api.model.Task#execute} for how a task body must handle
+ * asynchronous results.
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)

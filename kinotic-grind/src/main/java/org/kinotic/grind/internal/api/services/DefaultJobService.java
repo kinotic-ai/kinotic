@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.vertx.core.Future;
@@ -196,13 +195,15 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     }
 
     private <T> T await(Future<T> future) {
+        T ret;
         try {
-            return future.toCompletionStage().toCompletableFuture().get();
-        } catch (InterruptedException e) {
-            throw new RunCancelledException();
-        } catch (ExecutionException e) {
-            throw new IllegalStateException("Could not load the run being resumed", e.getCause());
+            ret = RunThread.await(future);
+        } catch (RunCancelledException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new IllegalStateException("Could not load the run being resumed", t);
         }
+        return ret;
     }
 
 }
