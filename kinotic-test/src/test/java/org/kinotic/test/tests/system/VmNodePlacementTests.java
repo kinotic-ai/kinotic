@@ -93,6 +93,29 @@ public class VmNodePlacementTests extends KinoticTestBase {
     }
 
     /**
+     * The call ProjectDeployJobDefinitionFactory.resolveTarget makes, against a node registered the
+     * way a live vm-manager registers one: a probe Workload's defaults (1 vcpu, 1024MB disk) with the
+     * sync memory override. A deploy that never gets past "Resolve deployment target" is this
+     * returning nothing — or not returning.
+     */
+    @Test
+    public void findsANodeThatJustRegisteredItselfTheWayAVmManagerDoes() throws Exception {
+        VmNode registered = await(vmNodeOrchestrationService.registerNode(
+                registration("placement-live", 16, 131072, 1902788)));
+        created.add(registered.getId());
+        Assertions.assertEquals(VmNodeStatusType.ONLINE, registered.getStatus().getType(),
+                                "a freshly registered node must be online to be placeable");
+        indexNodes();
+
+        VmNode chosen = await(vmNodeOrchestrationService.findAvailableNode(1, 2048, 1024));
+
+        Assertions.assertNotNull(chosen, "placement found no node despite one registering with 16 cpus free");
+        Assertions.assertEquals("placement-live", chosen.getId());
+        Assertions.assertNotNull(chosen.getWorkloadDataDir(),
+                                 "resolveTarget rejects a node that advertises no workload data directory");
+    }
+
+    /**
      * A node that comes back with different hardware must not look wholly free while its workloads
      * are still running, or placement will oversubscribe it.
      */

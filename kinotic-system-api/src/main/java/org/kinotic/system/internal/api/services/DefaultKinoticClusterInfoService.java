@@ -86,23 +86,12 @@ public class DefaultKinoticClusterInfoService implements KinoticClusterInfoServi
      * @return the mapped NodeInfo object
      */
     private KinoticNodeInfo mapToNodeInfo(ClusterNode node, Object localNodeId) {
-        // Convert attributes to a serializable map
-        Map<String, Object> attributes = new HashMap<>();
-        for (String key : node.attributes().keySet()) {
-            Object value = node.attribute(key);
-            // Only include simple, serializable attributes
-            if (value instanceof String || value instanceof Number || value instanceof Boolean) {
-                attributes.put(key, value);
-            }
-        }
-
         return KinoticNodeInfo.builder()
                               .nodeId(node.id().toString())
                               .order(node.order())
                               .local(node.id().equals(localNodeId))
                               .addresses(node.addresses())
                               .hostNames(node.hostNames())
-                              .attributes(attributes)
                               .version(node.version().toString())
                               .build();
     }

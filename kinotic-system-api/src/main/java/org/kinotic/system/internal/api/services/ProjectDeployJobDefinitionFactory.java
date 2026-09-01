@@ -2,6 +2,7 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.ProjectRepoToken;
@@ -34,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
  * under {@link #DEPLOY_TARGET} and {@link #RUNTIME_WORKLOAD_ID}, so the run's
  * {@code TaskCompletedEvent}s carry them to the caller.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ProjectDeployJobDefinitionFactory {
@@ -114,8 +116,13 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             Workload probe = new Workload();
             probe.setMemoryMb(deployment().getSyncMemoryMb());
+            log.debug("Resolving deploy target for project {}: asking for a node with {} vcpus, {}MB memory, {}MB disk",
+                     projectId, probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
             ret = vmNodeOrchestrationService.findAvailableNode(probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb())
+                    .onFailure(error -> log.error("Placement query failed for project {}", projectId, error))
                     .compose(node -> {
+                        log.info("Placement query for project {} returned {}", projectId,
+                                 node != null ? node.getId() + " (workloadDataDir=" + node.getWorkloadDataDir() + ")" : "no node");
                         Future<DeployTarget> resolved;
                         if (node == null) {
                             resolved = Future.failedFuture(new IllegalStateException(

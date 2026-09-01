@@ -6,5 +6,7 @@ export class KinoticNodeInfo {
     public nodeId: string = ''
     public order: number = 0
     public local: boolean = false
+    public addresses: string[] = []
+    public hostNames: string[] = []
     public version: string = ''
 }

@@ -36,41 +36,71 @@ export class DefaultVmManager implements IVmManager {
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
-        // A workload with no network has no interface to publish a port on. Rejected here
-        // rather than in a provider, so the answer does not depend on where it is placed.
-        if ((workload.network?.mode ?? NetworkMode.ENABLED) === NetworkMode.DISABLED
-            && workload.portMappings.length > 0) {
-            throw new Error(`Workload ${workload.name} declares network.mode DISABLED and `
-                            + `${workload.portMappings.length} port mapping(s): a workload `
-                            + 'with no network has no interface to publish a port on')
-        }
-        const started = await this.provider.start(workload)
-        await this.refreshLogShipping()
-        return started
+        return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} vcpus=${workload.vcpus} memoryMb=${workload.memoryMb}`, async () => {
+            // A workload with no network has no interface to publish a port on. Rejected here
+            // rather than in a provider, so the answer does not depend on where it is placed.
+            if ((workload.network?.mode ?? NetworkMode.ENABLED) === NetworkMode.DISABLED
+                && workload.portMappings.length > 0) {
+                throw new Error(`Workload ${workload.name} declares network.mode DISABLED and `
+                                + `${workload.portMappings.length} port mapping(s): a workload `
+                                + 'with no network has no interface to publish a port on')
+            }
+            const started = await this.provider.start(workload)
+            await this.refreshLogShipping()
+            return started
+        })
     }
 
     async restartWorkload(workloadId: string): Promise<Workload> {
-        const restarted = await this.provider.restart(workloadId)
-        await this.refreshLogShipping()
-        return restarted
+        return this.logged('restartWorkload', workloadId, async () => {
+            const restarted = await this.provider.restart(workloadId)
+            await this.refreshLogShipping()
+            return restarted
+        })
     }
 
     async stopWorkload(workloadId: string): Promise<void> {
-        await this.provider.stop(workloadId)
-        await this.refreshLogShipping()
+        return this.logged('stopWorkload', workloadId, async () => {
+            await this.provider.stop(workloadId)
+            await this.refreshLogShipping()
+        })
     }
 
     async destroyWorkload(workloadId: string): Promise<void> {
-        await this.provider.destroy(workloadId)
-        await this.refreshLogShipping()
+        return this.logged('destroyWorkload', workloadId, async () => {
+            await this.provider.destroy(workloadId)
+            await this.refreshLogShipping()
+        })
     }
 
     async getWorkload(workloadId: string): Promise<Workload> {
-        return this.provider.getWorkload(workloadId)
+        return this.logged('getWorkload', workloadId, async () => {
+            return this.provider.getWorkload(workloadId)
+        })
     }
 
     async listWorkloads(): Promise<Workload[]> {
-        return this.provider.listWorkloads()
+        return this.logged('listWorkloads', '', async () => {
+            return this.provider.listWorkloads()
+        })
+    }
+
+    /**
+     * Logs one published call and its outcome. The node is the far end of the orchestrator's
+     * dispatch, so a deploy that stalls needs to distinguish "the request never arrived" from
+     * "the request arrived and the provider is still working on it".
+     */
+    private async logged<T>(method: string, detail: string, operation: () => Promise<T>): Promise<T> {
+        const startedAt = Date.now()
+        console.log(`[vm-manager] <- ${method}(${detail})`)
+        try {
+            const result = await operation()
+            console.log(`[vm-manager] -> ${method} ok in ${Date.now() - startedAt}ms`)
+            return result
+        } catch (error) {
+            console.error(`[vm-manager] -> ${method} failed in ${Date.now() - startedAt}ms:`, error)
+            throw error
+        }
     }
 
     /**

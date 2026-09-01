@@ -6,7 +6,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.Collection;
-import java.util.Map;
 
 /**
  * Contains information about a single node in the Ignite cluster.
@@ -41,11 +40,6 @@ public class KinoticNodeInfo {
      * The collection of host names for this node.
      */
     private Collection<String> hostNames;
-    
-    /**
-     * Custom attributes associated with this node.
-     */
-    private Map<String, Object> attributes;
     
     /**
      * The version of Ignite running on this node.

@@ -111,6 +111,7 @@ public class ProjectDeployOrchestrator {
     private synchronized void enqueue(String organizationId, String projectId, String commitSha) {
         if (deployingProjects.contains(projectId)) {
             // latest-wins: only the newest commit waits, older queued ones are superseded
+            log.debug("Project {} is already deploying; commit {} queued behind it", projectId, commitSha);
             pendingDeploys.put(projectId, new PendingDeploy(organizationId, commitSha));
         } else {
             deployingProjects.add(projectId);
@@ -119,9 +120,9 @@ public class ProjectDeployOrchestrator {
     }
 
     private void deployAndContinue(String organizationId, String projectId, String commitSha) {
-        log.info("Deploying project {} at commit {}", projectId, commitSha);
+        log.debug("Deploying project {} at commit {}", projectId, commitSha);
         deployProject(organizationId, projectId, commitSha)
-                .onSuccess(unused -> log.info("Deployed project {} at commit {}", projectId, commitSha))
+                .onSuccess(unused -> log.debug("Deployed project {} at commit {}", projectId, commitSha))
                 .onFailure(error -> log.error("Deployment of project {} at commit {} failed",
                                               projectId, commitSha, error))
                 .onComplete(unused -> deployNextOrRelease(projectId));

@@ -8,6 +8,7 @@ dependencies {
 	implementation project(':kinotic-domain')
 	implementation project(':kinotic-management-api')
 	implementation project(':kinotic-system-api')
+	implementation project(':kinotic-grind')
 	implementation project(':kinotic-idl')
 	implementation project(':kinotic-persistence')
 	implementation project(':kinotic-sql')
