@@ -304,7 +304,7 @@ public class JobInterpreter {
         stage.whenComplete((value, error) -> {
             if (error != null) {
                 // a failure that crossed a dependent stage arrives CompletionException-wrapped;
-                // strip it so the task sees what CompletableFuture.get would have reported
+                // strip it so the task sees the raw cause
                 bridged.fail(error instanceof CompletionException && error.getCause() != null
                                      ? error.getCause() : error);
             } else {

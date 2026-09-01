@@ -6,7 +6,6 @@ import io.vertx.core.internal.ContextInternal;
 import lombok.SneakyThrows;
 import org.kinotic.grind.internal.model.RunCancelledException;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 
 /**
@@ -19,7 +18,7 @@ public class RunThread {
     // The cancellation of the run executing on the calling thread, for the body's duration
     private static final ThreadLocal<Future<Void>> CANCELLATION = new ThreadLocal<>();
 
-    private final CompletableFuture<Thread> thread = new CompletableFuture<>();
+    private final Promise<Thread> thread = Promise.promise();
     private final Promise<Void> cancellation = Promise.promise();
     private final CountDownLatch done = new CountDownLatch(1);
 
@@ -83,7 +82,7 @@ public class RunThread {
         // queue ownership back. A raw interrupt leaves the continuation suspended forever,
         // and the queue - along with every recorder write behind it - with it
         cancellation.tryFail(new RunCancelledException());
-        thread.thenAccept(Thread::interrupt);
+        thread.future().onSuccess(Thread::interrupt);
     }
 
     /**
