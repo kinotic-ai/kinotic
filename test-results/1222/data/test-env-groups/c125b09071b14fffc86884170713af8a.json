@@ -1,0 +1,1 @@
+{"id":"c125b09071b14fffc86884170713af8a","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenObjectLiteralRepeatsField_thenParseFails","name":"whenObjectLiteralRepeatsField_thenParseFails()","status":"passed","testResultsByEnv":{"default":"7dd96944c804014b73caeaa6c5234175"}}
