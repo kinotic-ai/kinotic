@@ -1,1 +1,0 @@
-{"id":"4f5f6486f7245e22bc7d7808b36ded06","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Error propagation Non-async errors with scope should propagate synchronous error with scope","name":"should propagate synchronous error with scope","status":"passed","testResultsByEnv":{"default":"d7f2393b5902691f03c6684a5e8ca786"}}
