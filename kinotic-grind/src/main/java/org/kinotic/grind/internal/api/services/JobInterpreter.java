@@ -22,12 +22,14 @@ import org.springframework.context.ConfigurableApplicationContext;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 
+import io.vertx.core.Promise;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -288,7 +290,7 @@ public class JobInterpreter {
         if (raw instanceof CompletionStage<?> stage) {
             ret = awaitStage(stage);
         } else if (raw instanceof io.vertx.core.Future<?> future) {
-            ret = awaitStage(future.toCompletionStage());
+            ret = RunThread.await(future);
         } else if (raw instanceof Publisher<?> publisher) {
             ret = awaitPublisher(publisher);
         } else {
@@ -297,15 +299,19 @@ public class JobInterpreter {
         return ret;
     }
 
-    @SneakyThrows
     private Object awaitStage(CompletionStage<?> stage) {
-        try {
-            return stage.toCompletableFuture().get();
-        } catch (InterruptedException e) {
-            throw new RunCancelledException();
-        } catch (ExecutionException e) {
-            throw e.getCause() != null ? e.getCause() : e;
-        }
+        Promise<Object> bridge = Promise.promise();
+        stage.whenComplete((value, error) -> {
+            if (error == null) {
+                bridge.tryComplete(value);
+            } else {
+                // a failure that crossed a dependent stage arrives CompletionException-wrapped;
+                // deliver the raw cause, as CompletableFuture.get's unwrap would
+                bridge.tryFail(error instanceof CompletionException && error.getCause() != null
+                                       ? error.getCause() : error);
+            }
+        });
+        return RunThread.await(bridge.future());
     }
 
     private Object awaitPublisher(Publisher<?> publisher) {
