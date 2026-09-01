@@ -83,9 +83,18 @@ public class VertxContextTest extends AbstractGrindTest {
                     // the shape every repository call hands a task (CrudServiceTemplate.toFuture):
                     // a pending future whose handlers dispatch on the run's context, completed by
                     // a client transport thread foreign to that context
+                    Thread runThread = Thread.currentThread();
                     CompletableFuture<String> clientResponse = new CompletableFuture<>();
                     Future<String> bound = Future.fromCompletionStage(clientResponse, Vertx.currentContext());
-                    new Thread(() -> clientResponse.complete("hit"), "client-transport").start();
+                    new Thread(() -> {
+                        // respond only once the interpreter has parked awaiting the result; an
+                        // immediate response can beat the await's listener registration, and an
+                        // already-completed future delivers inline instead of through the context
+                        while (runThread.getState() != Thread.State.WAITING) {
+                            Thread.onSpinWait();
+                        }
+                        clientResponse.complete("hit");
+                    }, "client-transport").start();
                     return bound;
                 }));
 
