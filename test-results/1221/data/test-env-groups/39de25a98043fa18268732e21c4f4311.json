@@ -1,0 +1,1 @@
+{"id":"39de25a98043fa18268732e21c4f4311","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenObjectLiteralFieldIsNull_thenMapCarriesNullForThatField","name":"whenObjectLiteralFieldIsNull_thenMapCarriesNullForThatField()","status":"passed","testResultsByEnv":{"default":"9fbd53bd5a7e9c2f90eb07fb88e82253"}}
