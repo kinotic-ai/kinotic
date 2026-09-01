@@ -8,6 +8,8 @@ import org.kinotic.grind.internal.model.RunCancelledException;
 import org.kinotic.grind.internal.model.SerializedState;
 import org.kinotic.grind.internal.model.JobNode;
 import org.kinotic.grind.internal.model.TaskNode;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import lombok.SneakyThrows;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -25,9 +27,9 @@ import reactor.core.publisher.Flux;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -287,8 +289,8 @@ public class JobInterpreter {
         Object ret;
         if (raw instanceof CompletionStage<?> stage) {
             ret = awaitStage(stage);
-        } else if (raw instanceof io.vertx.core.Future<?> future) {
-            ret = awaitStage(future.toCompletionStage());
+        } else if (raw instanceof Future<?> future) {
+            ret = RunThread.await(future);
         } else if (raw instanceof Publisher<?> publisher) {
             ret = awaitPublisher(publisher);
         } else {
@@ -297,15 +299,19 @@ public class JobInterpreter {
         return ret;
     }
 
-    @SneakyThrows
     private Object awaitStage(CompletionStage<?> stage) {
-        try {
-            return stage.toCompletableFuture().get();
-        } catch (InterruptedException e) {
-            throw new RunCancelledException();
-        } catch (ExecutionException e) {
-            throw e.getCause() != null ? e.getCause() : e;
-        }
+        Promise<Object> bridged = Promise.promise();
+        stage.whenComplete((value, error) -> {
+            if (error != null) {
+                // a failure that crossed a dependent stage arrives CompletionException-wrapped;
+                // strip it so the task sees what CompletableFuture.get would have reported
+                bridged.fail(error instanceof CompletionException && error.getCause() != null
+                                     ? error.getCause() : error);
+            } else {
+                bridged.complete(value);
+            }
+        });
+        return RunThread.await(bridged.future());
     }
 
     private Object awaitPublisher(Publisher<?> publisher) {
