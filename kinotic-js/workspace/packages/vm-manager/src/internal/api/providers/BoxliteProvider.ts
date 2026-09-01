@@ -2,6 +2,7 @@ import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@b
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import { prepareVolumeMounts } from '@/internal/api/storage/VolumeMounts'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
@@ -143,6 +144,7 @@ export class BoxliteProvider implements IVmProvider {
     private readonly activeVms: Map<string, ActiveVm> = new Map()
     private readonly boxliteHome: string
     private readonly logsBaseDir: string
+    private readonly workloadDataDir: string
     // State must not live under logsBaseDir: log dirs are guest-writable via the
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
     // its logs to another tenant
@@ -157,10 +159,12 @@ export class BoxliteProvider implements IVmProvider {
     constructor(boxliteHome: string,
                 logsBaseDir: string,
                 stateDir: string,
+                workloadDataDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
+        this.workloadDataDir = workloadDataDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
     }
@@ -211,6 +215,10 @@ export class BoxliteProvider implements IVmProvider {
         this.persist(workload)
 
         try {
+            // boxlite refuses a box whose volume host path is missing, so the checkout
+            // directory a deployment mounts is created here on its first deployment
+            prepareVolumeMounts(workload, this.workloadDataDir)
+
             // A box record left by a previous run of this workload would collide on the name
             const stale = await this.runtime.getInfo(id)
             if (stale && !stale.state.running) {

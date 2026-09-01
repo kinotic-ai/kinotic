@@ -21,6 +21,18 @@ function parseProviderType(value: string | undefined): VmProviderType {
 }
 
 /**
+ * Resolves KINOTIC_WORKLOAD_DATA_DIR, defaulting to a directory the node can create the
+ * mounts of a workload under with the authority it runs with. A CLOUD_HYPERVISOR node is a
+ * provisioned machine whose vm-manager runs as a service account under /var/lib, while a
+ * BOXLITE node is whatever machine a developer started one on, where that path is root-owned.
+ */
+function defaultWorkloadDataDir(providerType: VmProviderType): string {
+    return providerType === VmProviderType.BOXLITE
+        ? path.join(os.homedir(), '.kinotic', 'workloads')
+        : '/var/lib/kinotic/workloads'
+}
+
+/**
  * Typed view of the vm-manager's process configuration. Every environment variable the
  * vm-manager reads is resolved here, so all env var usage is traceable from this class.
  * Server and credential settings are not among them: Kinotic.connect() resolves those
@@ -49,11 +61,13 @@ export class VmManagerConfig {
 
     /**
      * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node
-     * must live under. Binds are created with root's authority, so this boundary is what
-     * keeps a workload spec from mounting an arbitrary host directory. Reported to the
-     * server at registration so deployment flows compose host paths under it.
+     * must live under. Mounts are bound with the vm-manager's authority, so this boundary is
+     * what keeps a workload spec from mounting an arbitrary host directory. Reported to the
+     * server at registration so deployment flows compose host paths under it. Defaults to
+     * /var/lib/kinotic/workloads, and to ~/.kinotic/workloads on a BOXLITE node.
      */
-    readonly workloadDataDir: string = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
+    readonly workloadDataDir: string = process.env.KINOTIC_WORKLOAD_DATA_DIR
+                                       ?? defaultWorkloadDataDir(this.providerType)
 
     /** KINOTIC_VM_LOGS_DIR — base directory holding each workload's log dir mounted into its guest. */
     readonly vmLogsDir: string = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')
