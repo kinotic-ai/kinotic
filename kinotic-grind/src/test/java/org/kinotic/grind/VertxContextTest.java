@@ -1,6 +1,7 @@
 package org.kinotic.grind;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.security.Participant;
@@ -9,6 +10,7 @@ import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -67,6 +69,25 @@ public class VertxContextTest extends AbstractGrindTest {
                                          // event loop completes the timer
                                          () -> new Widget(vertx.timer(20).map(v -> "ticked").await())),
                       Store.result("widget"));
+
+        RunResult result = await(jobService.run(job, JobOwner.system()));
+
+        assertNull(result.error());
+    }
+
+    @Test
+    public void taskResultFuturesBoundToTheRunContextCompleteTheRun() throws Exception {
+        JobDefinition job = JobDefinition.create("repository-shaped result")
+                .name("repository-shaped-result").version("1")
+                .task(Tasks.fromCallable("query", () -> {
+                    // the shape every repository call hands a task (CrudServiceTemplate.toFuture):
+                    // a pending future whose handlers dispatch on the run's context, completed by
+                    // a client transport thread foreign to that context
+                    CompletableFuture<String> clientResponse = new CompletableFuture<>();
+                    Future<String> bound = Future.fromCompletionStage(clientResponse, Vertx.currentContext());
+                    new Thread(() -> clientResponse.complete("hit"), "client-transport").start();
+                    return bound;
+                }));
 
         RunResult result = await(jobService.run(job, JobOwner.system()));
 
