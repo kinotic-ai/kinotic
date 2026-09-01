@@ -3,7 +3,6 @@ package org.kinotic.grind.internal.api.services;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.internal.ContextInternal;
-import lombok.SneakyThrows;
 import org.kinotic.grind.internal.model.RunCancelledException;
 
 import java.util.concurrent.CountDownLatch;
@@ -45,7 +44,6 @@ public class RunThread {
      * @return the future's value
      * @throws RunCancelledException when the run is cancelled while waiting
      */
-    @SneakyThrows
     public static <T> T await(Future<T> future) {
         // the race promise is deliberately unbound: a bound one would queue its own listener
         // dispatch on the run's context, behind the body that is waiting on it
