@@ -1,1 +1,0 @@
-{"id":"ee5d6a75b883ef5c131a7490cc882937","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenTwoParametersNameTheSameField_thenEachResolvesSeparately","name":"whenTwoParametersNameTheSameField_thenEachResolvesSeparately()","status":"passed","testResultsByEnv":{"default":"f3b95698f4441146011787f716512119"}}
