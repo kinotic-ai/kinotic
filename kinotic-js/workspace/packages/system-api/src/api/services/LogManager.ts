@@ -5,7 +5,8 @@ import {
     LoggersDescriptor,
     LoggerLevelsDescriptor,
     SingleLoggerLevelsDescriptor,
-    GroupLoggerLevelsDescriptor} from './ILogManager'
+    GroupLoggerLevelsDescriptor,
+    TraceLogProperties} from './ILogManager'
 import {type IKinotic, type IServiceProxy} from '@kinotic-ai/core'
 
 export class LogManager implements ILogManager {
@@ -37,12 +38,15 @@ export class LogManager implements ILogManager {
         return this.serviceProxy.invoke('configureLogLevel', [name, level], nodeId)
     }
 
-    traceLogExcludes(nodeId: string): Promise<string[]> {
-        return this.serviceProxy.invoke('traceLogExcludes', null, nodeId)
+    async traceLog(nodeId: string): Promise<TraceLogProperties> {
+        const data: any = await this.serviceProxy.invoke('traceLog', null, nodeId)
+        const ret = new TraceLogProperties()
+        Object.assign(ret, data)
+        return ret
     }
 
-    configureTraceLogExcludes(nodeId: string, excludes: string[]): Promise<void> {
-        return this.serviceProxy.invoke('configureTraceLogExcludes', [excludes], nodeId)
+    configureTraceLog(nodeId: string, traceLog: TraceLogProperties): Promise<void> {
+        return this.serviceProxy.invoke('configureTraceLog', [traceLog], nodeId)
     }
 }
 

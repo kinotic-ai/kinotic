@@ -4,6 +4,7 @@ package org.kinotic.system.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.config.TraceLogProperties;
 import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.system.api.model.log.GroupLoggerLevelsDescriptor;
 import org.kinotic.system.api.model.log.LogLevel;
@@ -86,12 +87,12 @@ public class DefaultLogManager implements LogManager {
         this.loggingSystem.setLogLevel(name, bootLevel);
     }
 
-    public List<String> traceLogExcludes() {
-        return this.traceLogFilter.getExcludes();
+    public TraceLogProperties traceLog() {
+        return this.traceLogFilter.getPatterns();
     }
 
-    public void configureTraceLogExcludes(List<String> excludes) {
-        this.traceLogFilter.setExcludes(excludes);
+    public void configureTraceLog(TraceLogProperties traceLog) {
+        this.traceLogFilter.setPatterns(traceLog);
     }
 
     private NavigableSet<LogLevel> getLevels() {

@@ -65,9 +65,11 @@ public class EventConstants {
     public static final String ORIGIN_CRI_HEADER = "__origin-cri";
 
     /**
-     * Marks an exchange the gateway matched against {@code kinotic.traceLogExcludes}. Persisted onto
-     * every reply the request produces, so a reply frame, which is addressed to the caller rather
-     * than to the service, is left out of trace logging along with the request.
+     * Whether the gateway judged this exchange excluded from trace logging, {@code true} or
+     * {@code false}. Persisted onto every reply the request produces, so a reply frame, which is
+     * addressed to the caller rather than to the service, follows the verdict reached for its
+     * request instead of being judged by a reply destination no pattern is written for. Set only
+     * while trace logging is on; an event without it is judged by its own CRI.
      */
     public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
 

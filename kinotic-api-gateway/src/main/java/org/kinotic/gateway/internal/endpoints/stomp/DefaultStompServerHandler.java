@@ -56,14 +56,14 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         stompServerConnection.pause();
 
         if(log.isTraceEnabled()){
-            if(traceLogFilter.isExcluded(frame.getDestination())){
-                // The reply this request produces is addressed to the client's reply destination and
-                // carries no service CRI of its own, so the exclusion is marked here and rides back
-                // on the reply, which persists every __ header of the request that produced it
-                frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
-            }else{
+            boolean excluded = traceLogFilter.isExcluded(frame.getDestination());
+            if(!excluded){
                 log.trace("Send Frame received\n{}", frame.toString());
             }
+            // The reply this request produces is addressed to the client's reply destination, which
+            // no pattern is written for, so the verdict is recorded here and rides back on the reply,
+            // which persists every __ header of the request that produced it
+            frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, Boolean.toString(excluded));
         }
 
         Event<byte[]> incomingEvent = new FrameEventAdapter(frame);

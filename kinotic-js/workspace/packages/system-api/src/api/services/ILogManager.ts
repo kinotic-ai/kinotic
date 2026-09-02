@@ -30,6 +30,23 @@ export class LoggersDescriptor {
 }
 
 /**
+ * The CRI patterns that decide what trace logging prints.
+ *
+ * Each pattern is matched against the fully qualified CRI with Ant wildcards, where `*` matches
+ * within one segment and `**` across segments, so
+ * `srv://system-api~com.acme.HeartbeatService/*` covers every method of that service and
+ * `srv://system-api~com.acme.HeartbeatService/ping` covers only that one.
+ * An include wins over an exclude, so `excludes: ['**']` plus the handful of includes worth
+ * watching narrows trace logging to those services alone.
+ */
+export class TraceLogProperties {
+    /** CRIs kept in trace logging whatever the excludes say. Empty leaves the excludes to decide. */
+    public includes: string[] = []
+    /** CRIs left out of trace logging, request and reply both, unless an include covers them. */
+    public excludes: string[] = []
+}
+
+/**
  * Provides the ability to manage loggers
  */
 export interface ILogManager {
@@ -56,21 +73,19 @@ export interface ILogManager {
     configureLogLevel(nodeId: string, name: string, level: LogLevel): Promise<void>
 
     /**
-     * @param nodeId the kinotic node to get the trace log excludes from
-     * @return the CRI patterns currently excluded from trace logging on the node
+     * @param nodeId the kinotic node to get the trace log patterns from
+     * @return the CRI patterns currently deciding what the node trace logs
      */
-    traceLogExcludes(nodeId: string): Promise<string[]>
+    traceLog(nodeId: string): Promise<TraceLogProperties>
 
     /**
-     * Configures the CRI patterns excluded from trace logging, silencing a service that would
-     * otherwise bury the log while trace logging is on. Each pattern is matched against the fully
-     * qualified CRI with Ant wildcards, so `srv://system-api~com.acme.HeartbeatService/*` covers
-     * every method of that service and a raw CRI covers only the method it names.
+     * Configures the CRI patterns deciding what the node trace logs, silencing a service that
+     * would otherwise bury the log while trace logging is on.
      * The patterns replace whatever the node is using and last until it restarts, which returns it
-     * to the `kinotic.traceLogExcludes` it was configured with.
+     * to the `kinotic.traceLog` it was configured with.
      *
-     * @param nodeId the kinotic node to set the trace log excludes on
-     * @param excludes the CRI patterns to exclude, or empty to exclude nothing
+     * @param nodeId the kinotic node to set the trace log patterns on
+     * @param traceLog the include and exclude patterns to apply
      */
-    configureTraceLogExcludes(nodeId: string, excludes: string[]): Promise<void>
+    configureTraceLog(nodeId: string, traceLog: TraceLogProperties): Promise<void>
 }
