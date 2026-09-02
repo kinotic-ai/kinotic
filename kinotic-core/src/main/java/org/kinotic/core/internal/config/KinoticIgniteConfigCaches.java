@@ -4,7 +4,6 @@ import org.apache.ignite.cache.CacheAtomicityMode;
 import org.apache.ignite.cache.CacheMode;
 import org.apache.ignite.cache.CacheWriteSynchronizationMode;
 import org.apache.ignite.configuration.CacheConfiguration;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -13,10 +12,6 @@ import org.springframework.context.annotation.Configuration;
  * Created by navid on 10/15/19
  */
 @Configuration
-@ConditionalOnProperty(
-        value="kinotic.disableClustering",
-        havingValue = "false",
-        matchIfMissing = true)
 public class KinoticIgniteConfigCaches {
 
     // The cache configs below come from the vertx cluster manager default-ignite.json we do this here so we can modify the Ignite config as well.

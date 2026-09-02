@@ -1,7 +1,6 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
-  disableClustering: false
   # placeholder GitHub App config; the github beans are registered but never called in tests
   managementApi:
     github:

@@ -2,7 +2,6 @@ package org.kinotic.core.internal.config;
 
 import io.micrometer.core.instrument.Metrics;
 import io.vertx.core.Vertx;
-import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.EventBusOptions;
@@ -18,8 +17,6 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.kinotic.vertx.jackson3.VertxJackson3Codec;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -34,14 +31,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class KinoticVertxConfig {
 
     @Bean
-    @ConditionalOnProperty(
-            value="kinotic.disableClustering",
-            havingValue = "false",
-            matchIfMissing = true)
     public KinoticIgniteClusterManager clusterManager(Ignite ignite){
-        if(ignite == null){
-            throw new IllegalStateException("Something is wrong with the configuration Ignite is null");
-        }
         // make sure clustering is enabled
         System.setProperty("vertx.clustered","true");
 
@@ -72,7 +62,7 @@ public class KinoticVertxConfig {
     public Vertx vertx(KinoticProperties properties,
                        JsonMapper jsonMapper,
                        SecurityContext securityContext,
-                       @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
+                       ClusterManager clusterManager) throws Throwable {
 
         // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every
         // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
@@ -83,32 +73,25 @@ public class KinoticVertxConfig {
         VertxOptions options = new VertxOptions()
                 .setMetricsOptions(new MicrometerMetricsOptions().setEnabled(true));
 
-        VertxBuilder builder = Vertx.builder()
-                                    .withMetrics(new MicrometerMetricsFactory(Metrics.globalRegistry));
-        Vertx vertx;
+        EventBusOptions eventBusOptions = new EventBusOptions();
+        eventBusOptions.setPort(properties.getEventBusClusterPort());
+        eventBusOptions.setHost(properties.getEventBusClusterHost());
 
-        if (clusterManager != null) {
+        if(properties.getEventBusClusterPublicPort() != -1) {
+            eventBusOptions.setClusterPublicPort(properties.getEventBusClusterPublicPort());
+        }
+        if(properties.getEventBusClusterPublicHost() != null) {
+            eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
+        }
 
-            EventBusOptions eventBusOptions = new EventBusOptions();
-            eventBusOptions.setPort(properties.getEventBusClusterPort());
-            eventBusOptions.setHost(properties.getEventBusClusterHost());
-
-            if(properties.getEventBusClusterPublicPort() != -1) {
-                eventBusOptions.setClusterPublicPort(properties.getEventBusClusterPublicPort());
-            }
-            if(properties.getEventBusClusterPublicHost() != null) {
-                eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
-            }
-
-            vertx = builder.with(options.setEventBusOptions(eventBusOptions))
+        Vertx vertx = Vertx.builder()
+                           .withMetrics(new MicrometerMetricsFactory(Metrics.globalRegistry))
+                           .with(options.setEventBusOptions(eventBusOptions))
                            .withClusterManager(clusterManager)
                            .buildClustered()
                            .toCompletionStage()
                            .toCompletableFuture()
                            .get(2, MINUTES);
-        }else{
-            vertx = builder.with(options).build();
-        }
 
         // Register the Event codec and auto-select it for any Event body, so callers never set a codec
         // name on delivery options. Local delivery still uses the codec's zero-copy transform().

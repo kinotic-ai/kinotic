@@ -30,12 +30,6 @@ public class KinoticProperties {
     private boolean debug = false;
 
     /**
-     * If disabled, clustering will be disabled.
-     * When disabled properties under {@link #getIgnite()} will be ignored.
-     */
-    private boolean disableClustering = false;
-
-    /**
      * Sets the host. Defaults to null.
      * When the clustered eventbus starts, it tries to bind to the provided host.
      * If the host is null, then it tries to bind to the same host as the underlying cluster manager.

@@ -1,8 +1,16 @@
 package org.kinotic.management.internal.api.services.github;
 
 import io.vertx.core.Future;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.Ignition;
+import org.apache.ignite.configuration.IgniteConfiguration;
+import org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi;
+import org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -20,6 +28,7 @@ import org.kinotic.management.internal.api.services.github.client.GitHubApiClien
 import org.kinotic.management.internal.api.services.github.client.InstallationDetails;
 import org.mockito.ArgumentCaptor;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,11 +47,39 @@ class DefaultGitHubAppInstallationServiceTest {
     private static final String CALLER_ORG = "org-1";
     private static final String APP_ID = "777";
     private static final long INSTALLATION_ID = 55L;
+    // Discovery is pinned to loopback on its own port range, so this node never joins an Ignite
+    // that another test JVM on the same machine is running
+    private static final int DISCOVERY_PORT = 47700;
+    private static final int DISCOVERY_PORT_RANGE = 10;
+
+    @TempDir
+    static Path igniteWorkDir;
+    private static Ignite ignite;
 
     private GitHubAppInstallationRepository repository;
     private GitHubInstallStateService stateService;
     private GitHubApiClient apiClient;
     private DefaultGitHubAppInstallationService service;
+
+    @BeforeAll
+    static void startIgnite() {
+        TcpDiscoverySpi discovery = new TcpDiscoverySpi();
+        discovery.setLocalPort(DISCOVERY_PORT);
+        discovery.setLocalPortRange(DISCOVERY_PORT_RANGE);
+        discovery.setIpFinder(new TcpDiscoveryVmIpFinder().setAddresses(
+                List.of("127.0.0.1:" + DISCOVERY_PORT + ".." + (DISCOVERY_PORT + DISCOVERY_PORT_RANGE))));
+        ignite = Ignition.start(new IgniteConfiguration()
+                                        .setIgniteInstanceName("github-install-state-test")
+                                        .setLocalHost("127.0.0.1")
+                                        .setDiscoverySpi(discovery)
+                                        .setMetricsLogFrequency(0)
+                                        .setWorkDirectory(igniteWorkDir.toString()));
+    }
+
+    @AfterAll
+    static void stopIgnite() {
+        ignite.close();
+    }
 
     @BeforeEach
     void setUp() {
@@ -62,9 +99,8 @@ class DefaultGitHubAppInstallationServiceTest {
 
         GithubProperties githubProperties = new GithubProperties().setAppId(APP_ID);
 
-        // Real state store (Caffeine path) so staging + single-use consumption are exercised
-        stateService = new GitHubInstallStateService(null);
-        stateService.start();
+        // Real state store so staging + single-use consumption are exercised
+        stateService = new GitHubInstallStateService(ignite);
 
         OrgSignupOidcConfiguration credential = new OrgSignupOidcConfiguration();
         credential.setClientId("client-id");

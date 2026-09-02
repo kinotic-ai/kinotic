@@ -217,7 +217,7 @@ forgotten one:
 @ConditionalOnProperty(value = "kinotic.disableOsApi", havingValue = "false", matchIfMissing = true)
 // same idiom: kinotic.disableGithub (KinoticGithubLibrary), disablePersistence
 // (KinoticPersistenceLibrary), disableApiGateway (KinoticApiGatewayLibrary),
-// disableDomain (KinoticDomainLibrary), disableClustering (KinoticProperties)
+// disableDomain (KinoticDomainLibrary)
 ```
 
 **Deployment:** one ECK ES cluster (`deployment/helm/eck-stack`), one kinotic-server chart
@@ -458,8 +458,7 @@ Work items in this phase:
    remains app-side: audit what the gateway actually uses Ignite for (session store, eventbus,
    caches in `KinoticIgniteConfigCaches`) — anything OS-specific should not be created on env
    clusters — and for local dev/compose, running os-server + app-gateway on one machine must
-   not form one cluster (use the existing `kinotic.ignite.*` discovery settings per process, or
-   `kinotic.disableClustering` for single-replica local runs).
+   not form one cluster (use the existing `kinotic.ignite.*` discovery settings per process).
 5. **No entity HTTP surface.** The GraphQL/OpenAPI/MCP code stays dormant (see design
    decisions) — the gateway's only entity-data surface is the `app-api` RPC path.
 6. **No SPA in the gateway.** The app-gateway profile sets the web-server verticle

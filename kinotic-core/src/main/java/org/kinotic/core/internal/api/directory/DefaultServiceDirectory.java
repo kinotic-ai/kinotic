@@ -35,7 +35,6 @@ import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.StreamC3Type;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -94,12 +93,12 @@ public class DefaultServiceDirectory implements ServiceDirectory {
                                    EventBusService eventBusService,
                                    SchemaFactory schemaFactory,
                                    IdlConverterFactory idlConverterFactory,
-                                   ObjectProvider<Ignite> igniteProvider) {
+                                   Ignite ignite) {
         this.strategy = strategy;
         this.eventBusService = eventBusService;
         this.schemaFactory = schemaFactory;
         this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
-        this.ignite = igniteProvider.getIfAvailable();
+        this.ignite = ignite;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -169,10 +168,6 @@ public class DefaultServiceDirectory implements ServiceDirectory {
 
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
     private void deployLivenessSingleton() {
-        if (ignite == null) {
-            log.error("Ignite is not available; the service liveness updater singleton will not be deployed! This means the service directory will never be updated.");
-            return;
-        }
         // ServiceLivenessUpdater is an Ignite Service that manages the liveness of services
         ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
     }
