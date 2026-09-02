@@ -131,7 +131,9 @@ export class CloudHypervisorProvider implements IVmProvider {
                 },
                 NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
                 // Pinned so the resolver the egress rules permit is the one the guest is given,
-                // rather than whatever the daemon happened to inject
+                // rather than whatever the daemon happened to inject — and, on a node whose
+                // resolver feeds the egress ipsets, the one whose answers a hostname in the
+                // policy is enforced against
                 ...(this.resolver !== null ? { Dns: [this.resolver] } : {}),
                 PortBindings: portBindings,
                 // The vm-manager owns restarts, so the daemon must not resurrect a workload

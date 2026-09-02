@@ -42,6 +42,7 @@ assuming them.
 | `br_netfilter` + `bridge-nf-call-iptables=1` | Firewall rules are accepted, appear in the table, and are bypassed |
 | `"icc": false` | Every workload can reach every other workload's listening ports |
 | `kinotic-node-firewall.service` | Guests can read Azure IMDS, its signed attested document, and the WireServer goal state |
+| `dnsmasq` on the bridge address, `/etc/dnsmasq.d/kinotic-node.conf` | A hostname in an allowlist cannot be enforced, and the vm-manager refuses any workload naming one |
 | `live-restore` | A dockerd restart kills every workload on the node |
 
 ### The firewall floor
@@ -53,7 +54,31 @@ processes go out through `OUTPUT` and keep their access. That is what lets the v
 read IMDS for its own Entra token on a node where no workload can.
 
 Nothing in the floor carries per-workload state, so there is nothing to get out of sync with a
-workload's lifecycle.
+workload's lifecycle. `INPUT` drops everything from the bridge subnet, so a guest cannot dial the
+node's own services, with one exception inserted above the drop: UDP 53 to the bridge address,
+where the workload resolver listens.
+
+### The workload resolver
+
+`dnsmasq` listens on the docker bridge address (`172.17.0.1` unless the bridge is configured
+otherwise), bound with `bind-dynamic` so it survives `docker0` coming up after it, forwarding to
+whatever `/run/systemd/resolve/resolv.conf` lists — the VNet resolver on Azure. Every workload is
+given that address as its only resolver (`KINOTIC_WORKLOAD_DNS`), so an address a guest connects
+to by name is one this dnsmasq answered.
+
+That is what makes a hostname in `network.allowedHosts` enforceable. The vm-manager keeps one
+ipset per allowed name and writes `/etc/dnsmasq.d/kinotic-egress.conf`, an `ipset=` directive
+per name telling dnsmasq which sets its answers go into; a per-workload `iptables -m set` rule
+then matches the set. dnsmasq only reads directives at startup, so the vm-manager restarts it
+when a workload is allowed a name the file lacks — and only then: a name stays configured after
+its last workload is released, until the next `reconcile` on vm-manager start, which is what keeps
+a deployment's sync workload from restarting the resolver on every run. `cache-size=0` is
+load-bearing: dnsmasq writes into a set only while processing an upstream reply, never when
+answering from its cache.
+
+Set entries carry a 300s timeout that every answer refreshes, and each workload allowed a name
+also gets a conntrack `ESTABLISHED,RELATED` accept, so a connection opened while the entry held
+is not cut when it expires.
 
 **Egress default-deny** is written but off by default. Once the vm-manager writes per-workload
 egress rules, enable it:
@@ -73,8 +98,8 @@ container started outside the vm-manager — then gets no network at all rather 
 unrestricted egress.
 
 With it on, a container started **outside** the vm-manager has no network, which is the point.
-The requirements test starts its own containers, so it writes and removes the one resolver rule
-its network probe needs.
+The requirements test starts its own containers; its network probe is given the node's resolver,
+which the floor admits, and nothing else.
 
 ## What the requirements test proves
 
@@ -82,7 +107,7 @@ its network probe needs.
 |---|---|
 | R1 Customer code isolated in a microVM | Guest kernel differs from the host's, a `cloud-hypervisor` process backs it, and that process's command line names this container |
 | R2 Logs shipped host-side | stdout and stderr land in the container's json-file with `stream` labels, and `LogPolicy` maps to Docker's rotation options |
-| R3 Reaches as little as possible | IMDS and the WireServer refuse the guest, DNS still resolves, one workload cannot reach another's port, and `--network none` denies everything |
+| R3 Reaches as little as possible | IMDS and the WireServer refuse the guest, the node's resolver still answers, one workload cannot reach another's port, and `--network none` denies everything |
 | R4 Fast edit/redeploy | A host-side edit under the shared mount is visible to the next workload with no image rebuild |
 | R5 Read-only app code + writable logs | Both mounts present in one workload, and `readOnly` refused from inside the guest |
 | R6 `VolumeMount.sizeLimitMb` | A 200MB write into a 64MB project quota lands 67043328 bytes |
@@ -96,10 +121,13 @@ a line in a log file — never against a flag we set. Results are written to `la
 
 ## Known limits
 
-- **Egress allowlists are addresses, not names.** iptables matches addresses, and a Kata guest
-  has a real network namespace with no userspace hook to match hostnames on. Same-VNet targets
-  should be expressed as CIDRs; anything like `api.stripe.com` needs dnsmasq writing resolved
-  addresses into a per-workload ipset.
+- **A hostname in an allowlist covers its subdomains, and only the node's resolver's
+  answers.** dnsmasq matches `github.com` for `api.github.com` too, and only what it answered
+  is permitted: a guest that resolves elsewhere, or connects to an address a CDN handed someone
+  else, is denied. Same-VNet targets are still best expressed as CIDRs, which need no lookup.
+- **Allowing a new name restarts dnsmasq.** Every guest on the node is without a resolver for
+  the restart, and a lookup landing in that gap fails. Names already configured — every run of
+  the same deployment — cost nothing.
 - **User-defined Docker networks break DNS under Kata.** Docker injects `127.0.0.11`, whose
   resolver lives in the host netns and is unreachable from inside the VM; `--dns` sets only the
   upstream it forwards to. Workloads stay on the default bridge.

@@ -9,7 +9,8 @@
 #
 # Nothing here carries per-workload state, so there is nothing to get out of sync with a
 # workload's lifecycle. Per-workload egress rules are inserted above this floor by the
-# vm-manager and only ever ADD permission.
+# vm-manager and only ever ADD permission; the resolver rule is the one exception to the
+# host being unreachable, and it is the same for every workload.
 set -e
 
 # Idempotent: -C tests for the rule before inserting it, so a re-run is a no-op
@@ -33,6 +34,15 @@ insert -d 168.63.129.16/32 -p tcp --dport 32526 -j DROP
 BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
 [ -n "$BRIDGE_SUBNET" ] || BRIDGE_SUBNET=172.17.0.0/16
 iptables -C INPUT -s "$BRIDGE_SUBNET" -j DROP 2>/dev/null || iptables -I INPUT -s "$BRIDGE_SUBNET" -j DROP
+
+# --- workload resolver ---------------------------------------------------------------------
+# The node's dnsmasq answers guests on the bridge address, and that is host-bound traffic:
+# it passes INPUT, never DOCKER-USER, so no per-workload rule can admit it. Inserted after
+# the drop above so it sits above it — the one port of the node a guest may dial.
+BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || true)"
+[ -n "$BRIDGE_ADDRESS" ] || BRIDGE_ADDRESS=172.17.0.1
+iptables -C INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j ACCEPT 2>/dev/null \
+    || iptables -I INPUT -s "$BRIDGE_SUBNET" -d "$BRIDGE_ADDRESS" -p udp --dport 53 -j ACCEPT
 
 # --- Egress default-deny ------------------------------------------------------------------
 # Appended, so it sits BELOW any per-workload ACCEPT the vm-manager inserts with -I. A

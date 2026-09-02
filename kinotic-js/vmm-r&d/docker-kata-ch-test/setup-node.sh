@@ -31,7 +31,7 @@ KATA_VERSION="${KATA_VERSION:-4.1.0}"
 step "Base packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl jq tar zstd xfsprogs ca-certificates iptables >/dev/null
+apt-get install -y -qq curl jq tar zstd xfsprogs ca-certificates iptables ipset >/dev/null
 
 step "Docker Engine"
 # Docker brings its own containerd. Installing nerdctl-full as well would put a second
@@ -149,7 +149,7 @@ step "Host firewall floor"
 install -m 0755 "$HERE/kinotic-node-firewall" /usr/local/sbin/kinotic-node-firewall
 cat > /etc/systemd/system/kinotic-node-firewall.service <<'UNIT'
 [Unit]
-Description=Kinotic workload firewall floor (Azure IMDS, WireServer, egress default-deny)
+Description=Kinotic workload firewall floor (Azure IMDS, WireServer, workload resolver, egress default-deny)
 After=docker.service
 Requires=docker.service
 
@@ -165,6 +165,51 @@ systemctl daemon-reload
 systemctl enable --now kinotic-node-firewall >/dev/null 2>&1
 systemctl restart kinotic-node-firewall
 iptables -S DOCKER-USER | sed 's/^/  /'
+
+step "Workload resolver (dnsmasq on the bridge, filling per-hostname ipsets)"
+# Every workload is given the bridge address as its only resolver, so an address a guest
+# connects to by name is one this dnsmasq answered. The vm-manager writes ipset= directives
+# for the names workloads are allowed into /etc/dnsmasq.d/kinotic-egress.conf and restarts
+# the service when they change; this is the static half.
+BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}')"
+[ -n "$BRIDGE_ADDRESS" ] || fail "the docker bridge has no gateway address"
+[ -r /run/systemd/resolve/resolv.conf ] || fail "systemd-resolved is not running, so there is no upstream resolver list for dnsmasq to follow"
+mkdir -p /etc/dnsmasq.d
+cat > /etc/dnsmasq.d/kinotic-node.conf <<EOF
+# Workload resolver, written by setup-node.sh. The vm-manager writes kinotic-egress.conf
+# beside this file and restarts dnsmasq when it changes.
+#
+# Only the bridge address is bound, and bound dynamically: systemd-resolved holds the
+# loopback port, and docker0 may come up after dnsmasq has.
+listen-address=$BRIDGE_ADDRESS
+bind-dynamic
+# Upstream is whatever the node itself resolves through — the VNet resolver on Azure — read
+# from the file systemd-resolved keeps current rather than the stub in /etc/resolv.conf.
+resolv-file=/run/systemd/resolve/resolv.conf
+# dnsmasq writes an answer into an ipset only while processing an upstream reply, never when
+# answering from its own cache, so every answer has to come from upstream.
+cache-size=0
+# The node's /etc/hosts names its own interfaces, which a guest has no business resolving.
+no-hosts
+EOF
+if ! command -v dnsmasq >/dev/null 2>&1; then
+    # The package starts the service on install with its stock configuration, which binds
+    # port 53 on every address and fails against systemd-resolved; the policy hook holds the
+    # start back until the configuration above is what it starts with
+    printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d
+    chmod 0755 /usr/sbin/policy-rc.d
+    apt-get install -y -qq dnsmasq >/dev/null || { rm -f /usr/sbin/policy-rc.d; fail "dnsmasq did not install"; }
+    rm -f /usr/sbin/policy-rc.d
+fi
+# With the resolvconf package present the service wrapper would otherwise hand dnsmasq a
+# resolv file of its own and register 127.0.0.1 as the node's resolver, which it does not serve
+sed -i 's/^#\?IGNORE_RESOLVCONF=.*/IGNORE_RESOLVCONF=yes/' /etc/default/dnsmasq
+grep -q '^IGNORE_RESOLVCONF=yes' /etc/default/dnsmasq || echo 'IGNORE_RESOLVCONF=yes' >> /etc/default/dnsmasq
+systemctl enable dnsmasq >/dev/null 2>&1 || true
+systemctl restart dnsmasq
+systemctl is-active --quiet dnsmasq || fail "dnsmasq is not running; journalctl -u dnsmasq -n 50"
+echo "  listening on    : $BRIDGE_ADDRESS:53 (give the vm-manager KINOTIC_WORKLOAD_DNS=$BRIDGE_ADDRESS)"
+echo "  upstream        : $(grep -E '^nameserver' /run/systemd/resolve/resolv.conf | awk '{print $2}' | paste -sd ' ')"
 
 step "Verifying the node"
 "$HERE/verify-node.sh"

@@ -40,7 +40,9 @@ export class VmManagerConfig {
     /**
      * KINOTIC_WORKLOAD_DNS — resolver given to each workload and permitted on port 53. A
      * property of the node's network rather than of any workload, which is why it is not
-     * carried on NetworkPolicy: a workload cannot know what resolver its node was given.
+     * carried on NetworkPolicy: a workload cannot know what resolver its node was given. On a
+     * node provisioned for CLOUD_HYPERVISOR it is the bridge address the node's dnsmasq
+     * listens on, whose answers are what a hostname in an allowlist is enforced against.
      */
     readonly workloadDns: string | undefined = process.env.KINOTIC_WORKLOAD_DNS
 
