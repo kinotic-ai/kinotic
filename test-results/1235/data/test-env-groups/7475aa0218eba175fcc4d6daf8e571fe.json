@@ -1,0 +1,1 @@
+{"id":"7475aa0218eba175fcc4d6daf8e571fe","fullName":"org.kinotic.test.tests.system.VmNodePlacementTests.returnsNullWhenEveryNodeIsShortOnASingleResource","name":"returnsNullWhenEveryNodeIsShortOnASingleResource()","status":"passed","testResultsByEnv":{"default":"cf3e662af4eb4e0d402a695102f69e5f"}}
