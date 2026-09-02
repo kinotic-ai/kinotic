@@ -97,6 +97,7 @@ public class KinoticProperties {
      * {@code srv://system-api~com.acme.HeartbeatService/*} drops every method of that service while
      * {@code srv://system-api~com.acme.HeartbeatService/ping} drops only that one.
      * Patterns are consulted only while trace logging is enabled.
+     * This is what a node starts with; {@code LogManager} replaces the patterns on a running node.
      */
     private List<String> traceLogExcludes = new ArrayList<>();
 

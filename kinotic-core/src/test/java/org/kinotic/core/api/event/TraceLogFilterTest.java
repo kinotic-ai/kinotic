@@ -6,6 +6,7 @@ import org.kinotic.core.api.config.KinoticProperties;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -63,6 +64,27 @@ public class TraceLogFilterTest {
         Metadata metadata = Metadata.create();
         metadata.put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
         assertTrue(filter.isExcluded(Event.create(replyCri, metadata, new byte[0])));
+    }
+
+    @Test
+    public void patternsCanBeReplacedWhileTheNodeRuns() {
+        TraceLogFilter filter = filterFor(SERVICE + "/heartbeat");
+        assertTrue(filter.isExcluded(SERVICE + "/heartbeat"));
+
+        filter.setExcludes(List.of(SERVICE + "/registerNode"));
+        assertFalse(filter.isExcluded(SERVICE + "/heartbeat"));
+        assertTrue(filter.isExcluded(SERVICE + "/registerNode"));
+
+        filter.setExcludes(List.of());
+        assertFalse(filter.isExcluded(SERVICE + "/registerNode"));
+    }
+
+    @Test
+    public void aBlankPatternIsRejected() {
+        TraceLogFilter filter = filterFor(SERVICE + "/heartbeat");
+
+        assertThrows(IllegalArgumentException.class, () -> filter.setExcludes(List.of("   ")));
+        assertTrue(filter.isExcluded(SERVICE + "/heartbeat"));
     }
 
     private TraceLogFilter filterFor(String... patterns) {

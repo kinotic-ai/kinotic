@@ -54,4 +54,23 @@ export interface ILogManager {
      * @param level the {@link LogLevel} to set for the logger with the given name
      */
     configureLogLevel(nodeId: string, name: string, level: LogLevel): Promise<void>
+
+    /**
+     * @param nodeId the kinotic node to get the trace log excludes from
+     * @return the CRI patterns currently excluded from trace logging on the node
+     */
+    traceLogExcludes(nodeId: string): Promise<string[]>
+
+    /**
+     * Configures the CRI patterns excluded from trace logging, silencing a service that would
+     * otherwise bury the log while trace logging is on. Each pattern is matched against the fully
+     * qualified CRI with Ant wildcards, so `srv://system-api~com.acme.HeartbeatService/*` covers
+     * every method of that service and a raw CRI covers only the method it names.
+     * The patterns replace whatever the node is using and last until it restarts, which returns it
+     * to the `kinotic.traceLogExcludes` it was configured with.
+     *
+     * @param nodeId the kinotic node to set the trace log excludes on
+     * @param excludes the CRI patterns to exclude, or empty to exclude nothing
+     */
+    configureTraceLogExcludes(nodeId: string, excludes: string[]): Promise<void>
 }

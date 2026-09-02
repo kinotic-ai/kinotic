@@ -1,5 +1,7 @@
 package org.kinotic.core.api.event;
 
+import lombok.Getter;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
@@ -7,20 +9,25 @@ import org.springframework.util.AntPathMatcher;
 import java.util.List;
 
 /**
- * Answers whether traffic addressed to a given {@link CRI} is excluded from trace logging by
- * {@code kinotic.traceLogExcludes}.
+ * Answers whether traffic addressed to a given {@link CRI} is excluded from trace logging.
  *
- * Call sites test {@code log.isTraceEnabled()} first, so the patterns cost nothing unless trace
- * logging is on.
+ * The patterns start as {@code kinotic.traceLogExcludes} and can be replaced while the node runs.
+ * Call sites test {@code log.isTraceEnabled()} first, so they cost nothing unless trace logging is on.
  */
 @Component
 public class TraceLogFilter {
 
     private final AntPathMatcher matcher = new AntPathMatcher();
-    private final List<String> patterns;
+
+    /**
+     * -- GETTER --
+     *  The CRI patterns currently excluded from trace logging on this node.
+     */
+    @Getter
+    private volatile List<String> excludes;
 
     public TraceLogFilter(KinoticProperties kinoticProperties) {
-        this.patterns = List.copyOf(kinoticProperties.getTraceLogExcludes());
+        this.excludes = List.copyOf(kinoticProperties.getTraceLogExcludes());
     }
 
     /**
@@ -44,13 +51,30 @@ public class TraceLogFilter {
      */
     public boolean isExcluded(String rawCri) {
         boolean ret = false;
-        for (String pattern : patterns) {
+        for (String pattern : excludes) {
             if (matcher.match(pattern, rawCri)) {
                 ret = true;
                 break;
             }
         }
         return ret;
+    }
+
+    /**
+     * Replaces the CRI patterns excluded from trace logging, effective on the next event logged.
+     * The patterns live only in the running process, so a restart returns to the
+     * {@code kinotic.traceLogExcludes} the node was configured with.
+     *
+     * @param excludes the patterns to exclude, or empty to exclude nothing
+     */
+    public void setExcludes(List<String> excludes) {
+        Validate.notNull(excludes, "excludes must not be null");
+        for (String pattern : excludes) {
+            Validate.notBlank(pattern, "A trace log exclude pattern must not be blank");
+        }
+        // Replaced wholesale with an immutable copy, so an isExcluded scan running concurrently
+        // finishes against the list it started on rather than seeing a half-applied change
+        this.excludes = List.copyOf(excludes);
     }
 
 }

@@ -36,5 +36,13 @@ export class LogManager implements ILogManager {
     configureLogLevel(nodeId: string, name: string, level: LogLevel): Promise<void> {
         return this.serviceProxy.invoke('configureLogLevel', [name, level], nodeId)
     }
+
+    traceLogExcludes(nodeId: string): Promise<string[]> {
+        return this.serviceProxy.invoke('traceLogExcludes', null, nodeId)
+    }
+
+    configureTraceLogExcludes(nodeId: string, excludes: string[]): Promise<void> {
+        return this.serviceProxy.invoke('configureTraceLogExcludes', [excludes], nodeId)
+    }
 }
 
