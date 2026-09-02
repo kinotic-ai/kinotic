@@ -1,1 +1,0 @@
-{"id":"092d47dc456757bf3213c96f5ea45f6d","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenParameterNestedInObjectLiteral_thenNamedParameterAtThatPosition","name":"whenParameterNestedInObjectLiteral_thenNamedParameterAtThatPosition()","status":"passed","testResultsByEnv":{"default":"a1e04f13e630926317e7d2c46ac3a334"}}
