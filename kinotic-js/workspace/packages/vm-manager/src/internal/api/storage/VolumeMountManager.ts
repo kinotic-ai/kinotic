@@ -11,36 +11,14 @@ export class VolumeMountManager {
 
     private readonly workloadDataDir: string
     private readonly quotas: MountQuotaManager
-    private readonly quotasRequired: boolean
 
-    private constructor(workloadDataDir: string, quotas: MountQuotaManager, quotasRequired: boolean) {
+    /**
+     * @param workloadDataDir base directory every volume mount on this node must live under
+     * @param quotas the node's quota manager
+     */
+    constructor(workloadDataDir: string, quotas: MountQuotaManager) {
         this.workloadDataDir = resolve(workloadDataDir)
         this.quotas = quotas
-        this.quotasRequired = quotasRequired
-    }
-
-    /**
-     * Mounts on a node whose filesystem is provisioned to carry project quotas: a declared
-     * cap that cannot be applied fails the workload, since a node that is meant to bound what
-     * a workload writes must not run one it cannot bound.
-     *
-     * @param workloadDataDir base directory every volume mount on this node must live under
-     * @param quotas the node's quota manager
-     */
-    public static requiringQuotas(workloadDataDir: string, quotas: MountQuotaManager): VolumeMountManager {
-        return new VolumeMountManager(workloadDataDir, quotas, true)
-    }
-
-    /**
-     * Mounts on a node that may carry no project quotas at all, such as a developer's macOS
-     * machine. A declared cap is enforced wherever the filesystem holding the mount can carry
-     * it, and only a mount on a filesystem that cannot runs uncapped.
-     *
-     * @param workloadDataDir base directory every volume mount on this node must live under
-     * @param quotas the node's quota manager
-     */
-    public static usingAvailableQuotas(workloadDataDir: string, quotas: MountQuotaManager): VolumeMountManager {
-        return new VolumeMountManager(workloadDataDir, quotas, false)
     }
 
     /**
@@ -74,17 +52,31 @@ export class VolumeMountManager {
     }
 
     /**
+     * Fails unless every cap the workload declares can be enforced on this node, so a node
+     * provisioned to bound what its workloads write never runs one it cannot bound.
+     *
+     * @param workload the workload whose declared caps must be enforceable
+     */
+    public requireEnforceableQuotas(workload: Workload): void {
+        for (const mount of this.cappedMounts(workload)) {
+            if (!this.quotas.supports(mount.hostPath)) {
+                throw new Error(`Cannot cap ${mount.hostPath} of workload ${workload.id}: it is not on `
+                                + 'an XFS filesystem mounted with prjquota, which this node requires')
+            }
+        }
+    }
+
+    /**
      * Caps what a workload may write through each of its mounts that declares a size limit.
-     * Whether a cap this node cannot apply fails the workload is what the manager was created
-     * with.
+     * A cap the filesystem holding the mount cannot carry at all leaves that mount uncapped,
+     * which is the only way a node without project quotas can run a workload declaring one;
+     * a cap that fails to apply anywhere else fails the workload.
      *
      * @param workload the workload whose mounts are capped
      */
     public applyQuotas(workload: Workload): void {
         for (const mount of this.cappedMounts(workload)) {
-            // apply() throws when the filesystem cannot carry the cap, which is what fails the
-            // workload on a node that must enforce one; elsewhere the mount is left uncapped
-            if (this.quotasRequired || this.quotas.supports(mount.hostPath)) {
+            if (this.quotas.supports(mount.hostPath)) {
                 this.quotas.apply(mount.hostPath, mount.sizeLimitMb!)
             }
         }

@@ -76,7 +76,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
-        this.mounts = VolumeMountManager.requiringQuotas(this.workloadDataDir, this.quotas)
+        this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
     }
 
     /**
@@ -204,6 +204,9 @@ export class CloudHypervisorProvider implements IVmProvider {
         let exitWatch: Promise<void> = Promise.resolve()
         try {
             this.mounts.prepare(workload)
+            // A node provisioned for this provider carries project quotas, so a cap it cannot
+            // enforce is a node fault rather than a limit of what it can do
+            this.mounts.requireEnforceableQuotas(workload)
             this.mounts.applyQuotas(workload)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name

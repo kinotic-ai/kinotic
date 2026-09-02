@@ -175,7 +175,7 @@ export class BoxliteProvider implements IVmProvider {
             console.warn(`${workloadDataDir} is not on a filesystem with project quotas — a workload `
                          + 'can write past the size limit of a writable mount on this node')
         }
-        this.mounts = VolumeMountManager.usingAvailableQuotas(workloadDataDir, quotas)
+        this.mounts = new VolumeMountManager(workloadDataDir, quotas)
     }
 
     async totalDiskMb(): Promise<number> {
