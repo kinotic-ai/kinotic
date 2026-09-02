@@ -49,11 +49,14 @@ export class VmManagerConfig {
 
     /**
      * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node
-     * must live under. Binds are created with root's authority, so this boundary is what
-     * keeps a workload spec from mounting an arbitrary host directory. Reported to the
-     * server at registration so deployment flows compose host paths under it.
+     * must live under. Mounts are bound with the vm-manager's authority, so this boundary is
+     * what keeps a workload spec from mounting an arbitrary host directory. Reported to the
+     * server at registration so deployment flows compose host paths under it. A node wanting
+     * workload checkouts on a data volume, or on the filesystem whose quotas enforce a
+     * mount's sizeLimitMb, sets this to a path there.
      */
-    readonly workloadDataDir: string = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
+    readonly workloadDataDir: string = process.env.KINOTIC_WORKLOAD_DATA_DIR
+                                       ?? path.join(os.homedir(), '.kinotic', 'workloads')
 
     /** KINOTIC_VM_LOGS_DIR — base directory holding each workload's log dir mounted into its guest. */
     readonly vmLogsDir: string = process.env.KINOTIC_VM_LOGS_DIR ?? path.join(os.homedir(), '.kinotic', 'vm-logs')

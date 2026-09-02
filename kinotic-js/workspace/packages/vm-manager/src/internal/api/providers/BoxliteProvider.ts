@@ -2,6 +2,8 @@ import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@b
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
+import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
@@ -143,6 +145,10 @@ export class BoxliteProvider implements IVmProvider {
     private readonly activeVms: Map<string, ActiveVm> = new Map()
     private readonly boxliteHome: string
     private readonly logsBaseDir: string
+    private readonly mounts: VolumeMountManager
+    // What the node could enforce when it started, which is what a health check compares
+    // against: a node that never had project quotas is not a node that has lost them
+    private readonly enforcedQuotasAtStartup: boolean
     // State must not live under logsBaseDir: log dirs are guest-writable via the
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
     // its logs to another tenant
@@ -157,12 +163,23 @@ export class BoxliteProvider implements IVmProvider {
     constructor(boxliteHome: string,
                 logsBaseDir: string,
                 stateDir: string,
+                workloadDataDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null) {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+
+        this.mounts = new VolumeMountManager(workloadDataDir, new MountQuotaManager())
+
+        // Said once at startup rather than per workload, since a node whose data directory has
+        // no project quotas — every macOS node — cannot cap any mount it will ever be given
+        this.enforcedQuotasAtStartup = this.mounts.enforcesQuotas()
+        if (!this.enforcedQuotasAtStartup) {
+            console.warn(`${workloadDataDir} is not on a filesystem with project quotas — a workload `
+                         + 'can write past the size limit of a writable mount on this node')
+        }
     }
 
     async totalDiskMb(): Promise<number> {
@@ -172,10 +189,15 @@ export class BoxliteProvider implements IVmProvider {
         return Math.floor((stats.blocks * stats.bsize) / (1024 * 1024))
     }
 
-    // boxlite carries its own guest kernel and filesystem, so there is nothing on the host
-    // it depends on that could quietly stop being true
+    // boxlite carries its own guest kernel and filesystem, so the host holds nothing this
+    // provider needs except the filesystem a workload's mounts are capped on
     async checkNodeHealth(): Promise<string[]> {
-        return []
+        const problems: string[] = []
+        if (this.enforcedQuotasAtStartup && !this.mounts.enforcesQuotas()) {
+            problems.push('the workload data directory is no longer on a filesystem with project '
+                          + 'quotas, so a workload can write past the size limit of a writable mount')
+        }
+        return problems
     }
 
     async recover(): Promise<void> {
@@ -211,6 +233,11 @@ export class BoxliteProvider implements IVmProvider {
         this.persist(workload)
 
         try {
+            // boxlite refuses a box whose volume host path is missing, so the checkout
+            // directory a deployment mounts is created here on its first deployment
+            this.mounts.prepare(workload)
+            this.mounts.applyQuotas(workload)
+
             // A box record left by a previous run of this workload would collide on the name
             const stale = await this.runtime.getInfo(id)
             if (stale && !stale.state.running) {
@@ -313,6 +340,7 @@ export class BoxliteProvider implements IVmProvider {
         // detached boxes, so the provider discards the box explicitly
         if (workload.autoRemove ?? false) {
             await this.runtime.remove(workloadId, true)
+            this.mounts.releaseQuotas(workload)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -339,6 +367,7 @@ export class BoxliteProvider implements IVmProvider {
             await this.runtime.remove(workloadId, true)
         }
 
+        this.mounts.releaseQuotas(workload)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)

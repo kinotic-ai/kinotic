@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from 'bun:test'
 import { cpSync, mkdirSync, rmSync } from 'node:fs'
+import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { execSync } from 'node:child_process'
 import { BasicCredentialsResolver, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
@@ -23,7 +24,7 @@ const canRun = process.env.KINOTIC_WORKLOAD_E2E === '1'
 /** Node the workload is pinned to — the one the vm-manager under test registered as. */
 const NODE_ID = process.env.KINOTIC_NODE_ID ?? 'lab-node-1'
 /** Where the node keeps workload mounts; must be the directory the vm-manager reported. */
-const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? '/var/lib/kinotic/workloads'
+const DATA_DIR = process.env.KINOTIC_WORKLOAD_DATA_DIR ?? join(homedir(), '.kinotic', 'workloads')
 /**
  * Address the guest reaches the server on, which is a property of the node's network rather
  * than of the deployment. The default is BOXLITE's: its guests reach the host on the

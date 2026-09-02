@@ -1,9 +1,10 @@
 import Docker from 'dockerode'
 import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
-import { join, resolve, sep } from 'node:path'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
+import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
@@ -56,6 +57,7 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly docker: Docker
     private readonly workloadDataDir: string
     private readonly quotas = new MountQuotaManager()
+    private readonly mounts: VolumeMountManager
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
@@ -74,6 +76,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
+        this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
     }
 
     /**
@@ -154,7 +157,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             problems.push('the node firewall does not block the cloud metadata endpoint, '
                           + "so a workload can read this host's credentials")
         }
-        if (!this.quotas.supports(this.workloadDataDir)) {
+        if (!this.mounts.enforcesQuotas()) {
             problems.push(`${this.workloadDataDir} is not on a filesystem with project quotas, `
                           + 'so a workload can write past the size limit of a writable mount')
         }
@@ -200,8 +203,11 @@ export class CloudHypervisorProvider implements IVmProvider {
 
         let exitWatch: Promise<void> = Promise.resolve()
         try {
-            this.prepareVolumeMounts(workload)
-            this.applyMountQuotas(workload)
+            this.mounts.prepare(workload)
+            // A node provisioned for this provider carries project quotas, so a cap it cannot
+            // enforce is a node fault rather than a limit of what it can do
+            this.mounts.requireEnforceableQuotas(workload)
+            this.mounts.applyQuotas(workload)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
@@ -291,7 +297,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         // auto-remove so that a stopped workload can be restarted when the flag is off
         if (workload.autoRemove ?? false) {
             await this.removeContainer(workloadId)
-            this.releaseMountQuotas(workload)
+            this.mounts.releaseQuotas(workload)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -304,7 +310,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         const workload = this.requireWorkload(workloadId)
 
         await this.removeContainer(workloadId)
-        this.releaseMountQuotas(workload)
+        this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
 
         this.containers.delete(workloadId)
@@ -463,54 +469,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
             this.egress.apply(workload.id!, address, allowedHosts)
-        }
-    }
-
-    /**
-     * Validates every volume mount and creates missing host directories for writable ones.
-     * Each hostPath must resolve strictly inside the node's workload data directory: binds
-     * are created with root's authority, so an unconstrained path would hand any host
-     * directory to the guest. A read-only mount of a directory that does not exist fails
-     * here with the real reason, instead of the daemon masking it by creating an empty
-     * root-owned directory at the path.
-     */
-    private prepareVolumeMounts(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            const hostPath = resolve(mount.hostPath)
-            if (!hostPath.startsWith(this.workloadDataDir + sep)) {
-                throw new Error(`Volume mount ${mount.hostPath} of workload ${workload.id} must be `
-                                + `an absolute path inside the workload data directory ${this.workloadDataDir}`)
-            }
-            if (mount.readOnly) {
-                if (!existsSync(hostPath)) {
-                    throw new Error(`Read-only volume mount ${mount.hostPath} of workload `
-                                    + `${workload.id} does not exist on this node`)
-                }
-            } else {
-                mkdirSync(hostPath, { recursive: true })
-            }
-        }
-    }
-
-    private applyMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                this.quotas.apply(mount.hostPath, mount.sizeLimitMb)
-            }
-        }
-    }
-
-    // Never fails the operation that triggered it: a workload whose quota cannot be released
-    // has still been torn down, and a leaked project id costs an id rather than correctness
-    private releaseMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                try {
-                    this.quotas.release(mount.hostPath)
-                } catch (error) {
-                    console.error(`Failed to release the quota on ${mount.hostPath}:`, error)
-                }
-            }
         }
     }
 

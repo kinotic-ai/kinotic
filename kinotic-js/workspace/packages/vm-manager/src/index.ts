@@ -56,7 +56,8 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // provider reads them from a single value, without a node having to set BOXLITE_HOME.
         // One-shot, so it must run before anything asks for the runtime.
         getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
-        ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
+        ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
+                                  config.workloadDataDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
