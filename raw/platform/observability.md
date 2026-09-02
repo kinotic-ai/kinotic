@@ -30,6 +30,8 @@ Track platform activity including:
 
 View microservice logs directly from the dashboard with the ability to temporarily adjust logging levels for debugging. Increase verbosity on a running service to investigate an issue, then restore normal levels when done — no redeployment required.
 
+The same dialog edits a node's [trace log filters](/platform/configuration#trace-logging), so turning a logger up to TRACE does not have to mean drowning in whatever service talks most. Both changes last until the node restarts.
+
 ## Workload Logs
 
 Logs from micro VM workloads (builds, deploys, and application containers) are shipped to Grafana Loki and can be tailed live or queried historically, per workload.

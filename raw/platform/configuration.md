@@ -850,3 +850,51 @@ A workload writes to two places the node must bound: the directories it mounts, 
 </table>
 
 `sizeLimitMb` applies to writable mounts; a mount declared `readOnly` is already unwritable. It is enforced by an XFS project quota, so the host filesystem refuses the write once the cap is reached whatever the workload does — which requires the mount to live on an XFS filesystem mounted with `prjquota`, on a node running either provider. The two providers differ only in what a node that cannot enforce a cap does with it. A `CLOUD_HYPERVISOR` node is provisioned for quotas, so it refuses the workload and reports the condition on its heartbeat until it is fixed. A `BOXLITE` node may have no project quotas at all — on macOS it cannot have them — so it enforces the cap wherever the filesystem holding the mount carries them, exactly as a `CLOUD_HYPERVISOR` node does, and only runs a mount uncapped when that filesystem has none; it warns at startup when its workload data directory is on such a filesystem. A node that had project quotas and lost them reports it on its heartbeat and stops taking workloads, whichever provider it runs. A workload's logs occupy at most `maxSizeMb * (maxFiles + 1)`, and the limits are applied by the VM provider rather than by the workload, so a workload cannot raise its own ceiling.
+
+## Trace logging
+
+Trace logging prints every STOMP frame the gateway reads and writes, every service invocation the
+invoker dispatches, and the arguments each invoked method received. That is what makes it useful
+during development and what makes a high-frequency service — a heartbeat, a poll — drown out
+everything else in the log.
+
+`kinotic.traceLog` names the CRIs that stay out of it, and the ones that stay in:
+
+```yaml
+kinotic:
+  traceLog:
+    excludes:
+      - srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/*
+      - srv://system-api~org.kinotic.system.api.services.KinoticClusterInfoService/findClusterInfo
+```
+
+Each entry is matched against the fully qualified CRI with Ant wildcards — `*` matches within one
+segment, `**` across segments — so a trailing `/*` covers every method of a service and a raw CRI
+covers just that one method. A scoped invocation carries its scope in the CRI, so a pattern that
+must cover one needs the scope wildcard as well:
+`srv://*@system-api~com.acme.NodeService/*`.
+
+An include wins over an exclude that also matches, which turns the filter around: exclude
+everything and name what is worth watching.
+
+```yaml
+kinotic:
+  traceLog:
+    excludes:
+      - '**'
+    includes:
+      - srv://app.acme-org.orders-app~com.acme.OrderService/**
+```
+
+Patterns are matched against every destination but one. A reply comes back on a destination
+belonging to the client connection rather than naming what was invoked, so it is never matched —
+an excluded request is marked as it enters the gateway and its reply is dropped from the log along
+with it.
+An excluded CRI therefore drops the whole exchange: the request frame, the invocation and its
+arguments, the values a streaming result emits, and the reply frame the client receives. The
+patterns are consulted only while trace logging is enabled, and cost nothing at any other level.
+
+`kinotic.traceLog` is what a node starts with. The system console's **Logging** dialog, on each
+node in the Dashboard's server node table, edits the patterns on a running node the same way it
+sets log levels — see [Observability](/platform/observability#application-logs). Those edits last
+until the node restarts, which returns it to its configured `kinotic.traceLog`.
