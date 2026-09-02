@@ -1,1 +1,0 @@
-{"id":"c6d7183d98836775a098491a3cc9c78f","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenObjectLiteralsNested_thenMapTreeMatchesLiteral","name":"whenObjectLiteralsNested_thenMapTreeMatchesLiteral()","status":"passed","testResultsByEnv":{"default":"6d08c7e15b74d18c46dd43f96bd5b26d"}}
