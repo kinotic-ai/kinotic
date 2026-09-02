@@ -76,9 +76,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
-        // A node provisioned for this provider has project quotas, so a cap it cannot apply
-        // is a broken node rather than a capability it lacks — the manager always gets one
-        this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
+        this.mounts = VolumeMountManager.requiringQuotas(this.workloadDataDir, this.quotas)
     }
 
     /**

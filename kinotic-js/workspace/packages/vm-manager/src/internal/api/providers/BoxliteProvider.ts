@@ -168,15 +168,14 @@ export class BoxliteProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
 
-        // Every mount lives under the workload data directory, so what holds that directory
-        // decides whether this node can cap any of them at all
+        // Said once at startup rather than per workload, since a node whose data directory has
+        // no project quotas — every macOS node — cannot cap any mount it will ever be given
         const quotas = new MountQuotaManager()
-        const enforcesQuotas = quotas.supports(workloadDataDir)
-        if (!enforcesQuotas) {
+        if (!quotas.supports(workloadDataDir)) {
             console.warn(`${workloadDataDir} is not on a filesystem with project quotas — a workload `
                          + 'can write past the size limit of a writable mount on this node')
         }
-        this.mounts = new VolumeMountManager(workloadDataDir, enforcesQuotas ? quotas : null)
+        this.mounts = VolumeMountManager.usingAvailableQuotas(workloadDataDir, quotas)
     }
 
     async totalDiskMb(): Promise<number> {

@@ -10,15 +10,37 @@ import type { VolumeMount, Workload } from '@kinotic-ai/management-api'
 export class VolumeMountManager {
 
     private readonly workloadDataDir: string
-    private readonly quotas: MountQuotaManager | null
+    private readonly quotas: MountQuotaManager
+    private readonly quotasRequired: boolean
 
-    /**
-     * @param workloadDataDir base directory every volume mount on this node must live under
-     * @param quotas the node's quota manager, or null on a node that enforces no caps
-     */
-    constructor(workloadDataDir: string, quotas: MountQuotaManager | null) {
+    private constructor(workloadDataDir: string, quotas: MountQuotaManager, quotasRequired: boolean) {
         this.workloadDataDir = resolve(workloadDataDir)
         this.quotas = quotas
+        this.quotasRequired = quotasRequired
+    }
+
+    /**
+     * Mounts on a node whose filesystem is provisioned to carry project quotas: a declared
+     * cap that cannot be applied fails the workload, since a node that is meant to bound what
+     * a workload writes must not run one it cannot bound.
+     *
+     * @param workloadDataDir base directory every volume mount on this node must live under
+     * @param quotas the node's quota manager
+     */
+    public static requiringQuotas(workloadDataDir: string, quotas: MountQuotaManager): VolumeMountManager {
+        return new VolumeMountManager(workloadDataDir, quotas, true)
+    }
+
+    /**
+     * Mounts on a node that may carry no project quotas at all, such as a developer's macOS
+     * machine. A declared cap is enforced wherever the filesystem holding the mount can carry
+     * it, and only a mount on a filesystem that cannot runs uncapped.
+     *
+     * @param workloadDataDir base directory every volume mount on this node must live under
+     * @param quotas the node's quota manager
+     */
+    public static usingAvailableQuotas(workloadDataDir: string, quotas: MountQuotaManager): VolumeMountManager {
+        return new VolumeMountManager(workloadDataDir, quotas, false)
     }
 
     /**
@@ -52,15 +74,17 @@ export class VolumeMountManager {
     }
 
     /**
-     * Caps what a workload may write through each of its mounts that declares a size limit,
-     * and fails when a declared cap cannot be applied — a workload that asked to be bounded
-     * must not run unbounded on a node that enforces caps.
+     * Caps what a workload may write through each of its mounts that declares a size limit.
+     * Whether a cap this node cannot apply fails the workload is what the manager was created
+     * with.
      *
      * @param workload the workload whose mounts are capped
      */
     public applyQuotas(workload: Workload): void {
-        if (this.quotas !== null) {
-            for (const mount of this.cappedMounts(workload)) {
+        for (const mount of this.cappedMounts(workload)) {
+            // apply() throws when the filesystem cannot carry the cap, which is what fails the
+            // workload on a node that must enforce one; elsewhere the mount is left uncapped
+            if (this.quotasRequired || this.quotas.supports(mount.hostPath)) {
                 this.quotas.apply(mount.hostPath, mount.sizeLimitMb!)
             }
         }
@@ -72,16 +96,14 @@ export class VolumeMountManager {
      * @param workload the workload whose mounts are released
      */
     public releaseQuotas(workload: Workload): void {
-        if (this.quotas !== null) {
-            for (const mount of this.cappedMounts(workload)) {
-                // Never fails the operation that triggered it: a workload whose quota cannot
-                // be released has still been torn down, and a leaked project id costs an id
-                // rather than correctness
-                try {
-                    this.quotas.release(mount.hostPath)
-                } catch (error) {
-                    console.error(`Failed to release the quota on ${mount.hostPath}:`, error)
-                }
+        for (const mount of this.cappedMounts(workload)) {
+            // Never fails the operation that triggered it: a workload whose quota cannot be
+            // released has still been torn down, and a leaked project id costs an id rather
+            // than correctness
+            try {
+                this.quotas.release(mount.hostPath)
+            } catch (error) {
+                console.error(`Failed to release the quota on ${mount.hostPath}:`, error)
             }
         }
     }
