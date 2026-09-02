@@ -74,11 +74,11 @@ public class TraceLogFilterTest {
     }
 
     @Test
-    public void onlyServiceDestinationsAreMatchedAtAll() {
+    public void everyDestinationButAReplyIsMatched() {
         TraceLogFilter filter = filterFor(List.of(), List.of("**"));
 
+        assertTrue(filter.isExcluded("stream://org.kinotic.tests.SomeEvent"));
         assertFalse(filter.isExcluded(REPLY_CRI));
-        assertFalse(filter.isExcluded("stream://org.kinotic.tests.SomeEvent"));
     }
 
     @Test

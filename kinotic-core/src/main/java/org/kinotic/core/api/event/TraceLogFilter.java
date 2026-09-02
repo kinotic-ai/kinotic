@@ -44,18 +44,18 @@ public class TraceLogFilter {
     }
 
     /**
-     * Whether the given service {@link CRI} is excluded from trace logging: it matches one of the
-     * exclude patterns and none of the include patterns. Any other scheme is never excluded.
+     * Whether the given {@link CRI} is excluded from trace logging: it matches one of the exclude
+     * patterns and none of the include patterns. A reply destination is decided instead by the
+     * marker its request carried, which {@link #isExcluded(Event)} reads.
      *
      * @param rawCri the fully qualified {@link CRI} the traffic is addressed to
      * @return true if traffic addressed to the {@link CRI} must not be trace logged
      */
     public boolean isExcluded(String rawCri) {
         boolean ret = false;
-        // Patterns name services. A reply destination belongs to a connected client and names no
-        // service, so matching one would let an exclude of ** drop replies the includes meant to
-        // keep; a reply is judged by the marker its request carried instead
-        if (rawCri.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME + ":")) {
+        // A reply destination belongs to a connected client rather than naming what was invoked, so
+        // matching one would let an exclude of ** drop replies the includes meant to keep
+        if (!rawCri.startsWith(EventConstants.REPLY_DESTINATION_SCHEME + ":")) {
             // One read, so includes and excludes are weighed as the single setting they were set as
             TraceLogProperties current = patterns;
             ret = !matchesAny(current.getIncludes(), rawCri) && matchesAny(current.getExcludes(), rawCri);
