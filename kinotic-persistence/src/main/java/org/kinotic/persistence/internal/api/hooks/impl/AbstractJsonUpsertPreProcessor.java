@@ -183,7 +183,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                             // or matches the logged in tenant
                             jsonParser.nextToken(); // move to value token
                             currentTenantId = jsonMapper.readValue(jsonParser, String.class);
-                            if(currentTenantId != null && !currentTenantId.equals(context.getParticipant().getTenantId())){
+                            if(currentTenantId != null && !currentTenantId.equals(context.getTenantId())){
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
@@ -215,7 +215,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         // If this is a multi tenant EntityDefinition and multi tenant selection is not enabled, add the tenant if necessary
                         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
-                            currentTenantId = context.getParticipant().getTenantId();
+                            currentTenantId = context.getTenantId();
                             jsonGenerator.writeStringProperty(persistenceProperties.getTenantIdFieldName(), currentTenantId);
                         }
 

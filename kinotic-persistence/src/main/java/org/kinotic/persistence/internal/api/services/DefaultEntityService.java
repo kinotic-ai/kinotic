@@ -459,7 +459,7 @@ public class DefaultEntityService implements EntityService {
     private String composeId(final String id, final EntityContext context){
         String ret;
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.getParticipant().getTenantId();
+            String tenantId = context.getTenantId();
             ret = tenantId + "-" + id;
         }else{
             ret = id;
@@ -475,7 +475,7 @@ public class DefaultEntityService implements EntityService {
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
         boolean multiTenancyShared = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED;
 
-        String tenantId = context.getParticipant().getTenantId();
+        String tenantId = context.getTenantId();
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
             builder.index(entityDescriptor.itemIndex());
@@ -521,14 +521,14 @@ public class DefaultEntityService implements EntityService {
                                     formatToPrintJson(object));
                         }
                     }else {
-                        if (tenant != null && tenant.equals(context.getParticipant().getTenantId())) {
+                        if (tenant != null && tenant.equals(context.getTenantId())) {
                             result.add(object);
                         }else{
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
                                     entityDescriptor,
-                                    context.getParticipant().getTenantId(),
+                                    context.getTenantId(),
                                     tenant,
                                     formatToPrintJson(object));
                         }
@@ -827,7 +827,7 @@ public class DefaultEntityService implements EntityService {
 
     private Future<Void> validateContext(final EntityContext context){
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
+            if(context.getTenantId() != null) {
 
                 // Check if tenant selection is trying to be used but not enabled
                 if (ObjectUtils.isNotEmpty(context.getTenantSelection())
@@ -860,7 +860,7 @@ public class DefaultEntityService implements EntityService {
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
                 && entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            if(entityContext.getParticipant() != null && entityContext.getParticipant().getTenantId() != null) {
+            if(entityContext.getTenantId() != null) {
 
                 List<MultiGetOperation> ret = new ArrayList<>(ids.size());
                 List<String> tenants = new ArrayList<>(ids.size());

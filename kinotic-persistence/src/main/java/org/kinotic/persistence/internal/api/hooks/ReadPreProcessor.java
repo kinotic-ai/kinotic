@@ -55,7 +55,7 @@ public class ReadPreProcessor {
             if(context.hasTenantSelection()){
                 builder.routing(context.getTenantSelection().getFirst());
             }else{
-                builder.routing(context.getParticipant().getTenantId());
+                builder.routing(context.getTenantId());
             }
         }
     }
@@ -98,7 +98,7 @@ public class ReadPreProcessor {
             if(context.hasTenantSelection()){
                 builder.routing(context.getTenantSelection().getFirst());
             }else{
-                builder.routing(context.getParticipant().getTenantId());
+                builder.routing(context.getTenantId());
                 if(!entityDescriptor.isMultiTenantSelectionEnabled()) {
                     builder.sourceExcludes(persistenceProperties.getTenantIdFieldName());
                 }
@@ -161,11 +161,11 @@ public class ReadPreProcessor {
                                                                          .terms(tqf-> tqf.value(fieldValues)))));
             }else{
 
-                routingConsumer.accept(context.getParticipant().getTenantId());
+                routingConsumer.accept(context.getTenantId());
                 queryBuilder = new Query.Builder();
                 queryBuilder
                         .bool(b -> b.filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
-                                                                  .value(context.getParticipant().getTenantId()))));
+                                                                  .value(context.getTenantId()))));
             }
         }
         return queryBuilder;
@@ -198,11 +198,11 @@ public class ReadPreProcessor {
 
                 }else{
 
-                    routingConsumer.accept(context.getParticipant().getTenantId());
+                    routingConsumer.accept(context.getTenantId());
                     queryBuilder
                             .bool(b -> b.must(must -> must.queryString(qs -> qs.query(searchText).analyzeWildcard(true)))
                                         .filter(qb -> qb.term(tq -> tq.field(persistenceProperties.getTenantIdFieldName())
-                                                                      .value(context.getParticipant().getTenantId()))));
+                                                                      .value(context.getTenantId()))));
                 }
             }else{
                 queryBuilder.queryString(qs -> qs.query(searchText).analyzeWildcard(true));

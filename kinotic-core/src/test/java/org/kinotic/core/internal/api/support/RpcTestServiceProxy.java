@@ -83,6 +83,8 @@ public interface RpcTestServiceProxy {
 
     Mono<List<String>> modifyListOfStrings(List<String> stringsToModify);
 
+    Mono<String> narrowParticipant();
+
     Mono<Integer> putListOfSimpleObjects(List<SimpleObject> simpleObjects);
 
     Mono<Integer> putListOfStrings(List<String> strings);

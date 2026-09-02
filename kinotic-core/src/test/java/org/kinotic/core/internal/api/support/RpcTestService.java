@@ -99,6 +99,8 @@ public interface RpcTestService {
 
     List<String> modifyListOfStrings(String[] stringsToModify);
 
+    Mono<String> narrowParticipant(NarrowParticipant participant);
+
     Integer putListOfSimpleObjects(List<SimpleObject> simpleObjects);
 
     Integer putListOfStrings(List<String> strings);

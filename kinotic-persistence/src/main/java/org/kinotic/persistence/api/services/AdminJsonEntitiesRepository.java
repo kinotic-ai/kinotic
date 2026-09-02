@@ -9,7 +9,7 @@ import org.kinotic.persistence.api.model.*;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 
 import java.util.List;
 
@@ -30,7 +30,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
-    Future<Long> count(String entityDefinitionId, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Long> count(String entityDefinitionId, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
      * Returns the number of entities available for the given query.
@@ -41,7 +41,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
-    Future<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Long> countByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
      * Deletes the entity with the given id.
@@ -51,7 +51,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
-    Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
+    Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
      * Deletes any entities that match the given query.
@@ -62,7 +62,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
-    Future<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ApplicationParticipant participant);
+    Future<Void> deleteByQuery(String entityDefinitionId, String query, List<String> tenantSelection, ScopedParticipant participant);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
@@ -73,7 +73,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
-    Future<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> findAll(String entityDefinitionId, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
     /**
      * Retrieves an entity by its id.
@@ -83,7 +83,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
-    Future<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ApplicationParticipant participant);
+    Future<FastestType> findById(String entityDefinitionId, TenantSpecificId id, ScopedParticipant participant);
 
     /**
      * Retrieves a list of entities by their id.
@@ -93,7 +93,7 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
-    Future<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ApplicationParticipant participant);
+    Future<List<FastestType>> findByIds(String entityDefinitionId, List<TenantSpecificId> ids, ScopedParticipant participant);
 
     /**
      * Executes a named query.
@@ -109,7 +109,7 @@ public interface AdminJsonEntitiesRepository {
                                      String queryName,
                                      List<QueryParameter> queryParameters,
                                      List<String> tenantSelection,
-                                     ApplicationParticipant participant);
+                                     ScopedParticipant participant);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -127,7 +127,7 @@ public interface AdminJsonEntitiesRepository {
                                          List<QueryParameter> queryParameters,
                                          List<String> tenantSelection,
                                          Pageable pageable,
-                                         ApplicationParticipant participant);
+                                         ScopedParticipant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.
@@ -141,6 +141,6 @@ public interface AdminJsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
-    Future<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> search(String entityDefinitionId, String searchText, List<String> tenantSelection, Pageable pageable, ScopedParticipant participant);
 
 }

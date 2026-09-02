@@ -28,14 +28,11 @@ import java.util.Set;
 @Component
 public class NamedJsonArgumentResolver extends AbstractJacksonSupport implements ArgumentResolver {
 
-    private final SecurityContext securityContext;
-
     public NamedJsonArgumentResolver(JsonMapper jsonMapper,
                                      ReactiveAdapterRegistry reactiveAdapterRegistry,
                                      KinoticProperties kinoticProperties,
                                      SecurityContext securityContext) {
         super(jsonMapper, reactiveAdapterRegistry, kinoticProperties, securityContext);
-        this.securityContext = securityContext;
     }
 
     @Override
@@ -50,11 +47,7 @@ public class NamedJsonArgumentResolver extends AbstractJacksonSupport implements
 
             // A Participant parameter comes from the Vert.x context, never from the body
             if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
-                Participant participant = securityContext.currentParticipant();
-                if (participant == null) {
-                    throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
-                }
-                ret.add(participant);
+                ret.add(resolveParticipant(methodParameter));
             } else {
                 // IdlUtil.parameterName is the shared naming rule, so the name bound here is
                 // the name the emitted schema declared
