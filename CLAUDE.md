@@ -74,7 +74,7 @@ Both Java and TypeScript modules follow the same layout convention. The rule is:
 - `api/` — Public interfaces, types, and DTOs used by other modules or nodes (shared/exported)
 - `internal/` — Everything private to this module (not shared/exported)
   - `internal/api/` — Implementations of public `api/` interfaces (`@Publish`, `@Component`, etc.)
-  - `internal/model/` — DTOs and value objects only used within this module
+  - `internal/api/model/` — DTOs and value objects only used within this module
 
 The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. 
 

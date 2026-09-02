@@ -1,6 +1,6 @@
 import type { VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
-import type { LogTarget } from '@/model/LogTarget'
+import type { LogTarget } from '@/internal/api/model/LogTarget'
 
 /**
  * Abstraction for a VM provider that can manage micro VM lifecycle.
@@ -36,10 +36,8 @@ export interface IVmProvider {
     recover(): Promise<void>
 
     /**
-     * Starts a new VM for the given workload. For a detached workload the Promise resolves
-     * as soon as the VM is running; for a non-detached one it resolves only once the run has
-     * ended, with the final status and exit code, or rejects if the provider cannot observe
-     * the guest's exit.
+     * Starts a new VM for the given workload, resolving as soon as the VM is running. A
+     * non-detached workload's outcome is observed separately through {@link awaitExit}.
      * @param workload the workload configuration
      * @return a Promise resolving to the workload with updated status
      */
@@ -49,11 +47,19 @@ export interface IVmProvider {
      * Restarts a stopped workload in place: the same VM boots again with its disk state
      * intact and the workload's entrypoint runs again. Fails unless the workload is
      * STOPPED and its VM still exists (a workload stopped with autoRemove has none).
-     * Resolves at boot or at run end the same way as {@link start}.
+     * Resolves at boot the same way as {@link start}.
      * @param workloadId the id of the workload to restart
      * @return a Promise resolving to the workload with updated status
      */
     restart(workloadId: string): Promise<Workload>
+
+    /**
+     * Waits for a running workload's run to end, resolving with its final status and exit
+     * code, or rejecting if the provider cannot observe the guest's exit.
+     * @param workloadId the id of the workload to wait for
+     * @return a Promise resolving to the workload once its run has ended
+     */
+    awaitExit(workloadId: string): Promise<Workload>
 
     /**
      * Stops a running VM for the given workload.
@@ -81,8 +87,9 @@ export interface IVmProvider {
     listWorkloads(): Promise<Workload[]>
 
     /**
-     * Lists the log sources of this provider's running VMs.
-     * @return a Promise resolving to one target per running VM
+     * Lists the log sources of this provider's VMs. A VM whose run has ended keeps its log
+     * source until {@link destroy}, so what it wrote after the shipper last read it still ships.
+     * @return a Promise resolving to one target per VM with a log source on this node
      */
     listLogTargets(): Promise<LogTarget[]>
 }

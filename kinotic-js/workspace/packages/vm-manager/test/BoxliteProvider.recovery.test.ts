@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
-import { LogFormat } from '@/model/LogFormat'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 
 // Real boxlite VMs need virtualization: Hypervisor.framework on macOS, /dev/kvm on Linux.
 // The boxlite runtime aborts the whole process on unsupported hosts, so the gate must be
@@ -96,11 +96,13 @@ describe('BoxliteProvider recovery and restart', () => {
         // The reattached handle really controls the box
         await second.stop(started.id!)
 
-        // Generation 3: recovery after the stop — workload present but dormant
+        // Generation 3: recovery after the stop — workload present but dormant, its log
+        // files still shipped until destroy
         const third = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir, onStatusChanged)
         await third.recover()
         expect((await third.getWorkload(started.id!)).status).toBe(WorkloadStatus.STOPPED)
-        expect(await third.listLogTargets()).toEqual([])
+        const [dormant] = await third.listLogTargets()
+        expect(dormant!.vmId).toBe(target!.vmId)
 
         // Restart in place: same VM, disk intact, shipping resumes
         const restarted = await third.restart(started.id!)

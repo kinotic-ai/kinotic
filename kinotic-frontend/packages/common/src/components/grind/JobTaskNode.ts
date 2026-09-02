@@ -21,5 +21,13 @@ export interface JobTaskNode {
   finished: number | null
   /** Latest live progress, present only while a watched task is running. */
   progress: JobTaskProgress | null
+  /** The job scope name the task's value is stored under, once known. */
+  storedName: string | null
+  /**
+   * The task's stored value as published to watchers while the run executes, or as
+   * recorded on the task once it completed; null until then, or when the value is neither
+   * published nor recorded.
+   */
+  storedValue: unknown
   children: JobTaskNode[]
 }

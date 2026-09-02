@@ -20,7 +20,8 @@ import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.services.JobService;
-import org.kinotic.system.internal.api.model.deployment.DeployTarget;
+import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
 import org.springframework.stereotype.Component;
 
@@ -156,10 +157,10 @@ public class ProjectDeployOrchestrator {
                 .onSuccess(deployment -> handle.getEvents().subscribe(
                         event -> {
                             if (event instanceof TaskCompletedEvent completed) {
-                                if (ProjectDeployJobDefinitionFactory.DEPLOY_TARGET.equals(completed.storedName())
+                                if (ProjectDeployStores.DEPLOY_TARGET.equals(completed.storedName())
                                         && completed.storedValue() instanceof DeployTarget resolved) {
                                     target.set(resolved);
-                                } else if (ProjectDeployJobDefinitionFactory.RUNTIME_WORKLOAD_ID.equals(completed.storedName())
+                                } else if (ProjectDeployStores.RUNTIME_WORKLOAD_ID.equals(completed.storedName())
                                         && completed.storedValue() instanceof String workloadId) {
                                     runtimeWorkloadId.set(workloadId);
                                 }
@@ -202,6 +203,7 @@ public class ProjectDeployOrchestrator {
                     if (target != null) {
                         current.setNodeId(target.nodeId());
                         current.setHostDir(target.hostDir());
+                        current.setSyncWorkloadId(target.syncWorkloadId());
                     }
                     if (runtimeWorkloadId != null) {
                         current.setRuntimeWorkloadId(runtimeWorkloadId);

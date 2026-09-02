@@ -6,8 +6,14 @@
                 @click="router.push({ name: 'jobs' })" />
       </template>
     </PageHeader>
-
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" />
+    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployStores.hasWorkloadLog">
+      <template #detail="{ node, root }">
+        <WorkloadLogView v-if="ProjectDeployStores.workloadLogOf(node, root)"
+                         :key="ProjectDeployStores.workloadLogOf(node, root)!"
+                         :workload-id="ProjectDeployStores.workloadLogOf(node, root)!" />
+        <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
+      </template>
+    </JobRunProgress>
   </div>
 </template>
 
@@ -15,6 +21,8 @@
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import { JobRunProgress, PageHeader } from '@kinotic-ai/frontend-common'
+import WorkloadLogView from '@/components/WorkloadLogView.vue'
+import ProjectDeployStores from '@/ProjectDeployStores'
 
 defineProps<{
   jobRunId: string

@@ -60,6 +60,26 @@ describe('sync entrypoint', () => {
         return git(seedDir, 'rev-parse', 'HEAD')
     }
 
+    it('mirrors the run into the node log directory when one is named', () => {
+        const logDir = join(baseDir, 'logs')
+        mkdirSync(logDir)
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: git(seedDir, 'rev-parse', 'HEAD'),
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+            KINOTIC_LOG_DIR: logDir,
+            KINOTIC_LOG_MAX_SIZE_MB: '1',
+            KINOTIC_LOG_MAX_FILES: '1',
+        })
+
+        expect(result.status).toBe(0)
+        const content = readFileSync(join(logDir, 'workload.log'), 'utf-8')
+        expect(content).toContain('[workload-runner] syncing')
+        expect(content).toContain('FETCH_HEAD')      // git checkout's own report, forwarded from the child
+        expect(content).toContain('[workload-runner] deployed')
+    })
+
     it('checks out the requested commit and writes the sentinel last', () => {
         const sha = git(seedDir, 'rev-parse', 'HEAD')
 

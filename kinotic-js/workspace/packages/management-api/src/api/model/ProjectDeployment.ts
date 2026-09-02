@@ -35,6 +35,12 @@ export class ProjectDeployment implements Identifiable<string> {
     public runtimeWorkloadId: string | null = null
 
     /**
+     * The id of the sync workload of the most recent deployment run, kept with its logs until
+     * the next run retires it, or null before the first run resolved its target.
+     */
+    public syncWorkloadId: string | null = null
+
+    /**
      * The id of the machine identity the sync workload authenticates as, or null before the
      * project's first deployment. Its secret is reissued for every deployment.
      */

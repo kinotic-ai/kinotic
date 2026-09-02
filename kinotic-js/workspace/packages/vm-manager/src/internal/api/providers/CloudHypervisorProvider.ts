@@ -3,11 +3,12 @@ import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
-import type { LogTarget } from '@/model/LogTarget'
-import { LogFormat } from '@/model/LogFormat'
+import type { LogTarget } from '@/internal/api/model/LogTarget'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
 
@@ -29,7 +30,8 @@ const MANAGED_BY = 'kinotic-vm-manager'
 const STOP_TIMEOUT_SECONDS = 10
 
 /**
- * A container currently managed by this provider.
+ * A container of this provider's, running or not: kept from start until destroy, so the log
+ * file of a run that has ended stays shippable.
  */
 export interface ActiveContainer {
     /** Docker's id for the container, which is also the micro VM's identity on the node. */
@@ -53,6 +55,8 @@ export class CloudHypervisorProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly containers: Map<string, ActiveContainer> = new Map()
+    // Settles once a running container's exit has been recorded; what awaitExit waits on
+    private readonly exitWatches: Map<string, Promise<void>> = new Map()
     private readonly stateDir: string
     private readonly docker: Docker
     private readonly workloadDataDir: string
@@ -201,7 +205,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         // STARTING is persisted first so a crash mid-boot is visible to recover()
         this.persist(workload)
 
-        let exitWatch: Promise<void> = Promise.resolve()
         try {
             this.mounts.prepare(workload)
             // A node provisioned for this provider carries project quotas, so a cap it cannot
@@ -220,7 +223,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            exitWatch = this.watchExit(workload)
+            this.exitWatches.set(id, this.watchExit(workload))
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(id)
@@ -228,12 +231,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         } finally {
             workload.updated = Date.now()
             this.persist(workload)
-        }
-
-        // A non-detached workload runs in the foreground: start resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await exitWatch
         }
 
         return workload
@@ -250,7 +247,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         workload.exitCode = null
         this.persist(workload)
 
-        let exitWatch: Promise<void> = Promise.resolve()
         try {
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
@@ -262,7 +258,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            exitWatch = this.watchExit(workload)
+            this.exitWatches.set(workloadId, this.watchExit(workload))
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(workloadId)
@@ -272,12 +268,12 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.persist(workload)
         }
 
-        // A non-detached workload runs in the foreground: restart resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await exitWatch
-        }
+        return workload
+    }
 
+    async awaitExit(workloadId: string): Promise<Workload> {
+        const workload = this.requireWorkload(workloadId)
+        await (this.exitWatches.get(workloadId) ?? this.watchExit(workload))
         return workload
     }
 
@@ -298,11 +294,11 @@ export class CloudHypervisorProvider implements IVmProvider {
         if (workload.autoRemove ?? false) {
             await this.removeContainer(workloadId)
             this.mounts.releaseQuotas(workload)
+            this.containers.delete(workloadId)
         }
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
-        this.containers.delete(workloadId)
         this.persist(workload)
     }
 
@@ -314,6 +310,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.egress.release(workloadId)
 
         this.containers.delete(workloadId)
+        this.exitWatches.delete(workloadId)
         rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)
     }
@@ -349,18 +346,26 @@ export class CloudHypervisorProvider implements IVmProvider {
     // Reconciles a persisted workload with the actual container state, reattaching when it is
     // still running
     private async recoverContainer(workload: Workload): Promise<void> {
+        const id = workload.id!
+        let info: Docker.ContainerInspectInfo | null = null
+        try {
+            info = await this.docker.getContainer(id).inspect()
+            this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
+        } catch {
+            // Removed (autoRemove) or never created — nothing on the node to attach to
+        }
         if (workload.status !== WorkloadStatus.STARTING &&
             workload.status !== WorkloadStatus.RUNNING &&
             workload.status !== WorkloadStatus.STOPPING) {
             return
         }
-        const id = workload.id!
         try {
-            const info = await this.docker.getContainer(id).inspect()
+            if (info === null) {
+                throw new Error('container not found')
+            }
             if (info.State.Running) {
-                this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
                 workload.status = WorkloadStatus.RUNNING
-                this.watchExit(workload)
+                this.exitWatches.set(id, this.watchExit(workload))
                 console.log(`Reattached to running workload ${id} (container ${info.Id.slice(0, 12)})`)
             } else {
                 workload.status = this.exitedStatus(workload, info)
@@ -404,7 +409,6 @@ export class CloudHypervisorProvider implements IVmProvider {
             workload.exitCode = exitCode
             workload.updated = Date.now()
             this.egress.release(workload.id!)
-            this.containers.delete(workload.id!)
             this.persist(workload)
         }
     }
@@ -436,12 +440,13 @@ export class CloudHypervisorProvider implements IVmProvider {
     }
 
     /**
-     * Pulls the image unless the daemon already has it, which keeps a node able to run images
-     * built on it and keeps a restart off the network.
+     * Pulls the image when its reference floats, or when the daemon does not have it yet. A
+     * pinned image the daemon holds is not pulled again, which keeps a node able to run
+     * images built on it and keeps a restart off the network.
      */
     private async ensureImage(image: string): Promise<void> {
         const local = await this.docker.listImages({ filters: { reference: [image] } })
-        if (local.length > 0) {
+        if (local.length > 0 && !Util.mustPullBeforeStart(image)) {
             return
         }
         const stream = await this.docker.pull(image)

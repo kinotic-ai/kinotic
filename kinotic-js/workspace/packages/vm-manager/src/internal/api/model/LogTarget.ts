@@ -1,4 +1,4 @@
-import type { LogFormat } from '@/model/LogFormat'
+import type { LogFormat } from '@/internal/api/model/LogFormat'
 
 /**
  * A running VM's log source, as consumed by the Alloy config generation: where its log

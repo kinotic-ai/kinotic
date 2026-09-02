@@ -18,12 +18,14 @@ import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
-import org.kinotic.system.internal.api.model.deployment.DeployTarget;
+import org.kinotic.system.api.model.deployment.DeployTarget;
+import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 
@@ -32,23 +34,13 @@ import java.util.concurrent.CompletableFuture;
  * the target node and checkout directory, bring the checkout to the commit with a
  * foreground sync workload, and ensure the long-lived runtime workload serving it.
  * The resolved {@link DeployTarget} and runtime workload id are stored in the job scope
- * under {@link #DEPLOY_TARGET} and {@link #RUNTIME_WORKLOAD_ID}, so the run's
- * {@code TaskCompletedEvent}s carry them to the caller.
+ * under the {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s
+ * and {@code TaskRecord}s carry them to the caller and the console.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ProjectDeployJobDefinitionFactory {
-
-    /**
-     * The job scope name the resolved {@link DeployTarget} is stored under.
-     */
-    public static final String DEPLOY_TARGET = "deployTarget";
-
-    /**
-     * The job scope name the id of the runtime workload serving the deployment is stored under.
-     */
-    public static final String RUNTIME_WORKLOAD_ID = "runtimeWorkloadId";
 
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
@@ -72,12 +64,15 @@ public class ProjectDeployJobDefinitionFactory {
                 .name("project-deploy-" + projectId)
                 .version("1.0.0")
                 // Store.state: the target is a decision later effects are bound to - the sync
-                // checkout lives on this node - so a resume must replay the recorded choice from
-                // the run's own records, never re-derive it and risk landing on a different node
+                // checkout lives on this node, the sync workload is deployed under its id - so a
+                // resume must replay the recorded choice from the run's own records, never
+                // re-derive it and risk landing on a different node
                 .task(Tasks.fromCallable("Resolve deployment target",
                                          () -> resolveTarget(projectId, existing)
                                                  .toCompletionStage().toCompletableFuture()),
-                      Store.state(DEPLOY_TARGET))
+                      Store.state(ProjectDeployStores.DEPLOY_TARGET).wire())
+                // Store.state: a resume after a later failure replays the synced checkout
+                // rather than syncing it again
                 .task(Tasks.fromCallable("Sync project source", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
@@ -87,9 +82,10 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<String> call() {
                         return syncSource(project, target, commitSha);
                     }
-                }))
+                }), Store.state(ProjectDeployStores.SYNC_WORKLOAD_ID).wire())
                 // wired so watchers of the run can tail the workload's logs mid-run, before
-                // the deployment finishes and the id reaches the ProjectDeployment record
+                // the deployment finishes and the id reaches the ProjectDeployment record; state
+                // so the run's records name the workload afterwards, and a resume keeps it
                 .task(Tasks.fromCallable("Ensure runtime workload", new Callable<CompletableFuture<String>>() {
 
                     @Autowired
@@ -99,20 +95,24 @@ public class ProjectDeployJobDefinitionFactory {
                     public CompletableFuture<String> call() {
                         return ensureRuntimeWorkload(project, target).toCompletionStage().toCompletableFuture();
                     }
-                }), Store.result(RUNTIME_WORKLOAD_ID).wire());
+                }), Store.state(ProjectDeployStores.RUNTIME_WORKLOAD_ID).wire());
     }
 
     /**
-     * Reuses the node and checkout directory of an existing deployment; a first deployment
-     * picks a node with the capacity the sync workload needs and derives the checkout
-     * directory from the node's advertised workload data directory.
+     * Reuses the node and checkout directory of an existing deployment, retiring the sync
+     * workload its last run left for inspection; a first deployment picks a node with the
+     * capacity the sync workload needs and derives the checkout directory from the node's
+     * advertised workload data directory. Either way the run's sync workload gets a fresh id.
      */
     private Future<DeployTarget> resolveTarget(String projectId, ProjectDeployment existing) {
         Future<DeployTarget> ret;
+        String syncWorkloadId = UUID.randomUUID().toString();
         if (existing != null && existing.getNodeId() != null) {
-            ret = Future.succeededFuture(new DeployTarget(existing.getNodeId(),
-                                                          existing.getHostDir(),
-                                                          existing.getRuntimeWorkloadId()));
+            ret = destroyPreviousSyncWorkload(existing)
+                    .map(v -> new DeployTarget(existing.getNodeId(),
+                                               existing.getHostDir(),
+                                               existing.getRuntimeWorkloadId(),
+                                               syncWorkloadId));
         } else {
             Workload probe = new Workload();
             probe.setMemoryMb(deployment().getSyncMemoryMb());
@@ -134,7 +134,8 @@ public class ProjectDeployJobDefinitionFactory {
                             resolved = Future.succeededFuture(
                                     new DeployTarget(node.getId(),
                                                      node.getWorkloadDataDir() + "/projects/" + projectId,
-                                                     null));
+                                                     null,
+                                                     syncWorkloadId));
                         }
                         return resolved;
                     });
@@ -142,10 +143,27 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
+    // The previous run's sync workload may already be gone - removed from the console, or
+    // never recorded because that run failed before its target was known
+    private Future<Void> destroyPreviousSyncWorkload(ProjectDeployment existing) {
+        Future<Void> ret;
+        if (existing.getSyncWorkloadId() == null) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = workloadOrchestrationService.destroyWorkload(existing.getSyncWorkloadId())
+                    .recover(error -> {
+                        log.warn("Previous sync workload {} of project {} could not be destroyed: {}",
+                                 existing.getSyncWorkloadId(), existing.getId(), error.getMessage());
+                        return Future.succeededFuture();
+                    });
+        }
+        return ret;
+    }
+
     /**
-     * Runs the checkout-and-sync workload in the foreground on the target node. A clean
-     * exit destroys the workload, freeing its allocation; a failed run keeps it so its
-     * logs remain inspectable, and fails the job.
+     * Runs the checkout-and-sync workload in the foreground on the target node. The
+     * workload is kept after its run, whatever the outcome, so its logs stay inspectable
+     * until the next deployment retires it; a failed run fails the job.
      */
     private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
@@ -156,8 +174,7 @@ public class ProjectDeployJobDefinitionFactory {
                     Future<String> ret;
                     if (finished.getStatus() == WorkloadStatus.STOPPED
                             && Integer.valueOf(0).equals(finished.getExitCode())) {
-                        ret = workloadOrchestrationService.destroyWorkload(finished.getId())
-                                                          .map(finished.getId());
+                        ret = Future.succeededFuture(finished.getId());
                     } else {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "Sync workload " + finished.getId() + " ended " + finished.getStatus()
@@ -191,6 +208,7 @@ public class ProjectDeployJobDefinitionFactory {
                                   String commitSha) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
+        workload.setId(target.syncWorkloadId());
         workload.setDescription("Checkout and entity sync for project " + project.getId());
         workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());

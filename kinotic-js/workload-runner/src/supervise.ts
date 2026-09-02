@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { watchFile } from 'node:fs'
 import { sentinelPath } from './sentinel.ts'
+import { forwardOutput, log, logError } from './log.ts'
 
 /**
  * Long-lived entrypoint of the runtime workload: runs the project's microservice process
@@ -16,6 +17,7 @@ import { sentinelPath } from './sentinel.ts'
  * - KINOTIC_APP_ENTRY       entry file relative to the checkout
  *                           (default packages/microservices/main/src/main.ts)
  * - KINOTIC_RELOAD_POLL_MS  sentinel poll interval (default 1000)
+ * - KINOTIC_LOG_*           see log.ts
  */
 
 const appDir = process.env.KINOTIC_APP_DIR ?? '/app'
@@ -38,8 +40,9 @@ function startChild(): void {
     pendingRespawn = null
     reloading = false
     startedAt = Date.now()
-    console.log(`[workload-runner] starting ${entry}`)
-    child = spawn('bun', [entry], { cwd: appDir, stdio: 'inherit' })
+    log(`[workload-runner] starting ${entry}`)
+    child = spawn('bun', [entry], { cwd: appDir, stdio: ['inherit', 'pipe', 'pipe'] })
+    forwardOutput(child)
     child.on('exit', (code, signal) => {
         child = null
         if (shuttingDown) {
@@ -50,8 +53,8 @@ function startChild(): void {
             if (Date.now() - startedAt >= STABLE_RUN_MS) {
                 backoffMs = INITIAL_BACKOFF_MS
             }
-            console.error(`[workload-runner] microservice exited (code ${code}, signal ${signal}); `
-                          + `restarting in ${backoffMs / 1000}s`)
+            logError(`[workload-runner] microservice exited (code ${code}, signal ${signal}); `
+                     + `restarting in ${backoffMs / 1000}s`)
             pendingRespawn = setTimeout(startChild, backoffMs)
             backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS)
         }
@@ -88,7 +91,7 @@ process.on('SIGINT', shutdown)
 watchFile(sentinelPath(appDir), { interval: pollMs }, (curr, prev) => {
     // Creation and every rewrite change the mtime; deletion (curr gone) is not a reload
     if (curr.mtimeMs !== prev.mtimeMs && curr.mtimeMs !== 0) {
-        console.log('[workload-runner] reload sentinel changed; restarting microservice')
+        log('[workload-runner] reload sentinel changed; restarting microservice')
         reload()
     }
 })

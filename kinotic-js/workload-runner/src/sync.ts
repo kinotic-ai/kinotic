@@ -1,7 +1,8 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { writeSentinel } from './sentinel.ts'
+import { forwardOutput, log, logError } from './log.ts'
 
 /**
  * One-shot entrypoint of the sync workload: brings the shared checkout directory to the
@@ -20,6 +21,7 @@ import { writeSentinel } from './sentinel.ts'
  *   connection settings the CLI authenticates with; entity sync is skipped when no
  *   credentials are present
  * - KINOTIC_CLI_BIN        overrides the kinotic CLI entry script (development/tests)
+ * - KINOTIC_LOG_*          see log.ts
  */
 
 function require_(name: string): string {
@@ -30,19 +32,27 @@ function require_(name: string): string {
     return value
 }
 
-function run(command: string, args: string[], cwd: string, capture = false): string {
-    const result = spawnSync(command, args, {
-        cwd,
-        stdio: capture ? ['ignore', 'pipe', 'inherit'] : 'inherit',
-        encoding: 'utf-8',
+function run(command: string, args: string[], cwd: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+        forwardOutput(child)
+        child.on('error', reject)
+        child.on('exit', (code, signal) => {
+            if (code === 0) {
+                resolve()
+            } else {
+                reject(new Error(`${command} ${args.join(' ')} exited with ${code ?? signal}`))
+            }
+        })
     })
-    if (result.error) {
-        throw result.error
-    }
+}
+
+function headCommit(workspaceDir: string): string {
+    const result = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: workspaceDir, encoding: 'utf-8' })
     if (result.status !== 0) {
-        throw new Error(`${command} ${args.join(' ')} exited with ${result.status}`)
+        throw new Error(`git rev-parse HEAD exited with ${result.status}: ${result.stderr}`)
     }
-    return capture ? (result.stdout as string).trim() : ''
+    return result.stdout.trim()
 }
 
 /**
@@ -51,14 +61,14 @@ function run(command: string, args: string[], cwd: string, capture = false): str
  * and fetching the explicit ref keeps the transfer to one commit. Untracked files
  * (node_modules) survive between runs so installs stay incremental.
  */
-function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: string | undefined): void {
+async function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: string | undefined): Promise<void> {
     mkdirSync(workspaceDir, { recursive: true })
     if (!existsSync(join(workspaceDir, '.git'))) {
-        run('git', ['init', '--initial-branch=main'], workspaceDir)
+        await run('git', ['init', '--initial-branch=main'], workspaceDir)
     }
 
     const remoteExists = spawnSync('git', ['remote', 'get-url', 'origin'], { cwd: workspaceDir }).status === 0
-    run('git', ['remote', remoteExists ? 'set-url' : 'add', 'origin', cloneUrl], workspaceDir)
+    await run('git', ['remote', remoteExists ? 'set-url' : 'add', 'origin', cloneUrl], workspaceDir)
 
     // The token travels as a per-invocation config value, never `git config`-ed or embedded
     // in the remote URL: the checkout lives on a shared host directory the runtime workload
@@ -66,8 +76,8 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
     const auth = token
         ? ['-c', `http.extraheader=AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString('base64')}`]
         : []
-    run('git', [...auth, 'fetch', '--depth', '1', 'origin', ref], workspaceDir)
-    run('git', ['checkout', '--force', '--detach', 'FETCH_HEAD'], workspaceDir)
+    await run('git', [...auth, 'fetch', '--depth', '1', 'origin', ref], workspaceDir)
+    await run('git', ['checkout', '--force', '--detach', 'FETCH_HEAD'], workspaceDir)
 }
 
 /**
@@ -79,9 +89,9 @@ function syncSource(workspaceDir: string, cloneUrl: string, ref: string, token: 
  * when no credentials are present, so the checkout itself still works against a server the
  * workload cannot reach yet.
  */
-function syncEntities(workspaceDir: string): void {
+async function syncEntities(workspaceDir: string): Promise<void> {
     if (!process.env.KINOTIC_CLIENT_ID && !process.env.KINOTIC_TOKEN) {
-        console.log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
+        log('[workload-runner] no Kinotic credentials in the environment; skipping entity sync')
         return
     }
     // A client credential only resolves when both halves are present, so an id whose secret
@@ -97,7 +107,7 @@ function syncEntities(workspaceDir: string): void {
     // it the definition lands unpublished and every repository call against it fails. The
     // flag only acts on definitions that are not published yet, so redeploys are a no-op for
     // entities already serving data.
-    run('bun', [cliEntry, 'sync', '--publish', '--server', serverUrlFromEnv()], workspaceDir)
+    await run('bun', [cliEntry, 'sync', '--publish', '--server', serverUrlFromEnv()], workspaceDir)
 }
 
 function serverUrlFromEnv(): string {
@@ -107,25 +117,25 @@ function serverUrlFromEnv(): string {
     return `${useSsl ? 'https' : 'http'}://${host}${port ? `:${port}` : ''}`
 }
 
-function main(): void {
+async function main(): Promise<void> {
     const cloneUrl = require_('GIT_CLONE_URL')
     const ref = require_('GIT_REF')
     const token = process.env.GIT_TOKEN
     const workspaceDir = process.env.KINOTIC_WORKSPACE_DIR ?? '/workspace'
 
-    console.log(`[workload-runner] syncing ${ref} into ${workspaceDir}`)
-    syncSource(workspaceDir, cloneUrl, ref, token)
-    run('bun', ['install'], workspaceDir)
-    syncEntities(workspaceDir)
+    log(`[workload-runner] syncing ${ref} into ${workspaceDir}`)
+    await syncSource(workspaceDir, cloneUrl, ref, token)
+    await run('bun', ['install'], workspaceDir)
+    await syncEntities(workspaceDir)
 
-    const commitSha = run('git', ['rev-parse', 'HEAD'], workspaceDir, true)
+    const commitSha = headCommit(workspaceDir)
     writeSentinel(workspaceDir, commitSha)
-    console.log(`[workload-runner] deployed ${commitSha}`)
+    log(`[workload-runner] deployed ${commitSha}`)
 }
 
 try {
-    main()
+    await main()
 } catch (error) {
-    console.error('[workload-runner] sync failed:', error)
+    logError(`[workload-runner] sync failed: ${error instanceof Error ? error.message : String(error)}`)
     process.exit(1)
 }

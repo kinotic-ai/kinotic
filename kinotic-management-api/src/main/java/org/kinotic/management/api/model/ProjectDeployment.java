@@ -48,6 +48,13 @@ public class ProjectDeployment implements ApplicationScoped<String> {
     private String runtimeWorkloadId;
 
     /**
+     * The id of the sync workload of the most recent deployment run, kept with its logs
+     * until the next run retires it, or {@code null} before the first run resolved its
+     * target.
+     */
+    private String syncWorkloadId;
+
+    /**
      * The id of the machine identity the sync workload authenticates as, or {@code null}
      * before the project's first deployment. Its secret is reissued for every deployment.
      */

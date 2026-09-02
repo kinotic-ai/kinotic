@@ -12,6 +12,7 @@ import org.kinotic.grind.api.model.events.TaskFailedEvent;
 import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grind.api.model.Store;
+import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.Tasks;
 
@@ -60,6 +61,24 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         TaskCompletedEvent rootCompleted = assertInstanceOf(TaskCompletedEvent.class, events.get(6));
         assertEquals("0", rootCompleted.taskPath());
         assertEquals(7, events.size());
+    }
+
+    @Test
+    public void discoveryCarriesTheDeclaredStoreName() throws Exception {
+        JobDefinition job = JobDefinition.create("declared")
+                .name("declared").version("1")
+                .task(Tasks.fromValue("produce widget", new Widget("named")), Store.state("widgetOfRecord"))
+                .task(Tasks.fromValue("produce another", new Widget("derived")), Store.result());
+
+        RunResult result = await(jobService.run(job, JobOwner.system()));
+
+        TasksDiscoveredEvent discovered = assertInstanceOf(TasksDiscoveredEvent.class, result.events().get(0));
+        TaskRecord named = discovered.tasks().stream().filter(r -> r.getTaskPath().equals("0/1")).findFirst().orElseThrow();
+        assertEquals("widgetOfRecord", named.getStoredName());
+        assertEquals(StoreType.STATE, named.getStoreType());
+        // A store that derives its name from the value cannot name it before the value exists
+        TaskRecord derived = discovered.tasks().stream().filter(r -> r.getTaskPath().equals("0/2")).findFirst().orElseThrow();
+        assertNull(derived.getStoredName());
     }
 
     @Test
@@ -114,16 +133,21 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         AtomicReference<ExecutionStatus> ownStatusSeenByFirst = new AtomicReference<>();
         AtomicReference<ExecutionStatus> firstStatusSeenBySecond = new AtomicReference<>();
         AtomicReference<ExecutionStatus> ownStatusSeenBySecond = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> thirdStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<String> thirdStoredNameSeenByFirst = new AtomicReference<>();
         JobDefinition job = JobDefinition.create("write-ahead")
                 .name("write-ahead").version("1")
                 .task(Tasks.fromRunnable("first", () -> {
                     runStatusSeenByFirst.set(repository.savedRuns.get(runId.get()).getStatus());
                     ownStatusSeenByFirst.set(repository.taskAt(runId.get(), "0/1").getStatus());
+                    thirdStatusSeenByFirst.set(repository.taskAt(runId.get(), "0/3").getStatus());
+                    thirdStoredNameSeenByFirst.set(repository.taskAt(runId.get(), "0/3").getStoredName());
                 }))
                 .task(Tasks.fromRunnable("second", () -> {
                     firstStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/1").getStatus());
                     ownStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/2").getStatus());
-                }));
+                }))
+                .task(Tasks.fromValue("third", new Widget("ahead")), Store.state("widgetOfRecord"));
 
         JobRunHandle handle = jobService.run(job, JobOwner.system());
         runId.set(handle.getJobRunId());
@@ -134,6 +158,9 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         assertEquals(ExecutionStatus.RUNNING, ownStatusSeenByFirst.get());
         assertEquals(ExecutionStatus.COMPLETED, firstStatusSeenBySecond.get());
         assertEquals(ExecutionStatus.RUNNING, ownStatusSeenBySecond.get());
+        // A task not yet reached is on the ledger already, named by what it will store
+        assertEquals(ExecutionStatus.PENDING, thirdStatusSeenByFirst.get());
+        assertEquals("widgetOfRecord", thirdStoredNameSeenByFirst.get());
         // the stream terminates only after the terminal records have landed
         assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }

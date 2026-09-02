@@ -4,8 +4,8 @@ import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import type { LogTarget } from '@/model/LogTarget'
-import { LogFormat } from '@/model/LogFormat'
+import type { LogTarget } from '@/internal/api/model/LogTarget'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 
 // AlloyManager resolves `alloy` from the PATH, so a harmless stand-in on the PATH lets
 // the full start path (binary resolution, orphan takeover, spawn, pid file) run for real.
@@ -90,6 +90,12 @@ describe('applyTargets pipeline generation', () => {
 
         expect(withApp).toContain('application_id = "app-7"')
         expect(withoutApp).not.toContain('application_id')
+    })
+
+    it('rescans a target path every second, so a short-lived run is discovered while it writes', async () => {
+        const config = await configFor([target()])
+
+        expect(config).toContain('sync_period  = "1s"')
     })
 
     it('derives valid component names from UUID workload ids', async () => {

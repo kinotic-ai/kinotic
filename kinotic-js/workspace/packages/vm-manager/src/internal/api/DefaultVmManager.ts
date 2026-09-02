@@ -47,7 +47,7 @@ export class DefaultVmManager implements IVmManager {
             }
             const started = await this.provider.start(workload)
             await this.refreshLogShipping()
-            return started
+            return this.settled(started)
         })
     }
 
@@ -55,8 +55,14 @@ export class DefaultVmManager implements IVmManager {
         return this.logged('restartWorkload', workloadId, async () => {
             const restarted = await this.provider.restart(workloadId)
             await this.refreshLogShipping()
-            return restarted
+            return this.settled(restarted)
         })
+    }
+
+    // A non-detached workload runs in the foreground: its reply carries the run's outcome.
+    // Log shipping is configured before the wait, so a run over in seconds is still tailed
+    private settled(workload: Workload): Promise<Workload> {
+        return (workload.detached ?? true) ? Promise.resolve(workload) : this.provider.awaitExit(workload.id!)
     }
 
     async stopWorkload(workloadId: string): Promise<void> {
@@ -68,6 +74,11 @@ export class DefaultVmManager implements IVmManager {
 
     async destroyWorkload(workloadId: string): Promise<void> {
         return this.logged('destroyWorkload', workloadId, async () => {
+            // Destroy deletes the log files, so what the shipper has not read yet goes first
+            const target = (await this.provider.listLogTargets()).find(t => t.workloadId === workloadId)
+            if (target && this.alloyManager) {
+                await this.alloyManager.awaitShipped(target)
+            }
             await this.provider.destroy(workloadId)
             await this.refreshLogShipping()
         })

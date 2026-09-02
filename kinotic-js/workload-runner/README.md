@@ -59,3 +59,16 @@ must not hold a credential.
 
 A microservice process that dies is respawned with a backoff doubling from 1s to 30s; a
 sentinel change restarts it immediately.
+
+## Logs
+
+Both entrypoints write everything — their own messages and the output of the processes they
+run — to stdout and stderr. A node whose VM runtime captures no stdout (`BOXLITE`) mounts a
+log directory into the guest and names it in the environment; the runner then also writes
+into a size-rotated file there, which is what that node ships.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_LOG_DIR` | directory to write `workload.log` into | unset: stdout only |
+| `KINOTIC_LOG_MAX_SIZE_MB` | size at which `workload.log` rotates | required with the directory |
+| `KINOTIC_LOG_MAX_FILES` | rotated files (`workload.log.1` …) kept beside it | required with the directory |

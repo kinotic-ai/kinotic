@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     nodeId KEYWORD,
     hostDir KEYWORD,
     runtimeWorkloadId KEYWORD,
+    syncWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
     runtimeMachineIdentityId KEYWORD,
     commitSha KEYWORD,
