@@ -268,7 +268,7 @@ The default sits under the home directory of the account the vm-manager runs as,
 
 ## Workload images
 
-A workload's image is pulled before every start when its reference floats — no tag, or `latest` — so a node runs what the registry holds now rather than the copy it pulled first. A reference pinning a tag other than `latest` or a digest names one immutable image, and is pulled only when the node does not have it yet. Both providers apply the rule, which is the one Kubernetes uses as its default `imagePullPolicy`.
+A workload's image is pulled before every start when its reference floats — no tag, or `latest` — so a node runs what the registry holds now rather than the copy it pulled first. A reference pinning a tag other than `latest` or a digest names one immutable image, and is pulled only when the node does not have it yet. Both providers apply the rule, which is the one Kubernetes uses as its default `imagePullPolicy`. A `BOXLITE` node resolves a floating tag to its current digest through the registry itself, anonymously, so its images must be public; a `CLOUD_HYPERVISOR` node has the container runtime pull the tag.
 
 ## Workload egress
 
