@@ -3,7 +3,7 @@
     v-model:visible="visible"
     modal
     :header="`Logging — ${nodeId}`"
-    :style="{ width: '34rem', maxWidth: '95vw' }"
+    :style="{ width: '52rem', maxWidth: '95vw' }"
     @show="opened"
   >
     <p class="mb-4 text-sm text-muted-color">
