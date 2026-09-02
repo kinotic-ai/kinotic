@@ -1,0 +1,1 @@
+{"id":"dba119d136d9dc67a21c4f6e138dd14d","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenAlterTable_thenColumnAdded","name":"whenAlterTable_thenColumnAdded()","status":"passed","testResultsByEnv":{"default":"2171efcbd8c65f242b369c3a5f47984a"}}
