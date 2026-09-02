@@ -55,7 +55,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<Project>> {
 }
 
 // findProjects has no server-side search, so filtering is client-side over the page
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (project: Project) => ({

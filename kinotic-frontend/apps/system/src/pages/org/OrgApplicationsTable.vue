@@ -56,7 +56,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<Application>> {
 }
 
 // findApplications has no server-side search, so filtering is client-side over the page
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (app: Application) => ({ id: app.id ?? '', name: app.name, description: app.description, updated: app.updated }),

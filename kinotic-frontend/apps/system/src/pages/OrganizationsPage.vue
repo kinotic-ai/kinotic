@@ -54,7 +54,7 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: true }
 ]
 
-const { crudTable, tableSearch, dataSource } = useCrudTablePage(load)
+const { tableSearch, dataSource } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const orgs = searchText

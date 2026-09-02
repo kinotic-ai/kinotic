@@ -98,7 +98,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side delegate search; a user has few delegates, so filtering the page suffices
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.delegates.findMyDelegates(pageable),
     toRow,

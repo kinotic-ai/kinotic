@@ -126,7 +126,7 @@ const toast = useToast()
 const confirm = useConfirm()
 const userState = KinoticStates.getUserState()
 
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
