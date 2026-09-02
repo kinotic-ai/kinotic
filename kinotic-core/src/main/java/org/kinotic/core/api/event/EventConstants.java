@@ -65,6 +65,17 @@ public class EventConstants {
     public static final String ORIGIN_CRI_HEADER = "__origin-cri";
 
     /**
+     * Marks a request the gateway matched against {@code kinotic.traceLog}. Persisted onto every
+     * reply the request produces, so a reply frame, which is addressed to the caller and names no
+     * service to match, is left out of trace logging along with the request it answers.
+     *
+     * Server-side bookkeeping, set only while trace logging is on: it travels between the gateway
+     * and whatever answers the request, and the gateway strips it from every frame it writes to a
+     * client.
+     */
+    public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
+
+    /**
      * Denotes that something caused an error. Will contain a brief message about the error.
      */
     public static final String ERROR_HEADER = "error";

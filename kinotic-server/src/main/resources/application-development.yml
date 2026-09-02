@@ -1,6 +1,9 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
+  traceLog:
+    excludes:
+      - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/heartbeat"
   persistence:
     # A single-node dev cluster cannot assign replicas, and every published EntityDefinition costs
     # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster

@@ -61,7 +61,7 @@
                 <Tag v-if="node.local" severity="info" value="serving request" />
               </td>
               <td class="border-b border-surface px-2 py-1.5 text-right">
-                <Button label="Log level" icon="pi pi-sliders-h" severity="secondary" text size="small"
+                <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
                         @click="openLogLevel(node.nodeId)" />
               </td>
             </tr>

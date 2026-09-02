@@ -61,6 +61,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final SecurityContext securityContext;
     private final TextMapPropagator propagator;
     private final Tracer tracer;
+    private final TraceLogFilter traceLogFilter;
     private final Vertx vertx;
 
     private final Map<Method, Integer> methodsWithScopeAnnotation = new HashMap<>();
@@ -82,7 +83,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         SecurityContext securityContext,
                                         Vertx vertx,
                                         ClassLoader classLoader,
-                                        OpenTelemetry openTelemetry) {
+                                        OpenTelemetry openTelemetry,
+                                        TraceLogFilter traceLogFilter) {
 
         Validate.notNull(serviceIdentifier, "serviceIdentifier must not be null");
         Validate.notBlank(nodeName, "nodeName must not be blank");
@@ -94,6 +96,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
         Validate.notNull(openTelemetry, "openTelemetry must not be null");
+        Validate.notNull(traceLogFilter, "traceLogFilter must not be null");
 
         this.serviceIdentifier = serviceIdentifier;
         this.nodeName = nodeName;
@@ -105,6 +108,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.securityContext = securityContext;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
+        this.traceLogFilter = traceLogFilter;
         this.vertx = vertx;
 
         this.handlerCRI = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME, encodedNodeName + ":" + UUID.randomUUID(), KinoticUtil.safeEncodeURI(serviceClass.getName())+"RpcProxyResponseHandler");
@@ -243,10 +247,6 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
         }else if(!released.get()){
 
-            if(log.isTraceEnabled()){
-                log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
-            }
-
             // Get all data for remote invocation. If anything fails in this step the error automatically props up
             // This way no ReturnValueHandler is created until message is ready to get dispatched to remote end
 
@@ -284,6 +284,10 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         serviceIdentifier.qualifiedName(),
                                         "/" + method.getName(),
                                         serviceIdentifier.version());
+
+            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(requestCri.raw())){
+                log.trace("Proxy for {} Method Invoked {}", serviceClass.getSimpleName(), method.toString());
+            }
 
             // Propagate the participant active on the calling context so the callee sees the originator.
             Event<byte[]> rpcOutboundEvent = Event.create(requestCri,
