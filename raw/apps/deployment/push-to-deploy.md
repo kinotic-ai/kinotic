@@ -33,8 +33,8 @@ outcome, so the log stays readable until the next deployment retires it.
 3. **Ensure runtime workload** — the first deployment starts the long-lived VM that runs
 your project's microservices from the checkout (mounted read-only). Later deployments
 leave a running VM alone: its supervisor sees the reload signal and restarts your
-services onto the new commit. A VM that was stopped is started again, and one that is
-gone is replaced.
+services onto the new commit. A VM that was stopped or has crashed is retired and
+replaced by a fresh one, never started again with the state that may have failed it.
 
 The runtime supervisor restarts your services as whole processes, with escalating backoff
 if they crash immediately after a reload.
