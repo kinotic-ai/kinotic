@@ -1,0 +1,1 @@
+{"id":"fb288b1ff4bd94c6c172243b2ca70271","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenNumberLiterals_thenNarrowedToJavaTypes","name":"whenNumberLiterals_thenNarrowedToJavaTypes()","status":"passed","testResultsByEnv":{"default":"0d6dc8167995e73c59b5acc436c0647f"}}

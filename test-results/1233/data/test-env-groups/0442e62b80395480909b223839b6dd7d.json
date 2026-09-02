@@ -1,0 +1,1 @@
+{"id":"0442e62b80395480909b223839b6dd7d","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenUpdateSetsObjectLiteral_thenMergedIntoStoredObject","name":"whenUpdateSetsObjectLiteral_thenMergedIntoStoredObject()","status":"passed","testResultsByEnv":{"default":"f2c46983625693890ae7d1134f73d17d"}}
