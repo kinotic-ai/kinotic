@@ -66,10 +66,13 @@ const pageRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/JobsPage.vue'),
       },
       {
+        // Drill-down view: the sidebar gives way to the run itself, and the page
+        // header's "All jobs" action is the way back out
         name: 'job-run',
         path: ':jobRunId',
         component: () => import('@/pages/JobRunPage.vue'),
         props: true,
+        meta: { hideSidebar: true } as RouteMeta,
       },
     ]
   },
