@@ -27,8 +27,10 @@ public class DeploymentProperties {
 
     /**
      * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
-     * in the guest). There is no advertised-address the server knows about itself, so
-     * deployments must configure how workloads reach it.
+     * in the guest), and the one destination every workload's egress policy always permits.
+     * There is no advertised-address the server knows about itself, so deployments must
+     * configure how workloads reach it. Must be an IPv4 address on nodes whose egress
+     * rules match addresses only ({@code CLOUD_HYPERVISOR}).
      */
     @NotBlank
     private String serverHost;
@@ -55,12 +57,6 @@ public class DeploymentProperties {
      * gateway.
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
-
-    /**
-     * Destinations (IPv4 addresses or CIDRs) that resolve the gateway itself, granted to
-     * both workloads on top of the lists above.
-     */
-    private List<String> serverAllowedHosts = new ArrayList<>();
 
     /**
      * Memory of the sync workload's VM in megabytes. It compiles the project's entity

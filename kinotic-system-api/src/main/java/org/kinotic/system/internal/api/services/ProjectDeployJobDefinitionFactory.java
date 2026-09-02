@@ -245,7 +245,7 @@ public class ProjectDeployJobDefinitionFactory {
 
     private static List<String> allowedHosts(List<String> workloadHosts, DeploymentProperties deployment) {
         List<String> hosts = new ArrayList<>(workloadHosts);
-        hosts.addAll(deployment.getServerAllowedHosts());
+        hosts.add(deployment.getServerHost());
         return hosts;
     }
 

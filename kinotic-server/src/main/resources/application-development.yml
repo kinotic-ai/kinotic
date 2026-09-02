@@ -21,10 +21,10 @@ kinotic:
       # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
       # they reach the gateway at 172.17.0.1.
       serverHost: 192.168.127.254
-      # serverHost says where the gateway is; this says a workload may reach it. They are
-      # separate lists, and a workload given the address without the permission cannot connect.
-      serverAllowedHosts:
-        - 192.168.127.254
+      # The sync workload fetches the project from GitHub and runs bun install
+      syncAllowedHosts:
+        - github.com
+        - registry.npmjs.org
   domain:
     # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
     # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With
