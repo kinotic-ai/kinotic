@@ -1,1 +1,0 @@
-{"id":"7eda473ac902673b5ac317be748ff3d9","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenNoMigrations_thenNoMigrationsApplied","name":"whenNoMigrations_thenNoMigrationsApplied()","status":"passed","testResultsByEnv":{"default":"7b2d1eb959963dec92f702fe75a74da0"}}
