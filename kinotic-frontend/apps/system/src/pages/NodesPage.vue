@@ -63,6 +63,7 @@
       :headers="headers"
       :data-source="dataSource"
       :search="tableSearch"
+      :default-sort="DEFAULT_SORT"
       :is-show-add-new="false"
       :disable-modifications="true"
       :row-actions="rowActions"
@@ -136,6 +137,8 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   created: number | null
   autoRemove: boolean
 }
+
+const DEFAULT_SORT = [new Order('created', Direction.DESC)]
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },

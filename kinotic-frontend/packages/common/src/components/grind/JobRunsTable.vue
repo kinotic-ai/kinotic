@@ -4,6 +4,7 @@
     :headers="headers"
     :data-source="dataSource"
     :search="tableSearch"
+    :default-sort="DEFAULT_SORT"
     :is-show-add-new="false"
     :disable-modifications="true"
     empty-state-text="No job runs"
@@ -31,7 +32,8 @@
 
 <script setup lang="ts">
 import Tag from 'primevue/tag'
-import { Kinotic, FunctionalIterablePage, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
+import { Direction, Kinotic, FunctionalIterablePage, Order,
+         type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { JobRun } from '@kinotic-ai/management-api'
 import CrudTable from '../CrudTable.vue'
 import { useCrudTablePage } from '../useCrudTablePage'
@@ -41,7 +43,7 @@ import DatetimeUtil from '../../util/DatetimeUtil'
 import { executionStatusSeverity } from './jobRunDisplay'
 
 /**
- * The job runs the caller may view, newest knowledge first as the facade returns them.
+ * The job runs the caller may view, most recently started first.
  * Emits open with the run id when a row is clicked; refresh() reloads the table.
  */
 const emit = defineEmits<{
@@ -50,6 +52,8 @@ const emit = defineEmits<{
 
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
+
+const DEFAULT_SORT = [new Order('started', Direction.DESC)]
 
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },
