@@ -56,15 +56,14 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         stompServerConnection.pause();
 
         if(log.isTraceEnabled()){
-            boolean excluded = traceLogFilter.isExcluded(frame.getDestination());
-            if(!excluded){
+            if(traceLogFilter.isExcluded(frame.getDestination())){
+                // The reply comes back on the client's reply destination, which names no service to
+                // match, so the exclusion is marked here and rides back on the reply, which persists
+                // every __ header of the request it answers
+                frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
+            }else{
                 log.trace("Send Frame received\n{}", frame.toString());
             }
-            // The reply comes back on the client's reply destination, which no include ever names
-            // and a broad exclude like ** does match, so it has to follow the request's verdict
-            // rather than its own CRI -- false included, or an included service loses its replies.
-            // A reply persists every __ header of the request it answers, so the verdict rides back.
-            frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, Boolean.toString(excluded));
         }
 
         Event<byte[]> incomingEvent = new FrameEventAdapter(frame);

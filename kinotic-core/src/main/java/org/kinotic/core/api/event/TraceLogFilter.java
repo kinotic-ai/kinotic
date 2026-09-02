@@ -32,39 +32,33 @@ public class TraceLogFilter {
     }
 
     /**
-     * Whether the event belongs to an exchange excluded from trace logging.
-     * A reply carries the verdict reached for the request it answers, so an exchange is logged or
-     * dropped as a whole rather than judged again by the reply destination it came back on.
+     * Whether the event belongs to an exchange excluded from trace logging: it was marked excluded
+     * when the request entered, or its own {@link CRI} matches.
      *
      * @param event the event about to be logged
      * @return true if the event must not be trace logged
      */
     public boolean isExcluded(Event<?> event) {
-        boolean ret;
-        String verdict = event.metadata().get(EventConstants.TRACE_EXCLUDED_HEADER);
-        if (verdict != null) {
-            ret = Boolean.parseBoolean(verdict);
-        } else {
-            ret = isExcluded(event.cri().raw());
-        }
-        return ret;
+        return event.metadata().contains(EventConstants.TRACE_EXCLUDED_HEADER)
+                || isExcluded(event.cri().raw());
     }
 
     /**
-     * Whether the given {@link CRI} is excluded from trace logging: it matches one of the exclude
-     * patterns and none of the include patterns.
+     * Whether the given service {@link CRI} is excluded from trace logging: it matches one of the
+     * exclude patterns and none of the include patterns. Any other scheme is never excluded.
      *
      * @param rawCri the fully qualified {@link CRI} the traffic is addressed to
      * @return true if traffic addressed to the {@link CRI} must not be trace logged
      */
     public boolean isExcluded(String rawCri) {
-        // One read, so includes and excludes are always weighed as the single setting they were set as
-        TraceLogProperties current = patterns;
-        boolean ret;
-        if (matchesAny(current.getIncludes(), rawCri)) {
-            ret = false;
-        } else {
-            ret = matchesAny(current.getExcludes(), rawCri);
+        boolean ret = false;
+        // Patterns name services. A reply destination belongs to a connected client and names no
+        // service, so matching one would let an exclude of ** drop replies the includes meant to
+        // keep; a reply is judged by the marker its request carried instead
+        if (rawCri.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME + ":")) {
+            // One read, so includes and excludes are weighed as the single setting they were set as
+            TraceLogProperties current = patterns;
+            ret = !matchesAny(current.getIncludes(), rawCri) && matchesAny(current.getExcludes(), rawCri);
         }
         return ret;
     }

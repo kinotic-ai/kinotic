@@ -17,6 +17,7 @@ public class TraceLogFilterTest {
 
     private static final String SERVICE = "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService";
     private static final String OTHER_SERVICE = "srv://system-api~org.kinotic.system.api.services.KinoticClusterInfoService";
+    private static final String REPLY_CRI = "reply://0b5b4516:a8a95015@kinotic.js.EventBus/replyHandler";
 
     @Test
     public void wildcardPatternExcludesEveryMethodOfTheService() {
@@ -70,7 +71,14 @@ public class TraceLogFilterTest {
 
         assertFalse(filter.isExcluded(SERVICE + "/heartbeat"));
         assertTrue(filter.isExcluded(OTHER_SERVICE + "/findAll"));
-        assertTrue(filter.isExcluded("reply://0b5b4516:a8a95015@kinotic.js.EventBus/replyHandler"));
+    }
+
+    @Test
+    public void onlyServiceDestinationsAreMatchedAtAll() {
+        TraceLogFilter filter = filterFor(List.of(), List.of("**"));
+
+        assertFalse(filter.isExcluded(REPLY_CRI));
+        assertFalse(filter.isExcluded("stream://org.kinotic.tests.SomeEvent"));
     }
 
     @Test
@@ -106,18 +114,19 @@ public class TraceLogFilterTest {
     }
 
     @Test
-    public void aReplyFollowsTheVerdictReachedForItsRequest() {
+    public void aReplyIsExcludedOnlyByTheMarkerItsRequestCarried() {
         TraceLogFilter filter = filterFor(List.of(SERVICE + "/**"), List.of("**"));
-        String replyCri = "reply://0b5b4516:a8a95015@kinotic.js.EventBus/replyHandler";
 
-        assertFalse(filter.isExcluded(replyTo(replyCri, false)));
-        assertTrue(filter.isExcluded(replyTo(replyCri, true)));
+        assertFalse(filter.isExcluded(reply(false)));
+        assertTrue(filter.isExcluded(reply(true)));
     }
 
-    private Event<byte[]> replyTo(String replyCri, boolean excluded) {
+    private Event<byte[]> reply(boolean marked) {
         Metadata metadata = Metadata.create();
-        metadata.put(EventConstants.TRACE_EXCLUDED_HEADER, Boolean.toString(excluded));
-        return Event.create(replyCri, metadata, new byte[0]);
+        if (marked) {
+            metadata.put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
+        }
+        return Event.create(REPLY_CRI, metadata, new byte[0]);
     }
 
     private TraceLogFilter excluding(String... excludes) {

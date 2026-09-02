@@ -25,7 +25,6 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     private final StompServerConnection connection;
     private final JsonMapper jsonMapper;
     private final TraceLogFilter traceLogFilter;
-    private final boolean serviceSubscription;
 
     public StompSubscriptionEventSubscriber(String destination,
                                             String subscriptionId,
@@ -37,7 +36,6 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
         this.connection = connection;
         this.jsonMapper = jsonMapper;
         this.traceLogFilter = traceLogFilter;
-        this.serviceSubscription = destination.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME + ":");
     }
 
     @Override
@@ -51,14 +49,11 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
                 frame.getHeaders().put(EventConstants.SENDER_HEADER, jsonMapper.writeValueAsString(event.sender()));
             }
 
-            // The trace verdict is the server's own logging bookkeeping, set only while trace
-            // logging is on. Only a srv:// subscriber answers what it receives, so only it needs
-            // the verdict to ride along on its reply; every other subscription ends the exchange
-            // at this client, where it is noise the client has no business seeing.
             if(log.isTraceEnabled()) {
-                if(!serviceSubscription) {
-                    frame.getHeaders().remove(EventConstants.TRACE_EXCLUDED_HEADER);
-                }
+                // The marker is the server's own logging bookkeeping, set only while trace logging
+                // is on. It is read off the event, so dropping it here keeps it out of every frame
+                // a client receives.
+                frame.getHeaders().remove(EventConstants.TRACE_EXCLUDED_HEADER);
                 if(!traceLogFilter.isExcluded(event)) {
                     log.trace("Sending Frame\n{}", frame);
                 }
