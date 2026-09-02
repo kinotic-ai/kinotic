@@ -40,11 +40,13 @@ let heartbeatTimer: Timer | null = null
 let shuttingDown = false
 let reconnecting = false
 
-// Backoff between reconnect attempts after a fatal event bus error, jittered so a fleet of
-// nodes does not retry a restarting server in lockstep
+// The reconnect delay doubles from the initial value up to the maximum. The jitter is added
+// after that clamp, so a fleet of nodes that lost the server together stays spread out even
+// once every one of them has settled at the maximum delay.
 const RECONNECT_INITIAL_DELAY_MS = 2000
-const RECONNECT_MAX_DELAY_MS = 60000
-const RECONNECT_JITTER_MS = 5000
+const RECONNECT_MAX_DELAY_MS = 120000
+const RECONNECT_MIN_JITTER_MS = 1000
+const RECONNECT_MAX_JITTER_MS = 5000
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
@@ -99,10 +101,11 @@ function logShippingProblems(): string[] {
 }
 
 /**
- * Rejoins the server after the event bus fails fatally. A fatal error deactivates the connection
- * for good — a gateway restart that invalidates this connection's reply destination is the common
- * cause — so without this the node keeps running its workloads while the orchestrator sees it go
- * offline. Retries until it connects: the workloads outlive the server being down.
+ * Rejoins the server after the event bus fails fatally. An ordinary dropped connection is the
+ * STOMP client's own reconnect; a fatal error — a server ERROR frame, credentials that no longer
+ * resolve — deactivates the connection for good instead, so without this the node keeps running
+ * its workloads while the orchestrator sees it go offline. Retries until it connects: the
+ * workloads outlive the server being down.
  */
 function reconnectOnFatalError() {
     Kinotic.eventBus.fatalErrors.subscribe(async (error: Error) => {
@@ -115,7 +118,9 @@ function reconnectOnFatalError() {
         try {
             let delayMs = RECONNECT_INITIAL_DELAY_MS
             while (!shuttingDown && !Kinotic.eventBus.isConnectionActive()) {
-                await new Promise(resolve => setTimeout(resolve, delayMs + Math.random() * RECONNECT_JITTER_MS))
+                const jitterMs = RECONNECT_MIN_JITTER_MS
+                                 + Math.random() * (RECONNECT_MAX_JITTER_MS - RECONNECT_MIN_JITTER_MS)
+                await new Promise(resolve => setTimeout(resolve, delayMs + jitterMs))
                 try {
                     // Published services and observed destinations re-subscribe with the new
                     // connection, and the next heartbeat marks the node online again
@@ -123,7 +128,7 @@ function reconnectOnFatalError() {
                     console.log('Reconnected to the Kinotic server')
                 } catch (e) {
                     delayMs = Math.min(delayMs * 2, RECONNECT_MAX_DELAY_MS)
-                    console.error(`Reconnect failed, retrying in ${delayMs / 1000}s:`, e)
+                    console.error(`Reconnect failed, retrying in ~${delayMs / 1000}s:`, e)
                 }
             }
         } finally {

@@ -56,7 +56,7 @@ public class PersistenceInitializer {
                                           lastEsStatus = false;
                                           lastEsError = throwable;
                                       }else{
-                                          log.debug("Elasticsearch cluster health check succeeded");
+                                          log.trace("Elasticsearch cluster health check succeeded");
                                           lastEsStatus = true;
                                           lastEsError = null;
                                       }
