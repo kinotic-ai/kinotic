@@ -629,7 +629,11 @@ under `kinotic.systemApi.deployment.*`:
         KINOTIC_SERVER_HOST
       </code>
       
-       in the guest). The server has no advertised address of its own, so startup fails without it
+       in the guest), and the one destination every workload's egress policy always permits. The server has no advertised address of its own, so startup fails without it. Must be an IPv4 address for <code>
+        CLOUD_HYPERVISOR
+      </code>
+      
+       nodes, whose egress rules reject names
     </td>
   </tr>
   
@@ -724,24 +728,6 @@ under `kinotic.systemApi.deployment.*`:
     
     <td>
       Destinations the runtime workload may reach beyond the gateway
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        serverAllowedHosts
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        []
-      </code>
-    </td>
-    
-    <td>
-      Destinations that resolve the gateway itself, granted to both workloads on top of the lists above
     </td>
   </tr>
   
