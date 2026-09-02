@@ -169,6 +169,19 @@ dependencies {
     implementation 'io.opentelemetry:opentelemetry-api'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations'
 
+    // reactor-netty, pulled in by the Azure SDK, pins these three natives to x86 classifiers only, so on
+    // Apple Silicon and arm64 Linux NativeLibraryLoader looks up the *_aarch_64 library and finds none.
+    // MacOSDnsServerAddressStreamProvider reports that as an UnsatisfiedLinkError and Netty drops to
+    // resolv.conf parsing that ignores the VPN and per-domain resolvers; epoll and kqueue just fall back
+    // to NIO. Declaring both classifiers of each keeps one build correct on either architecture. There is
+    // no macOS-style DNS native for Linux, netty reads resolv.conf in pure Java there.
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-x86_64'
+    runtimeOnly 'io.netty:netty-transport-native-epoll::linux-aarch_64'
+    runtimeOnly 'io.netty:netty-transport-native-epoll::linux-x86_64'
+    runtimeOnly 'io.netty:netty-transport-native-kqueue::osx-aarch_64'
+    runtimeOnly 'io.netty:netty-transport-native-kqueue::osx-x86_64'
+
     implementation 'jakarta.annotation:jakarta.annotation-api'
 
     implementation 'org.apache.commons:commons-lang3'
