@@ -157,7 +157,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             problems.push('the node firewall does not block the cloud metadata endpoint, '
                           + "so a workload can read this host's credentials")
         }
-        if (!this.quotas.supports(this.workloadDataDir)) {
+        if (!this.mounts.enforcesQuotas()) {
             problems.push(`${this.workloadDataDir} is not on a filesystem with project quotas, `
                           + 'so a workload can write past the size limit of a writable mount')
         }

@@ -52,6 +52,14 @@ export class VolumeMountManager {
     }
 
     /**
+     * Whether a cap declared on a mount of this node can be enforced at all, which the
+     * filesystem holding the workload data directory decides.
+     */
+    public enforcesQuotas(): boolean {
+        return this.quotas.supports(this.workloadDataDir)
+    }
+
+    /**
      * Fails unless every cap the workload declares can be enforced on this node, so a node
      * provisioned to bound what its workloads write never runs one it cannot bound.
      *
