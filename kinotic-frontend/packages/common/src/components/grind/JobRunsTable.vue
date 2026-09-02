@@ -63,7 +63,7 @@ const headers: CrudHeader[] = [
   { field: 'duration', header: 'Duration', sortable: false, width: '8rem' }
 ]
 
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const runs = await Kinotic.jobMonitoring.findJobRuns(pageable)

@@ -134,7 +134,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side machine search; an org has few machines, so filtering the page suffices
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.machines.findMachines(props.applicationId, pageable),
     toRow,

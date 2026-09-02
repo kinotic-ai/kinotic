@@ -75,7 +75,7 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false }
 ]
 
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 

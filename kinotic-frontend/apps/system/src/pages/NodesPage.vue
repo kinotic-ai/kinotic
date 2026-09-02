@@ -182,7 +182,7 @@ async function loadNodes() {
   }
 }
 
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const workloads = searchText
