@@ -2,8 +2,6 @@
 kinotic:
   debug: true
   traceLog:
-    # org.kinotic runs at TRACE below, and every vm-manager heartbeat prints its STOMP frame, its
-    # invocation, its argument values and its reply frame. Drop those and the rest of TRACE is readable.
     excludes:
       - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/heartbeat"
   persistence:
