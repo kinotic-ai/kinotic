@@ -222,7 +222,9 @@ Each vm-manager node runs every workload on one VM provider, chosen by the node 
 
 ## Workload volume mounts
 
-On a `CLOUD_HYPERVISOR` node, every workload volume mount must live under the node's workload data directory — binds are created with root's authority, so this boundary is what keeps a workload spec from mounting an arbitrary host directory. The node creates missing directories for writable mounts, refuses a read-only mount of a directory that does not exist, and reports the directory to the server at registration so deployment flows compose host paths under it. The directory should sit on an XFS filesystem with `prjquota`, since that is what enforces a writable mount's `sizeLimitMb`; a node whose directory cannot enforce it reports the problem and stops taking workloads.
+On every node, whichever provider it runs, a workload volume mount must live under the node's workload data directory — mounts are bound with the vm-manager's authority, so this boundary is what keeps a workload spec from mounting an arbitrary host directory. The node creates missing directories for writable mounts, refuses a read-only mount of a directory that does not exist, and reports the directory to the server at registration so deployment flows compose host paths under it. On a `CLOUD_HYPERVISOR` node the directory should sit on an XFS filesystem with `prjquota`, since that is what enforces a writable mount's `sizeLimitMb`; a node whose directory cannot enforce it reports the problem and stops taking workloads.
+
+The default sits under the home directory of the account the vm-manager runs as, so a node creates workload directories with the authority it already has. A node taking real deployments sets it to a path on a data volume — on a `CLOUD_HYPERVISOR` node, the XFS filesystem whose project quotas enforce `sizeLimitMb`, which is not where the default lands.
 
 <table>
 <thead>
@@ -257,7 +259,7 @@ On a `CLOUD_HYPERVISOR` node, every workload volume mount must live under the no
     
     <td>
       <code>
-        /var/lib/kinotic/workloads
+        ~/.kinotic/workloads
       </code>
     </td>
   </tr>
@@ -775,7 +777,7 @@ under `kinotic.systemApi.deployment.*`:
     </td>
     
     <td>
-      Size cap on the project checkout mount (clone plus installs), enforced by the node's filesystem quota
+      Size cap on the project checkout mount (clone plus installs), enforced where the node's filesystem carries project quotas
     </td>
   </tr>
   
@@ -861,4 +863,4 @@ A workload writes to two places the node must bound: the directories it mounts, 
 </tbody>
 </table>
 
-`sizeLimitMb` applies to writable mounts; a mount declared `readOnly` is already unwritable. It is enforced by an XFS project quota on `CLOUD_HYPERVISOR` nodes, so the host filesystem refuses the write once the cap is reached whatever the workload does — which requires the mount to live on an XFS filesystem mounted with `prjquota`. A workload's logs occupy at most `maxSizeMb * (maxFiles + 1)`, and the limits are applied by the VM provider rather than by the workload, so a workload cannot raise its own ceiling.
+`sizeLimitMb` applies to writable mounts; a mount declared `readOnly` is already unwritable. It is enforced by an XFS project quota, so the host filesystem refuses the write once the cap is reached whatever the workload does — which requires the mount to live on an XFS filesystem mounted with `prjquota`, on a node running either provider. The two providers differ only in what a node that cannot enforce a cap does with it. A `CLOUD_HYPERVISOR` node is provisioned for quotas, so it refuses the workload and reports the condition on its heartbeat until it is fixed. A `BOXLITE` node may have no project quotas at all — on macOS it cannot have them — so it enforces the cap wherever the filesystem holding the mount carries them, exactly as a `CLOUD_HYPERVISOR` node does, and only runs a mount uncapped when that filesystem has none; it warns at startup when its workload data directory is on such a filesystem. A node that had project quotas and lost them reports it on its heartbeat and stops taking workloads, whichever provider it runs. A workload's logs occupy at most `maxSizeMb * (maxFiles + 1)`, and the limits are applied by the VM provider rather than by the workload, so a workload cannot raise its own ceiling.
