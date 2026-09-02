@@ -16,8 +16,13 @@ describe('supervise entrypoint', () => {
         mkdirSync(appDir, { recursive: true })
     })
 
-    afterEach(() => {
-        supervisor?.kill('SIGKILL')
+    afterEach(async () => {
+        // SIGTERM lets the supervisor stop its microservice; a SIGKILL would orphan it
+        if (supervisor) {
+            const exited = new Promise<void>(resolve => supervisor!.once('exit', () => resolve()))
+            supervisor.kill('SIGTERM')
+            await Promise.race([exited, Bun.sleep(5_000).then(() => supervisor?.kill('SIGKILL'))])
+        }
         supervisor = null
         rmSync(appDir, { recursive: true, force: true })
     })

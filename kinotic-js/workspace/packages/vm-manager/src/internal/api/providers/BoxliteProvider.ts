@@ -258,13 +258,16 @@ export class BoxliteProvider implements IVmProvider {
                 await this.runtime.remove(id, true)
             }
 
-            // boxlite pulls an image on first use and never re-resolves its tag afterwards
-            if (Util.mustPullBeforeStart(workload.image)) {
-                await this.runtime.images.pull(workload.image)
+            // boxlite answers a tag from its cache once it holds one, so a floating tag is
+            // resolved here to the digest the registry serves now, which the cache cannot fake
+            let image = workload.image
+            if (Util.mustPullBeforeStart(image)) {
+                image = await Util.pinImageReference(image)
+                console.log(`Workload ${id} image ${workload.image} resolved to ${image}`)
             }
 
             // Creates the box record only — the VM does not boot until start()
-            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir), runtime: this.runtime }).getId()
+            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir), image, runtime: this.runtime }).getId()
             this.vmIds.set(id, vmId)
 
             // The runtime's boot handshake doubles as the readiness check; unlike an exec

@@ -10,6 +10,7 @@ import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
+import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -44,6 +45,7 @@ public class ProjectDeployJobDefinitionFactory {
 
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
+    private final WorkloadService workloadService;
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
@@ -186,19 +188,41 @@ public class ProjectDeployJobDefinitionFactory {
                 .toCompletionStage().toCompletableFuture();
     }
 
+    /**
+     * Leaves the project with a runtime workload serving the synced checkout: the recorded
+     * one when it is up, restarted when it was stopped, and a new one when there is none
+     * left to restart.
+     */
     private Future<String> ensureRuntimeWorkload(Project project, DeployTarget target) {
         Future<String> ret;
-        if (target.runtimeWorkloadId() != null) {
-            // The running supervisor picks the new commit up through the reload sentinel
-            // the sync workload wrote — nothing to deploy
-            ret = Future.succeededFuture(target.runtimeWorkloadId());
+        if (target.runtimeWorkloadId() == null) {
+            ret = deployRuntimeWorkload(project, target);
         } else {
-            ret = projectDeployIdentityService.issueRuntimeCredentials(project)
-                    .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                            runtimeWorkload(project, target, credentials)))
-                    .map(Workload::getId);
+            ret = workloadService.findById(target.runtimeWorkloadId())
+                    .compose(existing -> {
+                        Future<String> ensured;
+                        WorkloadStatus status = existing != null ? existing.getStatus() : null;
+                        if (status == WorkloadStatus.RUNNING || status == WorkloadStatus.STARTING) {
+                            // The running supervisor picks the new commit up through the
+                            // reload sentinel the sync workload wrote — nothing to deploy
+                            ensured = Future.succeededFuture(existing.getId());
+                        } else if (status == WorkloadStatus.STOPPED) {
+                            ensured = workloadOrchestrationService.restartWorkload(existing.getId())
+                                                                  .map(Workload::getId);
+                        } else {
+                            ensured = deployRuntimeWorkload(project, target);
+                        }
+                        return ensured;
+                    });
         }
         return ret;
+    }
+
+    private Future<String> deployRuntimeWorkload(Project project, DeployTarget target) {
+        return projectDeployIdentityService.issueRuntimeCredentials(project)
+                .compose(credentials -> workloadOrchestrationService.deployWorkload(
+                        runtimeWorkload(project, target, credentials)))
+                .map(Workload::getId);
     }
 
     private Workload syncWorkload(Project project,
