@@ -190,8 +190,9 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Leaves the project with a runtime workload serving the synced checkout: the recorded
-     * one when it is up, restarted when it was stopped, and a new one when there is none
-     * left to restart.
+     * one when it is up, otherwise a new one. A runtime whose run ended — stopped by hand or
+     * crashed — is retired rather than started again, so a deployment never reuses a VM
+     * whose state may be what failed it.
      */
     private Future<String> ensureRuntimeWorkload(Project project, DeployTarget target) {
         Future<String> ret;
@@ -206,9 +207,14 @@ public class ProjectDeployJobDefinitionFactory {
                             // The running supervisor picks the new commit up through the
                             // reload sentinel the sync workload wrote — nothing to deploy
                             ensured = Future.succeededFuture(existing.getId());
-                        } else if (status == WorkloadStatus.STOPPED) {
-                            ensured = workloadOrchestrationService.restartWorkload(existing.getId())
-                                                                  .map(Workload::getId);
+                        } else if (existing != null) {
+                            ensured = workloadOrchestrationService.destroyWorkload(existing.getId())
+                                    .recover(error -> {
+                                        log.warn("Ended runtime workload {} of project {} could not be destroyed: {}",
+                                                 existing.getId(), project.getId(), error.getMessage());
+                                        return Future.succeededFuture();
+                                    })
+                                    .compose(v -> deployRuntimeWorkload(project, target));
                         } else {
                             ensured = deployRuntimeWorkload(project, target);
                         }
