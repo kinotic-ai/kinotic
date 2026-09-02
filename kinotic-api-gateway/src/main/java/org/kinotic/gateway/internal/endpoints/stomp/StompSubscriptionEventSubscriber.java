@@ -5,6 +5,7 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.TraceLogFilter;
 import io.vertx.ext.stomp.lite.StompServerConnection;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import org.slf4j.Logger;
@@ -23,15 +24,18 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     private final String subscriptionId;
     private final StompServerConnection connection;
     private final JsonMapper jsonMapper;
+    private final TraceLogFilter traceLogFilter;
 
     public StompSubscriptionEventSubscriber(String destination,
                                             String subscriptionId,
                                             StompServerConnection connection,
-                                            JsonMapper jsonMapper) {
+                                            JsonMapper jsonMapper,
+                                            TraceLogFilter traceLogFilter) {
         this.destination = destination;
         this.subscriptionId = subscriptionId;
         this.connection = connection;
         this.jsonMapper = jsonMapper;
+        this.traceLogFilter = traceLogFilter;
     }
 
     @Override
@@ -45,7 +49,7 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
                 frame.getHeaders().put(EventConstants.SENDER_HEADER, jsonMapper.writeValueAsString(event.sender()));
             }
 
-            if(log.isTraceEnabled()) {
+            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(event)) {
                 log.trace("Sending Frame\n{}", frame);
             }
 

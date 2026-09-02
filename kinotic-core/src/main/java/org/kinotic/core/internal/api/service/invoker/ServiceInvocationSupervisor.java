@@ -69,6 +69,7 @@ public class ServiceInvocationSupervisor {
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
     private final TextMapPropagator propagator;
+    private final TraceLogFilter traceLogFilter;
     private final Tracer tracer;
     private final Vertx vertx;
 
@@ -90,7 +91,8 @@ public class ServiceInvocationSupervisor {
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
                                        SecurityContext securityContext,
-                                       OpenTelemetry openTelemetry) {
+                                       OpenTelemetry openTelemetry,
+                                       TraceLogFilter traceLogFilter) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
         Validate.notNull(instanceProvider, "FunctionInstanceProvider must not be null");
@@ -102,6 +104,7 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(openTelemetry, "openTelemetry must not be null");
+        Validate.notNull(traceLogFilter, "traceLogFilter must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
         this.argumentResolver = argumentResolver;
@@ -111,6 +114,7 @@ public class ServiceInvocationSupervisor {
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
+        this.traceLogFilter = traceLogFilter;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
 
@@ -264,7 +268,9 @@ public class ServiceInvocationSupervisor {
     private void processEvent(Event<byte[]> incomingEvent){
         boolean isControl = incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER);
 
-        log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+            log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        }
 
         if(exceptionConverter.supports(incomingEvent.metadata())) {
             try {
@@ -338,6 +344,10 @@ public class ServiceInvocationSupervisor {
                 try (Scope ignored = span.makeCurrent()) {
 
                     Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+
+                    if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+                        log.trace(handlerMethod.formatInvokeMessage("Invoking ", arguments));
+                    }
 
                     // separate try catch since we do not want to log invocation errors
                     Object result = null;
@@ -635,7 +645,7 @@ public class ServiceInvocationSupervisor {
 
         @Override
         protected void hookOnNext(@NonNull Object value) {
-            if(log.isTraceEnabled()){
+            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(originCri)){
                 log.trace("Next stream value {}", value);
             }
             convertAndSend(incomingMetadata, handlerMethod, value, originCri);

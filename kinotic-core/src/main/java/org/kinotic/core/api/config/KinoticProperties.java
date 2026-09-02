@@ -9,6 +9,9 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  *
  * Created by Navíd Mitchell 🤪on 1/18/21
@@ -86,6 +89,16 @@ public class KinoticProperties {
      * through without a restart.
      */
     private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
+
+    /**
+     * CRI patterns whose traffic is left out of trace logging, both the request and the reply it
+     * produces. A pattern is matched against the fully qualified CRI with Ant wildcards, where
+     * {@code *} matches within one segment and {@code **} across segments, so
+     * {@code srv://system-api~com.acme.HeartbeatService/*} drops every method of that service while
+     * {@code srv://system-api~com.acme.HeartbeatService/ping} drops only that one.
+     * Patterns are consulted only while trace logging is enabled.
+     */
+    private List<String> traceLogExcludes = new ArrayList<>();
 
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {

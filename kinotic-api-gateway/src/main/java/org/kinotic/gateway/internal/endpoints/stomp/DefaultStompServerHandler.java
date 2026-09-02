@@ -10,6 +10,8 @@ import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,11 +30,13 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     private final EndpointConnectionHandler endpointConnectionHandler;
     private final JsonMapper jsonMapper;
+    private final TraceLogFilter traceLogFilter;
 
 
     public DefaultStompServerHandler(Services services) {
         this.endpointConnectionHandler = new EndpointConnectionHandler(services);
         this.jsonMapper = services.jsonMapper;
+        this.traceLogFilter = services.traceLogFilter;
     }
 
     @Override
@@ -51,7 +55,16 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         // We pause the client to effectively make all client requests block until the previous request is handled asynchronously
         stompServerConnection.pause();
 
-        log.trace("Send Frame received\n{}", frame.toString());
+        if(log.isTraceEnabled()){
+            if(traceLogFilter.isExcluded(frame.getDestination())){
+                // The reply this request produces is addressed to the client's reply destination and
+                // carries no service CRI of its own, so the exclusion is marked here and rides back
+                // on the reply, which persists every __ header of the request that produced it
+                frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
+            }else{
+                log.trace("Send Frame received\n{}", frame.toString());
+            }
+        }
 
         Event<byte[]> incomingEvent = new FrameEventAdapter(frame);
 
@@ -78,7 +91,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
             CRI cri = CRI.create(frame.getDestination());
 
-            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper);
+            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper, traceLogFilter);
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
 
         } catch (Exception e) {
