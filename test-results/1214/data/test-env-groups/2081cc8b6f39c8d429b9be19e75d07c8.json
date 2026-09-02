@@ -1,1 +1,0 @@
-{"id":"2081cc8b6f39c8d429b9be19e75d07c8","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenDeleteBindsParameter_thenMatchedDocumentRemoved","name":"whenDeleteBindsParameter_thenMatchedDocumentRemoved()","status":"passed","testResultsByEnv":{"default":"ae47f0b1de4b418ed9bbf8bb22d62778"}}
