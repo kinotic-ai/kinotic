@@ -1,0 +1,1 @@
+{"id":"d15933d2f96a5f1b2946188139eaeafb","fullName":"org.kinotic.test.tests.sql.NamedParameterQueryTest.whenParameterMissing_thenCallFailsNamingIt","name":"whenParameterMissing_thenCallFailsNamingIt()","status":"passed","testResultsByEnv":{"default":"e7886ef19af8d5dd8648b0055e81a1c9"}}

@@ -1,0 +1,1 @@
+{"id":"050ed2bc61543ca03ae7d0c2a97f10bf","fullName":"org.kinotic.test.tests.sql.NotIndexedTypeTest.whenCreateTableWithNotIndexedFields_thenFieldsNotIndexed","name":"whenCreateTableWithNotIndexedFields_thenFieldsNotIndexed()","status":"passed","testResultsByEnv":{"default":"db2acb05434e84cc0c7c1352cb1c4243"}}
