@@ -2,7 +2,8 @@ import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@b
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
-import { prepareVolumeMounts } from '@/internal/api/storage/VolumeMounts'
+import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
+import { applyMountQuotas, prepareVolumeMounts, releaseMountQuotas } from '@/internal/api/storage/VolumeMounts'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
@@ -154,6 +155,7 @@ export class BoxliteProvider implements IVmProvider {
     // holds an exclusive lock on its home, and the only way to release one stops every box
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
+    private readonly quotas = new MountQuotaManager()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(boxliteHome: string,
@@ -218,6 +220,7 @@ export class BoxliteProvider implements IVmProvider {
             // boxlite refuses a box whose volume host path is missing, so the checkout
             // directory a deployment mounts is created here on its first deployment
             prepareVolumeMounts(workload, this.workloadDataDir)
+            applyMountQuotas(workload, this.quotas)
 
             // A box record left by a previous run of this workload would collide on the name
             const stale = await this.runtime.getInfo(id)
@@ -321,6 +324,7 @@ export class BoxliteProvider implements IVmProvider {
         // detached boxes, so the provider discards the box explicitly
         if (workload.autoRemove ?? false) {
             await this.runtime.remove(workloadId, true)
+            releaseMountQuotas(workload, this.quotas)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -347,6 +351,7 @@ export class BoxliteProvider implements IVmProvider {
             await this.runtime.remove(workloadId, true)
         }
 
+        releaseMountQuotas(workload, this.quotas)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)

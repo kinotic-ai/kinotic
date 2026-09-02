@@ -66,6 +66,15 @@ describe('CloudHypervisorProvider volume mount preparation', () => {
         expect(existsSync(hostPath)).toBe(true)
     })
 
+    // Neither a CI runner's tmpdir nor a developer's machine carries XFS project quotas, so
+    // this is the path every node that cannot enforce a cap takes
+    it('starts a workload whose cap the filesystem cannot enforce', async () => {
+        const w = workload(join(baseDir, 'data', 'projects', 'p1'))
+        w.volumeMounts[0]!.sizeLimitMb = 4096
+
+        await expect(provider.start(w)).rejects.toThrow(DOCKER_SENTINEL.message)
+    })
+
     it('accepts a read-only mount of an existing directory', async () => {
         const hostPath = join(baseDir, 'data', 'projects', 'p1')
         mkdirSync(hostPath, { recursive: true })

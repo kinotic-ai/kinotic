@@ -4,7 +4,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, w
 import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
-import { prepareVolumeMounts } from '@/internal/api/storage/VolumeMounts'
+import { applyMountQuotas, prepareVolumeMounts, releaseMountQuotas } from '@/internal/api/storage/VolumeMounts'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
@@ -202,7 +202,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         let exitWatch: Promise<void> = Promise.resolve()
         try {
             prepareVolumeMounts(workload, this.workloadDataDir)
-            this.applyMountQuotas(workload)
+            applyMountQuotas(workload, this.quotas)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
@@ -292,7 +292,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         // auto-remove so that a stopped workload can be restarted when the flag is off
         if (workload.autoRemove ?? false) {
             await this.removeContainer(workloadId)
-            this.releaseMountQuotas(workload)
+            releaseMountQuotas(workload, this.quotas)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -305,7 +305,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         const workload = this.requireWorkload(workloadId)
 
         await this.removeContainer(workloadId)
-        this.releaseMountQuotas(workload)
+        releaseMountQuotas(workload, this.quotas)
         this.egress.release(workloadId)
 
         this.containers.delete(workloadId)
@@ -464,28 +464,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
             this.egress.apply(workload.id!, address, allowedHosts)
-        }
-    }
-
-    private applyMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                this.quotas.apply(mount.hostPath, mount.sizeLimitMb)
-            }
-        }
-    }
-
-    // Never fails the operation that triggered it: a workload whose quota cannot be released
-    // has still been torn down, and a leaked project id costs an id rather than correctness
-    private releaseMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                try {
-                    this.quotas.release(mount.hostPath)
-                } catch (error) {
-                    console.error(`Failed to release the quota on ${mount.hostPath}:`, error)
-                }
-            }
         }
     }
 
