@@ -4,7 +4,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, w
 import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
-import { applyMountQuotas, prepareVolumeMounts, releaseMountQuotas } from '@/internal/api/storage/VolumeMounts'
+import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
@@ -57,6 +57,7 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly docker: Docker
     private readonly workloadDataDir: string
     private readonly quotas = new MountQuotaManager()
+    private readonly mounts: VolumeMountManager
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
@@ -75,6 +76,9 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
+        // A node provisioned for this provider has project quotas, so a cap it cannot apply
+        // is a broken node rather than a capability it lacks — the manager always gets one
+        this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
     }
 
     /**
@@ -201,8 +205,8 @@ export class CloudHypervisorProvider implements IVmProvider {
 
         let exitWatch: Promise<void> = Promise.resolve()
         try {
-            prepareVolumeMounts(workload, this.workloadDataDir)
-            applyMountQuotas(workload, this.quotas)
+            this.mounts.prepare(workload)
+            this.mounts.applyQuotas(workload)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
@@ -292,7 +296,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         // auto-remove so that a stopped workload can be restarted when the flag is off
         if (workload.autoRemove ?? false) {
             await this.removeContainer(workloadId)
-            releaseMountQuotas(workload, this.quotas)
+            this.mounts.releaseQuotas(workload)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -305,7 +309,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         const workload = this.requireWorkload(workloadId)
 
         await this.removeContainer(workloadId)
-        releaseMountQuotas(workload, this.quotas)
+        this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
 
         this.containers.delete(workloadId)

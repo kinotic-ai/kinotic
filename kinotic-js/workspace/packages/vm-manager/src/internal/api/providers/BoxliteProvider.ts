@@ -3,7 +3,7 @@ import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, w
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
-import { applyMountQuotas, prepareVolumeMounts, releaseMountQuotas } from '@/internal/api/storage/VolumeMounts'
+import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import type { LogTarget } from '@/model/LogTarget'
 import { LogFormat } from '@/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
@@ -145,7 +145,7 @@ export class BoxliteProvider implements IVmProvider {
     private readonly activeVms: Map<string, ActiveVm> = new Map()
     private readonly boxliteHome: string
     private readonly logsBaseDir: string
-    private readonly workloadDataDir: string
+    private readonly mounts: VolumeMountManager
     // State must not live under logsBaseDir: log dirs are guest-writable via the
     // GUEST_LOG_DIR mount, and a guest could rewrite its organizationId to reroute
     // its logs to another tenant
@@ -155,8 +155,6 @@ export class BoxliteProvider implements IVmProvider {
     // holds an exclusive lock on its home, and the only way to release one stops every box
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
-    // Null on a node whose filesystem carries no project quotas, which is every macOS node
-    private readonly quotas: MountQuotaManager | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(boxliteHome: string,
@@ -167,18 +165,18 @@ export class BoxliteProvider implements IVmProvider {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
-        this.workloadDataDir = workloadDataDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
 
         // Every mount lives under the workload data directory, so what holds that directory
         // decides whether this node can cap any of them at all
         const quotas = new MountQuotaManager()
-        this.quotas = quotas.supports(workloadDataDir) ? quotas : null
-        if (this.quotas === null) {
+        const enforcesQuotas = quotas.supports(workloadDataDir)
+        if (!enforcesQuotas) {
             console.warn(`${workloadDataDir} is not on a filesystem with project quotas — a workload `
                          + 'can write past the size limit of a writable mount on this node')
         }
+        this.mounts = new VolumeMountManager(workloadDataDir, enforcesQuotas ? quotas : null)
     }
 
     async totalDiskMb(): Promise<number> {
@@ -229,8 +227,8 @@ export class BoxliteProvider implements IVmProvider {
         try {
             // boxlite refuses a box whose volume host path is missing, so the checkout
             // directory a deployment mounts is created here on its first deployment
-            prepareVolumeMounts(workload, this.workloadDataDir)
-            applyMountQuotas(workload, this.quotas)
+            this.mounts.prepare(workload)
+            this.mounts.applyQuotas(workload)
 
             // A box record left by a previous run of this workload would collide on the name
             const stale = await this.runtime.getInfo(id)
@@ -334,7 +332,7 @@ export class BoxliteProvider implements IVmProvider {
         // detached boxes, so the provider discards the box explicitly
         if (workload.autoRemove ?? false) {
             await this.runtime.remove(workloadId, true)
-            releaseMountQuotas(workload, this.quotas)
+            this.mounts.releaseQuotas(workload)
         }
 
         workload.status = WorkloadStatus.STOPPED
@@ -361,7 +359,7 @@ export class BoxliteProvider implements IVmProvider {
             await this.runtime.remove(workloadId, true)
         }
 
-        releaseMountQuotas(workload, this.quotas)
+        this.mounts.releaseQuotas(workload)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)
