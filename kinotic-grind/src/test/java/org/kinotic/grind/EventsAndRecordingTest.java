@@ -17,6 +17,7 @@ import org.kinotic.grind.api.model.Tasks;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,7 +29,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The event stream and the persisted ledger: emission order, stored values on completions,
- * record lifecycle, failure capture, laziness, and replay to late subscribers.
+ * record lifecycle, write-ahead recording, failure capture, laziness, and replay to late
+ * subscribers.
  */
 public class EventsAndRecordingTest extends AbstractGrindTest {
 
@@ -102,6 +104,38 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
         assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getStarted());
         assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getFinished());
+    }
+
+    @Test
+    public void ledgerIsWrittenAheadOfExecution() throws Exception {
+        // the run id is known before the run starts, so the tasks can read their own ledger
+        AtomicReference<String> runId = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> runStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> ownStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> firstStatusSeenBySecond = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> ownStatusSeenBySecond = new AtomicReference<>();
+        JobDefinition job = JobDefinition.create("write-ahead")
+                .name("write-ahead").version("1")
+                .task(Tasks.fromRunnable("first", () -> {
+                    runStatusSeenByFirst.set(repository.savedRuns.get(runId.get()).getStatus());
+                    ownStatusSeenByFirst.set(repository.taskAt(runId.get(), "0/1").getStatus());
+                }))
+                .task(Tasks.fromRunnable("second", () -> {
+                    firstStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/1").getStatus());
+                    ownStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/2").getStatus());
+                }));
+
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
+        runId.set(handle.getJobRunId());
+        RunResult result = await(handle);
+
+        assertNull(result.error());
+        assertEquals(ExecutionStatus.RUNNING, runStatusSeenByFirst.get());
+        assertEquals(ExecutionStatus.RUNNING, ownStatusSeenByFirst.get());
+        assertEquals(ExecutionStatus.COMPLETED, firstStatusSeenBySecond.get());
+        assertEquals(ExecutionStatus.RUNNING, ownStatusSeenBySecond.get());
+        // the stream terminates only after the terminal records have landed
+        assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }
 
     @Test

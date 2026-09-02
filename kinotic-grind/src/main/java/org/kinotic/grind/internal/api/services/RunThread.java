@@ -78,7 +78,7 @@ public class RunThread {
         // Cancelling before the interrupt is what keeps the context's task queue usable: a
         // body parked in await() wakes through the future's resume handshake, which hands
         // queue ownership back. A raw interrupt leaves the continuation suspended forever,
-        // and the queue - along with every recorder write behind it - with it
+        // and the queue - along with every task completion dispatched onto it - with it
         cancellation.tryFail(new RunCancelledException());
         thread.future().onSuccess(Thread::interrupt);
     }
