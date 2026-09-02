@@ -60,9 +60,10 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             if(!excluded){
                 log.trace("Send Frame received\n{}", frame.toString());
             }
-            // The reply this request produces is addressed to the client's reply destination, which
-            // no pattern is written for, so the verdict is recorded here and rides back on the reply,
-            // which persists every __ header of the request that produced it
+            // The reply comes back on the client's reply destination, which no include ever names
+            // and a broad exclude like ** does match, so it has to follow the request's verdict
+            // rather than its own CRI -- false included, or an included service loses its replies.
+            // A reply persists every __ header of the request it answers, so the verdict rides back.
             frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, Boolean.toString(excluded));
         }
 
