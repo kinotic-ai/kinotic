@@ -12,7 +12,6 @@ import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -26,7 +25,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -50,7 +48,6 @@ public class DefaultKinotic implements Kinotic {
     private final Vertx vertx;
 
     public DefaultKinotic(ResourceLoader resourceLoader,
-                          @Autowired(required = false)
                           ClusterManager clusterManager,
                           Vertx vertx,
                           KinoticProperties kinoticProperties,
@@ -73,8 +70,7 @@ public class DefaultKinotic implements Kinotic {
         }
         this.vertx = vertx;
         this.kinoticProperties = kinoticProperties;
-        String nodeId = (clusterManager != null  ?  clusterManager.getNodeId() : UUID.randomUUID().toString());
-        this.serverInfo = new ServerInfo(nodeId, nodeName);
+        this.serverInfo = new ServerInfo(clusterManager.getNodeId(), nodeName);
 
         // Register Vertx Future with Reactor
         reactiveAdapterRegistry.registerReactiveType(ReactiveTypeDescriptor.singleOptionalValue(Future.class,
