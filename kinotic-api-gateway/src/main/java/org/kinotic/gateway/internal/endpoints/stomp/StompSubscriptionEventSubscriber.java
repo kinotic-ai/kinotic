@@ -44,13 +44,6 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     public void handleEvent(Event<byte[]> event) {
         try {
             Frame frame = GatewayUtils.eventToStompFrame(event);
-            // The trace verdict is the server's own logging bookkeeping. Only a srv:// subscriber
-            // answers what it receives, so only it needs the verdict to ride along on its reply;
-            // every other subscription ends the exchange at this client, where it is noise the
-            // client has no business seeing.
-            if (!serviceSubscription) {
-                frame.getHeaders().remove(EventConstants.TRACE_EXCLUDED_HEADER);
-            }
             // Set Subscription ID header
             frame.getHeaders().put(Frame.SUBSCRIPTION, subscriptionId);
             // Re-expose the typed sender as a header so external clients (e.g. device RPC) still see it.
@@ -58,8 +51,17 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
                 frame.getHeaders().put(EventConstants.SENDER_HEADER, jsonMapper.writeValueAsString(event.sender()));
             }
 
-            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(event)) {
-                log.trace("Sending Frame\n{}", frame);
+            // The trace verdict is the server's own logging bookkeeping, set only while trace
+            // logging is on. Only a srv:// subscriber answers what it receives, so only it needs
+            // the verdict to ride along on its reply; every other subscription ends the exchange
+            // at this client, where it is noise the client has no business seeing.
+            if(log.isTraceEnabled()) {
+                if(!serviceSubscription) {
+                    frame.getHeaders().remove(EventConstants.TRACE_EXCLUDED_HEADER);
+                }
+                if(!traceLogFilter.isExcluded(event)) {
+                    log.trace("Sending Frame\n{}", frame);
+                }
             }
 
             connection.write(frame);
