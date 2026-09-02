@@ -10,7 +10,9 @@ import java.util.List;
 /**
  * Receives the lifecycle of one job run from the {@link JobInterpreter}. The recorder
  * persists what it hears; the event stream adapter republishes it to watchers. Callbacks are
- * dispatched serially, including from parallel definitions.
+ * dispatched serially on the run's thread, including from parallel definitions, and the run
+ * proceeds past a transition only once every listener has returned from it - a listener that
+ * must make the transition durable blocks its callback until it is.
  */
 public interface RunListener {
 
