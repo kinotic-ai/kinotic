@@ -162,8 +162,10 @@ export class StompConnectionManager {
                                 await this.signalFatal(new Error('Authentication required'))
                                 return
                             }
-                        } catch {
-                            // Couldn't reach the check (network/CORS) — treat as transient and let the socket try.
+                        } catch (e) {
+                            // Couldn't reach the check (network/CORS) — treat as transient and let the socket
+                            // try; the connection attempt that follows reports the real outcome.
+                            this.debugLogger('Session check at %s failed: %O', sessionCheckUrl, e)
                         }
                     }
 

@@ -37,6 +37,14 @@ if (!alloyManager) {
 }
 
 let heartbeatTimer: Timer | null = null
+let shuttingDown = false
+let reconnecting = false
+
+// Backoff between reconnect attempts after a fatal event bus error, jittered so a fleet of
+// nodes does not retry a restarting server in lockstep
+const RECONNECT_INITIAL_DELAY_MS = 2000
+const RECONNECT_MAX_DELAY_MS = 60000
+const RECONNECT_JITTER_MS = 5000
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
@@ -89,6 +97,40 @@ function logShippingProblems(): string[] {
     return problem !== null ? [problem] : []
 }
 
+/**
+ * Rejoins the server after the event bus fails fatally. A fatal error deactivates the connection
+ * for good — a gateway restart that invalidates this connection's reply destination is the common
+ * cause — so without this the node keeps running its workloads while the orchestrator sees it go
+ * offline. Retries until it connects: the workloads outlive the server being down.
+ */
+function reconnectOnFatalError() {
+    Kinotic.eventBus.fatalErrors.subscribe(async (error: Error) => {
+        // Each failed reconnect signals another fatal error, which lands back here
+        if (reconnecting || shuttingDown) {
+            return
+        }
+        reconnecting = true
+        console.error('Kinotic connection failed fatally, reconnecting:', error)
+        try {
+            let delayMs = RECONNECT_INITIAL_DELAY_MS
+            while (!shuttingDown && !Kinotic.eventBus.isConnectionActive()) {
+                await new Promise(resolve => setTimeout(resolve, delayMs + Math.random() * RECONNECT_JITTER_MS))
+                try {
+                    // Published services and observed destinations re-subscribe with the new
+                    // connection, and the next heartbeat marks the node online again
+                    await Kinotic.connect()
+                    console.log('Reconnected to the Kinotic server')
+                } catch (e) {
+                    delayMs = Math.min(delayMs * 2, RECONNECT_MAX_DELAY_MS)
+                    console.error(`Reconnect failed, retrying in ${delayMs / 1000}s:`, e)
+                }
+            }
+        } finally {
+            reconnecting = false
+        }
+    })
+}
+
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
@@ -120,6 +162,9 @@ async function start() {
     await Kinotic.connect()
     const server = Kinotic.eventBus.serverInfo
     console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
+
+    // Installed after the first connect so a fatal error there still fails startup
+    reconnectOnFatalError()
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(Kinotic)
 
@@ -164,6 +209,7 @@ async function start() {
 // Graceful shutdown
 async function shutdown() {
     console.log('Shutting down VM Manager...')
+    shuttingDown = true
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer)
     }

@@ -296,7 +296,20 @@ export class ServiceInvocationSupervisor {
 
     private processMethodInvocationResult(event: IEvent, result: any): void {
         const outgoingEvent = this.returnValueConverter.convert(event.headers, result)
-        this._eventBus.send(outgoingEvent)
+        this.sendReply(outgoingEvent)
+    }
+
+    /**
+     * Sends a reply to the caller that made the request.
+     */
+    private sendReply(event: IEvent): void {
+        try {
+            this._eventBus.send(event)
+        } catch (e) {
+            // The invocation is over and this runs off a promise callback, so there is no caller
+            // left to fail and a throw here would surface as an unhandled rejection.
+            this.log.warn(`Could not send reply to ${event.cri}`, e)
+        }
     }
 
     private handleException(event: IEvent, error: any): void {
@@ -308,7 +321,7 @@ export class ServiceInvocationSupervisor {
                     ]),
             new TextEncoder().encode(JSON.stringify({ message: error.message }))
         )
-        this._eventBus.send(errorEvent)
+        this.sendReply(errorEvent)
     }
 
     private validateReplyTo(event: IEvent): boolean {

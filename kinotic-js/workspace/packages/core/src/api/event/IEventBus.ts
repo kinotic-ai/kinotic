@@ -118,7 +118,8 @@ export interface IEventBus {
     /**
      * Determines if the connection is active.
      * This means {@link IEventBus#connect()} was called and was successful. The underlying connection may not be established yet.
-     * If this is true and {@link IEventBus#isConnected} is false messages sent will be queued
+     * Subscriptions made while active are established once the connection comes up; sends require
+     * {@link IEventBus#isConnected}
      * @return true if the connection is active false if not
      */
     isConnectionActive(): boolean
@@ -155,8 +156,11 @@ export interface IEventBus {
     requestStream(event: IEvent, sendControlEvents: boolean): Observable<IEvent>
 
     /**
-     * Send a single {@link IEvent} to the connected server
+     * Send a single {@link IEvent} to the connected server. Events are never held for a later
+     * connection, so the caller decides what an event it could not send means — see
+     * {@link isConnected}.
      * @param event to send
+     * @throws if the connection is not established
      */
     send(event: IEvent): void
 
