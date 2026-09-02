@@ -94,15 +94,37 @@ Every node runs a managed [Grafana Alloy](https://grafana.com/docs/alloy/latest/
     </td>
     
     <td>
-      Write log files into that directory itself
+      Write log files into that directory itself. The node names it as <code>
+        KINOTIC_LOG_DIR
+      </code>
+      
+       in the guest environment, with the <code>
+        logPolicy
+      </code>
+      
+       as <code>
+        KINOTIC_LOG_MAX_SIZE_MB
+      </code>
+      
+       and <code>
+        KINOTIC_LOG_MAX_FILES
+      </code>
+      
+      ; the workload-runner image honours this, writing a size-rotated <code>
+        workload.log
+      </code>
+      
+       there
     </td>
   </tr>
 </tbody>
 </table>
 
-`CLOUD_HYPERVISOR` nodes label each stream `stdout` or `stderr`, and bound what a workload's logs occupy on the node through `logPolicy` — `maxSizeMb` is the size at which the current file rotates, and `maxFiles` how many rotated files are kept beside it.
+`CLOUD_HYPERVISOR` nodes label each stream `stdout` or `stderr`. Both providers bound what a workload's logs occupy on the node through `logPolicy` — `maxSizeMb` is the size at which the current file rotates, and `maxFiles` how many rotated files are kept beside it — the container runtime enforcing it on `CLOUD_HYPERVISOR`, and the image itself on `BOXLITE`.
 
 Workload VMs run detached from the vm-manager process by default (`Workload.detached`), and the vm-manager persists each workload's state on the node. If the vm-manager restarts (a crash, a systemd restart), it reattaches to the detached VMs that are still running and regenerates the Alloy pipeline, so their logs keep shipping. A non-detached workload runs in the foreground — the call that starts it resolves only once its run has ended, with the exit code — and ends with the vm-manager process.
+
+On a deployment's job run page the **Sync project source** step expands into the sync workload's log, the way a CI step does: open while the step runs, tailing live, and readable afterwards from the run's history. A workload whose run has ended keeps its log files on the node until it is destroyed, and a destroy waits for the shipper to read them to the end first, so a run over in seconds still ships every line it wrote.
 
 A stopped workload can be restarted in place (`restartWorkload`) unless it was stopped with `Workload.autoRemove`, which discards the VM and its disk at stop. A restart boots the same VM, so its log streams continue under the same `vm_id` label.
 

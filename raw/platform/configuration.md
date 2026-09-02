@@ -266,6 +266,10 @@ The default sits under the home directory of the account the vm-manager runs as,
 </tbody>
 </table>
 
+## Workload images
+
+A workload's image is pulled before every start when its reference floats — no tag, or `latest` — so a node runs what the registry holds now rather than the copy it pulled first. A reference pinning a tag other than `latest` or a digest names one immutable image, and is pulled only when the node does not have it yet. Both providers apply the rule, which is the one Kubernetes uses as its default `imagePullPolicy`.
+
 ## Workload egress
 
 A `CLOUD_HYPERVISOR` node denies workload egress by default and permits each workload only what its policy allows. The node's firewall carries the denial; the vm-manager writes one exception per allowed destination when a workload starts, and removes them when it stops.
