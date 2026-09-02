@@ -25,6 +25,7 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
     private final StompServerConnection connection;
     private final JsonMapper jsonMapper;
     private final TraceLogFilter traceLogFilter;
+    private final boolean serviceSubscription;
 
     public StompSubscriptionEventSubscriber(String destination,
                                             String subscriptionId,
@@ -36,12 +37,20 @@ public class StompSubscriptionEventSubscriber implements StompSubscriptionHandle
         this.connection = connection;
         this.jsonMapper = jsonMapper;
         this.traceLogFilter = traceLogFilter;
+        this.serviceSubscription = destination.startsWith(EventConstants.SERVICE_DESTINATION_SCHEME + ":");
     }
 
     @Override
     public void handleEvent(Event<byte[]> event) {
         try {
             Frame frame = GatewayUtils.eventToStompFrame(event);
+            // The trace verdict is the server's own logging bookkeeping. Only a srv:// subscriber
+            // answers what it receives, so only it needs the verdict to ride along on its reply;
+            // every other subscription ends the exchange at this client, where it is noise the
+            // client has no business seeing.
+            if (!serviceSubscription) {
+                frame.getHeaders().remove(EventConstants.TRACE_EXCLUDED_HEADER);
+            }
             // Set Subscription ID header
             frame.getHeaders().put(Frame.SUBSCRIPTION, subscriptionId);
             // Re-expose the typed sender as a header so external clients (e.g. device RPC) still see it.

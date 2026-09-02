@@ -70,6 +70,9 @@ public class EventConstants {
      * addressed to the caller rather than to the service, follows the verdict reached for its
      * request instead of being judged by a reply destination no pattern is written for. Set only
      * while trace logging is on; an event without it is judged by its own CRI.
+     *
+     * Server-side bookkeeping: it travels between the gateway and whatever answers the request,
+     * and the gateway strips it from every frame that ends the exchange at a client.
      */
     public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
 
