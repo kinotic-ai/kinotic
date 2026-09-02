@@ -1,0 +1,1 @@
+{"id":"7f95fdfdf2c730338bdbe39905179b3b","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenValueIsNull_thenFieldAbsentFromDocument","name":"whenValueIsNull_thenFieldAbsentFromDocument()","status":"passed","testResultsByEnv":{"default":"e0db43b0fd35ca4e0957165492489fac"}}
