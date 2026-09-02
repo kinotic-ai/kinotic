@@ -1,1 +1,0 @@
-{"id":"77fe9d38b61cf6470a91944c7f0eaa72","fullName":"test/NodeSpawnRenderer.test.ts#Kinotic JS packages/spawn NodeSpawnRenderer assertPathWithin allows internal ../ but rejects escapes and absolutes","name":"assertPathWithin allows internal ../ but rejects escapes and absolutes","status":"passed","testResultsByEnv":{"default":"3839888e0c05ebafb25e3b546c0cc85a"}}
