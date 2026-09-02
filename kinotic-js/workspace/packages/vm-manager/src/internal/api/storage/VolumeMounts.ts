@@ -36,25 +36,19 @@ export function prepareVolumeMounts(workload: Workload, workloadDataDir: string)
 }
 
 /**
- * Caps what a workload may write through each of its mounts that declares a size limit.
- *
- * A mount whose filesystem cannot enforce the cap is left uncapped and the workload starts
- * anyway: a node that can never enforce one — a developer's machine, anything not on XFS
- * with project quotas — would otherwise be unable to run a workload that declares a limit at
- * all. Whether such a node should be taking workloads is what its provider's health check
- * answers.
+ * Caps what a workload may write through each of its mounts that declares a size limit, and
+ * fails when a declared cap cannot be applied — a workload that asked to be bounded must not
+ * run unbounded.
  *
  * @param workload the workload whose mounts are capped
- * @param quotas the quota manager of the node the workload runs on
+ * @param quotas the node's quota manager, or null on a node that enforces no caps
  */
-export function applyMountQuotas(workload: Workload, quotas: MountQuotaManager): void {
+export function applyMountQuotas(workload: Workload, quotas: MountQuotaManager | null): void {
+    if (quotas === null) {
+        return
+    }
     for (const mount of cappedMounts(workload)) {
-        if (quotas.supports(mount.hostPath)) {
-            quotas.apply(mount.hostPath, mount.sizeLimitMb!)
-        } else {
-            console.warn(`Cannot enforce the ${mount.sizeLimitMb}MB cap on ${mount.hostPath} of workload `
-                         + `${workload.id}: it is not on a filesystem with project quotas`)
-        }
+        quotas.apply(mount.hostPath, mount.sizeLimitMb!)
     }
 }
 
@@ -62,9 +56,12 @@ export function applyMountQuotas(workload: Workload, quotas: MountQuotaManager):
  * Frees the caps a workload's mounts hold, so their project ids can be handed out again.
  *
  * @param workload the workload whose mounts are released
- * @param quotas the quota manager of the node the workload ran on
+ * @param quotas the node's quota manager, or null on a node that enforces no caps
  */
-export function releaseMountQuotas(workload: Workload, quotas: MountQuotaManager): void {
+export function releaseMountQuotas(workload: Workload, quotas: MountQuotaManager | null): void {
+    if (quotas === null) {
+        return
+    }
     for (const mount of cappedMounts(workload)) {
         // Never fails the operation that triggered it: a workload whose quota cannot be
         // released has still been torn down, and a leaked project id costs an id rather

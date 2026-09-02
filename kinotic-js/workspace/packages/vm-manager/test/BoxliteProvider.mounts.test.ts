@@ -54,6 +54,16 @@ describe('BoxliteProvider volume mount preparation', () => {
         expect(w.status).toBe(WorkloadStatus.FAILED)
     })
 
+    // A boxlite node is not provisioned with project quotas — on macOS it cannot have them at
+    // all — so a cap it cannot enforce is a capability the node lacks, not a reason to refuse
+    // the workload; it says so once at startup instead
+    itBoxlite('starts a workload whose cap this node cannot enforce', async () => {
+        const w = workload(join(dataDir, 'projects', 'p1'))
+        w.volumeMounts[0]!.sizeLimitMb = 4096
+
+        await expect(provider.start(w)).rejects.toThrow(/host interface/)
+    })
+
     // The checkout directory of a project's first deployment: boxlite refuses a box whose
     // volume host path is missing, so the provider has to create it
     itBoxlite('creates a missing writable mount directory before booting the VM', async () => {

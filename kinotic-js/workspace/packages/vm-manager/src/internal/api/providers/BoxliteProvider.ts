@@ -155,7 +155,8 @@ export class BoxliteProvider implements IVmProvider {
     // holds an exclusive lock on its home, and the only way to release one stops every box
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
-    private readonly quotas = new MountQuotaManager()
+    // Null on a node whose filesystem carries no project quotas, which is every macOS node
+    private readonly quotas: MountQuotaManager | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
 
     constructor(boxliteHome: string,
@@ -169,6 +170,15 @@ export class BoxliteProvider implements IVmProvider {
         this.workloadDataDir = workloadDataDir
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
+
+        // Every mount lives under the workload data directory, so what holds that directory
+        // decides whether this node can cap any of them at all
+        const quotas = new MountQuotaManager()
+        this.quotas = quotas.supports(workloadDataDir) ? quotas : null
+        if (this.quotas === null) {
+            console.warn(`${workloadDataDir} is not on a filesystem with project quotas — a workload `
+                         + 'can write past the size limit of a writable mount on this node')
+        }
     }
 
     async totalDiskMb(): Promise<number> {
