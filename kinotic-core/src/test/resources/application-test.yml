@@ -1,7 +1,6 @@
   # YAML Reference http://www.yaml.org/refcard.html
   continuum:
     debug: true
-    disableClustering: false
     cluster:
       discoveryType: SHAREDFS
       joinTimeoutMs: 0

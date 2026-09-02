@@ -1,8 +1,5 @@
 package org.kinotic.management.internal.api.services.github;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteCache;
@@ -23,9 +20,8 @@ import java.util.concurrent.TimeUnit;
  * entry; the SPA's post-install callback hands the same {@code state} to
  * {@code completeInstall()}, which atomically pops it.
  * <p>
- * Backed by an Ignite cache when clustering is enabled (entries are partitioned with
- * one backup and TTL-expire after 10 minutes); falls back to a per-node Caffeine
- * cache when {@code kinotic.disableClustering=true}.
+ * Backed by an Ignite cache: entries are partitioned with one backup and TTL-expire
+ * after 10 minutes.
  * <p>
  * The state value is a 256-bit URL-safe random string — short enough for a query
  * parameter but unguessable. The mapping is single-use: once {@link #consume(String)}
@@ -40,35 +36,17 @@ public class GitHubInstallStateService {
     private static final long TTL_MINUTES = 10;
     private static final SecureRandom RANDOM = new SecureRandom();
 
-    private final Ignite ignite;
-
-    private IgniteCache<String, StagedInstall> igniteCache;
-    private Cache<String, StagedInstall> caffeineCache;
+    private final IgniteCache<String, StagedInstall> cache;
 
     public GitHubInstallStateService(Ignite ignite) {
-        this.ignite = ignite;
-    }
-
-    @PostConstruct
-    public void start() {
-        if (ignite != null) {
-            CacheConfiguration<String, StagedInstall> cfg = new CacheConfiguration<>(CACHE_NAME);
-            cfg.setCacheMode(CacheMode.PARTITIONED);
-            cfg.setBackups(1);
-            cfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.PRIMARY_SYNC);
-            cfg.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
-                    new Duration(TimeUnit.MINUTES, TTL_MINUTES)));
-            this.igniteCache = ignite.getOrCreateCache(cfg);
-            log.info("GitHub install-state store using Ignite cache '{}' (TTL {}m)",
-                     CACHE_NAME, TTL_MINUTES);
-        } else {
-            this.caffeineCache = Caffeine.newBuilder()
-                    .expireAfterWrite(java.time.Duration.ofMinutes(TTL_MINUTES))
-                    .maximumSize(10_000)
-                    .build();
-            log.info("GitHub install-state store using local Caffeine cache (no clustering, TTL {}m)",
-                     TTL_MINUTES);
-        }
+        CacheConfiguration<String, StagedInstall> cfg = new CacheConfiguration<>(CACHE_NAME);
+        cfg.setCacheMode(CacheMode.PARTITIONED);
+        cfg.setBackups(1);
+        cfg.setWriteSynchronizationMode(CacheWriteSynchronizationMode.PRIMARY_SYNC);
+        cfg.setExpiryPolicyFactory(CreatedExpiryPolicy.factoryOf(
+                new Duration(TimeUnit.MINUTES, TTL_MINUTES)));
+        this.cache = ignite.getOrCreateCache(cfg);
+        log.info("GitHub install-state store using Ignite cache '{}' (TTL {}m)", CACHE_NAME, TTL_MINUTES);
     }
 
     /**
@@ -78,11 +56,7 @@ public class GitHubInstallStateService {
      */
     public String stage(StagedInstall staged) {
         String state = randomState();
-        if (igniteCache != null) {
-            igniteCache.put(state, staged);
-        } else {
-            caffeineCache.put(state, staged);
-        }
+        cache.put(state, staged);
         return state;
     }
 
@@ -93,8 +67,7 @@ public class GitHubInstallStateService {
      */
     public StagedInstall consume(String state) {
         if (state == null || state.isBlank()) return null;
-        return igniteCache != null ? igniteCache.getAndRemove(state)
-                                   : caffeineCache.asMap().remove(state);
+        return cache.getAndRemove(state);
     }
 
     private static String randomState() {

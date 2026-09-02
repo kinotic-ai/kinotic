@@ -13,12 +13,6 @@ import java.util.List;
 public class KinoticClusterInfo {
 
     /**
-     * Indicates whether clustering is enabled.
-     */
-    @Builder.Default
-    private boolean clusteringEnabled = false;
-    
-    /**
      * The unique identifier of the local node.
      */
     private String localNodeId;

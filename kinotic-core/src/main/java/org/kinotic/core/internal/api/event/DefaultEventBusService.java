@@ -9,6 +9,7 @@ import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.tracing.TracingPolicy;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
@@ -18,7 +19,6 @@ import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.ServiceListenerEvent;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -34,6 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Created by navid on 11/5/19
  */
 @Component
+@RequiredArgsConstructor
 public class DefaultEventBusService implements EventBusService {
 
     private final KinoticIgniteClusterManager clusterManager;
@@ -42,18 +43,8 @@ public class DefaultEventBusService implements EventBusService {
     // listen() on this node, so it holds purely local registrations and lets sends prefer local delivery.
     private final Map<String, Integer> localListenerCounts = new ConcurrentHashMap<>();
 
-    public DefaultEventBusService(@Autowired(required = false)
-                                  KinoticIgniteClusterManager clusterManager,
-                                  Vertx vertx) {
-        this.clusterManager = clusterManager;
-        this.vertx = vertx;
-    }
-
     @Override
     public Future<Boolean> isAnybodyListening(CRI cri) {
-        if(clusterManager == null){
-            throw new IllegalStateException("This method is not available when clustering is disabled");
-        }
         Promise<List<RegistrationInfo>> promise = Promise.promise();
         clusterManager.getRegistrations(cri.baseResource(), promise);
         return promise.future().map(registrations -> registrations != null && !registrations.isEmpty());
@@ -71,9 +62,6 @@ public class DefaultEventBusService implements EventBusService {
 
     @Override
     public Flux<ListenerStatus> monitorListenerStatus(CRI cri) {
-        if(clusterManager == null){
-            throw new IllegalStateException("This method is not available when clustering is disabled");
-        }
         // Every registration change on the address emits its resulting status, dedupe to transitions
         return clusterManager.statusFlux(cri.baseResource())
                              .distinctUntilChanged();
@@ -81,17 +69,11 @@ public class DefaultEventBusService implements EventBusService {
 
     @Override
     public Flux<ServiceListenerEvent> monitorServiceListenerEvents() {
-        if(clusterManager == null){
-            throw new IllegalStateException("This method is not available when clustering is disabled");
-        }
         return clusterManager.serviceListenerEventsFlux();
     }
 
     @Override
     public Future<Set<String>> activeServiceAddresses() {
-        if(clusterManager == null){
-            throw new IllegalStateException("This method is not available when clustering is disabled");
-        }
         // scanning the cluster registrations is blocking work
         return vertx.executeBlocking(clusterManager::registeredServiceAddresses);
     }
