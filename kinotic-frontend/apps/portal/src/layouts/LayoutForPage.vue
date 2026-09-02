@@ -8,8 +8,22 @@ import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 const sidebarRef = ref<InstanceType<typeof SideBar> | null>(null)
 const route = useRoute()
 
+const hideSidebar = computed(() => route.meta.hideSidebar === true)
+
 const isSidebarCollapsed = computed(() => {
     return sidebarRef.value?.collapsed ?? false
+})
+
+const contentPaddingLeft = computed(() => {
+    let ret: string
+    if (hideSidebar.value) {
+        ret = 'pl-0'
+    } else if (isSidebarCollapsed.value) {
+        ret = 'pl-[64px]'
+    } else {
+        ret = 'pl-[256px]'
+    }
+    return ret
 })
 
 const isDark = computed(() => darkMode.value)
@@ -23,13 +37,8 @@ const isFullWidth = computed(() => route.meta.fullWidth === true)
         <div class="fixed top-0 left-0 right-0 z-50 h-[64px]">
             <Header />
         </div>
-        <SideBar ref="sidebarRef" />
-        <div
-            :class="[
-                'pt-[64px] h-full transition-all duration-300',
-                isSidebarCollapsed ? 'pl-[64px]' : 'pl-[256px]'
-            ]"
-        >
+        <SideBar v-if="!hideSidebar" ref="sidebarRef" />
+        <div :class="['pt-[64px] h-full transition-all duration-300', contentPaddingLeft]">
             <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-8 py-6 transition-colors', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
                 <router-view v-if="isFullWidth" />
                 <!-- h-full (not min-h-full) gives the page a definite height to divide up, so a
