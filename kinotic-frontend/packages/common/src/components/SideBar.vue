@@ -108,8 +108,28 @@ function resolvePath(path: string): string {
   })
 }
 
+/**
+ * The item the current route falls under: the longest item path the route sits inside.
+ * A detail route keeps its section highlighted (/jobs/<id> lights up Jobs) while a
+ * deeper item still wins over the shallower one it nests under.
+ */
+const activePath = computed((): string | null => {
+  let ret: string | null = null
+  for (const item of sidebarItems.value) {
+    if (containsRoute(item.path) && (ret === null || item.path.length > ret.length)) {
+      ret = item.path
+    }
+  }
+  return ret
+})
+
+// Compares whole segments so /jobs does not swallow a sibling like /jobs-archive
+function containsRoute(itemPath: string): boolean {
+  return route.path === itemPath || route.path.startsWith(itemPath + '/')
+}
+
 function isActive(path: string): boolean {
-  return route.path === path
+  return activePath.value === path
 }
 
 defineExpose({ collapsed })
