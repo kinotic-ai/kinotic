@@ -34,7 +34,7 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     public DefaultLokiClient(Vertx vertx, ManagementApiProperties properties) {
         super(vertx);
-        this.lokiUrl = properties.getLoki().getUrl();
+        this.lokiUrl = properties.getLokiUrl();
     }
 
     @PostConstruct

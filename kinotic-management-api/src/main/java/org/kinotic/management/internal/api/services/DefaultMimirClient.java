@@ -22,7 +22,7 @@ public class DefaultMimirClient extends AbstractTenantScopedClient implements Mi
 
     public DefaultMimirClient(Vertx vertx, ManagementApiProperties properties) {
         super(vertx);
-        this.mimirUrl = properties.getMimir().getUrl();
+        this.mimirUrl = properties.getMimirUrl();
     }
 
     @Override

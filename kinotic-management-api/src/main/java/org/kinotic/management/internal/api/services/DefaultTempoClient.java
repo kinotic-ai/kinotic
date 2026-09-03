@@ -27,7 +27,7 @@ public class DefaultTempoClient extends AbstractTenantScopedClient implements Te
 
     public DefaultTempoClient(Vertx vertx, ManagementApiProperties properties) {
         super(vertx);
-        this.tempoUrl = properties.getTempo().getUrl();
+        this.tempoUrl = properties.getTempoUrl();
     }
 
     @Override

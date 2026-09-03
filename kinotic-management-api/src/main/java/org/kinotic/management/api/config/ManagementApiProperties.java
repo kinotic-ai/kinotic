@@ -1,6 +1,7 @@
 package org.kinotic.management.api.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -20,22 +21,25 @@ public class ManagementApiProperties {
     private GithubProperties github = new GithubProperties();
 
     /**
-     * Loki, which backs the {@code LogService}.
+     * Base URL of the Loki HTTP API the {@code LogService} reads workload logs from; override per
+     * environment via {@code kinotic.managementApi.lokiUrl} (env {@code KINOTIC_MANAGEMENTAPI_LOKIURL}).
      */
-    @Valid
-    private GrafanaBackendProperties loki = new GrafanaBackendProperties().setUrl("http://localhost:3100");
+    @NotBlank
+    private String lokiUrl = "http://localhost:3100";
 
     /**
-     * Tempo, which backs the {@code TelemetryService}'s trace queries.
+     * Base URL of the Tempo HTTP API the {@code TelemetryService} searches traces in; override per
+     * environment via {@code kinotic.managementApi.tempoUrl} (env {@code KINOTIC_MANAGEMENTAPI_TEMPOURL}).
      */
-    @Valid
-    private GrafanaBackendProperties tempo = new GrafanaBackendProperties().setUrl("http://localhost:3200");
+    @NotBlank
+    private String tempoUrl = "http://localhost:3200";
 
     /**
-     * Mimir, whose Prometheus API under {@code /prometheus} backs the {@code TelemetryService}'s
-     * metric queries.
+     * Base URL of the Mimir HTTP API the {@code TelemetryService} queries metrics from, whose
+     * Prometheus API is served under {@code /prometheus}; override per environment via
+     * {@code kinotic.managementApi.mimirUrl} (env {@code KINOTIC_MANAGEMENTAPI_MIMIRURL}).
      */
-    @Valid
-    private GrafanaBackendProperties mimir = new GrafanaBackendProperties().setUrl("http://localhost:9009");
+    @NotBlank
+    private String mimirUrl = "http://localhost:9009";
 
 }
