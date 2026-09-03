@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     applicationId KEYWORD,
     projectId KEYWORD,
     name KEYWORD,
+    url KEYWORD,
     commitSha KEYWORD,
     previousCommitSha KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),

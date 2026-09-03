@@ -48,6 +48,17 @@
         <div v-else class="text-sm text-muted-color">No microservice has been deployed yet.</div>
       </section>
 
+      <section class="mt-8">
+        <h2 class="text-base font-medium mb-1">UIs</h2>
+        <p class="text-sm text-muted-color mt-0 mb-3">
+          Each UI the deployment has published is served from a site of its own. A failed site
+          can be provisioned again; Remove takes the site down and deletes its files — a UI the
+          current commit still contains comes back with the next deployment, at a new site.
+        </p>
+        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @retry="retryUi" @remove="confirmRemoveUi" />
+        <div v-else class="text-sm text-muted-color">No UI has been published yet.</div>
+      </section>
+
       <section v-if="machines.length" class="mt-8">
         <h2 class="text-base font-medium mb-1">Machine identities</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
@@ -98,10 +109,13 @@ import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectD
 import { Kinotic } from '@kinotic-ai/core'
 import { MicroserviceDeploymentStatusType,
          ProjectDeploymentStatusType,
+         UiDeploymentStatusType,
          type MachineParticipantIdentity,
          type MicroserviceDeployment,
-         type ProjectDeployment } from '@kinotic-ai/management-api'
+         type ProjectDeployment,
+         type UiDeployment } from '@kinotic-ai/management-api'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
+import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
 interface MachineRow extends MachineParticipantIdentity {
@@ -111,9 +125,10 @@ interface MachineRow extends MachineParticipantIdentity {
 /**
  * The project's deployment: current status and commit, the latest deployment job's tasks
  * rendered live by JobRunProgress with the build log and the artifacts on their rows, the
- * microservices it has ensured with their log, restart and removal, and the machine
- * identities its workloads connect as.
- * Polls the deployment record so a new push swaps in its job run while the page is open.
+ * microservices it has ensured with their log, restart and removal, the UIs it has published
+ * with their sites, retry and removal, and the machine identities its workloads connect as.
+ * Polls the deployment record so a new push swaps in its job run while the page is open, and
+ * the UIs while a site is still provisioning.
  */
 const props = defineProps<{
   applicationId: string
@@ -129,6 +144,7 @@ const StatusType = ProjectDeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
 const microservices = ref<MicroserviceDeployment[]>([])
+const uis = ref<UiDeployment[]>([])
 const machines = ref<MachineRow[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -140,10 +156,13 @@ async function loadDeployment(): Promise<void> {
     const previousJobRunId = deployment.value?.lastJobRunId
     deployment.value = await Kinotic.projects.findDeployment(props.projectId)
     error.value = null
-    // a deployment ensures the microservices and provisions the machines it needs, so both
-    // listings only change with a run, or with an action taken here
+    // a deployment ensures the microservices, publishes the UIs and provisions the machines it
+    // needs, so the listings only change with a run, or with an action taken here; a site
+    // keeps provisioning after the run, so those are watched until they settle
     if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
-      await loadMicroservicesAndMachines()
+      await loadDetails()
+    } else if (uis.value.some(ui => ui.status.type === UiDeploymentStatusType.PROVISIONING)) {
+      await loadUis()
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -152,7 +171,8 @@ async function loadDeployment(): Promise<void> {
   }
 }
 
-async function loadMicroservicesAndMachines(): Promise<void> {
+async function loadDetails(): Promise<void> {
+  await loadUis()
   microservices.value = await Kinotic.microserviceDeployments.findAllForProject(props.projectId)
   // each machine is labelled by the deployment record that names it
   const usedFor = new Map<string, string>()
@@ -166,6 +186,10 @@ async function loadMicroservicesAndMachines(): Promise<void> {
   }
   const listed = await Kinotic.machines.findProjectMachines(props.projectId)
   machines.value = listed.map(machine => ({ ...machine, usedFor: (machine.id && usedFor.get(machine.id)) ?? '' }))
+}
+
+async function loadUis(): Promise<void> {
+  uis.value = await Kinotic.uiDeployments.findAllForProject(props.projectId)
 }
 
 function openLogs(microservice: MicroserviceDeployment): void {
@@ -203,6 +227,27 @@ function confirmRemove(microservice: MicroserviceDeployment): void {
   }
 }
 
+function retryUi(ui: UiDeployment): void {
+  void run(() => Kinotic.uiDeployments.retryProvisioning(ui.id!),
+           `Provisioning ${ui.name} again`, `Failed to provision ${ui.name} again`)
+}
+
+function confirmRemoveUi(ui: UiDeployment): void {
+  // an orphaned UI is one the commit already dropped, so taking its site down needs no confirmation
+  if (ui.status.type === UiDeploymentStatusType.ORPHANED) {
+    void run(() => Kinotic.uiDeployments.remove(ui.id!), `${ui.name} removed`, `Failed to remove ${ui.name}`)
+  } else {
+    confirm.require({
+      header: 'Remove UI',
+      message: `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptProps: { label: 'Remove', severity: 'danger' },
+      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+      accept: () => run(() => Kinotic.uiDeployments.remove(ui.id!), `${ui.name} removed`, `Failed to remove ${ui.name}`)
+    })
+  }
+}
+
 async function run(action: () => Promise<unknown>, success: string, failure: string): Promise<void> {
   try {
     await action()
@@ -211,7 +256,7 @@ async function run(action: () => Promise<unknown>, success: string, failure: str
     showErrorToast(toast, failure, err, { life: 8000 })
   }
   try {
-    await loadMicroservicesAndMachines()
+    await loadDetails()
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   }

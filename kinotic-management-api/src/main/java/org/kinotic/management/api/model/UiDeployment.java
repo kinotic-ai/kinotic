@@ -42,6 +42,12 @@ public class UiDeployment implements Identifiable<String> {
     private String name;
 
     /**
+     * Where the site is served, {@code https://<id>.<sites domain>}, fixed when the label is
+     * minted.
+     */
+    private String url;
+
+    /**
      * Sha of the commit the site serves, or {@code null} until the first publish completes.
      */
     private String commitSha;

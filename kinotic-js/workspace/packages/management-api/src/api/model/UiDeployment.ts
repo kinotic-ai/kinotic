@@ -30,6 +30,11 @@ export class UiDeployment implements Identifiable<string> {
     public name!: string
 
     /**
+     * Where the site is served, `https://<id>.<sites domain>`, fixed when the label is minted.
+     */
+    public url!: string
+
+    /**
      * Sha of the commit the site serves, or null until the first publish completes.
      */
     public commitSha: string | null = null

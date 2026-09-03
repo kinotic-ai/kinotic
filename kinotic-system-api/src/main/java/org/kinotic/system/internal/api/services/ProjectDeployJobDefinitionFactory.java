@@ -4,6 +4,7 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.Organization;
@@ -27,6 +28,7 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
+import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.services.OrganizationStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.management.api.services.UiDeploymentProvisioner;
@@ -96,6 +98,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
     private final KinoticDomainProperties domainProperties;
+    private final KinoticManagementApiProperties managementApiProperties;
 
     /**
      * Creates the job definition deploying the given commit of the project.
@@ -574,12 +577,18 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Mints the site's label, {@code <org>-<app>-<ui>}, taking the first free numeric suffix
-     * when another site holds it. The store enforces the label's uniqueness on create.
+     * when another site holds it, and its URL under the sites domain. The store enforces the
+     * label's uniqueness on create.
      */
     private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
+        Validate.notBlank(sitesDomain(), "kinotic.managementApi.uiDeployment.sitesDomain is required");
         String base = project.getOrganizationId() + "-" + project.getApplicationId() + "-" + ui.name();
         ZoneUtil.validateLabel(base);
         return mintWithSuffix(project, ui, base, 1);
+    }
+
+    private String sitesDomain() {
+        return managementApiProperties.getManagementApi().getUiDeployment().getSitesDomain();
     }
 
     private Future<UiDeployment> mintWithSuffix(Project project, UiArtifact ui, String base, int attempt) {
@@ -592,6 +601,7 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             ret = uiDeploymentRepository.create(new UiDeployment()
                             .setId(label)
+                            .setUrl("https://" + label + "." + sitesDomain())
                             .setOrganizationId(project.getOrganizationId())
                             .setApplicationId(project.getApplicationId())
                             .setProjectId(project.getId())
