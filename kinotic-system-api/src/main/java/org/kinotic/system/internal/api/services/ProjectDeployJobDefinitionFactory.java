@@ -20,6 +20,7 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.WorkloadService;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -69,6 +70,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final OrganizationStorageProvisioner organizationStorageProvisioner;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
+    private final KinoticDomainProperties domainProperties;
 
     /**
      * Creates the job definition deploying the given commit of the project.
@@ -431,6 +433,9 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
         workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
+        // The UIs are built against the address a browser reaches the platform on, which the
+        // egress address in DeploymentProperties.serverHost is not
+        workload.getEnvironment().put("KINOTIC_UI_SERVER_URL", domainProperties.getDomain().resolveApiBaseUrl());
         putKinoticConnection(workload, deployment, credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())

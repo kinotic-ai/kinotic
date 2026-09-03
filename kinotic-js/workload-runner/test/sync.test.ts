@@ -207,6 +207,49 @@ describe('sync entrypoint', () => {
         expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)
     }, 30_000)
 
+    /** Commits a UI package whose build script is the given shell command, and returns the commit. */
+    function commitUi(name: string, build: string): string {
+        const dir = join(seedDir, 'packages', 'ui', name)
+        mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: `@fixture/${name}`, scripts: { build } }))
+        git(seedDir, 'add', '.')
+        git(seedDir, 'commit', '-m', `add ui ${name}`)
+        git(seedDir, 'push', `file://${originDir}`, 'main')
+        return git(seedDir, 'rev-parse', 'HEAD')
+    }
+
+    it('builds each UI with the base path, commit and server address, before the sentinel', () => {
+        // the build records what it was handed and writes the index the check looks for
+        const sha = commitUi('admin',
+            'mkdir -p dist && echo "$KINOTIC_UI_BASE_PATH $KINOTIC_UI_COMMIT $KINOTIC_UI_SERVER_URL" > dist/env.txt && echo ok > dist/index.html')
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: sha,
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+            KINOTIC_UI_SERVER_URL: 'https://api.kinotic.test',
+        })
+
+        expect(result.status).toBe(0)
+        expect(readFileSync(join(workspaceDir, 'packages', 'ui', 'admin', 'dist', 'env.txt'), 'utf-8').trim())
+            .toBe(`/${sha}/ ${sha} https://api.kinotic.test`)
+        expect(readFileSync(join(workspaceDir, '.kinotic', 'reload'), 'utf-8')).toBe(sha)
+    }, 30_000)
+
+    it('fails naming the UI, before the sentinel, when a build leaves no dist/index.html', () => {
+        const sha = commitUi('admin', 'mkdir -p dist && echo nothing > dist/other.txt')
+
+        const result = runSync({
+            GIT_CLONE_URL: `file://${originDir}`,
+            GIT_REF: sha,
+            KINOTIC_WORKSPACE_DIR: workspaceDir,
+        })
+
+        expect(result.status).not.toBe(0)
+        expect(result.stderr).toContain('packages/ui/admin')
+        expect(existsSync(join(workspaceDir, '.kinotic', 'reload'))).toBe(false)
+    }, 30_000)
+
     it('never persists the token into the shared checkout', () => {
         const sha = git(seedDir, 'rev-parse', 'HEAD')
 

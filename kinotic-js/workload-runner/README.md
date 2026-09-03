@@ -17,13 +17,14 @@ fetch + checkout GIT_REF                      runs the project's microservice en
 bun install                                   polls .kinotic/reload for changes
 find artifacts                                restarts the process when it changes
 entity sync + publish
+build the UIs
 report artifacts to the server
 write .kinotic/reload  ←──────────────────────┘
 ```
 
-The sentinel is written **last**, only after the checkout, install, entity sync, and
-artifact report all succeeded, so the supervisor never restarts the microservices into a
-half-updated tree.
+The sentinel is written **last**, only after the checkout, install, entity sync, UI builds
+and artifact report all succeeded, so the supervisor never restarts the microservices into
+a half-updated tree.
 It is polled (`fs.watchFile`) rather than watched because the two workloads are separate
 micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 
@@ -38,6 +39,7 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
 | `KINOTIC_PROJECT_ID` | the project the checkout belongs to, named in the artifact report | required with credentials |
+| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the platform on, handed to every UI build | — |
 | `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI and the artifact report connect with; both are skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
@@ -57,6 +59,11 @@ letters, digits, and interior dashes. A missing or invalid name, or two packages
 sharing a name, fails the run naming the package. The result is reported to the server
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
 the deployment run can bind it once this workload exits.
+
+Every UI artifact is then built in place with `bun run build`, handed `KINOTIC_UI_BASE_PATH`
+(`/<commit>/`, so its assets are served under the commit and cached forever),
+`KINOTIC_UI_COMMIT` and `KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html`
+fails the run naming the UI.
 
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and

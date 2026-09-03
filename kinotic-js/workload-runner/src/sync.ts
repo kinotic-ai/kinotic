@@ -2,7 +2,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { Kinotic } from '@kinotic-ai/core'
-import { ManagementApiPlugin, type ProjectArtifacts } from '@kinotic-ai/management-api'
+import { ManagementApiPlugin, type ProjectArtifacts, type UiArtifact } from '@kinotic-ai/management-api'
 import { findArtifacts } from './artifacts.ts'
 import { writeSentinel } from './sentinel.ts'
 import { forwardOutput, log, logError } from './log.ts'
@@ -10,8 +10,9 @@ import { forwardOutput, log, logError } from './log.ts'
 /**
  * One-shot entrypoint of the sync workload: brings the shared checkout directory to the
  * requested commit, installs dependencies, finds the artifacts the commit contains,
- * synchronizes the project's entity definitions with the server, reports the artifacts to
- * it, and writes the reload sentinel the runtime workload's supervisor polls.
+ * synchronizes the project's entity definitions with the server, builds the UIs, reports
+ * the artifacts to the server, and writes the reload sentinel the runtime workload's
+ * supervisor polls.
  *
  * The sentinel is written last, only after everything else succeeded — the supervisor
  * therefore never restarts the microservices into a half-updated tree.
@@ -22,6 +23,8 @@ import { forwardOutput, log, logError } from './log.ts'
  * - GIT_TOKEN              token authorizing the fetch; omit for a public repository
  * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
  * - KINOTIC_PROJECT_ID     the project the checkout belongs to; required to report artifacts
+ * - KINOTIC_UI_SERVER_URL  the address a browser reaches the platform on, handed to every UI
+ *                          build together with KINOTIC_UI_BASE_PATH and KINOTIC_UI_COMMIT
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
  *   connection settings the CLI and the artifact report authenticate with; both are
  *   skipped when no credentials are present
@@ -39,9 +42,9 @@ function require_(name: string): string {
     return value
 }
 
-function run(command: string, args: string[], cwd: string): Promise<void> {
+function run(command: string, args: string[], cwd: string, env: Record<string, string> = {}): Promise<void> {
     return new Promise((resolve, reject) => {
-        const child = spawn(command, args, { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+        const child = spawn(command, args, { cwd, env: { ...process.env, ...env }, stdio: ['ignore', 'pipe', 'pipe'] })
         forwardOutput(child)
         child.on('error', reject)
         child.on('exit', (code, signal) => {
@@ -151,6 +154,29 @@ async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): 
     }
 }
 
+/**
+ * Builds every UI of the commit in place, each with the three variables its build honors:
+ * the base path its assets are served under, which is the commit so they can be cached
+ * forever, the commit itself for the stale-tab check, and the server address. A build that
+ * leaves no {@code dist/index.html} fails the run before the sentinel is written.
+ */
+async function buildUis(workspaceDir: string, uis: UiArtifact[], commitSha: string): Promise<void> {
+    const env: Record<string, string> = {
+        KINOTIC_UI_BASE_PATH: `/${commitSha}/`,
+        KINOTIC_UI_COMMIT: commitSha,
+    }
+    if (process.env.KINOTIC_UI_SERVER_URL) {
+        env.KINOTIC_UI_SERVER_URL = process.env.KINOTIC_UI_SERVER_URL
+    }
+    for (const ui of uis) {
+        log(`[workload-runner] building UI ${ui.name}`)
+        await run('bun', ['run', 'build'], join(workspaceDir, ui.dir), env)
+        if (!existsSync(join(workspaceDir, ui.dir, 'dist', 'index.html'))) {
+            throw new Error(`UI ${ui.name} (${ui.dir}) built without writing dist/index.html`)
+        }
+    }
+}
+
 function serverUrlFromEnv(): string {
     const host = require_('KINOTIC_SERVER_HOST')
     const port = process.env.KINOTIC_SERVER_PORT
@@ -173,6 +199,7 @@ async function main(): Promise<void> {
     await syncEntities(workspaceDir)
 
     const commitSha = headCommit(workspaceDir)
+    await buildUis(workspaceDir, artifacts.uis, commitSha)
     await reportArtifacts(commitSha, artifacts)
     writeSentinel(workspaceDir, commitSha)
     log(`[workload-runner] deployed ${commitSha}`)
