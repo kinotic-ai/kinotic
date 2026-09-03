@@ -74,7 +74,7 @@ describe('BoxliteProvider recovery and restart', () => {
         const started = await first.start(longRunningWorkload())
         startedIds.push(started.id!)
         expect(started.status).toBe(WorkloadStatus.RUNNING)
-        const [target] = await first.listLogTargets()
+        const [target] = await first.listTelemetryTargets()
         expect(target).toBeDefined()
 
         // Generation 2: a fresh provider over the same dirs models the restarted process
@@ -84,11 +84,12 @@ describe('BoxliteProvider recovery and restart', () => {
         const recovered = await second.getWorkload(started.id!)
         expect(recovered.status).toBe(WorkloadStatus.RUNNING)
         expect(recovered.organizationId).toBe('acme')
-        expect(await second.listLogTargets()).toEqual([{
+        expect(await second.listTelemetryTargets()).toEqual([{
             workloadId: started.id!,
             vmId: target!.vmId,
             logPath: target!.logPath,
             format: LogFormat.PLAIN,
+            traces: null,
             organizationId: 'acme',
             applicationId: null,
         }])
@@ -101,13 +102,13 @@ describe('BoxliteProvider recovery and restart', () => {
         const third = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir, onStatusChanged)
         await third.recover()
         expect((await third.getWorkload(started.id!)).status).toBe(WorkloadStatus.STOPPED)
-        const [dormant] = await third.listLogTargets()
+        const [dormant] = await third.listTelemetryTargets()
         expect(dormant!.vmId).toBe(target!.vmId)
 
         // Restart in place: same VM, disk intact, shipping resumes
         const restarted = await third.restart(started.id!)
         expect(restarted.status).toBe(WorkloadStatus.RUNNING)
-        const [again] = await third.listLogTargets()
+        const [again] = await third.listTelemetryTargets()
         expect(again!.vmId).toBe(target!.vmId)
 
         await third.destroy(started.id!)

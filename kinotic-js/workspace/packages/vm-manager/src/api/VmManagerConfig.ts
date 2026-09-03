@@ -48,6 +48,12 @@ export class VmManagerConfig {
     readonly lokiUrl: string | undefined = process.env.KINOTIC_LOKI_URL
 
     /**
+     * KINOTIC_TEMPO_URL — base URL of the OTLP/HTTP endpoint workload traces are shipped to,
+     * Tempo's own or a collector in front of it; unset disables trace shipping.
+     */
+    readonly tempoUrl: string | undefined = process.env.KINOTIC_TEMPO_URL
+
+    /**
      * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node
      * must live under. Mounts are bound with the vm-manager's authority, so this boundary is
      * what keeps a workload spec from mounting an arbitrary host directory. Reported to the

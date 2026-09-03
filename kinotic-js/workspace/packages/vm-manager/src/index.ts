@@ -9,7 +9,8 @@ import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHyperviso
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
+import { TraceEndpointRepository } from '@/internal/api/telemetry/TraceEndpointRepository'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
 import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
@@ -25,16 +26,22 @@ if (!nodeId) {
     process.exit(1)
 }
 
-const alloyManager = config.lokiUrl
+const alloyManager = config.lokiUrl || config.tempoUrl
     ? new AlloyManager({
-        lokiUrl: config.lokiUrl,
+        lokiUrl: config.lokiUrl || null,
+        tempoUrl: config.tempoUrl || null,
         nodeId,
         dataDir: config.alloyDataDir,
     })
     : null
-if (!alloyManager) {
+if (!config.lokiUrl) {
     console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
 }
+if (!config.tempoUrl) {
+    console.warn('KINOTIC_TEMPO_URL is not set — workload trace shipping is disabled')
+}
+// Endpoints are issued only where the node ships what arrives on them
+const traceEndpoints = config.tempoUrl ? new TraceEndpointRepository(config.alloyDataDir) : null
 
 let heartbeatTimer: Timer | null = null
 let shuttingDown = false
@@ -59,7 +66,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // One-shot, so it must run before anything asks for the runtime.
         getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
-                                  config.workloadDataDir, reportStatus)
+                                  config.workloadDataDir, reportStatus, traceEndpoints)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
@@ -71,7 +78,8 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
                                           config.workloadDataDir,
                                           egress,
                                           config.workloadDns ?? null,
-                                          reportStatus)
+                                          reportStatus,
+                                          traceEndpoints)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }
@@ -88,14 +96,14 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
 }
 
 /**
- * Why this node cannot ship the logs of the workloads it runs, if it cannot. A workload whose
- * output goes nowhere is not one this node should be given, so this joins the invariants the
- * provider checks — the node keeps what it is running and stops being offered more.
+ * Why this node cannot ship the telemetry of the workloads it runs, if it cannot. A workload
+ * whose output goes nowhere is not one this node should be given, so this joins the invariants
+ * the provider checks — the node keeps what it is running and stops being offered more.
  *
- * Only a node that was asked to ship logs can fail to: one started without KINOTIC_LOKI_URL
- * has already said so at startup.
+ * Only a node that was asked to ship can fail to: one started without KINOTIC_LOKI_URL and
+ * KINOTIC_TEMPO_URL has already said so at startup.
  */
-function logShippingProblems(): string[] {
+function shippingProblems(): string[] {
     const problem = alloyManager?.shippingProblem() ?? null
     return problem !== null ? [problem] : []
 }
@@ -144,7 +152,7 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
             await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
-                                                      ...logShippingProblems()])
+                                                      ...shippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
@@ -188,9 +196,9 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
-    // Resume shipping the recovered workloads' logs, which also downloads and launches
-    // Alloy here rather than inside whichever startWorkload call arrives first
-    await vmManager.refreshLogShipping()
+    // Resume shipping the recovered workloads' logs and traces, which also downloads and
+    // launches Alloy here rather than inside whichever startWorkload call arrives first
+    await vmManager.refreshShipping()
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())

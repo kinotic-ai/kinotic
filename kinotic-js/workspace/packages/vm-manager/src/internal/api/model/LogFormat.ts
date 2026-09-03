@@ -1,6 +1,6 @@
 
 /**
- * How the lines in a {@link LogTarget}'s files are encoded, which decides what the log
+ * How the lines in a {@link TelemetryTarget}'s files are encoded, which decides what the log
  * shipper must do to recover the message the workload actually wrote.
  */
 export enum LogFormat {

@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
+import type { TraceEndpoint } from '@/internal/api/model/TraceEndpoint'
 
 /**
  * Marker carried on every rule this manager writes, so the rules belonging to a workload can
@@ -33,6 +34,13 @@ const PROTECTED_ADDRESSES = [CLOUD_METADATA_ADDRESS, AZURE_WIRESERVER_ADDRESS]
 
 /** The chain Docker consults from FORWARD, which is where guest traffic is filtered. */
 const CHAIN = 'DOCKER-USER'
+
+/**
+ * Where traffic addressed to the host itself is filtered, which FORWARD never sees. The
+ * node's floor shields its own services from every guest here, so a host port a workload is
+ * granted has to be opened here too.
+ */
+const HOST_CHAIN = 'INPUT'
 
 // IPv4 address or CIDR. Hostnames are rejected rather than resolved: an address resolved once
 // at start goes stale the moment the target moves, and the workload would keep a rule naming
@@ -94,8 +102,13 @@ export class EgressPolicyManager {
      * @param allowedHosts destinations from the workload's network policy, as IPv4 addresses
      *        or CIDRs. The api-gateway is among them: the server places it there, because only
      *        the server knows where the gateway is.
+     * @param traceEndpoint the node's own trace receiver issued to this workload, opened to it
+     *        alone; null when the workload holds none
      */
-    public apply(workloadId: string, address: string, allowedHosts: string[]): void {
+    public apply(workloadId: string,
+                 address: string,
+                 allowedHosts: string[],
+                 traceEndpoint: TraceEndpoint | null = null): void {
         this.requireAddress(address, `workload ${workloadId}`)
         for (const destination of allowedHosts) {
             this.requireAddress(destination, `an allowed destination of workload ${workloadId}`)
@@ -123,6 +136,12 @@ export class EgressPolicyManager {
             const position = this.protectedAddressNamedBy(destination) !== null ? 1 : this.floorPosition()
             this.insert(position, ['-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
         }
+        if (traceEndpoint !== null) {
+            // At the top: the floor drops the whole bridge subnet from the host's INPUT, and a
+            // rule below that drop is never reached
+            this.run(['-I', HOST_CHAIN, '1', '-s', address, '-d', traceEndpoint.listenAddress,
+                      '-p', 'tcp', '--dport', String(traceEndpoint.port), ...comment, '-j', 'ACCEPT'])
+        }
     }
 
     /**
@@ -130,7 +149,7 @@ export class EgressPolicyManager {
      * the top when the node has no default-deny, since nothing is being overridden there.
      */
     private floorPosition(): number {
-        const rules = this.chain()
+        const rules = this.rules(CHAIN)
         // The default-deny is the node's only rule with a source and no destination; its own
         // metadata drops name a destination, and every per-workload rule names both
         const index = rules.findIndex(rule => rule.includes('-s') && !rule.includes('-d') && rule.includes('DROP'))
@@ -142,11 +161,13 @@ export class EgressPolicyManager {
      * to call for a workload that never started.
      */
     public release(workloadId: string): void {
-        // Compared as a whole id rather than a prefix: 'wl-1' is a prefix of 'wl-10', and
-        // releasing one workload must not take a sibling's rules with it
-        for (const rule of this.chain().filter(rule => this.workloadIdOf(rule) === workloadId)) {
-            // -S prints rules as the -A that would create them; the same words delete it
-            this.run(['-D', ...rule.slice(1)])
+        for (const chain of [CHAIN, HOST_CHAIN]) {
+            // Compared as a whole id rather than a prefix: 'wl-1' is a prefix of 'wl-10', and
+            // releasing one workload must not take a sibling's rules with it
+            for (const rule of this.rules(chain).filter(rule => this.workloadIdOf(rule) === workloadId)) {
+                // -S prints rules as the -A that would create them; the same words delete it
+                this.run(['-D', ...rule.slice(1)])
+            }
         }
     }
 
@@ -157,7 +178,7 @@ export class EgressPolicyManager {
      */
     public reconcile(activeWorkloadIds: Set<string>): void {
         const stale = new Set<string>()
-        for (const rule of this.chain()) {
+        for (const rule of [...this.rules(CHAIN), ...this.rules(HOST_CHAIN)]) {
             const workloadId = this.workloadIdOf(rule)
             if (workloadId !== null && !activeWorkloadIds.has(workloadId)) {
                 stale.add(workloadId)
@@ -170,12 +191,12 @@ export class EgressPolicyManager {
     }
 
     // Every rule in the chain, in order, as argument arrays
-    private chain(): string[][] {
-        const result = spawnSync('iptables', ['-S', CHAIN], { encoding: 'utf-8' })
+    private rules(chain: string): string[][] {
+        const result = spawnSync('iptables', ['-S', chain], { encoding: 'utf-8' })
         let ret: string[][] = []
         if (result.status === 0) {
             ret = (result.stdout ?? '').split('\n')
-                .filter(line => line.startsWith(`-A ${CHAIN}`))
+                .filter(line => line.startsWith(`-A ${chain}`))
                 .map(line => this.tokenize(line))
         }
         return ret

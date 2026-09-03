@@ -3,8 +3,8 @@ import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import type { LogTarget } from '@/internal/api/model/LogTarget'
+import { AlloyManager, type AlloyManagerOptions } from '@/internal/api/telemetry/AlloyManager'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 
 // AlloyManager resolves `alloy` from the PATH, so a harmless stand-in on the PATH lets
@@ -18,26 +18,39 @@ writeFileSync(join(fakeBinDir, 'alloy'),
 chmodSync(join(fakeBinDir, 'alloy'), 0o755)
 process.env.PATH = `${fakeBinDir}:${process.env.PATH}`
 
-function manager(dataDir: string): AlloyManager {
-    return new AlloyManager({ lokiUrl: 'http://loki:3100', nodeId: 'node-1', dataDir })
+const TEMPO_URL = 'http://tempo:4318'
+
+type Destinations = Partial<Pick<AlloyManagerOptions, 'lokiUrl' | 'tempoUrl'>>
+
+function manager(dataDir: string, destinations: Destinations = {}): AlloyManager {
+    return new AlloyManager({ lokiUrl: 'http://loki:3100', tempoUrl: null, nodeId: 'node-1', dataDir, ...destinations })
 }
 
-function target(overrides: Partial<LogTarget> = {}): LogTarget {
+function target(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
     return {
         workloadId: '9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c',
         vmId: 'KeUwLBZv2RFz',
         logPath: '/var/kinotic/vm-logs/9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c/*.log',
         format: LogFormat.PLAIN,
+        traces: null,
         organizationId: 'acme',
         applicationId: null,
         ...overrides,
     }
 }
 
+/** A target whose workload elected tracing and was issued an endpoint on this node. */
+function traced(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
+    return target({
+        traces: { listenAddress: '127.0.0.1', port: 43180, token: 'a1b2c3' },
+        ...overrides,
+    })
+}
+
 /** Applies the targets and returns the pipeline config the manager wrote. */
-async function configFor(targets: LogTarget[]): Promise<string> {
+async function configFor(targets: TelemetryTarget[], destinations: Destinations = {}): Promise<string> {
     const dataDir = mkdtempSync(join(tmpdir(), 'alloy-config-'))
-    const alloyManager = manager(dataDir)
+    const alloyManager = manager(dataDir, destinations)
     try {
         await alloyManager.applyTargets(targets)
         return readFileSync(join(dataDir, 'config.alloy'), 'utf-8')
@@ -119,6 +132,110 @@ describe('applyTargets pipeline generation', () => {
         expect(config).toContain('loki.write "default"')
         expect(config).toContain('url = "http://loki:3100/loki/api/v1/push"')
         expect(config).not.toContain('loki.source.file')
+    })
+})
+
+describe('trace pipeline generation', () => {
+
+    it('receives a workload\'s traces on its own endpoint, behind its own bearer token', async () => {
+        const config = await configFor([traced()], { tempoUrl: TEMPO_URL })
+
+        expect(config).toContain('otelcol.auth.bearer "wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c"')
+        expect(config).toContain('token = "a1b2c3"')
+        expect(config).toContain('otelcol.receiver.otlp "wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c"')
+        expect(config).toContain('endpoint = "127.0.0.1:43180"')
+        expect(config).toContain('auth     = otelcol.auth.bearer.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.handler')
+    })
+
+    it('stamps spans with the identity its log streams carry, as resource attributes', async () => {
+        const config = await configFor([traced({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL })
+
+        expect(config).toContain('context    = "resource"')
+        expect(config).toContain('"set(attributes[\\"workload_id\\"], \\"9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c\\")"')
+        expect(config).toContain('"set(attributes[\\"vm_id\\"], \\"KeUwLBZv2RFz\\")"')
+        expect(config).toContain('"set(attributes[\\"node_id\\"], \\"node-1\\")"')
+        expect(config).toContain('"set(attributes[\\"application_id\\"], \\"app-7\\")"')
+    })
+
+    it('omits the application attribute when the workload has no application', async () => {
+        const config = await configFor([traced()], { tempoUrl: TEMPO_URL })
+
+        expect(config).not.toContain('application_id')
+    })
+
+    it('exports each organization to its own Tempo tenant, and platform workloads to the system tenant', async () => {
+        const config = await configFor([
+            traced(),
+            traced({ workloadId: 'ff000000-0000-4000-8000-000000000001', organizationId: null,
+                     traces: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+        ], { tempoUrl: TEMPO_URL })
+
+        expect(config).toContain('"X-Scope-OrgID" = "acme"')
+        expect(config).toContain('"X-Scope-OrgID" = "kinotic-system"')
+        expect(config).toContain('endpoint = "http://tempo:4318"')
+    })
+
+    it('shares one exporter between workloads of the same organization', async () => {
+        const config = await configFor([
+            traced(),
+            traced({ workloadId: 'ff000000-0000-4000-8000-000000000001',
+                     traces: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+        ], { tempoUrl: TEMPO_URL })
+
+        expect(config.match(/otelcol\.receiver\.otlp "/g)).toHaveLength(2)
+        expect(config.match(/otelcol\.exporter\.otlphttp "/g)).toHaveLength(1)
+    })
+
+    it('ships no traces for a workload that did not elect tracing', async () => {
+        const config = await configFor([target()], { tempoUrl: TEMPO_URL })
+
+        expect(config).not.toContain('otelcol.')
+    })
+
+    it('ships no traces on a node without a Tempo URL, whatever a workload elected', async () => {
+        const config = await configFor([traced()])
+
+        expect(config).not.toContain('otelcol.')
+    })
+
+    it('ships traces alone on a node configured for Tempo but not Loki', async () => {
+        const config = await configFor([traced()], { tempoUrl: TEMPO_URL, lokiUrl: null })
+
+        expect(config).toContain('otelcol.receiver.otlp')
+        expect(config).not.toContain('loki.')
+    })
+})
+
+/**
+ * The pinned Alloy release, when KINOTIC_ALLOY_BIN names one, checks the generated pipeline
+ * the way the node's shipper will: every component, argument, and reference. CI has no
+ * binary, so this is skipped there.
+ */
+describe.skipIf(!process.env.KINOTIC_ALLOY_BIN)('generated config against a real Alloy', () => {
+
+    it('validates a pipeline shipping both log formats and the traces of two tenants', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-validate-'))
+        const alloyManager = manager(dataDir, { tempoUrl: TEMPO_URL })
+        try {
+            await alloyManager.applyTargets([
+                traced({ applicationId: 'app-7' }),
+                traced({
+                    workloadId: 'ff000000-0000-4000-8000-000000000001',
+                    organizationId: null,
+                    logPath: '/var/lib/docker/containers/abc123/abc123-json.log',
+                    format: LogFormat.DOCKER_JSON,
+                    traces: { listenAddress: '172.17.0.1', port: 43181, token: 'd4e5f6' },
+                }),
+                target({ workloadId: 'ff000000-0000-4000-8000-000000000002' }),
+            ])
+        } finally {
+            await alloyManager.stop()
+        }
+
+        const result = spawnSync(process.env.KINOTIC_ALLOY_BIN!, ['validate', join(dataDir, 'config.alloy')],
+                                 { encoding: 'utf-8' })
+
+        expect({ status: result.status, output: `${result.stdout}${result.stderr}` }).toEqual({ status: 0, output: '' })
     })
 })
 

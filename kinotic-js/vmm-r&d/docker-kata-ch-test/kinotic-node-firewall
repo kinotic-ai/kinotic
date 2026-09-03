@@ -29,7 +29,9 @@ insert -d 168.63.129.16/32 -p tcp --dport 32526 -j DROP
 # --- host services -------------------------------------------------------------------------
 # DOCKER-USER is consulted from FORWARD, and traffic addressed to the host itself never
 # reaches FORWARD — so the rules above say nothing about a guest dialling the node's own
-# sshd. Published ports are unaffected: those are the host initiating, not the guest.
+# sshd. Published ports are unaffected: those are the host initiating, not the guest. The
+# one host service a guest may be granted is the trace receiver the vm-manager runs for it,
+# opened per workload by an ACCEPT inserted above this drop.
 BRIDGE_SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null || true)"
 [ -n "$BRIDGE_SUBNET" ] || BRIDGE_SUBNET=172.17.0.0/16
 iptables -C INPUT -s "$BRIDGE_SUBNET" -j DROP 2>/dev/null || iptables -I INPUT -s "$BRIDGE_SUBNET" -j DROP

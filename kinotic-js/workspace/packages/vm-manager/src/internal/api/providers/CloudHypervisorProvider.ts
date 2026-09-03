@@ -1,5 +1,5 @@
 import Docker from 'dockerode'
-import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
+import type { ContainerCreateOptions, ContainerInspectInfo, NetworkInspectInfo } from 'dockerode'
 import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
@@ -7,7 +7,8 @@ import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
-import type { LogTarget } from '@/internal/api/model/LogTarget'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
+import { TraceEndpointRepository } from '@/internal/api/telemetry/TraceEndpointRepository'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
@@ -65,19 +66,25 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
+    // Null on a node that ships no traces, where a workload's election issues nothing
+    private readonly traceEndpoints: TraceEndpointRepository | null
+    // The host's address on the workload bridge, read from the daemon on first use
+    private bridgeGateway: string | null = null
 
     constructor(stateDir: string,
                 docker: Docker,
                 workloadDataDir: string,
                 egress: EgressPolicyManager = new EgressPolicyManager(),
                 resolver: string | null = null,
-                onStatusChanged: ((workload: Workload) => void) | null = null) {
+                onStatusChanged: ((workload: Workload) => void) | null = null,
+                traceEndpoints: TraceEndpointRepository | null = null) {
         this.stateDir = stateDir
         this.docker = docker
         this.workloadDataDir = resolve(workloadDataDir)
         this.egress = egress
         this.resolver = resolver
         this.onStatusChanged = onStatusChanged
+        this.traceEndpoints = traceEndpoints
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
         this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
@@ -86,9 +93,10 @@ export class CloudHypervisorProvider implements IVmProvider {
     /**
      * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
      * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
-     * the workload declares its own.
+     * the workload declares its own. The trace environment, empty for a workload without an
+     * endpoint, is laid over the workload's own.
      */
-    private buildCreateOptions(workload: Workload): ContainerCreateOptions {
+    private buildCreateOptions(workload: Workload, traceEnvironment: Record<string, string>): ContainerCreateOptions {
         // A workload deserialized from the wire or a persisted state file may predate the
         // network field, whose absence means the policy the model defaults to
         const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
@@ -109,7 +117,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             name: workload.id!,
             Image: workload.image,
             Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
-            Env: Object.entries({ ...workload.environment, ...workload.secrets })
+            Env: Object.entries({ ...workload.environment, ...workload.secrets, ...traceEnvironment })
                        .map(([key, value]) => `${key}=${value}`),
             ...(workload.entrypoint.length > 0
                 ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
@@ -215,7 +223,8 @@ export class CloudHypervisorProvider implements IVmProvider {
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
 
-            const container = await this.docker.createContainer(this.buildCreateOptions(workload))
+            const container = await this.docker.createContainer(
+                this.buildCreateOptions(workload, await this.traceEnvironment(workload)))
             await container.start()
 
             const info = await container.inspect()
@@ -308,6 +317,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         await this.removeContainer(workloadId)
         this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
+        this.traceEndpoints?.release(workloadId)
 
         this.containers.delete(workloadId)
         this.exitWatches.delete(workloadId)
@@ -329,7 +339,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         return workloads
     }
 
-    async listLogTargets(): Promise<LogTarget[]> {
+    async listTelemetryTargets(): Promise<TelemetryTarget[]> {
         return Array.from(this.containers.entries()).map(([workloadId, container]) => {
             const workload = this.workloads.get(workloadId)!
             return {
@@ -337,6 +347,7 @@ export class CloudHypervisorProvider implements IVmProvider {
                 vmId: container.containerId,
                 logPath: container.logPath,
                 format: LogFormat.DOCKER_JSON,
+                traces: this.traceEndpoints?.find(workloadId) ?? null,
                 organizationId: workload.organizationId,
                 applicationId: workload.applicationId,
             }
@@ -473,8 +484,41 @@ export class CloudHypervisorProvider implements IVmProvider {
         // A workload with no network has no address and nothing to restrict
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
-            this.egress.apply(workload.id!, address, allowedHosts)
+            this.egress.apply(workload.id!, address, allowedHosts, this.traceEndpoints?.find(workload.id!) ?? null)
         }
+    }
+
+    /**
+     * The OTLP exporter configuration the guest is given, empty unless the workload elects
+     * tracing on a node that ships traces. The receiver binds to the bridge gateway: the one
+     * host address a guest can reach, and one nothing off the node can.
+     */
+    private async traceEnvironment(workload: Workload): Promise<Record<string, string>> {
+        let ret: Record<string, string> = {}
+        if ((workload.tracing ?? false) && this.traceEndpoints !== null) {
+            // The endpoint is opened to the workload by the same rules as its egress, so a node
+            // that writes none would leave the receiver behind the floor that shields it
+            if (!this.egress.enforces()) {
+                throw new Error(`Workload ${workload.id} elects tracing, but this node does not enforce `
+                                + 'workload network policy, so it cannot open its trace endpoint to the workload')
+            }
+            const gateway = await this.gateway()
+            ret = TraceEndpointRepository.guestEnvironment(gateway, this.traceEndpoints.issue(workload.id!, gateway))
+        }
+        return ret
+    }
+
+    // The bridge's gateway is the host's address on it, fixed for the daemon's life
+    private async gateway(): Promise<string> {
+        if (this.bridgeGateway === null) {
+            const bridge: NetworkInspectInfo = await this.docker.getNetwork('bridge').inspect()
+            const gateway = bridge.IPAM?.Config?.find(config => config.Gateway)?.Gateway
+            if (!gateway) {
+                throw new Error('The docker bridge network has no IPv4 gateway, so a guest cannot reach this node')
+            }
+            this.bridgeGateway = gateway
+        }
+        return this.bridgeGateway
     }
 
     // Removing a container that is not there is the state the caller wanted

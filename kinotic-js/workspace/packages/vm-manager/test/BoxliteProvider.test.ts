@@ -37,6 +37,28 @@ describe('buildBoxOptions', () => {
         })
     })
 
+    it('names the trace endpoint in the guest environment and allows its host', () => {
+        const w = workload()
+        w.network.allowedHosts = ['api.github.com']
+
+        const options = BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', { listenAddress: '127.0.0.1', port: 43180, token: 'abc123' })
+
+        expect(options.env).toMatchObject({
+            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180',
+            OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+            OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer%20abc123',
+            OTEL_TRACES_EXPORTER: 'otlp',
+        })
+        // The host alias is a destination the workload cannot know, so the node adds it
+        expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['api.github.com', '192.168.127.254'] } })
+    })
+
+    it('allows a traced workload whose policy allows nothing the host alias alone', () => {
+        const options = BoxliteProvider.buildBoxOptions(workload(), '/logs/wl-1', { listenAddress: '127.0.0.1', port: 43180, token: 'abc123' })
+
+        expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['192.168.127.254'] } })
+    })
+
     it('rejects more volume mounts than boxlite can boot', () => {
         const w = workload()
         w.volumeMounts = [
