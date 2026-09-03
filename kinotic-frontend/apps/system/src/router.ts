@@ -50,13 +50,13 @@ const routes: RouteRecordRaw[] = [
                 meta: { sidebar: consoleSidebarItem('Jobs', 'pi-list-check', 40) }
             },
             {
-                // Drill-down view: the sidebar gives way to the run itself, and the page
-                // header's "All jobs" action is the way back out
+                // Drilling into a run keeps the console sidebar without being an item in it;
+                // without this the route matches no group and renders an empty sidebar
                 name: 'job-run',
                 path: 'jobs/:jobRunId',
                 component: () => import('./pages/JobRunPage.vue'),
                 props: true,
-                meta: { hideSidebar: true }
+                meta: { sidebarGroup: 'console' }
             },
             {
                 name: 'organization-detail',
