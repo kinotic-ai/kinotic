@@ -1,5 +1,5 @@
 import { ConnectionInfo, Kinotic, KinoticSingleton } from '@kinotic-ai/core'
-import { AuthType, IamUser, OsApiPlugin } from '@kinotic-ai/os-api'
+import { AuthType, IamUser, ManagementApiPlugin } from '@kinotic-ai/management-api'
 import { PersistencePlugin } from '@kinotic-ai/persistence'
 
 const APP_USER_TENANT_ID = 'default'
@@ -36,7 +36,7 @@ export async function createAppUserIfNotExist(applicationId: string): Promise<st
 
 /**
  * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped
- * user returned by {@link createAppUserIfNotExist}. Has OsApiPlugin and
+ * user returned by {@link createAppUserIfNotExist}. Has ManagementApiPlugin and
  * PersistencePlugin installed so it can back EntityRepository instances used
  * for entity-data CRUD. The caller is responsible for disconnecting.
  */
@@ -45,7 +45,7 @@ export async function initKinoticAppClient(baseConnectionInfo: ConnectionInfo,
     const email = await createAppUserIfNotExist(applicationId)
 
     const appKinotic = new KinoticSingleton()
-    appKinotic.use(OsApiPlugin).use(PersistencePlugin)
+    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
 
     await appKinotic.connect({
         ...baseConnectionInfo,

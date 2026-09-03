@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest"
 import { ConnectedInfo, Kinotic, Event, EventConstants, type IEvent } from "../src"
 import { TestServiceNoScope } from "./TestServiceNoScope"
 import { TestServiceWithScope } from "./TestServiceWithScope"
+import { TestServiceWithScopeOptional } from "./TestServiceWithScopeOptional"
 import { createConnectOptions, logFailure, validateConnectedInfo } from "./TestHelper"
 import { firstValueFrom, Observable } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
@@ -17,6 +18,7 @@ describe('Kinotic JS', () => {
     describe("Publish Mechanism", () => {
         let noScopeService: TestServiceNoScope
         let scopedService: TestServiceWithScope
+        let scopeOptionalService: TestServiceWithScopeOptional
         let replyToId: string
 
         beforeAll(async () => {
@@ -33,6 +35,7 @@ describe('Kinotic JS', () => {
             // Register services once
             noScopeService = new TestServiceNoScope()
             scopedService = new TestServiceWithScope()
+            scopeOptionalService = new TestServiceWithScopeOptional()
         }, 1000 * 60 * 10) // 10 minutes
 
         afterAll(async () => {
@@ -133,6 +136,28 @@ describe('Kinotic JS', () => {
                 const scopeResult = await sendAndReceiveEvent("srv://tenant@com.example.TestServiceWithScope/greet", ["Eve"])
                 expect(noScopeResult).toBe("Hello, Dave!")
                 expect(scopeResult).toBe("Hello, Eve from tenant!")
+            })
+        })
+
+        describe("ScopeOptional methods", () => {
+            it("should answer a ScopeOptional method on the unscoped address", async () => {
+                const result = await sendAndReceiveEvent("srv://com.example.TestServiceWithScopeOptional/anyInstanceValue")
+                expect(result).toBe("any instance can answer this")
+            })
+
+            it("should answer a ScopeOptional method on the scoped address too", async () => {
+                const result = await sendAndReceiveEvent("srv://opt-tenant@com.example.TestServiceWithScopeOptional/anyInstanceValue")
+                expect(result).toBe("any instance can answer this")
+            })
+
+            it("should answer an instance-affine method on the scoped address", async () => {
+                const result = await sendAndReceiveEvent("srv://opt-tenant@com.example.TestServiceWithScopeOptional/instanceValue")
+                expect(result).toBe("only the named instance can answer this")
+            })
+
+            it("should reject an unscoped invocation of an instance-affine method", async () => {
+                await expect(sendAndReceiveEvent("srv://com.example.TestServiceWithScopeOptional/instanceValue"))
+                    .rejects.toThrow("requires a scoped invocation")
             })
         })
 

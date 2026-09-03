@@ -32,7 +32,8 @@ env:
 
 # Application images are staged on ghcr.io under sha-<commit> and promoted to Docker Hub by the
 # results job only after every suite passes, so the tags outside CI consume are never advanced to an
-# unvalidated build. Nothing reads the staged tags except this workflow.
+# unvalidated build. Nothing reads the staged tags except this workflow; ghcr-cleanup.yml prunes
+# them once they are past the window in which a run's jobs might still be re-run.
 jobs:
   # Only the jar and the image — kinotic-migration's tests run in the `build` job with every other
   # module's. Kept separate from `build` because nothing here depends on the main build, so this

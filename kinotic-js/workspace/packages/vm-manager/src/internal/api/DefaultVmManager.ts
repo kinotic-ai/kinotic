@@ -2,7 +2,7 @@ import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
 import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
 import { Publish, Scope } from '@kinotic-ai/core'
-import type { Workload } from '@kinotic-ai/os-api'
+import { NetworkMode, type Workload } from '@kinotic-ai/management-api'
 
 /**
  * Default implementation of {@link IVmManager}.
@@ -11,7 +11,7 @@ import type { Workload } from '@kinotic-ai/os-api'
  * the node's unique id, allowing the orchestrator to route requests to a specific node's VmManager.
  */
 // Published as 'VmManager', not the class name, so the address matches the orchestrator's
-// VmManagerProxy: srv://<nodeId>@system~kinotic-ai.vm-manager.VmManager
+// VmManagerProxy: srv://<nodeId>@system-api~kinotic-ai.vm-manager.VmManager
 @Publish('kinotic-ai.vm-manager', 'VmManager')
 export class DefaultVmManager implements IVmManager {
 
@@ -36,33 +36,82 @@ export class DefaultVmManager implements IVmManager {
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
-        const started = await this.provider.start(workload)
-        await this.refreshLogShipping()
-        return started
+        return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} vcpus=${workload.vcpus} memoryMb=${workload.memoryMb}`, async () => {
+            // A workload with no network has no interface to publish a port on. Rejected here
+            // rather than in a provider, so the answer does not depend on where it is placed.
+            if ((workload.network?.mode ?? NetworkMode.ENABLED) === NetworkMode.DISABLED
+                && workload.portMappings.length > 0) {
+                throw new Error(`Workload ${workload.name} declares network.mode DISABLED and `
+                                + `${workload.portMappings.length} port mapping(s): a workload `
+                                + 'with no network has no interface to publish a port on')
+            }
+            const started = await this.provider.start(workload)
+            await this.refreshLogShipping()
+            return this.settled(started)
+        })
     }
 
     async restartWorkload(workloadId: string): Promise<Workload> {
-        const restarted = await this.provider.restart(workloadId)
-        await this.refreshLogShipping()
-        return restarted
+        return this.logged('restartWorkload', workloadId, async () => {
+            const restarted = await this.provider.restart(workloadId)
+            await this.refreshLogShipping()
+            return this.settled(restarted)
+        })
+    }
+
+    // A non-detached workload runs in the foreground: its reply carries the run's outcome.
+    // Log shipping is configured before the wait, so a run over in seconds is still tailed
+    private settled(workload: Workload): Promise<Workload> {
+        return (workload.detached ?? true) ? Promise.resolve(workload) : this.provider.awaitExit(workload.id!)
     }
 
     async stopWorkload(workloadId: string): Promise<void> {
-        await this.provider.stop(workloadId)
-        await this.refreshLogShipping()
+        return this.logged('stopWorkload', workloadId, async () => {
+            await this.provider.stop(workloadId)
+            await this.refreshLogShipping()
+        })
     }
 
     async destroyWorkload(workloadId: string): Promise<void> {
-        await this.provider.destroy(workloadId)
-        await this.refreshLogShipping()
+        return this.logged('destroyWorkload', workloadId, async () => {
+            // Destroy deletes the log files, so what the shipper has not read yet goes first
+            const target = (await this.provider.listLogTargets()).find(t => t.workloadId === workloadId)
+            if (target && this.alloyManager) {
+                await this.alloyManager.awaitShipped(target)
+            }
+            await this.provider.destroy(workloadId)
+            await this.refreshLogShipping()
+        })
     }
 
     async getWorkload(workloadId: string): Promise<Workload> {
-        return this.provider.getWorkload(workloadId)
+        return this.logged('getWorkload', workloadId, async () => {
+            return this.provider.getWorkload(workloadId)
+        })
     }
 
     async listWorkloads(): Promise<Workload[]> {
-        return this.provider.listWorkloads()
+        return this.logged('listWorkloads', '', async () => {
+            return this.provider.listWorkloads()
+        })
+    }
+
+    /**
+     * Logs one published call and its outcome. The node is the far end of the orchestrator's
+     * dispatch, so a deploy that stalls needs to distinguish "the request never arrived" from
+     * "the request arrived and the provider is still working on it".
+     */
+    private async logged<T>(method: string, detail: string, operation: () => Promise<T>): Promise<T> {
+        const startedAt = Date.now()
+        console.log(`[vm-manager] <- ${method}(${detail})`)
+        try {
+            const result = await operation()
+            console.log(`[vm-manager] -> ${method} ok in ${Date.now() - startedAt}ms`)
+            return result
+        } catch (error) {
+            console.error(`[vm-manager] -> ${method} failed in ${Date.now() - startedAt}ms:`, error)
+            throw error
+        }
     }
 
     /**

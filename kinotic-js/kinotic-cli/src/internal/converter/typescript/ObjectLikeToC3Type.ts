@@ -5,7 +5,7 @@ import {TypescriptConversionState} from './TypescriptConversionState'
 import {IConversionContext} from '@/internal/converter/IConversionContext'
 import {ITypeConverter} from '@/internal/converter/ITypeConverter'
 import {tsDecoratorToC3Decorator, convertPrecisionToC3Type} from './ConverterUtils'
-import {TenantIdDecorator} from '@kinotic-ai/os-api'
+import {TenantIdDecorator} from '@kinotic-ai/management-api'
 
 /**
  * Converts a typescript Class, Interface, or Type to a C3Type

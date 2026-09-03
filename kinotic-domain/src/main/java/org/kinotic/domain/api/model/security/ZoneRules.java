@@ -5,6 +5,10 @@ import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
+import org.kinotic.domain.api.model.security.participant.SystemParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 
 import java.util.Set;
@@ -29,10 +33,10 @@ public class ZoneRules {
     /**
      * Derives the zone rules for the given participant. Application participants send to the {@code app-api}
      * data plane and their own {@code app.<organizationId>.<applicationId>} zone and subscribe in no zone at
-     * all. Organization participants send to the {@code os-api} management surface, {@code app-api}, and their
-     * own {@code app.<organizationId>} zones, and subscribe within those same app zones — an application's
-     * runtime authenticates as an organization participant to host and call its services. System participants
-     * send everywhere and subscribe in the {@code system} zone.
+     * all. Organization participants send to the {@code management-api} management surface, {@code app-api},
+     * and their own {@code app.<organizationId>} zones, and subscribe within those same app zones — an
+     * application's runtime authenticates as an organization participant to host and call its services.
+     * System participants send everywhere and subscribe in the {@code system-api} zone.
      * @param participant the authenticated participant
      * @return the participant's zone rules
      */
@@ -44,9 +48,9 @@ public class ZoneRules {
         }
         return switch (scopedParticipant) {
 
-            // os-api and app-api are hosted in-process only, so no connection may ever subscribe
-            // to them; the system zone stays subscribable for the vm-manager nodes that host there
-            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_ZONE));
+            // management-api and app-api are hosted in-process only, so no connection may ever
+            // subscribe to them; system-api stays subscribable for the vm-manager nodes that host there
+            case SystemParticipant _ -> new ZoneRules(true, Set.of(), Set.of(DomainUtil.SYSTEM_API_ZONE));
 
             // appZone validates the ids, so an id that could shift the zone's label structure
             // fails instead of widening access
@@ -62,7 +66,7 @@ public class ZoneRules {
                 ZoneUtil.validateLabel(organizationParticipant.getOrganizationId());
                 String orgAppsZone = DomainUtil.APP_ZONE_PREFIX + "." + organizationParticipant.getOrganizationId();
                 yield new ZoneRules(false,
-                                    Set.of(DomainUtil.OS_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
+                                    Set.of(DomainUtil.MANAGEMENT_API_ZONE, DomainUtil.APP_API_ZONE, orgAppsZone),
                                     Set.of(orgAppsZone));
             }
         };

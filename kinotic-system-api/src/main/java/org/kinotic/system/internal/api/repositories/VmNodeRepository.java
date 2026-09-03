@@ -1,11 +1,11 @@
 package org.kinotic.system.internal.api.repositories;
 
+import org.kinotic.domain.internal.api.repositories.AbstractRepository;
+
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
-import org.kinotic.core.api.crud.Page;
-import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -17,11 +17,17 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
     }
 
     /**
-     * Returns the first page (up to 100) of nodes whose {@code status} is {@link VmNodeStatusType#ONLINE}.
-     * Resource-availability filtering is left to the caller because Elasticsearch can't express the
-     * "available = total - allocated" computation as a server-side query.
+     * Returns an {@link VmNodeStatusType#ONLINE} node with at least the requested resources
+     * unallocated, or {@code null} when the cluster has no node with room for them.
      */
-    public Future<Page<VmNode>> findOnlineNodes() {
-        return findAll(Pageable.ofSize(100), b -> b.query(termFilter("status.type", VmNodeStatusType.ONLINE.name())));
+    public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
+        return findFirst(b -> b.query(composeFilter(termFilter("status.type", VmNodeStatusType.ONLINE.name()),
+                                                    atLeast("availableCpus", requiredCpus),
+                                                    atLeast("availableMemoryMb", requiredMemoryMb),
+                                                    atLeast("availableDiskMb", requiredDiskMb))));
+    }
+
+    private static Query atLeast(String field, int required) {
+        return Query.of(q -> q.range(r -> r.number(n -> n.field(field).gte((double) required))));
     }
 }

@@ -34,7 +34,7 @@ describe('Kinotic JS', () => {
         })
 
         it('should return missing service error', async () => {
-            await expect(NON_EXISTENT_SERVICE.probablyNotHome()).rejects.toThrowError('(NO_HANDLERS,-1) No handlers for address srv://os-api~com.namespace.NonExistentService')
+            await expect(NON_EXISTENT_SERVICE.probablyNotHome()).rejects.toThrowError('(NO_HANDLERS,-1) No handlers for address srv://management-api~com.namespace.NonExistentService')
         })
 
         // --- Binary Passthrough Tests ---

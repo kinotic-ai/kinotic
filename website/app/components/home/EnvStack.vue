@@ -5,7 +5,8 @@
  * card while a fifth is off-deck, and each pipeline stage takes the front slot in turn.
  *
  * `v1` folds the front card down and under the deck. `v2` runs that in reverse:
- * the next stage rises up in front while the cards already there recede.
+ * the next stage rises up in front while the cards already there recede, with no
+ * fold — the card simply slides into the slot.
  */
 defineProps<{ version: 'v1' | 'v2' }>()
 
@@ -229,75 +230,93 @@ const PIPELINE_STEPS = [
   animation-name: envstack-rise-reveal;
 }
 
-/* Still a slot apart, but the whole cycle is backed up by a fifth of a slot, so
-   the first card is mid-rise when the deck is released rather than already
-   landed. Held on a whole slot it is the one card that never animates into
-   place, which reads as a mistake next to every card that follows it. The
-   fifth is what it takes for the card stepping back to have shed its label by
-   then, so only the arriving one is legible. */
-.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: calc(var(--envstack-cycle) * -0.96); }
-.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.76); }
-.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.56); }
-.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.36); }
-.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.16); }
+/* Whole slots, so the deck is released on a settled frame. Backing the cycle up
+   to catch the first card mid-rise puts the handover on screen instead, and a
+   handover has a card that has shed its label on its way out of the front slot —
+   which is a lit, empty card sitting where the label should be. The arriving card
+   still animates in: the section's own reveal fades and lifts the whole card. */
+.envstack--v2 .envstack__card:nth-child(1) { --envstack-phase: 0s; }
+.envstack--v2 .envstack__card:nth-child(2) { --envstack-phase: calc(var(--envstack-cycle) * -0.8); }
+.envstack--v2 .envstack__card:nth-child(3) { --envstack-phase: calc(var(--envstack-cycle) * -0.6); }
+.envstack--v2 .envstack__card:nth-child(4) { --envstack-phase: calc(var(--envstack-cycle) * -0.4); }
+.envstack--v2 .envstack__card:nth-child(5) { --envstack-phase: calc(var(--envstack-cycle) * -0.2); }
 
 @keyframes envstack-rise {
   0%, 12% {
-    transform: translateY(0) scale(1) rotateX(0deg);
+    transform: translateY(0) scale(1);
     opacity: 1;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
     z-index: 4;
   }
 
-  /* Gives up the top of the deck the moment it starts receding, so the card
-     rising out from under it passes in front rather than behind. */
+  /* Every slot's z-index is surrendered on the frame the card starts leaving it:
+     the one below has to pass in front, and the card ahead in the deck steps down
+     on that same frame. Left to interpolate, z-index instead flips at the midpoint
+     of the move — half a slot after the card ahead has already stepped — so the
+     two share a level for that stretch and paint in DOM order rather than depth
+     order. */
   12.01% {
     z-index: 3;
   }
 
   20%, 32% {
-    transform: translateY(-12px) scale(0.94) rotateX(0deg);
+    transform: translateY(-12px) scale(0.94);
     opacity: 0.72;
     border-color: rgba(40, 254, 180, 0.45);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 3;
   }
 
+  32.01% {
+    z-index: 2;
+  }
+
   40%, 52% {
-    transform: translateY(-23px) scale(0.885) rotateX(0deg);
+    transform: translateY(-23px) scale(0.885);
     opacity: 0.5;
     border-color: rgba(40, 254, 180, 0.3);
     z-index: 2;
   }
 
+  52.01% {
+    z-index: 1;
+  }
+
   60%, 72% {
-    transform: translateY(-33px) scale(0.83) rotateX(0deg);
+    transform: translateY(-33px) scale(0.83);
     opacity: 0.3;
     border-color: rgba(40, 254, 180, 0.2);
     z-index: 1;
   }
 
-  80% {
-    transform: translateY(-42px) scale(0.78) rotateX(0deg);
-    opacity: 0;
-    z-index: 1;
+  72.01% {
+    z-index: 0;
   }
 
-  /* Under the deck, still invisible: the drop has to happen in one frame or the
+  80% {
+    transform: translateY(-42px) scale(0.78);
+    opacity: 0;
+    z-index: 0;
+  }
+
+  /* Below the deck, still invisible: the drop has to happen in one frame or the
      card would be seen crossing the deck on its way down. A keyframe part-way
      through the rise would restart the easing and stall the card mid-flight, so
-     the whole rise is left as one segment on the deck's own curve. */
+     the whole rise is one segment, decelerating — the card leaves with intent
+     and settles, and the curve carries opacity too, so it is legible while it
+     travels instead of only once it lands. */
   80.01%, 92% {
-    transform: translateY(52px) scale(0.92) rotateX(72deg);
+    transform: translateY(74px) scale(1);
     opacity: 0;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 0 rgba(40, 254, 180, 0);
     z-index: 4;
+    animation-timing-function: cubic-bezier(0.22, 0.78, 0.3, 1);
   }
 
   100% {
-    transform: translateY(0) scale(1) rotateX(0deg);
+    transform: translateY(0) scale(1);
     opacity: 1;
     border-color: rgba(40, 254, 180, 0.8);
     box-shadow: 0 0 34px rgba(40, 254, 180, 0.18);
@@ -305,10 +324,17 @@ const PIPELINE_STEPS = [
   }
 }
 
+/* The arriving label is switched on at the foot of the rise and travels up with
+   the card, so the card carries its stage in rather than filling it in once it
+   lands. Switching rather than fading is safe there: the card is still fully
+   transparent at that point. That leaves the outgoing label with nowhere to hide,
+   since the riser is legible from the first moments of its travel — so it clears
+   during the tail of its own dwell, before the card underneath starts moving. Any
+   later and the two labels interleave halfway up the rise. */
 @keyframes envstack-rise-reveal {
-  0%, 12% { opacity: 1; }
-  17%, 92% { opacity: 0; }
-  100% { opacity: 1; }
+  0%, 9% { opacity: 1; }
+  12.5%, 91.9% { opacity: 0; }
+  92%, 100% { opacity: 1; }
 }
 
 .envstack__icon {

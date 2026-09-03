@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.util.Date;
 
@@ -34,7 +35,7 @@ public class DeviceCodeGrant implements Identifiable<String> {
     private String deviceName;
 
     /**
-     * Id of the {@link org.kinotic.domain.api.model.security.ParticipantIdentity} that approved the grant,
+     * Id of the {@link ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant is still pending approval.
      */
     private String identityId;

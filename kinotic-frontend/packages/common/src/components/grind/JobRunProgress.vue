@@ -22,14 +22,15 @@
 
       <Message v-if="run.error" severity="error" :closable="false">{{ run.error }}</Message>
 
-      <JobStepPipeline v-if="root && root.children.length > 0" :steps="root.children" />
+      <JobTaskPipeline v-if="root && root.children.length > 0" :tasks="root.children" />
 
-      <ProgressBar v-if="live && root?.progress"
-                   :value="root.progress.percentageComplete"
-                   :show-value="false"
-                   class="!h-2" />
+      <ProgressBar v-if="live" :value="percentComplete" :show-value="false" class="!h-2" />
 
-      <JobTaskTree v-if="root" :root="root" :now="now" />
+      <JobTaskTree v-if="root" :root="root" :now="now" :expandable="expandable">
+        <template #detail="{ node }">
+          <slot name="detail" :node="node" :root="root" />
+        </template>
+      </JobTaskTree>
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading job run…</div>
@@ -42,26 +43,30 @@ import Message from 'primevue/message'
 import ProgressBar from 'primevue/progressbar'
 import Tag from 'primevue/tag'
 import DatetimeUtil from '../../util/DatetimeUtil'
-import JobStepPipeline from './JobStepPipeline.vue'
+import JobTaskPipeline from './JobTaskPipeline.vue'
 import JobTaskTree from './JobTaskTree.vue'
 import { executionStatusSeverity } from './jobRunDisplay'
 import { useJobRunProgress } from './useJobRunProgress'
+import type { JobTaskNode } from './JobTaskNode'
 
 /**
- * The progress of one grind job run: header with status and timing, the top-level steps as
- * a pipeline, and the full step ledger as a tree. Live-updates while the run executes and
- * renders the persisted history once it is terminal.
+ * The progress of one grind job run: header with status and timing, the top-level tasks as
+ * a pipeline, and the full task ledger as a tree. Live-updates while the run executes and
+ * renders the persisted history once it is terminal. A page that knows what a job's tasks
+ * produce can give a task row a detail pane: expandable says which rows have one, and the
+ * detail slot renders it, given the node and the root of the tree.
  */
 const props = defineProps<{
   jobRunId: string
+  expandable?: (node: JobTaskNode) => boolean
 }>()
 
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
 
-const { run, root, loading, error, live } = useJobRunProgress(props.jobRunId)
+const { run, root, percentComplete, loading, error, live } = useJobRunProgress(props.jobRunId)
 
-// drives the elapsed-time displays of the run and its running steps
+// drives the elapsed-time displays of the run and its running tasks
 const now = ref(Date.now())
 const ticker = setInterval(() => { now.value = Date.now() }, 1000)
 onUnmounted(() => clearInterval(ticker))

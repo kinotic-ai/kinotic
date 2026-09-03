@@ -1,7 +1,7 @@
 import { ObjectC3Type } from '@kinotic-ai/idl'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
-import { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import { KinoticProjectConfig } from '@kinotic-ai/management-api'
 
 export class EntityDefinitionGenerator {
     private readonly codeGenerationService: EntityCodeGenerationService

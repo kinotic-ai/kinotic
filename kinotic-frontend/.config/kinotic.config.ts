@@ -1,4 +1,4 @@
-import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import type { KinoticProjectConfig } from '@kinotic-ai/management-api'
 
 const config: KinoticProjectConfig = {
   organizationId: "kinotic",

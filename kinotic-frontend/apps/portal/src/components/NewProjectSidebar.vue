@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { showErrorToast } from '@kinotic-ai/frontend-common';
 import { Kinotic } from '@kinotic-ai/core';
-import { Project, ProjectType } from '@kinotic-ai/os-api';
+import { Project, ProjectType } from '@kinotic-ai/management-api';
 import { APPLICATION_STATE } from '@/states/IApplicationState';
 import { USER_STATE } from '@/states/IUserState';
 

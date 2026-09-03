@@ -22,8 +22,8 @@ import java.util.List;
 @SpringBootTest
 public class McpToolDirectoryTests extends KinoticTestBase {
 
-    private static final String PROJECT_SERVICE = "os-api~org.kinotic.os.api.services.ProjectService";
-    private static final String APPLICATION_SERVICE = "os-api~org.kinotic.os.api.services.ApplicationService";
+    private static final String PROJECT_SERVICE = "management-api~org.kinotic.management.api.services.ProjectService";
+    private static final String APPLICATION_SERVICE = "management-api~org.kinotic.management.api.services.ApplicationService";
 
     private static final String FIND_PROJECTS_BY_REPO = KinoticUtil.mcpToolName(PROJECT_SERVICE, "findByRepoFullName");
     private static final String GET_OIDC_CONFIGURATIONS = KinoticUtil.mcpToolName(APPLICATION_SERVICE, "getOidcConfigurations");

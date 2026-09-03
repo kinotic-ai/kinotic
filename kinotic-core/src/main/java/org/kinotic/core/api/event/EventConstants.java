@@ -65,6 +65,17 @@ public class EventConstants {
     public static final String ORIGIN_CRI_HEADER = "__origin-cri";
 
     /**
+     * Marks a request the gateway matched against {@code kinotic.traceLog}. Persisted onto every
+     * reply the request produces, so a reply frame, which is addressed to the caller and names no
+     * service to match, is left out of trace logging along with the request it answers.
+     *
+     * Server-side bookkeeping, set only while trace logging is on: it travels between the gateway
+     * and whatever answers the request, and the gateway strips it from every frame it writes to a
+     * client.
+     */
+    public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
+
+    /**
      * Denotes that something caused an error. Will contain a brief message about the error.
      */
     public static final String ERROR_HEADER = "error";
@@ -89,6 +100,18 @@ public class EventConstants {
     public static final String SERVICE_DESTINATION_SCHEME = "srv";
 
     public static final String STREAM_DESTINATION_SCHEME = "stream";
+
+    /**
+     * Scheme for cluster-wide fan-out event destinations. An event published to a topic destination
+     * is delivered to every registered consumer on every node (never round-robined), fire-and-forget
+     * with at-most-once delivery. The resource name is the fully qualified name of the event type.
+     */
+    public static final String TOPIC_DESTINATION_SCHEME = "topic";
+
+    /**
+     * Content type for a JSON encoded event body.
+     */
+    public static final String CONTENT_TYPE_JSON = "application/json";
 
     /**
      * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a

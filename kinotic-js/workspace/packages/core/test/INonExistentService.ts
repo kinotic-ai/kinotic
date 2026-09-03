@@ -11,7 +11,7 @@ class NonExistentService implements INonExistentService {
     private readonly serviceProxy: IServiceProxy
 
     constructor() {
-        this.serviceProxy = Kinotic.serviceProxy('os-api~com.namespace.NonExistentService')
+        this.serviceProxy = Kinotic.serviceProxy('management-api~com.namespace.NonExistentService')
     }
 
     probablyNotHome(): Promise<void> {

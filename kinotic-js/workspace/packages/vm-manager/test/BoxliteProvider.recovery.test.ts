@@ -2,9 +2,9 @@ import { afterAll, describe, expect, it } from 'bun:test'
 import { accessSync, constants, existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
-import { LogFormat } from '@/model/LogFormat'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 
 // Real boxlite VMs need virtualization: Hypervisor.framework on macOS, /dev/kvm on Linux.
 // The boxlite runtime aborts the whole process on unsupported hosts, so the gate must be
@@ -30,6 +30,7 @@ describe('BoxliteProvider recovery and restart', () => {
     const boxliteHome = join(base, 'boxlite')
     const logsDir = join(base, 'logs')
     const stateDir = join(base, 'state')
+    const dataDir = join(base, 'data')
     const startedIds: string[] = []
 
     afterAll(async () => {
@@ -69,7 +70,7 @@ describe('BoxliteProvider recovery and restart', () => {
 
         // Generation 1: start a detached workload, then abandon the provider without
         // stopping anything — the VM keeps running, modelling a crashed vm-manager
-        const first = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
+        const first = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir, onStatusChanged)
         const started = await first.start(longRunningWorkload())
         startedIds.push(started.id!)
         expect(started.status).toBe(WorkloadStatus.RUNNING)
@@ -77,7 +78,7 @@ describe('BoxliteProvider recovery and restart', () => {
         expect(target).toBeDefined()
 
         // Generation 2: a fresh provider over the same dirs models the restarted process
-        const second = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
+        const second = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir, onStatusChanged)
         await second.recover()
 
         const recovered = await second.getWorkload(started.id!)
@@ -95,11 +96,13 @@ describe('BoxliteProvider recovery and restart', () => {
         // The reattached handle really controls the box
         await second.stop(started.id!)
 
-        // Generation 3: recovery after the stop — workload present but dormant
-        const third = new BoxliteProvider(boxliteHome, logsDir, stateDir, onStatusChanged)
+        // Generation 3: recovery after the stop — workload present but dormant, its log
+        // files still shipped until destroy
+        const third = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir, onStatusChanged)
         await third.recover()
         expect((await third.getWorkload(started.id!)).status).toBe(WorkloadStatus.STOPPED)
-        expect(await third.listLogTargets()).toEqual([])
+        const [dormant] = await third.listLogTargets()
+        expect(dormant!.vmId).toBe(target!.vmId)
 
         // Restart in place: same VM, disk intact, shipping resumes
         const restarted = await third.restart(started.id!)
@@ -121,7 +124,7 @@ describe('BoxliteProvider recovery and restart', () => {
     }, VM_TIMEOUT)
 
     itVm('rejects restarting a workload that is not stopped', async () => {
-        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir)
+        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir)
         const started = await provider.start(longRunningWorkload())
         startedIds.push(started.id!)
 
@@ -131,7 +134,7 @@ describe('BoxliteProvider recovery and restart', () => {
     }, VM_TIMEOUT)
 
     itVm('rejects restarting a workload whose VM was discarded by autoRemove', async () => {
-        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir)
+        const provider = new BoxliteProvider(boxliteHome, logsDir, stateDir, dataDir)
         const workload = longRunningWorkload()
         workload.autoRemove = true
         const started = await provider.start(workload)

@@ -59,10 +59,10 @@ class DefaultOrganizationServiceTest {
     @Test
     void rejectsIdsThatCollideWithTheSystemZone() {
         assertThrows(IllegalArgumentException.class,
-                     () -> service.beforeSave(new Organization().setName("System")));
+                     () -> service.beforeSave(new Organization().setName("System Api")));
         // an update keeps the caller's id rather than re-minting it, so that path is guarded too
         assertThrows(IllegalArgumentException.class,
-                     () -> service.beforeSave(new Organization().setId("system").setName("Anything")));
+                     () -> service.beforeSave(new Organization().setId("system-api").setName("Anything")));
     }
 
     @Test

@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, useTemplateRef } from 'vue'
 import { useToast } from 'primevue/usetoast'
 import {
   FunctionalIterablePage,
@@ -15,13 +15,15 @@ import { showErrorToast } from '../util/helpers'
 export type PageLoader = (pageable: Pageable, searchText: string | null) => Promise<IterablePage<DescriptiveIdentifiable>>
 
 /**
- * The state and behavior every CrudTable management page shares: the table ref and its
- * refresh, the search model, a dataSource delegating to the page's load function, and
- * {@link run} — a mutation wrapped in success/failure toasts, refreshing on success.
+ * The state and behavior every CrudTable management page shares: {@link refreshTable}, the
+ * search model, a dataSource delegating to the page's load function, and {@link run} — a
+ * mutation wrapped in success/failure toasts, refreshing on success.
+ *
+ * The page's CrudTable must carry `ref="crudTable"` for refreshes to reach it.
  */
 export function useCrudTablePage(load: PageLoader) {
   const toast = useToast()
-  const crudTable = ref<InstanceType<typeof CrudTable>>()
+  const crudTable = useTemplateRef<InstanceType<typeof CrudTable>>('crudTable')
   const tableSearch = ref('')
 
   const dataSource = computed<IDataSource<DescriptiveIdentifiable>>(() => ({
@@ -43,7 +45,7 @@ export function useCrudTablePage(load: PageLoader) {
     }
   }
 
-  return { crudTable, tableSearch, dataSource, refreshTable, run }
+  return { tableSearch, dataSource, refreshTable, run }
 }
 
 /**

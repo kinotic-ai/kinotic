@@ -91,7 +91,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import type { MachineParticipantIdentity } from '@kinotic-ai/os-api'
+import type { MachineParticipantIdentity } from '@kinotic-ai/management-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
@@ -134,7 +134,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side machine search; an org has few machines, so filtering the page suffices
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+const {tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.machines.findMachines(props.applicationId, pageable),
     toRow,

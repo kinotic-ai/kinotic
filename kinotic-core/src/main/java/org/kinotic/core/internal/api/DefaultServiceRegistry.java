@@ -11,6 +11,7 @@ import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.FunctionInstanceProvider;
@@ -68,6 +69,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     // resolved lazily per send failure: the directory bean is conditional and may not exist
     @Autowired
     private ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
+    @Autowired
+    private TraceLogFilter traceLogFilter;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -95,7 +98,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 reactiveAdapterRegistry,
                                                 vertx,
                                                 securityContext,
-                                                openTelemetry);
+                                                openTelemetry,
+                                                traceLogFilter);
 
                                         serviceInvocationSupervisor
                                                 .start()
@@ -131,7 +135,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   serviceDirectoryProvider,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
-                                                  openTelemetry);
+                                                  openTelemetry,
+                                                  traceLogFilter);
     }
 
     @Override
@@ -149,7 +154,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   serviceDirectoryProvider,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
-                                                  openTelemetry);
+                                                  openTelemetry,
+                                                  traceLogFilter);
     }
 
     @Override

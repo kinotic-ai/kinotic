@@ -21,7 +21,7 @@ import {
     TextDecorator,
     TimeReferenceDecorator,
     VersionDecorator
-} from '@kinotic-ai/os-api'
+} from '@kinotic-ai/management-api'
 import {
     EsIndexConfigurationData,
     EntityServiceDecoratorsConfig,

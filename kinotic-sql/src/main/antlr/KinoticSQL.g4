@@ -77,7 +77,13 @@ deleteStatement
     ;
 
 insertStatement
-    : INSERT INTO tableName (LPAREN columnName (COMMA columnName)* RPAREN)? VALUES LPAREN valueList RPAREN (WITH REFRESH)? SEMICOLON
+    : INSERT INTO tableName (LPAREN columnName (COMMA columnName)* RPAREN)? VALUES LPAREN valueList RPAREN (WITH insertOption (COMMA insertOption)*)? SEMICOLON
+    ;
+
+insertOption
+    : REFRESH
+    | ROUTING STRING
+    | DOCUMENT_ID STRING
     ;
 
 valueList
@@ -210,6 +216,7 @@ DATA: 'DATA';
 DATA_RETENTION: 'DATA_RETENTION';
 DATE: 'DATE';
 DELETE: 'DELETE';
+DOCUMENT_ID: 'DOCUMENT_ID';
 DOUBLE: 'DOUBLE';
 EXISTS: 'EXISTS';
 FLOAT: 'FLOAT';
@@ -230,6 +237,7 @@ PROCEED: 'PROCEED';
 QUERY: 'QUERY';
 REFRESH: 'REFRESH';
 REINDEX: 'REINDEX';
+ROUTING: 'ROUTING';
 SCRIPT: 'SCRIPT';
 SET: 'SET';
 SIZE: 'SIZE';

@@ -1,6 +1,6 @@
 # @kinotic-ai/spawn
 
-`kinotic-github/build.gradle` extracts `dist/graal-spawn-renderer.js` from the **published**
+`kinotic-management-api/build.gradle` extracts `dist/graal-spawn-renderer.js` from the **published**
 tarball, pinned by an exact `kinoticSpawnVersion` in the root `gradle.properties` — it cannot
 float like a semver range.
 

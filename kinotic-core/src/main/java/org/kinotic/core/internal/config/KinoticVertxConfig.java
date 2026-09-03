@@ -2,7 +2,6 @@ package org.kinotic.core.internal.config;
 
 import io.micrometer.core.instrument.Metrics;
 import io.vertx.core.Vertx;
-import io.vertx.core.VertxBuilder;
 import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.eventbus.EventBusOptions;
@@ -14,11 +13,10 @@ import io.vertx.micrometer.MicrometerMetricsOptions;
 import org.apache.ignite.Ignite;
 import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.event.EventMessageCodec;
 import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.kinotic.vertx.jackson3.VertxJackson3Codec;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import tools.jackson.databind.json.JsonMapper;
@@ -33,14 +31,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 public class KinoticVertxConfig {
 
     @Bean
-    @ConditionalOnProperty(
-            value="kinotic.disableClustering",
-            havingValue = "false",
-            matchIfMissing = true)
     public KinoticIgniteClusterManager clusterManager(Ignite ignite){
-        if(ignite == null){
-            throw new IllegalStateException("Something is wrong with the configuration Ignite is null");
-        }
         // make sure clustering is enabled
         System.setProperty("vertx.clustered","true");
 
@@ -62,10 +53,16 @@ public class KinoticVertxConfig {
         return vertx.sharedData();
     }
 
+    // The SecurityContext parameter is ordering, not data: its static initializer registers the
+    // participant ContextLocal, and every context sizes its locals array from the ContextLocals
+    // known when the Vertx instance is created — a registration after this point would make
+    // putLocal throw IllegalArgumentException on every context. Depending on the bean forces the
+    // registration first, whatever instantiation order the rest of the context settles on.
     @Bean
     public Vertx vertx(KinoticProperties properties,
                        JsonMapper jsonMapper,
-                       @Autowired(required = false) ClusterManager clusterManager) throws Throwable {
+                       SecurityContext securityContext,
+                       ClusterManager clusterManager) throws Throwable {
 
         // one mapper platform wide: vertx JSON binds with the Spring mapper, which carries every
         // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
@@ -76,32 +73,25 @@ public class KinoticVertxConfig {
         VertxOptions options = new VertxOptions()
                 .setMetricsOptions(new MicrometerMetricsOptions().setEnabled(true));
 
-        VertxBuilder builder = Vertx.builder()
-                                    .withMetrics(new MicrometerMetricsFactory(Metrics.globalRegistry));
-        Vertx vertx;
+        EventBusOptions eventBusOptions = new EventBusOptions();
+        eventBusOptions.setPort(properties.getEventBusClusterPort());
+        eventBusOptions.setHost(properties.getEventBusClusterHost());
 
-        if (clusterManager != null) {
+        if(properties.getEventBusClusterPublicPort() != -1) {
+            eventBusOptions.setClusterPublicPort(properties.getEventBusClusterPublicPort());
+        }
+        if(properties.getEventBusClusterPublicHost() != null) {
+            eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
+        }
 
-            EventBusOptions eventBusOptions = new EventBusOptions();
-            eventBusOptions.setPort(properties.getEventBusClusterPort());
-            eventBusOptions.setHost(properties.getEventBusClusterHost());
-
-            if(properties.getEventBusClusterPublicPort() != -1) {
-                eventBusOptions.setClusterPublicPort(properties.getEventBusClusterPublicPort());
-            }
-            if(properties.getEventBusClusterPublicHost() != null) {
-                eventBusOptions.setClusterPublicHost(properties.getEventBusClusterPublicHost());
-            }
-
-            vertx = builder.with(options.setEventBusOptions(eventBusOptions))
+        Vertx vertx = Vertx.builder()
+                           .withMetrics(new MicrometerMetricsFactory(Metrics.globalRegistry))
+                           .with(options.setEventBusOptions(eventBusOptions))
                            .withClusterManager(clusterManager)
                            .buildClustered()
                            .toCompletionStage()
                            .toCompletableFuture()
                            .get(2, MINUTES);
-        }else{
-            vertx = builder.with(options).build();
-        }
 
         // Register the Event codec and auto-select it for any Event body, so callers never set a codec
         // name on delivery options. Local delivery still uses the codec's zero-copy transform().

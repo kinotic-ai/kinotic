@@ -1,13 +1,16 @@
 import Docker from 'dockerode'
 import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
-import { join, resolve, sep } from 'node:path'
+import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
+import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
-import type { LogTarget } from '@/model/LogTarget'
-import { LogFormat } from '@/model/LogFormat'
-import { Workload, WorkloadStatus, VmProviderType, NetworkMode, PortProtocol } from '@kinotic-ai/os-api'
+import type { LogTarget } from '@/internal/api/model/LogTarget'
+import { LogFormat } from '@/internal/api/model/LogFormat'
+import { VmProviderType } from '@kinotic-ai/system-api'
+import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
 
 /**
  * The Docker runtime that boots each container as a Cloud Hypervisor micro VM. Registered in
@@ -27,7 +30,8 @@ const MANAGED_BY = 'kinotic-vm-manager'
 const STOP_TIMEOUT_SECONDS = 10
 
 /**
- * A container currently managed by this provider.
+ * A container of this provider's, running or not: kept from start until destroy, so the log
+ * file of a run that has ended stays shippable.
  */
 export interface ActiveContainer {
     /** Docker's id for the container, which is also the micro VM's identity on the node. */
@@ -51,10 +55,13 @@ export class CloudHypervisorProvider implements IVmProvider {
 
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly containers: Map<string, ActiveContainer> = new Map()
+    // Settles once a running container's exit has been recorded; what awaitExit waits on
+    private readonly exitWatches: Map<string, Promise<void>> = new Map()
     private readonly stateDir: string
     private readonly docker: Docker
     private readonly workloadDataDir: string
     private readonly quotas = new MountQuotaManager()
+    private readonly mounts: VolumeMountManager
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
@@ -73,6 +80,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.onStatusChanged = onStatusChanged
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
+        this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
     }
 
     /**
@@ -153,7 +161,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             problems.push('the node firewall does not block the cloud metadata endpoint, '
                           + "so a workload can read this host's credentials")
         }
-        if (!this.quotas.supports(this.workloadDataDir)) {
+        if (!this.mounts.enforcesQuotas()) {
             problems.push(`${this.workloadDataDir} is not on a filesystem with project quotas, `
                           + 'so a workload can write past the size limit of a writable mount')
         }
@@ -197,10 +205,12 @@ export class CloudHypervisorProvider implements IVmProvider {
         // STARTING is persisted first so a crash mid-boot is visible to recover()
         this.persist(workload)
 
-        let exitWatch: Promise<void> = Promise.resolve()
         try {
-            this.prepareVolumeMounts(workload)
-            this.applyMountQuotas(workload)
+            this.mounts.prepare(workload)
+            // A node provisioned for this provider carries project quotas, so a cap it cannot
+            // enforce is a node fault rather than a limit of what it can do
+            this.mounts.requireEnforceableQuotas(workload)
+            this.mounts.applyQuotas(workload)
             await this.ensureImage(workload.image)
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
@@ -213,7 +223,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            exitWatch = this.watchExit(workload)
+            this.exitWatches.set(id, this.watchExit(workload))
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(id)
@@ -221,12 +231,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         } finally {
             workload.updated = Date.now()
             this.persist(workload)
-        }
-
-        // A non-detached workload runs in the foreground: start resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await exitWatch
         }
 
         return workload
@@ -243,7 +247,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         workload.exitCode = null
         this.persist(workload)
 
-        let exitWatch: Promise<void> = Promise.resolve()
         try {
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
@@ -255,7 +258,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
 
             workload.status = WorkloadStatus.RUNNING
-            exitWatch = this.watchExit(workload)
+            this.exitWatches.set(workloadId, this.watchExit(workload))
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(workloadId)
@@ -265,12 +268,12 @@ export class CloudHypervisorProvider implements IVmProvider {
             this.persist(workload)
         }
 
-        // A non-detached workload runs in the foreground: restart resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await exitWatch
-        }
+        return workload
+    }
 
+    async awaitExit(workloadId: string): Promise<Workload> {
+        const workload = this.requireWorkload(workloadId)
+        await (this.exitWatches.get(workloadId) ?? this.watchExit(workload))
         return workload
     }
 
@@ -290,12 +293,12 @@ export class CloudHypervisorProvider implements IVmProvider {
         // auto-remove so that a stopped workload can be restarted when the flag is off
         if (workload.autoRemove ?? false) {
             await this.removeContainer(workloadId)
-            this.releaseMountQuotas(workload)
+            this.mounts.releaseQuotas(workload)
+            this.containers.delete(workloadId)
         }
 
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
-        this.containers.delete(workloadId)
         this.persist(workload)
     }
 
@@ -303,10 +306,11 @@ export class CloudHypervisorProvider implements IVmProvider {
         const workload = this.requireWorkload(workloadId)
 
         await this.removeContainer(workloadId)
-        this.releaseMountQuotas(workload)
+        this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
 
         this.containers.delete(workloadId)
+        this.exitWatches.delete(workloadId)
         rmSync(this.stateFile(workloadId), { force: true })
         this.workloads.delete(workloadId)
     }
@@ -342,18 +346,26 @@ export class CloudHypervisorProvider implements IVmProvider {
     // Reconciles a persisted workload with the actual container state, reattaching when it is
     // still running
     private async recoverContainer(workload: Workload): Promise<void> {
+        const id = workload.id!
+        let info: Docker.ContainerInspectInfo | null = null
+        try {
+            info = await this.docker.getContainer(id).inspect()
+            this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
+        } catch {
+            // Removed (autoRemove) or never created — nothing on the node to attach to
+        }
         if (workload.status !== WorkloadStatus.STARTING &&
             workload.status !== WorkloadStatus.RUNNING &&
             workload.status !== WorkloadStatus.STOPPING) {
             return
         }
-        const id = workload.id!
         try {
-            const info = await this.docker.getContainer(id).inspect()
+            if (info === null) {
+                throw new Error('container not found')
+            }
             if (info.State.Running) {
-                this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
                 workload.status = WorkloadStatus.RUNNING
-                this.watchExit(workload)
+                this.exitWatches.set(id, this.watchExit(workload))
                 console.log(`Reattached to running workload ${id} (container ${info.Id.slice(0, 12)})`)
             } else {
                 workload.status = this.exitedStatus(workload, info)
@@ -397,7 +409,6 @@ export class CloudHypervisorProvider implements IVmProvider {
             workload.exitCode = exitCode
             workload.updated = Date.now()
             this.egress.release(workload.id!)
-            this.containers.delete(workload.id!)
             this.persist(workload)
         }
     }
@@ -429,12 +440,13 @@ export class CloudHypervisorProvider implements IVmProvider {
     }
 
     /**
-     * Pulls the image unless the daemon already has it, which keeps a node able to run images
-     * built on it and keeps a restart off the network.
+     * Pulls the image when its reference floats, or when the daemon does not have it yet. A
+     * pinned image the daemon holds is not pulled again, which keeps a node able to run
+     * images built on it and keeps a restart off the network.
      */
     private async ensureImage(image: string): Promise<void> {
         const local = await this.docker.listImages({ filters: { reference: [image] } })
-        if (local.length > 0) {
+        if (local.length > 0 && !Util.mustPullBeforeStart(image)) {
             return
         }
         const stream = await this.docker.pull(image)
@@ -462,54 +474,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
             this.egress.apply(workload.id!, address, allowedHosts)
-        }
-    }
-
-    /**
-     * Validates every volume mount and creates missing host directories for writable ones.
-     * Each hostPath must resolve strictly inside the node's workload data directory: binds
-     * are created with root's authority, so an unconstrained path would hand any host
-     * directory to the guest. A read-only mount of a directory that does not exist fails
-     * here with the real reason, instead of the daemon masking it by creating an empty
-     * root-owned directory at the path.
-     */
-    private prepareVolumeMounts(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            const hostPath = resolve(mount.hostPath)
-            if (!hostPath.startsWith(this.workloadDataDir + sep)) {
-                throw new Error(`Volume mount ${mount.hostPath} of workload ${workload.id} must be `
-                                + `an absolute path inside the workload data directory ${this.workloadDataDir}`)
-            }
-            if (mount.readOnly) {
-                if (!existsSync(hostPath)) {
-                    throw new Error(`Read-only volume mount ${mount.hostPath} of workload `
-                                    + `${workload.id} does not exist on this node`)
-                }
-            } else {
-                mkdirSync(hostPath, { recursive: true })
-            }
-        }
-    }
-
-    private applyMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                this.quotas.apply(mount.hostPath, mount.sizeLimitMb)
-            }
-        }
-    }
-
-    // Never fails the operation that triggered it: a workload whose quota cannot be released
-    // has still been torn down, and a leaked project id costs an id rather than correctness
-    private releaseMountQuotas(workload: Workload): void {
-        for (const mount of workload.volumeMounts) {
-            if (mount.sizeLimitMb !== undefined && mount.sizeLimitMb > 0 && !mount.readOnly) {
-                try {
-                    this.quotas.release(mount.hostPath)
-                } catch (error) {
-                    console.error(`Failed to release the quota on ${mount.hostPath}:`, error)
-                }
-            }
         }
     }
 

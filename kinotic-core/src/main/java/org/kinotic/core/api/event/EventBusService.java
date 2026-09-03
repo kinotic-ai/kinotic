@@ -31,6 +31,15 @@ public interface EventBusService {
     Future<Void> sendWithAck(Event<byte[]> event);
 
     /**
+     * Publishes an {@link Event} to every consumer registered on the {@link CRI#baseResource()} of the
+     * given {@link CRI}, on every node in the cluster including this one. Unlike {@link #send(Event)},
+     * which delivers to a single consumer, publish is fan-out: every registered consumer receives its
+     * own copy. Fire-and-forget with at-most-once delivery.
+     * @param event to publish
+     */
+    void publish(Event<byte[]> event);
+
+    /**
      * Creates a new {@link EventConsumer} that will receive {@link Event<byte[]>} sent to the
      * {@link CRI#baseResource()} of the given {@link CRI}.
      * The consumer is not registered with the event bus until {@link EventConsumer#handler} is called.

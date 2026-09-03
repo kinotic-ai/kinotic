@@ -4,8 +4,9 @@ minimumReleaseAgeExcludes = [
     "@kinotic-ai/core",
     "@kinotic-ai/idl",
     "@kinotic-ai/kinotic-cli",
-    "@kinotic-ai/os-api",
+    "@kinotic-ai/management-api",
     "@kinotic-ai/persistence",
     "@kinotic-ai/spawn",
+    "@kinotic-ai/system-api",
     "@kinotic-ai/vm-manager"
 ]

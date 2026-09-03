@@ -84,7 +84,7 @@
       <text class="t-sub"  x="610" y="289" text-anchor="middle">public gateway</text>
       <line class="sep" x1="448" y1="298" x2="772" y2="298"></line>
       <text class="t-mono" x="610" y="315" text-anchor="middle">OrgSecurityService · org users · delegates · machines</text>
-      <text class="t-mono" x="610" y="330" text-anchor="middle">os-api zone · GitHub webhook (HMAC)</text>
+      <text class="t-mono" x="610" y="330" text-anchor="middle">management-api zone · GitHub webhook (HMAC)</text>
       <text class="t-mono" x="610" y="345" text-anchor="middle">app-api (dual-hosted)</text>
 
       <!-- system enclosure: the inner boundary -->

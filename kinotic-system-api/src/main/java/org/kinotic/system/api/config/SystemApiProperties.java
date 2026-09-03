@@ -1,13 +1,14 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * Configuration properties for the orchestrator module.
- * Accessible via {@code kinotic.orchestrator.*}
+ * Configuration properties for the system-api module.
+ * Accessible via {@code kinotic.systemApi.*}
  */
 @Getter
 @Setter
@@ -23,6 +24,7 @@ public class SystemApiProperties {
     /**
      * Deployment of customer project workloads from GitHub pushes.
      */
+    @Valid
     private DeploymentProperties deployment = new DeploymentProperties();
 
 }

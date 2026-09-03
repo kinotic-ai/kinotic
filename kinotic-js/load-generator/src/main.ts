@@ -7,14 +7,14 @@ import {TaskExecutionService} from '@/repository/TaskExecutionService.js'
 import {formatDuration} from '@/utils/DataUtil.js'
 
 import {Kinotic} from '@kinotic-ai/core'
-import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {ManagementApiPlugin} from '@kinotic-ai/management-api'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 import {WebSocket} from 'ws'
 
 // This is required when running Kinotic from node
 Object.assign(global, { WebSocket})
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
        .use(PersistencePlugin)
 
 try {

@@ -3,6 +3,7 @@ package org.kinotic.domain.internal.api.rest.support;
 import io.vertx.core.json.JsonArray;
 import io.vertx.ext.auth.oauth2.providers.OpenIDConnectAuth;
 import org.kinotic.domain.api.model.security.OidcProviderKind;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -87,7 +88,7 @@ public final class OAuth2Util {
      *
      * <p><b>Apple gotcha:</b> the {@code email} claim is only present on the user's
      * <i>first</i> sign-in — subsequent tokens omit it entirely. We rely on the
-     * {@code (sub, configId)} key on {@link org.kinotic.domain.api.model.security.ParticipantIdentity} to
+     * {@code (sub, configId)} key on {@link ParticipantIdentity} to
      * recognise returning users by their stable Apple {@code sub}, so the missing email
      * on later sign-ins doesn't matter for login. Signup, however, requires email and
      * will simply fail-closed here on a non-first Apple flow (which would only happen
@@ -98,7 +99,7 @@ public final class OAuth2Util {
      *
      * <p>Returns {@code false} when the email is missing entirely (regardless of
      * provider) — a token without an email claim cannot drive an
-     * {@link org.kinotic.domain.api.model.security.ParticipantIdentity} lookup or creation.
+     * {@link ParticipantIdentity} lookup or creation.
      */
     public static boolean isEmailVerified(Map<String, Object> claims, OidcProviderKind provider) {
         if (claims == null) return false;

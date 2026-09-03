@@ -5,6 +5,7 @@ package org.kinotic.gateway.internal.endpoints;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
@@ -39,6 +40,8 @@ public class Services {
     public ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     @Autowired
     public StompAuthorizerFactory stompAuthorizerFactory;
+    @Autowired
+    public TraceLogFilter traceLogFilter;
     @Autowired
     public Vertx vertx;
 }

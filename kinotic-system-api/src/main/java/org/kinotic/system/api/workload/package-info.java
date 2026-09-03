@@ -2,7 +2,7 @@
  * Workload orchestration API and proxy interfaces.
  */
 @Version("1.0.0")
-@Zone(DomainUtil.SYSTEM_ZONE)
+@Zone(DomainUtil.SYSTEM_API_ZONE)
 package org.kinotic.system.api.workload;
 
 import org.kinotic.core.api.annotations.Version;

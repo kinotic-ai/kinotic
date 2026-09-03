@@ -1,11 +1,11 @@
 package org.kinotic.system.api.model.workload;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.management.api.model.workload.Workload;
 
 import java.util.Date;
 
@@ -61,19 +61,20 @@ public class VmNode implements Identifiable<String> {
     private int totalDiskMb;
 
     /**
-     * Number of vCPUs currently allocated to workloads.
+     * Number of vCPUs not allocated to any workload. What is allocated is
+     * {@code totalCpus - availableCpus}.
      */
-    private int allocatedCpus;
+    private int availableCpus;
 
     /**
-     * Memory currently allocated to workloads in megabytes.
+     * Memory not allocated to any workload, in megabytes.
      */
-    private int allocatedMemoryMb;
+    private int availableMemoryMb;
 
     /**
-     * Disk space currently allocated to workloads in megabytes.
+     * Disk space not allocated to any workload, in megabytes.
      */
-    private int allocatedDiskMb;
+    private int availableDiskMb;
 
     /**
      * The date and time the node was last seen/heartbeat.
@@ -92,27 +93,4 @@ public class VmNode implements Identifiable<String> {
         this.hostname = hostname;
     }
 
-    /**
-     * @return the number of vCPUs available (not allocated) on this node
-     */
-    @JsonIgnore
-    public int getAvailableCpus() {
-        return totalCpus - allocatedCpus;
-    }
-
-    /**
-     * @return the memory available (not allocated) on this node in megabytes
-     */
-    @JsonIgnore
-    public int getAvailableMemoryMb() {
-        return totalMemoryMb - allocatedMemoryMb;
-    }
-
-    /**
-     * @return the disk space available (not allocated) on this node in megabytes
-     */
-    @JsonIgnore
-    public int getAvailableDiskMb() {
-        return totalDiskMb - allocatedDiskMb;
-    }
 }

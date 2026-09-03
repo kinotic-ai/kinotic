@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.internal.api.rest.support.*;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.model.security.OrgSignupOidcConfiguration;
 import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
@@ -122,7 +122,7 @@ public class OrganizationSignupHandler implements SuppliesGatewayRoutes {
 
     /**
      * {@code GET /api/auth/org/signup/social/callback/:configId} — the social IdP returns here. Validates the
-     * callback (state, code exchange, issuer) via {@link OidcFlowOrchestrator}, then hands the
+     * callback (state, code exchange, issuer) via {@code OidcFlowOrchestrator}, then hands the
      * verified claims to {@link #createPendingSignUp}.
      */
     private void handleSocialCallback(RoutingContext ctx) {

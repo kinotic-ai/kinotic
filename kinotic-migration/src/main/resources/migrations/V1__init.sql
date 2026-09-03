@@ -46,6 +46,9 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     nodeId KEYWORD,
     hostDir KEYWORD,
     runtimeWorkloadId KEYWORD,
+    syncWorkloadId KEYWORD,
+    syncMachineIdentityId KEYWORD,
+    runtimeMachineIdentityId KEYWORD,
     commitSha KEYWORD,
     lastJobRunId KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),
@@ -319,9 +322,9 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
     totalDiskMb INTEGER,
-    allocatedCpus INTEGER,
-    allocatedMemoryMb INTEGER,
-    allocatedDiskMb INTEGER,
+    availableCpus INTEGER,
+    availableMemoryMb INTEGER,
+    availableDiskMb INTEGER,
     lastSeen DATE,
     workloadDataDir KEYWORD
 );
@@ -368,23 +371,23 @@ CREATE TABLE IF NOT EXISTS kinotic_job_run (
     status KEYWORD,
     error TEXT,
     resumedFrom KEYWORD,
+    nodeId KEYWORD,
     started DATE,
     finished DATE
 );
 
--- Create the task_record table for the per-step history of a job run
+-- Create the task_record table for the per-task history of a job run
 CREATE TABLE IF NOT EXISTS kinotic_task_record (
     id KEYWORD,
     jobRunId KEYWORD,
-    stepPath KEYWORD,
+    taskPath KEYWORD,
     description TEXT,
     status KEYWORD,
     storeType KEYWORD,
-    dynamicSteps BOOLEAN,
-    resultName KEYWORD,
-    resultValueType KEYWORD,
-    resultValue JSON NOT INDEXED,
-    output TEXT,
+    dynamicTasks BOOLEAN,
+    storedName KEYWORD,
+    stateValueType KEYWORD,
+    stateValue JSON NOT INDEXED,
     error TEXT,
     started DATE,
     finished DATE

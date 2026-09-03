@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import type Docker from 'dockerode'
-import { Workload, WorkloadStatus } from '@kinotic-ai/os-api'
+import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
 
 // Mount validation runs before the provider touches Docker, so a stub whose first call
@@ -64,6 +64,16 @@ describe('CloudHypervisorProvider volume mount preparation', () => {
 
         await expect(provider.start(workload(hostPath))).rejects.toThrow(DOCKER_SENTINEL.message)
         expect(existsSync(hostPath)).toBe(true)
+    })
+
+    // A node provisioned for this provider has project quotas; tmpdir does not, which is the
+    // node that has lost them. Enforcement is the point of the cap, so the workload is refused
+    it('refuses a workload whose cap the filesystem cannot enforce', async () => {
+        const w = workload(join(baseDir, 'data', 'projects', 'p1'))
+        w.volumeMounts[0]!.sizeLimitMb = 4096
+
+        await expect(provider.start(w)).rejects.toThrow(/not on an XFS filesystem mounted with prjquota/)
+        expect(w.status).toBe(WorkloadStatus.FAILED)
     })
 
     it('accepts a read-only mount of an existing directory', async () => {

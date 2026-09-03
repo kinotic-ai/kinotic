@@ -1,6 +1,6 @@
 {
   "name": "@kinotic-ai/vm-manager",
-  "version": "5.0.0-beta.10",
+  "version": "5.0.0-beta.17",
   "type": "module",
   "files": [
     "bin",
@@ -39,16 +39,18 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.5",
-    "@kinotic-ai/os-api": ">=5.0.0-beta.15"
+    "@kinotic-ai/core": ">=5.0.0-beta.9",
+    "@kinotic-ai/management-api": ">=5.0.0-beta.24",
+    "@kinotic-ai/system-api": ">=5.0.0-beta.7"
   },
   "dependencies": {
-    "@boxlite-ai/boxlite": "^0.9.7",
+    "@boxlite-ai/boxlite": "^0.10.0",
     "dockerode": "^5.0.1"
   },
   "devDependencies": {
     "@kinotic-ai/core": "workspace:*",
-    "@kinotic-ai/os-api": "workspace:*",
+    "@kinotic-ai/management-api": "workspace:*",
+    "@kinotic-ai/system-api": "workspace:*",
     "@types/bun": "^1.3.9",
     "@types/dockerode": "^4.0.1",
     "typescript": "^5.9.3"

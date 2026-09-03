@@ -3,7 +3,7 @@ package org.kinotic.domain.internal.api.rest;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.domain.api.services.security.LocalAuthenticationService;
 import org.kinotic.domain.internal.api.rest.support.AuthEndpointSupport;

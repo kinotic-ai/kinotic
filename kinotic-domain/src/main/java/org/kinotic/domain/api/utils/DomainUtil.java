@@ -6,14 +6,14 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.security.DelegatingParticipantIdentity;
-import org.kinotic.domain.api.model.security.MachineParticipantIdentity;
-import org.kinotic.domain.api.model.security.ParticipantIdentity;
-import org.kinotic.domain.api.model.security.ParticipantIdentityType;
-import org.kinotic.domain.api.model.security.UserParticipantIdentity;
-import org.kinotic.domain.api.model.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.model.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.DefaultSystemParticipant;
+import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentityType;
+import org.kinotic.domain.api.model.security.identity.UserParticipantIdentity;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.nio.charset.StandardCharsets;
@@ -38,7 +38,7 @@ public class DomainUtil {
      * The zone for platform services organizations use to manage the system, such as member,
      * application, and entity definition management
      */
-    public static final String OS_API_ZONE = "os-api";
+    public static final String MANAGEMENT_API_ZONE = "management-api";
 
     /**
      * The zone for the platform's application facing data services, such as entity persistence
@@ -49,7 +49,7 @@ public class DomainUtil {
     /**
      * The zone for services internal to the platform, only reachable by system participants
      */
-    public static final String SYSTEM_ZONE = "system";
+    public static final String SYSTEM_API_ZONE = "system-api";
 
     /**
      * The leading label of application zones, which follow the form app.&lt;organizationId&gt;.&lt;applicationId&gt;
@@ -105,7 +105,7 @@ public class DomainUtil {
 
     private static void validateZoneLabelId(String id) {
         ZoneUtil.validateLabel(id);
-        Validate.isTrue(!SYSTEM_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
+        Validate.isTrue(!SYSTEM_API_ZONE.equals(id), "Id '%s' is reserved by the platform", id);
     }
 
     public static void validateProjectId(String projectId){

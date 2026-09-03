@@ -11,7 +11,7 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.domain.api.model.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.List;
@@ -32,7 +32,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
-    Future<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, ApplicationParticipant participant);
+    Future<Void> bulkSave(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
      * Saves all given entities.
@@ -42,7 +42,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} that will complete when all entities have been saved
      */
-    Future<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, ApplicationParticipant participant);
+    Future<Void> bulkUpdate(String entityDefinitionId, TokenBuffer entities, ScopedParticipant participant);
 
     /**
      * Returns the number of entities available.
@@ -51,7 +51,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
-    Future<Long> count(String entityDefinitionId, ApplicationParticipant participant);
+    Future<Long> count(String entityDefinitionId, ScopedParticipant participant);
 
     /**
      * Returns the number of entities available for the given query.
@@ -61,7 +61,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the number of entities.
      */
-    Future<Long> countByQuery(String entityDefinitionId, String query, ApplicationParticipant participant);
+    Future<Long> countByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
      * Deletes the entity with the given id.
@@ -71,7 +71,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
-    Future<Void> deleteById(String entityDefinitionId, String id, ApplicationParticipant participant);
+    Future<Void> deleteById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
      * Deletes any entities that match the given query.
@@ -81,7 +81,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting when delete is complete
      */
-    Future<Void> deleteByQuery(String entityDefinitionId, String query, ApplicationParticipant participant);
+    Future<Void> deleteByQuery(String entityDefinitionId, String query, ScopedParticipant participant);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@code Pageable} object.
@@ -91,7 +91,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a page of entities
      */
-    Future<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> findAll(String entityDefinitionId, Pageable pageable, ScopedParticipant participant);
 
     /**
      * Retrieves an entity by its id.
@@ -101,7 +101,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the entity with the given id or {@link Future} emitting null if none found
      */
-    Future<FastestType> findById(String entityDefinitionId, String id, ApplicationParticipant participant);
+    Future<FastestType> findById(String entityDefinitionId, String id, ScopedParticipant participant);
 
     /**
      * Retrieves a list of entities by their id.
@@ -111,7 +111,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} with the list of matched entities with the given ids or {@link Future} emitting an empty list if none found
      */
-    Future<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, ApplicationParticipant participant);
+    Future<List<FastestType>> findByIds(String entityDefinitionId, List<String> ids, ScopedParticipant participant);
 
     /**
      * Executes a named query.
@@ -125,7 +125,7 @@ public interface JsonEntitiesRepository {
     Future<List<RawJson>> namedQuery(String entityDefinitionId,
                                      String queryName,
                                      List<QueryParameter> queryParameters,
-                                     ApplicationParticipant participant);
+                                     ScopedParticipant participant);
 
     /**
      * Executes a named query and returns a {@link Page} of results.
@@ -141,7 +141,7 @@ public interface JsonEntitiesRepository {
                                          String queryName,
                                          List<QueryParameter> queryParameters,
                                          Pageable pageable,
-                                         ApplicationParticipant participant);
+                                         ScopedParticipant participant);
 
     /**
      * Saves a given entity. Use the returned instance for further operations as the save operation might have changed the
@@ -152,7 +152,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ApplicationParticipant participant);
+    Future<TokenBuffer> save(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@code Pageable} object.
@@ -165,7 +165,7 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return a {@link Future} of a page of entities
      */
-    Future<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, ApplicationParticipant participant);
+    Future<Page<FastestType>> search(String entityDefinitionId, String searchText, Pageable pageable, ScopedParticipant participant);
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -173,7 +173,7 @@ public interface JsonEntitiesRepository {
      * @param participant     the participant of the logged-in user
      * @return a {@link Future} that will complete when the operation is complete
      */
-    Future<Void> syncIndex(String entityDefinitionId, ApplicationParticipant participant);
+    Future<Void> syncIndex(String entityDefinitionId, ScopedParticipant participant);
 
     /**
      * Updates a given entity. This will only override the fields that are present in the given entity.
@@ -185,6 +185,6 @@ public interface JsonEntitiesRepository {
      * @param participant the participant of the logged-in user
      * @return {@link Future} emitting the saved entity
      */
-    Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ApplicationParticipant participant);
+    Future<TokenBuffer> update(String entityDefinitionId, TokenBuffer entity, ScopedParticipant participant);
 
 }

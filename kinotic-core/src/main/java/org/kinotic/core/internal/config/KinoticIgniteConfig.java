@@ -22,7 +22,6 @@ import org.kinotic.core.api.config.IgniteClusterDiscoveryType;
 import org.kinotic.core.api.config.IgniteProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -41,7 +40,6 @@ import static org.apache.ignite.failure.FailureType.*;
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(value = "kinotic.disableClustering", havingValue = "false", matchIfMissing = true)
 public class KinoticIgniteConfig {
 
     @Autowired

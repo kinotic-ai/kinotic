@@ -60,8 +60,8 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { DelegateKind } from '@kinotic-ai/os-api'
-import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/os-api'
+import { DelegateKind } from '@kinotic-ai/management-api'
+import type { DelegateSession, DelegatingParticipantIdentity } from '@kinotic-ai/management-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
@@ -98,7 +98,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side delegate search; a user has few delegates, so filtering the page suffices
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.delegates.findMyDelegates(pageable),
     toRow,

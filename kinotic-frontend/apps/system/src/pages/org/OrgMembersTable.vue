@@ -41,7 +41,7 @@ import {
   type IterablePage,
   type Page
 } from '@kinotic-ai/core'
-import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/os-api'
+import type { PendingInviteSummary, UserParticipantIdentity } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,
@@ -75,7 +75,7 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false }
 ]
 
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 

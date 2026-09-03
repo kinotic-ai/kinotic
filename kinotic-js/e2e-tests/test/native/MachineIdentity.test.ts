@@ -1,5 +1,5 @@
 import {BasicCredentialsResolver, Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
-import {MachineService} from '@kinotic-ai/os-api'
+import {MachineService} from '@kinotic-ai/management-api'
 import * as allure from 'allure-js-commons'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {E2E_ORGANIZATION_ID,
@@ -15,6 +15,8 @@ const MACHINE_CLIENT_SECRET = 'kinotic'
 // a kinotic-test org USER — a valid identity + password that must nevertheless be refused
 // as machine credentials
 const ORG_USER_ID = '00000000-0000-0000-0000-000000000002'
+// an ORGANIZATION-scope machine, the shape a project's deployment provisions for its workloads
+const ORG_MACHINE_ID = '00000000-0000-0000-0000-000000000012'
 
 /**
  * Covers machine identities: credential-header connections through the Kinotic client — the
@@ -77,6 +79,17 @@ describe('Kinotic JS', () => {
         expect((await grant.json()).error).toBe('unsupported_grant_type')
         // every connect pays the client's connection jitter delay before its only attempt,
         // so five rejections need more than the default 5s test timeout
+    }, 60000)
+
+    it('gives an organization-scope machine the organization\'s authority', async () => {
+        // A project's deployment workloads synchronize entity definitions and publish the
+        // project's services into its application's zone, both of which the organization does
+        // on its own behalf — so their machines carry no applicationId, and declaring one on
+        // the connection contradicts the scope the identity holds.
+        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET)).toBe('connected')
+        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET, E2E_ORGANIZATION_ID)).toBe('connected')
+        expect(await machineConnect(ORG_MACHINE_ID, MACHINE_CLIENT_SECRET,
+                                    E2E_ORGANIZATION_ID, 'e2e-mcp')).toBe('rejected')
     }, 60000)
 
     it('manages the machine lifecycle through MachineService', async () => {

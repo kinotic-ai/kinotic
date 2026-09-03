@@ -9,10 +9,10 @@ import App from './App.vue'
 import { KinoticStates } from '@/states'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { OsApiPlugin } from '@kinotic-ai/os-api'
+import { ManagementApiPlugin } from '@kinotic-ai/management-api'
 import { PersistencePlugin } from '@kinotic-ai/persistence'
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
 Kinotic.use(PersistencePlugin)
 
 if (import.meta.env.DEV) {

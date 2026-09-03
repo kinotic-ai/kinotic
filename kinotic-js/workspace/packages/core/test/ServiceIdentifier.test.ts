@@ -8,12 +8,12 @@ describe('Kinotic JS', () => {
     describe('ServiceIdentifier construction', () => {
 
         it('builds a zone prefixed cri', () => {
-            const identifier = new ServiceIdentifier('org.kinotic.os.api.services.iam', 'MemberService', 'os-api')
+            const identifier = new ServiceIdentifier('org.kinotic.management.api.services.iam', 'MemberService', 'management-api')
             identifier.version = '1.0.0'
-            expect(identifier.qualifiedName()).toBe('os-api~org.kinotic.os.api.services.iam.MemberService')
-            expect(identifier.cri().raw()).toBe('srv://os-api~org.kinotic.os.api.services.iam.MemberService#1.0.0')
-            expect(identifier.cri().zone()).toBe('os-api')
-            expect(identifier.cri().resourceName()).toBe('org.kinotic.os.api.services.iam.MemberService')
+            expect(identifier.qualifiedName()).toBe('management-api~org.kinotic.management.api.services.iam.MemberService')
+            expect(identifier.cri().raw()).toBe('srv://management-api~org.kinotic.management.api.services.iam.MemberService#1.0.0')
+            expect(identifier.cri().zone()).toBe('management-api')
+            expect(identifier.cri().resourceName()).toBe('org.kinotic.management.api.services.iam.MemberService')
         })
 
         it('rejects a name or namespace containing the zone delimiter', () => {

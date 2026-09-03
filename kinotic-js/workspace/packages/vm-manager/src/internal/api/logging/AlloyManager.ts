@@ -1,8 +1,8 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
-import type { LogTarget } from '@/model/LogTarget'
-import { LogFormat } from '@/model/LogFormat'
+import type { LogTarget } from '@/internal/api/model/LogTarget'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
@@ -10,9 +10,29 @@ const LISTEN_ADDR = '127.0.0.1:12345'
 // Release installed when `alloy` is not on the PATH. Bump deliberately.
 const ALLOY_VERSION = 'v1.17.1'
 
+/**
+ * Ceiling on one attempt at the release archive. Generous on purpose: it is there to catch a
+ * download that has stopped moving, not to hold the node to a transfer rate. The asset is
+ * about 100MB, so anything above roughly 7Mbit/s finishes well inside it.
+ */
+const DOWNLOAD_TIMEOUT_MS = 120_000
+
+/** Attempts before the node gives up and runs without log shipping. */
+const DOWNLOAD_ATTEMPTS = 3
+
 // Loki tenant for platform workloads with no organization (SYSTEM scope); must match
 // DefaultLogService.SYSTEM_LOG_TENANT on the server
 const SYSTEM_LOG_TENANT = 'kinotic-system'
+
+/**
+ * How often Alloy rescans a target's path for files. A one-shot workload can be over in
+ * seconds, so the default of ten leaves its file undiscovered for most of its life.
+ */
+const FILE_SYNC_PERIOD = '1s'
+
+/** Ceiling on waiting for the shipper to read a workload's files before they are deleted. */
+const SHIP_TIMEOUT_MS = 15_000
+const SHIP_POLL_MS = 250
 
 export interface AlloyManagerOptions {
     /** Base URL of the Loki HTTP API logs are pushed to. */
@@ -56,6 +76,83 @@ export class AlloyManager {
         // Queueing every mutation of the process behind the previous one is what keeps
         // the child/config state coherent.
         return this.enqueue(() => this.applyTargetsInternal(targets))
+    }
+
+    /**
+     * Waits until Alloy has read every file of the target to its end, so the files can be
+     * deleted without losing what the workload wrote last. Gives up after a bounded wait,
+     * with a warning, rather than holding the caller to a shipper that has stalled.
+     */
+    async awaitShipped(target: LogTarget): Promise<void> {
+        if (!this.child) {
+            return
+        }
+        const deadline = Date.now() + SHIP_TIMEOUT_MS
+        let unread = this.unreadFiles(target, await this.readBytesByPath())
+        while (unread.length > 0 && Date.now() < deadline) {
+            await new Promise(resolve => setTimeout(resolve, SHIP_POLL_MS))
+            unread = this.unreadFiles(target, await this.readBytesByPath())
+        }
+        if (unread.length > 0) {
+            console.warn(`Deleting the logs of workload ${target.workloadId} before the log shipper read `
+                         + `${unread.join(', ')} to the end; the tail of its logs is lost`)
+        }
+    }
+
+    // The target's files on disk that Alloy's read counter has not caught up with
+    private unreadFiles(target: LogTarget, readBytesByPath: Map<string, number>): string[] {
+        return this.filesOf(target).filter(file => (readBytesByPath.get(file) ?? 0) < statSync(file).size)
+    }
+
+    // A PLAIN target names a directory glob of *.log files; a DOCKER_JSON target one file
+    private filesOf(target: LogTarget): string[] {
+        let ret: string[]
+        if (target.format === LogFormat.PLAIN) {
+            const dir = dirname(target.logPath)
+            ret = existsSync(dir)
+                ? readdirSync(dir).filter(file => file.endsWith('.log')).map(file => join(dir, file))
+                : []
+        } else {
+            ret = existsSync(target.logPath) ? [target.logPath] : []
+        }
+        return ret
+    }
+
+    /**
+     * Bytes Alloy has read from each file, by path, from its
+     * {@code loki_source_file_read_bytes_total} metric. A shipper that cannot be reached has
+     * read nothing as far as the caller is concerned.
+     */
+    private async readBytesByPath(): Promise<Map<string, number>> {
+        const ret = new Map<string, number>()
+        try {
+            const response = await fetch(`http://${LISTEN_ADDR}/metrics`)
+            for (const line of (await response.text()).split('\n')) {
+                const match = /^loki_source_file_read_bytes_total\{.*?path="((?:[^"\\]|\\.)*)".*?\} (\d+)/.exec(line)
+                if (match) {
+                    ret.set(JSON.parse(`"${match[1]}"`), Number(match[2]))
+                }
+            }
+        } catch (error) {
+            console.warn('Could not read the log shipper metrics:', error)
+        }
+        return ret
+    }
+
+    /**
+     * Why this node is not shipping workload logs, or null when it is.
+     *
+     * Reported rather than thrown: a node that loses log shipping keeps running, so the
+     * failure is visible and fixable, but it is not fit to take workloads whose logs would go
+     * nowhere. Silence would leave it accepting them and quietly dropping their output.
+     */
+    shippingProblem(): string | null {
+        let ret: string | null = null
+        // Shutdown is deliberate, and a node on its way down has nothing to report
+        if (!this.stopping && this.child === null) {
+            ret = `workload logs are not being shipped to ${this.options.lokiUrl}: the log shipper is not running`
+        }
+        return ret
     }
 
     /**
@@ -176,11 +273,10 @@ export class AlloyManager {
 
         mkdirSync(versionDir, { recursive: true })
         const zipPath = join(versionDir, `${asset}.zip`)
-        const response = await fetch(url)
-        if (!response.ok) {
-            throw new Error(`Alloy download failed: HTTP ${response.status} for ${url}`)
-        }
-        await Bun.write(zipPath, response)
+        // Buffered rather than streamed: Bun.write(path, response) never completes for this
+        // body, leaving the node with an empty version directory and no log shipping at all.
+        // The asset is ~100MB and read once per version, so holding it in memory is cheap.
+        await Bun.write(zipPath, await this.fetchArchive(url))
 
         const unzip = spawnSync('unzip', ['-o', zipPath, '-d', versionDir], { stdio: 'ignore' })
         if (unzip.error || unzip.status !== 0) {
@@ -194,6 +290,30 @@ export class AlloyManager {
         chmodSync(binaryPath, 0o755)
         console.log(`Alloy installed at ${binaryPath}`)
         return binaryPath
+    }
+
+    /**
+     * Reads the release archive, giving up on an attempt that stops making progress.
+     *
+     * This runs before the node registers, so a download that never finishes takes the node
+     * with it — no workloads, no heartbeat, and nothing said about why. The bound is what
+     * turns that into a failure the caller can log and carry on without log shipping.
+     */
+    private async fetchArchive(url: string): Promise<ArrayBuffer> {
+        let lastFailure = ''
+        for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt++) {
+            try {
+                const response = await fetch(url, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`)
+                }
+                return await response.arrayBuffer()
+            } catch (error) {
+                lastFailure = (error as Error).message
+                console.warn(`Alloy download attempt ${attempt} of ${DOWNLOAD_ATTEMPTS} failed: ${lastFailure}`)
+            }
+        }
+        throw new Error(`Alloy download failed after ${DOWNLOAD_ATTEMPTS} attempts (${lastFailure}) for ${url}`)
     }
 
     /**
@@ -283,6 +403,7 @@ loki.write "default" {
             `      tenant         = ${this.river(target.organizationId ?? SYSTEM_LOG_TENANT)},`,
         ]
         return `local.file_match ${this.river(name)} {
+  sync_period  = ${this.river(FILE_SYNC_PERIOD)}
   path_targets = [
     {
 ${labels.join('\n')}

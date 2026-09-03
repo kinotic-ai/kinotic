@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.system.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.VmNodeProperties;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
@@ -16,7 +16,7 @@ import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
@@ -40,7 +40,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     @PostConstruct
     public void init() {
-        VmNodeProperties nodeProps = orchestratorProperties.getOrchestrator().getVmNode();
+        VmNodeProperties nodeProps = orchestratorProperties.getSystemApi().getVmNode();
         scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
             Thread t = new Thread(r, "node-health-check");
             t.setDaemon(true);
@@ -70,6 +70,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 .compose(existing -> {
                     Future<VmNode> ret;
                     if (existing != null) {
+                        // Read the allocation off the old capacity before overwriting it, so a node
+                        // that re-registers with different hardware keeps its running workloads
+                        // accounted for rather than appearing wholly free.
+                        int allocatedCpus = existing.getTotalCpus() - existing.getAvailableCpus();
+                        int allocatedMemoryMb = existing.getTotalMemoryMb() - existing.getAvailableMemoryMb();
+                        int allocatedDiskMb = existing.getTotalDiskMb() - existing.getAvailableDiskMb();
                         existing.setHostname(registration.getHostname())
                                 .setName(registration.getName())
                                 .setProviderType(registration.getProviderType())
@@ -77,6 +83,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 .setTotalMemoryMb(registration.getTotalMemoryMb())
                                 .setTotalDiskMb(registration.getTotalDiskMb())
                                 .setWorkloadDataDir(registration.getWorkloadDataDir())
+                                .setAvailableCpus(registration.getTotalCpus() - allocatedCpus)
+                                .setAvailableMemoryMb(registration.getTotalMemoryMb() - allocatedMemoryMb)
+                                .setAvailableDiskMb(registration.getTotalDiskMb() - allocatedDiskMb)
                                 .setStatus(new VmNodeStatus());
                         log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
                         ret = vmNodeService.saveSync(existing);
@@ -86,6 +95,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node.setTotalCpus(registration.getTotalCpus());
                         node.setTotalMemoryMb(registration.getTotalMemoryMb());
                         node.setTotalDiskMb(registration.getTotalDiskMb());
+                        node.setAvailableCpus(registration.getTotalCpus());
+                        node.setAvailableMemoryMb(registration.getTotalMemoryMb());
+                        node.setAvailableDiskMb(registration.getTotalDiskMb());
                         node.setWorkloadDataDir(registration.getWorkloadDataDir());
                         node.setStatus(new VmNodeStatus());
                         log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
@@ -203,7 +215,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
      */
     private void checkNodeHealth() {
         try {
-            long heartbeatTimeoutSeconds = orchestratorProperties.getOrchestrator().getVmNode().getHeartbeatTimeoutSeconds();
+            long heartbeatTimeoutSeconds = orchestratorProperties.getSystemApi().getVmNode().getHeartbeatTimeoutSeconds();
             long cutoff = System.currentTimeMillis() - (heartbeatTimeoutSeconds * 1000);
             Date cutoffDate = new Date(cutoff);
 

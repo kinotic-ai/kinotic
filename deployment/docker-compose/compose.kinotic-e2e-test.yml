@@ -19,9 +19,19 @@ services:
       # `test,e2e-tests,compose`, so supply the dummy test key here. Matches kinotic-test's
       # application.yml so derived secret names stay consistent with the test fixtures.
       KINOTIC_DOMAIN_SECRETSTORAGE_MASTERKEY: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
-      # GitHub is disabled for e2e; the domain MockProjectRepoProvisioner supplies a no-op
-      # ProjectRepoProvisioner so project-create flows work without a configured GitHub App.
-      KINOTIC_DISABLEGITHUB: "true"
+      # Placeholder GitHub App config: GithubProperties validates these @NotBlank at boot even
+      # though no e2e test calls GitHub. disableProvisioner swaps in MockProjectRepoProvisioner so
+      # project-create flows work without a real App.
+      KINOTIC_MANAGEMENTAPI_GITHUB_DISABLEPROVISIONER: "true"
+      KINOTIC_MANAGEMENTAPI_GITHUB_APPID: "-"
+      KINOTIC_MANAGEMENTAPI_GITHUB_APPSLUG: "-"
+      KINOTIC_MANAGEMENTAPI_GITHUB_APPPRIVATEKEY: "-"
+      KINOTIC_MANAGEMENTAPI_GITHUB_WEBHOOKSECRET: "-"
+      KINOTIC_MANAGEMENTAPI_GITHUB_REPOTEMPLATE: "-"
+      # DeploymentProperties.serverHost is @NotBlank and validated at boot. It is set in the
+      # `development` profile, which e2e drops in favor of `test,e2e-tests,compose`, so supply it
+      # here. No e2e test deploys a workload, so the value only has to bind.
+      KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST: localhost
       # KinoticJwtIssuer signs every access token with these keys. DevPlatformSecretsGenerator seeds
       # them under the `development` profile, which e2e drops, so mount the dummy set below; without
       # it the OAuth token endpoints cannot mint a token.

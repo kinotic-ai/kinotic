@@ -42,11 +42,6 @@ public class DomainProperties {
     private EmailProperties email = new EmailProperties();
 
     /**
-     * Loki configuration for the {@code LogService}.
-     */
-    private LokiProperties loki = new LokiProperties();
-
-    /**
      * OAuth 2.1 authorization-server configuration.
      */
     @Valid

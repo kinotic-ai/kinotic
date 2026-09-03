@@ -22,16 +22,7 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
 
     @Override
     public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
-        // Elasticsearch can't express "available = total - allocated" in a server-side query, so
-        // we fetch the online nodes and filter locally.
-        return vmNodeRepository.findOnlineNodes()
-                .map(page -> page.getContent()
-                                 .stream()
-                                 .filter(node -> node.getAvailableCpus() >= requiredCpus
-                                         && node.getAvailableMemoryMb() >= requiredMemoryMb
-                                         && node.getAvailableDiskMb() >= requiredDiskMb)
-                                 .findFirst()
-                                 .orElse(null));
+        return vmNodeRepository.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
     }
 
     @Override

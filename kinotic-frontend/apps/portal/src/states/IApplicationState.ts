@@ -3,7 +3,7 @@ import {Kinotic, Pageable} from '@kinotic-ai/core'
 import { computed, type ComputedRef, markRaw, reactive, type Reactive } from 'vue'
 import type { NavigationGuardNext, RouteLocationNormalized, Router, RouteRecordRaw } from 'vue-router'
 import { createDebug } from '@kinotic-ai/frontend-common'
-import {Application} from "@kinotic-ai/os-api";
+import {Application} from "@kinotic-ai/management-api";
 
 const debug = createDebug('application-state');
 

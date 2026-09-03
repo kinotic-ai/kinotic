@@ -84,7 +84,7 @@ import { KinoticStates } from '@/states/index'
 import { type IUserState } from '@/states/IUserState'
 import { apiUrl, readAuthError } from '@kinotic-ai/frontend-common'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
-import type { CompleteOrgRequest } from '@kinotic-ai/os-api'
+import type { CompleteOrgRequest } from '@kinotic-ai/management-api'
 
 /**
  * Lands here after `/api/auth/org/signup/social/callback/:configId` redirects with `?token=<verificationToken>`
@@ -176,9 +176,9 @@ async function continueToGithub(): Promise<void> {
     // startInstall requires the org-scoped session userState.login() just opened.
     const url = await Kinotic.githubAppInstallations.startInstall('/applications')
     window.location.href = url
-  } catch {
-    // Install couldn't start (e.g. a kinotic.disableGithub deployment) — signup must
-    // never dead-end here; the user can link GitHub later from Organization Settings.
+  } catch (err) {
+    // Signup must never dead-end here; the user can link GitHub later from Organization Settings.
+    displayError(err instanceof Error ? err.message : 'Could not start the GitHub install')
     await CONTINUUM_UI.navigate('/applications')
   }
 }

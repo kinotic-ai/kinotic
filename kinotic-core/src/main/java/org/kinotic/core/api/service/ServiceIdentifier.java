@@ -120,6 +120,15 @@ public class ServiceIdentifier {
         return cri;
     }
 
+    /**
+     * The {@link CRI} of this service's shared, unscoped address. Every instance of a scoped
+     * service may listen here for the methods any instance can answer.
+     * @return the cri without the scope part
+     */
+    public CRI unscopedCri(){
+        return CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, null, qualifiedName(), null, version);
+    }
+
 
     @Override
     public boolean equals(Object o) {

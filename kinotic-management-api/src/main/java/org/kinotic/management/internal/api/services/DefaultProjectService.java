@@ -1,0 +1,176 @@
+package org.kinotic.management.internal.api.services;
+
+import com.github.slugify.Slugify;
+import io.vertx.core.Future;
+import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
+import org.kinotic.management.api.services.ProjectRepoProvisioner;
+import org.kinotic.management.api.services.ProjectService;
+import org.springframework.stereotype.Component;
+
+import java.util.Date;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Stream;
+
+@Component
+public class DefaultProjectService extends AbstractApplicationScopedService<Project> implements ProjectService {
+
+    final Slugify slg = Slugify.builder().build();
+
+    private final ProjectRepository projectRepository;
+    private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final ProjectRepoProvisioner repoProvisioner;
+    private final ParticipantIdentityService participantIdentityService;
+
+    public DefaultProjectService(ProjectRepository repository,
+                                 SecurityContext securityContext,
+                                 ProjectDeploymentRepository projectDeploymentRepository,
+                                 ProjectRepoProvisioner repoProvisioner,
+                                 ParticipantIdentityService participantIdentityService) {
+        super(repository, securityContext);
+        this.projectRepository = repository;
+        this.projectDeploymentRepository = projectDeploymentRepository;
+        this.repoProvisioner = repoProvisioner;
+        this.participantIdentityService = participantIdentityService;
+    }
+
+    @Override
+    public Future<Project> create(Project project) {
+        return provisionAndWrite(project, super::create);
+    }
+
+    @Override
+    public Future<Project> createSync(Project project) {
+        return provisionAndWrite(project, super::createSync);
+    }
+
+    @Override
+    public Future<Project> createProjectIfNotExist(Project project) {
+        validateAndDeriveId(project);
+        return findById(project.getId())
+                .compose(existing -> {
+                    if (existing != null) {
+                        return Future.succeededFuture(existing);
+                    }
+                    return repoProvisioner.provision(project).compose(this::save);
+                });
+    }
+
+    @Override
+    protected Future<Void> beforeSave(Project project) {
+        Validate.notNull(project, "Project cannot be null");
+        Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
+        Validate.notNull(project.getName(), "Project name cannot be null");
+
+        if(project.getId() == null){
+            project.setId(deriveId(project));
+        }
+        project.setUpdated(new Date());
+        return Future.succeededFuture();
+    }
+
+    @Override
+    public Future<List<Project>> findByRepoFullName(String repoFullName) {
+        Validate.notBlank(repoFullName, "repoFullName must not be blank");
+        return projectRepository.findByRepoFullName(repoFullName, requireOrganizationId());
+    }
+
+    @Override
+    protected Future<Void> beforeDelete(String projectId) {
+        String organizationId = requireOrganizationId();
+        return projectDeploymentRepository.findById(projectId, organizationId)
+                .compose(deployment -> {
+                    Future<Void> ret;
+                    if (deployment == null) {
+                        ret = Future.succeededFuture();
+                    } else {
+                        // The machines outlive the project unless they go with it, and they
+                        // hold the organization's authority. ParticipantIdentityService's own
+                        // beforeDelete cascades each one's stored credential. The checkout and
+                        // the runtime workload on the node are system-side resources this
+                        // management-plane delete cannot reach — deleting the runtime machine
+                        // is what cuts an orphaned guest off, on its next reconnect.
+                        ret = deleteMachines(deployment.getSyncMachineIdentityId(), deployment.getRuntimeMachineIdentityId())
+                                .compose(v -> projectDeploymentRepository.deleteById(projectId, organizationId));
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<Void> deleteMachines(String syncMachineIdentityId, String runtimeMachineIdentityId) {
+        List<Future<Void>> deletes = Stream.of(syncMachineIdentityId, runtimeMachineIdentityId)
+                                           .filter(Objects::nonNull)
+                                           .map(participantIdentityService::deleteById)
+                                           .toList();
+        return Future.all(deletes).mapEmpty();
+    }
+
+    @Override
+    public Future<ProjectDeployment> findDeployment(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        return projectDeploymentRepository.findById(projectId, requireOrganizationId());
+    }
+
+    @Override
+    public Future<Project> retryRepoInitialization(String projectId) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        return findById(projectId).compose(project -> {
+            if (project == null) {
+                return Future.failedFuture(new IllegalArgumentException(
+                        "Project for id " + projectId + " does not exist"));
+            }
+            if (project.getRepoConnectionStatus() != RepositoryConnectionStatus.INITIALIZATION_FAILED) {
+                return Future.failedFuture(new IllegalStateException(
+                        "Project " + projectId + " is not awaiting initialization retry (status "
+                        + project.getRepoConnectionStatus() + ")"));
+            }
+            return repoProvisioner.reinitialize(project).compose(this::saveSync);
+        });
+    }
+
+    private Future<Project> provisionAndWrite(Project project,
+                                              Function<Project, Future<Project>> write) {
+        validateAndDeriveId(project);
+        // Fail fast on a known duplicate before provisioning a repo; the atomic write
+        // catches the race where another create lands between this check and it.
+        return findById(project.getId())
+                .compose(existing -> {
+                    if (existing != null) {
+                        return Future.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"));
+                    }
+                    return repoProvisioner.provision(project)
+                                          .compose(write);
+                })
+                .recover(ex -> AlreadyExistsException.isCause(ex)
+                        ? Future.failedFuture(new IllegalArgumentException(
+                                "Project for id " + project.getId() + " already exists"))
+                        : Future.failedFuture(ex));
+    }
+
+    private void validateAndDeriveId(Project project) {
+        Validate.notNull(project, "Project cannot be null");
+        Validate.notNull(project.getName(), "Project name cannot be null");
+        Validate.notNull(project.getApplicationId(), "Project applicationId cannot be null");
+        if (project.getId() == null) {
+            project.setId(deriveId(project));
+        }
+        DomainUtil.validateProjectId(project.getId());
+    }
+
+    private String deriveId(Project project) {
+        return (project.getApplicationId() + "-" + slg.slugify(project.getName())).toLowerCase();
+    }
+
+}

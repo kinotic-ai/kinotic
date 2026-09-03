@@ -2,7 +2,7 @@ package org.kinotic.domain.api.services.security;
 
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.security.DelegateSession;
-import org.kinotic.domain.api.model.security.ParticipantIdentity;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.domain.api.model.security.RefreshTokenRotation;
 

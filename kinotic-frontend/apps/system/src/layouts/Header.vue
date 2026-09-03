@@ -92,7 +92,7 @@ import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import type { Organization, UserParticipantIdentity } from '@kinotic-ai/os-api'
+import type { Organization, UserParticipantIdentity } from '@kinotic-ai/management-api'
 import { avatarInitials, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
 
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'

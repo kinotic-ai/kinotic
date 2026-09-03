@@ -356,6 +356,41 @@ class MigrationExecutorIntegrationTest extends KinoticTestBase {
     }
 
     @Test
+    void whenRoutingAndDocumentIdGiven_thenRowIsReachableTheWayItsReaderAddressesIt() throws Exception {
+        // Given
+        String createContent = """
+            CREATE TABLE test_table_routed (id KEYWORD, organizationId KEYWORD, name KEYWORD);
+            """;
+        // The reader addresses this row by a composite _id and reaches it with a routed search,
+        // neither of which the statement can infer — both are stated outright
+        String insertContent = """
+            INSERT INTO test_table_routed (id, organizationId, name) VALUES ('widget', 'acme', 'Widget')
+                WITH REFRESH, ROUTING 'acme', DOCUMENT_ID 'acme-widget';
+            """;
+
+        // When
+        migrationExecutor.executeProjectMigrations(
+            List.of(migration(1, "V1__create_routed_table", createContent),
+                    migration(2, "V2__insert_routed_row",   insertContent)), "test_project_routed").get();
+
+        // Routing only decides placement on a multi-shard index; assert the precondition so this
+        // cannot quietly become a no-op if the cluster's default shard count ever drops to one
+        String shards = client.indices().getSettings(g -> g.index("test_table_routed"))
+                              .get("test_table_routed").settings().index().numberOfShards();
+        assertTrue(Integer.parseInt(shards) > 1, "test_table_routed needs more than one shard, got " + shards);
+
+        // Then a search routed the same way finds it, and it carries the requested _id
+        @SuppressWarnings("rawtypes")
+        SearchResponse<Map> routed = client.search(s -> s.index("test_table_routed").routing("acme"), Map.class);
+
+        assertEquals(1, routed.hits().hits().size());
+        assertEquals("acme-widget", routed.hits().hits().getFirst().id());
+        Map<?, ?> source = routed.hits().hits().getFirst().source();
+        assertNotNull(source);
+        assertEquals("widget", source.get("id"), "the id column stays the entity id, only _id is composite");
+    }
+
+    @Test
     void whenUpdateWithBinaryExpression_thenValueComputed() throws Exception {
         // Given
         String createContent = """

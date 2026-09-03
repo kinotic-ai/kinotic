@@ -4,7 +4,7 @@ import {ITaskFactory} from '@/tasks/ITaskFactory.js'
 import {ITaskGenerator} from '@/tasks/ITaskGenerator.js'
 import {ConnectionInfo, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {EntitiesRepository} from '@kinotic-ai/persistence'
-import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {ManagementApiPlugin} from '@kinotic-ai/management-api'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 import { ITask } from './ITask';
 
@@ -21,7 +21,7 @@ export class FindTaskGenerator implements ITaskGenerator {
                 pageSize: number) {
 
         const kinotic = new KinoticSingleton()
-        kinotic.use(OsApiPlugin).use(PersistencePlugin)
+        kinotic.use(ManagementApiPlugin).use(PersistencePlugin)
         this.personRepository = new PersonRepository(new EntitiesRepository(kinotic))
 
         this.continuumTaskGenerator = new KinoticOperationTaskGenerator(connectionInfoSupplier,

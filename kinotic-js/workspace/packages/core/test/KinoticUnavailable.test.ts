@@ -67,8 +67,14 @@ describe('Kinotic JS', () => {
 
                // stop the gateway
                await container.stop()
+               while (continuum.eventBus.isConnected()) {
+                   await new Promise(resolve => setTimeout(resolve, 100))
+               }
 
-               await expect(testService.testMethodWithString("Bob")).rejects.toThrowError(new Error('Connection disconnected'))
+               // A request needs a live connection: it is stamped with the reply destination of the
+               // connection it goes out on, so it fails here instead of waiting out the reconnects
+               await expect(testService.testMethodWithString("Bob"))
+                   .rejects.toThrowError(new Error('The event bus is not connected to the server'))
 
                await continuum.disconnect()
 

@@ -86,6 +86,49 @@ describe('Kinotic JS', () => {
             await continuum.disconnect()
         })
 
+        it('should fail a request made while the gateway is down instead of replaying it on the next connection',
+           {"timeout": 1000 * 60 * 5}, async () => {
+
+            const continuum = new KinoticSingleton()
+            await logFailure(continuum.connect(connectOptions), 'Failed to connect to Kinotic Gateway')
+
+            const testService = new TestService(continuum)
+            expect(await testService.testMethodWithString("BeforeRestart")).toBe("Hello BeforeRestart")
+
+            console.log('Stopping Kinotic Gateway...')
+            await container.stop({timeout: 60000, remove: true, removeVolumes: true})
+            while (continuum.eventBus.isConnected()) {
+                await new Promise(resolve => setTimeout(resolve, 500))
+            }
+
+            // The gateway that issued this connection's replyToId is gone, so the reply destination
+            // this request is stamped with dies with it. Caught here so the rejection we assert on
+            // below is never reported as unhandled.
+            const whileDown = testService.testMethodWithString("WhileDown").catch(error => error)
+
+            console.log('Starting Kinotic Gateway again...')
+            container = await new GenericContainer(KINOTIC_DOCKER_IMAGE)
+                .withExposedPorts({container: 58503, host: 58599})
+                .withEnvironment({SPRING_PROFILES_ACTIVE: "clienttest"})
+                .withWaitStrategy(Wait.forHttp('/health', 58503).forStatusCodeMatching(c => c === 200 || c === 204))
+                .withName('disable-sticky-session-reconnect-test')
+                .start()
+
+            while (!continuum.eventBus.isConnected()) {
+                await new Promise(resolve => setTimeout(resolve, 5000))
+                console.log('Waiting for Kinotic Gateway to restart...')
+            }
+
+            expect(await whileDown).toBeInstanceOf(Error)
+
+            // The restarted gateway rejects a reply-to scoped to a replyToId it never issued and
+            // terminates the connection over it, so a request held back while down and replayed
+            // here would take the reconnected connection down with it
+            expect(await testService.testMethodWithString("AfterRestart")).toBe("Hello AfterRestart")
+
+            await continuum.disconnect()
+        })
+
     })
   })
 })

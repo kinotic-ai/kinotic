@@ -1,5 +1,6 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -10,7 +11,7 @@ import java.util.List;
 
 /**
  * Configuration for deploying customer project workloads from GitHub pushes.
- * Accessible via {@code kinotic.orchestrator.deployment.*}
+ * Accessible via {@code kinotic.systemApi.deployment.*}
  */
 @Getter
 @Setter
@@ -22,13 +23,16 @@ public class DeploymentProperties {
      * OCI image the sync and runtime workloads run — the workload-runner image holding the
      * checkout/sync entrypoint and the microservice supervisor.
      */
-    private String workloadRunnerImage = "ghcr.io/kinotic-ai/workload-runner:latest";
+    private String workloadRunnerImage = "kinoticai/workload-runner:latest";
 
     /**
      * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
-     * in the guest). There is no advertised-address the server knows about itself, so
-     * deployments must configure how workloads reach it.
+     * in the guest), and the one destination every workload's egress policy always permits.
+     * There is no advertised-address the server knows about itself, so deployments must
+     * configure how workloads reach it. Must be an IPv4 address on nodes whose egress
+     * rules match addresses only ({@code CLOUD_HYPERVISOR}).
      */
+    @NotBlank
     private String serverHost;
 
     /**
@@ -53,12 +57,6 @@ public class DeploymentProperties {
      * gateway.
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
-
-    /**
-     * Destinations (IPv4 addresses or CIDRs) that resolve the gateway itself, granted to
-     * both workloads on top of the lists above.
-     */
-    private List<String> serverAllowedHosts = new ArrayList<>();
 
     /**
      * Memory of the sync workload's VM in megabytes. It compiles the project's entity

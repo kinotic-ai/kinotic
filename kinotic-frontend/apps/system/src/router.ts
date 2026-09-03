@@ -50,10 +50,13 @@ const routes: RouteRecordRaw[] = [
                 meta: { sidebar: consoleSidebarItem('Jobs', 'pi-list-check', 40) }
             },
             {
+                // Drill-down view: the sidebar gives way to the run itself, and the page
+                // header's "All jobs" action is the way back out
                 name: 'job-run',
                 path: 'jobs/:jobRunId',
                 component: () => import('./pages/JobRunPage.vue'),
-                props: true
+                props: true,
+                meta: { hideSidebar: true }
             },
             {
                 name: 'organization-detail',

@@ -1,7 +1,8 @@
+import { getJsBoxlite } from '@boxlite-ai/boxlite'
 import { Kinotic } from '@kinotic-ai/core'
 import { ensureNodeWebSocket } from '@kinotic-ai/core/node'
-import { VmNodeRegistration } from '@/model/VmNodeRegistration'
-import { VmNodeOrchestrationServiceProxy } from '@/internal/services/VmNodeOrchestrationServiceProxy'
+import { VmNodeRegistration } from '@kinotic-ai/system-api'
+import { VmNodeOrchestrationServiceProxy } from '@kinotic-ai/system-api'
 import { DefaultVmManager } from '@/internal/api/DefaultVmManager'
 import { BoxliteProvider } from '@/internal/api/providers/BoxliteProvider'
 import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHypervisorProvider'
@@ -9,9 +10,9 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/logging/AlloyManager'
-import { SYSTEM_ZONE, VmProviderType } from '@kinotic-ai/os-api'
-import type { Workload } from '@kinotic-ai/os-api'
-import type { WorkloadStatusReport } from '@/model/WorkloadStatusReport'
+import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
+import type { Workload } from '@kinotic-ai/management-api'
+import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
 import Docker from 'dockerode'
 import os from 'node:os'
 import { join } from 'node:path'
@@ -36,13 +37,29 @@ if (!alloyManager) {
 }
 
 let heartbeatTimer: Timer | null = null
+let shuttingDown = false
+let reconnecting = false
+
+// The reconnect delay doubles from the initial value up to the maximum. The jitter is added
+// after that clamp, so a fleet of nodes that lost the server together stays spread out even
+// once every one of them has settled at the maximum delay.
+const RECONNECT_INITIAL_DELAY_MS = 2000
+const RECONNECT_MAX_DELAY_MS = 120000
+const RECONNECT_MIN_JITTER_MS = 1000
+const RECONNECT_MAX_JITTER_MS = 5000
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
 function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
     let ret: IVmProvider
     if (config.providerType === VmProviderType.BOXLITE) {
-        ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir, reportStatus)
+        // boxlite's runtime is a process-wide singleton that resolves its own home; pointing
+        // it at the configured one makes the store it writes boxes to and the directory the
+        // provider reads them from a single value, without a node having to set BOXLITE_HOME.
+        // One-shot, so it must run before anything asks for the runtime.
+        getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
+        ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
+                                  config.workloadDataDir, reportStatus)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
@@ -70,13 +87,64 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
     }
 }
 
+/**
+ * Why this node cannot ship the logs of the workloads it runs, if it cannot. A workload whose
+ * output goes nowhere is not one this node should be given, so this joins the invariants the
+ * provider checks — the node keeps what it is running and stops being offered more.
+ *
+ * Only a node that was asked to ship logs can fail to: one started without KINOTIC_LOKI_URL
+ * has already said so at startup.
+ */
+function logShippingProblems(): string[] {
+    const problem = alloyManager?.shippingProblem() ?? null
+    return problem !== null ? [problem] : []
+}
+
+/**
+ * Rejoins the server after the event bus fails fatally. An ordinary dropped connection is the
+ * STOMP client's own reconnect; a fatal error — a server ERROR frame, credentials that no longer
+ * resolve — deactivates the connection for good instead, so without this the node keeps running
+ * its workloads while the orchestrator sees it go offline. Retries until it connects: the
+ * workloads outlive the server being down.
+ */
+function reconnectOnFatalError() {
+    Kinotic.eventBus.fatalErrors.subscribe(async (error: Error) => {
+        // Each failed reconnect signals another fatal error, which lands back here
+        if (reconnecting || shuttingDown) {
+            return
+        }
+        reconnecting = true
+        console.error('Kinotic connection failed fatally, reconnecting:', error)
+        try {
+            let delayMs = RECONNECT_INITIAL_DELAY_MS
+            while (!shuttingDown && !Kinotic.eventBus.isConnectionActive()) {
+                const jitterMs = RECONNECT_MIN_JITTER_MS
+                                 + Math.random() * (RECONNECT_MAX_JITTER_MS - RECONNECT_MIN_JITTER_MS)
+                await new Promise(resolve => setTimeout(resolve, delayMs + jitterMs))
+                try {
+                    // Published services and observed destinations re-subscribe with the new
+                    // connection, and the next heartbeat marks the node online again
+                    await Kinotic.connect()
+                    console.log('Reconnected to the Kinotic server')
+                } catch (e) {
+                    delayMs = Math.min(delayMs * 2, RECONNECT_MAX_DELAY_MS)
+                    console.error(`Reconnect failed, retrying in ~${delayMs / 1000}s:`, e)
+                }
+            }
+        } finally {
+            reconnecting = false
+        }
+    })
+}
+
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
     heartbeatTimer = setInterval(async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
-            await nodeOrchestrator.heartbeat(nodeId!, await provider.checkNodeHealth())
+            await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
+                                                      ...logShippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
@@ -92,7 +160,7 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
 async function start() {
     // The vm-manager runs as a system participant, so its VmManager service registers in the
     // system zone. Must be set before DefaultVmManager is instantiated (@Publish registers there).
-    Kinotic.zonePrefix = SYSTEM_ZONE
+    Kinotic.zonePrefix = SYSTEM_API_ZONE
 
     // Server and credentials resolve from the environment: KINOTIC_SERVER_HOST/PORT/USE_SSL
     // and KINOTIC_CLIENT_ID/KINOTIC_CLIENT_SECRET (or KINOTIC_TOKEN).
@@ -100,6 +168,9 @@ async function start() {
     await Kinotic.connect()
     const server = Kinotic.eventBus.serverInfo
     console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
+
+    // Installed after the first connect so a fatal error there still fails startup
+    reconnectOnFatalError()
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(Kinotic)
 
@@ -144,6 +215,7 @@ async function start() {
 // Graceful shutdown
 async function shutdown() {
     console.log('Shutting down VM Manager...')
+    shuttingDown = true
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer)
     }
@@ -162,5 +234,5 @@ start().catch(error => {
 
 export type { IVmManager } from '@/api/IVmManager'
 export type { IVmProvider } from '@/internal/api/providers/IVmProvider'
-export type { VolumeMount } from '@kinotic-ai/os-api'
+export type { VolumeMount } from '@kinotic-ai/management-api'
 export { VmManagerConfig } from '@/api/VmManagerConfig'

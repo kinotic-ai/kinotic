@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { watch } from 'vue'
 import { FunctionalIterablePage, Kinotic, type IterablePage, type Pageable } from '@kinotic-ai/core'
-import type { Project } from '@kinotic-ai/os-api'
+import type { Project } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,
@@ -55,7 +55,7 @@ function fetchPage(pageable: Pageable): Promise<IterablePage<Project>> {
 }
 
 // findProjects has no server-side search, so filtering is client-side over the page
-const { crudTable, tableSearch, dataSource, refreshTable } = useCrudTablePage(
+const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
     filteredPageLoader(
         fetchPage,
         (project: Project) => ({

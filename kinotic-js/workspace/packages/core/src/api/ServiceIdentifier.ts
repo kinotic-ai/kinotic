@@ -60,4 +60,19 @@ export class ServiceIdentifier {
         }
         return this._cri
     }
+
+    /**
+     * The {@link CRI} of this service's shared, unscoped address. Every instance of a scoped
+     * service may listen here for the methods any instance can answer.
+     * @return the cri without the scope part
+     */
+    public unscopedCri(): CRI {
+        return createCRI(
+            EventConstants.SERVICE_DESTINATION_SCHEME, // scheme
+            null,                                      // scope
+            this.qualifiedName(),                      // resourceName
+            null,                                      // path
+            this.version || null                       // version
+        )
+    }
 }

@@ -219,6 +219,26 @@ is a healthy-looking pod quietly dropping arbitrary connections while clients re
 which is exactly what sent us chasing a client bug at the start of this. Pair the log alert with a
 gauge on `jvm.buffer.memory.used{pool=direct}` approaching `MaxDirectMemorySize`.
 
+### Re-measure gateway sizing with `preferNativeTransport` on
+
+`KinoticVertxConfig.vertx` never calls `setPreferNativeTransport(true)`, so Vert.x runs on NIO. The
+epoll and kqueue natives are now on the classpath for both x86 and aarch64, so turning it on is one
+line — but every direct-memory number in `docs/future-prompts/Gateway memory sizing validation.md`
+was measured against the NIO allocator. The finding that direct memory is flat in connection count
+(byte-identical 9,992 KB at 1k/5k/10k) rests on Netty's magazines being bounded by
+`MAX_STRIPES = availableProcessors() * 2`; epoll allocates on its own path, so both that finding and
+the `-XX:MaxDirectMemorySize=512m` in `org.kinotic.java-application-conventions.gradle` may not
+describe the server once the flag is on.
+
+Re-derive the direct-memory and heap figures the way that doc describes, with the flag on, at the
+same 1k/5k/10k connection counts. Then update its table, its "Direct memory does not scale with
+connections" finding and the sizing artifact, and decide from the numbers whether the flag stays.
+
+Assert the transport actually took, do not infer it from the flag: when the native is unavailable
+`VertxBootstrapImpl.instantiateVertx` swaps in `NioTransport.INSTANCE` and only stashes the cause,
+so a run with the flag set and no native looks identical to a run without it. Check it with
+`Transport.EPOLL.available()`.
+
 ### Sign the session cookie (`SessionHandler.setSigningSecret`)
 
 Deferred until the platform-secret layout in Azure is reworked — this needs one more secret and it

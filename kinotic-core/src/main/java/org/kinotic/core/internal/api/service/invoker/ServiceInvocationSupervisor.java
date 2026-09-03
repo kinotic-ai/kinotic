@@ -12,7 +12,9 @@ import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.jspecify.annotations.NonNull;
+import org.kinotic.core.api.annotations.ScopeOptional;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
@@ -30,13 +32,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -58,17 +63,23 @@ public class ServiceInvocationSupervisor {
     private final EventBusService eventBusService;
     private final ExceptionConverter exceptionConverter;
     private final Map<String, HandlerMethod> methodMap;
+    private final Set<String> scopeOptionalMethodIds;
     private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
     private final TextMapPropagator propagator;
+    private final TraceLogFilter traceLogFilter;
     private final Tracer tracer;
     private final Vertx vertx;
 
 
     // Consumer for the address the service is addressable by
     private EventConsumer methodInvocationEventConsumer;
+
+    // Present only for a scoped service with ScopeOptional methods: the shared unscoped
+    // address every instance listens on for the methods any instance can answer
+    private EventConsumer unscopedInvocationEventConsumer;
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
@@ -80,7 +91,8 @@ public class ServiceInvocationSupervisor {
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
                                        SecurityContext securityContext,
-                                       OpenTelemetry openTelemetry) {
+                                       OpenTelemetry openTelemetry,
+                                       TraceLogFilter traceLogFilter) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
         Validate.notNull(instanceProvider, "FunctionInstanceProvider must not be null");
@@ -92,6 +104,7 @@ public class ServiceInvocationSupervisor {
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
         Validate.notNull(openTelemetry, "openTelemetry must not be null");
+        Validate.notNull(traceLogFilter, "traceLogFilter must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
         this.argumentResolver = argumentResolver;
@@ -101,10 +114,12 @@ public class ServiceInvocationSupervisor {
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
+        this.traceLogFilter = traceLogFilter;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
 
         this.methodMap = buildMethodMap(serviceDescriptor, instanceProvider);
+        this.scopeOptionalMethodIds = buildScopeOptionalMethodIds(serviceDescriptor);
     }
 
     public boolean isActive(){
@@ -118,28 +133,39 @@ public class ServiceInvocationSupervisor {
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
             // begin listening on the event bus for service invocation requests
-            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri());
+            methodInvocationEventConsumer = listenAt(serviceDescriptor.serviceIdentifier().cri());
 
-            methodInvocationEventConsumer
-                    .handler(event -> vertx.executeBlocking(() -> {
-                        processEvent(event);
-                        return null;
-                    }))
-                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                    // Vert.x invokes the end handler on every unregistration, including the one stop() performs.
-                    // stop() clears active before unregistering, so a successful CAS here means something other
-                    // than stop() unregistered the consumer and this supervisor is no longer serving invocations.
-                    .endHandler(_ -> {
-                        if(active.compareAndSet(true, false)){
-                            log.warn("Event listener for {} was unregistered without a call to stop(), supervisor is now inactive",
-                                     serviceDescriptor.serviceIdentifier().cri());
-                        }
-                    });
-
-            return methodInvocationEventConsumer.completion();
+            Future<Void> ret = methodInvocationEventConsumer.completion();
+            // a scoped service with ScopeOptional methods also joins the shared unscoped
+            // address, where any instance may answer the methods that opted in
+            if(serviceDescriptor.serviceIdentifier().scope() != null && !scopeOptionalMethodIds.isEmpty()){
+                unscopedInvocationEventConsumer = listenAt(serviceDescriptor.serviceIdentifier().unscopedCri());
+                ret = Future.all(ret, unscopedInvocationEventConsumer.completion()).mapEmpty();
+            }
+            return ret;
         }else{
             return Future.failedFuture(new IllegalStateException("Service already started"));
         }
+    }
+
+    private EventConsumer listenAt(CRI cri){
+        EventConsumer consumer = eventBusService.listen(cri);
+        consumer.handler(event -> vertx.executeBlocking(() -> {
+                    processEvent(event);
+                    return null;
+                }))
+                .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                // Vert.x invokes the end handler on every unregistration, including the one stop() performs.
+                // stop() clears active before unregistering, so a successful CAS here means something other
+                // than stop() unregistered the consumer and this supervisor is no longer fully serving
+                // invocations - losing either of its addresses makes it inactive
+                .endHandler(_ -> {
+                    if(active.compareAndSet(true, false)){
+                        log.warn("Event listener for {} was unregistered without a call to stop(), supervisor is now inactive",
+                                 cri);
+                    }
+                });
+        return consumer;
     }
 
     /**
@@ -152,7 +178,11 @@ public class ServiceInvocationSupervisor {
                 streamSubscribers.getValue().cancel();
             }
 
-            return methodInvocationEventConsumer.unregister();
+            Future<Void> ret = methodInvocationEventConsumer.unregister();
+            if(unscopedInvocationEventConsumer != null){
+                ret = Future.all(ret, unscopedInvocationEventConsumer.unregister()).mapEmpty();
+            }
+            return ret;
         }else{
             return Future.failedFuture(new IllegalStateException("Service already stopped"));
         }
@@ -174,6 +204,20 @@ public class ServiceInvocationSupervisor {
             }else{
                 HandlerMethod handlerMethod = new HandlerMethod(instance, specificMethod);
                 ret.put(methodName,  handlerMethod);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * The method ids the shared unscoped address may invoke: those the published interface
+     * annotated {@link ScopeOptional}, keyed like {@link #methodMap}.
+     */
+    private Set<String> buildScopeOptionalMethodIds(ServiceDescriptor serviceDescriptor) {
+        final Set<String> ret = new HashSet<>();
+        for(FunctionDescriptor functionDescriptor : serviceDescriptor.functions()){
+            if(AnnotationUtils.findAnnotation(functionDescriptor.invocationMethod(), ScopeOptional.class) != null){
+                ret.add("/" + functionDescriptor.invocationMethod().getName());
             }
         }
         return ret;
@@ -235,7 +279,9 @@ public class ServiceInvocationSupervisor {
     private void processEvent(Event<byte[]> incomingEvent){
         boolean isControl = incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER);
 
-        log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+            log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        }
 
         if(exceptionConverter.supports(incomingEvent.metadata())) {
             try {
@@ -277,6 +323,18 @@ public class ServiceInvocationSupervisor {
                     throw new RpcMissingMethodException("No method could be resolved for methodId " + incomingEvent.cri().path());
                 }
 
+                // A scoped service answers on the shared unscoped address only for methods that
+                // declared themselves instance-independent: an instance-affine method invoked
+                // without a scope would execute on whichever instance received it, so it fails
+                // loud instead
+                if(serviceDescriptor.serviceIdentifier().scope() != null
+                        && !incomingEvent.cri().hasScope()
+                        && !scopeOptionalMethodIds.contains(incomingEvent.cri().path())){
+                    throw new RpcInvocationException("Method " + incomingEvent.cri().path()
+                            + " of " + serviceDescriptor.serviceIdentifier().qualifiedName()
+                            + " requires a scoped invocation naming the service instance");
+                }
+
                 if (!returnValueConverter.supports(incomingEvent.metadata(),
                                                    handlerMethod.getReturnType())) {
                     throw new IllegalStateException("No compatible ReturnValueConverter found");
@@ -297,6 +355,10 @@ public class ServiceInvocationSupervisor {
                 try (Scope ignored = span.makeCurrent()) {
 
                     Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+
+                    if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+                        log.trace(handlerMethod.formatInvokeMessage("Invoking ", arguments));
+                    }
 
                     // separate try catch since we do not want to log invocation errors
                     Object result = null;
@@ -594,7 +656,7 @@ public class ServiceInvocationSupervisor {
 
         @Override
         protected void hookOnNext(@NonNull Object value) {
-            if(log.isTraceEnabled()){
+            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(originCri)){
                 log.trace("Next stream value {}", value);
             }
             convertAndSend(incomingMetadata, handlerMethod, value, originCri);

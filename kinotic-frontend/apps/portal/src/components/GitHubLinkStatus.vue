@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { Kinotic } from '@kinotic-ai/core'
-import type { GitHubAppInstallation } from '@kinotic-ai/os-api'
+import type { GitHubAppInstallation } from '@kinotic-ai/management-api'
 import Button from 'primevue/button'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 

@@ -21,32 +21,30 @@
           <span class="font-semibold">{{ node.name }}</span>
           <Tag :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
         </div>
-        <div class="flex items-center gap-2">
-          <span class="font-mono text-xs text-muted-color">{{ node.hostname }}</span>
-          <Tag :value="node.providerType" severity="secondary" />
-        </div>
+        <Tag :value="node.providerType" severity="secondary" class="self-end -mt-1" />
+        <span class="break-all font-mono text-xs text-muted-color">{{ node.hostname }}</span>
 
         <div class="flex flex-col gap-2 mt-1">
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>CPU</span>
-              <span>{{ node.allocatedCpus }} / {{ node.totalCpus }} vCPU</span>
+              <span>{{ node.totalCpus - node.availableCpus }} / {{ node.totalCpus }} vCPU</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedCpus, node.totalCpus)" />
+            <CapacityBar :pct="percentOf(node.totalCpus - node.availableCpus, node.totalCpus)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Memory</span>
-              <span>{{ formatMb(node.allocatedMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
+              <span>{{ formatMb(node.totalMemoryMb - node.availableMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedMemoryMb, node.totalMemoryMb)" />
+            <CapacityBar :pct="percentOf(node.totalMemoryMb - node.availableMemoryMb, node.totalMemoryMb)" />
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
               <span>Disk</span>
-              <span>{{ formatMb(node.allocatedDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
+              <span>{{ formatMb(node.totalDiskMb - node.availableDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
             </div>
-            <CapacityBar :pct="percentOf(node.allocatedDiskMb, node.totalDiskMb)" />
+            <CapacityBar :pct="percentOf(node.totalDiskMb - node.availableDiskMb, node.totalDiskMb)" />
           </div>
         </div>
 
@@ -65,6 +63,7 @@
       :headers="headers"
       :data-source="dataSource"
       :search="tableSearch"
+      :default-sort="DEFAULT_SORT"
       :is-show-add-new="false"
       :disable-modifications="true"
       :row-actions="rowActions"
@@ -110,8 +109,10 @@ import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 
-import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
-import { VmNodeStatusType, WorkloadStatus, type VmNode, type Workload } from '@kinotic-ai/os-api'
+import { Direction, FunctionalIterablePage, Kinotic, Order, Pageable, Sort,
+         type IterablePage, type Page } from '@kinotic-ai/core'
+import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,
@@ -137,6 +138,8 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   autoRemove: boolean
 }
 
+const DEFAULT_SORT = [new Order('created', Direction.DESC)]
+
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },
   { field: 'node', header: 'Node', sortable: false },
@@ -159,11 +162,17 @@ const nodeNames = ref<Record<string, string>>({})
 const logsWorkload = ref<{ id: string; name: string } | null>(null)
 const logsVisible = ref(false)
 
+// Nodes that can actually take a workload belong at the top. status.type is a keyword, and its
+// three values sort ONLINE, OFFLINE, DRAINING descending, so descending is the order the page
+// wants; name breaks ties so cards hold a stable position across refreshes.
+const NODE_SORT = new Sort()
+NODE_SORT.orders = [new Order('status.type', Direction.DESC), new Order('name', Direction.ASC)]
+
 async function loadNodes() {
   loadingNodes.value = true
   nodesError.value = null
   try {
-    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100))
+    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100, NODE_SORT))
     nodes.value = page.content ?? []
     nodeNames.value = Object.fromEntries(nodes.value.map(node => [node.id, node.name]))
   } catch (err) {
@@ -173,7 +182,7 @@ async function loadNodes() {
   }
 }
 
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
+const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
   const workloads = searchText

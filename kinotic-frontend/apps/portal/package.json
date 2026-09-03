@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "dev:tunnel": "vite --mode tunnel",
+    "dev:tunnel:build": "vite build --mode tunnel && vite preview --mode tunnel",
     "build": "vue-tsc -b && vite build",
     "build:dev": "vue-tsc -b && vite build --mode development",
     "build:kind": "vue-tsc -b && vite build --mode kind",
@@ -13,11 +14,11 @@
   "dependencies": {
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.2.0",
-    "@kinotic-ai/core": "^5.0.0-beta.5",
+    "@kinotic-ai/core": "catalog:",
     "@kinotic-ai/frontend-common": "workspace:*",
-    "@kinotic-ai/idl": "^5.0.0-beta.0",
-    "@kinotic-ai/os-api": "^5.0.0-beta.16",
-    "@kinotic-ai/persistence": "^5.0.0-beta.3",
+    "@kinotic-ai/idl": "catalog:",
+    "@kinotic-ai/management-api": "catalog:",
+    "@kinotic-ai/persistence": "catalog:",
     "@mdi/js": "^7.4.47",
     "@primeuix/themes": "^2.0.3",
     "@vue-flow/background": "^1.3.2",

@@ -1,5 +1,6 @@
 import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
+import {createDebugLogger, type Logger} from '@/internal/api/Logger'
 import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
@@ -72,6 +73,7 @@ interface Carrier {
 export class EventBus implements IEventBus {
 
     public serverInfo: ServerInfo | null = null
+    private readonly log: Logger = createDebugLogger('kinotic:EventBus')
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
     private connectionLifecycle: Promise<unknown> = Promise.resolve()
     private replyToCri: string  | null = null
@@ -147,7 +149,7 @@ export class EventBus implements IEventBus {
     }
 
     public send(event: IEvent): void {
-        if(this.stompConnectionManager.active){
+        if(this.stompConnectionManager.connected){
             const headers: any = {}
 
             for (const [key, value] of event.headers.entries()) {
@@ -163,11 +165,14 @@ export class EventBus implements IEventBus {
                 headers[EventConstants.TRACESTATE_HEADER] = carrier.tracestate
             }
 
-            // send data over stomp
+            // send data over stomp. retryIfDisconnected keeps RxStomp from holding the frame and
+            // flushing it onto the next connection, which the server sees as a stale request: a
+            // reply-to scoped to a replyToId it no longer issues, which it terminates the connection over.
             this.stompConnectionManager.rxStomp.publish({
                                                             destination: event.cri,
                                                             headers,
-                                                            binaryBody: event.data.orUndefined()
+                                                            binaryBody: event.data.orUndefined(),
+                                                            retryIfDisconnected: false
                                                         })
         }else{
             throw this.createSendUnavailableError()
@@ -194,6 +199,8 @@ export class EventBus implements IEventBus {
                 let serverSignaledCompletion = false
                 const correlationId = uuidv4()
                 this.activeCorrelationIds.add(correlationId)
+                // registered before the request is sent so a send that throws still untracks it
+                subscriber.add(() => this.activeCorrelationIds.delete(correlationId))
                 const defaultMessagesSubscription: Unsubscribable
                           = this.requestRepliesObservable
                                 .pipe(filter((value: IEvent): boolean => {
@@ -243,16 +250,18 @@ export class EventBus implements IEventBus {
 
                 this.send(event)
 
-                return () => {
-                    this.activeCorrelationIds.delete(correlationId)
+                // registered after the send so a request that never went out is never cancelled
+                subscriber.add(() => {
                     if (sendControlEvents && !serverSignaledCompletion) {
-                        // create control event to cancel long-running request
-                        const controlEvent: Event = new Event(event.cri)
-                        controlEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
-                        controlEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
-                        this.send(controlEvent)
+                        try {
+                            this.sendCancel(event.cri, correlationId)
+                        } catch (e) {
+                            // The subscription is already torn down, so there is no subscriber left
+                            // to fail. A stream left running on the server is worth knowing about.
+                            this.log.warn(`Could not cancel stream ${correlationId} on ${event.cri}`, e)
+                        }
                     }
-                }
+                })
             })
         }else{
             return throwError(() => this.createSendUnavailableError())
@@ -291,18 +300,31 @@ export class EventBus implements IEventBus {
             return
         }
         try {
-            const cancelEvent: Event = new Event(originCri)
-            cancelEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
-            cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
-            this.send(cancelEvent)
+            this.sendCancel(originCri, correlationId)
 
             // Expire the entry after the debounce window so a lost cancel self-heals: if the stream is
             // still sending by then, the next stray value falls through the guard above and we cancel again.
             this.recentlyReaped.add(correlationId)
             setTimeout(() => this.recentlyReaped.delete(correlationId), EventBus.REAP_DEBOUNCE_MS)
-        } catch {
-            // best-effort: if the send fails we retry on the next stray value
+        } catch (e) {
+            // recentlyReaped is only marked after a successful send, so the next stray value retries
+            this.log.warn(`Could not cancel orphaned stream ${correlationId} on ${originCri}`, e)
         }
+    }
+
+    /**
+     * Sends the control event that stops the server stream identified by the correlationId.
+     * @param cri the service the stream originates from
+     * @param correlationId the correlationId of the stream to cancel
+     */
+    private sendCancel(cri: string, correlationId: string): void {
+        const cancelEvent: Event = new Event(cri)
+        cancelEvent.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL)
+        cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+        // The service ignores it, but the gateway rejects any service send without a reply-to
+        // and terminates the connection over the rejection.
+        cancelEvent.setHeader(EventConstants.REPLY_TO_HEADER, this.replyToCri as string)
+        this.send(cancelEvent)
     }
 
     /**
@@ -330,9 +352,13 @@ export class EventBus implements IEventBus {
      * Creates the proper error to return if this.stompConnectionManager?.rxStomp is not available on a send request
      */
     private createSendUnavailableError(): Error {
-        let ret: string = 'You must call connect on the event bus before sending any request'
+        let ret: string
         if(this.stompConnectionManager.maxConnectionAttemptsReached){
             ret = 'Max connection attempts reached event bus is not available'
+        }else if(this.stompConnectionManager.active){
+            ret = 'The event bus is not connected to the server'
+        }else{
+            ret = 'You must call connect on the event bus before sending any request'
         }
         return new Error(ret)
     }

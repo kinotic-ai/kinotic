@@ -36,7 +36,7 @@ import java.util.concurrent.CompletableFuture;
  * Sends transactional emails via Azure Communication Services. Bodies are rendered
  * from Handlebars templates.
  * <p>
- * When {@code kinotic.email.enabled=false}, sends are skipped and the action
+ * When {@code kinotic.domain.email.enabled=false}, sends are skipped and the action
  * URL is logged instead — useful for local development.
  */
 @Slf4j
