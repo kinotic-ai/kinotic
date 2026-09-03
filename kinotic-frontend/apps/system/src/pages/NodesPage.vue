@@ -120,11 +120,10 @@ import {
   DatetimeUtil,
   useCrudTablePage,
   type CrudHeader,
-  type DescriptiveIdentifiable
-} from '@kinotic-ai/frontend-common'
+  type DescriptiveIdentifiable,
+  WorkloadLogsDialog } from '@kinotic-ai/frontend-common'
 
 import CapacityBar from '@/components/CapacityBar.vue'
-import WorkloadLogsDialog from '@/components/WorkloadLogsDialog.vue'
 
 interface WorkloadRow extends DescriptiveIdentifiable {
   id: string

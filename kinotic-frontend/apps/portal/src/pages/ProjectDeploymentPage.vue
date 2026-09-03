@@ -36,6 +36,18 @@
         </template>
       </JobRunProgress>
 
+      <section class="mt-8">
+        <h2 class="text-base font-medium mb-1">Microservices</h2>
+        <p class="text-sm text-muted-color mt-0 mb-3">
+          Each microservice the deployment has ensured runs in a VM of its own. Restart boots
+          the VM again in place; Remove destroys the VM and its machine identity — a
+          microservice the current commit still contains comes back with the next deployment.
+        </p>
+        <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
+                                      @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
+        <div v-else class="text-sm text-muted-color">No microservice has been deployed yet.</div>
+      </section>
+
       <section v-if="machines.length" class="mt-8">
         <h2 class="text-base font-medium mb-1">Machine identities</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
@@ -61,6 +73,12 @@
     </template>
 
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading deployment…</div>
+
+    <WorkloadLogsDialog v-if="logsFor?.workloadId"
+                        v-model:visible="logsVisible"
+                        :workload-id="logsFor.workloadId"
+                        :workload-name="logsFor.name" />
+    <ConfirmDialog />
   </div>
 </template>
 
@@ -69,14 +87,21 @@ import { onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Column from 'primevue/column'
+import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
+import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
+         WorkloadLogsDialog, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
-import { ProjectDeploymentStatusType,
+import { MicroserviceDeploymentStatusType,
+         ProjectDeploymentStatusType,
          type MachineParticipantIdentity,
+         type MicroserviceDeployment,
          type ProjectDeployment } from '@kinotic-ai/management-api'
+import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
 interface MachineRow extends MachineParticipantIdentity {
@@ -85,8 +110,9 @@ interface MachineRow extends MachineParticipantIdentity {
 
 /**
  * The project's deployment: current status and commit, the latest deployment job's tasks
- * rendered live by JobRunProgress with the build log and the artifacts on their rows, and
- * the machine identities its workloads connect as.
+ * rendered live by JobRunProgress with the build log and the artifacts on their rows, the
+ * microservices it has ensured with their log, restart and removal, and the machine
+ * identities its workloads connect as.
  * Polls the deployment record so a new push swaps in its job run while the page is open.
  */
 const props = defineProps<{
@@ -97,21 +123,27 @@ const props = defineProps<{
 const POLL_INTERVAL_MS = 5000
 
 const router = useRouter()
+const toast = useToast()
+const confirm = useConfirm()
 const StatusType = ProjectDeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
+const microservices = ref<MicroserviceDeployment[]>([])
 const machines = ref<MachineRow[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+const logsFor = ref<MicroserviceDeployment | null>(null)
+const logsVisible = ref(false)
 
 async function loadDeployment(): Promise<void> {
   try {
     const previousJobRunId = deployment.value?.lastJobRunId
     deployment.value = await Kinotic.projects.findDeployment(props.projectId)
     error.value = null
-    // a deployment provisions the machines it needs, so the listing only changes with a run
+    // a deployment ensures the microservices and provisions the machines it needs, so both
+    // listings only change with a run, or with an action taken here
     if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
-      await loadMachines()
+      await loadMicroservicesAndMachines()
     }
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
@@ -120,12 +152,69 @@ async function loadDeployment(): Promise<void> {
   }
 }
 
-async function loadMachines(): Promise<void> {
-  // findProjectMachines returns the deployment's machines in the order it records them, so
-  // position is what says which workload each one authenticates
+async function loadMicroservicesAndMachines(): Promise<void> {
+  microservices.value = await Kinotic.microserviceDeployments.findAllForProject(props.projectId)
+  // each machine is labelled by the deployment record that names it
+  const usedFor = new Map<string, string>()
+  if (deployment.value?.syncMachineIdentityId) {
+    usedFor.set(deployment.value.syncMachineIdentityId, 'Checkout and entity sync')
+  }
+  for (const microservice of microservices.value) {
+    if (microservice.machineIdentityId) {
+      usedFor.set(microservice.machineIdentityId, `Microservice ${microservice.name}`)
+    }
+  }
   const listed = await Kinotic.machines.findProjectMachines(props.projectId)
-  const usedFor = ['Checkout and entity sync', 'Microservice runtime']
-  machines.value = listed.map((machine, index) => ({ ...machine, usedFor: usedFor[index] ?? '' }))
+  machines.value = listed.map(machine => ({ ...machine, usedFor: (machine.id && usedFor.get(machine.id)) ?? '' }))
+}
+
+function openLogs(microservice: MicroserviceDeployment): void {
+  logsFor.value = microservice
+  logsVisible.value = true
+}
+
+function confirmRestart(microservice: MicroserviceDeployment): void {
+  confirm.require({
+    header: 'Restart microservice',
+    message: `Restart the VM of ${microservice.name}? It boots again in place and the service is unavailable meanwhile.`,
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Restart', severity: 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: () => run(() => Kinotic.microserviceDeployments.restart(microservice.id!),
+                      `${microservice.name} restarted`, `Failed to restart ${microservice.name}`)
+  })
+}
+
+function confirmRemove(microservice: MicroserviceDeployment): void {
+  // an orphaned microservice is one the commit already dropped, so retiring it needs no confirmation
+  if (microservice.status.type === MicroserviceDeploymentStatusType.ORPHANED) {
+    void run(() => Kinotic.microserviceDeployments.remove(microservice.id!),
+             `${microservice.name} removed`, `Failed to remove ${microservice.name}`)
+  } else {
+    confirm.require({
+      header: 'Remove microservice',
+      message: `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptProps: { label: 'Remove', severity: 'danger' },
+      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+      accept: () => run(() => Kinotic.microserviceDeployments.remove(microservice.id!),
+                        `${microservice.name} removed`, `Failed to remove ${microservice.name}`)
+    })
+  }
+}
+
+async function run(action: () => Promise<unknown>, success: string, failure: string): Promise<void> {
+  try {
+    await action()
+    toast.add({ severity: 'success', summary: success, life: 3000 })
+  } catch (err) {
+    showErrorToast(toast, failure, err, { life: 8000 })
+  }
+  try {
+    await loadMicroservicesAndMachines()
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : String(err)
+  }
 }
 
 function deploymentStatusSeverity(type: ProjectDeploymentStatusType): string {
