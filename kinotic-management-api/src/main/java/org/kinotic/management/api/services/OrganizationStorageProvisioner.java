@@ -6,6 +6,8 @@ import org.kinotic.domain.api.model.Organization;
 /**
  * Provisions the storage an organization's deployments publish to: one account per
  * organization holding the {@code ui} container, recorded on the {@link Organization}.
+ * Provisioning starts when the organization is created; a deployment only reads the outcome,
+ * unless it finds the storage missing or failed.
  */
 public interface OrganizationStorageProvisioner {
 
@@ -13,11 +15,10 @@ public interface OrganizationStorageProvisioner {
     String UI_CONTAINER = "ui";
 
     /**
-     * Leaves the organization with usable storage, creating it on the first call and
-     * returning at once on later ones. Idempotent: an organization whose provisioning failed
-     * is provisioned again, and one whose provisioning is in flight is waited for. Fails when
-     * the storage cannot be made ready, with the reason, which is also recorded on the
-     * organization's storage status.
+     * Leaves the organization with usable storage: returns at once when it is ready, waits
+     * for provisioning in flight, and provisions when there is none or the last attempt
+     * failed. Fails when the storage cannot be made ready, with the reason, which is also
+     * recorded on the organization's storage status.
      *
      * @param organizationId the organization needing storage
      * @return a future emitting the organization with its storage

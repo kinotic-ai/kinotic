@@ -12,12 +12,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Covers id minting in {@link DefaultOrganizationService#beforeSave}: slug derivation, the
- * reserved platform prefix guard, and the reserved {@code system} label. The repository is
- * unused by beforeSave, so none is given.
+ * reserved platform prefix guard, and the reserved {@code system} label. The repository and
+ * the provisioners are unused by beforeSave, so none are given.
  */
 class DefaultOrganizationServiceTest {
 
-    private final DefaultOrganizationService service = new DefaultOrganizationService(null);
+    private final DefaultOrganizationService service = new DefaultOrganizationService(null, null);
 
     @Test
     void mintsIdFromSlugifiedName() {

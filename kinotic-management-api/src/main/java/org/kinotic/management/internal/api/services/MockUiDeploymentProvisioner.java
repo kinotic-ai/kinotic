@@ -22,6 +22,11 @@ import org.springframework.stereotype.Component;
 public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     @Override
+    public Future<Void> prepareOrganization(Organization organization) {
+        return Future.succeededFuture();
+    }
+
+    @Override
     public Future<UiDeployment> provision(UiDeployment deployment, Organization organization) {
         log.debug("MockUiDeploymentProvisioner marked site {} ready", deployment.getId());
         return Future.succeededFuture(deployment.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));

@@ -66,10 +66,10 @@ import java.util.function.Supplier;
 
 /**
  * Serves each published UI through the platform's Front Door Standard profile, at
- * {@code <label>.<sitesDomain>}. The first site of an organization creates what its sites
- * share: an origin group on the organization's storage account and a rule set that routes
- * requests naming a file to that file and everything else to {@code index.html}, each with a
- * read-only SAS on the {@code ui} container. Every site gets a custom domain with a managed
+ * {@code <label>.<sitesDomain>}. What an organization's sites share is created with the
+ * organization, once its storage is ready: an origin group on the storage account and a rule
+ * set that routes requests naming a file to that file and everything else to
+ * {@code index.html}, each with a read-only SAS on the {@code ui} container. Every site gets a custom domain with a managed
  * certificate, its CNAME and validation TXT records in the platform's DNS zone, and a route
  * from its domain to the UI's prefix in the container. A site is provisioning until Front
  * Door has validated its hostname and deployed its certificate, which the provisioner keeps
@@ -86,7 +86,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     private static final String ASSET_RULE = "asset";
     private static final String SPA_RULE = "spa";
     private static final String VALIDATION_RECORD_PREFIX = "_dnsauth.";
-    /** Every provision for an organization writes its rules with a fresh token, so the rule set's SAS is renewed long before it lapses. */
+    /** A rule is written once, with the SAS it carries; ten years outlasts any organization's sites. */
     private static final Duration READ_TOKEN_TTL = Duration.ofDays(10 * 365);
     private static final List<String> COMPRESSED_CONTENT_TYPES = List.of(
             "text/html", "text/css", "text/plain", "text/xml", "text/javascript", "application/javascript",
@@ -117,11 +117,17 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     private Future<Void> writes = Future.succeededFuture();
 
     @Override
+    public Future<Void> prepareOrganization(Organization organization) {
+        requireStorage(organization);
+        ensureClients();
+        log.info("Preparing Front Door for organization {}", organization.getId());
+        return Future.all(ensureOriginGroup(organization), ensureRuleSet(organization)).mapEmpty();
+    }
+
+    @Override
     public Future<UiDeployment> provision(UiDeployment deployment, Organization organization) {
         Validate.notNull(deployment, "deployment is required");
-        Validate.notNull(organization, "organization is required");
-        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
-                        "Organization %s has no storage endpoint recorded", organization.getId());
+        requireStorage(organization);
         ensureClients();
         String label = deployment.getId();
         String hostname = properties().resolveHostname(label);
@@ -235,39 +241,51 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                         .map(origin -> group.id()));
     }
 
-    /**
-     * The organization's rule set, whose two rules are written on every provision so the SAS
-     * they carry is fresh. Emits the rule set's id.
-     */
+    /** The organization's rule set and its two rules, each created when missing. Emits the rule set's id. */
     private Future<String> ensureRuleSet(Organization organization) {
         String ruleSetName = "org" + organization.getId().replace("-", "");
         return getOrCreate(cdn.getRuleSets().getAsync(resourceGroup, profileName, ruleSetName),
                            () -> cdn.getRuleSets().createAsync(resourceGroup, profileName, ruleSetName))
-                .compose(ruleSet -> organizationStorageService.issueReadToken(organization, READ_TOKEN_TTL)
-                        .compose(token -> write(() -> cdn.getRules().createAsync(resourceGroup, profileName, ruleSetName, ASSET_RULE,
-                                                                                 rule(1, false, "{url_path}?" + token)))
-                                .compose(v -> write(() -> cdn.getRules().createAsync(resourceGroup, profileName, ruleSetName, SPA_RULE,
-                                                                                     rule(2, true, "/index.html?" + token)))))
+                .compose(ruleSet -> ensureRule(organization, ruleSetName, ASSET_RULE)
+                        .compose(v -> ensureRule(organization, ruleSetName, SPA_RULE))
                         .map(v -> ruleSet.id()));
     }
 
+    // The SAS is minted only for a rule being written, so an existing rule costs one read
+    private Future<Void> ensureRule(Organization organization, String ruleSetName, String ruleName) {
+        return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(cdn.getRules().getAsync(resourceGroup, profileName, ruleSetName, ruleName)), vertx)
+                        .compose(existing -> {
+                            Future<Void> ret;
+                            if (existing != null) {
+                                ret = Future.succeededFuture();
+                            } else {
+                                ret = organizationStorageService.issueReadToken(organization, READ_TOKEN_TTL)
+                                        .compose(token -> write(() -> cdn.getRules().createAsync(
+                                                resourceGroup, profileName, ruleSetName, ruleName, rule(ruleName, token))))
+                                        .mapEmpty();
+                            }
+                            return ret;
+                        });
+    }
+
     /**
-     * A request whose path names a file is rewritten to that file; one that names no file is a
-     * route of the single-page application and is rewritten to its {@code index.html}. Either
-     * way the SAS is appended for the origin.
+     * The asset rule rewrites a request whose path names a file to that file; the spa rule
+     * rewrites one that names no file, a route of the single-page application, to its
+     * {@code index.html}. Either way the SAS is appended for the origin.
      */
-    private static RuleInner rule(int order, boolean pathNamesNoFile, String destination) {
+    private static RuleInner rule(String name, String token) {
+        boolean spa = SPA_RULE.equals(name);
         return new RuleInner()
-                .withOrder(order)
+                .withOrder(spa ? 2 : 1)
                 .withConditions(List.of(new DeliveryRuleUrlFileExtensionCondition()
                         .withParameters(new UrlFileExtensionMatchConditionParameters()
                                 .withOperator(UrlFileExtensionOperator.ANY)
-                                .withNegateCondition(pathNamesNoFile)
+                                .withNegateCondition(spa)
                                 .withMatchValues(List.of()))))
                 .withActions(List.of(new UrlRewriteAction()
                         .withParameters(new UrlRewriteActionParameters()
                                 .withSourcePattern("/")
-                                .withDestination(destination)
+                                .withDestination((spa ? "/index.html" : "{url_path}") + "?" + token)
                                 .withPreserveUnmatchedPath(false))))
                 .withMatchProcessingBehavior(MatchProcessingBehavior.STOP);
     }
@@ -473,6 +491,12 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
             }
             return ret;
         });
+    }
+
+    private static void requireStorage(Organization organization) {
+        Validate.notNull(organization, "organization is required");
+        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
+                        "Organization %s has no storage endpoint recorded", organization.getId());
     }
 
     private UiDeploymentProperties properties() {

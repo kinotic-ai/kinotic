@@ -7,7 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.domain.api.services.OrganizationService;
+
 import org.kinotic.management.api.model.MicroserviceArtifact;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.MicroserviceDeploymentStatus;
@@ -93,7 +93,6 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final OrganizationService organizationService;
     private final OrganizationStorageProvisioner organizationStorageProvisioner;
     private final OrganizationStorageService organizationStorageService;
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
@@ -143,18 +142,6 @@ public class ProjectDeployJobDefinitionFactory {
                                          () -> resolveArtifacts(project, commitSha)
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.ARTIFACTS).wire())
-                // Idempotent, so a resume may run it again; nothing to store, the organization
-                // record carries the outcome
-                .task(Tasks.fromCallable("Ensure organization storage", new Callable<CompletableFuture<Void>>() {
-
-                    @Autowired
-                    private ProjectArtifacts artifacts;
-
-                    @Override
-                    public CompletableFuture<Void> call() {
-                        return ensureOrganizationStorage(project, artifacts).toCompletionStage().toCompletableFuture();
-                    }
-                }))
                 // Store.state: the rows carry what the pass created, so a resume keeps them
                 // rather than provisioning again; wired so the console lists each microservice's
                 // workload as soon as the pass ends
@@ -301,21 +288,6 @@ public class ProjectDeployJobDefinitionFactory {
                     }
                     return deployment.getArtifacts();
                 });
-    }
-
-    /**
-     * Leaves the organization with the storage its UIs publish to, provisioning it on the
-     * organization's first deployment of a commit containing a UI. A commit without UIs needs
-     * no storage and provisions none.
-     */
-    private Future<Void> ensureOrganizationStorage(Project project, ProjectArtifacts artifacts) {
-        Future<Void> ret;
-        if (artifacts.uis().isEmpty()) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = organizationStorageProvisioner.ensureStorage(project.getOrganizationId()).mapEmpty();
-        }
-        return ret;
     }
 
     /**
@@ -475,7 +447,9 @@ public class ProjectDeployJobDefinitionFactory {
                     if (artifacts.uis().isEmpty()) {
                         published = Future.succeededFuture(new ArrayList<>());
                     } else {
-                        published = organizationService.findById(project.getOrganizationId())
+                        // storage was provisioned with the organization, so this is a read; only
+                        // storage that is missing or failed is provisioned here, before publishing
+                        published = organizationStorageProvisioner.ensureStorage(project.getOrganizationId())
                                 .compose(organization -> uploadUis(project, target, organization, commitSha)
                                         .compose(v -> finalizeUis(project, organization, artifacts, unmatched, commitSha)));
                     }
