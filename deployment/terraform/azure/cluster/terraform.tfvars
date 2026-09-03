@@ -13,7 +13,7 @@ pod_cidr           = "192.168.0.0/16"
 service_cidr       = "10.2.0.0/16"
 dns_service_ip     = "10.2.0.10"
 # Private endpoints of organization storage accounts (see org-storage.tf)
-private_endpoint_subnet_cidr = "10.3.0.0/24"
+private_endpoint_subnet_cidr = "10.4.0.0/24"
 
 # ── System Node Pool ──────────────────────────────────────────────────────────
 system_node_count = 3
