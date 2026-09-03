@@ -61,6 +61,21 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     updated DATE
 );
 
+-- Microservice deployments: one row per microservice artifact a project deployment has ensured.
+CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    name KEYWORD,
+    workloadId KEYWORD,
+    machineIdentityId KEYWORD,
+    commitSha KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
 -- GitHub App installations: one row per Kinotic Org that has linked GitHub.
 CREATE TABLE IF NOT EXISTS kinotic_github_app_installation (
     id KEYWORD,
