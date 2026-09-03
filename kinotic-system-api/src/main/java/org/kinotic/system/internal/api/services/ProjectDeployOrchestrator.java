@@ -200,6 +200,7 @@ public class ProjectDeployOrchestrator {
                         current.setNodeId(target.nodeId());
                         current.setHostDir(target.hostDir());
                         current.setSyncWorkloadId(target.syncWorkloadId());
+                        current.setUiPublishWorkloadId(target.uiPublishWorkloadId());
                     }
                     if (syncedCommitSha != null) {
                         current.setCommitSha(syncedCommitSha);

@@ -1,7 +1,7 @@
 # @kinotic-ai/workload-runner
 
-Entrypoints for the two workloads that deploy and run a customer project on a node. Baked
-into the `workload-runner` OCI image (see the `Dockerfile`), never published to npm.
+Entrypoints for the workloads that deploy, publish and run a customer project on a node.
+Baked into the `workload-runner` OCI image (see the `Dockerfile`), never published to npm.
 
 ## How a project runs on a node
 
@@ -68,6 +68,19 @@ fails the run naming the UI.
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and
 must not hold a credential.
+
+`publish-ui.ts` — one-shot, exits 0 on success. Runs after the sync on the same checkout,
+mounted read-only, with no Kinotic credentials: it uploads every built UI to the
+organization's storage through a URL that carries a short-lived container SAS, the one
+destination its egress policy permits. Per UI the commit's assets go under
+`<name>/<sha>/` marked immutable, then `version.json`, then `index.html` last, so the
+index switch is the atomic publish.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_UI_UPLOAD_URL` | blob endpoint, container and application prefix, with the container SAS as its query | required |
+| `KINOTIC_UI_COMMIT` | the commit the UIs were built from | required |
+| `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
 
 `supervise.ts` — long-lived:
 

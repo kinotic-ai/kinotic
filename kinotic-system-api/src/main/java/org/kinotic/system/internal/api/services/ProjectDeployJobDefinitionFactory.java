@@ -4,6 +4,10 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.core.api.exceptions.AlreadyExistsException;
+import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.model.MicroserviceArtifact;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.MicroserviceDeploymentStatus;
@@ -12,13 +16,21 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.ProjectRepoToken;
+import org.kinotic.management.api.model.UiArtifact;
+import org.kinotic.management.api.model.UiDeployment;
+import org.kinotic.management.api.model.UiDeploymentStatus;
+import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
+import org.kinotic.management.api.services.OrganizationStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
+import org.kinotic.management.api.services.UiDeploymentProvisioner;
+import org.kinotic.management.api.services.UiStoragePaths;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -32,15 +44,19 @@ import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.MicroserviceDeployments;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
+import org.kinotic.system.api.model.deployment.UiDeployments;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -49,17 +65,22 @@ import java.util.stream.Collectors;
 /**
  * Creates the grind {@link JobDefinition} that deploys one commit of a project: resolve
  * the target node and checkout directory, bring the checkout to the commit with a
- * foreground sync workload, bind the artifacts that workload found into the run, and
- * ensure one long-lived runtime workload per microservice of the commit. The resolved
- * {@link DeployTarget}, the artifacts and the microservice deployments are stored in the
- * job scope under the {@link ProjectDeployStores} names, so the run's
- * {@code TaskCompletedEvent}s and {@code TaskRecord}s carry them to the caller and the
- * console.
+ * foreground sync workload, bind the artifacts that workload found into the run, ensure
+ * the organization's storage, ensure one long-lived runtime workload per microservice of
+ * the commit, and publish its UIs. The resolved {@link DeployTarget}, the artifacts, the
+ * microservice deployments and the UI deployments are stored in the job scope under the
+ * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
+ * {@code TaskRecord}s carry them to the caller and the console.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class ProjectDeployJobDefinitionFactory {
+
+    /** Hostname labels are limited by DNS. */
+    private static final int MAX_LABEL_LENGTH = 63;
+    /** Longer than any upload takes, and short enough that a leaked URL is soon worthless. */
+    private static final Duration UPLOAD_URL_TTL = Duration.ofHours(1);
 
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
@@ -67,7 +88,11 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final UiDeploymentRepository uiDeploymentRepository;
+    private final OrganizationService organizationService;
     private final OrganizationStorageProvisioner organizationStorageProvisioner;
+    private final OrganizationStorageService organizationStorageService;
+    private final UiDeploymentProvisioner uiDeploymentProvisioner;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
     private final KinoticDomainProperties domainProperties;
@@ -141,23 +166,42 @@ public class ProjectDeployJobDefinitionFactory {
                         return ensureRuntimeWorkloads(project, target, artifacts, commitSha)
                                 .toCompletionStage().toCompletableFuture();
                     }
-                }), Store.state(ProjectDeployStores.MICROSERVICE_DEPLOYMENTS).wire());
+                }), Store.state(ProjectDeployStores.MICROSERVICE_DEPLOYMENTS).wire())
+                // Store.state: the rows carry what the pass published, so a resume keeps them;
+                // wired so the console lists each site as soon as the pass ends, and can tail the
+                // publish workload's logs before that through the target
+                .task(Tasks.fromCallable("Publish UIs", new Callable<CompletableFuture<UiDeployments>>() {
+
+                    @Autowired
+                    private DeployTarget target;
+
+                    @Autowired
+                    private ProjectArtifacts artifacts;
+
+                    @Override
+                    public CompletableFuture<UiDeployments> call() {
+                        return publishUis(project, target, artifacts, commitSha).toCompletionStage().toCompletableFuture();
+                    }
+                }), Store.state(ProjectDeployStores.UI_DEPLOYMENTS).wire());
     }
 
     /**
-     * Reuses the node and checkout directory of an existing deployment, retiring the sync
-     * workload its last run left for inspection; a first deployment picks a node with the
-     * capacity the sync workload needs and derives the checkout directory from the node's
-     * advertised workload data directory. Either way the run's sync workload gets a fresh id.
+     * Reuses the node and checkout directory of an existing deployment, retiring the sync and
+     * publish workloads its last run left for inspection; a first deployment picks a node with
+     * the capacity the sync workload needs and derives the checkout directory from the node's
+     * advertised workload data directory. Either way the run's workloads get fresh ids.
      */
     private Future<DeployTarget> resolveTarget(String projectId, ProjectDeployment existing) {
         Future<DeployTarget> ret;
         String syncWorkloadId = UUID.randomUUID().toString();
+        String uiPublishWorkloadId = UUID.randomUUID().toString();
         if (existing != null && existing.getNodeId() != null) {
-            ret = destroyPreviousSyncWorkload(existing)
+            ret = destroyPreviousWorkload(existing.getSyncWorkloadId(), "sync", projectId)
+                    .compose(v -> destroyPreviousWorkload(existing.getUiPublishWorkloadId(), "UI publish", projectId))
                     .map(v -> new DeployTarget(existing.getNodeId(),
                                                existing.getHostDir(),
-                                               syncWorkloadId));
+                                               syncWorkloadId,
+                                               uiPublishWorkloadId));
         } else {
             Workload probe = new Workload();
             probe.setMemoryMb(deployment().getSyncMemoryMb());
@@ -179,7 +223,8 @@ public class ProjectDeployJobDefinitionFactory {
                             resolved = Future.succeededFuture(
                                     new DeployTarget(node.getId(),
                                                      node.getWorkloadDataDir() + "/projects/" + projectId,
-                                                     syncWorkloadId));
+                                                     syncWorkloadId,
+                                                     uiPublishWorkloadId));
                         }
                         return resolved;
                     });
@@ -187,17 +232,18 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
-    // The previous run's sync workload may already be gone - removed from the console, or
-    // never recorded because that run failed before its target was known
-    private Future<Void> destroyPreviousSyncWorkload(ProjectDeployment existing) {
+    // The previous run's workload may already be gone - removed from the console, never
+    // recorded because that run failed before its target was known, or never deployed
+    // because that run had nothing to publish
+    private Future<Void> destroyPreviousWorkload(String workloadId, String role, String projectId) {
         Future<Void> ret;
-        if (existing.getSyncWorkloadId() == null) {
+        if (workloadId == null) {
             ret = Future.succeededFuture();
         } else {
-            ret = workloadOrchestrationService.destroyWorkload(existing.getSyncWorkloadId())
+            ret = workloadOrchestrationService.destroyWorkload(workloadId)
                     .recover(error -> {
-                        log.warn("Previous sync workload {} of project {} could not be destroyed: {}",
-                                 existing.getSyncWorkloadId(), existing.getId(), error.getMessage());
+                        log.warn("Previous {} workload {} of project {} could not be destroyed: {}",
+                                 role, workloadId, projectId, error.getMessage());
                         return Future.succeededFuture();
                     });
         }
@@ -214,20 +260,25 @@ public class ProjectDeployJobDefinitionFactory {
                 .compose(token -> projectDeployIdentityService.issueSyncCredentials(project)
                         .map(credentials -> syncWorkload(project, target, token, credentials, commitSha)))
                 .compose(workloadOrchestrationService::deployWorkload)
-                .compose(finished -> {
-                    Future<String> ret;
-                    if (finished.getStatus() == WorkloadStatus.STOPPED
-                            && Integer.valueOf(0).equals(finished.getExitCode())) {
-                        ret = Future.succeededFuture(finished.getId());
-                    } else {
-                        ret = Future.failedFuture(new IllegalStateException(
-                                "Sync workload " + finished.getId() + " ended " + finished.getStatus()
-                                        + " with exit code " + finished.getExitCode()
-                                        + "; the workload is kept for log inspection"));
-                    }
-                    return ret;
-                })
+                .compose(finished -> requireSucceeded(finished, "Sync"))
                 .toCompletionStage().toCompletableFuture();
+    }
+
+    /**
+     * Passes a foreground workload's run only when it exited cleanly; the workload is kept
+     * either way, so a failed run's logs stay inspectable.
+     */
+    private static Future<String> requireSucceeded(Workload finished, String role) {
+        Future<String> ret;
+        if (finished.getStatus() == WorkloadStatus.STOPPED && Integer.valueOf(0).equals(finished.getExitCode())) {
+            ret = Future.succeededFuture(finished.getId());
+        } else {
+            ret = Future.failedFuture(new IllegalStateException(
+                    role + " workload " + finished.getId() + " ended " + finished.getStatus()
+                            + " with exit code " + finished.getExitCode()
+                            + "; the workload is kept for log inspection"));
+        }
+        return ret;
     }
 
     /**
@@ -413,6 +464,214 @@ public class ProjectDeployJobDefinitionFactory {
             }
         }
         return Future.all(saves).map(CompositeFuture::list);
+    }
+
+    /**
+     * Leaves every UI of the deployed commit published and served: uploads the built UIs
+     * through a foreground publish workload holding nothing but a short-lived upload URL,
+     * then records the outcome on each UI's {@link UiDeployment}. A UI's first publish mints
+     * its site's hostname label and provisions the site; a later publish keeps the site and
+     * records the new commit, retaining the previous commit's assets for tabs still open on
+     * it and deleting older ones. A UI the commit no longer contains is marked orphaned and
+     * keeps serving; one that returns is adopted. A commit without UIs publishes nothing. A
+     * site that cannot be provisioned is recorded failed and the others still publish; the
+     * task then fails naming the failed ones.
+     */
+    private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
+        return uiDeploymentRepository.findAllForProject(project.getId())
+                .compose(existing -> {
+                    Map<String, UiDeployment> unmatched = new HashMap<>();
+                    existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
+                    Future<List<UiDeployment>> published;
+                    if (artifacts.uis().isEmpty()) {
+                        published = Future.succeededFuture(new ArrayList<>());
+                    } else {
+                        published = organizationService.findById(project.getOrganizationId())
+                                .compose(organization -> uploadUis(project, target, organization, commitSha)
+                                        .compose(v -> finalizeUis(project, organization, artifacts, unmatched, commitSha)));
+                    }
+                    return published.compose(rows -> orphanUis(new ArrayList<>(unmatched.values()))
+                            .map(orphans -> {
+                                rows.addAll(orphans);
+                                rows.sort(Comparator.comparing(UiDeployment::getName));
+                                return rows;
+                            }));
+                })
+                .compose(rows -> {
+                    String failures = rows.stream()
+                                          .filter(row -> row.getStatus().type() == UiDeploymentStatusType.FAILED)
+                                          .map(row -> row.getName() + ": " + row.getStatus().message())
+                                          .collect(Collectors.joining("; "));
+                    Future<UiDeployments> ret;
+                    if (failures.isEmpty()) {
+                        ret = Future.succeededFuture(new UiDeployments(rows));
+                    } else {
+                        ret = Future.failedFuture(new IllegalStateException(
+                                "UIs of project " + project.getId() + " could not be published: " + failures));
+                    }
+                    return ret;
+                });
+    }
+
+    private Future<String> uploadUis(Project project, DeployTarget target, Organization organization, String commitSha) {
+        return organizationStorageService.issueUploadUrl(organization, project.getApplicationId(), UPLOAD_URL_TTL)
+                .map(uploadUrl -> publishWorkload(project, target, organization, uploadUrl, commitSha))
+                .compose(workloadOrchestrationService::deployWorkload)
+                .compose(finished -> requireSucceeded(finished, "UI publish"));
+    }
+
+    /**
+     * Records each published UI once its files are up: the commit it now serves, the site it is
+     * served from, minted and provisioned on first publish, and the cleanup of commits nobody
+     * can still be looking at. Sequential, since minting labels races itself otherwise.
+     */
+    private Future<List<UiDeployment>> finalizeUis(Project project,
+                                                  Organization organization,
+                                                  ProjectArtifacts artifacts,
+                                                  Map<String, UiDeployment> unmatched,
+                                                  String commitSha) {
+        Future<List<UiDeployment>> finalized = Future.succeededFuture(new ArrayList<>());
+        for (UiArtifact ui : artifacts.uis()) {
+            UiDeployment current = unmatched.remove(ui.name());
+            finalized = finalized.compose(rows -> finalizeUi(project, organization, ui, current, commitSha)
+                    .map(row -> {
+                        rows.add(row);
+                        return rows;
+                    }));
+        }
+        return finalized;
+    }
+
+    private Future<UiDeployment> finalizeUi(Project project,
+                                            Organization organization,
+                                            UiArtifact ui,
+                                            UiDeployment existing,
+                                            String commitSha) {
+        Future<UiDeployment> deployment;
+        if (existing == null) {
+            deployment = mintDeployment(project, ui)
+                    .compose(minted -> uiDeploymentProvisioner.provision(minted, organization)
+                            .recover(error -> {
+                                log.error("Site {} of UI {} of project {} could not be provisioned",
+                                          minted.getId(), ui.name(), project.getId(), error);
+                                return Future.succeededFuture(minted.setStatus(new UiDeploymentStatus(
+                                        UiDeploymentStatusType.FAILED, error.getMessage())));
+                            }));
+        } else if (existing.getStatus().type() == UiDeploymentStatusType.ORPHANED) {
+            // the site never stopped serving, so the UI's return needs no provisioning
+            deployment = Future.succeededFuture(existing.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));
+        } else {
+            deployment = Future.succeededFuture(existing);
+        }
+        return deployment.compose(row -> {
+                    if (!commitSha.equals(row.getCommitSha())) {
+                        row.setPreviousCommitSha(row.getCommitSha()).setCommitSha(commitSha);
+                    }
+                    return deleteStaleCommits(organization, project.getApplicationId(), row)
+                            .compose(v -> uiDeploymentRepository.save(row.setUpdated(new Date())));
+                });
+    }
+
+    /**
+     * Mints the site's label, {@code <org>-<app>-<ui>}, taking the first free numeric suffix
+     * when another site holds it. The store enforces the label's uniqueness on create.
+     */
+    private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
+        String base = project.getOrganizationId() + "-" + project.getApplicationId() + "-" + ui.name();
+        ZoneUtil.validateLabel(base);
+        return mintWithSuffix(project, ui, base, 1);
+    }
+
+    private Future<UiDeployment> mintWithSuffix(Project project, UiArtifact ui, String base, int attempt) {
+        String label = attempt == 1 ? base : base + "-" + attempt;
+        Future<UiDeployment> ret;
+        if (label.length() > MAX_LABEL_LENGTH) {
+            ret = Future.failedFuture(new IllegalStateException("The hostname label " + label + " for UI " + ui.name()
+                    + " of application " + project.getApplicationId() + " of organization " + project.getOrganizationId()
+                    + " is longer than " + MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
+        } else {
+            ret = uiDeploymentRepository.create(new UiDeployment()
+                            .setId(label)
+                            .setOrganizationId(project.getOrganizationId())
+                            .setApplicationId(project.getApplicationId())
+                            .setProjectId(project.getId())
+                            .setName(ui.name())
+                            .setStatus(new UiDeploymentStatus(UiDeploymentStatusType.PROVISIONING))
+                            .setCreated(new Date())
+                            .setUpdated(new Date()))
+                    .recover(error -> error instanceof AlreadyExistsException
+                            ? mintWithSuffix(project, ui, base, attempt + 1)
+                            : Future.failedFuture(error));
+        }
+        return ret;
+    }
+
+    // The current commit serves, the previous one keeps tabs opened on it working; anything
+    // older is unreachable and goes
+    private Future<Void> deleteStaleCommits(Organization organization, String applicationId, UiDeployment row) {
+        Set<String> kept = new HashSet<>();
+        kept.add(row.getCommitSha());
+        if (row.getPreviousCommitSha() != null) {
+            kept.add(row.getPreviousCommitSha());
+        }
+        String uiPrefix = UiStoragePaths.uiPrefix(applicationId, row.getName());
+        return organizationStorageService.listCommitDirs(organization, uiPrefix)
+                .compose(dirs -> {
+                    Future<Void> deleted = Future.succeededFuture();
+                    for (String dir : dirs) {
+                        if (!kept.contains(dir)) {
+                            deleted = deleted.compose(v -> organizationStorageService.deletePrefix(
+                                    organization, UiStoragePaths.commitPrefix(applicationId, row.getName(), dir)));
+                        }
+                    }
+                    return deleted;
+                });
+    }
+
+    /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */
+    private Future<List<UiDeployment>> orphanUis(List<UiDeployment> deployments) {
+        List<Future<UiDeployment>> saves = new ArrayList<>();
+        for (UiDeployment deployment : deployments) {
+            if (deployment.getStatus().type() == UiDeploymentStatusType.ORPHANED) {
+                saves.add(Future.succeededFuture(deployment));
+            } else {
+                saves.add(uiDeploymentRepository.save(deployment
+                        .setStatus(new UiDeploymentStatus(UiDeploymentStatusType.ORPHANED))
+                        .setUpdated(new Date())));
+            }
+        }
+        return Future.all(saves).map(CompositeFuture::list);
+    }
+
+    /**
+     * The publish workload carries the built UIs to the organization's storage and nothing
+     * else: no Kinotic credentials, no machine identity, a read-only checkout, and an egress
+     * policy naming the storage's private address alone. Kept after its run, like the sync
+     * workload, so its logs stay inspectable until the next run retires it.
+     */
+    private Workload publishWorkload(Project project,
+                                     DeployTarget target,
+                                     Organization organization,
+                                     String uploadUrl,
+                                     String commitSha) {
+        DeploymentProperties deployment = deployment();
+        Workload workload = new Workload("project-ui-publish-" + project.getId(), deployment.getWorkloadRunnerImage());
+        workload.setId(target.uiPublishWorkloadId());
+        workload.setDescription("UI publish for project " + project.getId());
+        workload.setNodeId(target.nodeId());
+        workload.setOrganizationId(project.getOrganizationId());
+        workload.setApplicationId(project.getApplicationId());
+        workload.setDetached(false);
+        workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setEntrypoint(List.of("bun", "src/publish-ui.ts"));
+        workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
+        // the URL is a credential for the run's length, so it travels as a secret
+        workload.getSecrets().put("KINOTIC_UI_UPLOAD_URL", uploadUrl);
+        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
+                                                        .setGuestPath("/workspace")
+                                                        .setReadOnly(true));
+        workload.getNetwork().setAllowedHosts(List.of(organization.getStoragePrivateEndpointIp()));
+        return workload;
     }
 
     private Workload syncWorkload(Project project,

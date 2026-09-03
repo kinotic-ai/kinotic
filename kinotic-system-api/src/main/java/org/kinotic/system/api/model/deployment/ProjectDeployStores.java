@@ -30,6 +30,14 @@ public final class ProjectDeployStores {
      */
     public static final String MICROSERVICE_DEPLOYMENTS = "microserviceDeployments";
 
+    /**
+     * The {@link UiDeployments} the run left the project with, one per UI of the project,
+     * published or orphaned. Known before the task completes through
+     * {@link DeployTarget#uiPublishWorkloadId()}, which is what lets a watcher follow the
+     * publish workload's logs while the task runs.
+     */
+    public static final String UI_DEPLOYMENTS = "uiDeployments";
+
     private ProjectDeployStores() {
     }
 }
