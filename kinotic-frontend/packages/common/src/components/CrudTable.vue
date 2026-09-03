@@ -633,52 +633,6 @@ defineExpose({ find, displayAlert });
 </template>
 
 <style>
-/* PrimeVue scrolls .p-datatable-table-container with the header sticky inside it, so its
-   scrollbar spans the header as well as the rows. Splitting the head and body into sibling
-   scroll boxes hands the scrollbar to the rows alone, starting it below the header. Both
-   boxes reserve a gutter so their columns keep matching widths; the header's stays empty. */
-.crud-table__datatable .p-datatable-table-container {
-  overflow: hidden !important;
-}
-
-.crud-table__datatable .p-datatable-table {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-/* overflow-x is hidden rather than left visible: the spec would promote it to auto next to a
-   scrolling y axis, giving the head and body independent horizontal scroll that desyncs them. */
-.crud-table__datatable .p-datatable-thead,
-.crud-table__datatable .p-datatable-tbody {
-  display: block;
-  overflow-x: hidden;
-  overflow-y: scroll;
-}
-
-.crud-table__datatable .p-datatable-thead {
-  flex: none;
-  scrollbar-color: transparent transparent;
-}
-
-.crud-table__datatable .p-datatable-thead::-webkit-scrollbar-thumb {
-  background: transparent;
-}
-
-.crud-table__datatable .p-datatable-tbody {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-/* Each row lays itself out as its own fixed table, reproducing the widths the single table
-   computed: the explicit column widths, with the remainder split evenly. */
-.crud-table__datatable .p-datatable-thead > tr,
-.crud-table__datatable .p-datatable-tbody > tr {
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-}
-
 /* While loading, an indeterminate line overlays the header row's bottom divider. */
 .crud-table__datatable--loading .p-datatable-thead {
   position: relative;
