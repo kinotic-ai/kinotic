@@ -54,6 +54,13 @@ export class VmManagerConfig {
     readonly tempoUrl: string | undefined = process.env.KINOTIC_TEMPO_URL
 
     /**
+     * KINOTIC_MIMIR_URL — base URL of the OTLP/HTTP endpoint workload metrics are shipped to,
+     * Mimir's own ({@code http://mimir:9009/otlp}) or a collector in front of it; unset
+     * disables metric shipping.
+     */
+    readonly mimirUrl: string | undefined = process.env.KINOTIC_MIMIR_URL
+
+    /**
      * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node
      * must live under. Mounts are bound with the vm-manager's authority, so this boundary is
      * what keeps a workload spec from mounting an arbitrary host directory. Reported to the

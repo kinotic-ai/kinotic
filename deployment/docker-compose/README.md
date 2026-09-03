@@ -152,9 +152,15 @@ panel, all provisioned from `dashboards/kinotic-server.json`. Beyond the dashboa
 
 | Signal | Datasource | Where to look |
 |---|---|---|
-| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server` |
-| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server"}` |
+| Traces | Tempo | Explore → Tempo → Search, service name `kinotic-server` (tenant `kinotic-system`) |
+| Metrics | Mimir | Explore → Mimir, e.g. `jvm_memory_used_bytes{job="kinotic-server"}` (tenant `kinotic-system`) |
 | Logs | Loki | Explore → Loki, `{service_name="kinotic-server"}` (tenant `kinotic-system`) |
+
+All three run multi-tenant. The server's own telemetry lands in the `kinotic-system` tenant —
+the collector stamps it on pushes that name none — and each organization's workload telemetry
+in a tenant named by the organization id, pushed by the vm-manager on every node. The Grafana
+datasources browse `kinotic-system`; change the `X-Scope-OrgID` header on a datasource to browse
+an organization, or query it in the portal, which reads the tenant the signed-in user may see.
 
 Grafana 12 preinstalls the Drilldown apps (Metrics, Logs, Traces) and downloads them from
 grafana.com on first start — the **Drilldown** nav section needs no configuration beyond the

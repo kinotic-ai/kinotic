@@ -1,9 +1,10 @@
 import type { LogFormat } from '@/internal/api/model/LogFormat'
-import type { TraceEndpoint } from '@/internal/api/model/TraceEndpoint'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
 
 /**
  * A running VM's telemetry sources, as consumed by the Alloy config generation: where its log
- * files live on the host, where its traces arrive, and the identity labels its streams carry.
+ * files live on the host, where its traces and metrics arrive, and the identity labels its
+ * streams carry.
  */
 export interface TelemetryTarget {
 
@@ -18,10 +19,10 @@ export interface TelemetryTarget {
     /** Encoding of the lines found at {@link logPath}. */
     format: LogFormat
 
-    /** Where the VM pushes its traces; null when the workload did not elect tracing. */
-    traces: TraceEndpoint | null
+    /** Where the VM pushes its traces and metrics; null when the workload did not elect telemetry. */
+    otlp: OtlpEndpoint | null
 
-    /** Organization whose tenant receives the logs and traces; null ships to the system tenant. */
+    /** Organization whose tenant receives the telemetry; null ships to the system tenant. */
     organizationId: string | null
 
     /** Application the workload belongs to; null omits the application_id label. */

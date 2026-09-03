@@ -25,4 +25,16 @@ public class ManagementApiProperties {
     @Valid
     private LokiProperties loki = new LokiProperties();
 
+    /**
+     * Tempo configuration for the {@code TelemetryService}'s trace queries.
+     */
+    @Valid
+    private TempoProperties tempo = new TempoProperties();
+
+    /**
+     * Mimir configuration for the {@code TelemetryService}'s metric queries.
+     */
+    @Valid
+    private MimirProperties mimir = new MimirProperties();
+
 }

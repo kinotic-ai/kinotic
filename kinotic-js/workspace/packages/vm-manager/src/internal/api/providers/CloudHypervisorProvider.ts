@@ -8,7 +8,7 @@ import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
-import { TraceEndpointRepository } from '@/internal/api/telemetry/TraceEndpointRepository'
+import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
@@ -66,8 +66,8 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
-    // Null on a node that ships no traces, where a workload's election issues nothing
-    private readonly traceEndpoints: TraceEndpointRepository | null
+    // Null on a node that ships no telemetry, where a workload's election issues nothing
+    private readonly otlpEndpoints: OtlpEndpointRepository | null
     // The host's address on the workload bridge, read from the daemon on first use
     private bridgeGateway: string | null = null
 
@@ -77,14 +77,14 @@ export class CloudHypervisorProvider implements IVmProvider {
                 egress: EgressPolicyManager = new EgressPolicyManager(),
                 resolver: string | null = null,
                 onStatusChanged: ((workload: Workload) => void) | null = null,
-                traceEndpoints: TraceEndpointRepository | null = null) {
+                otlpEndpoints: OtlpEndpointRepository | null = null) {
         this.stateDir = stateDir
         this.docker = docker
         this.workloadDataDir = resolve(workloadDataDir)
         this.egress = egress
         this.resolver = resolver
         this.onStatusChanged = onStatusChanged
-        this.traceEndpoints = traceEndpoints
+        this.otlpEndpoints = otlpEndpoints
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
         this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
@@ -93,10 +93,10 @@ export class CloudHypervisorProvider implements IVmProvider {
     /**
      * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
      * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
-     * the workload declares its own. The trace environment, empty for a workload without an
-     * endpoint, is laid over the workload's own.
+     * the workload declares its own. The OTLP exporter environment of a workload that holds an
+     * endpoint is laid over the workload's own.
      */
-    private buildCreateOptions(workload: Workload, traceEnvironment: Record<string, string>): ContainerCreateOptions {
+    private buildCreateOptions(workload: Workload, otlpEnvironment: Record<string, string> | null): ContainerCreateOptions {
         // A workload deserialized from the wire or a persisted state file may predate the
         // network field, whose absence means the policy the model defaults to
         const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
@@ -117,8 +117,14 @@ export class CloudHypervisorProvider implements IVmProvider {
             name: workload.id!,
             Image: workload.image,
             Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
-            Env: Object.entries({ ...workload.environment, ...workload.secrets, ...traceEnvironment })
-                       .map(([key, value]) => `${key}=${value}`),
+            // The service name spans and metrics are grouped by, which the workload may set
+            // itself; the endpoint laid over it may not
+            Env: Object.entries({
+                     ...(otlpEnvironment !== null ? { OTEL_SERVICE_NAME: workload.name } : {}),
+                     ...workload.environment,
+                     ...workload.secrets,
+                     ...otlpEnvironment,
+                 }).map(([key, value]) => `${key}=${value}`),
             ...(workload.entrypoint.length > 0
                 ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
                 : workload.cmd.length > 0 ? { Cmd: workload.cmd } : {}),
@@ -224,7 +230,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             await this.removeContainer(id)
 
             const container = await this.docker.createContainer(
-                this.buildCreateOptions(workload, await this.traceEnvironment(workload)))
+                this.buildCreateOptions(workload, await this.otlpEnvironment(workload)))
             await container.start()
 
             const info = await container.inspect()
@@ -317,7 +323,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         await this.removeContainer(workloadId)
         this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
-        this.traceEndpoints?.release(workloadId)
+        this.otlpEndpoints?.release(workloadId)
 
         this.containers.delete(workloadId)
         this.exitWatches.delete(workloadId)
@@ -347,7 +353,7 @@ export class CloudHypervisorProvider implements IVmProvider {
                 vmId: container.containerId,
                 logPath: container.logPath,
                 format: LogFormat.DOCKER_JSON,
-                traces: this.traceEndpoints?.find(workloadId) ?? null,
+                otlp: this.otlpEndpoints?.find(workloadId) ?? null,
                 organizationId: workload.organizationId,
                 applicationId: workload.applicationId,
             }
@@ -484,26 +490,26 @@ export class CloudHypervisorProvider implements IVmProvider {
         // A workload with no network has no address and nothing to restrict
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
         if (address) {
-            this.egress.apply(workload.id!, address, allowedHosts, this.traceEndpoints?.find(workload.id!) ?? null)
+            this.egress.apply(workload.id!, address, allowedHosts, this.otlpEndpoints?.find(workload.id!) ?? null)
         }
     }
 
     /**
-     * The OTLP exporter configuration the guest is given, empty unless the workload elects
-     * tracing on a node that ships traces. The receiver binds to the bridge gateway: the one
+     * The OTLP exporter configuration the guest is given, null unless the workload elects
+     * telemetry on a node that ships it. The receiver binds to the bridge gateway: the one
      * host address a guest can reach, and one nothing off the node can.
      */
-    private async traceEnvironment(workload: Workload): Promise<Record<string, string>> {
-        let ret: Record<string, string> = {}
-        if ((workload.tracing ?? false) && this.traceEndpoints !== null) {
+    private async otlpEnvironment(workload: Workload): Promise<Record<string, string> | null> {
+        let ret: Record<string, string> | null = null
+        if ((workload.telemetry ?? false) && this.otlpEndpoints !== null) {
             // The endpoint is opened to the workload by the same rules as its egress, so a node
             // that writes none would leave the receiver behind the floor that shields it
             if (!this.egress.enforces()) {
-                throw new Error(`Workload ${workload.id} elects tracing, but this node does not enforce `
-                                + 'workload network policy, so it cannot open its trace endpoint to the workload')
+                throw new Error(`Workload ${workload.id} elects telemetry, but this node does not enforce `
+                                + 'workload network policy, so it cannot open its OTLP endpoint to the workload')
             }
             const gateway = await this.gateway()
-            ret = TraceEndpointRepository.guestEnvironment(gateway, this.traceEndpoints.issue(workload.id!, gateway))
+            ret = this.otlpEndpoints.guestEnvironment(gateway, this.otlpEndpoints.issue(workload.id!, gateway))
         }
         return ret
     }

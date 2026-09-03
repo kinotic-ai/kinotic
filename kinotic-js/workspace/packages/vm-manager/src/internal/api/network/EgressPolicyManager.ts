@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
-import type { TraceEndpoint } from '@/internal/api/model/TraceEndpoint'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
 
 /**
  * Marker carried on every rule this manager writes, so the rules belonging to a workload can
@@ -102,13 +102,13 @@ export class EgressPolicyManager {
      * @param allowedHosts destinations from the workload's network policy, as IPv4 addresses
      *        or CIDRs. The api-gateway is among them: the server places it there, because only
      *        the server knows where the gateway is.
-     * @param traceEndpoint the node's own trace receiver issued to this workload, opened to it
+     * @param otlpEndpoint the node's own OTLP receiver issued to this workload, opened to it
      *        alone; null when the workload holds none
      */
     public apply(workloadId: string,
                  address: string,
                  allowedHosts: string[],
-                 traceEndpoint: TraceEndpoint | null = null): void {
+                 otlpEndpoint: OtlpEndpoint | null = null): void {
         this.requireAddress(address, `workload ${workloadId}`)
         for (const destination of allowedHosts) {
             this.requireAddress(destination, `an allowed destination of workload ${workloadId}`)
@@ -136,11 +136,11 @@ export class EgressPolicyManager {
             const position = this.protectedAddressNamedBy(destination) !== null ? 1 : this.floorPosition()
             this.insert(position, ['-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
         }
-        if (traceEndpoint !== null) {
+        if (otlpEndpoint !== null) {
             // At the top: the floor drops the whole bridge subnet from the host's INPUT, and a
             // rule below that drop is never reached
-            this.run(['-I', HOST_CHAIN, '1', '-s', address, '-d', traceEndpoint.listenAddress,
-                      '-p', 'tcp', '--dport', String(traceEndpoint.port), ...comment, '-j', 'ACCEPT'])
+            this.run(['-I', HOST_CHAIN, '1', '-s', address, '-d', otlpEndpoint.listenAddress,
+                      '-p', 'tcp', '--dport', String(otlpEndpoint.port), ...comment, '-j', 'ACCEPT'])
         }
     }
 

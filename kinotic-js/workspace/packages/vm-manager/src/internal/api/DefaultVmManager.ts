@@ -38,7 +38,7 @@ export class DefaultVmManager implements IVmManager {
     async startWorkload(workload: Workload): Promise<Workload> {
         return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} vcpus=${workload.vcpus} memoryMb=${workload.memoryMb}`, async () => {
             // A workload with no network has no interface to publish a port on, and no way to
-            // reach the node's trace endpoint. Rejected here rather than in a provider, so the
+            // reach the node's OTLP endpoint. Rejected here rather than in a provider, so the
             // answer does not depend on where it is placed.
             const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
             if (networkMode === NetworkMode.DISABLED && workload.portMappings.length > 0) {
@@ -46,16 +46,16 @@ export class DefaultVmManager implements IVmManager {
                                 + `${workload.portMappings.length} port mapping(s): a workload `
                                 + 'with no network has no interface to publish a port on')
             }
-            const tracing = workload.tracing ?? false
-            if (networkMode === NetworkMode.DISABLED && tracing) {
+            const telemetry = workload.telemetry ?? false
+            if (networkMode === NetworkMode.DISABLED && telemetry) {
                 throw new Error(`Workload ${workload.name} declares network.mode DISABLED and elects `
-                                + "tracing: a workload with no network cannot reach the node's trace endpoint")
+                                + "telemetry: a workload with no network cannot reach the node's OTLP endpoint")
             }
-            // Runs without an endpoint rather than being refused: a node that ships no traces
-            // said so at startup, and the election is the workload's to make wherever it lands
-            if (tracing && !(this.alloyManager?.shipsTraces() ?? false)) {
-                console.warn(`Workload ${workload.name} elects tracing, but this node does not ship `
-                             + 'traces (KINOTIC_TEMPO_URL is not set)')
+            // Runs without an endpoint rather than being refused: a node that ships nothing said
+            // so at startup, and the election is the workload's to make wherever it lands
+            if (telemetry && !(this.alloyManager?.shipsTelemetry() ?? false)) {
+                console.warn(`Workload ${workload.name} elects telemetry, but this node ships neither `
+                             + 'traces nor metrics (KINOTIC_TEMPO_URL and KINOTIC_MIMIR_URL are not set)')
             }
             const started = await this.provider.start(workload)
             await this.refreshShipping()

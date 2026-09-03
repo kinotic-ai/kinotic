@@ -6,6 +6,7 @@ import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { LogService, type ILogService } from '@/api/services/ILogService'
+import { TelemetryService, type ITelemetryService } from '@/api/services/ITelemetryService'
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
 import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
@@ -24,6 +25,7 @@ export interface IManagementApiExtension {
     dataInsights: IDataInsightsService
     jobMonitoring: IJobMonitoringService
     logs: ILogService
+    telemetry: ITelemetryService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
     oauthApproval: IOAuthApprovalService
@@ -44,6 +46,7 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             dataInsights: new DataInsightsService(kinotic),
             jobMonitoring: new JobMonitoringService(kinotic),
             logs: new LogService(kinotic),
+            telemetry: new TelemetryService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
             oauthApproval: new OAuthApprovalService(kinotic),

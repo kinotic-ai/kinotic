@@ -6,8 +6,7 @@ import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
-import type { TraceEndpoint } from '@/internal/api/model/TraceEndpoint'
-import { TraceEndpointRepository } from '@/internal/api/telemetry/TraceEndpointRepository'
+import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { LogPolicy, Workload, WorkloadStatus, NetworkMode } from '@kinotic-ai/management-api'
@@ -54,8 +53,8 @@ const EXIT_POLL_MS = 500
  */
 const HOST_FROM_GUEST = '192.168.127.254'
 
-/** Where the node's trace receivers for boxlite guests bind, being what the alias lands on. */
-const TRACE_LISTEN_ADDRESS = '127.0.0.1'
+/** Where the node's OTLP receivers for boxlite guests bind, being what the alias lands on. */
+const OTLP_LISTEN_ADDRESS = '127.0.0.1'
 
 /**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
@@ -92,10 +91,11 @@ export class BoxliteProvider implements IVmProvider {
      * Builds the boxlite options for a workload. The given host log directory is always mounted
      * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
      * declares them, so an empty value keeps the image default. The workload's disk size caps
-     * the guest rootfs, which grows sparsely up to that cap. A trace endpoint, when the workload
-     * holds one, is named in the guest environment and its host allowed as a destination.
+     * the guest rootfs, which grows sparsely up to that cap. The OTLP exporter environment of a
+     * workload that holds an endpoint is laid over the workload's own, and the endpoint's host
+     * allowed as a destination.
      */
-    static buildBoxOptions(workload: Workload, logDir: string, traces: TraceEndpoint | null = null): SimpleBoxOptions {
+    static buildBoxOptions(workload: Workload, logDir: string, otlpEnvironment: Record<string, string> | null = null): SimpleBoxOptions {
         // Silently binding to all interfaces when a specific one was requested would be a
         // security failure, so an unsupported hostIp is rejected outright
         const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
@@ -111,10 +111,10 @@ export class BoxliteProvider implements IVmProvider {
         // A workload deserialized from the wire or a persisted state file may predate the
         // network field, whose absence means the policy the model defaults to
         const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-        // The node's trace endpoint is a destination the workload cannot know, so the node
-        // adds it rather than expecting the policy to name it
+        // The node's OTLP endpoint is a destination the workload cannot know, so the node adds
+        // it rather than expecting the policy to name it
         const allowedHosts = [...new Set([...(workload.network?.allowedHosts ?? []),
-                                          ...(traces !== null ? [HOST_FROM_GUEST] : [])])]
+                                          ...(otlpEnvironment !== null ? [HOST_FROM_GUEST] : [])])]
         const logPolicy = workload.logPolicy ?? new LogPolicy()
         return {
             image: workload.image,
@@ -125,6 +125,9 @@ export class BoxliteProvider implements IVmProvider {
             // disk than it asked for, and leave the boxlite default when nothing was asked
             ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
             env: {
+                // The service name spans and metrics are grouped by, which the workload may
+                // set itself; the endpoint below it may not
+                ...(otlpEnvironment !== null ? { OTEL_SERVICE_NAME: workload.name } : {}),
                 ...workload.environment,
                 ...workload.secrets,
                 // Nothing captures the entrypoint's stdout, so an image that knows the contract
@@ -132,7 +135,7 @@ export class BoxliteProvider implements IVmProvider {
                 KINOTIC_LOG_DIR: GUEST_LOG_DIR,
                 KINOTIC_LOG_MAX_SIZE_MB: String(logPolicy.maxSizeMb),
                 KINOTIC_LOG_MAX_FILES: String(logPolicy.maxFiles),
-                ...(traces !== null ? TraceEndpointRepository.guestEnvironment(HOST_FROM_GUEST, traces) : {}),
+                ...otlpEnvironment,
             },
             // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
             // CMD is suppressed unless the workload declares its own cmd
@@ -191,20 +194,20 @@ export class BoxliteProvider implements IVmProvider {
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
-    // Null on a node that ships no traces, where a workload's election issues nothing
-    private readonly traceEndpoints: TraceEndpointRepository | null
+    // Null on a node that ships no telemetry, where a workload's election issues nothing
+    private readonly otlpEndpoints: OtlpEndpointRepository | null
 
     constructor(boxliteHome: string,
                 logsBaseDir: string,
                 stateDir: string,
                 workloadDataDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null,
-                traceEndpoints: TraceEndpointRepository | null = null) {
+                otlpEndpoints: OtlpEndpointRepository | null = null) {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
-        this.traceEndpoints = traceEndpoints
+        this.otlpEndpoints = otlpEndpoints
         mkdirSync(stateDir, { recursive: true })
 
         this.mounts = new VolumeMountManager(workloadDataDir, new MountQuotaManager())
@@ -289,12 +292,12 @@ export class BoxliteProvider implements IVmProvider {
             }
 
             // The guest learns its endpoint from the environment, so it is issued before the box
-            const traces = (workload.tracing ?? false)
-                ? this.traceEndpoints?.issue(id, TRACE_LISTEN_ADDRESS) ?? null
+            const otlpEnvironment = (workload.telemetry ?? false) && this.otlpEndpoints !== null
+                ? this.otlpEndpoints.guestEnvironment(HOST_FROM_GUEST, this.otlpEndpoints.issue(id, OTLP_LISTEN_ADDRESS))
                 : null
 
             // Creates the box record only — the VM does not boot until start()
-            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir, traces), image, runtime: this.runtime }).getId()
+            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir, otlpEnvironment), image, runtime: this.runtime }).getId()
             this.vmIds.set(id, vmId)
 
             // The runtime's boot handshake doubles as the readiness check; unlike an exec
@@ -415,7 +418,7 @@ export class BoxliteProvider implements IVmProvider {
         }
 
         this.mounts.releaseQuotas(workload)
-        this.traceEndpoints?.release(workloadId)
+        this.otlpEndpoints?.release(workloadId)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
         this.vmIds.delete(workloadId)
@@ -450,7 +453,7 @@ export class BoxliteProvider implements IVmProvider {
                     vmId,
                     logPath: join(logDir, '*.log'),
                     format: LogFormat.PLAIN,
-                    traces: this.traceEndpoints?.find(workloadId) ?? null,
+                    otlp: this.otlpEndpoints?.find(workloadId) ?? null,
                     organizationId: workload.organizationId,
                     applicationId: workload.applicationId,
                 })

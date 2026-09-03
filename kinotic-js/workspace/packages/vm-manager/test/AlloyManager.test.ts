@@ -19,11 +19,12 @@ chmodSync(join(fakeBinDir, 'alloy'), 0o755)
 process.env.PATH = `${fakeBinDir}:${process.env.PATH}`
 
 const TEMPO_URL = 'http://tempo:4318'
+const MIMIR_URL = 'http://mimir:9009/otlp'
 
-type Destinations = Partial<Pick<AlloyManagerOptions, 'lokiUrl' | 'tempoUrl'>>
+type Destinations = Partial<Pick<AlloyManagerOptions, 'lokiUrl' | 'tempoUrl' | 'mimirUrl'>>
 
 function manager(dataDir: string, destinations: Destinations = {}): AlloyManager {
-    return new AlloyManager({ lokiUrl: 'http://loki:3100', tempoUrl: null, nodeId: 'node-1', dataDir, ...destinations })
+    return new AlloyManager({ lokiUrl: 'http://loki:3100', tempoUrl: null, mimirUrl: null, nodeId: 'node-1', dataDir, ...destinations })
 }
 
 function target(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
@@ -32,17 +33,17 @@ function target(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
         vmId: 'KeUwLBZv2RFz',
         logPath: '/var/kinotic/vm-logs/9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c/*.log',
         format: LogFormat.PLAIN,
-        traces: null,
+        otlp: null,
         organizationId: 'acme',
         applicationId: null,
         ...overrides,
     }
 }
 
-/** A target whose workload elected tracing and was issued an endpoint on this node. */
+/** A target whose workload elected telemetry and was issued an endpoint on this node. */
 function traced(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
     return target({
-        traces: { listenAddress: '127.0.0.1', port: 43180, token: 'a1b2c3' },
+        otlp: { listenAddress: '127.0.0.1', port: 43180, token: 'a1b2c3' },
         ...overrides,
     })
 }
@@ -135,7 +136,7 @@ describe('applyTargets pipeline generation', () => {
     })
 })
 
-describe('trace pipeline generation', () => {
+describe('OTLP pipeline generation', () => {
 
     it('receives a workload\'s traces on its own endpoint, behind its own bearer token', async () => {
         const config = await configFor([traced()], { tempoUrl: TEMPO_URL })
@@ -167,7 +168,7 @@ describe('trace pipeline generation', () => {
         const config = await configFor([
             traced(),
             traced({ workloadId: 'ff000000-0000-4000-8000-000000000001', organizationId: null,
-                     traces: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
         ], { tempoUrl: TEMPO_URL })
 
         expect(config).toContain('"X-Scope-OrgID" = "acme"')
@@ -179,20 +180,20 @@ describe('trace pipeline generation', () => {
         const config = await configFor([
             traced(),
             traced({ workloadId: 'ff000000-0000-4000-8000-000000000001',
-                     traces: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
         ], { tempoUrl: TEMPO_URL })
 
         expect(config.match(/otelcol\.receiver\.otlp "/g)).toHaveLength(2)
         expect(config.match(/otelcol\.exporter\.otlphttp "/g)).toHaveLength(1)
     })
 
-    it('ships no traces for a workload that did not elect tracing', async () => {
+    it('ships nothing for a workload that did not elect telemetry', async () => {
         const config = await configFor([target()], { tempoUrl: TEMPO_URL })
 
         expect(config).not.toContain('otelcol.')
     })
 
-    it('ships no traces on a node without a Tempo URL, whatever a workload elected', async () => {
+    it('ships nothing on a node with neither a Tempo nor a Mimir URL, whatever a workload elected', async () => {
         const config = await configFor([traced()])
 
         expect(config).not.toContain('otelcol.')
@@ -204,6 +205,28 @@ describe('trace pipeline generation', () => {
         expect(config).toContain('otelcol.receiver.otlp')
         expect(config).not.toContain('loki.')
     })
+
+    it('ships metrics beside traces when the node has a Mimir URL', async () => {
+        const config = await configFor([traced({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL, mimirUrl: MIMIR_URL })
+
+        // Every stage carries both signals, and the tenant fans out to one exporter each
+        expect(config).toContain('    traces = [otelcol.processor.transform.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.input]')
+        expect(config).toContain('    metrics = [otelcol.processor.transform.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.input]')
+        expect(config).toContain('  metric_statements {')
+        expect(config).toContain('    metrics = [otelcol.exporter.otlphttp.metrics_tenant_61636d65.input]')
+        expect(config).toContain('otelcol.exporter.otlphttp "metrics_tenant_61636d65"')
+        expect(config).toContain('endpoint = "http://mimir:9009/otlp"')
+        expect(config).toContain('otelcol.exporter.otlphttp "traces_tenant_61636d65"')
+    })
+
+    it('ships metrics alone on a node with a Mimir URL and no Tempo URL', async () => {
+        const config = await configFor([traced()], { mimirUrl: MIMIR_URL })
+
+        expect(config).toContain('    metrics = [otelcol.processor.transform.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.input]')
+        expect(config).not.toContain('traces = [')
+        expect(config).not.toContain('trace_statements')
+        expect(config).not.toContain('traces_tenant')
+    })
 })
 
 /**
@@ -213,9 +236,9 @@ describe('trace pipeline generation', () => {
  */
 describe.skipIf(!process.env.KINOTIC_ALLOY_BIN)('generated config against a real Alloy', () => {
 
-    it('validates a pipeline shipping both log formats and the traces of two tenants', async () => {
+    it('validates a pipeline shipping both log formats and the telemetry of two tenants', async () => {
         const dataDir = mkdtempSync(join(tmpdir(), 'alloy-validate-'))
-        const alloyManager = manager(dataDir, { tempoUrl: TEMPO_URL })
+        const alloyManager = manager(dataDir, { tempoUrl: TEMPO_URL, mimirUrl: MIMIR_URL })
         try {
             await alloyManager.applyTargets([
                 traced({ applicationId: 'app-7' }),
@@ -224,7 +247,7 @@ describe.skipIf(!process.env.KINOTIC_ALLOY_BIN)('generated config against a real
                     organizationId: null,
                     logPath: '/var/lib/docker/containers/abc123/abc123-json.log',
                     format: LogFormat.DOCKER_JSON,
-                    traces: { listenAddress: '172.17.0.1', port: 43181, token: 'd4e5f6' },
+                    otlp: { listenAddress: '172.17.0.1', port: 43181, token: 'd4e5f6' },
                 }),
                 target({ workloadId: 'ff000000-0000-4000-8000-000000000002' }),
             ])
@@ -236,7 +259,8 @@ describe.skipIf(!process.env.KINOTIC_ALLOY_BIN)('generated config against a real
                                  { encoding: 'utf-8' })
 
         expect({ status: result.status, output: `${result.stdout}${result.stderr}` }).toEqual({ status: 0, output: '' })
-    })
+    // Validation loads every component's schema, which outlasts the default test timeout on a busy machine
+    }, 60_000)
 })
 
 function isAlive(pid: number): boolean {

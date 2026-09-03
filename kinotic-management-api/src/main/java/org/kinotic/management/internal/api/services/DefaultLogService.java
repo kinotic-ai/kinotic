@@ -30,11 +30,12 @@ import reactor.core.publisher.Mono;
 public class DefaultLogService implements LogService {
 
     /**
-     * Loki tenant that receives logs for platform workloads with no organization (SYSTEM scope).
-     * Must match the tenant the vm-manager's AlloyManager ships those logs under; organization
-     * ids can never take this value — ids beginning with "kinotic" are reserved for the platform.
+     * Tenant that receives the logs, traces, and metrics of platform workloads with no organization
+     * (SYSTEM scope). Must match the tenant the vm-manager's AlloyManager ships them under;
+     * organization ids can never take this value — ids beginning with "kinotic" are reserved for
+     * the platform.
      */
-    public static final String SYSTEM_LOG_TENANT = "kinotic-system";
+    public static final String SYSTEM_TENANT = "kinotic-system";
 
     private final LokiClient lokiClient;
     private final SecurityContext securityContext;
@@ -85,7 +86,7 @@ public class DefaultLogService implements LogService {
 
     private static String tenantFor(Workload workload) {
         return workload.getOrganizationId() != null ? workload.getOrganizationId()
-                                                    : SYSTEM_LOG_TENANT;
+                                                    : SYSTEM_TENANT;
     }
 
     // The id comes from the persisted workload record, so it is safe to embed in LogQL

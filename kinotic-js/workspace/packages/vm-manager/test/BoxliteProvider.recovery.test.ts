@@ -89,7 +89,7 @@ describe('BoxliteProvider recovery and restart', () => {
             vmId: target!.vmId,
             logPath: target!.logPath,
             format: LogFormat.PLAIN,
-            traces: null,
+            otlp: null,
             organizationId: 'acme',
             applicationId: null,
         }])

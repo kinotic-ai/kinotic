@@ -99,6 +99,13 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('./pages/org/OrgMembersTable.vue'),
                 props: true,
                 meta: { sidebar: organizationSidebarItem('Members', 'pi-users', 30) }
+            },
+            {
+                name: 'org-observability',
+                path: 'organizations/:organizationId/observability',
+                component: () => import('./pages/org/OrgObservabilityPage.vue'),
+                props: true,
+                meta: { sidebar: organizationSidebarItem('Observability', 'pi-chart-line', 40) }
             }
         ]
     },

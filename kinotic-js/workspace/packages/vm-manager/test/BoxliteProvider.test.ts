@@ -37,24 +37,31 @@ describe('buildBoxOptions', () => {
         })
     })
 
-    it('names the trace endpoint in the guest environment and allows its host', () => {
+    it('lays the OTLP exporter environment over the workload\'s own and allows its host', () => {
         const w = workload()
         w.network.allowedHosts = ['api.github.com']
+        w.environment = { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://elsewhere:4318' }
 
-        const options = BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', { listenAddress: '127.0.0.1', port: 43180, token: 'abc123' })
+        const options = BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180' })
 
+        // The node's endpoint wins over the workload's; the service name is the workload's to set
         expect(options.env).toMatchObject({
+            OTEL_SERVICE_NAME: 'build',
             OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180',
-            OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
-            OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer%20abc123',
-            OTEL_TRACES_EXPORTER: 'otlp',
         })
         // The host alias is a destination the workload cannot know, so the node adds it
         expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['api.github.com', '192.168.127.254'] } })
     })
 
-    it('allows a traced workload whose policy allows nothing the host alias alone', () => {
-        const options = BoxliteProvider.buildBoxOptions(workload(), '/logs/wl-1', { listenAddress: '127.0.0.1', port: 43180, token: 'abc123' })
+    it('lets the workload name its own service', () => {
+        const w = workload()
+        w.environment = { OTEL_SERVICE_NAME: 'orders' }
+
+        expect(BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', {}).env).toMatchObject({ OTEL_SERVICE_NAME: 'orders' })
+    })
+
+    it('allows a workload whose policy allows nothing the host alias alone once it holds an endpoint', () => {
+        const options = BoxliteProvider.buildBoxOptions(workload(), '/logs/wl-1', {})
 
         expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['192.168.127.254'] } })
     })

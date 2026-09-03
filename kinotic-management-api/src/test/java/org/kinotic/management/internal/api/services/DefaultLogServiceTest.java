@@ -97,7 +97,7 @@ class DefaultLogServiceTest {
     void platformWorkloadsResolveToTheSystemTenant() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.history(query("wl-platform")));
 
-        assertEquals(DefaultLogService.SYSTEM_LOG_TENANT, lokiClient.tenant);
+        assertEquals(DefaultLogService.SYSTEM_TENANT, lokiClient.tenant);
     }
 
     @Test

@@ -7,7 +7,9 @@
   "dependencies": {
     "@kinotic-ai/core": "catalog:",
     "@kinotic-ai/management-api": "catalog:",
-    "debug": "^4.4.3"
+    "debug": "^4.4.3",
+    "echarts": "^6.1.0",
+    "vue-echarts": "^8.1.0"
   },
   "peerDependencies": {
     "@primeuix/themes": "^2.0.3",

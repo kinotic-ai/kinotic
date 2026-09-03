@@ -78,11 +78,11 @@ export class Workload implements Identifiable<string> {
     /**
      * When true the node gives the VM an OTLP endpoint of its own, named in the guest
      * environment through the standard OTEL_EXPORTER_OTLP_* variables, and ships the traces
-     * the workload exports there to the organization's tenant. Only a workload whose runtime
-     * exports traces over OTLP from that environment produces any. A workload with
+     * and metrics the workload exports there to the organization's tenant. Only a workload
+     * whose runtime exports over OTLP from that environment produces any. A workload with
      * network.mode DISABLED has no way to reach the endpoint and is refused.
      */
-    public tracing: boolean = false
+    public telemetry: boolean = false
 
     /**
      * When true the VM runs detached from the vm-manager process and survives its restarts,

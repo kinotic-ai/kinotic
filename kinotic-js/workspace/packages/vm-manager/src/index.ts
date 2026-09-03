@@ -10,7 +10,7 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
-import { TraceEndpointRepository } from '@/internal/api/telemetry/TraceEndpointRepository'
+import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
 import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
@@ -26,10 +26,12 @@ if (!nodeId) {
     process.exit(1)
 }
 
-const alloyManager = config.lokiUrl || config.tempoUrl
+const shippedSignals = { traces: Boolean(config.tempoUrl), metrics: Boolean(config.mimirUrl) }
+const alloyManager = config.lokiUrl || shippedSignals.traces || shippedSignals.metrics
     ? new AlloyManager({
         lokiUrl: config.lokiUrl || null,
         tempoUrl: config.tempoUrl || null,
+        mimirUrl: config.mimirUrl || null,
         nodeId,
         dataDir: config.alloyDataDir,
     })
@@ -37,11 +39,16 @@ const alloyManager = config.lokiUrl || config.tempoUrl
 if (!config.lokiUrl) {
     console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
 }
-if (!config.tempoUrl) {
+if (!shippedSignals.traces) {
     console.warn('KINOTIC_TEMPO_URL is not set — workload trace shipping is disabled')
 }
+if (!shippedSignals.metrics) {
+    console.warn('KINOTIC_MIMIR_URL is not set — workload metric shipping is disabled')
+}
 // Endpoints are issued only where the node ships what arrives on them
-const traceEndpoints = config.tempoUrl ? new TraceEndpointRepository(config.alloyDataDir) : null
+const otlpEndpoints = shippedSignals.traces || shippedSignals.metrics
+    ? new OtlpEndpointRepository(config.alloyDataDir, shippedSignals)
+    : null
 
 let heartbeatTimer: Timer | null = null
 let shuttingDown = false
@@ -66,7 +73,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // One-shot, so it must run before anything asks for the runtime.
         getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
-                                  config.workloadDataDir, reportStatus, traceEndpoints)
+                                  config.workloadDataDir, reportStatus, otlpEndpoints)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
@@ -79,7 +86,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
                                           egress,
                                           config.workloadDns ?? null,
                                           reportStatus,
-                                          traceEndpoints)
+                                          otlpEndpoints)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }
@@ -100,8 +107,8 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
  * whose output goes nowhere is not one this node should be given, so this joins the invariants
  * the provider checks — the node keeps what it is running and stops being offered more.
  *
- * Only a node that was asked to ship can fail to: one started without KINOTIC_LOKI_URL and
- * KINOTIC_TEMPO_URL has already said so at startup.
+ * Only a node that was asked to ship can fail to: one started without KINOTIC_LOKI_URL,
+ * KINOTIC_TEMPO_URL, and KINOTIC_MIMIR_URL has already said so at startup.
  */
 function shippingProblems(): string[] {
     const problem = alloyManager?.shippingProblem() ?? null
@@ -196,8 +203,8 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
-    // Resume shipping the recovered workloads' logs and traces, which also downloads and
-    // launches Alloy here rather than inside whichever startWorkload call arrives first
+    // Resume shipping the recovered workloads' telemetry, which also downloads and launches
+    // Alloy here rather than inside whichever startWorkload call arrives first
     await vmManager.refreshShipping()
 
     // Build registration info from system resources
