@@ -29,4 +29,20 @@ public class UiDeploymentProperties {
      */
     private String sitesDomain;
 
+    /**
+     * Id of the Azure DNS zone that holds {@link #sitesDomain}, where each site's CNAME and
+     * validation TXT records are written.
+     */
+    private String dnsZoneId;
+
+    /**
+     * Id of the Front Door Standard profile every site is served through.
+     */
+    private String frontDoorProfileId;
+
+    /**
+     * Host name of the profile's endpoint, the target of every site's CNAME.
+     */
+    private String frontDoorEndpointHostName;
+
 }

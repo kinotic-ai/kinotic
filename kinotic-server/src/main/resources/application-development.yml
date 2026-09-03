@@ -20,6 +20,10 @@ kinotic:
     organizationStorage:
       disableProvisioner: true
       azuriteConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+    # No Front Door in development: published UIs are marked ready without a site
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
   systemApi:
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.

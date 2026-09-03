@@ -16,7 +16,8 @@ public interface UiDeploymentProvisioner {
      * Starts serving the deployment at its hostname, creating whatever the organization's
      * first site needs. Returns the deployment with its status set: ready when serving at
      * once, provisioning while the hostname is still being validated, failed with the reason
-     * otherwise.
+     * otherwise. Idempotent: provisioning a deployment again completes whatever an earlier
+     * attempt left missing, and validates a hostname again whose validation lapsed.
      *
      * @param deployment   the deployment, already persisted with its label as id
      * @param organization the organization whose storage the site serves from
@@ -35,13 +36,12 @@ public interface UiDeploymentProvisioner {
     Future<UiDeployment> checkProvisioning(UiDeployment deployment);
 
     /**
-     * Stops serving the deployment and removes everything created for it. What is already
-     * gone is not a failure.
+     * Stops serving the deployment and removes everything created for it alone; what the
+     * organization's other sites share stays. What is already gone is not a failure.
      *
-     * @param deployment   the deployment being removed
-     * @param organization the organization the site belonged to
+     * @param deployment the deployment being removed
      * @return a future completing when nothing of the site remains
      */
-    Future<Void> remove(UiDeployment deployment, Organization organization);
+    Future<Void> remove(UiDeployment deployment);
 
 }

@@ -33,7 +33,7 @@ public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
     }
 
     @Override
-    public Future<Void> remove(UiDeployment deployment, Organization organization) {
+    public Future<Void> remove(UiDeployment deployment) {
         return Future.succeededFuture();
     }
 

@@ -28,6 +28,18 @@ public interface OrganizationStorageService {
     Future<String> issueUploadUrl(Organization organization, String applicationId, Duration ttl);
 
     /**
+     * Issues the token the serving layer reads the organization's published UIs with: a
+     * container SAS, as a query string without the leading {@code ?}, that allows reading any
+     * blob in the container until {@code ttl} has passed. Signed with the account's key, so it
+     * may last years where a delegation key is limited to days.
+     *
+     * @param organization the organization whose storage is read
+     * @param ttl          how long the SAS stays valid
+     * @return a future emitting the SAS query string
+     */
+    Future<String> issueReadToken(Organization organization, Duration ttl);
+
+    /**
      * Whether any blob exists under the prefix.
      */
     Future<Boolean> exists(Organization organization, String prefix);

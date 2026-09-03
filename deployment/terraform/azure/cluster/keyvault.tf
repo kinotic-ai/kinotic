@@ -93,6 +93,24 @@ resource "azurerm_role_assignment" "kinotic_server_blob_private_dns" {
   principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
 }
 
+# ── UI sites access ───────────────────────────────────────────────────────────
+# kinotic-server serves each published UI through the shared Front Door profile
+# (FrontDoorUiDeploymentProvisioner): per organization an origin group, origin and rule
+# set, per site a custom domain and route, and per site a CNAME and validation TXT in
+# the platform DNS zone.
+
+resource "azurerm_role_assignment" "kinotic_server_frontdoor" {
+  scope                = azurerm_cdn_frontdoor_profile.sites.id
+  role_definition_name = "CDN Profile Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
+resource "azurerm_role_assignment" "kinotic_server_sites_dns" {
+  scope                = local.global.dns_zone_id
+  role_definition_name = "DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
 output "key_vault_url" {

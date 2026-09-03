@@ -2,7 +2,6 @@ package org.kinotic.management.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
-import com.azure.core.management.exception.ManagementException;
 import com.azure.core.management.profile.AzureProfile;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.resourcemanager.network.NetworkManager;
@@ -177,7 +176,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
 
     private Mono<StorageAccount> ensureAccount(StorageManager storage, String accountName, String organizationId) {
         return storage.storageAccounts().getByResourceGroupAsync(properties.getResourceGroup(), accountName)
-                      .onErrorResume(AzureOrganizationStorageProvisioner::isNotFound, error -> Mono.empty())
+                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
                       .switchIfEmpty(Mono.defer(() -> storage.storageAccounts()
                               .define(accountName)
                               .withRegion(properties.getLocation())
@@ -188,17 +187,18 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                               .withMinimumTlsVersion(MinimumTlsVersion.TLS1_2)
                               .withOnlyHttpsTraffic()
                               .disableBlobPublicAccess()
-                              // the private endpoint is the platform's way in; what reaches the
-                              // account from outside is decided by the serving layer's origin rules
-                              .withAccessFromSelectedNetworks()
-                              .withAccessFromAzureServices()
+                              // Front Door reads the account over its public endpoint from addresses
+                              // the storage firewall cannot name, so the network stays open and every
+                              // read is authorized by the SAS its rule set carries; the platform itself
+                              // comes in through the private endpoint
+                              .withAccessFromAllNetworks()
                               .withTag("org", organizationId)
                               .createAsync()));
     }
 
     private Mono<BlobContainer> ensureContainer(StorageManager storage, String accountName) {
         return storage.blobContainers().getAsync(properties.getResourceGroup(), accountName, UI_CONTAINER)
-                      .onErrorResume(AzureOrganizationStorageProvisioner::isNotFound, error -> Mono.empty())
+                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
                       .switchIfEmpty(Mono.defer(() -> storage.blobContainers()
                               .defineContainer(UI_CONTAINER)
                               .withExistingStorageAccount(properties.getResourceGroup(), accountName)
@@ -214,7 +214,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     private Mono<String> ensurePrivateEndpoint(NetworkManager network, StorageAccount account) {
         String endpointName = "pe-" + account.name();
         return network.privateEndpoints().getByResourceGroupAsync(properties.getResourceGroup(), endpointName)
-                      .onErrorResume(AzureOrganizationStorageProvisioner::isNotFound, error -> Mono.empty())
+                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
                       .switchIfEmpty(Mono.defer(() -> network.privateEndpoints()
                               .define(endpointName)
                               .withRegion(properties.getLocation())
@@ -245,12 +245,6 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
 
     private <T> Future<T> bridge(Mono<T> mono) {
         return Future.fromCompletionStage(mono.toFuture(), vertx.getOrCreateContext());
-    }
-
-    private static boolean isNotFound(Throwable error) {
-        return error instanceof ManagementException management
-                && management.getResponse() != null
-                && management.getResponse().getStatusCode() == 404;
     }
 
     /** Spreads organizations over the configured subscriptions deterministically, so a retry lands in the same one. */
