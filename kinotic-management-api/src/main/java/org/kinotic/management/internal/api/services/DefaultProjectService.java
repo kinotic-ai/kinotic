@@ -5,9 +5,11 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
+import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.domain.internal.api.services.AbstractApplicationScopedService;
@@ -30,17 +32,20 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
 
     private final ProjectRepository projectRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final ProjectRepoProvisioner repoProvisioner;
     private final ParticipantIdentityService participantIdentityService;
 
     public DefaultProjectService(ProjectRepository repository,
                                  SecurityContext securityContext,
                                  ProjectDeploymentRepository projectDeploymentRepository,
+                                 MicroserviceDeploymentRepository microserviceDeploymentRepository,
                                  ProjectRepoProvisioner repoProvisioner,
                                  ParticipantIdentityService participantIdentityService) {
         super(repository, securityContext);
         this.projectRepository = repository;
         this.projectDeploymentRepository = projectDeploymentRepository;
+        this.microserviceDeploymentRepository = microserviceDeploymentRepository;
         this.repoProvisioner = repoProvisioner;
         this.participantIdentityService = participantIdentityService;
     }
@@ -98,18 +103,25 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                         // The machines outlive the project unless they go with it, and they
                         // hold the organization's authority. ParticipantIdentityService's own
                         // beforeDelete cascades each one's stored credential. The checkout and
-                        // the runtime workload on the node are system-side resources this
-                        // management-plane delete cannot reach — deleting the runtime machine
-                        // is what cuts an orphaned guest off, on its next reconnect.
-                        ret = deleteMachines(deployment.getSyncMachineIdentityId(), deployment.getRuntimeMachineIdentityId())
+                        // the runtime workloads on the node are system-side resources this
+                        // management-plane delete cannot reach — deleting a microservice's
+                        // machine is what cuts an orphaned guest off, on its next reconnect.
+                        ret = microserviceDeploymentRepository.findAllForProject(projectId)
+                                .compose(microservices -> deleteMachines(Stream.concat(
+                                                Stream.of(deployment.getSyncMachineIdentityId()),
+                                                microservices.stream().map(MicroserviceDeployment::getMachineIdentityId)).toList())
+                                        .compose(v -> Future.all(microservices.stream()
+                                                                              .map(microservice -> microserviceDeploymentRepository.deleteById(microservice.getId()))
+                                                                              .toList()))
+                                        .mapEmpty())
                                 .compose(v -> projectDeploymentRepository.deleteById(projectId, organizationId));
                     }
                     return ret;
                 });
     }
 
-    private Future<Void> deleteMachines(String syncMachineIdentityId, String runtimeMachineIdentityId) {
-        List<Future<Void>> deletes = Stream.of(syncMachineIdentityId, runtimeMachineIdentityId)
+    private Future<Void> deleteMachines(List<String> machineIdentityIds) {
+        List<Future<Void>> deletes = machineIdentityIds.stream()
                                            .filter(Objects::nonNull)
                                            .map(participantIdentityService::deleteById)
                                            .toList();

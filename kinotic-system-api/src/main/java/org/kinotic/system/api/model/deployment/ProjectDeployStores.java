@@ -24,8 +24,11 @@ public final class ProjectDeployStores {
      */
     public static final String SYNC_WORKLOAD_ID = "syncWorkloadId";
 
-    /** The id of the runtime workload serving the deployment. */
-    public static final String RUNTIME_WORKLOAD_ID = "runtimeWorkloadId";
+    /**
+     * The {@link MicroserviceDeployments} the run left the project with, one per microservice
+     * of the project, ensured or orphaned.
+     */
+    public static final String MICROSERVICE_DEPLOYMENTS = "microserviceDeployments";
 
     private ProjectDeployStores() {
     }

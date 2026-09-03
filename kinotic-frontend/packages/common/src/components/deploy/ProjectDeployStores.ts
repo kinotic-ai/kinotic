@@ -4,7 +4,6 @@ import type { JobTaskNode } from '../grind/JobTaskNode'
 export interface DeployTarget {
   nodeId: string
   hostDir: string
-  runtimeWorkloadId: string | null
   syncWorkloadId: string
 }
 
@@ -37,6 +36,7 @@ export default class ProjectDeployStores {
 
   public static readonly ARTIFACTS = 'artifacts'
   public static readonly DEPLOY_TARGET = 'deployTarget'
+  public static readonly MICROSERVICE_DEPLOYMENTS = 'microserviceDeployments'
   public static readonly SYNC_WORKLOAD_ID = 'syncWorkloadId'
 
   /** The artifacts the task bound into the run, or null while the task has not completed. */

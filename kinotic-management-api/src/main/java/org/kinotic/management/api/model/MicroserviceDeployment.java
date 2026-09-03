@@ -53,6 +53,12 @@ public class MicroserviceDeployment implements Identifiable<String> {
     private String machineIdentityId;
 
     /**
+     * The module the workload was started with, relative to the checkout root: the artifact's
+     * directory joined with its entry. A commit that moves the entry replaces the workload.
+     */
+    private String entry;
+
+    /**
      * Sha of the commit the deployment was last ensured for.
      */
     private String commitSha;

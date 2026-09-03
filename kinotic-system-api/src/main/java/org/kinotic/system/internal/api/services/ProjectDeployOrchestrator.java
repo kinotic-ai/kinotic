@@ -39,7 +39,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * qualifying push as a grind job created by {@link ProjectDeployJobDefinitionFactory},
  * and records the outcome on the project's {@link ProjectDeployment}. The project's own
  * repository has no CI — this job is it, so a commit whose build fails never reaches the
- * runtime workload.
+ * runtime workloads.
  * <p>
  * Deployments are serialized per project with latest-wins: pushes arriving while a
  * deployment runs collapse to the newest commit, which deploys next — intermediate commits
@@ -144,10 +144,9 @@ public class ProjectDeployOrchestrator {
                                              JobOwner.ofApplication(project.getOrganizationId(),
                                                                     project.getApplicationId()));
 
-        // Captured from the run's TaskCompletedEvents as the tasks store them in the job
-        // scope, so the outcome record reflects how far the run got whatever the outcome
+        // Captured from the run's TaskCompletedEvents as the task stores it in the job scope,
+        // so the outcome record reflects how far the run got whatever the outcome
         AtomicReference<DeployTarget> target = new AtomicReference<>();
-        AtomicReference<String> runtimeWorkloadId = new AtomicReference<>();
 
         Promise<Void> outcome = Promise.promise();
         recordDeploying(project, existing, handle.getJobRunId())
@@ -160,17 +159,14 @@ public class ProjectDeployOrchestrator {
                                 if (ProjectDeployStores.DEPLOY_TARGET.equals(completed.storedName())
                                         && completed.storedValue() instanceof DeployTarget resolved) {
                                     target.set(resolved);
-                                } else if (ProjectDeployStores.RUNTIME_WORKLOAD_ID.equals(completed.storedName())
-                                        && completed.storedValue() instanceof String workloadId) {
-                                    runtimeWorkloadId.set(workloadId);
                                 }
                             }
                         },
-                        error -> recordOutcome(deployment, target.get(), runtimeWorkloadId.get(), null,
+                        error -> recordOutcome(deployment, target.get(), null,
                                                new ProjectDeploymentStatus(ProjectDeploymentStatusType.FAILED,
                                                                            error.getMessage()))
                                 .onComplete(unused -> outcome.fail(error)),
-                        () -> recordOutcome(deployment, target.get(), runtimeWorkloadId.get(), commitSha,
+                        () -> recordOutcome(deployment, target.get(), commitSha,
                                             new ProjectDeploymentStatus(ProjectDeploymentStatusType.RUNNING, null))
                                 .<Void>mapEmpty()
                                 .onComplete(outcome)));
@@ -191,12 +187,12 @@ public class ProjectDeployOrchestrator {
 
     private Future<ProjectDeployment> recordOutcome(ProjectDeployment deployment,
                                                     DeployTarget target,
-                                                    String runtimeWorkloadId,
                                                     String syncedCommitSha,
                                                     ProjectDeploymentStatus status) {
-        // The run's own tasks write to this record — provisioning a machine records its id
-        // before handing the credential out — so the copy captured before the job started is
-        // stale by now and writing it back would drop what they wrote.
+        // The run's own tasks write to this record — provisioning the sync machine records its
+        // id before handing the credential out, the sync workload reports the artifacts — so the
+        // copy captured before the job started is stale by now and writing it back would drop
+        // what they wrote.
         return projectDeploymentRepository.findById(deployment.getId(), deployment.getOrganizationId())
                 .map(current -> current != null ? current : deployment)
                 .compose(current -> {
@@ -204,9 +200,6 @@ public class ProjectDeployOrchestrator {
                         current.setNodeId(target.nodeId());
                         current.setHostDir(target.hostDir());
                         current.setSyncWorkloadId(target.syncWorkloadId());
-                    }
-                    if (runtimeWorkloadId != null) {
-                        current.setRuntimeWorkloadId(runtimeWorkloadId);
                     }
                     if (syncedCommitSha != null) {
                         current.setCommitSha(syncedCommitSha);

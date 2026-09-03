@@ -42,6 +42,12 @@ export class MicroserviceDeployment implements Identifiable<string> {
     public machineIdentityId: string | null = null
 
     /**
+     * The module the workload was started with, relative to the checkout root: the artifact's
+     * directory joined with its entry. A commit that moves the entry replaces the workload.
+     */
+    public entry: string | null = null
+
+    /**
      * Sha of the commit the deployment was last ensured for.
      */
     public commitSha: string | null = null

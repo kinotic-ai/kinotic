@@ -10,10 +10,11 @@ import lombok.experimental.Accessors;
 import java.util.Date;
 
 /**
- * Records where a {@link Project}'s code is deployed: the node holding the checkout, the
- * long-lived workload serving it, and the commit currently live. One row per project;
- * {@link #id} equals the project id. Absence of a row means the project has never been
- * deployed.
+ * Records where a {@link Project}'s code is deployed: the node holding the checkout, the sync
+ * workload and identity of its deployments, the artifacts of the synced commit, and the commit
+ * currently live. The microservices themselves are recorded one per
+ * {@link MicroserviceDeployment}. One row per project; {@link #id} equals the project id.
+ * Absence of a row means the project has never been deployed.
  */
 @Getter
 @Setter
@@ -31,21 +32,16 @@ public class ProjectDeployment implements ApplicationScoped<String> {
     private String applicationId;
 
     /**
-     * The id of the node hosting the project's checkout directory and runtime workload.
+     * The id of the node hosting the project's checkout directory and every workload of its
+     * deployments.
      */
     private String nodeId;
 
     /**
      * Absolute path on the node of the host directory holding the project's checkout.
-     * The sync workload mounts it read-write; the runtime workload mounts it read-only.
+     * The sync workload mounts it read-write; the runtime workloads mount it read-only.
      */
     private String hostDir;
-
-    /**
-     * The id of the long-lived workload running the project's microservices, or
-     * {@code null} while the first deployment is still in progress.
-     */
-    private String runtimeWorkloadId;
 
     /**
      * The id of the sync workload of the most recent deployment run, kept with its logs
@@ -59,13 +55,6 @@ public class ProjectDeployment implements ApplicationScoped<String> {
      * before the project's first deployment. Its secret is reissued for every deployment.
      */
     private String syncMachineIdentityId;
-
-    /**
-     * The id of the machine identity the runtime workload authenticates as, or {@code null}
-     * while the first deployment is still in progress. Its secret is issued once, with the
-     * workload it belongs to.
-     */
-    private String runtimeMachineIdentityId;
 
     /**
      * Sha of the last commit successfully synced to the node.

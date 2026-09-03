@@ -45,10 +45,8 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     applicationId KEYWORD,
     nodeId KEYWORD,
     hostDir KEYWORD,
-    runtimeWorkloadId KEYWORD,
     syncWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
-    runtimeMachineIdentityId KEYWORD,
     commitSha KEYWORD,
     artifacts OBJECT (
         microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
@@ -70,6 +68,7 @@ CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
     name KEYWORD,
     workloadId KEYWORD,
     machineIdentityId KEYWORD,
+    entry KEYWORD,
     commitSha KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),
     created DATE,
