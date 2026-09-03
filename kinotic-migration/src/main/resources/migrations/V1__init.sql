@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
     name KEYWORD,
     workloadId KEYWORD,
     machineIdentityId KEYWORD,
-    entry KEYWORD,
+    entryPoint KEYWORD,
     commitSha KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),
     created DATE,

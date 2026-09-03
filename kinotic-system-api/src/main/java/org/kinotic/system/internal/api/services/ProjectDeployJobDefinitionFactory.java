@@ -366,7 +366,7 @@ public class ProjectDeployJobDefinitionFactory {
                                                               MicroserviceArtifact artifact,
                                                               MicroserviceDeployment existing,
                                                               String commitSha) {
-        String entry = artifact.dir() + "/" + artifact.entry();
+        String entryPoint = artifact.dir() + "/" + artifact.entry();
         Future<MicroserviceDeployment> deployment;
         if (existing != null) {
             deployment = Future.succeededFuture(existing);
@@ -382,9 +382,9 @@ public class ProjectDeployJobDefinitionFactory {
                     .setCreated(new Date())
                     .setUpdated(new Date()));
         }
-        return deployment.compose(current -> ensureWorkload(project, target, current, entry)
+        return deployment.compose(current -> ensureWorkload(project, target, current, entryPoint)
                 .map(workloadId -> current.setWorkloadId(workloadId)
-                                          .setEntry(entry)
+                                          .setEntryPoint(entryPoint)
                                           .setStatus(new MicroserviceDeploymentStatus(MicroserviceDeploymentStatusType.DEPLOYED)))
                 .recover(error -> {
                     log.error("Microservice {} of project {} could not be deployed", artifact.name(), project.getId(), error);
@@ -397,19 +397,19 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Leaves the microservice with a running workload: the recorded one when it is up and still
-     * starts the same entry, otherwise a new one.
+     * starts the same entry point, otherwise a new one.
      */
-    private Future<String> ensureWorkload(Project project, DeployTarget target, MicroserviceDeployment deployment, String entry) {
+    private Future<String> ensureWorkload(Project project, DeployTarget target, MicroserviceDeployment deployment, String entryPoint) {
         Future<String> ret;
         if (deployment.getWorkloadId() == null) {
-            ret = deployRuntimeWorkload(project, target, deployment, entry);
+            ret = deployRuntimeWorkload(project, target, deployment, entryPoint);
         } else {
             ret = workloadService.findById(deployment.getWorkloadId())
                     .compose(existing -> {
                         Future<String> ensured;
                         WorkloadStatus status = existing != null ? existing.getStatus() : null;
                         boolean running = status == WorkloadStatus.RUNNING || status == WorkloadStatus.STARTING;
-                        if (running && entry.equals(deployment.getEntry())) {
+                        if (running && entryPoint.equals(deployment.getEntryPoint())) {
                             // The running supervisor picks the new commit up through the
                             // reload sentinel the sync workload wrote — nothing to deploy
                             ensured = Future.succeededFuture(existing.getId());
@@ -420,9 +420,9 @@ public class ProjectDeployJobDefinitionFactory {
                                                  existing.getId(), deployment.getName(), project.getId(), error.getMessage());
                                         return Future.succeededFuture();
                                     })
-                                    .compose(v -> deployRuntimeWorkload(project, target, deployment, entry));
+                                    .compose(v -> deployRuntimeWorkload(project, target, deployment, entryPoint));
                         } else {
-                            ensured = deployRuntimeWorkload(project, target, deployment, entry);
+                            ensured = deployRuntimeWorkload(project, target, deployment, entryPoint);
                         }
                         return ensured;
                     });
@@ -433,10 +433,10 @@ public class ProjectDeployJobDefinitionFactory {
     private Future<String> deployRuntimeWorkload(Project project,
                                                  DeployTarget target,
                                                  MicroserviceDeployment deployment,
-                                                 String entry) {
+                                                 String entryPoint) {
         return projectDeployIdentityService.issueRuntimeCredentials(project, deployment)
                 .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                        runtimeWorkload(project, target, deployment.getName(), entry, credentials)))
+                        runtimeWorkload(project, target, deployment.getName(), entryPoint, credentials)))
                 .map(Workload::getId);
     }
 
@@ -669,7 +669,7 @@ public class ProjectDeployJobDefinitionFactory {
     private Workload runtimeWorkload(Project project,
                                      DeployTarget target,
                                      String microserviceName,
-                                     String entry,
+                                     String entryPoint,
                                      MachineProvisionResult credentials) {
         DeploymentProperties deployment = deployment();
         Workload workload = new Workload("project-runtime-" + project.getId() + "-" + microserviceName,
@@ -679,7 +679,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
-        workload.getEnvironment().put("KINOTIC_APP_ENTRY", entry);
+        workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
         putKinoticConnection(workload, deployment, credentials);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/app")

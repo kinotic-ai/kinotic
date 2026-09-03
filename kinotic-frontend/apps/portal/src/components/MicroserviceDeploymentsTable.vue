@@ -17,8 +17,8 @@
         </span>
       </template>
     </Column>
-    <Column header="Entry" style="width: 30%">
-      <template #body="{ data }"><span class="font-mono text-xs">{{ data.entry ?? '—' }}</span></template>
+    <Column header="Entry point" style="width: 30%">
+      <template #body="{ data }"><span class="font-mono text-xs">{{ data.entryPoint ?? '—' }}</span></template>
     </Column>
     <Column style="width: 26%">
       <template #body="{ data }">

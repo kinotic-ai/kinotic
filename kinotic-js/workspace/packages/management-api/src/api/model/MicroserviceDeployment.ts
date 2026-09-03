@@ -43,9 +43,10 @@ export class MicroserviceDeployment implements Identifiable<string> {
 
     /**
      * The module the workload was started with, relative to the checkout root: the artifact's
-     * directory joined with its entry. A commit that moves the entry replaces the workload.
+     * directory joined with its entry. A commit that moves the entry point replaces the
+     * workload.
      */
-    public entry: string | null = null
+    public entryPoint: string | null = null
 
     /**
      * Sha of the commit the deployment was last ensured for.
