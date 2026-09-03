@@ -18,7 +18,7 @@
       <div class="mb-4 flex flex-wrap items-center gap-4">
         <Tag :value="deployment.status.type" :severity="deploymentStatusSeverity(deployment.status.type)" />
         <span v-if="deployment.commitSha" class="font-mono text-sm text-muted-color"
-              :title="deployment.commitSha">{{ deployment.commitSha.slice(0, 12) }}</span>
+              :title="deployment.commitSha">{{ shortSha(deployment.commitSha) }}</span>
         <span v-if="deployment.updated" class="text-xs text-muted-color">
           Updated {{ DatetimeUtil.formatRelativeDate(deployment.updated) }}
         </span>
@@ -105,7 +105,7 @@ import Tag from 'primevue/tag'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
-         WorkloadLogsDialog, showErrorToast } from '@kinotic-ai/frontend-common'
+         WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import { MicroserviceDeploymentStatusType,
          ProjectDeploymentStatusType,
@@ -172,20 +172,24 @@ async function loadDeployment(): Promise<void> {
 }
 
 async function loadDetails(): Promise<void> {
-  await loadUis()
-  microservices.value = await Kinotic.microserviceDeployments.findAllForProject(props.projectId)
+  const [listedUis, listedMicroservices, listedMachines] = await Promise.all([
+    Kinotic.uiDeployments.findAllForProject(props.projectId),
+    Kinotic.microserviceDeployments.findAllForProject(props.projectId),
+    Kinotic.machines.findProjectMachines(props.projectId),
+  ])
+  uis.value = listedUis
+  microservices.value = listedMicroservices
   // each machine is labelled by the deployment record that names it
   const usedFor = new Map<string, string>()
   if (deployment.value?.syncMachineIdentityId) {
     usedFor.set(deployment.value.syncMachineIdentityId, 'Checkout and entity sync')
   }
-  for (const microservice of microservices.value) {
+  for (const microservice of listedMicroservices) {
     if (microservice.machineIdentityId) {
       usedFor.set(microservice.machineIdentityId, `Microservice ${microservice.name}`)
     }
   }
-  const listed = await Kinotic.machines.findProjectMachines(props.projectId)
-  machines.value = listed.map(machine => ({ ...machine, usedFor: (machine.id && usedFor.get(machine.id)) ?? '' }))
+  machines.value = listedMachines.map(machine => ({ ...machine, usedFor: (machine.id && usedFor.get(machine.id)) ?? '' }))
 }
 
 async function loadUis(): Promise<void> {
@@ -210,21 +214,10 @@ function confirmRestart(microservice: MicroserviceDeployment): void {
 }
 
 function confirmRemove(microservice: MicroserviceDeployment): void {
-  // an orphaned microservice is one the commit already dropped, so retiring it needs no confirmation
-  if (microservice.status.type === MicroserviceDeploymentStatusType.ORPHANED) {
-    void run(() => Kinotic.microserviceDeployments.remove(microservice.id!),
-             `${microservice.name} removed`, `Failed to remove ${microservice.name}`)
-  } else {
-    confirm.require({
-      header: 'Remove microservice',
-      message: `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Remove', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => run(() => Kinotic.microserviceDeployments.remove(microservice.id!),
-                        `${microservice.name} removed`, `Failed to remove ${microservice.name}`)
-    })
-  }
+  confirmRemoval(microservice.name, microservice.status.type === MicroserviceDeploymentStatusType.ORPHANED,
+                 'Remove microservice',
+                 `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
+                 () => Kinotic.microserviceDeployments.remove(microservice.id!))
 }
 
 function retryUi(ui: UiDeployment): void {
@@ -233,17 +226,24 @@ function retryUi(ui: UiDeployment): void {
 }
 
 function confirmRemoveUi(ui: UiDeployment): void {
-  // an orphaned UI is one the commit already dropped, so taking its site down needs no confirmation
-  if (ui.status.type === UiDeploymentStatusType.ORPHANED) {
-    void run(() => Kinotic.uiDeployments.remove(ui.id!), `${ui.name} removed`, `Failed to remove ${ui.name}`)
+  confirmRemoval(ui.name, ui.status.type === UiDeploymentStatusType.ORPHANED, 'Remove UI',
+                 `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
+                 () => Kinotic.uiDeployments.remove(ui.id!))
+}
+
+function confirmRemoval(name: string, orphaned: boolean, header: string, message: string, action: () => Promise<void>): void {
+  const remove = () => run(action, `${name} removed`, `Failed to remove ${name}`)
+  // an orphaned artifact is one the commit already dropped, so retiring it needs no confirmation
+  if (orphaned) {
+    void remove()
   } else {
     confirm.require({
-      header: 'Remove UI',
-      message: `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
+      header,
+      message,
       icon: 'pi pi-exclamation-triangle',
       acceptProps: { label: 'Remove', severity: 'danger' },
       rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => run(() => Kinotic.uiDeployments.remove(ui.id!), `${ui.name} removed`, `Failed to remove ${ui.name}`)
+      accept: remove
     })
   }
 }
@@ -260,18 +260,6 @@ async function run(action: () => Promise<unknown>, success: string, failure: str
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
   }
-}
-
-function deploymentStatusSeverity(type: ProjectDeploymentStatusType): string {
-  let ret: string
-  if (type === ProjectDeploymentStatusType.RUNNING) {
-    ret = 'success'
-  } else if (type === ProjectDeploymentStatusType.FAILED) {
-    ret = 'danger'
-  } else {
-    ret = 'info'
-  }
-  return ret
 }
 
 const pollTimer = setInterval(() => { void loadDeployment() }, POLL_INTERVAL_MS)

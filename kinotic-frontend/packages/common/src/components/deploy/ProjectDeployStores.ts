@@ -1,3 +1,4 @@
+import type { ProjectArtifacts } from '@kinotic-ai/management-api'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 
 /** Mirrors DeployTarget on the server: what a deployment run's first task decided. */
@@ -6,25 +7,6 @@ export interface DeployTarget {
   hostDir: string
   syncWorkloadId: string
   uiPublishWorkloadId: string
-}
-
-/** Mirrors MicroserviceArtifact on the server: one microservice of the deployed commit. */
-export interface MicroserviceArtifact {
-  name: string
-  dir: string
-  entry: string
-}
-
-/** Mirrors UiArtifact on the server: one UI of the deployed commit. */
-export interface UiArtifact {
-  name: string
-  dir: string
-}
-
-/** Mirrors ProjectArtifacts on the server: what the sync workload found in the deployed commit. */
-export interface ProjectArtifacts {
-  microservices: MicroserviceArtifact[]
-  uis: UiArtifact[]
 }
 
 /**
@@ -37,7 +19,6 @@ export default class ProjectDeployStores {
 
   public static readonly ARTIFACTS = 'artifacts'
   public static readonly DEPLOY_TARGET = 'deployTarget'
-  public static readonly MICROSERVICE_DEPLOYMENTS = 'microserviceDeployments'
   public static readonly SYNC_WORKLOAD_ID = 'syncWorkloadId'
   public static readonly UI_DEPLOYMENTS = 'uiDeployments'
 

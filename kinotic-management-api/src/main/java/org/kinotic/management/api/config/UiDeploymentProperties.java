@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.apache.commons.lang3.Validate;
 
 /**
  * Where the platform serves each published UI from, bound under
@@ -44,5 +45,20 @@ public class UiDeploymentProperties {
      * Host name of the profile's endpoint, the target of every site's CNAME.
      */
     private String frontDoorEndpointHostName;
+
+    /**
+     * The hostname a site with the given label is served at.
+     */
+    public String resolveHostname(String label) {
+        Validate.notBlank(sitesDomain, "kinotic.managementApi.uiDeployment.sitesDomain is required");
+        return label + "." + sitesDomain;
+    }
+
+    /**
+     * Where a site with the given label is served.
+     */
+    public String resolveSiteUrl(String label) {
+        return "https://" + resolveHostname(label);
+    }
 
 }

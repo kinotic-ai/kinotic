@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * Stores {@link MicroserviceDeployment}s, the standing deployments of a project's microservice
- * artifacts, looked up by project and by artifact name.
+ * artifacts, listed by project.
  */
 @Component
 public class MicroserviceDeploymentRepository extends AbstractRepository<MicroserviceDeployment> {
@@ -23,21 +23,6 @@ public class MicroserviceDeploymentRepository extends AbstractRepository<Microse
 
     public MicroserviceDeploymentRepository(CrudServiceTemplate crudServiceTemplate) {
         super("kinotic_microservice_deployment", MicroserviceDeployment.class, crudServiceTemplate);
-    }
-
-    /**
-     * Finds the deployment of the named microservice of the project.
-     *
-     * @param projectId the project the microservice belongs to
-     * @param name      the microservice's artifact name
-     * @return a future emitting the deployment, or {@code null} when the project has none by
-     *         that name
-     */
-    public Future<MicroserviceDeployment> findByProjectAndName(String projectId, String name) {
-        Validate.notBlank(projectId, "projectId cannot be blank");
-        Validate.notBlank(name, "name cannot be blank");
-        return findFirst(b -> b.query(composeFilter(termFilter("projectId", projectId),
-                                                    termFilter("name", name))));
     }
 
     /**

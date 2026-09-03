@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
 
@@ -17,7 +17,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class UiDeployment implements Identifiable<String> {
+public class UiDeployment implements OrganizationScoped<String> {
 
     /**
      * The site's hostname label under the platform's sites domain, minted once when the UI

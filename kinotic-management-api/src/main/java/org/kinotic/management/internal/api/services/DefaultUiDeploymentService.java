@@ -8,8 +8,8 @@ import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.UiDeploymentStatus;
 import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.OrganizationStorageService;
@@ -62,12 +62,12 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
                 && deployment.getUpdated().getTime() < System.currentTimeMillis() - STALE_PROVISIONING_MS;
     }
 
-    // A check that fails leaves the row as it is; the next listing checks again
+    // Saved even while still provisioning: staleProvisioning reads updated, so the listings of
+    // the next STALE_PROVISIONING_MS list the row without asking the provisioner again. A check
+    // that fails leaves the row as it is; the next listing checks again
     private Future<UiDeployment> advance(UiDeployment deployment) {
         return uiDeploymentProvisioner.checkProvisioning(deployment)
-                .compose(checked -> checked.getStatus().type() == UiDeploymentStatusType.PROVISIONING
-                        ? Future.succeededFuture(checked)
-                        : uiDeploymentRepository.save(checked.setUpdated(new Date())))
+                .compose(checked -> uiDeploymentRepository.save(checked.setUpdated(new Date())))
                 .recover(error -> {
                     log.warn("Site {} could not be checked: {}", deployment.getId(), error.getMessage());
                     return Future.succeededFuture(deployment);
@@ -80,11 +80,6 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
         return loadOwned(deploymentId, participant)
                 .compose(deployment -> organization(deployment)
                         .compose(organization -> uiDeploymentProvisioner.provision(deployment, organization))
-                        .recover(error -> {
-                            log.error("Site {} could not be provisioned", deployment.getId(), error);
-                            return Future.succeededFuture(deployment.setStatus(
-                                    new UiDeploymentStatus(UiDeploymentStatusType.FAILED, error.getMessage())));
-                        })
                         .compose(row -> uiDeploymentRepository.save(row.setUpdated(new Date()))));
     }
 
@@ -133,12 +128,7 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
     private Future<UiDeployment> loadOwned(String deploymentId, OrganizationParticipant participant) {
         Validate.notBlank(deploymentId, "deploymentId is required");
         return uiDeploymentRepository.findById(deploymentId)
-                .map(deployment -> {
-                    if (deployment == null || !participant.getOrganizationId().equals(deployment.getOrganizationId())) {
-                        throw new IllegalArgumentException("UI deployment not found.");
-                    }
-                    return deployment;
-                });
+                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "UI deployment not found."));
     }
 
     private OrganizationParticipant requireOrgParticipant() {

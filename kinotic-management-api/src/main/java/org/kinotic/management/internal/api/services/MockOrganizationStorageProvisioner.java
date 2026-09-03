@@ -4,14 +4,15 @@ import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.OrganizationStorage;
 import org.kinotic.domain.api.model.OrganizationStorageStatus;
 import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.config.OrganizationStorageProperties;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -27,21 +28,14 @@ import java.util.Date;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.managementApi.organizationStorage.disableProvisioner", havingValue = "true")
 public class MockOrganizationStorageProvisioner implements OrganizationStorageProvisioner {
 
     private final OrganizationService organizationService;
     private final Vertx vertx;
-    private final OrganizationStorageProperties properties;
+    private final KinoticManagementApiProperties kinoticProperties;
     private BlobServiceAsyncClient blobService;
-
-    public MockOrganizationStorageProvisioner(OrganizationService organizationService,
-                                              Vertx vertx,
-                                              KinoticManagementApiProperties properties) {
-        this.organizationService = organizationService;
-        this.vertx = vertx;
-        this.properties = properties.getManagementApi().getOrganizationStorage();
-    }
 
     @Override
     public Future<Organization> ensureStorage(String organizationId) {
@@ -53,23 +47,24 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
                         throw new IllegalArgumentException("Organization not found: " + organizationId);
                     }
                     Future<Organization> ret;
-                    if (organization.getStorageStatus() != null
-                            && organization.getStorageStatus().type() == OrganizationStorageStatusType.READY) {
+                    if (organization.getStorage() != null
+                            && organization.getStorage().getStatus() != null
+                            && organization.getStorage().getStatus().type() == OrganizationStorageStatusType.READY) {
                         ret = Future.succeededFuture(organization);
                     } else {
-                        ret = Future.fromCompletionStage(blobService.createBlobContainerIfNotExists(UI_CONTAINER).toFuture(),
-                                                         vertx.getOrCreateContext())
-                                    .compose(container -> {
-                                        URI endpoint = URI.create(blobService.getAccountUrl());
-                                        organization.setStorageAccountName(blobService.getAccountName())
-                                                    .setStorageBlobEndpoint(blobService.getAccountUrl())
-                                                    .setStoragePrivateEndpointIp(endpoint.getHost())
-                                                    .setStorageStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY))
-                                                    .setUpdated(new Date());
-                                        log.debug("MockOrganizationStorageProvisioner pointed organization {} at {}",
-                                                  organizationId, blobService.getAccountUrl());
-                                        return organizationService.saveSync(organization);
-                                    });
+                        ret = AzureUtil.toFuture(blobService.createBlobContainerIfNotExists(UI_CONTAINER), vertx)
+                                       .compose(container -> {
+                                           URI endpoint = URI.create(blobService.getAccountUrl());
+                                           organization.setStorage(new OrganizationStorage()
+                                                               .setAccountName(blobService.getAccountName())
+                                                               .setBlobEndpoint(blobService.getAccountUrl())
+                                                               .setPrivateEndpointIp(endpoint.getHost())
+                                                               .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY)))
+                                                       .setUpdated(new Date());
+                                           log.debug("MockOrganizationStorageProvisioner pointed organization {} at {}",
+                                                     organizationId, blobService.getAccountUrl());
+                                           return organizationService.saveSync(organization);
+                                       });
                     }
                     return ret;
                 });
@@ -79,10 +74,11 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
     // without an Azurite configured
     private synchronized BlobServiceAsyncClient blobService() {
         if (blobService == null) {
-            Validate.notBlank(properties.getAzuriteConnectionString(),
+            String connectionString = kinoticProperties.getManagementApi().getOrganizationStorage().getAzuriteConnectionString();
+            Validate.notBlank(connectionString,
                               "kinotic.managementApi.organizationStorage.azuriteConnectionString is required when the provisioner is disabled");
             blobService = new BlobServiceClientBuilder()
-                    .connectionString(properties.getAzuriteConnectionString())
+                    .connectionString(connectionString)
                     .buildAsyncClient();
         }
         return blobService;

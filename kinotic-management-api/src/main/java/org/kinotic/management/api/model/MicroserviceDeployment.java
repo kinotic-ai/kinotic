@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
 
@@ -18,7 +18,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class MicroserviceDeployment implements Identifiable<String> {
+public class MicroserviceDeployment implements OrganizationScoped<String> {
 
     /**
      * Unique id of the deployment.

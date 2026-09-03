@@ -19,7 +19,7 @@
 </template>
 
 <script setup lang="ts">
-import type { ProjectArtifacts } from './ProjectDeployStores'
+import type { ProjectArtifacts } from '@kinotic-ai/management-api'
 
 /**
  * The artifacts a deployment run found in the deployed commit, as the detail of the task

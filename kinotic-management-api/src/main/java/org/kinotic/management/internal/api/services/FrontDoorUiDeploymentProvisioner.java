@@ -40,6 +40,7 @@ import com.azure.resourcemanager.dns.models.TxtRecordSet;
 import com.azure.resourcemanager.resources.fluentcore.arm.ResourceId;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
@@ -76,6 +77,7 @@ import java.util.function.Supplier;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.managementApi.uiDeployment.disableProvisioner",
                        havingValue = "false", matchIfMissing = true)
 public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner {
@@ -98,10 +100,12 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     private static final long POLL_TIMEOUT_MS = 2 * 60 * 60_000;
 
     private final Vertx vertx;
-    private final UiDeploymentProperties properties;
+    private final KinoticManagementApiProperties kinoticProperties;
     private final OrganizationStorageService organizationStorageService;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final TokenCredential credential;
+    // On AKS this resolves to the kinotic-server workload identity, which holds CDN Profile
+    // Contributor on the profile and DNS Zone Contributor on the zone
+    private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
     // Set once by ensureClients, which every entry point calls first
     private CdnManagementClient cdn;
     private DnsZoneManager dns;
@@ -112,36 +116,32 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     /** The tail of the profile's write queue; each write waits for the one before it. */
     private Future<Void> writes = Future.succeededFuture();
 
-    public FrontDoorUiDeploymentProvisioner(Vertx vertx,
-                                            KinoticManagementApiProperties kinoticProperties,
-                                            OrganizationStorageService organizationStorageService,
-                                            UiDeploymentRepository uiDeploymentRepository) {
-        this.vertx = vertx;
-        this.properties = kinoticProperties.getManagementApi().getUiDeployment();
-        this.organizationStorageService = organizationStorageService;
-        this.uiDeploymentRepository = uiDeploymentRepository;
-        // On AKS this resolves to the kinotic-server workload identity, which holds CDN Profile
-        // Contributor on the profile and DNS Zone Contributor on the zone
-        this.credential = new DefaultAzureCredentialBuilder().build();
-    }
-
     @Override
     public Future<UiDeployment> provision(UiDeployment deployment, Organization organization) {
         Validate.notNull(deployment, "deployment is required");
         Validate.notNull(organization, "organization is required");
-        Validate.notBlank(organization.getStorageBlobEndpoint(),
-                          "Organization %s has no storage endpoint recorded", organization.getId());
+        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
+                        "Organization %s has no storage endpoint recorded", organization.getId());
         ensureClients();
         String label = deployment.getId();
-        String hostname = label + "." + properties.getSitesDomain();
+        String hostname = properties().resolveHostname(label);
         log.info("Provisioning site {} for UI {} of project {}", hostname, deployment.getName(), deployment.getProjectId());
-        return ensureOriginGroup(organization)
-                .compose(originGroupId -> ensureRuleSet(organization)
-                        .compose(ruleSetId -> ensureDomain(label, hostname)
-                                .compose(domain -> ensureDnsRecords(label, domain)
-                                        .compose(v -> ensureRoute(deployment, domain, originGroupId, ruleSetId))
-                                        .map(v -> domain))))
+        // the origin group, rule set and domain stand alone; the records and the route build on them
+        return Future.all(ensureOriginGroup(organization), ensureRuleSet(organization), ensureDomain(label, hostname))
+                .compose(ensured -> {
+                    String originGroupId = ensured.resultAt(0);
+                    String ruleSetId = ensured.resultAt(1);
+                    AfdDomainInner domain = ensured.resultAt(2);
+                    return ensureDnsRecords(label, domain)
+                            .compose(v -> ensureRoute(deployment, domain, originGroupId, ruleSetId))
+                            .map(v -> domain);
+                })
                 .map(domain -> deployment.setStatus(statusOf(domain)))
+                .recover(error -> {
+                    log.error("Site {} could not be provisioned", hostname, error);
+                    return Future.succeededFuture(deployment.setStatus(
+                            new UiDeploymentStatus(UiDeploymentStatusType.FAILED, error.getMessage())));
+                })
                 .onSuccess(row -> {
                     log.info("Site {} is {}", hostname, row.getStatus().type());
                     if (row.getStatus().type() == UiDeploymentStatusType.PROVISIONING) {
@@ -154,9 +154,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     public Future<UiDeployment> checkProvisioning(UiDeployment deployment) {
         Validate.notNull(deployment, "deployment is required");
         ensureClients();
-        return bridge(cdn.getAfdCustomDomains().getAsync(resourceGroup, profileName, deployment.getId())
-                         .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty()))
-                .map(domain -> deployment.setStatus(domain == null
+        return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(cdn.getAfdCustomDomains().getAsync(resourceGroup, profileName, deployment.getId())), vertx)
+                        .map(domain -> deployment.setStatus(domain == null
                         ? new UiDeploymentStatus(UiDeploymentStatusType.FAILED,
                                                  "The site's domain no longer exists; retry provisioning to create it again")
                         : statusOf(domain)));
@@ -167,19 +166,18 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         Validate.notNull(deployment, "deployment is required");
         ensureClients();
         String label = deployment.getId();
-        log.info("Removing site {}.{}", label, properties.getSitesDomain());
+        log.info("Removing site {}", properties().resolveHostname(label));
         // the route holds the domain, so it goes first
         return endpointName()
-                .compose(endpoint -> write(() -> cdn.getRoutes().deleteAsync(resourceGroup, profileName, endpoint, label)
-                                                    .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())))
-                .compose(v -> write(() -> cdn.getAfdCustomDomains().deleteAsync(resourceGroup, profileName, label)
-                                             .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())))
-                .compose(v -> bridge(dns.zones().getByIdAsync(properties.getDnsZoneId())
-                                        .flatMap(zone -> zone.update()
-                                                             .withoutCNameRecordSet(label + recordSuffix)
-                                                             .withoutTxtRecordSet(VALIDATION_RECORD_PREFIX + label + recordSuffix)
-                                                             .applyAsync())
-                                        .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())))
+                .compose(endpoint -> write(() -> AzureUtil.emptyIfNotFound(
+                        cdn.getRoutes().deleteAsync(resourceGroup, profileName, endpoint, label))))
+                .compose(v -> write(() -> AzureUtil.emptyIfNotFound(
+                        cdn.getAfdCustomDomains().deleteAsync(resourceGroup, profileName, label))))
+                .compose(v -> AzureUtil.toFuture(AzureUtil.emptyIfNotFound(dns.zones().getByIdAsync(properties().getDnsZoneId())
+                        .flatMap(zone -> zone.update()
+                                             .withoutCNameRecordSet(label + recordSuffix)
+                                             .withoutTxtRecordSet(VALIDATION_RECORD_PREFIX + label + recordSuffix)
+                                             .applyAsync())), vertx))
                 .mapEmpty();
     }
 
@@ -189,13 +187,13 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
      */
     private synchronized void ensureClients() {
         if (cdn == null) {
-            Validate.notBlank(properties.getSitesDomain(), "kinotic.managementApi.uiDeployment.sitesDomain is required");
-            Validate.notBlank(properties.getDnsZoneId(), "kinotic.managementApi.uiDeployment.dnsZoneId is required");
-            Validate.notBlank(properties.getFrontDoorProfileId(), "kinotic.managementApi.uiDeployment.frontDoorProfileId is required");
-            Validate.notBlank(properties.getFrontDoorEndpointHostName(), "kinotic.managementApi.uiDeployment.frontDoorEndpointHostName is required");
-            ResourceId profile = ResourceId.fromString(properties.getFrontDoorProfileId());
-            ResourceId zone = ResourceId.fromString(properties.getDnsZoneId());
-            recordSuffix = recordSuffix(properties.getSitesDomain(), zone.name());
+            Validate.notBlank(properties().getSitesDomain(), "kinotic.managementApi.uiDeployment.sitesDomain is required");
+            Validate.notBlank(properties().getDnsZoneId(), "kinotic.managementApi.uiDeployment.dnsZoneId is required");
+            Validate.notBlank(properties().getFrontDoorProfileId(), "kinotic.managementApi.uiDeployment.frontDoorProfileId is required");
+            Validate.notBlank(properties().getFrontDoorEndpointHostName(), "kinotic.managementApi.uiDeployment.frontDoorEndpointHostName is required");
+            ResourceId profile = ResourceId.fromString(properties().getFrontDoorProfileId());
+            ResourceId zone = ResourceId.fromString(properties().getDnsZoneId());
+            recordSuffix = recordSuffix(properties().getSitesDomain(), zone.name());
             resourceGroup = profile.resourceGroupName();
             profileName = profile.name();
             cdn = CdnManager.authenticate(credential, new AzureProfile(null, profile.subscriptionId(), AzureEnvironment.AZURE))
@@ -221,7 +219,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     /** The organization's origin group and its one origin, the storage account's blob endpoint. Emits the group's id. */
     private Future<String> ensureOriginGroup(Organization organization) {
         String groupName = "org-" + organization.getId();
-        String host = URI.create(organization.getStorageBlobEndpoint()).getHost();
+        String host = URI.create(organization.getStorage().getBlobEndpoint()).getHost();
         return getOrCreate(cdn.getAfdOriginGroups().getAsync(resourceGroup, profileName, groupName),
                            () -> cdn.getAfdOriginGroups().createAsync(resourceGroup, profileName, groupName, new AfdOriginGroupInner()
                                    .withLoadBalancingSettings(new LoadBalancingSettingsParameters()
@@ -296,7 +294,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                     if (validationLapsed(domain.domainValidationState())) {
                         log.info("Validation of {} {}, requesting a new token", hostname, domain.domainValidationState());
                         ret = write(() -> cdn.getAfdCustomDomains().refreshValidationTokenAsync(resourceGroup, profileName, label))
-                                .compose(v -> bridge(cdn.getAfdCustomDomains().getAsync(resourceGroup, profileName, label)));
+                                .compose(v -> AzureUtil.toFuture(cdn.getAfdCustomDomains().getAsync(resourceGroup, profileName, label), vertx));
                     } else {
                         ret = Future.succeededFuture(domain);
                     }
@@ -314,38 +312,38 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         Validate.notBlank(token, "Front Door issued no validation token for %s", domain.hostname());
         String cnameName = label + recordSuffix;
         String txtName = VALIDATION_RECORD_PREFIX + label + recordSuffix;
-        return bridge(dns.zones().getByIdAsync(properties.getDnsZoneId()))
+        return AzureUtil.toFuture(dns.zones().getByIdAsync(properties().getDnsZoneId()), vertx)
                 .compose(zone -> ensureCname(zone, cnameName).compose(v -> ensureValidationText(zone, txtName, token)));
     }
 
     private Future<Void> ensureCname(DnsZone zone, String name) {
-        String target = properties.getFrontDoorEndpointHostName();
-        return bridge(zone.cNameRecordSets().getByNameAsync(name).onErrorResume(AzureErrors::isNotFound, error -> Mono.empty()))
+        String target = properties().getFrontDoorEndpointHostName();
+        return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(zone.cNameRecordSets().getByNameAsync(name)), vertx)
                 .compose(existing -> {
                     Future<DnsZone> ret;
                     if (existing == null) {
-                        ret = bridge(zone.update().defineCNameRecordSet(name).withAlias(target).attach().applyAsync());
+                        ret = AzureUtil.toFuture(zone.update().defineCNameRecordSet(name).withAlias(target).attach().applyAsync(), vertx);
                     } else if (target.equalsIgnoreCase(existing.canonicalName())) {
                         ret = Future.succeededFuture(zone);
                     } else {
-                        ret = bridge(zone.update().updateCNameRecordSet(name).withAlias(target).parent().applyAsync());
+                        ret = AzureUtil.toFuture(zone.update().updateCNameRecordSet(name).withAlias(target).parent().applyAsync(), vertx);
                     }
                     return ret.mapEmpty();
                 });
     }
 
     private Future<Void> ensureValidationText(DnsZone zone, String name, String token) {
-        return bridge(zone.txtRecordSets().getByNameAsync(name).onErrorResume(AzureErrors::isNotFound, error -> Mono.empty()))
+        return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(zone.txtRecordSets().getByNameAsync(name)), vertx)
                 .compose(existing -> {
                     Future<DnsZone> ret;
                     if (existing == null) {
-                        ret = bridge(zone.update().defineTxtRecordSet(name).withText(token).attach().applyAsync());
+                        ret = AzureUtil.toFuture(zone.update().defineTxtRecordSet(name).withText(token).attach().applyAsync(), vertx);
                     } else if (hasText(existing, token)) {
                         ret = Future.succeededFuture(zone);
                     } else {
                         // a refreshed token replaces the set, so no lapsed token lingers in it
-                        ret = bridge(zone.update().withoutTxtRecordSet(name).applyAsync())
-                                .compose(v -> bridge(zone.update().defineTxtRecordSet(name).withText(token).attach().applyAsync()));
+                        ret = AzureUtil.toFuture(zone.update().withoutTxtRecordSet(name).applyAsync(), vertx)
+                                       .compose(v -> AzureUtil.toFuture(zone.update().defineTxtRecordSet(name).withText(token).attach().applyAsync(), vertx));
                     }
                     return ret.mapEmpty();
                 });
@@ -387,11 +385,11 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         if (endpointName != null) {
             ret = Future.succeededFuture(endpointName);
         } else {
-            String host = properties.getFrontDoorEndpointHostName();
-            ret = bridge(cdn.getAfdEndpoints().listByProfileAsync(resourceGroup, profileName)
-                            .filter(endpoint -> host.equalsIgnoreCase(endpoint.hostname()))
-                            .next()
-                            .map(AfdEndpointInner::name))
+            String host = properties().getFrontDoorEndpointHostName();
+            ret = AzureUtil.toFuture(cdn.getAfdEndpoints().listByProfileAsync(resourceGroup, profileName)
+                                        .filter(endpoint -> host.equalsIgnoreCase(endpoint.hostname()))
+                                        .next()
+                                        .map(AfdEndpointInner::name), vertx)
                     .compose(name -> name == null
                             ? Future.failedFuture(new IllegalStateException("Front Door profile " + profileName
                                     + " has no endpoint with host name " + host))
@@ -431,14 +429,14 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                      ret = checkProvisioning(row).compose(checked -> {
                          Future<Void> saved;
                          if (checked.getStatus().type() != UiDeploymentStatusType.PROVISIONING) {
-                             log.info("Site {}.{} is {}", label, properties.getSitesDomain(), checked.getStatus().type());
+                             log.info("Site {} is {}", properties().resolveHostname(label), checked.getStatus().type());
                              saved = uiDeploymentRepository.save(checked.setUpdated(new Date())).mapEmpty();
                          } else if (System.currentTimeMillis() < deadline) {
                              schedulePoll(label, deadline);
                              saved = Future.succeededFuture();
                          } else {
-                             log.warn("Site {}.{} is still provisioning after {} minutes; it is checked again when listed",
-                                      label, properties.getSitesDomain(), POLL_TIMEOUT_MS / 60_000);
+                             log.warn("Site {} is still provisioning after {} minutes; it is checked again when listed",
+                                      properties().resolveHostname(label), POLL_TIMEOUT_MS / 60_000);
                              saved = Future.succeededFuture();
                          }
                          return saved;
@@ -447,7 +445,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                  return ret;
              })
              .onFailure(error -> {
-                 log.warn("Checking site {}.{} failed", label, properties.getSitesDomain(), error);
+                 log.warn("Checking site {} failed", properties().resolveHostname(label), error);
                  if (System.currentTimeMillis() < deadline) {
                      schedulePoll(label, deadline);
                  }
@@ -456,8 +454,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
 
     /** Reads the resource, creating it when it does not exist. Creation is a profile write. */
     private <T> Future<T> getOrCreate(Mono<T> get, Supplier<Mono<T>> create) {
-        return bridge(get.onErrorResume(AzureErrors::isNotFound, error -> Mono.empty()))
-                .compose(existing -> existing != null ? Future.succeededFuture(existing) : write(create));
+        return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(get), vertx)
+                        .compose(existing -> existing != null ? Future.succeededFuture(existing) : write(create));
     }
 
     /**
@@ -471,9 +469,9 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     }
 
     private <T> Future<T> attempt(Supplier<Mono<T>> write, int attempt) {
-        return bridge(write.get()).recover(error -> {
+        return AzureUtil.toFuture(write.get(), vertx).recover(error -> {
             Future<T> ret;
-            if (AzureErrors.isConflict(error) && attempt < CONFLICT_ATTEMPTS) {
+            if (AzureUtil.isConflict(error) && attempt < CONFLICT_ATTEMPTS) {
                 log.debug("Front Door profile {} is busy, retrying the write in {}s", profileName, CONFLICT_BACKOFF_MS * attempt / 1000);
                 ret = vertx.timer(CONFLICT_BACKOFF_MS * attempt).compose(v -> attempt(write, attempt + 1));
             } else {
@@ -483,8 +481,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         });
     }
 
-    private <T> Future<T> bridge(Mono<T> mono) {
-        return Future.fromCompletionStage(mono.toFuture(), vertx.getOrCreateContext());
+    private UiDeploymentProperties properties() {
+        return kinoticProperties.getManagementApi().getUiDeployment();
     }
 
 }

@@ -7,6 +7,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
@@ -110,12 +111,7 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
     private Future<MicroserviceDeployment> loadOwned(String deploymentId, OrganizationParticipant participant) {
         Validate.notBlank(deploymentId, "deploymentId is required");
         return microserviceDeploymentRepository.findById(deploymentId)
-                .map(deployment -> {
-                    if (deployment == null || !participant.getOrganizationId().equals(deployment.getOrganizationId())) {
-                        throw new IllegalArgumentException("Microservice deployment not found.");
-                    }
-                    return deployment;
-                });
+                .map(deployment -> DomainUtil.requireOwned(deployment, participant.getOrganizationId(), "Microservice deployment not found."));
     }
 
     private OrganizationParticipant requireOrgParticipant() {

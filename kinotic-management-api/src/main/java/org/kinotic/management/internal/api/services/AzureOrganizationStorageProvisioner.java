@@ -15,12 +15,15 @@ import com.azure.resourcemanager.storage.models.StorageAccount;
 import com.azure.resourcemanager.storage.models.StorageAccountSkuType;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.OrganizationStorage;
 import org.kinotic.domain.api.model.OrganizationStorageStatus;
 import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.config.OrganizationStorageProperties;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
@@ -28,11 +31,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Date;
-import java.util.HexFormat;
 
 /**
  * Provisions one Azure storage account per organization: a locked-down StorageV2 account with
@@ -45,6 +44,7 @@ import java.util.HexFormat;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 @ConditionalOnProperty(value = "kinotic.managementApi.organizationStorage.disableProvisioner",
                        havingValue = "false", matchIfMissing = true)
 public class AzureOrganizationStorageProvisioner implements OrganizationStorageProvisioner {
@@ -58,38 +58,28 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
 
     private final OrganizationService organizationService;
     private final Vertx vertx;
-    private final OrganizationStorageProperties properties;
-    private final TokenCredential credential;
-
-    public AzureOrganizationStorageProvisioner(OrganizationService organizationService,
-                                               Vertx vertx,
-                                               KinoticManagementApiProperties kinoticProperties) {
-        this.organizationService = organizationService;
-        this.vertx = vertx;
-        this.properties = kinoticProperties.getManagementApi().getOrganizationStorage();
-        // On AKS this resolves to the kinotic-server workload identity, which holds the
-        // storage and network roles on the resource group
-        this.credential = new DefaultAzureCredentialBuilder().build();
-    }
+    private final KinoticManagementApiProperties kinoticProperties;
+    // On AKS this resolves to the kinotic-server workload identity, which holds the storage
+    // and network roles on the resource group
+    private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
 
     @Override
     public Future<Organization> ensureStorage(String organizationId) {
         Validate.notBlank(organizationId, "organizationId is required");
         // Checked here rather than at startup, so a deployment that needs storage fails with
         // the missing setting named while a server that never publishes a UI runs unconfigured
-        Validate.notEmpty(properties.getSubscriptionIds(), "kinotic.managementApi.organizationStorage.subscriptionIds is required");
-        Validate.notBlank(properties.getResourceGroup(), "kinotic.managementApi.organizationStorage.resourceGroup is required");
-        Validate.notBlank(properties.getLocation(), "kinotic.managementApi.organizationStorage.location is required");
-        Validate.notBlank(properties.getPrivateEndpointSubnetId(), "kinotic.managementApi.organizationStorage.privateEndpointSubnetId is required");
-        Validate.notBlank(properties.getPrivateDnsZoneId(), "kinotic.managementApi.organizationStorage.privateDnsZoneId is required");
+        Validate.notEmpty(properties().getSubscriptionIds(), "kinotic.managementApi.organizationStorage.subscriptionIds is required");
+        Validate.notBlank(properties().getResourceGroup(), "kinotic.managementApi.organizationStorage.resourceGroup is required");
+        Validate.notBlank(properties().getLocation(), "kinotic.managementApi.organizationStorage.location is required");
+        Validate.notBlank(properties().getPrivateEndpointSubnetId(), "kinotic.managementApi.organizationStorage.privateEndpointSubnetId is required");
+        Validate.notBlank(properties().getPrivateDnsZoneId(), "kinotic.managementApi.organizationStorage.privateDnsZoneId is required");
         return organizationService.findById(organizationId)
                 .compose(organization -> {
                     if (organization == null) {
                         throw new IllegalArgumentException("Organization not found: " + organizationId);
                     }
                     Future<Organization> ret;
-                    OrganizationStorageStatusType status = organization.getStorageStatus() != null
-                            ? organization.getStorageStatus().type() : null;
+                    OrganizationStorageStatusType status = statusOf(organization);
                     if (status == OrganizationStorageStatusType.READY) {
                         ret = Future.succeededFuture(organization);
                     } else if (status == OrganizationStorageStatusType.PROVISIONING && !stale(organization)) {
@@ -99,6 +89,11 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                     }
                     return ret;
                 });
+    }
+
+    private static OrganizationStorageStatusType statusOf(Organization organization) {
+        return organization != null && organization.getStorage() != null && organization.getStorage().getStatus() != null
+                ? organization.getStorage().getStatus().type() : null;
     }
 
     // A run that died mid-provisioning leaves PROVISIONING behind; once it is older than any
@@ -113,13 +108,12 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                 .compose(v -> organizationService.findById(organizationId))
                 .compose(organization -> {
                     Future<Organization> ret;
-                    OrganizationStorageStatusType status = organization != null && organization.getStorageStatus() != null
-                            ? organization.getStorageStatus().type() : null;
+                    OrganizationStorageStatusType status = statusOf(organization);
                     if (status == OrganizationStorageStatusType.READY) {
                         ret = Future.succeededFuture(organization);
                     } else if (status == OrganizationStorageStatusType.FAILED) {
                         ret = Future.failedFuture(new IllegalStateException("Storage of organization " + organizationId
-                                + " failed to provision: " + organization.getStorageStatus().message()));
+                                + " failed to provision: " + organization.getStorage().getStatus().message()));
                     } else if (System.currentTimeMillis() > deadline) {
                         ret = Future.failedFuture(new IllegalStateException("Storage of organization " + organizationId
                                 + " is still provisioning after " + PROVISIONING_TIMEOUT_MS / 60_000 + " minutes"));
@@ -137,37 +131,33 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
      */
     private Future<Organization> provision(Organization organization) {
         String organizationId = organization.getId();
-        String subscriptionId = organization.getStorageSubscriptionId() != null
-                ? organization.getStorageSubscriptionId()
-                : chooseSubscription(organizationId);
+        OrganizationStorage storage = organization.getStorage() != null ? organization.getStorage() : new OrganizationStorage();
+        String subscriptionId = storage.getSubscriptionId() != null ? storage.getSubscriptionId() : chooseSubscription(organizationId);
         String accountName = accountName(organizationId);
-        organization.setStorageSubscriptionId(subscriptionId)
-                    .setStorageAccountName(accountName)
-                    .setStorageStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.PROVISIONING))
-                    .setUpdated(new Date());
+        storage.setSubscriptionId(subscriptionId)
+               .setAccountName(accountName)
+               .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.PROVISIONING));
+        organization.setStorage(storage).setUpdated(new Date());
         AzureProfile profile = new AzureProfile(null, subscriptionId, AzureEnvironment.AZURE);
-        StorageManager storage = StorageManager.authenticate(credential, profile);
+        StorageManager storageManager = StorageManager.authenticate(credential, profile);
         NetworkManager network = NetworkManager.authenticate(credential, profile);
         log.info("Provisioning storage account {} for organization {} in subscription {}",
                  accountName, organizationId, subscriptionId);
         return organizationService.saveSync(organization)
-                .compose(saved -> bridge(ensureAccount(storage, accountName, organizationId)))
-                .compose(account -> bridge(ensureContainer(storage, accountName))
-                        .compose(container -> bridge(ensurePrivateEndpoint(network, account)))
+                .compose(saved -> AzureUtil.toFuture(ensureAccount(storageManager, accountName, organizationId), vertx))
+                .compose(account -> AzureUtil.toFuture(ensureContainer(storageManager, accountName), vertx)
+                        .compose(container -> AzureUtil.toFuture(ensurePrivateEndpoint(network, account), vertx))
                         .map(privateIp -> {
-                            organization.setStorageBlobEndpoint(account.endPoints().primary().blob())
-                                        .setStoragePrivateEndpointIp(privateIp)
-                                        .setStorageStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY))
-                                        .setUpdated(new Date());
-                            return organization;
+                            storage.setBlobEndpoint(account.endPoints().primary().blob())
+                                   .setPrivateEndpointIp(privateIp)
+                                   .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY));
+                            return organization.setUpdated(new Date());
                         }))
                 .compose(organizationService::saveSync)
                 .recover(error -> {
                     log.error("Storage provisioning for organization {} failed", organizationId, error);
-                    organization.setStorageStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.FAILED,
-                                                                                error.getMessage()))
-                                .setUpdated(new Date());
-                    return organizationService.saveSync(organization)
+                    storage.setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.FAILED, error.getMessage()));
+                    return organizationService.saveSync(organization.setUpdated(new Date()))
                                               .compose(v -> Future.failedFuture(new IllegalStateException(
                                                       "Storage of organization " + organizationId
                                                               + " failed to provision: " + error.getMessage(), error)));
@@ -175,35 +165,33 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     }
 
     private Mono<StorageAccount> ensureAccount(StorageManager storage, String accountName, String organizationId) {
-        return storage.storageAccounts().getByResourceGroupAsync(properties.getResourceGroup(), accountName)
-                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
-                      .switchIfEmpty(Mono.defer(() -> storage.storageAccounts()
-                              .define(accountName)
-                              .withRegion(properties.getLocation())
-                              .withExistingResourceGroup(properties.getResourceGroup())
-                              .withGeneralPurposeAccountKindV2()
-                              .withSku(StorageAccountSkuType.STANDARD_LRS)
-                              .withHnsEnabled(true)
-                              .withMinimumTlsVersion(MinimumTlsVersion.TLS1_2)
-                              .withOnlyHttpsTraffic()
-                              .disableBlobPublicAccess()
-                              // Front Door reads the account over its public endpoint from addresses
-                              // the storage firewall cannot name, so the network stays open and every
-                              // read is authorized by the SAS its rule set carries; the platform itself
-                              // comes in through the private endpoint
-                              .withAccessFromAllNetworks()
-                              .withTag("org", organizationId)
-                              .createAsync()));
+        return AzureUtil.emptyIfNotFound(storage.storageAccounts().getByResourceGroupAsync(properties().getResourceGroup(), accountName))
+                        .switchIfEmpty(Mono.defer(() -> storage.storageAccounts()
+                                .define(accountName)
+                                .withRegion(properties().getLocation())
+                                .withExistingResourceGroup(properties().getResourceGroup())
+                                .withGeneralPurposeAccountKindV2()
+                                .withSku(StorageAccountSkuType.STANDARD_LRS)
+                                .withHnsEnabled(true)
+                                .withMinimumTlsVersion(MinimumTlsVersion.TLS1_2)
+                                .withOnlyHttpsTraffic()
+                                .disableBlobPublicAccess()
+                                // Front Door reads the account over its public endpoint from addresses
+                                // the storage firewall cannot name, so the network stays open and every
+                                // read is authorized by the SAS its rule set carries; the platform itself
+                                // comes in through the private endpoint
+                                .withAccessFromAllNetworks()
+                                .withTag("org", organizationId)
+                                .createAsync()));
     }
 
     private Mono<BlobContainer> ensureContainer(StorageManager storage, String accountName) {
-        return storage.blobContainers().getAsync(properties.getResourceGroup(), accountName, UI_CONTAINER)
-                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
-                      .switchIfEmpty(Mono.defer(() -> storage.blobContainers()
-                              .defineContainer(UI_CONTAINER)
-                              .withExistingStorageAccount(properties.getResourceGroup(), accountName)
-                              .withPublicAccess(PublicAccess.NONE)
-                              .createAsync()));
+        return AzureUtil.emptyIfNotFound(storage.blobContainers().getAsync(properties().getResourceGroup(), accountName, UI_CONTAINER))
+                        .switchIfEmpty(Mono.defer(() -> storage.blobContainers()
+                                .defineContainer(UI_CONTAINER)
+                                .withExistingStorageAccount(properties().getResourceGroup(), accountName)
+                                .withPublicAccess(PublicAccess.NONE)
+                                .createAsync()));
     }
 
     /**
@@ -213,22 +201,21 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
      */
     private Mono<String> ensurePrivateEndpoint(NetworkManager network, StorageAccount account) {
         String endpointName = "pe-" + account.name();
-        return network.privateEndpoints().getByResourceGroupAsync(properties.getResourceGroup(), endpointName)
-                      .onErrorResume(AzureErrors::isNotFound, error -> Mono.empty())
-                      .switchIfEmpty(Mono.defer(() -> network.privateEndpoints()
-                              .define(endpointName)
-                              .withRegion(properties.getLocation())
-                              .withExistingResourceGroup(properties.getResourceGroup())
-                              .withSubnetId(properties.getPrivateEndpointSubnetId())
-                              .definePrivateLinkServiceConnection("blob")
-                                  .withResourceId(account.id())
-                                  .withSubResource(PrivateLinkSubResourceName.STORAGE_BLOB)
-                                  .attach()
-                              .createAsync()))
-                      .flatMap(endpoint -> ensureDnsZoneGroup(endpoint).thenReturn(endpoint))
-                      .flatMap(endpoint -> network.networkInterfaces()
-                                                  .getByIdAsync(endpoint.networkInterfaces().getFirst().id())
-                                                  .map(nic -> nic.primaryPrivateIP()));
+        return AzureUtil.emptyIfNotFound(network.privateEndpoints().getByResourceGroupAsync(properties().getResourceGroup(), endpointName))
+                        .switchIfEmpty(Mono.defer(() -> network.privateEndpoints()
+                                .define(endpointName)
+                                .withRegion(properties().getLocation())
+                                .withExistingResourceGroup(properties().getResourceGroup())
+                                .withSubnetId(properties().getPrivateEndpointSubnetId())
+                                .definePrivateLinkServiceConnection("blob")
+                                    .withResourceId(account.id())
+                                    .withSubResource(PrivateLinkSubResourceName.STORAGE_BLOB)
+                                    .attach()
+                                .createAsync()))
+                        .flatMap(endpoint -> ensureDnsZoneGroup(endpoint).thenReturn(endpoint))
+                        .flatMap(endpoint -> network.networkInterfaces()
+                                                    .getByIdAsync(endpoint.networkInterfaces().getFirst().id())
+                                                    .map(nic -> nic.primaryPrivateIP()));
     }
 
     // An endpoint carries at most one zone group, so any existing one is the registration
@@ -238,28 +225,23 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                                ? Mono.empty()
                                : endpoint.privateDnsZoneGroups()
                                          .define("default")
-                                         .withPrivateDnsZoneConfigure("blob", properties.getPrivateDnsZoneId())
+                                         .withPrivateDnsZoneConfigure("blob", properties().getPrivateDnsZoneId())
                                          .createAsync()
                                          .then());
     }
 
-    private <T> Future<T> bridge(Mono<T> mono) {
-        return Future.fromCompletionStage(mono.toFuture(), vertx.getOrCreateContext());
+    private OrganizationStorageProperties properties() {
+        return kinoticProperties.getManagementApi().getOrganizationStorage();
     }
 
     /** Spreads organizations over the configured subscriptions deterministically, so a retry lands in the same one. */
     private String chooseSubscription(String organizationId) {
-        return properties.getSubscriptionIds().get(Math.floorMod(organizationId.hashCode(), properties.getSubscriptionIds().size()));
+        return properties().getSubscriptionIds().get(Math.floorMod(organizationId.hashCode(), properties().getSubscriptionIds().size()));
     }
 
     /** {@code kin} plus the first 21 hex digits of the organization id's SHA-256: unique, and never a name a customer chose. */
-    static String accountName(String organizationId) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(organizationId.getBytes(StandardCharsets.UTF_8));
-            return ACCOUNT_NAME_PREFIX + HexFormat.of().formatHex(digest).substring(0, ACCOUNT_NAME_HASH_LENGTH);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
+    private static String accountName(String organizationId) {
+        return ACCOUNT_NAME_PREFIX + DomainUtil.sha256Hex(organizationId).substring(0, ACCOUNT_NAME_HASH_LENGTH);
     }
 
 }

@@ -11,14 +11,14 @@
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
         <span :title="data.status.message ?? undefined">
-          <Tag :value="data.status.type" :severity="statusSeverity(data.status.type)" />
+          <Tag :value="data.status.type" :severity="deploymentStatusSeverity(data.status.type)" />
         </span>
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
         <span class="font-mono text-sm text-muted-color" :title="data.commitSha ?? undefined">
-          {{ data.commitSha ? data.commitSha.slice(0, 12) : '—' }}
+          {{ data.commitSha ? shortSha(data.commitSha) : '—' }}
         </span>
       </template>
     </Column>
@@ -40,6 +40,7 @@ import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
+import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
 import { UiDeploymentStatusType, type UiDeployment } from '@kinotic-ai/management-api'
 
 /**
@@ -55,18 +56,4 @@ const emit = defineEmits<{
   retry: [deployment: UiDeployment]
   remove: [deployment: UiDeployment]
 }>()
-
-function statusSeverity(type: UiDeploymentStatusType): string {
-  let ret: string
-  if (type === UiDeploymentStatusType.READY) {
-    ret = 'success'
-  } else if (type === UiDeploymentStatusType.FAILED) {
-    ret = 'danger'
-  } else if (type === UiDeploymentStatusType.PROVISIONING) {
-    ret = 'info'
-  } else {
-    ret = 'warn'
-  }
-  return ret
-}
 </script>

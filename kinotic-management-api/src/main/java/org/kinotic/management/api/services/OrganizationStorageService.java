@@ -40,11 +40,6 @@ public interface OrganizationStorageService {
     Future<String> issueReadToken(Organization organization, Duration ttl);
 
     /**
-     * Whether any blob exists under the prefix.
-     */
-    Future<Boolean> exists(Organization organization, String prefix);
-
-    /**
      * Lists the commit directories published under a UI's prefix: the sha of every commit
      * whose assets are still stored.
      *

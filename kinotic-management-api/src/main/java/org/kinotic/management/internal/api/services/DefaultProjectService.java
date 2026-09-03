@@ -109,22 +109,7 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                     if (deployment == null) {
                         ret = Future.succeededFuture();
                     } else {
-                        // The machines outlive the project unless they go with it, and they
-                        // hold the organization's authority. ParticipantIdentityService's own
-                        // beforeDelete cascades each one's stored credential. The checkout and
-                        // the runtime workloads on the node are system-side resources this
-                        // management-plane delete cannot reach — deleting a microservice's
-                        // machine is what cuts an orphaned guest off, on its next reconnect.
-                        // The sites and files of the project's UIs are management-side, so
-                        // they go with it.
-                        ret = microserviceDeploymentRepository.findAllForProject(projectId)
-                                .compose(microservices -> deleteMachines(Stream.concat(
-                                                Stream.of(deployment.getSyncMachineIdentityId()),
-                                                microservices.stream().map(MicroserviceDeployment::getMachineIdentityId)).toList())
-                                        .compose(v -> Future.all(microservices.stream()
-                                                                              .map(microservice -> microserviceDeploymentRepository.deleteById(microservice.getId()))
-                                                                              .toList()))
-                                        .mapEmpty())
+                        ret = removeMicroserviceDeployments(projectId, deployment.getSyncMachineIdentityId())
                                 .compose(v -> removeUiDeployments(projectId))
                                 .compose(v -> projectDeploymentRepository.deleteById(projectId, organizationId));
                     }
@@ -132,6 +117,23 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
                 });
     }
 
+    // The machines outlive the project unless they go with it, and they hold the
+    // organization's authority; ParticipantIdentityService's own beforeDelete cascades each
+    // one's stored credential. The checkout and the runtime workloads on the node are
+    // system-side resources this management-plane delete cannot reach — deleting a
+    // microservice's machine is what cuts an orphaned guest off, on its next reconnect
+    private Future<Void> removeMicroserviceDeployments(String projectId, String syncMachineIdentityId) {
+        return microserviceDeploymentRepository.findAllForProject(projectId)
+                .compose(microservices -> deleteMachines(Stream.concat(
+                                Stream.of(syncMachineIdentityId),
+                                microservices.stream().map(MicroserviceDeployment::getMachineIdentityId)).toList())
+                        .compose(v -> Future.all(microservices.stream()
+                                                              .map(microservice -> microserviceDeploymentRepository.deleteById(microservice.getId()))
+                                                              .toList()))
+                        .mapEmpty());
+    }
+
+    // The sites and files of the project's UIs are management-side, so they go with it.
     // Sequential: each removal is a series of writes on the one Front Door profile
     private Future<Void> removeUiDeployments(String projectId) {
         return uiDeploymentRepository.findAllForProject(projectId)

@@ -1,5 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
+import { validateLabel } from '@kinotic-ai/core'
 import type { MicroserviceArtifact, ProjectArtifacts, UiArtifact } from '@kinotic-ai/management-api'
 
 /**
@@ -18,10 +19,6 @@ import type { MicroserviceArtifact, ProjectArtifacts, UiArtifact } from '@kinoti
 
 /** The module a microservice starts from when its package.json declares no main. */
 const DEFAULT_MICROSERVICE_ENTRY = 'src/main.ts'
-
-// The rule ZoneUtil.validateLabel applies on the server, which also rejects a report that
-// breaks it: an artifact's name becomes a workload name and a hostname label
-const LABEL = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
 
 /** One package.json read from the checkout: the package's unscoped name, its directory, and the parsed file. */
 interface PackageManifest {
@@ -73,8 +70,12 @@ function parseManifest(dir: string, content: string): PackageManifest {
     const unscoped = fullName.startsWith('@') && fullName.indexOf('/') > 0
         ? fullName.slice(fullName.indexOf('/') + 1)
         : fullName
-    if (!LABEL.test(unscoped)) {
-        throw new Error(`Package ${dir} has the name '${fullName}', whose unscoped part must be lowercase letters, digits, and interior dashes`)
+    // the rule the server applies to the report too: an artifact's name becomes a workload
+    // name and a hostname label
+    try {
+        validateLabel(unscoped)
+    } catch (error) {
+        throw new Error(`Package ${dir} has the name '${fullName}': ${error instanceof Error ? error.message : String(error)}`)
     }
     return { name: unscoped, dir, json }
 }

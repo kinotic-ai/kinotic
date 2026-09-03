@@ -4,7 +4,6 @@ import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.Organization;
@@ -29,6 +28,7 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
+import org.kinotic.management.api.config.UiDeploymentProperties;
 import org.kinotic.management.api.services.OrganizationStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.management.api.services.UiDeploymentProvisioner;
@@ -60,6 +60,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -338,36 +340,20 @@ public class ProjectDeployJobDefinitionFactory {
                     existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
                     // sequential: each microservice issues credentials and places a VM on the
                     // one node, and a failure must not stop the others from deploying
-                    Future<List<MicroserviceDeployment>> ensured = Future.succeededFuture(new ArrayList<>());
-                    for (MicroserviceArtifact artifact : artifacts.microservices()) {
-                        MicroserviceDeployment current = unmatched.remove(artifact.name());
-                        ensured = ensured.compose(rows -> ensureMicroservice(project, target, artifact, current, commitSha)
-                                .map(row -> {
-                                    rows.add(row);
-                                    return rows;
-                                }));
-                    }
-                    return ensured.compose(rows -> orphan(new ArrayList<>(unmatched.values()))
+                    return sequentially(artifacts.microservices(),
+                                        artifact -> ensureMicroservice(project, target, artifact, unmatched.remove(artifact.name()), commitSha))
+                            .compose(rows -> orphan(new ArrayList<>(unmatched.values()))
                             .map(orphans -> {
                                 rows.addAll(orphans);
                                 rows.sort(Comparator.comparing(MicroserviceDeployment::getName));
                                 return rows;
                             }));
                 })
-                .compose(rows -> {
-                    String failures = rows.stream()
-                                          .filter(row -> row.getStatus().type() == MicroserviceDeploymentStatusType.FAILED)
-                                          .map(row -> row.getName() + ": " + row.getStatus().message())
-                                          .collect(Collectors.joining("; "));
-                    Future<MicroserviceDeployments> ret;
-                    if (failures.isEmpty()) {
-                        ret = Future.succeededFuture(new MicroserviceDeployments(rows));
-                    } else {
-                        ret = Future.failedFuture(new IllegalStateException(
-                                "Microservices of project " + project.getId() + " could not be deployed: " + failures));
-                    }
-                    return ret;
-                });
+                .compose(rows -> requireNoneFailed(rows,
+                                                   row -> row.getStatus().type() == MicroserviceDeploymentStatusType.FAILED,
+                                                   row -> row.getName() + ": " + row.getStatus().message(),
+                                                   "Microservices of project " + project.getId() + " could not be deployed"))
+                .map(MicroserviceDeployments::new);
     }
 
     /**
@@ -500,20 +486,11 @@ public class ProjectDeployJobDefinitionFactory {
                                 return rows;
                             }));
                 })
-                .compose(rows -> {
-                    String failures = rows.stream()
-                                          .filter(row -> row.getStatus().type() == UiDeploymentStatusType.FAILED)
-                                          .map(row -> row.getName() + ": " + row.getStatus().message())
-                                          .collect(Collectors.joining("; "));
-                    Future<UiDeployments> ret;
-                    if (failures.isEmpty()) {
-                        ret = Future.succeededFuture(new UiDeployments(rows));
-                    } else {
-                        ret = Future.failedFuture(new IllegalStateException(
-                                "UIs of project " + project.getId() + " could not be published: " + failures));
-                    }
-                    return ret;
-                });
+                .compose(rows -> requireNoneFailed(rows,
+                                                   row -> row.getStatus().type() == UiDeploymentStatusType.FAILED,
+                                                   row -> row.getName() + ": " + row.getStatus().message(),
+                                                   "UIs of project " + project.getId() + " could not be published"))
+                .map(UiDeployments::new);
     }
 
     private Future<String> uploadUis(Project project, DeployTarget target, Organization organization, String commitSha) {
@@ -533,16 +510,8 @@ public class ProjectDeployJobDefinitionFactory {
                                                   ProjectArtifacts artifacts,
                                                   Map<String, UiDeployment> unmatched,
                                                   String commitSha) {
-        Future<List<UiDeployment>> finalized = Future.succeededFuture(new ArrayList<>());
-        for (UiArtifact ui : artifacts.uis()) {
-            UiDeployment current = unmatched.remove(ui.name());
-            finalized = finalized.compose(rows -> finalizeUi(project, organization, ui, current, commitSha)
-                    .map(row -> {
-                        rows.add(row);
-                        return rows;
-                    }));
-        }
-        return finalized;
+        return sequentially(artifacts.uis(),
+                            ui -> finalizeUi(project, organization, ui, unmatched.remove(ui.name()), commitSha));
     }
 
     private Future<UiDeployment> finalizeUi(Project project,
@@ -553,13 +522,7 @@ public class ProjectDeployJobDefinitionFactory {
         Future<UiDeployment> deployment;
         if (existing == null) {
             deployment = mintDeployment(project, ui)
-                    .compose(minted -> uiDeploymentProvisioner.provision(minted, organization)
-                            .recover(error -> {
-                                log.error("Site {} of UI {} of project {} could not be provisioned",
-                                          minted.getId(), ui.name(), project.getId(), error);
-                                return Future.succeededFuture(minted.setStatus(new UiDeploymentStatus(
-                                        UiDeploymentStatusType.FAILED, error.getMessage())));
-                            }));
+                    .compose(minted -> uiDeploymentProvisioner.provision(minted, organization));
         } else if (existing.getStatus().type() == UiDeploymentStatusType.ORPHANED) {
             // the site never stopped serving, so the UI's return needs no provisioning
             deployment = Future.succeededFuture(existing.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));
@@ -581,14 +544,9 @@ public class ProjectDeployJobDefinitionFactory {
      * label's uniqueness on create.
      */
     private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
-        Validate.notBlank(sitesDomain(), "kinotic.managementApi.uiDeployment.sitesDomain is required");
         String base = project.getOrganizationId() + "-" + project.getApplicationId() + "-" + ui.name();
         ZoneUtil.validateLabel(base);
         return mintWithSuffix(project, ui, base, 1);
-    }
-
-    private String sitesDomain() {
-        return managementApiProperties.getManagementApi().getUiDeployment().getSitesDomain();
     }
 
     private Future<UiDeployment> mintWithSuffix(Project project, UiArtifact ui, String base, int attempt) {
@@ -601,7 +559,7 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             ret = uiDeploymentRepository.create(new UiDeployment()
                             .setId(label)
-                            .setUrl("https://" + label + "." + sitesDomain())
+                            .setUrl(uiDeployment().resolveSiteUrl(label))
                             .setOrganizationId(project.getOrganizationId())
                             .setApplicationId(project.getApplicationId())
                             .setProjectId(project.getId())
@@ -626,16 +584,10 @@ public class ProjectDeployJobDefinitionFactory {
         }
         String uiPrefix = UiStoragePaths.uiPrefix(applicationId, row.getName());
         return organizationStorageService.listCommitDirs(organization, uiPrefix)
-                .compose(dirs -> {
-                    Future<Void> deleted = Future.succeededFuture();
-                    for (String dir : dirs) {
-                        if (!kept.contains(dir)) {
-                            deleted = deleted.compose(v -> organizationStorageService.deletePrefix(
-                                    organization, UiStoragePaths.commitPrefix(applicationId, row.getName(), dir)));
-                        }
-                    }
-                    return deleted;
-                });
+                .compose(dirs -> sequentially(dirs.stream().filter(dir -> !kept.contains(dir)).toList(),
+                                              dir -> organizationStorageService.deletePrefix(
+                                                      organization, UiStoragePaths.commitPrefix(applicationId, row.getName(), dir))))
+                .mapEmpty();
     }
 
     /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */
@@ -680,7 +632,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(List.of(organization.getStoragePrivateEndpointIp()));
+        workload.getNetwork().setAllowedHosts(List.of(organization.getStorage().getPrivateEndpointIp()));
         return workload;
     }
 
@@ -760,8 +712,42 @@ public class ProjectDeployJobDefinitionFactory {
         return hosts;
     }
 
+    /**
+     * Applies the operation to each item in turn, each one after the previous completed,
+     * collecting the results in the items' order.
+     */
+    private static <A, R> Future<List<R>> sequentially(List<A> items, Function<A, Future<R>> operation) {
+        Future<List<R>> ret = Future.succeededFuture(new ArrayList<>());
+        for (A item : items) {
+            ret = ret.compose(results -> operation.apply(item).map(result -> {
+                results.add(result);
+                return results;
+            }));
+        }
+        return ret;
+    }
+
+    /**
+     * Emits the rows unchanged unless any is failed, then fails naming every failed row as
+     * {@code what: name: message; ...}.
+     */
+    private static <T> Future<List<T>> requireNoneFailed(List<T> rows, Predicate<T> failed, Function<T, String> describe, String what) {
+        String failures = rows.stream().filter(failed).map(describe).collect(Collectors.joining("; "));
+        Future<List<T>> ret;
+        if (failures.isEmpty()) {
+            ret = Future.succeededFuture(rows);
+        } else {
+            ret = Future.failedFuture(new IllegalStateException(what + ": " + failures));
+        }
+        return ret;
+    }
+
     private DeploymentProperties deployment() {
         return properties.getSystemApi().getDeployment();
+    }
+
+    private UiDeploymentProperties uiDeployment() {
+        return managementApiProperties.getManagementApi().getUiDeployment();
     }
 
 }

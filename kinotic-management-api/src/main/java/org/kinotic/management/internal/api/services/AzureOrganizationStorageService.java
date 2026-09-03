@@ -17,9 +17,11 @@ import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
 import com.azure.storage.common.StorageSharedKeyCredential;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
+import org.kinotic.domain.api.model.OrganizationStorage;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.config.OrganizationStorageProperties;
 import org.kinotic.management.api.services.OrganizationStorageProvisioner;
@@ -43,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AzureOrganizationStorageService implements OrganizationStorageService {
 
     /** How far in the past a delegation key starts, so clock skew between server and storage never rejects a fresh SAS. */
@@ -50,15 +53,9 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     private static final int DELETE_CONCURRENCY = 8;
 
     private final Vertx vertx;
-    private final OrganizationStorageProperties properties;
-    private final TokenCredential credential;
+    private final KinoticManagementApiProperties kinoticProperties;
+    private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
     private final Map<String, BlobServiceAsyncClient> clientsByEndpoint = new ConcurrentHashMap<>();
-
-    public AzureOrganizationStorageService(Vertx vertx, KinoticManagementApiProperties kinoticProperties) {
-        this.vertx = vertx;
-        this.properties = kinoticProperties.getManagementApi().getOrganizationStorage();
-        this.credential = new DefaultAzureCredentialBuilder().build();
-    }
 
     @Override
     public Future<String> issueUploadUrl(Organization organization, String applicationId, Duration ttl) {
@@ -74,8 +71,8 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
             // the connection string carries the shared key, which signs directly
             sas = Future.succeededFuture(container.generateSas(values));
         } else {
-            sas = bridge(service.getUserDelegationKey(now.minus(KEY_START_SKEW), expiry)
-                                .map(key -> container.generateUserDelegationSas(values, key)));
+            sas = AzureUtil.toFuture(service.getUserDelegationKey(now.minus(KEY_START_SKEW), expiry)
+                                            .map(key -> container.generateUserDelegationSas(values, key)), vertx);
         }
         return sas.map(token -> container.getBlobContainerUrl() + "/" + UiStoragePaths.applicationPrefix(applicationId)
                 + "?" + token);
@@ -90,12 +87,13 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         if (azurite()) {
             ret = Future.succeededFuture(container(organization).generateSas(values));
         } else {
-            ret = bridge(accountKey(organization).map(key -> new BlobContainerClientBuilder()
-                    .endpoint(organization.getStorageBlobEndpoint())
+            OrganizationStorage storage = requireStorage(organization);
+            ret = AzureUtil.toFuture(accountKey(organization).map(key -> new BlobContainerClientBuilder()
+                    .endpoint(storage.getBlobEndpoint())
                     .containerName(OrganizationStorageProvisioner.UI_CONTAINER)
-                    .credential(new StorageSharedKeyCredential(organization.getStorageAccountName(), key))
+                    .credential(new StorageSharedKeyCredential(storage.getAccountName(), key))
                     .buildAsyncClient()
-                    .generateSas(values)));
+                    .generateSas(values)), vertx);
         }
         return ret;
     }
@@ -103,24 +101,15 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     // The key is read through the management plane, where the server holds Storage Account
     // Contributor on the resource group every organization account is created in
     private Mono<String> accountKey(Organization organization) {
-        Validate.notBlank(organization.getStorageSubscriptionId(),
-                          "Organization %s has no storage subscription recorded", organization.getId());
-        Validate.notBlank(organization.getStorageAccountName(),
-                          "Organization %s has no storage account recorded", organization.getId());
-        AzureProfile profile = new AzureProfile(null, organization.getStorageSubscriptionId(), AzureEnvironment.AZURE);
+        OrganizationStorage storage = requireStorage(organization);
+        Validate.notBlank(storage.getSubscriptionId(), "Organization %s has no storage subscription recorded", organization.getId());
+        Validate.notBlank(storage.getAccountName(), "Organization %s has no storage account recorded", organization.getId());
+        AzureProfile profile = new AzureProfile(null, storage.getSubscriptionId(), AzureEnvironment.AZURE);
         return StorageManager.authenticate(credential, profile)
                              .storageAccounts()
-                             .getByResourceGroupAsync(properties.getResourceGroup(), organization.getStorageAccountName())
+                             .getByResourceGroupAsync(properties().getResourceGroup(), storage.getAccountName())
                              .flatMap(StorageAccount::getKeysAsync)
                              .map(keys -> keys.getFirst().value());
-    }
-
-    @Override
-    public Future<Boolean> exists(Organization organization, String prefix) {
-        Validate.notBlank(prefix, "prefix is required");
-        return bridge(container(organization).listBlobs(new ListBlobsOptions().setPrefix(prefix))
-                                             .next()
-                                             .hasElement());
     }
 
     @Override
@@ -129,10 +118,10 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         String root = uiPrefix + "/";
         // a hierarchy listing returns the direct children: the commit directories as prefixes,
         // and index.html and version.json as blobs
-        return bridge(container(organization).listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(root))
-                                             .filter(item -> Boolean.TRUE.equals(item.isPrefix()))
-                                             .map(item -> commitDir(root, item))
-                                             .collectList());
+        return AzureUtil.toFuture(container(organization).listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(root))
+                                                         .filter(item -> Boolean.TRUE.equals(item.isPrefix()))
+                                                         .map(item -> commitDir(root, item))
+                                                         .collectList(), vertx);
     }
 
     private static String commitDir(String root, BlobItem item) {
@@ -145,10 +134,10 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     public Future<Void> deletePrefix(Organization organization, String prefix) {
         Validate.notBlank(prefix, "prefix is required");
         BlobContainerAsyncClient container = container(organization);
-        return bridge(container.listBlobs(new ListBlobsOptions().setPrefix(prefix))
-                               .flatMap(item -> container.getBlobAsyncClient(item.getName()).deleteIfExists(),
-                                        DELETE_CONCURRENCY)
-                               .then());
+        return AzureUtil.toFuture(container.listBlobs(new ListBlobsOptions().setPrefix(prefix))
+                                           .flatMap(item -> container.getBlobAsyncClient(item.getName()).deleteIfExists(),
+                                                    DELETE_CONCURRENCY)
+                                           .then(), vertx);
     }
 
     private BlobContainerAsyncClient container(Organization organization) {
@@ -156,13 +145,11 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     private BlobServiceAsyncClient service(Organization organization) {
-        Validate.notNull(organization, "organization is required");
-        Validate.notBlank(organization.getStorageBlobEndpoint(),
-                          "Organization %s has no storage endpoint recorded", organization.getId());
-        return clientsByEndpoint.computeIfAbsent(organization.getStorageBlobEndpoint(), endpoint -> {
+        OrganizationStorage storage = requireStorage(organization);
+        return clientsByEndpoint.computeIfAbsent(storage.getBlobEndpoint(), endpoint -> {
             BlobServiceClientBuilder builder = new BlobServiceClientBuilder();
             if (azurite()) {
-                builder.connectionString(properties.getAzuriteConnectionString());
+                builder.connectionString(properties().getAzuriteConnectionString());
             } else {
                 builder.endpoint(endpoint).credential(credential);
             }
@@ -170,12 +157,19 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         });
     }
 
-    private boolean azurite() {
-        return properties.getAzuriteConnectionString() != null && !properties.getAzuriteConnectionString().isBlank();
+    private static OrganizationStorage requireStorage(Organization organization) {
+        Validate.notNull(organization, "organization is required");
+        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
+                        "Organization %s has no storage endpoint recorded", organization.getId());
+        return organization.getStorage();
     }
 
-    private <T> Future<T> bridge(Mono<T> mono) {
-        return Future.fromCompletionStage(mono.toFuture(), vertx.getOrCreateContext());
+    private boolean azurite() {
+        return properties().getAzuriteConnectionString() != null && !properties().getAzuriteConnectionString().isBlank();
+    }
+
+    private OrganizationStorageProperties properties() {
+        return kinoticProperties.getManagementApi().getOrganizationStorage();
     }
 
 }
