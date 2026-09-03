@@ -57,12 +57,32 @@ cd deployment/terraform/azure
 ./bootstrap-state.sh
 ```
 
-### 3. Deploy global resources (once)
+### 3. Create the terraform operators group (once)
+
+The platform Key Vault uses RBAC, and `global/keyvault.tf` grants the
+`Key Vault Secrets Officer` data-plane role to the `kinotic-terraform-operators`
+Entra group. Anyone who runs `terraform apply` in `global/` must be a member.
+
+```bash
+GROUP_ID=$(az ad group create --display-name kinotic-terraform-operators \
+  --mail-nickname kinotic-terraform-operators --query id -o tsv)
+az ad group member add --group "$GROUP_ID" \
+  --member-id "$(az ad signed-in-user show --query id -o tsv)"
+```
+
+To add another operator later:
+
+```bash
+az ad group member add --group kinotic-terraform-operators \
+  --member-id "$(az ad user show --id <upn> --query id -o tsv)"
+```
+
+### 4. Deploy global resources (once)
 
 ```bash
 cd global
 terraform init
-terraform apply
+TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... terraform apply
 ```
 
 This creates the DNS zone and Entra ID app registrations. Copy the nameservers
@@ -73,7 +93,7 @@ terraform output dns_nameservers
 dig NS kinotic.ai  # verify propagation
 ```
 
-### 4. Deploy cluster
+### 5. Deploy cluster
 
 ```bash
 cd ../cluster
@@ -94,7 +114,7 @@ terraform init
 terraform apply
 ```
 
-### 5. Get kubectl access
+### 6. Get kubectl access
 
 ```bash
 az aks get-credentials --resource-group rg-kinotic-production --name aks-kinotic-production
