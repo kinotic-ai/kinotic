@@ -31,4 +31,10 @@ public class ManagementApiProperties {
     @Valid
     private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
 
+    /**
+     * Where each published UI is served from.
+     */
+    @Valid
+    private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
+
 }
