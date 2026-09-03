@@ -7,14 +7,18 @@
       </template>
     </PageHeader>
 
-    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" />
+    <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployStores.hasDetail">
+      <template #detail="{ node, root }">
+        <ProjectDeployTaskDetail :node="node" :root="root" />
+      </template>
+    </JobRunProgress>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import { JobRunProgress, PageHeader } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
 
 defineProps<{
   jobRunId: string

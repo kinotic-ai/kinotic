@@ -29,7 +29,12 @@
 
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"
-                      :job-run-id="deployment.lastJobRunId" />
+                      :job-run-id="deployment.lastJobRunId"
+                      :expandable="ProjectDeployStores.hasDetail">
+        <template #detail="{ node, root }">
+          <ProjectDeployTaskDetail :node="node" :root="root" />
+        </template>
+      </JobRunProgress>
 
       <section v-if="machines.length" class="mt-8">
         <h2 class="text-base font-medium mb-1">Machine identities</h2>
@@ -67,7 +72,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import { DatetimeUtil, JobRunProgress, PageHeader } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
 import { ProjectDeploymentStatusType,
          type MachineParticipantIdentity,
@@ -80,7 +85,8 @@ interface MachineRow extends MachineParticipantIdentity {
 
 /**
  * The project's deployment: current status and commit, the latest deployment job's tasks
- * rendered live by JobRunProgress, and the machine identities its workloads connect as.
+ * rendered live by JobRunProgress with the build log and the artifacts on their rows, and
+ * the machine identities its workloads connect as.
  * Polls the deployment record so a new push swaps in its job run while the page is open.
  */
 const props = defineProps<{

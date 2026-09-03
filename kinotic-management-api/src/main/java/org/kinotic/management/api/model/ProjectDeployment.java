@@ -73,6 +73,17 @@ public class ProjectDeployment implements ApplicationScoped<String> {
     private String commitSha;
 
     /**
+     * The artifacts the sync workload found in the checkout of {@link #artifactsCommitSha},
+     * or {@code null} before a sync has reported any.
+     */
+    private ProjectArtifacts artifacts;
+
+    /**
+     * Sha of the commit {@link #artifacts} were found in.
+     */
+    private String artifactsCommitSha;
+
+    /**
      * The id of the most recent deployment job run for this project.
      */
     private String lastJobRunId;

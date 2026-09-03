@@ -12,6 +12,12 @@ public final class ProjectDeployStores {
     public static final String DEPLOY_TARGET = "deployTarget";
 
     /**
+     * The {@link org.kinotic.management.api.model.ProjectArtifacts} of the deployed commit,
+     * as the sync workload found them in the checkout and the run bound them.
+     */
+    public static final String ARTIFACTS = "artifacts";
+
+    /**
      * The id of the run's sync workload, stored by the task that ran it. Known before that
      * task completes through {@link DeployTarget#syncWorkloadId()}, which is what lets a
      * watcher follow the workload's logs while the task runs.

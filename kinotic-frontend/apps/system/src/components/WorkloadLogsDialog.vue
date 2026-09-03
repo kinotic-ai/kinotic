@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import Dialog from 'primevue/dialog'
-import WorkloadLogView from '@/components/WorkloadLogView.vue'
+import { WorkloadLogView } from '@kinotic-ai/frontend-common'
 
 defineProps<{
   workloadId: string

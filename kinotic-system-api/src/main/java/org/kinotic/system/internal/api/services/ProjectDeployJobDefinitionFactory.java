@@ -4,11 +4,13 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.management.api.model.Project;
+import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.ProjectRepoToken;
 import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -33,10 +35,11 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Creates the grind {@link JobDefinition} that deploys one commit of a project: resolve
  * the target node and checkout directory, bring the checkout to the commit with a
- * foreground sync workload, and ensure the long-lived runtime workload serving it.
- * The resolved {@link DeployTarget} and runtime workload id are stored in the job scope
- * under the {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s
- * and {@code TaskRecord}s carry them to the caller and the console.
+ * foreground sync workload, bind the artifacts that workload found into the run, and
+ * ensure the long-lived runtime workload serving it. The resolved {@link DeployTarget},
+ * the artifacts and the runtime workload id are stored in the job scope under the
+ * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
+ * {@code TaskRecord}s carry them to the caller and the console.
  */
 @Slf4j
 @Component
@@ -47,6 +50,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final WorkloadService workloadService;
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
+    private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
 
@@ -85,6 +89,12 @@ public class ProjectDeployJobDefinitionFactory {
                         return syncSource(project, target, commitSha);
                     }
                 }), Store.state(ProjectDeployStores.SYNC_WORKLOAD_ID).wire())
+                // Store.state: what the sync workload found in the commit, bound to the run so a
+                // resume replays it alongside the replayed sync; wired so the console lists it
+                .task(Tasks.fromCallable("Resolve artifacts",
+                                         () -> resolveArtifacts(project, commitSha)
+                                                 .toCompletionStage().toCompletableFuture()),
+                      Store.state(ProjectDeployStores.ARTIFACTS).wire())
                 // wired so watchers of the run can tail the workload's logs mid-run, before
                 // the deployment finishes and the id reaches the ProjectDeployment record; state
                 // so the run's records name the workload afterwards, and a resume keeps it
@@ -189,6 +199,23 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
+     * Binds the artifacts the sync workload reported for the commit into the run. The
+     * workload reports them through {@code ProjectArtifactService.recordArtifacts} before it
+     * writes the sentinel, so a record naming another commit means the report never arrived,
+     * and the run fails rather than deploy against what an earlier commit contained.
+     */
+    private Future<ProjectArtifacts> resolveArtifacts(Project project, String commitSha) {
+        return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
+                .map(deployment -> {
+                    if (deployment == null || !commitSha.equals(deployment.getArtifactsCommitSha())) {
+                        throw new IllegalStateException("The sync workload of project " + project.getId()
+                                + " did not report the artifacts of commit " + commitSha);
+                    }
+                    return deployment.getArtifacts();
+                });
+    }
+
+    /**
      * Leaves the project with a runtime workload serving the synced checkout: the recorded
      * one when it is up, otherwise a new one. A runtime whose run ended — stopped by hand or
      * crashed — is retired rather than started again, so a deployment never reuses a VM
@@ -248,6 +275,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
+        workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
         putKinoticConnection(workload, deployment, credentials);
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())

@@ -1,4 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
+import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
 import type { ProjectDeploymentStatus } from '@/api/model/ProjectDeploymentStatus'
 
 /**
@@ -57,6 +58,17 @@ export class ProjectDeployment implements Identifiable<string> {
      * Sha of the last commit successfully synced to the node.
      */
     public commitSha: string | null = null
+
+    /**
+     * The artifacts the sync workload found in the checkout of artifactsCommitSha, or null
+     * before a sync has reported any.
+     */
+    public artifacts: ProjectArtifacts | null = null
+
+    /**
+     * Sha of the commit artifacts were found in.
+     */
+    public artifactsCommitSha: string | null = null
 
     /**
      * The id of the most recent deployment job run for this project.
