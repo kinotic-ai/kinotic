@@ -1,0 +1,1 @@
+{"id":"091149143394df4324420f71632081f6","fullName":"test/SpawnEngine.test.ts#Kinotic JS packages/spawn SpawnEngine does not invoke the resolver for properties already in the context","name":"does not invoke the resolver for properties already in the context","status":"passed","testResultsByEnv":{"default":"4c4a038d3af3fd4d381fcda8d2e477a1"}}
