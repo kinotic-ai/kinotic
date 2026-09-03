@@ -45,6 +45,37 @@ public class Organization implements Identifiable<String> {
      */
     private String createdBy;
 
+    /**
+     * The Azure subscription holding the organization's storage account, or {@code null}
+     * before storage has been provisioned or when it is not hosted in Azure.
+     */
+    private String storageSubscriptionId;
+
+    /**
+     * The name of the organization's storage account, or {@code null} before storage has been
+     * provisioned. One account per organization holds everything its deployments publish.
+     */
+    private String storageAccountName;
+
+    /**
+     * The blob service endpoint of the storage account, or {@code null} before storage has
+     * been provisioned.
+     */
+    private String storageBlobEndpoint;
+
+    /**
+     * The address the storage account answers on inside the platform network, which is the
+     * one destination a publish workload may reach, or {@code null} before storage has been
+     * provisioned.
+     */
+    private String storagePrivateEndpointIp;
+
+    /**
+     * Where the organization's storage is in its lifecycle, or {@code null} while no
+     * deployment has needed it yet.
+     */
+    private OrganizationStorageStatus storageStatus;
+
     private Date created;
 
     private Date updated;

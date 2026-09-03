@@ -225,6 +225,11 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     description TEXT,
     ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
+    storageSubscriptionId KEYWORD,
+    storageAccountName KEYWORD,
+    storageBlobEndpoint KEYWORD NOT INDEXED,
+    storagePrivateEndpointIp KEYWORD NOT INDEXED,
+    storageStatus OBJECT (type KEYWORD, message TEXT),
     created DATE,
     updated DATE
 );

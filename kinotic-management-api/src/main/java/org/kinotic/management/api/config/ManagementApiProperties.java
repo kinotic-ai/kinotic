@@ -25,4 +25,10 @@ public class ManagementApiProperties {
     @Valid
     private LokiProperties loki = new LokiProperties();
 
+    /**
+     * Where each organization's storage account is provisioned.
+     */
+    @Valid
+    private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
+
 }
