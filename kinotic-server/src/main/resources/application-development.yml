@@ -30,7 +30,8 @@ kinotic:
         - github.com
         - registry.npmjs.org
   domain:
-    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
+    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel, or
+    # pnpm dev:tunnel:build for a production build over a slow upstream),
     # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With
     # appBaseUrl on the tunnel origin, apiBaseUrl and oauth.issuerBaseUrl fall back to it,
     # so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP surface all
