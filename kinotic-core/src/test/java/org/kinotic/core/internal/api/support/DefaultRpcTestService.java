@@ -194,6 +194,11 @@ public class DefaultRpcTestService implements RpcTestService{
     }
 
     @Override
+    public Mono<String> narrowParticipant(NarrowParticipant participant){
+        return Mono.just(participant.getId());
+    }
+
+    @Override
     public Integer putListOfSimpleObjects(List<SimpleObject> simpleObjects) {
         for(SimpleObject simpleObject : simpleObjects){
             if(simpleObject == null){

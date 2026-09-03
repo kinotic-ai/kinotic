@@ -288,7 +288,7 @@ export default defineComponent({
     </CrudTable>
 
     <EntityDataViewModal
-      v-if="selectedEntityDefinition"
+      v-if="showModal && selectedEntityDefinition"
       v-model="showModal"
       :title="selectedEntityDefinition?.name || 'Data View'"
       :entity-props="{ entityDefinitionId: selectedEntityDefinition?.id }"

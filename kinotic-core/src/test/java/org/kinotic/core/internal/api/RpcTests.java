@@ -11,6 +11,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
@@ -257,6 +258,17 @@ public class RpcTests {
         StepVerifier.create(mono)
                     .expectNext(prefix + PARTICIPANT_ID + suffix)
                     .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testNarrowParticipantRejectsWiderCaller(){
+        // the bound participant is a plain Participant, so it is not the NarrowParticipant the
+        // service declares
+        Mono<String> mono = withParticipant(rpcTestServiceProxy::narrowParticipant);
+
+        StepVerifier.create(mono)
+                    .expectErrorMatches(throwable -> throwable instanceof AuthorizationException)
                     .verify();
     }
 

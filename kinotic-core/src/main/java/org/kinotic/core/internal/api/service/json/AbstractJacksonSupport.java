@@ -72,6 +72,26 @@ public abstract class AbstractJacksonSupport {
     }
 
     /**
+     * Resolves a {@link Participant} parameter from the current Vert.x context, narrowed to the
+     * {@link Participant} subtype the parameter declares.
+     *
+     * @param methodParameter the {@link Participant} parameter being resolved
+     * @return the participant bound to the current Vert.x context
+     * @throws IllegalStateException if no participant is bound to the current Vert.x context
+     * @throws org.kinotic.core.api.exceptions.AuthorizationException if the participant is not of
+     *         the declared subtype
+     */
+    protected Participant resolveParticipant(MethodParameter methodParameter) {
+        // A service declares the participant scope it serves, so narrowing here turns a caller the
+        // service does not serve into an authorization failure rather than an "argument type
+        // mismatch" out of Method.invoke
+        @SuppressWarnings("unchecked")
+        Class<? extends Participant> participantType =
+                (Class<? extends Participant>) methodParameter.getParameterType();
+        return securityContext.requireParticipant(participantType);
+    }
+
+    /**
      * Transforms the JSON content to Java objects using the given expected parameter types
      * @param event the message containing the JSON content to be converted
      * @param parameters to determine the correct type for the {@link TokenBuffer} being decoded.
@@ -118,12 +138,7 @@ public abstract class AbstractJacksonSupport {
             // If the parameter is a Participant we get this from the Vert.x context
             if (Participant.class.isAssignableFrom(methodParameter.getParameterType())) {
 
-                Participant participant = securityContext.currentParticipant();
-                if (participant != null) {
-                    ret.add(participant);
-                } else {
-                    throw new IllegalArgumentException("Participant parameter is required but no Participant is available in the Vert.x context");
-                }
+                ret.add(resolveParticipant(methodParameter));
 
             } else {
                 if (tokenIdx >= tokenCount) {
