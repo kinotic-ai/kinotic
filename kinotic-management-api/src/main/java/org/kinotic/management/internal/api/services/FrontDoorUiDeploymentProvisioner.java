@@ -181,16 +181,10 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                 .mapEmpty();
     }
 
-    /**
-     * Checked on first use rather than at startup, so a deployment that publishes a UI fails
-     * with the missing setting named while a server that never does runs unconfigured.
-     */
+    // Built on first use rather than at startup, so a server that never publishes a UI opens
+    // no Azure client
     private synchronized void ensureClients() {
         if (cdn == null) {
-            Validate.notBlank(properties().getSitesDomain(), "kinotic.managementApi.uiDeployment.sitesDomain is required");
-            Validate.notBlank(properties().getDnsZoneId(), "kinotic.managementApi.uiDeployment.dnsZoneId is required");
-            Validate.notBlank(properties().getFrontDoorProfileId(), "kinotic.managementApi.uiDeployment.frontDoorProfileId is required");
-            Validate.notBlank(properties().getFrontDoorEndpointHostName(), "kinotic.managementApi.uiDeployment.frontDoorEndpointHostName is required");
             ResourceId profile = ResourceId.fromString(properties().getFrontDoorProfileId());
             ResourceId zone = ResourceId.fromString(properties().getDnsZoneId());
             recordSuffix = recordSuffix(properties().getSitesDomain(), zone.name());

@@ -66,13 +66,6 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     @Override
     public Future<Organization> ensureStorage(String organizationId) {
         Validate.notBlank(organizationId, "organizationId is required");
-        // Checked here rather than at startup, so a deployment that needs storage fails with
-        // the missing setting named while a server that never publishes a UI runs unconfigured
-        Validate.notEmpty(properties().getSubscriptionIds(), "kinotic.managementApi.organizationStorage.subscriptionIds is required");
-        Validate.notBlank(properties().getResourceGroup(), "kinotic.managementApi.organizationStorage.resourceGroup is required");
-        Validate.notBlank(properties().getLocation(), "kinotic.managementApi.organizationStorage.location is required");
-        Validate.notBlank(properties().getPrivateEndpointSubnetId(), "kinotic.managementApi.organizationStorage.privateEndpointSubnetId is required");
-        Validate.notBlank(properties().getPrivateDnsZoneId(), "kinotic.managementApi.organizationStorage.privateDnsZoneId is required");
         return organizationService.findById(organizationId)
                 .compose(organization -> {
                     if (organization == null) {

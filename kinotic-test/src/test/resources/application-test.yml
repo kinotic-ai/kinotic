@@ -10,6 +10,20 @@ kinotic:
       appPrivateKey: "-"
       webhookSecret: "-"
       repoTemplate: "-"
+    # placeholder storage and site config, validated at boot; no test deploys a UI
+    organizationStorage:
+      disableProvisioner: true
+      subscriptionIds: ["-"]
+      resourceGroup: "-"
+      location: "-"
+      privateEndpointSubnetId: "-"
+      privateDnsZoneId: "-"
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      dnsZoneId: "-"
+      frontDoorProfileId: "-"
+      frontDoorEndpointHostName: "-"
   maxNumberOfCoresToUse: 4
   systemApi:
     deployment:
