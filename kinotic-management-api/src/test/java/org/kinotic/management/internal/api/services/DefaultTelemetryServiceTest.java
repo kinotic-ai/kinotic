@@ -1,65 +1,30 @@
 package org.kinotic.management.internal.api.services;
 
-import io.vertx.core.Context;
 import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
 import org.kinotic.management.api.model.MetricQuery;
 import org.kinotic.management.api.model.TraceQuery;
 import org.kinotic.management.api.services.MimirClient;
 import org.kinotic.management.api.services.TempoClient;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 /**
  * Covers {@link DefaultTelemetryService} authorization and tenant resolution: organization
- * participants read their own organization's tenant whether they name it or not and no other,
- * system participants read any organization's and the platform's when they name none.
+ * participants read their own organization's tenant and no other, system participants read any
+ * organization's and the platform's when they name none.
  */
-class DefaultTelemetryServiceTest {
-
-    private static final Participant ACME_USER =
-            new DefaultOrganizationParticipant("user-1", "acme", Map.of(), List.of("USER"));
-    private static final Participant PLATFORM_OPERATOR =
-            new DefaultSystemParticipant("operator-1", Map.of(), List.of("ADMIN"));
-
-    private static SecurityContext securityContext;
-    private static Vertx vertx;
+class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
     private final RecordingTempoClient tempoClient = new RecordingTempoClient();
     private final RecordingMimirClient mimirClient = new RecordingMimirClient();
-    private final DefaultTelemetryService service = new DefaultTelemetryService(tempoClient, mimirClient, securityContext);
-
-    @BeforeAll
-    static void setup() {
-        // SecurityContext registers its ContextLocal at class load, which must happen
-        // before any Vertx instance is created
-        securityContext = new SecurityContext();
-        vertx = Vertx.vertx();
-    }
-
-    @AfterAll
-    static void tearDown() {
-        vertx.close();
-    }
+    private final DefaultTelemetryService service = new DefaultTelemetryService(tempoClient, mimirClient, tenantAccess);
 
     @Test
-    void organizationParticipantSearchesItsOwnTenantWhenNamingIt() throws Throwable {
+    void organizationParticipantSearchesItsOwnTenant() throws Throwable {
         callAs(ACME_USER, () -> service.searchTraces(traceQuery("acme")));
 
         assertEquals("acme", tempoClient.tenant);
@@ -70,20 +35,15 @@ class DefaultTelemetryServiceTest {
     }
 
     @Test
-    void organizationParticipantSearchesItsOwnTenantWhenNamingNone() throws Throwable {
-        callAs(ACME_USER, () -> service.searchTraces(traceQuery(null)));
-
-        assertEquals("acme", tempoClient.tenant);
-    }
-
-    @Test
-    void organizationParticipantMayNotReadAnotherOrganization() {
+    void organizationParticipantMayNotReadAnotherOrganizationOrThePlatform() {
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.searchTraces(traceQuery("globex"))));
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.queryMetrics(metricQuery("globex"))));
         assertInstanceOf(AuthorizationException.class,
                          failureOf(ACME_USER, () -> service.findTrace("globex", "abc123")));
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(ACME_USER, () -> service.searchTraces(traceQuery(null))));
     }
 
     @Test
@@ -98,7 +58,7 @@ class DefaultTelemetryServiceTest {
     void systemParticipantReadsThePlatformTenantWhenNamingNone() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.queryMetrics(metricQuery(null)));
 
-        assertEquals(DefaultLogService.SYSTEM_TENANT, mimirClient.tenant);
+        assertEquals(TenantAccess.SYSTEM_TENANT, mimirClient.tenant);
     }
 
     @Test
@@ -134,34 +94,6 @@ class DefaultTelemetryServiceTest {
                                 .setStart(1_000L)
                                 .setEnd(2_000L)
                                 .setStep(15L);
-    }
-
-    /**
-     * Runs the call on a Vert.x context with the given participant bound, mirroring how the
-     * gateway invokes published services.
-     */
-    private <T> T callAs(Participant participant, Supplier<Future<T>> call) throws Throwable {
-        Promise<T> result = Promise.promise();
-        Context context = vertx.getOrCreateContext();
-        context.runOnContext(unused -> {
-            securityContext.setParticipant(context, participant);
-            try {
-                call.get().onComplete(result);
-            } catch (Throwable error) {
-                result.fail(error);
-            }
-        });
-        // await rethrows a failed future's raw cause, so failureOf sees the unwrapped exception
-        return result.future().await(10, TimeUnit.SECONDS);
-    }
-
-    private <T> Throwable failureOf(Participant participant, Supplier<Future<T>> call) {
-        try {
-            callAs(participant, call);
-            return null;
-        } catch (Throwable error) {
-            return error;
-        }
     }
 
     private static class RecordingTempoClient implements TempoClient {

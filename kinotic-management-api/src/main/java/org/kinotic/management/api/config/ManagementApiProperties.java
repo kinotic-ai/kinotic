@@ -20,21 +20,22 @@ public class ManagementApiProperties {
     private GithubProperties github = new GithubProperties();
 
     /**
-     * Loki configuration for the {@code LogService}.
+     * Loki, which backs the {@code LogService}.
      */
     @Valid
-    private LokiProperties loki = new LokiProperties();
+    private GrafanaBackendProperties loki = new GrafanaBackendProperties().setUrl("http://localhost:3100");
 
     /**
-     * Tempo configuration for the {@code TelemetryService}'s trace queries.
+     * Tempo, which backs the {@code TelemetryService}'s trace queries.
      */
     @Valid
-    private TempoProperties tempo = new TempoProperties();
+    private GrafanaBackendProperties tempo = new GrafanaBackendProperties().setUrl("http://localhost:3200");
 
     /**
-     * Mimir configuration for the {@code TelemetryService}'s metric queries.
+     * Mimir, whose Prometheus API under {@code /prometheus} backs the {@code TelemetryService}'s
+     * metric queries.
      */
     @Valid
-    private MimirProperties mimir = new MimirProperties();
+    private GrafanaBackendProperties mimir = new GrafanaBackendProperties().setUrl("http://localhost:9009");
 
 }

@@ -49,4 +49,9 @@ public abstract class AbstractTenantScopedClient {
                               : Future.failedFuture(operation + " failed: HTTP " + resp.statusCode()
                                       + (resp.bodyAsString() != null ? " — " + resp.bodyAsString() : "")));
     }
+
+    // Tempo and Prometheus take their time ranges in epoch seconds
+    protected static long msToSeconds(long epochMs) {
+        return epochMs / 1000;
+    }
 }

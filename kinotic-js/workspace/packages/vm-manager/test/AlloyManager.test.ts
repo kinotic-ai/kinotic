@@ -3,6 +3,7 @@ import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { Workload } from '@kinotic-ai/management-api'
 import { AlloyManager, type AlloyManagerOptions } from '@/internal/api/telemetry/AlloyManager'
 import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
 import { LogFormat } from '@/internal/api/model/LogFormat'
@@ -41,9 +42,9 @@ function target(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
 }
 
 /** A target whose workload elected telemetry and was issued an endpoint on this node. */
-function traced(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
+function withEndpoint(overrides: Partial<TelemetryTarget> = {}): TelemetryTarget {
     return target({
-        otlp: { listenAddress: '127.0.0.1', port: 43180, token: 'a1b2c3' },
+        otlp: { listenAddress: '127.0.0.1', port: 43180, token: 'a1b2c3', signals: ['traces', 'metrics'] },
         ...overrides,
     })
 }
@@ -139,7 +140,7 @@ describe('applyTargets pipeline generation', () => {
 describe('OTLP pipeline generation', () => {
 
     it('receives a workload\'s traces on its own endpoint, behind its own bearer token', async () => {
-        const config = await configFor([traced()], { tempoUrl: TEMPO_URL })
+        const config = await configFor([withEndpoint()], { tempoUrl: TEMPO_URL })
 
         expect(config).toContain('otelcol.auth.bearer "wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c"')
         expect(config).toContain('token = "a1b2c3"')
@@ -149,7 +150,7 @@ describe('OTLP pipeline generation', () => {
     })
 
     it('stamps spans with the identity its log streams carry, as resource attributes', async () => {
-        const config = await configFor([traced({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL })
+        const config = await configFor([withEndpoint({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL })
 
         expect(config).toContain('context    = "resource"')
         expect(config).toContain('"set(attributes[\\"workload_id\\"], \\"9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c\\")"')
@@ -159,16 +160,16 @@ describe('OTLP pipeline generation', () => {
     })
 
     it('omits the application attribute when the workload has no application', async () => {
-        const config = await configFor([traced()], { tempoUrl: TEMPO_URL })
+        const config = await configFor([withEndpoint()], { tempoUrl: TEMPO_URL })
 
         expect(config).not.toContain('application_id')
     })
 
     it('exports each organization to its own Tempo tenant, and platform workloads to the system tenant', async () => {
         const config = await configFor([
-            traced(),
-            traced({ workloadId: 'ff000000-0000-4000-8000-000000000001', organizationId: null,
-                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+            withEndpoint(),
+            withEndpoint({ workloadId: 'ff000000-0000-4000-8000-000000000001', organizationId: null,
+                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6', signals: ['traces', 'metrics'] } }),
         ], { tempoUrl: TEMPO_URL })
 
         expect(config).toContain('"X-Scope-OrgID" = "acme"')
@@ -178,9 +179,9 @@ describe('OTLP pipeline generation', () => {
 
     it('shares one exporter between workloads of the same organization', async () => {
         const config = await configFor([
-            traced(),
-            traced({ workloadId: 'ff000000-0000-4000-8000-000000000001',
-                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6' } }),
+            withEndpoint(),
+            withEndpoint({ workloadId: 'ff000000-0000-4000-8000-000000000001',
+                     otlp: { listenAddress: '127.0.0.1', port: 43181, token: 'd4e5f6', signals: ['traces', 'metrics'] } }),
         ], { tempoUrl: TEMPO_URL })
 
         expect(config.match(/otelcol\.receiver\.otlp "/g)).toHaveLength(2)
@@ -194,20 +195,20 @@ describe('OTLP pipeline generation', () => {
     })
 
     it('ships nothing on a node with neither a Tempo nor a Mimir URL, whatever a workload elected', async () => {
-        const config = await configFor([traced()])
+        const config = await configFor([withEndpoint()])
 
         expect(config).not.toContain('otelcol.')
     })
 
     it('ships traces alone on a node configured for Tempo but not Loki', async () => {
-        const config = await configFor([traced()], { tempoUrl: TEMPO_URL, lokiUrl: null })
+        const config = await configFor([withEndpoint()], { tempoUrl: TEMPO_URL, lokiUrl: null })
 
         expect(config).toContain('otelcol.receiver.otlp')
         expect(config).not.toContain('loki.')
     })
 
     it('ships metrics beside traces when the node has a Mimir URL', async () => {
-        const config = await configFor([traced({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL, mimirUrl: MIMIR_URL })
+        const config = await configFor([withEndpoint({ applicationId: 'app-7' })], { tempoUrl: TEMPO_URL, mimirUrl: MIMIR_URL })
 
         // Every stage carries both signals, and the tenant fans out to one exporter each
         expect(config).toContain('    traces = [otelcol.processor.transform.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.input]')
@@ -220,12 +221,75 @@ describe('OTLP pipeline generation', () => {
     })
 
     it('ships metrics alone on a node with a Mimir URL and no Tempo URL', async () => {
-        const config = await configFor([traced()], { mimirUrl: MIMIR_URL })
+        const config = await configFor([withEndpoint()], { mimirUrl: MIMIR_URL })
 
         expect(config).toContain('    metrics = [otelcol.processor.transform.wl_9b2f4e6a_1c3d_4f5e_8a7b_0d1e2f3a4b5c.input]')
         expect(config).not.toContain('traces = [')
         expect(config).not.toContain('trace_statements')
         expect(config).not.toContain('traces_tenant')
+    })
+})
+
+describe('endpoints and the guest environment', () => {
+
+    function workload(): Workload {
+        const w = new Workload('orders', 'oven/bun:latest')
+        w.id = '9b2f4e6a-1c3d-4f5e-8a7b-0d1e2f3a4b5c'
+        w.telemetry = true
+        w.environment = { APP: 'x' }
+        w.secrets = { TOKEN: 'y' }
+        return w
+    }
+
+    it('issues an endpoint accepting the signals the node ships, and keeps it across restarts', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-endpoints-'))
+
+        const issued = manager(dataDir, { tempoUrl: TEMPO_URL }).issueEndpoint(workload(), '127.0.0.1')
+
+        expect(issued).toMatchObject({ listenAddress: '127.0.0.1', signals: ['traces'] })
+        // A guest booted by the previous process still holds this port and token
+        expect(manager(dataDir, { tempoUrl: TEMPO_URL }).endpointOf(workload().id!)).toEqual(issued)
+    })
+
+    it('issues nothing to a workload that did not elect telemetry, or on a node shipping no signal', async () => {
+        const dataDir = mkdtempSync(join(tmpdir(), 'alloy-endpoints-'))
+        const silent = workload()
+        silent.telemetry = false
+
+        expect(manager(dataDir, { tempoUrl: TEMPO_URL }).issueEndpoint(silent, '127.0.0.1')).toBeNull()
+        expect(manager(dataDir).issuesEndpoints()).toBeFalse()
+        expect(manager(dataDir).issueEndpoint(workload(), '127.0.0.1')).toBeNull()
+    })
+
+    it('lays the exporter configuration over the workload environment, with the service name beneath it', () => {
+        const w = workload()
+        w.environment = { APP: 'x', OTEL_EXPORTER_OTLP_ENDPOINT: 'http://elsewhere:4318' }
+        const endpoint = { listenAddress: '127.0.0.1', port: 43180, token: 'abc123', signals: ['traces' as const] }
+
+        expect(AlloyManager.guestEnvironment(w, '192.168.127.254', endpoint)).toEqual({
+            OTEL_SERVICE_NAME: 'orders',
+            APP: 'x',
+            TOKEN: 'y',
+            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180',
+            OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+            OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer%20abc123',
+            OTEL_TRACES_EXPORTER: 'otlp',
+            // A signal the endpoint does not accept is turned off, since the receiver would refuse it
+            OTEL_METRICS_EXPORTER: 'none',
+            OTEL_LOGS_EXPORTER: 'none',
+        })
+    })
+
+    it('lets the workload name its own service', () => {
+        const w = workload()
+        w.environment = { OTEL_SERVICE_NAME: 'checkout' }
+
+        expect(AlloyManager.guestEnvironment(w, '127.0.0.1', { listenAddress: '127.0.0.1', port: 43180, token: 't', signals: [] }))
+            .toMatchObject({ OTEL_SERVICE_NAME: 'checkout' })
+    })
+
+    it('leaves the environment of a workload without an endpoint as it is', () => {
+        expect(AlloyManager.guestEnvironment(workload(), '127.0.0.1', null)).toEqual({ APP: 'x', TOKEN: 'y' })
     })
 })
 
@@ -241,13 +305,13 @@ describe.skipIf(!process.env.KINOTIC_ALLOY_BIN)('generated config against a real
         const alloyManager = manager(dataDir, { tempoUrl: TEMPO_URL, mimirUrl: MIMIR_URL })
         try {
             await alloyManager.applyTargets([
-                traced({ applicationId: 'app-7' }),
-                traced({
+                withEndpoint({ applicationId: 'app-7' }),
+                withEndpoint({
                     workloadId: 'ff000000-0000-4000-8000-000000000001',
                     organizationId: null,
                     logPath: '/var/lib/docker/containers/abc123/abc123-json.log',
                     format: LogFormat.DOCKER_JSON,
-                    otlp: { listenAddress: '172.17.0.1', port: 43181, token: 'd4e5f6' },
+                    otlp: { listenAddress: '172.17.0.1', port: 43181, token: 'd4e5f6', signals: ['traces', 'metrics'] },
                 }),
                 target({ workloadId: 'ff000000-0000-4000-8000-000000000002' }),
             ])

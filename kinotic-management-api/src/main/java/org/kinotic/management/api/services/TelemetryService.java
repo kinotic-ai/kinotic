@@ -9,7 +9,7 @@ import org.kinotic.management.api.model.TraceQuery;
 /**
  * Queries the traces and metrics that the workloads of an organization exported: an organization
  * participant reads its own organization's, a system participant reads any organization's, or the
- * platform's own when no organization is named. Every method returns the raw backend response bytes;
+ * platform's own when it names no organization. Every method returns the raw backend response bytes;
  * the caller parses Tempo's and Prometheus's wire formats.
  */
 @Publish
@@ -26,8 +26,8 @@ public interface TelemetryService {
     /**
      * Returns one trace with every span it holds.
      *
-     * @param organizationId the organization the trace belongs to; null for the caller's own, or the
-     *                       platform's for a system participant
+     * @param organizationId the organization the trace belongs to; null for the platform's own,
+     *                       which only a system participant may read
      * @param traceId        the hex trace id
      * @return a {@link Future} emitting the raw Tempo trace response, OTLP JSON
      */

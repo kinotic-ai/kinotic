@@ -1,11 +1,10 @@
 import { Kinotic } from '@kinotic-ai/core'
+import { parseJsonBytes } from '../../util/helpers'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
 import type { TraceSpanEvent } from './TraceSpanEvent'
 import type { TraceSummary } from './TraceSummary'
-
-const decoder = new TextDecoder()
 
 /** The spans of an application's, or a whole organization's, services, as Tempo derives them into metrics. */
 const SPAN_METRIC_CALLS = 'traces_spanmetrics_calls_total'
@@ -14,8 +13,8 @@ const SPAN_METRIC_LATENCY = 'traces_spanmetrics_latency_bucket'
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
 
-/** The time ranges the telemetry views offer. */
-export const TIME_RANGE_PRESETS: ReadonlyArray<{ label: string; ms: number }> = [
+/** The time ranges the telemetry views offer; the second is the one they open on. */
+export const TIME_RANGE_PRESETS: Array<{ label: string; ms: number }> = [
     { label: 'Last 15 minutes', ms: 15 * 60_000 },
     { label: 'Last hour', ms: 60 * 60_000 },
     { label: 'Last 6 hours', ms: 6 * 60 * 60_000 },
@@ -52,8 +51,8 @@ export function traceQl(filters: TraceFilters): string {
     return clauses.length > 0 ? `{ ${clauses.join(' && ')} }` : '{}'
 }
 
-/** Seconds between the points of a range query, sized so a chart gets about {@link POINTS_PER_RANGE}. */
-export function stepSeconds(range: TimeRange): number {
+// Seconds between the points of a range query, sized so a chart gets about POINTS_PER_RANGE
+function stepSeconds(range: TimeRange): number {
     return Math.max(15, Math.round((range.end - range.start) / 1000 / POINTS_PER_RANGE))
 }
 
@@ -88,15 +87,13 @@ export function redQueries(applicationId: string | null, range: TimeRange): { re
 
 /** Searches the organization's traces, newest first. */
 export async function searchTraces(organizationId: string | null, query: string, range: TimeRange, limit: number): Promise<TraceSummary[]> {
-    const bytes = await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit })
     // Raw Tempo search response: {traces: [{traceID, rootServiceName, rootTraceName, startTimeUnixNano, durationMs, spanSets}]}
-    const body = JSON.parse(decoder.decode(bytes))
+    const body = parseJsonBytes(await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit }))
     return ((body?.traces ?? []) as any[]).map(parseTraceSummary).sort((a, b) => b.startMs - a.startMs)
 }
 
 function parseTraceSummary(trace: any): TraceSummary {
-    // Older Tempo answers with one spanSet, newer with spanSets
-    const spanSets: any[] = trace.spanSets ?? (trace.spanSet ? [trace.spanSet] : [])
+    const spanSets: any[] = trace.spanSets ?? []
     return {
         traceId: String(trace.traceID ?? ''),
         rootService: trace.rootServiceName ?? '',
@@ -109,10 +106,9 @@ function parseTraceSummary(trace: any): TraceSummary {
 
 /** Fetches one trace as its spans in waterfall order: each span's children under it, siblings by start. */
 export async function fetchTrace(organizationId: string | null, traceId: string): Promise<TraceSpan[]> {
-    const bytes = await Kinotic.telemetry.findTrace(organizationId, traceId)
-    // Raw Tempo trace response: OTLP JSON, whose top-level list Tempo names batches
-    const body = JSON.parse(decoder.decode(bytes))
-    return orderForWaterfall(collectSpans(body?.trace?.resourceSpans ?? body?.resourceSpans ?? body?.batches ?? []))
+    // Raw Tempo trace response: OTLP JSON, whose top-level resourceSpans list Tempo names batches
+    const body = parseJsonBytes(await Kinotic.telemetry.findTrace(organizationId, traceId))
+    return orderForWaterfall(collectSpans(body?.batches ?? []))
 }
 
 function collectSpans(batches: any[]): TraceSpan[] {
@@ -120,7 +116,7 @@ function collectSpans(batches: any[]): TraceSpan[] {
     for (const batch of batches) {
         const resource = attributesOf(batch.resource?.attributes)
         const service = resource['service.name'] ?? ''
-        for (const scope of batch.scopeSpans ?? batch.instrumentationLibrarySpans ?? []) {
+        for (const scope of batch.scopeSpans ?? []) {
             for (const span of scope.spans ?? []) {
                 const startMs = Number(span.startTimeUnixNano ?? 0) / 1_000_000
                 const endMs = Number(span.endTimeUnixNano ?? 0) / 1_000_000
@@ -153,7 +149,11 @@ function orderForWaterfall(spans: TraceSpan[]): TraceSpan[] {
         const parent = span.parentSpanId !== null && known.has(span.parentSpanId) && span.parentSpanId !== span.spanId
             ? span.parentSpanId
             : null
-        children.set(parent, [...(children.get(parent) ?? []), span])
+        let siblings = children.get(parent)
+        if (siblings === undefined) {
+            children.set(parent, siblings = [])
+        }
+        siblings.push(span)
     }
     for (const siblings of children.values()) {
         siblings.sort((a, b) => a.startMs - b.startMs)
@@ -247,9 +247,8 @@ function anyValueToString(value: any): string {
 
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
-    const bytes = await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) })
     // Raw Prometheus query_range response: {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}}
-    const body = JSON.parse(decoder.decode(bytes))
+    const body = parseJsonBytes(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
     if (body?.status !== 'success') {
         throw new Error(body?.error ?? 'Metric query failed')
     }

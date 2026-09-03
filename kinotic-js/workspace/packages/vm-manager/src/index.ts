@@ -10,7 +10,6 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
-import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
 import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
@@ -26,8 +25,7 @@ if (!nodeId) {
     process.exit(1)
 }
 
-const shippedSignals = { traces: Boolean(config.tempoUrl), metrics: Boolean(config.mimirUrl) }
-const alloyManager = config.lokiUrl || shippedSignals.traces || shippedSignals.metrics
+const alloyManager = config.lokiUrl || config.tempoUrl || config.mimirUrl
     ? new AlloyManager({
         lokiUrl: config.lokiUrl || null,
         tempoUrl: config.tempoUrl || null,
@@ -39,16 +37,12 @@ const alloyManager = config.lokiUrl || shippedSignals.traces || shippedSignals.m
 if (!config.lokiUrl) {
     console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
 }
-if (!shippedSignals.traces) {
+if (!config.tempoUrl) {
     console.warn('KINOTIC_TEMPO_URL is not set — workload trace shipping is disabled')
 }
-if (!shippedSignals.metrics) {
+if (!config.mimirUrl) {
     console.warn('KINOTIC_MIMIR_URL is not set — workload metric shipping is disabled')
 }
-// Endpoints are issued only where the node ships what arrives on them
-const otlpEndpoints = shippedSignals.traces || shippedSignals.metrics
-    ? new OtlpEndpointRepository(config.alloyDataDir, shippedSignals)
-    : null
 
 let heartbeatTimer: Timer | null = null
 let shuttingDown = false
@@ -73,7 +67,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // One-shot, so it must run before anything asks for the runtime.
         getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
-                                  config.workloadDataDir, reportStatus, otlpEndpoints)
+                                  config.workloadDataDir, reportStatus, alloyManager)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
@@ -86,7 +80,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
                                           egress,
                                           config.workloadDns ?? null,
                                           reportStatus,
-                                          otlpEndpoints)
+                                          alloyManager)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }

@@ -1,8 +1,12 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
+import type { Workload } from '@kinotic-ai/management-api'
 import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
 import { LogFormat } from '@/internal/api/model/LogFormat'
+import type { OtlpSink } from '@/internal/api/telemetry/OtlpSink'
+import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
@@ -21,7 +25,7 @@ const DOWNLOAD_TIMEOUT_MS = 120_000
 const DOWNLOAD_ATTEMPTS = 3
 
 // Tenant for platform workloads with no organization (SYSTEM scope), for logs, traces, and
-// metrics alike; must match DefaultLogService.SYSTEM_TENANT on the server
+// metrics alike; must match TenantAccess.SYSTEM_TENANT on the server
 const SYSTEM_TENANT = 'kinotic-system'
 
 /**
@@ -49,14 +53,43 @@ export interface AlloyManagerOptions {
 
 /**
  * Runs the Grafana Alloy process that ships workload logs to Loki, workload traces to Tempo,
- * and workload metrics to Mimir. The pipeline config is regenerated from the current targets
- * on every change; Alloy is started on the first target and hot-reloads via SIGHUP afterwards.
+ * and workload metrics to Mimir, and issues the workloads that elect telemetry the OTLP
+ * endpoints Alloy receives on. The pipeline config is regenerated from the current targets on
+ * every change; Alloy is started on the first target and hot-reloads via SIGHUP afterwards.
  */
 export class AlloyManager {
+
+    /**
+     * The environment a guest is started with: the workload's own, and — when it holds an
+     * endpoint — the service name its spans and metrics are grouped by defaulted to the
+     * workload's name beneath it, and the OTLP exporter configuration for that endpoint over
+     * it, in the standard OpenTelemetry variables every SDK reads. Each signal the endpoint
+     * does not accept is turned off, since the receiver would refuse it.
+     *
+     * @param host the address the guest reaches its node on, which each provider knows
+     */
+    static guestEnvironment(workload: Workload, host: string, endpoint: OtlpEndpoint | null): Record<string, string> {
+        return {
+            ...(endpoint !== null ? { OTEL_SERVICE_NAME: workload.name } : {}),
+            ...workload.environment,
+            ...workload.secrets,
+            ...(endpoint !== null ? {
+                OTEL_EXPORTER_OTLP_ENDPOINT: `http://${host}:${endpoint.port}`,
+                OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+                // Header values are percent-encoded, per the OTLP exporter specification
+                OTEL_EXPORTER_OTLP_HEADERS: `authorization=Bearer%20${endpoint.token}`,
+                OTEL_TRACES_EXPORTER: endpoint.signals.includes('traces') ? 'otlp' : 'none',
+                OTEL_METRICS_EXPORTER: endpoint.signals.includes('metrics') ? 'otlp' : 'none',
+                OTEL_LOGS_EXPORTER: 'none',
+            } : {}),
+        }
+    }
 
     private readonly options: AlloyManagerOptions
     private readonly configPath: string
     private readonly pidFile: string
+    // Null on a node that ships no OTLP signal, where a workload's election issues nothing
+    private readonly endpoints: OtlpEndpointRepository | null
     private child: ChildProcess | null = null
     private lastConfig: string | null = null
     private stopping = false
@@ -67,11 +100,37 @@ export class AlloyManager {
         this.options = options
         this.configPath = join(options.dataDir, 'config.alloy')
         this.pidFile = join(options.dataDir, 'alloy.pid')
+        this.endpoints = this.sinks().length > 0 ? new OtlpEndpointRepository(options.dataDir) : null
     }
 
-    /** Whether this node ships anything a workload that elects telemetry exports. */
-    shipsTelemetry(): boolean {
-        return this.signals().length > 0
+    /** Whether this node ships any OTLP signal, and so issues endpoints to workloads that elect telemetry. */
+    issuesEndpoints(): boolean {
+        return this.endpoints !== null
+    }
+
+    /**
+     * Issues the workload an endpoint bound to the given host address when it elects telemetry
+     * and this node ships a signal, or returns the one it already holds; null otherwise.
+     */
+    issueEndpoint(workload: Workload, listenAddress: string): OtlpEndpoint | null {
+        return (workload.telemetry ?? false) && this.endpoints !== null
+            ? this.endpoints.issue(workload.id!, listenAddress, this.sinks().map(sink => sink.signal))
+            : null
+    }
+
+    /** The endpoint issued to the workload, or null when it holds none. */
+    endpointOf(workloadId: string): OtlpEndpoint | null {
+        return this.endpoints?.find(workloadId) ?? null
+    }
+
+    /** Releases the workload's endpoint, if it holds one. */
+    releaseEndpoint(workloadId: string): void {
+        this.endpoints?.release(workloadId)
+    }
+
+    /** Releases the endpoints of every workload not in the given set, left by a vm-manager that died mid-destroy. */
+    reconcileEndpoints(activeWorkloadIds: Set<string>): void {
+        this.endpoints?.reconcile(activeWorkloadIds)
     }
 
     /**
@@ -254,8 +313,7 @@ export class AlloyManager {
     private destinations(): string {
         return [
             ...(this.options.lokiUrl !== null ? [`logs to ${this.options.lokiUrl}`] : []),
-            ...(this.options.tempoUrl !== null ? [`traces to ${this.options.tempoUrl}`] : []),
-            ...(this.options.mimirUrl !== null ? [`metrics to ${this.options.mimirUrl}`] : []),
+            ...this.sinks().map(sink => `${sink.signal} to ${sink.url}`),
         ].join(', ')
     }
 
@@ -381,7 +439,7 @@ export class AlloyManager {
         if (this.options.lokiUrl !== null) {
             sections.push(...this.renderLogPipeline(targets, this.options.lokiUrl))
         }
-        if (this.shipsTelemetry()) {
+        if (this.endpoints !== null) {
             sections.push(...this.renderOtlpPipeline(targets.filter(target => target.otlp !== null)))
         }
         return sections.join('\n')
@@ -448,11 +506,15 @@ loki.source.file ${this.river(name)} {
 `
     }
 
-    // The OTLP signals this node ships, in the order the stages hand them on
-    private signals(): string[] {
+    // Where this node ships each OTLP signal, in the order the stages hand them on
+    private sinks(): OtlpSink[] {
         return [
-            ...(this.options.tempoUrl !== null ? ['traces'] : []),
-            ...(this.options.mimirUrl !== null ? ['metrics'] : []),
+            ...(this.options.tempoUrl !== null
+                ? [{ signal: 'traces' as const, statements: 'trace_statements', url: this.options.tempoUrl }]
+                : []),
+            ...(this.options.mimirUrl !== null
+                ? [{ signal: 'metrics' as const, statements: 'metric_statements', url: this.options.mimirUrl }]
+                : []),
         ]
     }
 
@@ -481,7 +543,7 @@ loki.source.file ${this.river(name)} {
         const statements = attributes.map(([key, value]) =>
             `      ${this.river(`set(attributes[${JSON.stringify(key)}], ${JSON.stringify(value)})`)},`)
         // The transform processor takes its statements per signal, under a block named for it
-        const stamping = this.signals().map(signal => `  ${signal.replace(/s$/, '')}_statements {
+        const stamping = this.sinks().map(sink => `  ${sink.statements} {
     context    = "resource"
     statements = [
 ${statements.join('\n')}
@@ -510,10 +572,7 @@ ${this.outputBlock(() => `otelcol.processor.batch.${sink}.input`)}
 
     private renderOtlpSink(tenant: string): string {
         const name = this.tenantComponentName(tenant)
-        const exporters = [
-            ...(this.options.tempoUrl !== null ? [this.renderExporter(`traces_${name}`, this.options.tempoUrl, tenant)] : []),
-            ...(this.options.mimirUrl !== null ? [this.renderExporter(`metrics_${name}`, this.options.mimirUrl, tenant)] : []),
-        ]
+        const exporters = this.sinks().map(sink => this.renderExporter(`${sink.signal}_${name}`, sink.url, tenant))
         return `otelcol.processor.batch ${this.river(name)} {
 ${this.outputBlock(signal => `otelcol.exporter.otlphttp.${signal}_${name}.input`)}
 }
@@ -536,7 +595,7 @@ ${exporters.join('\n')}`
     // Wires every shipped signal of a stage to the next one
     private outputBlock(next: (signal: string) => string): string {
         return `  output {
-${this.signals().map(signal => `    ${signal} = [${next(signal)}]`).join('\n')}
+${this.sinks().map(sink => `    ${sink.signal} = [${next(sink.signal)}]`).join('\n')}
   }`
     }
 

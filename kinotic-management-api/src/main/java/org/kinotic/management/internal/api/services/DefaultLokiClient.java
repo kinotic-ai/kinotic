@@ -8,7 +8,7 @@ import io.vertx.core.http.WebSocketConnectOptions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.config.LokiProperties;
+import org.kinotic.management.api.config.ManagementApiProperties;
 import org.kinotic.management.api.services.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -29,12 +29,12 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
 
-    private final LokiProperties lokiProperties;
+    private final String lokiUrl;
     private WebSocketClient webSocketClient;
 
-    public DefaultLokiClient(Vertx vertx, LokiProperties lokiProperties) {
+    public DefaultLokiClient(Vertx vertx, ManagementApiProperties properties) {
         super(vertx);
-        this.lokiProperties = lokiProperties;
+        this.lokiUrl = properties.getLoki().getUrl();
     }
 
     @PostConstruct
@@ -53,7 +53,7 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     @Override
     public Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit) {
-        return get(lokiProperties.getUrl() + QUERY_RANGE_PATH,
+        return get(lokiUrl + QUERY_RANGE_PATH,
                    Map.of("query", query,
                           "start", Long.toString(msToNs(start)),
                           "end", Long.toString(msToNs(end)),
@@ -80,7 +80,7 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
     }
 
     private WebSocketConnectOptions tailOptions(String tenant, String query) {
-        URI base = URI.create(lokiProperties.getUrl());
+        URI base = URI.create(lokiUrl);
         boolean ssl = "https".equalsIgnoreCase(base.getScheme());
         int port = base.getPort() != -1 ? base.getPort() : (ssl ? 443 : 80);
         return new WebSocketConnectOptions()

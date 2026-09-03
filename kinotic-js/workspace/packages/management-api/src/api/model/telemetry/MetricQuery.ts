@@ -5,8 +5,8 @@
 export interface MetricQuery {
 
     /**
-     * Organization whose metrics to query. Null queries the caller's own organization, or the
-     * platform's metrics for a system participant.
+     * Organization whose metrics to query. Null names the platform's own, which only a system
+     * participant may read.
      */
     organizationId: string | null
 

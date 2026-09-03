@@ -38,7 +38,7 @@
         <Button label="Run" icon="pi pi-play" size="small" :loading="custom.loading" :disabled="!customQuery.trim()" @click="runCustom" />
       </div>
       <MetricChart
-        v-if="customRan"
+        v-if="custom.query"
         title="Query"
         :description="custom.query"
         :series="custom.series"
@@ -55,6 +55,7 @@ import { reactive, ref, watch } from 'vue'
 import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
+import { errorMessage } from '../../util/helpers'
 import MetricChart from './MetricChart.vue'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
@@ -87,7 +88,6 @@ const errors = reactive(panel())
 const latency = reactive(panel())
 const custom = reactive(panel())
 const customQuery = ref('')
-const customRan = ref(false)
 
 const formatSeconds = (seconds: number) => formatDuration(seconds * 1000)
 const formatNumber = (value: number) => Number.isInteger(value) ? String(value) : value.toPrecision(3)
@@ -100,7 +100,7 @@ async function load(target: Panel, query: string) {
     target.series = await queryMetrics(props.organizationId, query, props.range)
   } catch (err) {
     target.series = []
-    target.error = err instanceof Error ? err.message : 'Failed to query metrics'
+    target.error = errorMessage(err, 'Failed to query metrics')
   } finally {
     target.loading = false
   }
@@ -115,16 +115,15 @@ function loadRed() {
 
 function runCustom() {
   if (customQuery.value.trim()) {
-    customRan.value = true
     load(custom, customQuery.value.trim())
   }
 }
 
-// The range object is replaced on every refresh, so a refresh reloads even an unchanged preset
-watch(() => [props.organizationId, props.applicationId, props.range], () => {
+// The panel replaces the range on every refresh and scope change, so it is the one trigger
+watch(() => props.range, () => {
   loadRed()
-  if (customRan.value) {
-    runCustom()
+  if (custom.query) {
+    load(custom, custom.query)
   }
 }, { immediate: true })
 </script>

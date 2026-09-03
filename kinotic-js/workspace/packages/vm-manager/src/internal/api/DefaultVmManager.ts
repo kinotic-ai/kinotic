@@ -46,16 +46,9 @@ export class DefaultVmManager implements IVmManager {
                                 + `${workload.portMappings.length} port mapping(s): a workload `
                                 + 'with no network has no interface to publish a port on')
             }
-            const telemetry = workload.telemetry ?? false
-            if (networkMode === NetworkMode.DISABLED && telemetry) {
+            if (networkMode === NetworkMode.DISABLED && (workload.telemetry ?? false)) {
                 throw new Error(`Workload ${workload.name} declares network.mode DISABLED and elects `
                                 + "telemetry: a workload with no network cannot reach the node's OTLP endpoint")
-            }
-            // Runs without an endpoint rather than being refused: a node that ships nothing said
-            // so at startup, and the election is the workload's to make wherever it lands
-            if (telemetry && !(this.alloyManager?.shipsTelemetry() ?? false)) {
-                console.warn(`Workload ${workload.name} elects telemetry, but this node ships neither `
-                             + 'traces nor metrics (KINOTIC_TEMPO_URL and KINOTIC_MIMIR_URL are not set)')
             }
             const started = await this.provider.start(workload)
             await this.refreshShipping()

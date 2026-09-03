@@ -18,10 +18,10 @@ import { computed } from 'vue'
 import Message from 'primevue/message'
 import VChart from 'vue-echarts'
 
+import { chartGridColor, chartLegend, chartTextColor, seriesColor } from '../../charts/chartTheme'
 import { isDark } from '../../composables/useTheme'
+import DatetimeUtil from '../../util/DatetimeUtil'
 import type { MetricSeries } from './MetricSeries'
-import { formatTime, seriesColor } from './telemetryDisplay'
-import './charts'
 
 /**
  * One time-series chart of a metric query: a line per series over the queried range, with the
@@ -38,44 +38,34 @@ const props = defineProps<{
 }>()
 
 const option = computed(() => {
-  // The preset's muted text tokens, so axis and legend text match the card captions
-  const mutedText = isDark.value ? '#A1A1AA' : '#71717A'
-  const gridLine = isDark.value ? '#27272A' : '#E4E4E7'
+  const dark = isDark.value
   return {
     animationDuration: 300,
     grid: { left: 8, right: 16, top: 12, bottom: 36, containLabel: true },
     xAxis: {
       type: 'time',
-      axisLabel: { color: mutedText, formatter: (value: number) => formatTime(value) },
-      axisLine: { lineStyle: { color: gridLine } },
+      axisLabel: { color: chartTextColor(dark), formatter: (value: number) => DatetimeUtil.formatTime(value) },
+      axisLine: { lineStyle: { color: chartGridColor(dark) } },
       splitLine: { show: false }
     },
     yAxis: {
       type: 'value',
       min: 0,
-      axisLabel: { color: mutedText, formatter: (value: number) => props.format(value) },
-      splitLine: { lineStyle: { color: gridLine } }
+      axisLabel: { color: chartTextColor(dark), formatter: (value: number) => props.format(value) },
+      splitLine: { lineStyle: { color: chartGridColor(dark) } }
     },
     tooltip: {
       trigger: 'axis',
       confine: true,
       valueFormatter: (value: number) => props.format(value)
     },
-    legend: {
-      bottom: 0,
-      left: 0,
-      icon: 'circle',
-      itemWidth: 10,
-      itemHeight: 10,
-      itemGap: 16,
-      textStyle: { color: mutedText }
-    },
+    legend: chartLegend(dark),
     series: props.series.map((entry, index) => ({
       name: entry.name,
       type: 'line',
       showSymbol: false,
       lineStyle: { width: 2 },
-      itemStyle: { color: seriesColor(index, isDark.value) },
+      itemStyle: { color: seriesColor(index, dark) },
       data: entry.points
     }))
   }

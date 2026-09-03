@@ -10,6 +10,7 @@ import Tab from 'primevue/tab'
 import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
+import { USER_STATE } from '@/states/IUserState'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 const route = useRoute()
@@ -123,8 +124,7 @@ isInitialized.value = true
         <TabPanel class="flex flex-1 flex-col" :value="2">
           <!-- Mounted only while shown, so its queries run when the tab is opened rather than with the page -->
           <div v-if="activeTab === 2" class="flex flex-1 flex-col pt-4">
-            <!-- An organization user's session names its organization; the server resolves it -->
-            <TelemetryPanel :organization-id="null" :application-id="applicationId" />
+            <TelemetryPanel :organization-id="USER_STATE.getOrganizationId()" :application-id="applicationId" />
           </div>
         </TabPanel>
       </TabPanels>

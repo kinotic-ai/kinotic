@@ -8,30 +8,26 @@
         <span>Trace <span class="font-mono">{{ traceId }}</span></span>
         <span>{{ spans.length }} spans</span>
         <span>{{ formatDuration(traceDurationMs) }}</span>
-        <span>{{ formatDateTime(traceStartMs) }}</span>
+        <span>{{ formatDateFromEpoch(traceStartMs) }}</span>
         <span v-if="errorCount > 0" class="text-red-500">{{ errorCount }} failed</span>
       </div>
 
       <!-- The waterfall: one row per span, indented by depth, its bar placed on the trace's timeline -->
       <div class="overflow-x-auto rounded-md border border-surface">
         <div
-          v-for="span in spans"
+          v-for="{ span, color, bar } in rows"
           :key="span.spanId"
           class="flex cursor-pointer items-center gap-2 border-b border-surface px-2 py-1 text-xs last:border-b-0 hover:bg-emphasis"
           :class="{ 'bg-emphasis': span.spanId === selected?.spanId }"
           @click="selected = span"
         >
           <div class="flex w-[40%] min-w-64 items-center gap-2 truncate" :style="{ paddingLeft: `${span.depth * 14}px` }">
-            <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: serviceColor(span.service, isDark) }" />
+            <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: color }" />
             <span class="truncate" :class="{ 'text-red-500': span.error }">{{ span.name }}</span>
             <span class="shrink-0 text-muted-color">{{ span.service }}</span>
           </div>
           <div class="relative h-4 flex-1">
-            <div
-              class="absolute top-0.5 h-3 rounded-sm"
-              :class="{ 'ring-1 ring-red-500': span.error }"
-              :style="barStyle(span)"
-            />
+            <div class="absolute top-0.5 h-3 rounded-sm" :class="{ 'ring-1 ring-red-500': span.error }" :style="bar" />
           </div>
           <span class="w-20 shrink-0 text-right font-mono text-muted-color">{{ formatDuration(span.durationMs) }}</span>
         </div>
@@ -94,9 +90,11 @@ import { computed, ref, watch } from 'vue'
 import Message from 'primevue/message'
 
 import { isDark } from '../../composables/useTheme'
+import DatetimeUtil from '../../util/DatetimeUtil'
+import { errorMessage } from '../../util/helpers'
 import type { TraceSpan } from './TraceSpan'
 import { fetchTrace } from './telemetryApi'
-import { formatDateTime, formatDuration, serviceColor } from './telemetryDisplay'
+import { formatDuration, serviceColor } from './telemetryDisplay'
 
 /**
  * One trace as a waterfall of its spans, each placed on the trace's timeline and colored by the
@@ -112,20 +110,24 @@ const selected = ref<TraceSpan | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
+const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch
+
 const traceStartMs = computed(() => Math.min(...spans.value.map(span => span.startMs)))
 const traceDurationMs = computed(() => Math.max(1, ...spans.value.map(span => span.startMs + span.durationMs - traceStartMs.value)))
 const errorCount = computed(() => spans.value.filter(span => span.error).length)
 
-// A span's bar spans its share of the trace, never thinner than a sliver so it stays visible
-function barStyle(span: TraceSpan) {
+// Each row's geometry and color, derived once per trace rather than per render: selecting a
+// span re-renders every row. A bar spans its share of the trace, never thinner than a sliver.
+const rows = computed(() => spans.value.map(span => {
   const left = ((span.startMs - traceStartMs.value) / traceDurationMs.value) * 100
   const width = Math.max(0.3, (span.durationMs / traceDurationMs.value) * 100)
+  const color = serviceColor(span.service, isDark.value)
   return {
-    left: `${Math.min(left, 99.7)}%`,
-    width: `${Math.min(width, 100 - left)}%`,
-    background: serviceColor(span.service, isDark.value)
+    span,
+    color,
+    bar: { left: `${Math.min(left, 99.7)}%`, width: `${Math.min(width, 100 - left)}%`, background: color }
   }
-}
+}))
 
 async function load() {
   loading.value = true
@@ -136,7 +138,7 @@ async function load() {
     selected.value = spans.value[0] ?? null
   } catch (err) {
     spans.value = []
-    error.value = err instanceof Error ? err.message : 'Failed to load the trace'
+    error.value = errorMessage(err, 'Failed to load the trace')
   } finally {
     loading.value = false
   }

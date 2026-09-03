@@ -3,18 +3,12 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.management.api.model.LogQuery;
-import org.kinotic.management.api.model.workload.Workload;
-import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
-import org.kinotic.domain.api.model.security.participant.SystemParticipant;
-import org.kinotic.management.api.services.LokiClient;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.LogService;
+import org.kinotic.management.api.services.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,73 +18,50 @@ import reactor.core.publisher.Mono;
  * organization participant may only view its own organization's workloads — and reads
  * from the organization's Loki tenant via {@link LokiClient}.
  */
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultLogService implements LogService {
 
-    /**
-     * Tenant that receives the logs, traces, and metrics of platform workloads with no organization
-     * (SYSTEM scope). Must match the tenant the vm-manager's AlloyManager ships them under;
-     * organization ids can never take this value — ids beginning with "kinotic" are reserved for
-     * the platform.
-     */
-    public static final String SYSTEM_TENANT = "kinotic-system";
-
     private final LokiClient lokiClient;
-    private final SecurityContext securityContext;
+    private final TenantAccess tenantAccess;
     private final WorkloadRepository workloadRepository;
 
     @Override
     public Flux<Buffer> tail(String workloadId) {
-        // Authorization starts before subscription: SecurityContext reads the calling Vert.x context
-        Future<Workload> authorized = authorizedWorkload(workloadId);
-        return Mono.fromCompletionStage(authorized.toCompletionStage())
-                   .flatMapMany(workload -> lokiClient.tail(tenantFor(workload), logQlFor(workload)));
+        // Authorization starts before subscription: the participant is read from the calling Vert.x context
+        Future<String> tenant = authorizedTenant(workloadId);
+        return Mono.fromCompletionStage(tenant.toCompletionStage())
+                   .flatMapMany(t -> lokiClient.tail(t, logQlFor(workloadId)));
     }
 
     @Override
     public Future<Buffer> history(LogQuery query) {
         Validate.notNull(query, "LogQuery cannot be null");
-        return authorizedWorkload(query.getWorkloadId())
-                .compose(workload -> lokiClient.queryRange(tenantFor(workload),
-                                                           logQlFor(workload),
-                                                           query.getStart(),
-                                                           query.getEnd(),
-                                                           query.getLimit()));
+        return authorizedTenant(query.getWorkloadId())
+                .compose(tenant -> lokiClient.queryRange(tenant,
+                                                         logQlFor(query.getWorkloadId()),
+                                                         query.getStart(),
+                                                         query.getEnd(),
+                                                         query.getLimit()));
     }
 
-    private Future<Workload> authorizedWorkload(String workloadId) {
+    /**
+     * The tenant holding the workload's logs, provided the caller may read it.
+     */
+    private Future<String> authorizedTenant(String workloadId) {
         Validate.notBlank(workloadId, "workloadId cannot be blank");
-        Participant participant = securityContext.currentParticipant();
-        if (participant == null) {
-            throw new IllegalStateException("No Participant is bound to the current Vert.x context");
-        }
+        // Read before the repository hop, which completes off the calling Vert.x context
+        Participant participant = tenantAccess.currentParticipant();
         return workloadRepository.findById(workloadId).map(workload -> {
             if (workload == null) {
                 throw new IllegalArgumentException("Workload not found: " + workloadId);
             }
-            if (participant instanceof SystemParticipant) {
-                return workload;
-            }
-            if (participant instanceof OrganizationParticipant op
-                    && op.getOrganizationId().equals(workload.getOrganizationId())) {
-                return workload;
-            }
-            // Log the mismatch server-side; surface only a generic message to the caller
-            log.error("Participant {} may not view logs of workload {} (workload org={})",
-                      participant.getId(), workloadId, workload.getOrganizationId());
-            throw new AuthorizationException("Access denied");
+            return tenantAccess.readableTenant(participant, workload.getOrganizationId());
         });
     }
 
-    private static String tenantFor(Workload workload) {
-        return workload.getOrganizationId() != null ? workload.getOrganizationId()
-                                                    : SYSTEM_TENANT;
-    }
-
-    // The id comes from the persisted workload record, so it is safe to embed in LogQL
-    private static String logQlFor(Workload workload) {
-        return "{workload_id=\"" + workload.getId() + "\"}";
+    // The id named the record just found, so it is safe to embed in LogQL
+    private static String logQlFor(String workloadId) {
+        return "{workload_id=\"" + workloadId + "\"}";
     }
 }

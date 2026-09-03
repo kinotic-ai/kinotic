@@ -1,12 +1,13 @@
 import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
-import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
+import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { LogPolicy, Workload, WorkloadStatus, NetworkMode } from '@kinotic-ai/management-api'
@@ -91,11 +92,10 @@ export class BoxliteProvider implements IVmProvider {
      * Builds the boxlite options for a workload. The given host log directory is always mounted
      * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
      * declares them, so an empty value keeps the image default. The workload's disk size caps
-     * the guest rootfs, which grows sparsely up to that cap. The OTLP exporter environment of a
-     * workload that holds an endpoint is laid over the workload's own, and the endpoint's host
-     * allowed as a destination.
+     * the guest rootfs, which grows sparsely up to that cap. A workload that holds an OTLP
+     * endpoint is given it in the guest environment, and its host as an allowed destination.
      */
-    static buildBoxOptions(workload: Workload, logDir: string, otlpEnvironment: Record<string, string> | null = null): SimpleBoxOptions {
+    static buildBoxOptions(workload: Workload, logDir: string, otlp: OtlpEndpoint | null = null): SimpleBoxOptions {
         // Silently binding to all interfaces when a specific one was requested would be a
         // security failure, so an unsupported hostIp is rejected outright
         const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
@@ -114,7 +114,7 @@ export class BoxliteProvider implements IVmProvider {
         // The node's OTLP endpoint is a destination the workload cannot know, so the node adds
         // it rather than expecting the policy to name it
         const allowedHosts = [...new Set([...(workload.network?.allowedHosts ?? []),
-                                          ...(otlpEnvironment !== null ? [HOST_FROM_GUEST] : [])])]
+                                          ...(otlp !== null ? [HOST_FROM_GUEST] : [])])]
         const logPolicy = workload.logPolicy ?? new LogPolicy()
         return {
             image: workload.image,
@@ -125,17 +125,12 @@ export class BoxliteProvider implements IVmProvider {
             // disk than it asked for, and leave the boxlite default when nothing was asked
             ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
             env: {
-                // The service name spans and metrics are grouped by, which the workload may
-                // set itself; the endpoint below it may not
-                ...(otlpEnvironment !== null ? { OTEL_SERVICE_NAME: workload.name } : {}),
-                ...workload.environment,
-                ...workload.secrets,
+                ...AlloyManager.guestEnvironment(workload, HOST_FROM_GUEST, otlp),
                 // Nothing captures the entrypoint's stdout, so an image that knows the contract
                 // writes its own files under the log mount, rotated by the workload's policy
                 KINOTIC_LOG_DIR: GUEST_LOG_DIR,
                 KINOTIC_LOG_MAX_SIZE_MB: String(logPolicy.maxSizeMb),
                 KINOTIC_LOG_MAX_FILES: String(logPolicy.maxFiles),
-                ...otlpEnvironment,
             },
             // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
             // CMD is suppressed unless the workload declares its own cmd
@@ -194,20 +189,20 @@ export class BoxliteProvider implements IVmProvider {
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
-    // Null on a node that ships no telemetry, where a workload's election issues nothing
-    private readonly otlpEndpoints: OtlpEndpointRepository | null
+    // Null on a node that ships nothing, where a workload's election issues nothing
+    private readonly alloyManager: AlloyManager | null
 
     constructor(boxliteHome: string,
                 logsBaseDir: string,
                 stateDir: string,
                 workloadDataDir: string,
                 onStatusChanged: ((workload: Workload) => void) | null = null,
-                otlpEndpoints: OtlpEndpointRepository | null = null) {
+                alloyManager: AlloyManager | null = null) {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
-        this.otlpEndpoints = otlpEndpoints
+        this.alloyManager = alloyManager
         mkdirSync(stateDir, { recursive: true })
 
         this.mounts = new VolumeMountManager(workloadDataDir, new MountQuotaManager())
@@ -254,6 +249,7 @@ export class BoxliteProvider implements IVmProvider {
             this.workloads.set(workload.id!, workload)
             await this.recoverVm(workload)
         }
+        this.alloyManager?.reconcileEndpoints(new Set(this.workloads.keys()))
     }
 
     async start(workload: Workload): Promise<Workload> {
@@ -292,12 +288,10 @@ export class BoxliteProvider implements IVmProvider {
             }
 
             // The guest learns its endpoint from the environment, so it is issued before the box
-            const otlpEnvironment = (workload.telemetry ?? false) && this.otlpEndpoints !== null
-                ? this.otlpEndpoints.guestEnvironment(HOST_FROM_GUEST, this.otlpEndpoints.issue(id, OTLP_LISTEN_ADDRESS))
-                : null
+            const otlp = this.alloyManager?.issueEndpoint(workload, OTLP_LISTEN_ADDRESS) ?? null
 
             // Creates the box record only — the VM does not boot until start()
-            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir, otlpEnvironment), image, runtime: this.runtime }).getId()
+            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir, otlp), image, runtime: this.runtime }).getId()
             this.vmIds.set(id, vmId)
 
             // The runtime's boot handshake doubles as the readiness check; unlike an exec
@@ -418,7 +412,7 @@ export class BoxliteProvider implements IVmProvider {
         }
 
         this.mounts.releaseQuotas(workload)
-        this.otlpEndpoints?.release(workloadId)
+        this.alloyManager?.releaseEndpoint(workloadId)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
         this.vmIds.delete(workloadId)
@@ -453,7 +447,7 @@ export class BoxliteProvider implements IVmProvider {
                     vmId,
                     logPath: join(logDir, '*.log'),
                     format: LogFormat.PLAIN,
-                    otlp: this.otlpEndpoints?.find(workloadId) ?? null,
+                    otlp: this.alloyManager?.endpointOf(workloadId) ?? null,
                     organizationId: workload.organizationId,
                     applicationId: workload.applicationId,
                 })
@@ -594,12 +588,9 @@ export class BoxliteProvider implements IVmProvider {
         return box
     }
 
-    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state.
-    // Every status transition funnels through here, so the listener sees them all.
+    // Every status transition funnels through here, so the listener sees them all
     private persist(workload: Workload): void {
-        const file = this.stateFile(workload.id!)
-        writeFileSync(`${file}.tmp`, JSON.stringify(workload))
-        renameSync(`${file}.tmp`, file)
+        Util.writeJsonAtomically(this.stateFile(workload.id!), workload)
         this.onStatusChanged?.(workload)
     }
 

@@ -37,31 +37,20 @@ describe('buildBoxOptions', () => {
         })
     })
 
-    it('lays the OTLP exporter environment over the workload\'s own and allows its host', () => {
+    it('points a workload holding an endpoint at the host alias and allows it', () => {
         const w = workload()
         w.network.allowedHosts = ['api.github.com']
-        w.environment = { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://elsewhere:4318' }
+        const endpoint = { listenAddress: '127.0.0.1', port: 43180, token: 'abc123', signals: ['traces' as const] }
 
-        const options = BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', { OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180' })
+        const options = BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', endpoint)
 
-        // The node's endpoint wins over the workload's; the service name is the workload's to set
-        expect(options.env).toMatchObject({
-            OTEL_SERVICE_NAME: 'build',
-            OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180',
-        })
-        // The host alias is a destination the workload cannot know, so the node adds it
+        // The guest reaches loopback receivers through the alias, which the workload cannot know
+        expect(options.env).toMatchObject({ OTEL_EXPORTER_OTLP_ENDPOINT: 'http://192.168.127.254:43180' })
         expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['api.github.com', '192.168.127.254'] } })
     })
 
-    it('lets the workload name its own service', () => {
-        const w = workload()
-        w.environment = { OTEL_SERVICE_NAME: 'orders' }
-
-        expect(BoxliteProvider.buildBoxOptions(w, '/logs/wl-1', {}).env).toMatchObject({ OTEL_SERVICE_NAME: 'orders' })
-    })
-
     it('allows a workload whose policy allows nothing the host alias alone once it holds an endpoint', () => {
-        const options = BoxliteProvider.buildBoxOptions(workload(), '/logs/wl-1', {})
+        const options = BoxliteProvider.buildBoxOptions(workload(), '/logs/wl-1', { listenAddress: '127.0.0.1', port: 43180, token: 't', signals: [] })
 
         expect(options.network).toEqual({ outbound: { mode: 'enabled', allowNet: ['192.168.127.254'] } })
     })

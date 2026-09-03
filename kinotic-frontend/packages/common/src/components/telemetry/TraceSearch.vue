@@ -37,7 +37,7 @@
       </template>
       <Column header="Started" style="width: 12rem">
         <template #body="{ data }">
-          <span class="font-mono text-xs">{{ formatDateTime(data.startMs) }}</span>
+          <span class="font-mono text-xs">{{ formatDateFromEpoch(data.startMs) }}</span>
         </template>
       </Column>
       <Column field="rootService" header="Service" />
@@ -70,11 +70,13 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 
+import DatetimeUtil from '../../util/DatetimeUtil'
+import { errorMessage } from '../../util/helpers'
 import TraceDetail from './TraceDetail.vue'
 import type { TimeRange } from './TimeRange'
 import type { TraceSummary } from './TraceSummary'
 import { searchTraces, traceQl, type TraceFilters } from './telemetryApi'
-import { formatDateTime, formatDuration } from './telemetryDisplay'
+import { formatDuration } from './telemetryDisplay'
 
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
@@ -89,8 +91,8 @@ const props = defineProps<{
 /** How many traces one search returns. */
 const SEARCH_LIMIT = 50
 
-const filters = reactive<TraceFilters>({
-  applicationId: props.applicationId,
+// What the user narrows by; the application comes from the props at query time
+const filters = reactive<Omit<TraceFilters, 'applicationId'>>({
   service: '',
   spanName: '',
   onlyErrors: false,
@@ -103,7 +105,8 @@ const error = ref<string | null>(null)
 const selectedTraceId = ref<string | null>(null)
 const detailVisible = ref(false)
 
-const query = computed(() => traceQl(filters))
+const query = computed(() => traceQl({ ...filters, applicationId: props.applicationId }))
+const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch
 
 const detailHeader = computed(() => {
   const selected = traces.value.find(trace => trace.traceId === selectedTraceId.value)
@@ -117,7 +120,7 @@ async function search() {
     traces.value = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
   } catch (err) {
     traces.value = []
-    error.value = err instanceof Error ? err.message : 'Failed to search traces'
+    error.value = errorMessage(err, 'Failed to search traces')
   } finally {
     loading.value = false
   }
@@ -128,9 +131,6 @@ function openTrace(trace: TraceSummary) {
   detailVisible.value = true
 }
 
-// The range object is replaced on every refresh, so a refresh re-runs even an unchanged search
-watch(() => [props.organizationId, props.applicationId, props.range], () => {
-  filters.applicationId = props.applicationId
-  search()
-}, { immediate: true })
+// The panel replaces the range on every refresh and scope change, so it is the one trigger
+watch(() => props.range, search, { immediate: true })
 </script>

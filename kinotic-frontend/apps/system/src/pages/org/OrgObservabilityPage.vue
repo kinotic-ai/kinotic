@@ -28,7 +28,7 @@ import Select from 'primevue/select'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Application } from '@kinotic-ai/management-api'
-import { PageHeader, TelemetryPanel } from '@kinotic-ai/frontend-common'
+import { PageHeader, TelemetryPanel, errorMessage } from '@kinotic-ai/frontend-common'
 
 const props = defineProps<{
   organizationId: string
@@ -49,7 +49,7 @@ async function load() {
     const page = await Kinotic.systemOrganizations.findApplications(props.organizationId, Pageable.create(0, APPLICATION_PAGE_SIZE))
     applications.value = page.content ?? []
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load the organization\'s applications'
+    error.value = errorMessage(err, 'Failed to load the organization\'s applications')
   }
 }
 

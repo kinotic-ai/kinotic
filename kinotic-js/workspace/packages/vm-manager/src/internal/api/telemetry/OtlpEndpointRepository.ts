@@ -1,7 +1,9 @@
 import { randomBytes } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { Util } from '@/internal/api/Util'
 import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
+import type { OtlpSignal } from '@/internal/api/model/OtlpSignal'
 
 /**
  * Host ports the OTLP receivers are issued from, one per workload that elects telemetry. A
@@ -22,36 +24,11 @@ export class OtlpEndpointRepository {
 
     private readonly file: string
     private readonly endpoints: Map<string, OtlpEndpoint>
-    private readonly signals: { traces: boolean, metrics: boolean }
 
-    /**
-     * @param signals which signals this node ships, so a guest exports those and no other
-     */
-    constructor(dataDir: string, signals: { traces: boolean, metrics: boolean }) {
+    constructor(dataDir: string) {
         mkdirSync(dataDir, { recursive: true })
         this.file = join(dataDir, 'otlp-endpoints.json')
         this.endpoints = this.load()
-        this.signals = signals
-    }
-
-    /**
-     * The OTLP exporter configuration a guest is given to reach its endpoint, in the standard
-     * OpenTelemetry variables every SDK reads, so a workload's runtime needs no code of its own
-     * to export there. Each signal the node does not ship is turned off, since the endpoint
-     * would refuse it.
-     *
-     * @param host the address the guest reaches its node on, which each provider knows
-     */
-    guestEnvironment(host: string, endpoint: OtlpEndpoint): Record<string, string> {
-        return {
-            OTEL_EXPORTER_OTLP_ENDPOINT: `http://${host}:${endpoint.port}`,
-            OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
-            // Header values are percent-encoded, per the OTLP exporter specification
-            OTEL_EXPORTER_OTLP_HEADERS: `authorization=Bearer%20${endpoint.token}`,
-            OTEL_TRACES_EXPORTER: this.signals.traces ? 'otlp' : 'none',
-            OTEL_METRICS_EXPORTER: this.signals.metrics ? 'otlp' : 'none',
-            OTEL_LOGS_EXPORTER: 'none',
-        }
     }
 
     /** The endpoint issued to the workload, or null when it holds none. */
@@ -60,13 +37,13 @@ export class OtlpEndpointRepository {
     }
 
     /**
-     * Issues the workload an endpoint bound to the given host address, or returns the one it
-     * already holds. Fails when every port in the range is taken.
+     * Issues the workload an endpoint bound to the given host address and accepting the given
+     * signals, or returns the one it already holds. Fails when every port in the range is taken.
      */
-    issue(workloadId: string, listenAddress: string): OtlpEndpoint {
+    issue(workloadId: string, listenAddress: string, signals: OtlpSignal[]): OtlpEndpoint {
         let ret = this.endpoints.get(workloadId)
         if (ret === undefined) {
-            ret = { listenAddress, port: this.freePort(), token: randomBytes(32).toString('hex') }
+            ret = { listenAddress, port: this.freePort(), token: randomBytes(32).toString('hex'), signals }
             this.endpoints.set(workloadId, ret)
             this.persist()
         }
@@ -76,6 +53,21 @@ export class OtlpEndpointRepository {
     /** Releases the workload's endpoint, returning its port to the pool. */
     release(workloadId: string): void {
         if (this.endpoints.delete(workloadId)) {
+            this.persist()
+        }
+    }
+
+    /**
+     * Releases the endpoints of every workload not in the given set, which a vm-manager that
+     * died between removing a workload and releasing its endpoint left holding a port.
+     */
+    reconcile(activeWorkloadIds: Set<string>): void {
+        const stale = [...this.endpoints.keys()].filter(workloadId => !activeWorkloadIds.has(workloadId))
+        for (const workloadId of stale) {
+            console.log(`Releasing the OTLP endpoint left by workload ${workloadId}`)
+            this.endpoints.delete(workloadId)
+        }
+        if (stale.length > 0) {
             this.persist()
         }
     }
@@ -104,9 +96,7 @@ export class OtlpEndpointRepository {
         return ret
     }
 
-    // Written atomically (write + rename) so a crash mid-write cannot corrupt the record
     private persist(): void {
-        writeFileSync(`${this.file}.tmp`, JSON.stringify(Object.fromEntries(this.endpoints)))
-        renameSync(`${this.file}.tmp`, this.file)
+        Util.writeJsonAtomically(this.file, Object.fromEntries(this.endpoints))
     }
 }
