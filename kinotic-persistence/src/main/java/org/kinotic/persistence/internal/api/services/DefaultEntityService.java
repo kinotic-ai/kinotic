@@ -459,7 +459,7 @@ public class DefaultEntityService implements EntityService {
     private String composeId(final String id, final EntityContext context){
         String ret;
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.getTenantId();
+            String tenantId = context.requireTenantId();
             ret = tenantId + "-" + id;
         }else{
             ret = id;
@@ -475,7 +475,7 @@ public class DefaultEntityService implements EntityService {
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
         boolean multiTenancyShared = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED;
 
-        String tenantId = context.getTenantId();
+        String tenantId = multiTenancyShared ? context.requireTenantId() : null;
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
             builder.index(entityDescriptor.itemIndex());
@@ -521,14 +521,15 @@ public class DefaultEntityService implements EntityService {
                                     formatToPrintJson(object));
                         }
                     }else {
-                        if (tenant != null && tenant.equals(context.getTenantId())) {
+                        String tenantId = context.requireTenantId();
+                        if (tenant != null && tenant.equals(tenantId)) {
                             result.add(object);
                         }else{
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
                                     entityDescriptor,
-                                    context.getTenantId(),
+                                    tenantId,
                                     tenant,
                                     formatToPrintJson(object));
                         }

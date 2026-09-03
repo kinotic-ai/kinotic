@@ -52,6 +52,23 @@ public interface EntityContext {
     String getTenantId();
 
     /**
+     * The tenant this operation is confined to, for an operation that cannot be carried out
+     * without one — every read and write of an {@link EntityDefinition} whose
+     * {@link org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType} is
+     * {@code SHARED}.
+     *
+     * @return the tenant this operation is confined to; never null
+     * @throws IllegalStateException if the participant carries no tenant
+     */
+    default String requireTenantId() {
+        String tenantId = getTenantId();
+        if (tenantId == null) {
+            throw new IllegalStateException("This operation requires a Participant with a TenantId");
+        }
+        return tenantId;
+    }
+
+    /**
      * Checks if a tenant selection is provided for the current operation
      *
      * @return true if a tenant selection is provided, false otherwise

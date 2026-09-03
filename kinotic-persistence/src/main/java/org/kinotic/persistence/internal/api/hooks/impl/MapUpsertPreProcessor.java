@@ -125,11 +125,11 @@ public class MapUpsertPreProcessor implements UpsertPreProcessor<Map<Object, Obj
 
                 tenantId = (String) entity.get(persistenceProperties.getTenantIdFieldName());
 
-                if (tenantId != null && !tenantId.equals(context.getTenantId())) {
+                if (tenantId != null && !tenantId.equals(context.requireTenantId())) {
                     throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
 
                 } else if (tenantId == null) {
-                    tenantId = context.getTenantId();
+                    tenantId = context.requireTenantId();
                     entity.put(persistenceProperties.getTenantIdFieldName(), tenantId);
                 }
             }
