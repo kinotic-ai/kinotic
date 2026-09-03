@@ -132,16 +132,14 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         String label = deployment.getId();
         String hostname = properties().resolveHostname(label);
         log.info("Provisioning site {} for UI {} of project {}", hostname, deployment.getName(), deployment.getProjectId());
-        // the origin group, rule set and domain stand alone; the records and the route build on them
-        return Future.all(ensureOriginGroup(organization), ensureRuleSet(organization), ensureDomain(label, hostname))
-                .compose(ensured -> {
-                    String originGroupId = ensured.resultAt(0);
-                    String ruleSetId = ensured.resultAt(1);
-                    AfdDomainInner domain = ensured.resultAt(2);
-                    return ensureDnsRecords(label, domain)
-                            .compose(v -> ensureRoute(deployment, domain, originGroupId, ruleSetId))
-                            .map(v -> domain);
-                })
+        // the organization's origin group and rule set exist since its creation; the route names them by id
+        String profileId = properties().getFrontDoorProfileId();
+        String originGroupId = profileId + "/originGroups/" + originGroupName(organization);
+        String ruleSetId = profileId + "/ruleSets/" + ruleSetName(organization);
+        return ensureDomain(label, hostname)
+                .compose(domain -> ensureDnsRecords(label, domain)
+                        .compose(v -> ensureRoute(deployment, domain, originGroupId, ruleSetId))
+                        .map(v -> domain))
                 .map(domain -> deployment.setStatus(statusOf(domain)))
                 .recover(error -> {
                     log.error("Site {} could not be provisioned", hostname, error);
@@ -218,7 +216,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
 
     /** The organization's origin group and its one origin, the storage account's blob endpoint. Emits the group's id. */
     private Future<String> ensureOriginGroup(Organization organization) {
-        String groupName = "org-" + organization.getId();
+        String groupName = originGroupName(organization);
         String host = URI.create(organization.getStorage().getBlobEndpoint()).getHost();
         return getOrCreate(cdn.getAfdOriginGroups().getAsync(resourceGroup, profileName, groupName),
                            () -> cdn.getAfdOriginGroups().createAsync(resourceGroup, profileName, groupName, new AfdOriginGroupInner()
@@ -243,7 +241,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
 
     /** The organization's rule set and its two rules, each created when missing. Emits the rule set's id. */
     private Future<String> ensureRuleSet(Organization organization) {
-        String ruleSetName = "org" + organization.getId().replace("-", "");
+        String ruleSetName = ruleSetName(organization);
         return getOrCreate(cdn.getRuleSets().getAsync(resourceGroup, profileName, ruleSetName),
                            () -> cdn.getRuleSets().createAsync(resourceGroup, profileName, ruleSetName))
                 .compose(ruleSet -> ensureRule(organization, ruleSetName, ASSET_RULE)
@@ -491,6 +489,15 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
             }
             return ret;
         });
+    }
+
+    private static String originGroupName(Organization organization) {
+        return "org-" + organization.getId();
+    }
+
+    // Rule set names allow no dash
+    private static String ruleSetName(Organization organization) {
+        return "org" + organization.getId().replace("-", "");
     }
 
     private static void requireStorage(Organization organization) {

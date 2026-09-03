@@ -14,9 +14,8 @@ public interface UiDeploymentProvisioner {
 
     /**
      * Creates what every site of the organization shares, from the organization's storage,
-     * which must be ready. Called when the organization is created, so its first site needs
-     * nothing but its own resources; idempotent, and {@link #provision} creates the same
-     * things again when it finds them missing.
+     * which must be ready. Called when the organization is created; every site provisioned
+     * later relies on it.
      *
      * @param organization the organization, with its storage ready
      * @return a future completing once the shared resources exist
@@ -24,8 +23,8 @@ public interface UiDeploymentProvisioner {
     Future<Void> prepareOrganization(Organization organization);
 
     /**
-     * Starts serving the deployment at its hostname, creating whatever the organization's
-     * sites share when that is missing. Returns the deployment with its status set: ready when serving at
+     * Starts serving the deployment at its hostname, on what {@link #prepareOrganization}
+     * created for the organization. Returns the deployment with its status set: ready when serving at
      * once, provisioning while the hostname is still being validated, failed with the reason
      * otherwise. Idempotent: provisioning a deployment again completes whatever an earlier
      * attempt left missing, and validates a hostname again whose validation lapsed.

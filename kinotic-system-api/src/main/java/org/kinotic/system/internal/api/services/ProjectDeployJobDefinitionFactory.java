@@ -26,7 +26,6 @@ import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
-import org.kinotic.management.api.services.OrganizationStorageProvisioner;
 import org.kinotic.management.api.config.KinoticManagementApiProperties;
 import org.kinotic.management.api.config.UiDeploymentProperties;
 import org.kinotic.management.api.services.OrganizationStorageService;
@@ -35,7 +34,10 @@ import org.kinotic.management.api.services.UiDeploymentProvisioner;
 import org.kinotic.management.api.services.UiStoragePaths;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.domain.api.model.OrganizationStorage;
+import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
+import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -93,7 +95,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final OrganizationStorageProvisioner organizationStorageProvisioner;
+    private final OrganizationService organizationService;
     private final OrganizationStorageService organizationStorageService;
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
     private final ProjectDeployIdentityService projectDeployIdentityService;
@@ -447,9 +449,7 @@ public class ProjectDeployJobDefinitionFactory {
                     if (artifacts.uis().isEmpty()) {
                         published = Future.succeededFuture(new ArrayList<>());
                     } else {
-                        // storage was provisioned with the organization, so this is a read; only
-                        // storage that is missing or failed is provisioned here, before publishing
-                        published = organizationStorageProvisioner.ensureStorage(project.getOrganizationId())
+                        published = requireReadyStorage(project.getOrganizationId())
                                 .compose(organization -> uploadUis(project, target, organization, commitSha)
                                         .compose(v -> finalizeUis(project, organization, artifacts, unmatched, commitSha)));
                     }
@@ -465,6 +465,28 @@ public class ProjectDeployJobDefinitionFactory {
                                                    row -> row.getName() + ": " + row.getStatus().message(),
                                                    "UIs of project " + project.getId() + " could not be published"))
                 .map(UiDeployments::new);
+    }
+
+    /**
+     * The organization with the storage its UIs publish to, which was provisioned when the
+     * organization was created. A deployment never provisions it: one that finds it not ready
+     * fails naming the state, so nothing slow happens on Azure while publishing.
+     */
+    private Future<Organization> requireReadyStorage(String organizationId) {
+        return organizationService.findById(organizationId)
+                .map(organization -> {
+                    if (organization == null) {
+                        throw new IllegalStateException("Organization " + organizationId + " no longer exists");
+                    }
+                    OrganizationStorage storage = organization.getStorage();
+                    OrganizationStorageStatusType status = storage != null && storage.getStatus() != null ? storage.getStatus().type() : null;
+                    if (status != OrganizationStorageStatusType.READY) {
+                        throw new IllegalStateException("Storage of organization " + organizationId + " is "
+                                + (status == null ? "not provisioned" : status + (storage.getStatus().message() != null ? ": " + storage.getStatus().message() : ""))
+                                + "; UIs cannot be published until it is ready");
+                    }
+                    return organization;
+                });
     }
 
     private Future<String> uploadUis(Project project, DeployTarget target, Organization organization, String commitSha) {

@@ -6,8 +6,7 @@ import org.kinotic.domain.api.model.Organization;
 /**
  * Provisions the storage an organization's deployments publish to: one account per
  * organization holding the {@code ui} container, recorded on the {@link Organization}.
- * Provisioning starts when the organization is created; a deployment only reads the outcome,
- * unless it finds the storage missing or failed.
+ * Provisioning runs when the organization is created; a deployment only reads the outcome.
  */
 public interface OrganizationStorageProvisioner {
 

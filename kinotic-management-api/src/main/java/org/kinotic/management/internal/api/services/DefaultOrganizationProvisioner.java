@@ -12,8 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * Gives a new organization what its deployments publish to: its storage, then what the
  * serving layer needs to read that storage. Both take minutes on Azure, so they run in the
- * background from the moment the organization is created and record their outcome on it; a
- * deployment that finds them missing provisions them again.
+ * background from the moment the organization is created and record their outcome on it.
  */
 @Slf4j
 @Component
@@ -30,7 +29,7 @@ public class DefaultOrganizationProvisioner implements OrganizationProvisioner {
               .compose(organizationStorageProvisioner::ensureStorage)
               .compose(uiDeploymentProvisioner::prepareOrganization)
               .onSuccess(v -> log.info("Organization {} is provisioned", organization.getId()))
-              .onFailure(error -> log.warn("Organization {} could not be provisioned; the next deployment of a UI provisions it again: {}",
+              .onFailure(error -> log.warn("Organization {} could not be provisioned; its UIs cannot be published until it is: {}",
                                            organization.getId(), error.getMessage()));
         return Future.succeededFuture();
     }
