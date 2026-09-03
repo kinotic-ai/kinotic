@@ -32,24 +32,21 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
 
     private final OrganizationService organizationService;
     private final Vertx vertx;
-    private final BlobServiceAsyncClient blobService;
+    private final OrganizationStorageProperties properties;
+    private BlobServiceAsyncClient blobService;
 
     public MockOrganizationStorageProvisioner(OrganizationService organizationService,
                                               Vertx vertx,
                                               KinoticManagementApiProperties properties) {
-        OrganizationStorageProperties storage = properties.getManagementApi().getOrganizationStorage();
-        Validate.notBlank(storage.getAzuriteConnectionString(),
-                          "kinotic.managementApi.organizationStorage.azuriteConnectionString is required when the provisioner is disabled");
         this.organizationService = organizationService;
         this.vertx = vertx;
-        this.blobService = new BlobServiceClientBuilder()
-                .connectionString(storage.getAzuriteConnectionString())
-                .buildAsyncClient();
+        this.properties = properties.getManagementApi().getOrganizationStorage();
     }
 
     @Override
     public Future<Organization> ensureStorage(String organizationId) {
         Validate.notBlank(organizationId, "organizationId is required");
+        BlobServiceAsyncClient blobService = blobService();
         return organizationService.findById(organizationId)
                 .compose(organization -> {
                     if (organization == null) {
@@ -76,6 +73,19 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
                     }
                     return ret;
                 });
+    }
+
+    // Built on first use rather than at startup, so a server that never publishes a UI runs
+    // without an Azurite configured
+    private synchronized BlobServiceAsyncClient blobService() {
+        if (blobService == null) {
+            Validate.notBlank(properties.getAzuriteConnectionString(),
+                              "kinotic.managementApi.organizationStorage.azuriteConnectionString is required when the provisioner is disabled");
+            blobService = new BlobServiceClientBuilder()
+                    .connectionString(properties.getAzuriteConnectionString())
+                    .buildAsyncClient();
+        }
+        return blobService;
     }
 
 }

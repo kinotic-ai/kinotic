@@ -17,6 +17,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
+import org.kinotic.management.api.services.OrganizationStorageProvisioner;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
@@ -65,6 +66,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final OrganizationStorageProvisioner organizationStorageProvisioner;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
 
@@ -109,6 +111,18 @@ public class ProjectDeployJobDefinitionFactory {
                                          () -> resolveArtifacts(project, commitSha)
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.ARTIFACTS).wire())
+                // Idempotent, so a resume may run it again; nothing to store, the organization
+                // record carries the outcome
+                .task(Tasks.fromCallable("Ensure organization storage", new Callable<CompletableFuture<Void>>() {
+
+                    @Autowired
+                    private ProjectArtifacts artifacts;
+
+                    @Override
+                    public CompletableFuture<Void> call() {
+                        return ensureOrganizationStorage(project, artifacts).toCompletionStage().toCompletableFuture();
+                    }
+                }))
                 // Store.state: the rows carry what the pass created, so a resume keeps them
                 // rather than provisioning again; wired so the console lists each microservice's
                 // workload as soon as the pass ends
@@ -229,6 +243,21 @@ public class ProjectDeployJobDefinitionFactory {
                     }
                     return deployment.getArtifacts();
                 });
+    }
+
+    /**
+     * Leaves the organization with the storage its UIs publish to, provisioning it on the
+     * organization's first deployment of a commit containing a UI. A commit without UIs needs
+     * no storage and provisions none.
+     */
+    private Future<Void> ensureOrganizationStorage(Project project, ProjectArtifacts artifacts) {
+        Future<Void> ret;
+        if (artifacts.uis().isEmpty()) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = organizationStorageProvisioner.ensureStorage(project.getOrganizationId()).mapEmpty();
+        }
+        return ret;
     }
 
     /**

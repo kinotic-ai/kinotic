@@ -15,6 +15,11 @@ kinotic:
     github:
       webhookSecret: "-"
       appPrivateKey: "-"
+    # UIs publish to a local Azurite (docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite)
+    # standing in for every organization's storage account
+    organizationStorage:
+      disableProvisioner: true
+      azuriteConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
   systemApi:
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.

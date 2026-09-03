@@ -55,6 +55,44 @@ resource "azurerm_role_assignment" "kinotic_server_platform_kv" {
   principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
 }
 
+# ── Organization storage access ───────────────────────────────────────────────
+# kinotic-server provisions one storage account per organization at runtime
+# (AzureOrganizationStorageProvisioner) in the org-storage resource group: the account
+# and its ui container through the management plane, its private endpoint in the
+# private-endpoints subnet, and the endpoint's registration in the private DNS zone.
+# It then signs upload URLs and manages blobs in every account through the data plane.
+
+resource "azurerm_role_assignment" "kinotic_server_org_storage_accounts" {
+  scope                = azurerm_resource_group.org_storage.id
+  role_definition_name = "Storage Account Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
+resource "azurerm_role_assignment" "kinotic_server_org_storage_blobs" {
+  scope                = azurerm_resource_group.org_storage.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
+resource "azurerm_role_assignment" "kinotic_server_org_storage_network" {
+  scope                = azurerm_resource_group.org_storage.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
+# Placing a private endpoint joins the subnet, which lives in the main resource group
+resource "azurerm_role_assignment" "kinotic_server_private_endpoint_subnet" {
+  scope                = azurerm_subnet.private_endpoints.id
+  role_definition_name = "Network Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
+resource "azurerm_role_assignment" "kinotic_server_blob_private_dns" {
+  scope                = azurerm_private_dns_zone.blob.id
+  role_definition_name = "Private DNS Zone Contributor"
+  principal_id         = azurerm_user_assigned_identity.kinotic_server.principal_id
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
 output "key_vault_url" {
