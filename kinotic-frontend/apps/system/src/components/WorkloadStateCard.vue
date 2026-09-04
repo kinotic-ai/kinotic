@@ -1,131 +1,68 @@
 <template>
   <div class="rounded-lg border border-surface p-4">
-    <div class="flex items-start justify-between">
+    <div class="mb-3 flex items-start justify-between gap-3">
       <div>
-        <h2 class="text-base font-semibold">Workloads</h2>
-        <p class="mb-4 text-xs text-muted-color">{{ description }}</p>
+        <h2 class="text-base font-semibold">Workloads by state</h2>
+        <p class="text-xs text-muted-color">{{ description }}</p>
       </div>
-      <RouterLink v-if="viewAllTo" :to="viewAllTo" class="text-sm text-muted-color hover:text-color">View all</RouterLink>
+      <RouterLink v-if="viewAllTo" :to="viewAllTo" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
     </div>
-    <div v-if="total === 0" class="py-6 text-center text-sm text-muted-color">
+    <div v-if="workloads.length === 0" class="py-6 text-center text-sm text-muted-color">
       No workloads
     </div>
-    <template v-else>
-      <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
-      <div class="h-16 w-full">
-        <VChart style="height: 100%; width: 100%;" :option="chartOption" autoresize />
+    <div v-else class="flex flex-col gap-2">
+      <div v-for="row in rows" :key="row.state" class="grid grid-cols-[6.5rem_minmax(0,1fr)_2rem] items-center gap-3 text-sm">
+        <span class="flex items-center gap-2 text-muted-color">
+          <span class="h-2.5 w-2.5 shrink-0 rounded-full" :style="{ background: row.color }" />
+          {{ row.label }}
+        </span>
+        <CapacityBar :pct="row.pct" :color="row.color" :tooltip="`${row.label}: ${row.count}`" />
+        <span class="text-right font-semibold tabular-nums">{{ row.count }}</span>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
-import VChart from 'vue-echarts'
 
-import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { WorkloadStatus } from '@kinotic-ai/management-api'
-import { chartLegend, isDark } from '@kinotic-ai/frontend-common'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { accentColor, isDark, type ChartAccent } from '@kinotic-ai/frontend-common'
 
-type StatusBucket = 'running' | 'starting' | 'stopping' | 'stopped' | 'failed'
+import CapacityBar from './CapacityBar.vue'
+import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from '@/util/workloads'
 
-// Theme ramp steps validated for adjacent-pair CVD separation and surface contrast in both
-// modes (dark uses the lighter 400 steps). STOPPED is a deliberate achromatic neutral, and
-// every segment carries a labeled legend row, so identity is never color alone.
-const STATUS_SERIES: { bucket: StatusBucket; label: string; light: string; dark: string }[] = [
-  { bucket: 'running', label: 'Running', light: '#22C55E', dark: '#4ADE80' },
-  { bucket: 'starting', label: 'Starting', light: '#0EA5E9', dark: '#38BDF8' },
-  { bucket: 'stopping', label: 'Stopping', light: '#F97316', dark: '#FB923C' },
-  { bucket: 'stopped', label: 'Stopped', light: '#6B7280', dark: '#9CA3AF' },
-  { bucket: 'failed', label: 'Failed', light: '#EF4444', dark: '#F87171' }
-]
-
-const BUCKET_BY_STATUS: Record<WorkloadStatus, StatusBucket> = {
-  [WorkloadStatus.RUNNING]: 'running',
-  [WorkloadStatus.PENDING]: 'starting',
-  [WorkloadStatus.STARTING]: 'starting',
-  [WorkloadStatus.STOPPING]: 'stopping',
-  [WorkloadStatus.STOPPED]: 'stopped',
-  [WorkloadStatus.FAILED]: 'failed'
+// Theme accents validated for adjacent-pair separation in both modes; STOPPED is a deliberate
+// achromatic neutral, and every row carries its label and count, so identity is never color alone
+const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | null> = {
+  [WorkloadStatus.RUNNING]: 'green',
+  [WorkloadStatus.STARTING]: 'sky',
+  [WorkloadStatus.PENDING]: 'violet',
+  [WorkloadStatus.STOPPING]: 'amber',
+  [WorkloadStatus.STOPPED]: null,
+  [WorkloadStatus.FAILED]: 'red'
 }
 
-/**
- * The workload state breakdown: a stacked bar over a labeled legend, for the whole platform
- * or one organization's workloads when organizationId is set.
- */
+/** The state breakdown of the given workloads: one bar per state, longest first, with its count. */
 const props = defineProps<{
+  workloads: Workload[]
   description: string
-  organizationId?: string
   viewAllTo?: RouteLocationRaw
 }>()
 
-const counts = ref<Record<StatusBucket, number>>({ running: 0, starting: 0, stopping: 0, stopped: 0, failed: 0 })
-
-const segments = computed(() => STATUS_SERIES.map(series => ({
-  label: series.label,
-  count: counts.value[series.bucket],
-  color: isDark.value ? series.dark : series.light
-})))
-
-const total = computed(() => segments.value.reduce((sum, seg) => sum + seg.count, 0))
-
-// One stacked horizontal bar; the surface-colored border draws the gap between segments.
-// The legend stays in HTML below the chart, where it can carry the counts.
-const chartOption = computed(() => {
-  const surface = isDark.value ? '#171717' : '#ffffff'
-  return {
-    animationDuration: 300,
-    grid: { left: 0, right: 0, top: 6, bottom: 30 },
-    xAxis: { type: 'value', show: false, max: total.value },
-    yAxis: { type: 'category', show: false, data: [''] },
-    tooltip: { trigger: 'item', confine: true },
-    legend: {
-      ...chartLegend(isDark.value),
-      // The legend carries the counts; clicking a state toggles it out of the bar
-      formatter: (name: string) => {
-        const seg = segments.value.find(s => s.label === name)
-        return `${name}  ${seg?.count ?? 0}`
-      }
-    },
-    // Zero-count states carry null data: nothing draws, but the state stays in the legend
-    series: segments.value.map(seg => ({
-      name: seg.label,
-      type: 'bar',
-      stack: 'states',
-      barWidth: 12,
-      data: [seg.count > 0 ? seg.count : null],
-      itemStyle: { color: seg.color, borderColor: surface, borderWidth: 1, borderRadius: 2 }
-    }))
-  }
-})
-
-async function load() {
-  const next: Record<StatusBucket, number> = { running: 0, starting: 0, stopping: 0, stopped: 0, failed: 0 }
-  try {
-    // Buckets are counted client-side from pages; the loop is bounded, so a platform with
-    // more than 1000 workloads undercounts — revisit with server-side aggregation then
-    const pageSize = 100
-    for (let pageNumber = 0; pageNumber < 10; pageNumber++) {
-      const page = await Kinotic.workloads.findAll(Pageable.create(pageNumber, pageSize))
-      const content = page.content ?? []
-      for (const workload of content) {
-        if (!props.organizationId || workload.organizationId === props.organizationId) {
-          next[BUCKET_BY_STATUS[workload.status]] += 1
-        }
-      }
-      if (content.length < pageSize) {
-        break
-      }
+const rows = computed(() => {
+  const counts = countByStatus(props.workloads)
+  const max = Math.max(1, ...WORKLOAD_STATES.map(state => counts[state]))
+  return WORKLOAD_STATES.map(state => {
+    const accent = ACCENT_BY_STATE[state]
+    return {
+      state,
+      label: workloadStateLabel(state),
+      count: counts[state],
+      pct: Math.round((counts[state] / max) * 100),
+      color: accent ? accentColor(accent, isDark.value) : (isDark.value ? '#9CA3AF' : '#6B7280')
     }
-  } catch {
-    // The empty state stands in when the platform can't answer
-  }
-  counts.value = next
-}
-
-// The header's organization switcher navigates in place; refetch for the new organization
-watch(() => props.organizationId, load)
-
-onMounted(load)
+  })
+})
 </script>

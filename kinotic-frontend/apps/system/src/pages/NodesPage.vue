@@ -4,298 +4,121 @@
                 description="VmManager nodes that host workloads, and the capacity each has left.">
       <template #actions>
         <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined
-                :loading="loadingNodes" @click="refreshAll" />
+                :loading="loading" @click="load" />
       </template>
     </PageHeader>
 
-    <Message v-if="nodesError" severity="error" :closable="false" class="mb-4">{{ nodesError }}</Message>
+    <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div v-else-if="nodes.length === 0 && !loadingNodes"
-         class="p-6 border border-dashed border-surface rounded-lg text-muted-color">
+    <StatusChips v-model="statusFilter" :chips="chips" class="mb-4" />
+
+    <div v-if="nodes.length === 0 && !loading"
+         class="rounded-lg border border-dashed border-surface p-6 text-muted-color">
       No worker nodes have registered with the orchestrator
+    </div>
+    <div v-else-if="shown.length === 0 && !loading"
+         class="rounded-lg border border-dashed border-surface p-6 text-muted-color">
+      No worker node is {{ statusFilter?.toLowerCase() }}
     </div>
 
     <div v-else class="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4">
-      <div v-for="node in nodes" :key="node.id" class="flex flex-col gap-2 p-4 border border-surface rounded-lg">
-        <div class="flex items-center justify-between">
-          <span class="font-semibold">{{ node.name }}</span>
+      <RouterLink v-for="node in shown" :key="node.id" :to="`/worker-nodes/${encodeURIComponent(node.id)}`"
+                  class="flex flex-col gap-2 rounded-lg border border-surface p-4 text-color no-underline transition-colors hover:bg-emphasis">
+        <div class="flex items-center justify-between gap-2">
+          <span class="truncate font-semibold">{{ node.name }}</span>
           <Tag :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
         </div>
-        <Tag :value="node.providerType" severity="secondary" class="self-end -mt-1" />
-        <span class="break-all font-mono text-xs text-muted-color">{{ node.hostname }}</span>
-
-        <div class="flex flex-col gap-2 mt-1">
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span>CPU</span>
-              <span>{{ node.totalCpus - node.availableCpus }} / {{ node.totalCpus }} vCPU</span>
-            </div>
-            <CapacityBar :pct="percentOf(node.totalCpus - node.availableCpus, node.totalCpus)" />
-          </div>
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span>Memory</span>
-              <span>{{ formatMb(node.totalMemoryMb - node.availableMemoryMb) }} / {{ formatMb(node.totalMemoryMb) }}</span>
-            </div>
-            <CapacityBar :pct="percentOf(node.totalMemoryMb - node.availableMemoryMb, node.totalMemoryMb)" />
-          </div>
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span>Disk</span>
-              <span>{{ formatMb(node.totalDiskMb - node.availableDiskMb) }} / {{ formatMb(node.totalDiskMb) }}</span>
-            </div>
-            <CapacityBar :pct="percentOf(node.totalDiskMb - node.availableDiskMb, node.totalDiskMb)" />
-          </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs text-muted-color">
+          <Tag :value="node.providerType" severity="secondary" />
+          <span class="break-all font-mono">{{ node.hostname }}</span>
         </div>
+
+        <div v-if="node.status.type === VmNodeStatusType.OFFLINE" class="py-2 text-sm text-muted-color">
+          No heartbeat since {{ formatEpochDateTime(node.lastSeen) }}.
+          {{ workloadsOn(node.id).length > 0 ? `Its ${workloadsOn(node.id).length} workloads are unreachable with it.` : '' }}
+        </div>
+        <CapacityRows v-else :capacity="capacityOf([node])" class="mt-1" />
 
         <Message v-if="node.status.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
           {{ node.status.healthMessage }}
         </Message>
 
-        <div class="text-xs text-muted-color mt-1">Last seen: {{ formatEpochDateTime(node.lastSeen) }}</div>
-      </div>
+        <div class="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted-color">
+          <span>{{ runningOn(node.id) }} running · {{ workloadsOn(node.id).length }} workloads</span>
+          <span>Last seen {{ formatEpochDateTime(node.lastSeen) }}</span>
+        </div>
+      </RouterLink>
     </div>
-
-    <h2 class="text-lg font-semibold mt-6 mb-3">Workloads</h2>
-
-    <CrudTable
-      ref="crudTable"
-      :headers="headers"
-      :data-source="dataSource"
-      :search="tableSearch"
-      :default-sort="DEFAULT_SORT"
-      :is-show-add-new="false"
-      :disable-modifications="true"
-      :row-actions="rowActions"
-      empty-state-text="No workloads"
-      @update:search="tableSearch = $event"
-    >
-      <template #item.node="{ item }">
-        {{ item.node || '—' }}
-      </template>
-
-      <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="workloadSeverity(item.status)" />
-      </template>
-
-      <template #item.image="{ item }">
-        <span class="font-mono text-sm">{{ item.image }}</span>
-      </template>
-
-      <template #item.organizationId="{ item }">
-        <span v-if="item.organizationId" class="font-mono text-sm">{{ item.organizationId }}</span>
-        <span v-else>platform</span>
-      </template>
-
-      <template #item.created="{ item }">
-        {{ formatEpochDateTime(item.created) }}
-      </template>
-    </CrudTable>
-
-    <WorkloadLogsDialog
-      v-if="logsWorkload"
-      v-model:visible="logsVisible"
-      :workload-id="logsWorkload.id"
-      :workload-name="logsWorkload.name"
-    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
-import type { MenuItem } from 'primevue/menuitem'
-import { useConfirm } from 'primevue/useconfirm'
 
-import { Direction, FunctionalIterablePage, Kinotic, Order, Pageable, Sort,
-         type IterablePage, type Page } from '@kinotic-ai/core'
-import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import {
-  CrudTable,
-  PageHeader,
-  formatMb,
-  DatetimeUtil,
-  useCrudTablePage,
-  type CrudHeader,
-  type DescriptiveIdentifiable,
-  WorkloadLogsDialog } from '@kinotic-ai/frontend-common'
+import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import { DatetimeUtil, PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
 
-import CapacityBar from '@/components/CapacityBar.vue'
+import CapacityRows from '@/components/CapacityRows.vue'
+import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
+import { capacityOf, loadNodes, nodeSeverity } from '@/util/nodes'
+import { scanWorkloads } from '@/util/workloads'
 
-interface WorkloadRow extends DescriptiveIdentifiable {
-  id: string
-  name: string
-  node: string
-  status: WorkloadStatus
-  image: string
-  resources: string
-  organizationId: string | null
-  created: number | null
-  autoRemove: boolean
-}
+const NODE_STATES = [VmNodeStatusType.ONLINE, VmNodeStatusType.DRAINING, VmNodeStatusType.OFFLINE]
 
-const DEFAULT_SORT = [new Order('created', Direction.DESC)]
-
-const headers: CrudHeader[] = [
-  { field: 'name', header: 'Name', sortable: true },
-  { field: 'node', header: 'Node', sortable: false },
-  { field: 'status', header: 'Status', sortable: false },
-  { field: 'image', header: 'Image', sortable: false },
-  { field: 'resources', header: 'Resources', sortable: false },
-  { field: 'organizationId', header: 'Organization', sortable: false },
-  { field: 'created', header: 'Created', sortable: true }
-]
-
-const confirm = useConfirm()
+const route = useRoute()
+const router = useRouter()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 
 const nodes = ref<VmNode[]>([])
-const loadingNodes = ref(false)
-const nodesError = ref<string | null>(null)
-// Resolves a workload's nodeId to the node's name in the table
-const nodeNames = ref<Record<string, string>>({})
+const workloads = ref<Workload[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
 
-const logsWorkload = ref<{ id: string; name: string } | null>(null)
-const logsVisible = ref(false)
+// The filter lives in the URL so a tile can link straight to the offline nodes
+const statusFilter = computed<string | null>({
+  get: () => NODE_STATES.includes(route.query.status as VmNodeStatusType) ? route.query.status as string : null,
+  set: value => { router.replace({ query: { ...route.query, status: value ?? undefined } }) }
+})
 
-// Nodes that can actually take a workload belong at the top. status.type is a keyword, and its
-// three values sort ONLINE, OFFLINE, DRAINING descending, so descending is the order the page
-// wants; name breaks ties so cards hold a stable position across refreshes.
-const NODE_SORT = new Sort()
-NODE_SORT.orders = [new Order('status.type', Direction.DESC), new Order('name', Direction.ASC)]
+const chips = computed<StatusChip[]>(() => [
+  { label: 'All', value: null, count: nodes.value.length },
+  ...NODE_STATES.map(state => ({
+    label: state.charAt(0) + state.slice(1).toLowerCase(),
+    value: state,
+    count: nodes.value.filter(node => node.status.type === state).length
+  }))
+])
 
-async function loadNodes() {
-  loadingNodes.value = true
-  nodesError.value = null
+const shown = computed(() => statusFilter.value
+    ? nodes.value.filter(node => node.status.type === statusFilter.value)
+    : nodes.value)
+
+function workloadsOn(nodeId: string): Workload[] {
+  return workloads.value.filter(workload => workload.nodeId === nodeId)
+}
+
+function runningOn(nodeId: string): number {
+  return workloadsOn(nodeId).filter(workload => workload.status === WorkloadStatus.RUNNING).length
+}
+
+async function load() {
+  loading.value = true
+  error.value = null
   try {
-    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100, NODE_SORT))
-    nodes.value = page.content ?? []
-    nodeNames.value = Object.fromEntries(nodes.value.map(node => [node.id, node.name]))
+    const [nodeList, workloadList] = await Promise.all([loadNodes(), scanWorkloads({})])
+    nodes.value = nodeList
+    workloads.value = workloadList
   } catch (err) {
-    nodesError.value = err instanceof Error ? err.message : 'Failed to load nodes'
+    error.value = errorMessage(err, 'Failed to load worker nodes')
   } finally {
-    loadingNodes.value = false
+    loading.value = false
   }
 }
 
-const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
-
-async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
-  const workloads = searchText
-      ? await Kinotic.workloads.search(searchText, pageable)
-      : await Kinotic.workloads.findAll(pageable)
-  const page: Page<DescriptiveIdentifiable> = {
-    content: (workloads.content ?? []).map(toRow),
-    totalElements: workloads.totalElements,
-    cursor: undefined
-  }
-  return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
-}
-
-function toRow(workload: Workload): WorkloadRow {
-  return {
-    id: workload.id ?? '',
-    name: workload.name,
-    node: workload.nodeId ? nodeNames.value[workload.nodeId] ?? workload.nodeId : '',
-    status: workload.status,
-    image: workload.image,
-    resources: `${workload.vcpus} vCPU · ${formatMb(workload.memoryMb)} · ${formatMb(workload.diskSizeMb)}`,
-    organizationId: workload.organizationId,
-    created: workload.created,
-    autoRemove: workload.autoRemove
-  }
-}
-
-function rowActions(item: WorkloadRow): MenuItem[] {
-  const actions: MenuItem[] = [
-    {
-      label: 'View logs',
-      icon: 'pi pi-align-left',
-      command: () => {
-        logsWorkload.value = { id: item.id, name: item.name }
-        logsVisible.value = true
-      }
-    }
-  ]
-  if (item.status === WorkloadStatus.RUNNING || item.status === WorkloadStatus.STARTING) {
-    actions.push({
-      label: 'Stop',
-      icon: 'pi pi-stop-circle',
-      command: () => run(
-          async () => { await Kinotic.workloadOrchestration.stopWorkload(item.id) },
-          'Workload stopping',
-          'Failed to stop workload')
-    })
-  }
-  // A workload stopped with autoRemove has no VM left to restart
-  if (item.status === WorkloadStatus.STOPPED && !item.autoRemove) {
-    actions.push({
-      label: 'Restart',
-      icon: 'pi pi-replay',
-      command: () => run(
-          async () => { await Kinotic.workloadOrchestration.restartWorkload(item.id) },
-          'Workload restarting',
-          'Failed to restart workload')
-    })
-  }
-  actions.push({
-    label: 'Destroy',
-    icon: 'pi pi-trash',
-    command: () => confirm.require({
-      header: 'Confirm destroy',
-      message: `Destroy workload ${item.name}? Its VM and disk are removed permanently.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Destroy', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => run(
-          async () => { await Kinotic.workloadOrchestration.destroyWorkload(item.id) },
-          'Workload destroyed',
-          'Failed to destroy workload').then(loadNodes)
-    })
-  })
-  return actions
-}
-
-function refreshAll() {
-  loadNodes()
-  refreshTable()
-}
-
-function nodeSeverity(status: VmNodeStatusType): string {
-  let ret: string
-  if (status === VmNodeStatusType.ONLINE) {
-    ret = 'success'
-  } else if (status === VmNodeStatusType.DRAINING) {
-    ret = 'warn'
-  } else {
-    ret = 'danger'
-  }
-  return ret
-}
-
-function workloadSeverity(status: WorkloadStatus): string {
-  let ret: string
-  if (status === WorkloadStatus.RUNNING) {
-    ret = 'success'
-  } else if (status === WorkloadStatus.STARTING || status === WorkloadStatus.PENDING) {
-    ret = 'info'
-  } else if (status === WorkloadStatus.STOPPING) {
-    ret = 'warn'
-  } else if (status === WorkloadStatus.FAILED) {
-    ret = 'danger'
-  } else {
-    ret = 'secondary'
-  }
-  return ret
-}
-
-function percentOf(allocated: number, total: number): number {
-  return total > 0 ? Math.round((allocated / total) * 100) : 0
-}
-
-
-onMounted(loadNodes)
+onMounted(load)
 </script>
