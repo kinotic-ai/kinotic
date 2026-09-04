@@ -582,12 +582,7 @@ public class ProjectDeployJobDefinitionFactory {
         if (row.getPreviousCommitSha() != null) {
             kept.add(row.getPreviousCommitSha());
         }
-        String uiPrefix = UiStoragePaths.uiPrefix(applicationId, row.getName());
-        return organizationStorageService.listCommitDirs(organization, uiPrefix)
-                .compose(dirs -> sequentially(dirs.stream().filter(dir -> !kept.contains(dir)).toList(),
-                                              dir -> organizationStorageService.deletePrefix(
-                                                      organization, UiStoragePaths.commitPrefix(applicationId, row.getName(), dir))))
-                .mapEmpty();
+        return organizationStorageService.deleteFilesOfOtherCommits(organization, UiStoragePaths.uiPrefix(applicationId, row.getName()), kept);
     }
 
     /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */

@@ -9,8 +9,12 @@ import org.apache.commons.lang3.Validate;
  * <pre>
  * prod/&lt;app&gt;/ui/&lt;ui&gt;/index.html          the site's entry, replaced last on each publish
  * prod/&lt;app&gt;/ui/&lt;ui&gt;/version.json        {@code { "commitSha": "..." }}
- * prod/&lt;app&gt;/ui/&lt;ui&gt;/&lt;sha&gt;/...            the commit's immutable assets
+ * prod/&lt;app&gt;/ui/&lt;ui&gt;/assets/...           the build's hashed files, cached for a year
+ * prod/&lt;app&gt;/ui/&lt;ui&gt;/...                  the rest of the build, never cached
  * </pre>
+ *
+ * Every blob is stamped with the commit that published it, so a publish can delete what
+ * older commits left.
  */
 public final class UiStoragePaths {
 
@@ -34,14 +38,6 @@ public final class UiStoragePaths {
     public static String uiPrefix(String applicationId, String uiName) {
         Validate.notBlank(uiName, "uiName cannot be blank");
         return applicationPrefix(applicationId) + "/" + uiName;
-    }
-
-    /**
-     * The prefix one commit's immutable assets are published under.
-     */
-    public static String commitPrefix(String applicationId, String uiName, String commitSha) {
-        Validate.notBlank(commitSha, "commitSha cannot be blank");
-        return uiPrefix(applicationId, uiName) + "/" + commitSha;
     }
 
 }

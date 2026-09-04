@@ -24,7 +24,7 @@ import { forwardOutput, log, logError } from './log.ts'
  * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
  * - KINOTIC_PROJECT_ID     the project the checkout belongs to; required to report artifacts
  * - KINOTIC_UI_SERVER_URL  the address a browser reaches the platform on, handed to every UI
- *                          build together with KINOTIC_UI_BASE_PATH and KINOTIC_UI_COMMIT
+ *                          build together with KINOTIC_UI_COMMIT
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
  *   connection settings the CLI and the artifact report authenticate with; both are
  *   skipped when no credentials are present
@@ -161,10 +161,7 @@ async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): 
  * leaves no {@code dist/index.html} fails the run before the sentinel is written.
  */
 async function buildUis(workspaceDir: string, uis: UiArtifact[], commitSha: string): Promise<void> {
-    const env: Record<string, string> = {
-        KINOTIC_UI_BASE_PATH: `/${commitSha}/`,
-        KINOTIC_UI_COMMIT: commitSha,
-    }
+    const env: Record<string, string> = { KINOTIC_UI_COMMIT: commitSha }
     if (process.env.KINOTIC_UI_SERVER_URL) {
         env.KINOTIC_UI_SERVER_URL = process.env.KINOTIC_UI_SERVER_URL
     }
