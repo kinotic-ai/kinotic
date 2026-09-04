@@ -96,7 +96,7 @@
         </TabPanel>
         <TabPanel value="logs">
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
-          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" class="pt-2" />
+          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" :workload="workload ?? undefined" class="pt-2" />
         </TabPanel>
       </TabPanels>
     </Tabs>

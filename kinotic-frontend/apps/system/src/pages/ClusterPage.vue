@@ -29,7 +29,8 @@
           </Column>
           <Column header="Version">
             <template #body="{ data }">
-              {{ data.version }}
+              {{ splitVersion(data.version).release }}
+              <span v-if="splitVersion(data.version).build" class="font-mono text-xs text-muted-color">{{ splitVersion(data.version).build }}</span>
               <Tag v-if="commonVersion && data.version !== commonVersion" value="behind" severity="warn" class="ml-1" />
             </template>
           </Column>
@@ -116,6 +117,12 @@ const commonVersion = computed<string | null>(() => {
 
 const mixedVersions = computed(() => new Set((cluster.value?.nodes ?? []).map(node => node.version)).size > 1)
 
+/** A node version as the release it is and the build stamp after the '#', e.g. 2.18.0 and 20260423-sha1:d49adada. */
+function splitVersion(version: string): { release: string; build: string | null } {
+  const at = version.indexOf('#')
+  return at < 0 ? { release: version, build: null } : { release: version.slice(0, at), build: version.slice(at + 1) }
+}
+
 interface Stat {
   label: string
   value: string
@@ -148,15 +155,33 @@ const stats = computed<Stat[]>(() => [
     icon: 'pi-sync',
     accent: 'violet'
   },
-  {
-    label: 'Versions',
-    value: mixedVersions.value ? 'Mixed' : (commonVersion.value ?? '—'),
-    description: mixedVersions.value ? 'Not every node runs the same build' : 'Every node runs this build',
-    tag: mixedVersions.value ? 'warn' : undefined,
-    icon: 'pi-tag',
-    accent: mixedVersions.value ? 'amber' : 'teal'
-  }
+  versionStat.value
 ])
+
+// The release reads at display size; the build stamp behind the '#' goes in the caption
+const versionStat = computed<Stat>(() => {
+  let ret: Stat
+  if (mixedVersions.value) {
+    ret = {
+      label: 'Versions',
+      value: 'Mixed',
+      description: 'Not every node runs the same build',
+      tag: 'warn',
+      icon: 'pi-tag',
+      accent: 'amber'
+    }
+  } else {
+    const common = commonVersion.value ? splitVersion(commonVersion.value) : null
+    ret = {
+      label: 'Version',
+      value: common?.release ?? '—',
+      description: common?.build ? `build ${common.build} · every node runs it` : 'Every node runs this build',
+      icon: 'pi-tag',
+      accent: 'teal'
+    }
+  }
+  return ret
+})
 
 function openLogLevel(nodeId: string) {
   logLevelNodeId.value = nodeId

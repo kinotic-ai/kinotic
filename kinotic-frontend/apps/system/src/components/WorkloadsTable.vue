@@ -46,8 +46,9 @@
     <WorkloadLogsDialog
       v-if="logsWorkload"
       v-model:visible="logsVisible"
-      :workload-id="logsWorkload.id"
+      :workload-id="logsWorkload.id ?? ''"
       :workload-name="logsWorkload.name"
+      :workload="logsWorkload"
     />
   </div>
 </template>
@@ -108,7 +109,7 @@ const router = useRouter()
 const confirm = useConfirm()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 
-const logsWorkload = ref<{ id: string; name: string } | null>(null)
+const logsWorkload = ref<Workload | null>(null)
 const logsVisible = ref(false)
 
 const ownerHeader = computed<string | null>(() => {
@@ -219,7 +220,7 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       label: 'View logs',
       icon: 'pi pi-align-left',
       command: () => {
-        logsWorkload.value = { id: item.id, name: item.name }
+        logsWorkload.value = props.workloads.find(workload => workload.id === item.id) ?? null
         logsVisible.value = true
       }
     }
