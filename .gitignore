@@ -94,6 +94,7 @@ kinotic-js/continuum-cli/
 
 terraform.tfstate
 terraform.tfstate.backup
+.terraform.tfstate.lock.info
 .terraform/
 
 .claude/worktrees/
