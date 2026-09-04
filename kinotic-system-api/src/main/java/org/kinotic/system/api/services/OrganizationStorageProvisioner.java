@@ -6,13 +6,14 @@ import org.kinotic.domain.api.model.Organization;
 
 /**
  * Provisions the storage an organization's deployments publish to: one account per
- * organization holding the {@code ui} container, recorded on the {@link Organization}.
+ * organization holding the {@code sites} container, recorded on the {@link Organization}.
  * Provisioning runs when the organization is created; a deployment only reads the outcome.
  */
 public interface OrganizationStorageProvisioner {
 
     /** The one container in an organization's account that its deployments publish UIs into. */
-    String UI_CONTAINER = "ui";
+    // container names are 3 to 63 characters, which rules out "ui"; Azurite does not check
+    String UI_CONTAINER = "sites";
 
     /**
      * Leaves the organization with usable storage: returns at once when it is ready, waits
