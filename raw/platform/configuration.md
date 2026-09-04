@@ -1150,9 +1150,9 @@ that disables the provisioner sets them to placeholders. In the Azure deployment
 server; the development profile disables the provisioner, and the `local` profile of the
 [contributing guide](/platform/contributing#publishing-uis-against-azure) enables it against a
 developer's own profile. Front Door reads an organization's
-storage with a read-only container SAS its rule set carries, signed with the account key and
-written again whenever a site of the organization is provisioned; the account's public
-network is open to it, with anonymous access off.
+storage as the profile's managed identity, which terraform grants Storage Blob Data Reader
+on the group every organization's account is created in; the account's public network is
+open to it, with anonymous access off.
 
 ## Workload storage and log limits
 

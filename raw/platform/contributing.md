@@ -167,11 +167,13 @@ Create what the server cannot create itself, once:
 az login
 cd deployment/terraform/azure/dev
 terraform init
+terraform apply -target=azurerm_cdn_frontdoor_profile.sites   # the profile's identity first: its principal id is unknown until it exists
 terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
 terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
 ```
 
-That is a resource group, a Front Door Standard profile with an endpoint, the
+That is a resource group, a Front Door Standard profile with an endpoint and an identity
+that reads every organization's storage, the
 `apps-<environment>.<zone>` sites domain in the platform's DNS zone, and a service principal
 for the server with the roles it needs: Contributor and Storage Blob Data Contributor on the
 group, DNS Zone Contributor on the zone, and Contributor on the email service, so it sends
@@ -220,11 +222,11 @@ records under `apps-<environment>` in the zone are removed by hand.
 
 Then sign up an organization, or open an existing one in the system console and choose
 **Provision again**: the `provision-organization-<id>` job creates its storage account and
-prepares its Front Door origin group and rule set, and the organization's overview shows the
+prepares its Front Door origin group, and the organization's overview shows the
 outcome. Deploy a project that contains a UI; the deployment publishes it and provisions its
 site, served at `https://<label>.apps-<environment>.<zone>` once Front Door has validated the
-domain and issued its certificate, which takes a few minutes and shows as the deployment
-turning from provisioning to ready.
+domain, issued its certificate and serves the UI's `version.json`, which takes a few minutes
+and shows as the deployment turning from provisioning to ready.
 
 `terraform destroy` removes the resource group with every storage account and Front Door
 resource the server created in it. The CNAME and validation TXT records of sites live in the

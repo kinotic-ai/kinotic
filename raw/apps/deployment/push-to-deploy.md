@@ -192,7 +192,7 @@ year, and the site's index is replaced last.
     </td>
     
     <td>
-      The site is being created: its hostname is registered and its certificate issued
+      The site is being created: its hostname is registered, its certificate issued, and it does not yet serve the recorded commit
     </td>
   </tr>
   
