@@ -39,12 +39,6 @@ export class UiDeployment implements Identifiable<string> {
      */
     public commitSha: string | null = null
 
-    /**
-     * Sha of the commit the site served before commitSha, whose files are kept so tabs
-     * opened on it keep working, or null when there is none.
-     */
-    public previousCommitSha: string | null = null
-
     public status!: DeploymentStatus
 
     public created: number | null = null

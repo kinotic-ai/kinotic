@@ -5,7 +5,6 @@ import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 
 import java.time.Duration;
-import java.util.List;
 
 /**
  * The data plane of an organization's storage: what the platform does with the blobs in the
@@ -29,14 +28,15 @@ public interface OrganizationStorageService {
     Future<String> issueUploadUrl(Organization organization, String applicationId, Duration ttl);
 
     /**
-     * Lists the commit directories published under a UI's prefix: the sha of every commit
-     * whose assets are still stored.
+     * Deletes every blob under the prefix that a publish of another commit wrote: the publish
+     * workload stamps each blob with its commit, and the blobs of the given commit stay.
      *
-     * @param organization the organization whose storage to read
-     * @param uiPrefix     the UI's prefix, from {@link UiStoragePaths#uiPrefix}
-     * @return a future emitting the shas, empty when nothing is published
+     * @param organization the organization whose storage to clean
+     * @param prefix       the UI's prefix, from {@link UiStoragePaths#uiPrefix}
+     * @param commit       the commit whose files stay
+     * @return a future completing once the other commits' files are gone
      */
-    Future<List<String>> listCommitDirs(Organization organization, String uiPrefix);
+    Future<Void> deleteFilesOfOtherCommits(Organization organization, String prefix, String commit);
 
     /**
      * Deletes every blob under the prefix. Nothing under it is not a failure.

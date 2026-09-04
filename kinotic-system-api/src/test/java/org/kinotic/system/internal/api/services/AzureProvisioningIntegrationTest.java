@@ -61,6 +61,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -180,8 +181,15 @@ class AzureProvisioningIntegrationTest {
     void provisionsASite() throws Exception {
         assumeTrue(organization != null, "the storage step did not complete");
         // the files go up before the site is provisioned, as the publish task orders it
-        publish(UI_NAME + "/version.json", new JsonObject().put("commitSha", COMMIT_SHA).encode(), "application/json");
-        publish(UI_NAME + "/index.html", INDEX_HTML, "text/html");
+        publish(UI_NAME + "/version.json", new JsonObject().put("commitSha", COMMIT_SHA).encode(), "application/json", COMMIT_SHA);
+        publish(UI_NAME + "/index.html", INDEX_HTML, "text/html", COMMIT_SHA);
+        // a file an older publish left behind goes with the finalize step's cleanup, the current commit's files stay
+        String stale = UI_NAME + "/assets/old-" + COMMIT_SHA.substring(0, 8) + ".js";
+        publish(stale, "// stale", "text/javascript", "1".repeat(40));
+        String uiPrefix = UiStoragePaths.uiPrefix(APPLICATION_ID, UI_NAME);
+        await(storageService.deleteFilesOfOtherCommits(organization, uiPrefix, COMMIT_SHA));
+        assertFalse(blob(uiPrefix + "/" + stale.substring(UI_NAME.length() + 1)).exists(), "the other commit's file is deleted");
+        assertTrue(blob(uiPrefix + "/index.html").exists(), "the current commit's file stays");
         UiDeployment deployment = new UiDeployment().setId(SITE_LABEL)
                                                     .setOrganizationId(ORGANIZATION_ID)
                                                     .setApplicationId(APPLICATION_ID)
@@ -244,14 +252,24 @@ class AzureProvisioningIntegrationTest {
         assertEquals(expected, body, message);
     }
 
-    /** Uploads one file of the UI the way the publish workload does: through the application's upload URL, uncached. */
-    private void publish(String path, String content, String contentType) {
+    /** Uploads one file of the UI the way the publish workload does: through the application's upload URL, uncached, stamped with its commit. */
+    private void publish(String path, String content, String contentType, String commitSha) {
         String uploadUrl = await(storageService.issueUploadUrl(organization, APPLICATION_ID, Duration.ofMinutes(STEP_TIMEOUT_MINUTES)));
         int query = uploadUrl.indexOf('?');
         BlobClient blob = new BlobClientBuilder().endpoint(uploadUrl.substring(0, query) + "/" + path + uploadUrl.substring(query))
                                                  .buildClient();
         blob.upload(BinaryData.fromString(content), true);
         blob.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType).setCacheControl("no-cache"));
+        blob.setMetadata(Map.of("commit", commitSha));
+    }
+
+    /** A blob of the organization's container, read as the test's own identity. */
+    private BlobClient blob(String name) {
+        return new BlobClientBuilder().endpoint(organization.getStorage().getAzureBlobEndpoint())
+                                      .containerName(OrganizationStorageProvisioner.UI_CONTAINER)
+                                      .blobName(name)
+                                      .credential(credential)
+                                      .buildClient();
     }
 
     private <T> T await(Future<T> future) {

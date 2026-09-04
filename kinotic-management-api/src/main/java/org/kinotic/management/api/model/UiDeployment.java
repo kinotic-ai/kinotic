@@ -53,12 +53,6 @@ public class UiDeployment implements OrganizationScoped<String> {
      */
     private String commitSha;
 
-    /**
-     * Sha of the commit the site served before {@link #commitSha}, whose files are kept so
-     * tabs opened on it keep working, or {@code null} when there is none.
-     */
-    private String previousCommitSha;
-
     private DeploymentStatus status;
 
     private Date created;

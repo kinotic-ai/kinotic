@@ -5,7 +5,9 @@ import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.azure.storage.blob.BlobContainerAsyncClient;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
+import com.azure.storage.blob.models.BlobStorageException;
 import com.azure.storage.blob.models.BlobItem;
+import com.azure.storage.blob.models.BlobListDetails;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.sas.BlobContainerSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
@@ -22,10 +24,13 @@ import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.kinotic.system.api.services.OrganizationStorageService;
 import org.kinotic.system.api.services.UiStoragePaths;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,6 +49,8 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     /** How far in the past a delegation key starts, so clock skew between server and storage never rejects a fresh SAS. */
     private static final Duration KEY_START_SKEW = Duration.ofMinutes(5);
     private static final int DELETE_CONCURRENCY = 8;
+    /** The metadata the publish workload stamps every blob with: the commit it belongs to. */
+    private static final String COMMIT_METADATA = "commit";
 
     private final Vertx vertx;
     private final KinoticSystemApiProperties kinoticProperties;
@@ -72,31 +79,55 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     @Override
-    public Future<List<String>> listCommitDirs(Organization organization, String uiPrefix) {
-        Validate.notBlank(uiPrefix, "uiPrefix is required");
-        String root = uiPrefix + "/";
-        // a hierarchy listing returns the direct children: the commit directories as prefixes,
-        // and index.html and version.json as blobs
-        return AzureUtil.toFuture(container(organization).listBlobsByHierarchy("/", new ListBlobsOptions().setPrefix(root))
-                                                         .filter(item -> Boolean.TRUE.equals(item.isPrefix()))
-                                                         .map(item -> commitDir(root, item))
-                                                         .collectList(), vertx);
+    public Future<Void> deleteFilesOfOtherCommits(Organization organization, String prefix, String commit) {
+        Validate.notBlank(prefix, "prefix is required");
+        Validate.notBlank(commit, "commit is required");
+        BlobContainerAsyncClient container = container(organization);
+        ListBlobsOptions options = new ListBlobsOptions().setPrefix(prefix + "/")
+                                                         .setDetails(new BlobListDetails().setRetrieveMetadata(true));
+        return deleteAll(container, container.listBlobs(options).filter(item -> isDirectory(item) || !isOf(item, commit)));
     }
 
-    private static String commitDir(String root, BlobItem item) {
-        String name = item.getName();
-        String relative = name.startsWith(root) ? name.substring(root.length()) : name;
-        return relative.endsWith("/") ? relative.substring(0, relative.length() - 1) : relative;
+    // A blob without the stamp predates stamping, so no publish keeps it
+    private static boolean isOf(BlobItem item, String commit) {
+        return item.getMetadata() != null && commit.equals(item.getMetadata().get(COMMIT_METADATA));
     }
 
     @Override
     public Future<Void> deletePrefix(Organization organization, String prefix) {
         Validate.notBlank(prefix, "prefix is required");
         BlobContainerAsyncClient container = container(organization);
-        return AzureUtil.toFuture(container.listBlobs(new ListBlobsOptions().setPrefix(prefix))
-                                           .flatMap(item -> container.getBlobAsyncClient(item.getName()).deleteIfExists(),
-                                                    DELETE_CONCURRENCY)
-                                           .then(), vertx);
+        ListBlobsOptions options = new ListBlobsOptions().setPrefix(prefix)
+                                                         .setDetails(new BlobListDetails().setRetrieveMetadata(true));
+        return deleteAll(container, container.listBlobs(options));
+    }
+
+    // The account has a hierarchical namespace, so a flat listing includes directories, which
+    // are deletable only once empty: the files go first, then the directories deepest first,
+    // and a directory still holding a kept file is left where it is
+    private Future<Void> deleteAll(BlobContainerAsyncClient container, Flux<BlobItem> items) {
+        return AzureUtil.toFuture(items.collectList().flatMap(all -> {
+            List<BlobItem> files = all.stream().filter(item -> !isDirectory(item)).toList();
+            List<BlobItem> directories = all.stream()
+                                            .filter(AzureOrganizationStorageService::isDirectory)
+                                            .sorted(Comparator.comparingInt((BlobItem item) -> item.getName().length()).reversed())
+                                            .toList();
+            return Flux.fromIterable(files)
+                       .flatMap(item -> container.getBlobAsyncClient(item.getName()).deleteIfExists(), DELETE_CONCURRENCY)
+                       .thenMany(Flux.fromIterable(directories))
+                       .concatMap(item -> container.getBlobAsyncClient(item.getName()).deleteIfExists()
+                                                   .onErrorResume(error -> isNotEmpty(error), error -> Mono.empty()))
+                       .then();
+        }), vertx);
+    }
+
+    private static boolean isDirectory(BlobItem item) {
+        return item.getMetadata() != null && "true".equals(item.getMetadata().get("hdi_isfolder"));
+    }
+
+    private static boolean isNotEmpty(Throwable error) {
+        // a hierarchical namespace error the blob SDK's error codes do not name
+        return error instanceof BlobStorageException storage && "DirectoryIsNotEmpty".equals(String.valueOf(storage.getErrorCode()));
     }
 
     private BlobContainerAsyncClient container(Organization organization) {

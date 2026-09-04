@@ -6,9 +6,10 @@ import { log, logError } from './log.ts'
 /**
  * One-shot entrypoint of the UI publish workload: uploads every built UI of the checkout to
  * the organization's storage, under the application's prefix the upload URL names. Per UI,
- * the commit's assets go under {@code <name>/<sha>/} marked immutable, then
- * {@code version.json}, then {@code index.html} last, so a site never serves an index whose
- * assets are not there yet and the index switch is the atomic publish.
+ * {@code dist} goes under {@code <name>/} as it is, every blob stamped with the commit it
+ * belongs to: the hashed files under {@code assets/} first, marked immutable, then the rest
+ * uncached, then {@code version.json}, then {@code index.html} last, so a site never serves an
+ * index whose assets are not there yet and the index switch is the atomic publish.
  *
  * Environment:
  * - KINOTIC_UI_UPLOAD_URL  the application's upload URL: blob endpoint, container and
@@ -18,13 +19,16 @@ import { log, logError } from './log.ts'
  * - KINOTIC_LOG_*          see log.ts
  */
 
-/** Files under a commit's directory never change, so caches may keep them for a year. */
+/** Files under assets/ carry a content hash in their name and never change, so caches may keep them for a year. */
 const IMMUTABLE_CACHE_CONTROL = 'public, max-age=31536000, immutable'
-/** The index and the version file change on every publish and must always be fetched fresh. */
+/** Everything else, the index and the version file among it, changes on a publish and must always be fetched fresh. */
 const NO_CACHE_CONTROL = 'no-cache'
 const UPLOAD_CONCURRENCY = 4
+const ASSETS_DIR = 'assets/'
 const VERSION_FILE = 'version.json'
 const INDEX_FILE = 'index.html'
+/** The blob metadata naming the commit a file was published by, which the deploy's cleanup reads. */
+const COMMIT_METADATA_HEADER = 'x-ms-meta-commit'
 
 function require_(name: string): string {
     const value = process.env[name]
@@ -70,7 +74,7 @@ function walk(dir: string, root: string = dir): string[] {
  * Uploads one blob as a block blob with its cache policy and the type Bun infers from the
  * name. A 5xx is retried once; anything else that is not 2xx fails the publish.
  */
-async function upload(url: string, body: Blob, cacheControl: string, contentType: string): Promise<void> {
+async function upload(url: string, body: Blob, cacheControl: string, contentType: string, commitSha: string): Promise<void> {
     for (let attempt = 1; ; attempt++) {
         const response = await fetch(url, {
             method: 'PUT',
@@ -78,6 +82,7 @@ async function upload(url: string, body: Blob, cacheControl: string, contentType
                 'x-ms-blob-type': 'BlockBlob',
                 'x-ms-blob-cache-control': cacheControl,
                 'Content-Type': contentType,
+                [COMMIT_METADATA_HEADER]: commitSha,
             },
             body,
         })
@@ -110,17 +115,19 @@ async function publishUi(target: UploadTarget, workspaceDir: string, name: strin
     if (!files.includes(INDEX_FILE)) {
         throw new Error(`UI ${name} (${dir}) has no dist/${INDEX_FILE}; was it built?`)
     }
-    const assets = files.filter(file => file !== INDEX_FILE)
-    log(`[workload-runner] publishing UI ${name}: ${assets.length} asset(s) under ${commitSha}`)
-    await uploadAll(assets.map(file => () => {
+    const assets = files.filter(file => file.startsWith(ASSETS_DIR))
+    const others = files.filter(file => !file.startsWith(ASSETS_DIR) && file !== INDEX_FILE && file !== VERSION_FILE)
+    log(`[workload-runner] publishing UI ${name}: ${assets.length} asset(s) and ${others.length} other file(s) of ${commitSha}`)
+    const uploadFile = (file: string, cacheControl: string) => () => {
         const blob = Bun.file(join(dist, file))
-        return upload(blobUrl(target, name, commitSha, ...file.split('/')), blob, IMMUTABLE_CACHE_CONTROL,
-                      blob.type || 'application/octet-stream')
-    }))
+        return upload(blobUrl(target, name, ...file.split('/')), blob, cacheControl, blob.type || 'application/octet-stream', commitSha)
+    }
+    await uploadAll(assets.map(file => uploadFile(file, IMMUTABLE_CACHE_CONTROL)))
+    await uploadAll(others.map(file => uploadFile(file, NO_CACHE_CONTROL)))
     await upload(blobUrl(target, name, VERSION_FILE), new Blob([JSON.stringify({ commitSha })]),
-                 NO_CACHE_CONTROL, 'application/json')
+                 NO_CACHE_CONTROL, 'application/json', commitSha)
     const index = Bun.file(join(dist, INDEX_FILE))
-    await upload(blobUrl(target, name, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html')
+    await upload(blobUrl(target, name, INDEX_FILE), index, NO_CACHE_CONTROL, index.type || 'text/html', commitSha)
 }
 
 async function main(): Promise<void> {

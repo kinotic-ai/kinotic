@@ -60,10 +60,11 @@ sharing a name, fails the run naming the package. The result is reported to the 
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
 the deployment run can bind it once this workload exits.
 
-Every UI artifact is then built in place with `bun run build`, handed `KINOTIC_UI_BASE_PATH`
-(`/<commit>/`, so its assets are served under the commit and cached forever),
-`KINOTIC_UI_COMMIT` and `KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html`
-fails the run naming the UI.
+Every UI artifact is then built in place with `bun run build`, handed
+`KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html` fails the run naming the
+UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
+hash in their name and are cached for a year, everything else is never cached, and every
+blob is stamped with the commit so the deploy can delete what older publishes left.
 
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and
