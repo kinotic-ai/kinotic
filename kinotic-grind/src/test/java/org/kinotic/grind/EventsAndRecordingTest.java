@@ -105,7 +105,7 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
                 .name("recorded").version("2.0")
                 .task(Tasks.fromRunnable("only", () -> { }));
 
-        JobRunHandle handle = jobService.run(job, JobOwner.ofApplication("org1", "app1"));
+        JobRunHandle handle = jobService.run(job, JobOwner.ofApplication("org1", "app1", null));
         await(handle);
 
         JobRun run = repository.savedRuns.get(handle.getJobRunId());
