@@ -1,6 +1,7 @@
 package org.kinotic.system.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.TokenRequestContext;
 import com.azure.core.management.AzureEnvironment;
 import com.azure.core.management.profile.AzureProfile;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -17,8 +18,13 @@ import com.azure.resourcemanager.dns.models.DnsZone;
 import com.azure.resourcemanager.resources.fluentcore.arm.ResourceId;
 import com.azure.resourcemanager.storage.StorageManager;
 import com.azure.resourcemanager.storage.models.BlobContainer;
+import com.azure.core.util.BinaryData;
+import com.azure.storage.blob.BlobClient;
+import com.azure.storage.blob.BlobClientBuilder;
+import com.azure.storage.blob.models.BlobHttpHeaders;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -41,8 +47,13 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.IOException;
 import java.io.Reader;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -77,14 +88,21 @@ class AzureProvisioningIntegrationTest {
     private static final String PROJECT_ID = "azure-it-project";
     private static final String UI_NAME = "web";
     private static final String SITE_LABEL = "azure-it";
+    private static final String COMMIT_SHA = "0000000000000000000000000000000000000000";
+    private static final String INDEX_HTML = "<!doctype html><title>azure-it</title>";
     /** A storage account or a Front Door write takes minutes; a step past this is stuck. */
     private static final long STEP_TIMEOUT_MINUTES = 15;
+    /** A site serves once its configuration reaches Front Door's edges, which Microsoft bounds at 15 minutes per change and longer when changes queue. */
+    private static final long SITE_TIMEOUT_MINUTES = 45;
+    private static final long SITE_POLL_MS = 30_000;
 
     private Vertx vertx;
     private KinoticSystemApiProperties properties;
     private TokenCredential credential;
     private AzureOrganizationStorageProvisioner storageProvisioner;
+    private AzureOrganizationStorageService storageService;
     private FrontDoorUiDeploymentProvisioner siteProvisioner;
+    private final HttpClient http = HttpClient.newHttpClient();
     private Organization organization;
 
     @BeforeAll
@@ -102,9 +120,8 @@ class AzureProvisioningIntegrationTest {
                                                                    .setName("Azure integration test")
                                                                    .setCreated(new Date()));
         storageProvisioner = new AzureOrganizationStorageProvisioner(organizations, vertx, properties);
-        siteProvisioner = new FrontDoorUiDeploymentProvisioner(vertx, properties,
-                                                               new AzureOrganizationStorageService(vertx, properties),
-                                                               new StubUiDeploymentRepository());
+        storageService = new AzureOrganizationStorageService(vertx, properties);
+        siteProvisioner = new FrontDoorUiDeploymentProvisioner(vertx, properties, new StubUiDeploymentRepository());
     }
 
     @AfterAll
@@ -134,42 +151,50 @@ class AzureProvisioningIntegrationTest {
     @Test
     @Order(2)
     @Timeout(value = STEP_TIMEOUT_MINUTES, unit = TimeUnit.MINUTES)
-    void preparesFrontDoorForTheOrganization() {
+    void preparesFrontDoorForTheOrganization() throws Exception {
         assumeTrue(organization != null, "the storage step did not complete");
 
         await(siteProvisioner.prepareOrganization(organization));
 
         CdnManagementClient cdn = cdnClient();
-        assertNotNull(cdn.getAfdOriginGroups().get(resourceGroup(), profileName(), "org-" + ORGANIZATION_ID),
-                      "the organization's origin group exists");
-        String ruleSet = "org" + ORGANIZATION_ID.replace("-", "");
-        for (String name : List.of("asset", "spa")) {
-            RuleInner rule = cdn.getRules().get(resourceGroup(), profileName(), ruleSet, name);
-            UrlRewriteAction rewrite = (UrlRewriteAction) rule.actions().getFirst();
-            String destination = rewrite.parameters().destination();
-            assertTrue(destination.startsWith("/"), name + " rule rewrites to " + destination);
-            assertTrue(destination.contains("sig="), name + " rule carries the SAS: " + destination);
-        }
+        // the SDK's client predates origin authentication, so the group is read at the API version that has it
+        String token = credential.getToken(new TokenRequestContext().addScopes("https://management.azure.com/.default")).block().getToken();
+        HttpRequest request = HttpRequest.newBuilder(URI.create("https://management.azure.com" + uiProperties().getFrontDoorProfileId()
+                                                                        + "/originGroups/org-" + ORGANIZATION_ID + "?api-version=2025-06-01"))
+                                         .header("Authorization", "Bearer " + token)
+                                         .build();
+        HttpResponse<String> group = http.send(request, HttpResponse.BodyHandlers.ofString());
+        assertEquals(200, group.statusCode(), "the organization's origin group exists: " + group.body());
+        JsonObject authentication = new JsonObject(group.body()).getJsonObject("properties").getJsonObject("authentication");
+        assertNotNull(authentication, "the origin group authenticates as the profile's identity");
+        assertEquals("SystemAssignedIdentity", authentication.getString("type"));
+
+        RuleInner rule = cdn.getRules().get(resourceGroup(), profileName(), "sites", "spa");
+        UrlRewriteAction rewrite = (UrlRewriteAction) rule.actions().getFirst();
+        assertEquals("/index.html", rewrite.parameters().destination(), "the spa rule rewrites to the index");
     }
 
     @Test
     @Order(3)
-    @Timeout(value = STEP_TIMEOUT_MINUTES, unit = TimeUnit.MINUTES)
-    void provisionsASite() {
+    @Timeout(value = SITE_TIMEOUT_MINUTES, unit = TimeUnit.MINUTES)
+    void provisionsASite() throws Exception {
         assumeTrue(organization != null, "the storage step did not complete");
+        // the files go up before the site is provisioned, as the publish task orders it
+        publish(UI_NAME + "/version.json", new JsonObject().put("commitSha", COMMIT_SHA).encode(), "application/json");
+        publish(UI_NAME + "/index.html", INDEX_HTML, "text/html");
         UiDeployment deployment = new UiDeployment().setId(SITE_LABEL)
                                                     .setOrganizationId(ORGANIZATION_ID)
                                                     .setApplicationId(APPLICATION_ID)
                                                     .setProjectId(PROJECT_ID)
                                                     .setName(UI_NAME)
-                                                    .setCommitSha("0000000000000000000000000000000000000000")
+                                                    .setCommitSha(COMMIT_SHA)
                                                     .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING))
                                                     .setCreated(new Date())
                                                     .setUpdated(new Date());
 
         UiDeployment provisioned = await(siteProvisioner.provision(deployment, organization));
 
-        // ready only once Front Door has validated the hostname, which takes minutes; provisioning is the expected first answer
+        // ready only once the site serves the commit through Front Door, minutes after a new hostname's records resolve
         assertNotEquals(DeploymentStatusType.FAILED, provisioned.getStatus().type(), provisioned.getStatus().message());
 
         String hostname = uiProperties().resolveHostname(SITE_LABEL);
@@ -187,6 +212,46 @@ class AzureProvisioningIntegrationTest {
         CnameRecordSet cname = zone.cNameRecordSets().getByName(SITE_LABEL + suffix);
         assertEquals(uiProperties().getFrontDoorEndpointHostName().toLowerCase(), cname.canonicalName().toLowerCase());
         assertNotNull(zone.txtRecordSets().getByName("_dnsauth." + SITE_LABEL + suffix), "the validation TXT record exists");
+
+        UiDeployment site = provisioned;
+        while (site.getStatus().type() == DeploymentStatusType.PROVISIONING) {
+            Thread.sleep(SITE_POLL_MS);
+            site = await(siteProvisioner.checkProvisioning(site));
+        }
+        assertEquals(DeploymentStatusType.READY, site.getStatus().type(), site.getStatus().message());
+
+        // a route or origin group written moments ago is still propagating to the edges, and an
+        // earlier configuration of the same site may answer meanwhile, so each check is retried
+        String url = uiProperties().resolveSiteUrl(SITE_LABEL);
+        assertServes(url + "/version.json", new JsonObject().put("commitSha", COMMIT_SHA).encode(), "a file is served as it is");
+        assertServes(url + "/", INDEX_HTML, "the spa rule serves index.html at the root");
+        assertServes(url + "/some/route", INDEX_HTML, "the spa rule serves index.html for a route");
+        assertServes(url + "/?code=abc&state=xyz", INDEX_HTML, "a query string, as an OAuth callback carries, reaches the index");
+        assertEquals(404, get(url + "/missing.js").statusCode(), "a file that is not published is not the index");
+    }
+
+    private HttpResponse<String> get(String url) throws Exception {
+        return http.send(HttpRequest.newBuilder(URI.create(url)).GET().build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private void assertServes(String url, String expected, String message) throws Exception {
+        long deadline = System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(SITE_TIMEOUT_MINUTES);
+        String body = get(url).body();
+        while (!expected.equals(body) && System.currentTimeMillis() < deadline) {
+            Thread.sleep(SITE_POLL_MS);
+            body = get(url).body();
+        }
+        assertEquals(expected, body, message);
+    }
+
+    /** Uploads one file of the UI the way the publish workload does: through the application's upload URL, uncached. */
+    private void publish(String path, String content, String contentType) {
+        String uploadUrl = await(storageService.issueUploadUrl(organization, APPLICATION_ID, Duration.ofMinutes(STEP_TIMEOUT_MINUTES)));
+        int query = uploadUrl.indexOf('?');
+        BlobClient blob = new BlobClientBuilder().endpoint(uploadUrl.substring(0, query) + "/" + path + uploadUrl.substring(query))
+                                                 .buildClient();
+        blob.upload(BinaryData.fromString(content), true);
+        blob.setHttpHeaders(new BlobHttpHeaders().setContentType(contentType).setCacheControl("no-cache"));
     }
 
     private <T> T await(Future<T> future) {

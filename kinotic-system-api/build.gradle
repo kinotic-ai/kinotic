@@ -19,6 +19,7 @@ dependencies {
     implementation 'com.azure.resourcemanager:azure-resourcemanager-storage'
 
     implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-web-client'
 
     implementation 'co.elastic.clients:elasticsearch-java'
     implementation 'co.elastic.clients:elasticsearch-rest5-client'

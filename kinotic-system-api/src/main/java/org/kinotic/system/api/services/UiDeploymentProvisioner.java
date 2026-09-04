@@ -25,21 +25,23 @@ public interface UiDeploymentProvisioner {
 
     /**
      * Starts serving the deployment at its hostname, on what {@link #prepareOrganization}
-     * created for the organization. Returns the deployment with its status set: ready when serving at
-     * once, provisioning while the hostname is still being validated, failed with the reason
-     * otherwise. Idempotent: provisioning a deployment again completes whatever an earlier
-     * attempt left missing, and validates a hostname again whose validation lapsed.
+     * created for the organization. Returns the deployment with its status set: ready when the
+     * site already serves the deployment's commit and its index, provisioning until it does,
+     * failed with the reason otherwise. Idempotent: provisioning a deployment again completes
+     * whatever an earlier attempt left missing, and validates a hostname again whose validation
+     * lapsed.
      *
-     * @param deployment   the deployment, already persisted with its label as id
+     * @param deployment   the deployment, already persisted with its label as id and the
+     *                     commit its files were published from
      * @param organization the organization whose storage the site serves from
      * @return a future emitting the deployment with its status
      */
     Future<UiDeployment> provision(UiDeployment deployment, Organization organization);
 
     /**
-     * Advances a provisioning deployment: ready once its hostname validates and its
-     * certificate is deployed, failed with the reason when validation cannot succeed, and
-     * unchanged while still pending.
+     * Advances a provisioning deployment: ready once the site serves the deployment's commit
+     * and its index at its hostname, failed with the reason when its hostname's validation
+     * cannot succeed, and provisioning, with what was observed, while still pending.
      *
      * @param deployment a deployment whose status is provisioning
      * @return a future emitting the deployment with its status
