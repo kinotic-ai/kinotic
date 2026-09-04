@@ -1,0 +1,1 @@
+{"id":"f179c10ead1f11b2ba6a9c65fdb63a73","fullName":"org.kinotic.test.tests.sql.executor.QueryBuilderTest.whenUsingParameterizedQuery_thenParameterSubstituted","name":"whenUsingParameterizedQuery_thenParameterSubstituted()","status":"passed","testResultsByEnv":{"default":"bdd74f6aff6267a4a450b91910aeaa8d"}}
