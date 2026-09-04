@@ -151,9 +151,19 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 ## Developer UI Publishing
 
 A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
-root: a resource group the organization storage accounts are created in, and a Front Door
-Standard profile and endpoint under `apps-<environment>.<zone>`. State is local, one
-environment per developer.
+root: a resource group the organization storage accounts are created in, a Front Door
+Standard profile and endpoint under `apps-<environment>.<zone>`, and the roles the server
+needs on them. State is local, one environment per developer.
+
+The roles go to the identity the server authenticates as. `DefaultAzureCredential` takes the
+service principal named by `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`
+when those are set where the server runs, and the `az login` user otherwise. The root
+defaults to the identity running terraform, so a server that uses a service principal names
+it in `local.auto.tfvars` (gitignored):
+
+```hcl
+server_principal_object_id = "<az ad sp show --id $AZURE_CLIENT_ID --query id -o tsv>"
+```
 
 ```bash
 cd dev
