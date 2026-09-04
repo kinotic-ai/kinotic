@@ -242,7 +242,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     description TEXT,
     ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
-    storage OBJECT (subscriptionId KEYWORD, accountName KEYWORD, blobEndpoint KEYWORD, privateEndpointIp KEYWORD,
+    storage OBJECT (subscriptionId KEYWORD, accountName KEYWORD, blobEndpoint KEYWORD, publishHost KEYWORD,
                     status OBJECT (type KEYWORD, message TEXT)),
     provisioningJobRunId KEYWORD,
     created DATE,

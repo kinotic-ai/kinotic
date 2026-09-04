@@ -58,7 +58,7 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
                                            organization.setStorage(new OrganizationStorage()
                                                                .setAccountName(blobService.getAccountName())
                                                                .setBlobEndpoint(blobService.getAccountUrl())
-                                                               .setPrivateEndpointIp(endpoint.getHost())
+                                                               .setPublishHost(endpoint.getHost())
                                                                .setStatus(new DeploymentStatus(DeploymentStatusType.READY)))
                                                        .setUpdated(new Date());
                                            log.debug("MockOrganizationStorageProvisioner pointed organization {} at {}",

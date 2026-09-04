@@ -599,7 +599,7 @@ public class ProjectDeployJobDefinitionFactory {
     /**
      * The publish workload carries the built UIs to the organization's storage and nothing
      * else: no Kinotic credentials, no machine identity, a read-only checkout, and an egress
-     * policy naming the storage's private address alone. Kept after its run, like the sync
+     * policy naming the storage's publish host alone. Kept after its run, like the sync
      * workload, so its logs stay inspectable until the next run retires it.
      */
     private Workload publishWorkload(Project project,
@@ -623,7 +623,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(List.of(organization.getStorage().getPrivateEndpointIp()));
+        workload.getNetwork().setAllowedHosts(List.of(organization.getStorage().getPublishHost()));
         return workload;
     }
 
