@@ -18,7 +18,12 @@
         <label for="only-errors" class="text-sm">Errors only</label>
       </div>
       <Button label="Search" icon="pi pi-search" size="small" :loading="loading" @click="search" />
-      <span class="pb-2 font-mono text-xs text-muted-color">{{ query }}</span>
+    </div>
+
+    <!-- The query the filters amount to, as one would paste it into Tempo -->
+    <div class="flex items-center gap-2 text-xs text-muted-color">
+      <span class="font-medium uppercase tracking-wide">TraceQL</span>
+      <code class="font-mono">{{ query }}</code>
     </div>
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
