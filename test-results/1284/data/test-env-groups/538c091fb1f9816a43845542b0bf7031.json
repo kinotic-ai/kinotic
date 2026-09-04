@@ -1,0 +1,1 @@
+{"id":"538c091fb1f9816a43845542b0bf7031","fullName":"org.kinotic.test.tests.sql.TypeMapperTest.whenUnionVariantsShareObjectFieldWithDifferentSubFields_thenFirstVariantWins","name":"whenUnionVariantsShareObjectFieldWithDifferentSubFields_thenFirstVariantWins()","status":"passed","testResultsByEnv":{"default":"3f894a2ae5d5883c6ad67ec1834e5349"}}
