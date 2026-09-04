@@ -106,7 +106,7 @@ class GitHubProjectRepoProvisionerTest {
 
         // .liquid content rendered with the project context, suffix stripped;
         // projectSlug carries the repo-name slug, projectName the raw name
-        assertEquals("{\"name\": \"demo\", \"display\": \"demo\", \"org\": \"org-1\", \"app\": \"app-1\"}",
+        assertEquals("{\"name\": \"demo\", \"display\": \"demo\", \"org\": \"org-1\", \"app\": \"app-1\", \"project\": \"app-1-demo\"}",
                      tree.get("package.json").content());
         // liquid in paths rendered
         assertTrue(tree.containsKey("src/Demo.ts"));
@@ -180,6 +180,7 @@ class GitHubProjectRepoProvisionerTest {
 
     private static Project project() {
         Project project = new Project();
+        project.setId("app-1-demo");
         project.setName("demo");
         project.setOrganizationId("org-1");
         project.setApplicationId("app-1");
@@ -197,7 +198,7 @@ class GitHubProjectRepoProvisionerTest {
             addEntry(tar, "root/versions.txt.liquid",
                      "{{ kinoticCoreVersion }}\n{{ kinoticCliVersion }}\n".getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/package.json.liquid",
-                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organizationId}}\", \"app\": \"{{applicationId}}\"}"
+                     "{\"name\": \"{{projectSlug}}\", \"display\": \"{{projectName}}\", \"org\": \"{{organizationId}}\", \"app\": \"{{applicationId}}\", \"project\": \"{{projectId}}\"}"
                              .getBytes(StandardCharsets.UTF_8), false);
             addEntry(tar, "root/src/{{ projectName | camelCase | upperFirst }}.ts.liquid",
                      "export class {{ projectName | camelCase | upperFirst }} {}".getBytes(StandardCharsets.UTF_8), false);
