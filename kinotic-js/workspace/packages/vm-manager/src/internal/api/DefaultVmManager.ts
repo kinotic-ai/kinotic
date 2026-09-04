@@ -1,6 +1,6 @@
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import type { IVmManager } from '@/api/IVmManager'
-import type { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import type { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
 import { Publish, Scope } from '@kinotic-ai/core'
 import { NetworkMode, type Workload } from '@kinotic-ai/management-api'
 
@@ -37,16 +37,21 @@ export class DefaultVmManager implements IVmManager {
 
     async startWorkload(workload: Workload): Promise<Workload> {
         return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} vcpus=${workload.vcpus} memoryMb=${workload.memoryMb}`, async () => {
-            // A workload with no network has no interface to publish a port on. Rejected here
-            // rather than in a provider, so the answer does not depend on where it is placed.
-            if ((workload.network?.mode ?? NetworkMode.ENABLED) === NetworkMode.DISABLED
-                && workload.portMappings.length > 0) {
+            // A workload with no network has no interface to publish a port on, and no way to
+            // reach the node's OTLP endpoint. Rejected here rather than in a provider, so the
+            // answer does not depend on where it is placed.
+            const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+            if (networkMode === NetworkMode.DISABLED && workload.portMappings.length > 0) {
                 throw new Error(`Workload ${workload.name} declares network.mode DISABLED and `
                                 + `${workload.portMappings.length} port mapping(s): a workload `
                                 + 'with no network has no interface to publish a port on')
             }
+            if (networkMode === NetworkMode.DISABLED && (workload.telemetry ?? false)) {
+                throw new Error(`Workload ${workload.name} declares network.mode DISABLED and elects `
+                                + "telemetry: a workload with no network cannot reach the node's OTLP endpoint")
+            }
             const started = await this.provider.start(workload)
-            await this.refreshLogShipping()
+            await this.refreshShipping()
             return this.settled(started)
         })
     }
@@ -54,7 +59,7 @@ export class DefaultVmManager implements IVmManager {
     async restartWorkload(workloadId: string): Promise<Workload> {
         return this.logged('restartWorkload', workloadId, async () => {
             const restarted = await this.provider.restart(workloadId)
-            await this.refreshLogShipping()
+            await this.refreshShipping()
             return this.settled(restarted)
         })
     }
@@ -68,19 +73,19 @@ export class DefaultVmManager implements IVmManager {
     async stopWorkload(workloadId: string): Promise<void> {
         return this.logged('stopWorkload', workloadId, async () => {
             await this.provider.stop(workloadId)
-            await this.refreshLogShipping()
+            await this.refreshShipping()
         })
     }
 
     async destroyWorkload(workloadId: string): Promise<void> {
         return this.logged('destroyWorkload', workloadId, async () => {
             // Destroy deletes the log files, so what the shipper has not read yet goes first
-            const target = (await this.provider.listLogTargets()).find(t => t.workloadId === workloadId)
+            const target = (await this.provider.listTelemetryTargets()).find(t => t.workloadId === workloadId)
             if (target && this.alloyManager) {
                 await this.alloyManager.awaitShipped(target)
             }
             await this.provider.destroy(workloadId)
-            await this.refreshLogShipping()
+            await this.refreshShipping()
         })
     }
 
@@ -115,21 +120,21 @@ export class DefaultVmManager implements IVmManager {
     }
 
     /**
-     * Rebuilds the log shipping pipeline from the workloads currently running on this node,
-     * launching the log shipper if it is not up yet. Every workload operation ends in a
+     * Rebuilds the telemetry shipping pipeline from the workloads currently running on this
+     * node, launching the shipper if it is not up yet. Every workload operation ends in a
      * refresh; calling it once at startup, after the provider has recovered, both resumes
      * shipping for the recovered workloads and pays the shipper's first-run cost off the
      * path of the first workload operation.
      */
-    // Log shipping must never fail a workload operation, so errors are logged and swallowed
-    async refreshLogShipping(): Promise<void> {
+    // Shipping must never fail a workload operation, so errors are logged and swallowed
+    async refreshShipping(): Promise<void> {
         if (!this.alloyManager) {
             return
         }
         try {
-            await this.alloyManager.applyTargets(await this.provider.listLogTargets())
+            await this.alloyManager.applyTargets(await this.provider.listTelemetryTargets())
         } catch (error) {
-            console.error('Failed to update log shipping configuration:', error)
+            console.error('Failed to update telemetry shipping configuration:', error)
         }
     }
 }

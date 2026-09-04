@@ -3,13 +3,14 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProjectList from '@/components/ProjectList.vue'
 import EntityDefinitionsList from '@/components/EntityDefinitionsList.vue'
-import { PageHeader } from '@kinotic-ai/frontend-common'
+import { PageHeader, TelemetryPanel } from '@kinotic-ai/frontend-common'
 import Tabs from 'primevue/tabs'
 import TabList from 'primevue/tablist'
 import Tab from 'primevue/tab'
 import TabPanels from 'primevue/tabpanels'
 import TabPanel from 'primevue/tabpanel'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
+import { USER_STATE } from '@/states/IUserState'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 const route = useRoute()
@@ -96,6 +97,12 @@ isInitialized.value = true
             <span>Entities</span>
           </span>
         </Tab>
+        <Tab :value="2">
+          <span class="flex items-center gap-2">
+            <i class="pi pi-chart-line application-details-tab__icon" aria-hidden="true" />
+            <span>Observability</span>
+          </span>
+        </Tab>
       </TabList>
       <TabPanels class="flex flex-1 flex-col">
         <TabPanel class="flex flex-1 flex-col" :value="0">
@@ -112,6 +119,12 @@ isInitialized.value = true
               :applicationId="applicationId"
               :initialSearch="searchEntityDefinition"
             />
+          </div>
+        </TabPanel>
+        <TabPanel class="flex flex-1 flex-col" :value="2">
+          <!-- Mounted only while shown, so its queries run when the tab is opened rather than with the page -->
+          <div v-if="activeTab === 2" class="flex flex-1 flex-col pt-4">
+            <TelemetryPanel :organization-id="USER_STATE.getOrganizationId()" :application-id="applicationId" />
           </div>
         </TabPanel>
       </TabPanels>

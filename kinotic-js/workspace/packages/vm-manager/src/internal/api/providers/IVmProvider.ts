@@ -1,6 +1,6 @@
 import type { VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
-import type { LogTarget } from '@/internal/api/model/LogTarget'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
 
 /**
  * Abstraction for a VM provider that can manage micro VM lifecycle.
@@ -87,9 +87,9 @@ export interface IVmProvider {
     listWorkloads(): Promise<Workload[]>
 
     /**
-     * Lists the log sources of this provider's VMs. A VM whose run has ended keeps its log
-     * source until {@link destroy}, so what it wrote after the shipper last read it still ships.
+     * Lists the telemetry sources of this provider's VMs. A VM whose run has ended keeps its
+     * sources until {@link destroy}, so what it wrote after the shipper last read it still ships.
      * @return a Promise resolving to one target per VM with a log source on this node
      */
-    listLogTargets(): Promise<LogTarget[]>
+    listTelemetryTargets(): Promise<TelemetryTarget[]>
 }

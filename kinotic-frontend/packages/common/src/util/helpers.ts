@@ -48,9 +48,19 @@ export function showErrorToast(toast: ToastServiceMethods,
     toast.add({
         severity: 'error',
         summary,
-        detail: err instanceof Error && err.message ? err.message : (opts.fallback ?? 'An unexpected error occurred'),
+        detail: errorMessage(err, opts.fallback ?? 'An unexpected error occurred'),
         life: opts.life ?? 5000
     })
+}
+
+/** The message of a caught error, or the fallback when it carries none. */
+export function errorMessage(err: unknown, fallback: string): string {
+    return err instanceof Error && err.message ? err.message : fallback
+}
+
+/** Parses a service reply that carries a backend's raw JSON bytes. */
+export function parseJsonBytes(bytes: Uint8Array): any {
+    return JSON.parse(new TextDecoder().decode(bytes))
 }
 
 /**
