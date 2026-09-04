@@ -8,7 +8,7 @@ import org.kinotic.management.api.model.UiDeployment;
 /**
  * Creates and removes what serves a published UI at its hostname. Provisioning is
  * asynchronous: {@link #provision} starts it and {@link #checkProvisioning} advances a
- * deployment left {@link org.kinotic.management.api.model.DeploymentStatusType#PROVISIONING}
+ * deployment left {@link DeploymentStatusType#PROVISIONING}
  * until it is ready or has failed.
  */
 public interface UiDeploymentProvisioner {
