@@ -18,9 +18,9 @@ Kinotic OS is configured through a combination of application properties, enviro
 - **Environment variables** — Runtime overrides for containerized deployments
 - **Helm values** — Kubernetes-specific configuration for resource limits, replicas, ingress, and TLS
 
-## Loki
+## Loki, Tempo, and Mimir
 
-The server reads workload logs from Grafana Loki (see [Observability](/platform/observability#workload-logs)).
+The server reads workload logs from Grafana Loki, and workload traces and metrics from Grafana Tempo and Mimir (see [Observability](/platform/observability#workload-logs)). Each runs multi-tenant, and the server queries the tenant the caller may see.
 
 <table>
 <thead>
@@ -47,19 +47,19 @@ The server reads workload logs from Grafana Loki (see [Observability](/platform/
   <tr>
     <td>
       <code>
-        kinotic.managementApi.loki.url
+        kinotic.managementApi.lokiUrl
       </code>
     </td>
     
     <td>
       <code>
-        KINOTIC_MANAGEMENTAPI_LOKI_URL
+        KINOTIC_MANAGEMENTAPI_LOKIURL
       </code>
     </td>
     
     <td>
       <code>
-        kinotic.managementApi.loki.url
+        kinotic.managementApi.lokiUrl
       </code>
     </td>
     
@@ -69,10 +69,58 @@ The server reads workload logs from Grafana Loki (see [Observability](/platform/
       </code>
     </td>
   </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.tempoUrl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        KINOTIC_MANAGEMENTAPI_TEMPOURL
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        http://localhost:3200
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.managementApi.mimirUrl
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        KINOTIC_MANAGEMENTAPI_MIMIRURL
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      <code>
+        http://localhost:9009
+      </code>
+    </td>
+  </tr>
 </tbody>
 </table>
 
-In docker-compose the server points at `http://loki:3100`; the Helm chart defaults to `http://loki.observability.svc:3100`.
+In docker-compose the server points at `http://loki:3100`, `http://tempo:3200`, and `http://mimir:9009`; the Helm chart defaults Loki to `http://loki.observability.svc:3100` and deploys no Tempo or Mimir yet.
 
 ## VM provider
 
@@ -274,7 +322,7 @@ A workload's image is pulled before every start when its reference floats — no
 
 A `CLOUD_HYPERVISOR` node denies workload egress by default and permits each workload only what its policy allows. The node's firewall carries the denial; the vm-manager writes one exception per allowed destination when a workload starts, and removes them when it stops.
 
-Every destination comes from the workload's own `network.allowedHosts`, including the api-gateway — the server sets it there, because only the server knows where the gateway is. The node adds one destination the workload cannot know: the resolver it was given.
+Every destination comes from the workload's own `network.allowedHosts`, including the api-gateway — the server sets it there, because only the server knows where the gateway is. The node adds the destinations the workload cannot know: the resolver it was given, and its own OTLP endpoint for a workload that elects `telemetry` (see [Workload Traces and Metrics](/platform/observability#workload-traces-and-metrics)).
 
 <table>
 <thead>
@@ -372,7 +420,7 @@ Every destination comes from the workload's own `network.allowedHosts`, includin
 
 An empty list means the same on a `BOXLITE` node. Only the accepted form of an entry differs between providers — addresses and CIDRs on `CLOUD_HYPERVISOR`, hostnames on `BOXLITE`.
 
-`mode: DISABLED` leaves no interface to publish a port on, so a node refuses a workload declaring both it and `portMappings` — on either provider — rather than starting one whose published ports cannot work.
+`mode: DISABLED` leaves no interface to publish a port on or to reach the node's OTLP endpoint through, so a node refuses a workload declaring it together with `portMappings` or `telemetry` — on either provider — rather than starting one whose published ports or telemetry cannot work.
 
 A node that does not deny egress by default cannot honour a declared allowlist, so a workload declaring one is refused there rather than started with access it was supposed to be denied.
 
