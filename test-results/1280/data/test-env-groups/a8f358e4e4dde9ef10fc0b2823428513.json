@@ -1,0 +1,1 @@
+{"id":"a8f358e4e4dde9ef10fc0b2823428513","fullName":"@kinotic-ai/core:test/KinoticRpc.test.ts#Kinotic JS packages/core Kinotic RPC Tests should inject the participant parameter when the caller sends no arguments","name":"should inject the participant parameter when the caller sends no arguments","status":"passed","testResultsByEnv":{"default":"8c7d01611ea1cc8c925c0edcc8ac6e59"}}
