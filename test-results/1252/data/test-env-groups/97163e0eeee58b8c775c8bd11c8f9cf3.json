@@ -1,1 +1,0 @@
-{"id":"97163e0eeee58b8c775c8bd11c8f9cf3","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.rejectsAnInstallationTheAuthorizingUserCannotAccess","name":"rejectsAnInstallationTheAuthorizingUserCannotAccess()","status":"passed","testResultsByEnv":{"default":"f3f8b37b0c9e9ee7e97b44e6d4d66434"}}
