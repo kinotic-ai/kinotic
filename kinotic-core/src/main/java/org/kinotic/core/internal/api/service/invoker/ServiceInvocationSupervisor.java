@@ -224,10 +224,14 @@ public class ServiceInvocationSupervisor {
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
-        convertAndSend(incomingMetadata, handlerMethod, result, null);
+        convertAndSend(incomingMetadata, handlerMethod, result, null, true);
     }
 
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
+        convertAndSend(incomingMetadata, handlerMethod, result, originCri, false);
+    }
+
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri, boolean terminal) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
                                                                      handlerMethod.getReturnType(),
@@ -235,6 +239,13 @@ public class ServiceInvocationSupervisor {
             // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
             if (originCri != null) {
                 resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            }
+            // A single-value reply is the end of its request, so it carries the completion marker itself.
+            // This lets any hop holding per-request state (client, gateway) release it on this one event
+            // without knowing the invoked method's shape. Stream values stay unmarked; their completion
+            // is the separate event sendCompletionEvent sends.
+            if (terminal) {
+                resultEvent.metadata().put(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE);
             }
             eventBusService.send(resultEvent);
         } catch (Exception e) {

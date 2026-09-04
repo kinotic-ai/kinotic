@@ -2,8 +2,6 @@ package org.kinotic.domain.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.ZoneRules;
@@ -125,11 +125,9 @@ public class McpToolInvoker {
                        .onFailure(throwable -> {
                            // a failed send never gets a reply, so its pending entry is removed here
                            pendingCalls.remove(correlationId);
-                           if (throwable instanceof ReplyException replyException
-                                   && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                               // fire-and-forget: reportUnreachable debounces and only writes verified state
-                               serviceDirectory.reportUnreachable(tool.getCri())
-                                               .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure));
+                           // mapSendFailure also reports unreachability to the directory on NO_HANDLERS
+                           Throwable mapped = KinoticUtil.mapSendFailure(throwable, requestCri, serviceDirectory);
+                           if (mapped instanceof RpcMissingServiceException) {
                                ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
                            } else {
                                log.warn("MCP tool '{}' dispatch to {} failed", tool.getName(), tool.getCri(), throwable);

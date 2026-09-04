@@ -11,6 +11,12 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.EventConsumer;
+import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
@@ -18,6 +24,7 @@ import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.internal.api.support.*;
+import org.kinotic.core.internal.utils.EventUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -52,7 +59,12 @@ public class RpcTests {
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
     @Autowired
     private RpcTestServiceProxy rpcTestServiceProxy;
+    @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection") // these are not detected because continuum wires them..
+    @Autowired
+    private TerminalReplyServiceProxy terminalReplyServiceProxy;
 
+    @Autowired
+    private EventBusService eventBusService;
     @Autowired
     private JsonMapper jsonMapper;
     @Autowired
@@ -366,6 +378,71 @@ public class RpcTests {
         StepVerifier.create(mono)
                     .expectComplete()
                     .verify();
+    }
+
+    /**
+     * Pins the terminal reply contract: a single-value reply carries {@link EventConstants#CONTROL_VALUE_COMPLETE}
+     * on the reply event itself, so any hop holding per-request state can release it on that one event without
+     * knowing the invoked method's shape.
+     */
+    @Test
+    public void testSingleValueReplyCarriesTerminalMarker() throws Exception {
+        CRI replyCri = CRI.create(EventConstants.REPLY_DESTINATION_SCHEME,
+                                  UUID.randomUUID().toString(),
+                                  "org.kinotic.tests.TerminalMarkerProbe");
+        EventConsumer replyConsumer = eventBusService.listen(replyCri);
+        CompletableFuture<Event<byte[]>> replyFuture = new CompletableFuture<>();
+        replyConsumer.handler(replyFuture::complete);
+        replyConsumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        try {
+            Metadata metadata = Metadata.create();
+            metadata.put(EventConstants.REPLY_TO_HEADER, replyCri.raw());
+            metadata.put(EventConstants.CORRELATION_ID_HEADER, UUID.randomUUID().toString());
+            metadata.put(EventConstants.CONTENT_TYPE_HEADER, "application/json");
+            CRI requestCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                        null,
+                                        "org.kinotic.core.internal.api.support.RpcTestService",
+                                        "/getMonoEmptyString",
+                                        null);
+            eventBusService.send(Event.create(requestCri, metadata, new byte[0]));
+
+            Event<byte[]> reply = replyFuture.get(10, TimeUnit.SECONDS);
+            Assertions.assertFalse(reply.metadata().contains(EventConstants.ERROR_HEADER));
+            Assertions.assertEquals(EventConstants.CONTROL_VALUE_COMPLETE,
+                                    reply.metadata().get(EventConstants.CONTROL_HEADER));
+            Assertions.assertNotNull(reply.data());
+            Assertions.assertTrue(reply.data().length > 0);
+        } finally {
+            replyConsumer.unregister();
+        }
+    }
+
+    /**
+     * A single-value runtime (a TS service) answers a stream-typed caller with one terminal reply that
+     * carries both the value and the completion marker. The proxy must emit the value and then complete
+     * instead of treating the event as a bare completion.
+     */
+    @Test
+    public void testTerminalReplyWithValueCompletesFluxProxy() throws Exception {
+        CRI serviceCri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                    "org.kinotic.core.internal.api.support.TerminalReplyService");
+        EventConsumer serviceConsumer = eventBusService.listen(serviceCri);
+        serviceConsumer.handler(request -> {
+            Event<byte[]> reply = EventUtil.createReplyEvent(request.metadata(),
+                                                             Map.of(EventConstants.CONTENT_TYPE_HEADER, "application/json",
+                                                                    EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE),
+                                                             () -> jsonMapper.writeValueAsBytes("hello"));
+            eventBusService.send(reply);
+        });
+        serviceConsumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        try {
+            StepVerifier.create(terminalReplyServiceProxy.streamFromSingleValueRuntime())
+                        .expectNext("hello")
+                        .expectComplete()
+                        .verify(Duration.ofSeconds(15));
+        } finally {
+            serviceConsumer.unregister();
+        }
     }
 
     @Test

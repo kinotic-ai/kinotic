@@ -9,6 +9,7 @@ import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
 import org.kinotic.core.api.annotations.Proxy;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityContext;
@@ -25,6 +26,7 @@ import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
@@ -64,6 +66,9 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private SecurityContext securityContext;
     @Autowired
     private OpenTelemetry openTelemetry;
+    // resolved lazily per send failure: the directory bean is conditional and may not exist
+    @Autowired
+    private ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     @Autowired
     private TraceLogFilter traceLogFilter;
 
@@ -127,6 +132,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
+                                                  serviceDirectoryProvider,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
                                                   openTelemetry,
@@ -145,6 +151,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
+                                                  serviceDirectoryProvider,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
                                                   openTelemetry,

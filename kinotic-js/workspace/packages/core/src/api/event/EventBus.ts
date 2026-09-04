@@ -212,6 +212,12 @@ export class EventBus implements IEventBus {
 
                                                           if (value.headers.get(EventConstants.CONTROL_HEADER) === EventConstants.CONTROL_VALUE_COMPLETE) {
                                                               serverSignaledCompletion = true
+                                                              // A terminal reply carries the value it completes with, so it is emitted before
+                                                              // completing. A bare terminal reply still resolves a single-value invocation
+                                                              // (a void result), while for a stream it is the ordinary completion event.
+                                                              if (value.data.isPresent() || !sendControlEvents) {
+                                                                  subscriber.next(value)
+                                                              }
                                                               subscriber.complete()
                                                           } else {
                                                               throw new Error('Control Header ' + value.headers.get(EventConstants.CONTROL_HEADER) + ' is not supported')

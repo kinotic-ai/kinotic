@@ -11,14 +11,12 @@ import io.opentelemetry.context.Context;
 import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceIdentifier;
@@ -27,6 +25,7 @@ import org.kinotic.core.internal.utils.MetaUtil;
 import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.InvocationHandler;
@@ -59,6 +58,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     private final RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory;
     private final EventBusService eventBusService;
     private final SecurityContext securityContext;
+    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     private final TextMapPropagator propagator;
     private final Tracer tracer;
     private final TraceLogFilter traceLogFilter;
@@ -81,6 +81,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                         RpcReturnValueHandlerFactory rpcReturnValueHandlerFactory,
                                         EventBusService eventBusService,
                                         SecurityContext securityContext,
+                                        ObjectProvider<ServiceDirectory> serviceDirectoryProvider,
                                         Vertx vertx,
                                         ClassLoader classLoader,
                                         OpenTelemetry openTelemetry,
@@ -93,6 +94,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         Validate.notNull(rpcReturnValueHandlerFactory, "returnValueHandlerFactory must not be null");
         Validate.notNull(eventBusService, "eventBusService must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(serviceDirectoryProvider, "serviceDirectoryProvider must not be null");
         Validate.notNull(vertx, "vertx must not be null");
         Validate.notNull(classLoader, "classLoader must not be null");
         Validate.notNull(openTelemetry, "openTelemetry must not be null");
@@ -106,6 +108,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
         this.rpcReturnValueHandlerFactory = rpcReturnValueHandlerFactory;
         this.eventBusService = eventBusService;
         this.securityContext = securityContext;
+        this.serviceDirectoryProvider = serviceDirectoryProvider;
         this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
         this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
         this.traceLogFilter = traceLogFilter;
@@ -307,13 +310,9 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
 
                                                responseMap.remove(correlationId);
 
-                                               Throwable throwable = ar.cause();
-                                               // TODO: refactor into util, this is also done in the EndpointConnectionHandler
-                                               if (throwable instanceof ReplyException replyException) {
-                                                   if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                                       throwable = new RpcMissingServiceException(throwable);
-                                                   }
-                                               }
+                                               Throwable throwable = KinoticUtil.mapSendFailure(ar.cause(),
+                                                                                                requestCri,
+                                                                                                serviceDirectoryProvider.getIfAvailable());
                                                handler.processError(throwable);
                                            }catch (Exception e){
                                                log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processError, Proxy Will be Released!!", e);
