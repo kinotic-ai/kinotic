@@ -1,0 +1,9 @@
+# Local state: this root is per developer (see main.tf)
+*.tfstate
+*.tfstate.backup
+.terraform.tfstate.lock.info
+.terraform/
+.terraform.lock.hcl
+
+# Local overrides: the server's principal, anything personal
+*.auto.tfvars

@@ -32,7 +32,8 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── deploy.sh
 │   └── terraform.tfvars
-├── dev/                       # Storage resource group + Front Door for a kinotic-server on a developer machine
+├── dev/                       # Storage resource group, Front Door and a service principal for a kinotic-server on a developer machine
+│   ├── README.md              # Getting started on your machine
 │   ├── main.tf
 │   └── terraform.tfvars
 ├── modules/                   # Shared modules (aks, firecracker, identity, micro-vm-node, networking)
@@ -151,9 +152,16 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 ## Developer UI Publishing
 
 A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
-root: a resource group the organization storage accounts are created in, and a Front Door
-Standard profile and endpoint under `apps-<environment>.<zone>`. State is local, one
+root: a resource group the organization storage accounts are created in, a Front Door
+Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
+for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
+Contributor on the zone, and Contributor on the email service. State is local, one
 environment per developer.
+
+The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
+`.env.local` at the repository root (gitignored), replacing those three lines when present
+and leaving the rest of the file alone; the server picks them up through
+`DefaultAzureCredential`. Its secret is also in this root's local state.
 
 ```bash
 cd dev
@@ -162,8 +170,8 @@ terraform apply   # environment = "local" in terraform.tfvars; pick a name of yo
 terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
 ```
 
-Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. The contributing guide
-on the website (Testing → Publishing UIs against Azure) has the full walkthrough.
+Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
+has the full walkthrough, from prerequisites to teardown.
 
 ## Deploy Options
 

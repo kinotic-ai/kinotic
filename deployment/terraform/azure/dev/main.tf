@@ -1,11 +1,12 @@
 # ── Developer UI publishing ───────────────────────────────────────────────────
 # What a kinotic-server running on a developer machine needs to publish UIs to a real
-# subscription: the resource group its organizations' storage accounts are created in, and
-# the Front Door Standard profile and endpoint every site is served through, under
-# apps-<environment>.<zone> in the global DNS zone. The server creates the rest at runtime,
-# as it does in the cluster. There is no VNet: the server reaches the accounts over their
-# public endpoints and creates no private endpoints, which is what the `local` profile it
-# runs with turns off. Independent of cluster/: apply and destroy freely.
+# subscription: the resource group its organizations' storage accounts are created in, the
+# Front Door Standard profile and endpoint every site is served through, under
+# apps-<environment>.<zone> in the global DNS zone, and a service principal for the server
+# holding the roles it needs on them and on the email service. The server creates the rest
+# at runtime, as it does in the cluster. There is no VNet: the server reaches the accounts
+# over their public endpoints and creates no private endpoints, which is what the `local`
+# profile it runs with turns off. Independent of cluster/: apply and destroy freely.
 #
 # State is kept locally, next to this file, because the root is per developer: each
 # developer picks an `environment` of their own and owns what it creates.
@@ -17,6 +18,10 @@ terraform {
     azurerm = {
       source  = "hashicorp/azurerm"
       version = "~> 4.0"
+    }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = "~> 3.0"
     }
   }
 }
@@ -30,6 +35,8 @@ provider "azurerm" {
     }
   }
 }
+
+provider "azuread" {}
 
 # ── Read global state ─────────────────────────────────────────────────────────
 
@@ -49,6 +56,7 @@ locals {
   name_prefix  = "${var.project}-${var.environment}"
   global       = data.terraform_remote_state.global.outputs
   sites_domain = "apps-${var.environment}.${local.global.dns_zone_name}"
+  env_local    = "${path.module}/../../../../.env.local"
 
   common_tags = {
     environment = var.environment
@@ -81,6 +89,85 @@ resource "azurerm_cdn_frontdoor_endpoint" "sites" {
   tags                     = local.common_tags
 }
 
+# ── Service principal for kinotic-server ──────────────────────────────────────
+# The server on this machine authenticates as this principal: DefaultAzureCredential takes
+# AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID before anything else, and the
+# root writes those three to .env.local at the repository root. One per developer, holding
+# roles on nothing but what this root creates and the email service.
+
+resource "azuread_application" "server" {
+  display_name = "${local.name_prefix}-server"
+}
+
+resource "azuread_service_principal" "server" {
+  client_id = azuread_application.server.client_id
+}
+
+resource "azuread_application_password" "server" {
+  application_id = azuread_application.server.id
+  display_name   = "${local.name_prefix}-server"
+}
+
+# Keeps the three AZURE_* lines current and everything else in the file as it was: they are
+# replaced when present and appended when not. The secret travels through the environment
+# rather than the command, so it stays out of terraform's output.
+resource "terraform_data" "env_local" {
+  triggers_replace = [azuread_application_password.server.key_id]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      set -euo pipefail
+      f="${local.env_local}"
+      touch "$f"
+      { grep -v -E '^AZURE_(CLIENT_ID|CLIENT_SECRET|TENANT_ID)=' "$f" || true
+        printf 'AZURE_CLIENT_ID=%s\nAZURE_CLIENT_SECRET=%s\nAZURE_TENANT_ID=%s\n' "$AZURE_CLIENT_ID" "$AZURE_CLIENT_SECRET" "$AZURE_TENANT_ID"
+      } > "$f.tmp" && mv "$f.tmp" "$f"
+    EOT
+    environment = {
+      AZURE_CLIENT_ID     = azuread_application.server.client_id
+      AZURE_CLIENT_SECRET = azuread_application_password.server.value
+      AZURE_TENANT_ID     = data.azurerm_client_config.current.tenant_id
+    }
+  }
+}
+
+# ── Roles for kinotic-server ──────────────────────────────────────────────────
+# What the cluster grants the kinotic-server workload identity in keyvault.tf and email.tf,
+# minus the private endpoint roles it has no VNet to use: Contributor creates the storage
+# accounts, reads their keys and manages the Front Door origin groups, rule sets, domains
+# and routes; Storage Blob Data Contributor is for the blob data plane the storage service
+# reaches with the token, not the key; DNS Zone Contributor writes each site's CNAME and
+# validation TXT; Contributor on the email service sends mail.
+
+resource "azurerm_role_assignment" "server_contributor" {
+  scope                = azurerm_resource_group.main.id
+  role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.server.object_id
+  # a principal created moments ago may not have replicated to the RBAC lookup yet
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "server_blob_data" {
+  scope                            = azurerm_resource_group.main.id
+  role_definition_name             = "Storage Blob Data Contributor"
+  principal_id                     = azuread_service_principal.server.object_id
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "server_dns" {
+  scope                            = local.global.dns_zone_id
+  role_definition_name             = "DNS Zone Contributor"
+  principal_id                     = azuread_service_principal.server.object_id
+  skip_service_principal_aad_check = true
+}
+
+resource "azurerm_role_assignment" "server_email" {
+  scope                            = local.global.email_communication_service_id
+  role_definition_name             = "Contributor"
+  principal_id                     = azuread_service_principal.server.object_id
+  skip_service_principal_aad_check = true
+}
+
 # ── Variables ─────────────────────────────────────────────────────────────────
 
 variable "environment" {
@@ -106,6 +193,11 @@ variable "location" {
 output "sites_domain" {
   description = "The domain every published UI is a label under"
   value       = local.sites_domain
+}
+
+output "server_client_id" {
+  description = "The service principal kinotic-server runs as; its credentials are in .env.local at the repository root"
+  value       = azuread_application.server.client_id
 }
 
 output "application_local_yml" {
