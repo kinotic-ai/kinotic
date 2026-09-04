@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Tag from 'primevue/tag'
+import type { MenuItem } from 'primevue/menuitem'
 import { Kinotic, type IDataSource, type IterablePage, type Pageable } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, type CrudHeader } from '@kinotic-ai/frontend-common'
@@ -9,7 +10,8 @@ import { useEntityPublishing } from '@/composables/entity-definition/useEntityPu
 
 /**
  * The entity definitions of an application, or of one of its projects when projectId is
- * given. A row opens the entity's page; the row menu publishes or unpublishes it.
+ * given. A row opens the entity full screen on its data; the row menu opens either its data or
+ * its schema, and publishes or unpublishes it.
  */
 const props = defineProps<{
   applicationId: string
@@ -57,7 +59,15 @@ const dataSource = computed<IDataSource<EntityDefinition>>(() => ({
   }
 }))
 
-const { rowActions } = useEntityPublishing(refreshTable)
+const { rowActions: publishingActions } = useEntityPublishing(refreshTable)
+
+function rowActions(item: EntityDefinition): MenuItem[] {
+  return [
+    { label: 'Data', icon: 'pi pi-table', command: () => openEntity(item, 'data') },
+    { label: 'Schema', icon: 'pi pi-sitemap', command: () => openEntity(item, 'schema') },
+    ...publishingActions(item)
+  ]
+}
 
 function refreshTable(): void {
   crudTable.value?.find()
@@ -75,13 +85,13 @@ function updateRouteQuery(newSearch: string): void {
   refreshTable()
 }
 
-// The entity page opens in the scope of this list, so the sidebar and the way back stay put
-function openEntity(item: EntityDefinition): void {
+// The entity opens in the scope of this list, so the sidebar and the way back stay put
+function openEntity(item: EntityDefinition, tab: 'data' | 'schema' = 'data'): void {
   const applicationPath = `/application/${encodeURIComponent(props.applicationId)}`
   const listPath = props.projectId
       ? `${applicationPath}/project/${encodeURIComponent(props.projectId)}/entities`
       : `${applicationPath}/entities`
-  router.push(`${listPath}/${encodeURIComponent(item.id ?? '')}`)
+  router.push({ path: `${listPath}/${encodeURIComponent(item.id ?? '')}`, query: tab === 'schema' ? { tab } : {} })
 }
 </script>
 
