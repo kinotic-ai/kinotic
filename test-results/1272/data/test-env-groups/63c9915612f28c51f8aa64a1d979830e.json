@@ -1,0 +1,1 @@
+{"id":"63c9915612f28c51f8aa64a1d979830e","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenRoutingAndDocumentIdGiven_thenBothCarriedOnTheStatement","name":"whenRoutingAndDocumentIdGiven_thenBothCarriedOnTheStatement()","status":"passed","testResultsByEnv":{"default":"46261630f1f8df07efe612762dc881ab"}}
