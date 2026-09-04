@@ -23,28 +23,35 @@
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
+    <!-- Tempo returns the first traces its search finds, up to the limit, in no order of its
+         own; the columns sort within that set, and the caption says so -->
+    <p v-if="traces.length > 0" class="text-xs text-muted-color">
+      {{ traces.length }} traces Tempo found in the range{{ traces.length >= SEARCH_LIMIT ? ', its limit' : '' }}; the columns sort within them.
+    </p>
     <DataTable
       :value="traces"
       dataKey="traceId"
       size="small"
       selectionMode="single"
+      sort-field="startMs"
+      :sort-order="-1"
       :class="['text-sm', { 'datatable-loading': loading }]"
       @row-select="openTrace($event.data)"
     >
       <template #empty>
         <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Searching traces…' : 'No traces match in this range' }}</div>
       </template>
-      <Column header="Started" style="width: 12rem">
+      <Column field="startMs" header="Started" sortable style="width: 12rem">
         <template #body="{ data }">
           <span class="font-mono text-xs">{{ formatDateFromEpoch(data.startMs) }}</span>
         </template>
       </Column>
-      <Column field="rootService" header="Service" />
-      <Column field="rootName" header="Root span" />
-      <Column header="Duration" style="width: 8rem">
+      <Column field="rootService" header="Service" sortable />
+      <Column field="rootName" header="Root span" sortable />
+      <Column field="durationMs" header="Duration" sortable style="width: 8rem">
         <template #body="{ data }">{{ formatDuration(data.durationMs) }}</template>
       </Column>
-      <Column field="matchedSpans" header="Spans" style="width: 6rem" />
+      <Column field="matchedSpans" header="Spans" sortable style="width: 6rem" />
       <Column header="Trace" style="width: 10rem">
         <template #body="{ data }">
           <span class="font-mono text-xs text-muted-color">{{ data.traceId.slice(0, 16) }}</span>

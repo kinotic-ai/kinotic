@@ -88,11 +88,11 @@ export function redQueries(applicationId: string | null, range: TimeRange): { re
     }
 }
 
-/** Searches the organization's traces, newest first. */
+/** Searches the organization's traces: the first ones Tempo finds in the range, up to the limit, in no particular order. */
 export async function searchTraces(organizationId: string | null, query: string, range: TimeRange, limit: number): Promise<TraceSummary[]> {
     // Raw Tempo search response: {traces: [{traceID, rootServiceName, rootTraceName, startTimeUnixNano, durationMs, spanSets}]}
     const body = parseJsonBytes(await Kinotic.telemetry.searchTraces({ organizationId, query, start: range.start, end: range.end, limit }))
-    return ((body?.traces ?? []) as any[]).map(parseTraceSummary).sort((a, b) => b.startMs - a.startMs)
+    return ((body?.traces ?? []) as any[]).map(parseTraceSummary)
 }
 
 function parseTraceSummary(trace: any): TraceSummary {
