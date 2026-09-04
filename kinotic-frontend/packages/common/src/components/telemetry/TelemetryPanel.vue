@@ -22,12 +22,12 @@
       <TabPanels>
         <TabPanel value="traces">
           <KeepAlive>
-            <TraceSearch v-if="activeTab === 'traces'" :organization-id="organizationId" :application-id="applicationId" :range="range" :trace-route="traceRoute" />
+            <TraceSearch v-if="activeTab === 'traces'" ref="traceSearch" :organization-id="organizationId" :application-id="applicationId" :range="range" :trace-route="traceRoute" />
           </KeepAlive>
         </TabPanel>
         <TabPanel value="metrics">
           <KeepAlive>
-            <MetricsPanel v-if="activeTab === 'metrics'" :organization-id="organizationId" :application-id="applicationId" :range="range" />
+            <MetricsPanel v-if="activeTab === 'metrics'" :organization-id="organizationId" :application-id="applicationId" :range="range" @show-failed-traces="showFailedTraces" />
           </KeepAlive>
         </TabPanel>
       </TabPanels>
@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
@@ -68,6 +68,7 @@ const props = defineProps<{
 
 const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch
 
+const traceSearch = ref<InstanceType<typeof TraceSearch> | null>(null)
 const presetMs = ref<number>(TIME_RANGE_PRESETS[1]!.ms)
 const range = ref<TimeRange>(rangeEndingNow(presetMs.value))
 const activeTab = ref<string>('traces')
@@ -75,6 +76,14 @@ const activeTab = ref<string>('traces')
 // A new range object each time, which is what tells the views to reload
 function refresh() {
   range.value = rangeEndingNow(presetMs.value)
+}
+
+/** Opens the Traces view narrowed to the traces with a failed span, over the same range. */
+async function showFailedTraces() {
+  activeTab.value = 'traces'
+  // the view mounts, or comes back from the keep-alive cache, on the next render
+  await nextTick()
+  traceSearch.value?.searchErrors()
 }
 
 watch(presetMs, refresh)

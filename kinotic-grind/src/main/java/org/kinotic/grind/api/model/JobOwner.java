@@ -63,12 +63,13 @@ public class JobOwner {
      * Creates an owner at the application tier.
      * @param organizationId the owning organization
      * @param applicationId the owning application
+     * @param projectId the project the run serves, or null when it is not for one
      * @return the owner
      */
-    public static JobOwner ofApplication(String organizationId, String applicationId) {
+    public static JobOwner ofApplication(String organizationId, String applicationId, String projectId) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
         Validate.notBlank(applicationId, "applicationId cannot be blank");
-        return new JobOwner(organizationId, applicationId, null);
+        return new JobOwner(organizationId, applicationId, projectId);
     }
 
 }

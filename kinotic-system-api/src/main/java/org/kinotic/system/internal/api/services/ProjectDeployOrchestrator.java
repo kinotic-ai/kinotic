@@ -142,7 +142,8 @@ public class ProjectDeployOrchestrator {
         JobDefinition definition = jobDefinitionFactory.createJobDefinition(project, existing, commitSha);
         JobRunHandle handle = jobService.run(definition,
                                              JobOwner.ofApplication(project.getOrganizationId(),
-                                                                    project.getApplicationId()));
+                                                                    project.getApplicationId(),
+                                                                    project.getId()));
 
         // Captured from the run's TaskCompletedEvents as the task stores it in the job scope,
         // so the outcome record reflects how far the run got whatever the outcome
