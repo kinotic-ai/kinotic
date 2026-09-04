@@ -30,7 +30,7 @@ git clone <your-provisioned-repo> && cd <your-repo>
 bun install
 ```
 
-The repository comes with a `.config/kinotic.config.ts` already wired to your organization and application, pointing entity discovery at `packages/domain/model` and repository generation at `packages/domain/repositories`.
+The repository comes with a `.config/kinotic.config.ts` already wired to your organization, application, and project, pointing entity discovery at `packages/domain/model` and repository generation at `packages/domain/repositories`.
 
 ## Define an Entity
 

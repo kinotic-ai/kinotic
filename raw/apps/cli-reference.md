@@ -115,7 +115,7 @@ kinotic gen --force
 
 ### `kinotic sync` / `kinotic synchronize`
 
-Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](/apps/persistence/migrations) from the `./migrations` directory. It runs the same generation as `kinotic generate`, so the repository classes and `.config/c3` are refreshed as well. Requires a prior `kinotic login` against the target server.
+Synchronize local entity definitions with the Kinotic server. This uploads your entity classes so the server can set up the backing data stores and register the entity services, and applies any pending [migrations](/apps/persistence/migrations) from the `./migrations` directory. The entities are synchronized into the project named by `projectId` in `.config/kinotic.config.ts`, which must already exist in Kinotic OS. It runs the same generation as `kinotic generate`, so the repository classes and `.config/c3` are refreshed as well. Requires a prior `kinotic login` against the target server.
 
 ```bash
 kinotic sync -p

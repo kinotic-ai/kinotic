@@ -30,6 +30,7 @@ import type { KinoticProjectConfig } from '@kinotic-ai/management-api'
 const config: KinoticProjectConfig = {
   organizationId: "my-org",
   applicationId: "my-app",
+  projectId: "my-app-main",
   entitiesPaths: [
     {
       path: "packages/domain/model",
@@ -92,6 +93,26 @@ is loaded the same way.
       </strong>
       
        The application id this project belongs to. Must match the application id registered with Kinotic OS: lowercase letters, digits, and interior dashes.
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        projectId
+      </code>
+    </td>
+    
+    <td>
+      <strong>
+        Required.
+      </strong>
+      
+       The id of this project in Kinotic OS. Provisioned repositories carry the id of the project that created them; <code>
+        kinotic sync
+      </code>
+      
+       addresses this project and fails when it does not exist.
     </td>
   </tr>
   
