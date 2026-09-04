@@ -58,8 +58,8 @@ const DEFAULT_SORT = [new Order('started', Direction.DESC)]
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },
   { field: 'status', header: 'Status', sortable: false },
-  { field: 'organizationId', header: 'Organization', sortable: false },
-  { field: 'started', header: 'Started', sortable: true },
+  { field: 'organizationId', header: 'Organization', sortable: false, optional: true },
+  { field: 'started', header: 'Started', sortable: true, optional: true },
   { field: 'duration', header: 'Duration', sortable: false, width: '8rem' }
 ]
 

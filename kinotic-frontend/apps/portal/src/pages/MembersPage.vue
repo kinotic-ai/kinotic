@@ -1,13 +1,13 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Members" :description="membersDescription" />
+    <PageHeader :title="title" :description="membersDescription" />
 
     <CrudTable
       ref="crudTable"
       :headers="headers"
       :data-source="dataSource"
       :search="tableSearch"
-      create-new-button-text="Invite member"
+      :create-new-button-text="inviteLabel"
       empty-state-text="No members yet"
       :row-actions="rowActions"
       @update:search="tableSearch = $event"
@@ -31,7 +31,7 @@
 
     </CrudTable>
 
-    <Dialog v-model:visible="inviteDialogVisible" modal header="Invite member" :style="{ width: '28rem' }">
+    <Dialog v-model:visible="inviteDialogVisible" modal :header="inviteLabel" :style="{ width: '28rem' }">
       <div class="flex flex-col gap-4">
         <div class="flex flex-col gap-1">
           <label for="invite-email" class="text-sm font-medium">Email</label>
@@ -110,10 +110,10 @@ const props = withDefaults(defineProps<{
 
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Email', sortable: false, width: '30%' },
-  { field: 'displayName', header: 'Name', sortable: false, width: '22%' },
+  { field: 'displayName', header: 'Name', sortable: false, width: '22%', optional: true },
   { field: 'status', header: 'Status', sortable: false, width: '14%' },
-  { field: 'authType', header: 'Auth type', sortable: false, width: '16%' },
-  { field: 'created', header: 'Created', sortable: false, width: '18%' }
+  { field: 'authType', header: 'Auth type', sortable: false, width: '16%', optional: true },
+  { field: 'created', header: 'Created', sortable: false, width: '18%', optional: true }
 ]
 
 const inviteDialogVisible = ref(false)
@@ -130,9 +130,13 @@ const {tableSearch, dataSource, refreshTable, run } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
+// An application's members are its users, which tells them apart from the organization's members
+const title = computed<string>(() => props.applicationId !== null ? 'Users' : 'Members')
+const inviteLabel = computed<string>(() => props.applicationId !== null ? 'Invite user' : 'Invite member')
+
 const membersDescription = computed<string>(() => {
   return props.applicationId !== null
-      ? 'Everyone with access to this application, including pending invitations.'
+      ? 'Everyone who signs in to this application, including pending invitations.'
       : 'Everyone in your organization, including pending invitations.'
 })
 

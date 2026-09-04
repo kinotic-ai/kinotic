@@ -10,35 +10,25 @@ import GlobalObjectNode from "@/components/nodes/GlobalObjectNode.vue";
 import ObjectNode from "@/components/nodes/ObjectNode.vue";
 import EnumNode from "@/components/nodes/EnumNode.vue";
 import UnionNode from "@/components/nodes/UnionNode.vue";
+import type { EntityDefinition } from "@kinotic-ai/management-api";
 
 import "@vue-flow/core/dist/style.css";
 import "@vue-flow/core/dist/theme-default.css";
 import { isDark as darkMode } from '@kinotic-ai/frontend-common';
 
-const props = withDefaults(defineProps<{
-  item?: any;
-}>(), {
-  item: null,
-});
-
-const emit = defineEmits<{
-  (e: "close", value: boolean): void;
+/**
+ * The entity relationship diagram of one entity definition: its object, the nested objects,
+ * enums and unions its properties reference, and the edges between them, laid out
+ * automatically with a control to switch the layout direction.
+ */
+const props = defineProps<{
+  entity: EntityDefinition;
 }>();
-
-const visible = ref(true);
 
 const flowNodes = ref<Node[]>([]);
 const flowEdges = ref<Edge[]>([]);
 
 const flow = ref<InstanceType<typeof VueFlow>>();
-
-function closeModal() {
-  emit("close", true);
-}
-function onHide() {
-  visible.value = false;
-  closeModal();
-}
 
 const isDark = darkMode;
 
@@ -58,8 +48,9 @@ onMounted(() => {
 });
 
 function setupGraph() {
-  const entity = props.item;
-  if (!entity || !Array.isArray(entity.schema?.properties)) return;
+  // any: the walk below reads the raw C3 schema shape rather than the typed model
+  const entity: any = props.entity;
+  if (!Array.isArray(entity.schema?.properties)) return;
 
   flowEdges.value = [];
   let nodeCounter = 0;
@@ -384,71 +375,34 @@ function applyAutoLayout(direction: "LR" | "TB" = "LR") {
 </script>
 
 <template>
-  <div
-    v-show="visible"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50"
-  >
-    <div class="relative w-full h-screen bg-white shadow-lg overflow-hidden">
-      <div
-        class="flex items-center justify-between p-4 border-b border-gray-200"
-      >
-        <h3 class="text-xl font-semibold text-gray-900">Entity Details</h3>
-        <Controls position="top-center" class="flex gap-2">
-          <button
-            @click="applyAutoLayout('LR')"
-            title="Horizontal Layout"
-            class="p-2 bg-gray-400 rounded hover:bg-gray-500"
-          >
-            <ArrowsRightLeftIcon class="w-5 h-5 text-white" />
-          </button>
-          <button
-            @click="applyAutoLayout('TB')"
-            title="Vertical Layout"
-            class="p-2 bg-gray-400 rounded hover:bg-gray-500"
-          >
-            <ArrowsUpDownIcon class="w-5 h-5 text-white" />
-          </button>
-        </Controls>
+  <div class="h-full min-h-[520px] w-full">
+    <VueFlow
+      ref="flow"
+      :nodes="flowNodes"
+      :edges="flowEdges"
+      :node-types="nodeTypes"
+      :minZoom="0.01"
+    >
+      <Background :pattern-color="isDark ? 'var(--p-surface-700)' : 'var(--p-surface-300)'" :gap="20" />
+      <MiniMap />
+      <Controls position="top-left" />
+      <Controls position="top-right" :show-zoom="false" :show-fit-view="false" :show-interactive="false" class="flex gap-2">
         <button
-          @click="onHide"
-          class="text-gray-400 hover:text-gray-900 hover:bg-gray-200 rounded-lg text-sm w-8 h-8 flex items-center justify-center"
+          @click="applyAutoLayout('LR')"
+          title="Horizontal layout"
+          class="p-2 bg-gray-400 rounded hover:bg-gray-500"
         >
-          <svg
-            class="w-3 h-3"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 14 14"
-          >
-            <path
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"
-            />
-          </svg>
+          <ArrowsRightLeftIcon class="w-5 h-5 text-white" />
         </button>
-      </div>
-      <div class="h-full">
-        <VueFlow
-          ref="flow"
-          :nodes="flowNodes"
-          :edges="flowEdges"
-          :node-types="nodeTypes"
-          :minZoom="0.01"
+        <button
+          @click="applyAutoLayout('TB')"
+          title="Vertical layout"
+          class="p-2 bg-gray-400 rounded hover:bg-gray-500"
         >
-          <Background :pattern-color="isDark ? 'var(--p-surface-700)' : 'var(--p-surface-300)'" :gap="20" />
-          <MiniMap />
-          <Controls position="top-left" />
-        </VueFlow>
-      </div>
-    </div>
+          <ArrowsUpDownIcon class="w-5 h-5 text-white" />
+        </button>
+      </Controls>
+    </VueFlow>
   </div>
 </template>
 
-<style scoped>
-.p-row-even,
-.p-row-odd {
-  cursor: pointer !important;
-}
-</style>

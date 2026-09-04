@@ -1,8 +1,19 @@
 <template>
   <div :class="['application-settings', isDark ? 'application-settings--dark' : 'application-settings--light']">
-    <PageHeader title="Application settings"
-                description="Name, description, and tenancy settings for this application." />
+    <PageHeader title="Settings"
+                description="Name, description, tenancy, and the emails this application sends." />
 
+    <Tabs lazy :value="activeTab" @update:value="selectTab">
+      <TabList>
+        <Tab value="general">
+          <span class="flex items-center gap-2"><i class="pi pi-sliders-h" />General</span>
+        </Tab>
+        <Tab value="invitation-email">
+          <span class="flex items-center gap-2"><i class="pi pi-envelope" />Invitation email</span>
+        </Tab>
+      </TabList>
+      <TabPanels>
+        <TabPanel value="general">
     <div class="application-settings__general-shell">
       <form @submit.prevent="saveSettings" class="application-settings__form">
         <div class="application-settings__fields">
@@ -45,6 +56,14 @@
         </div>
       </form>
     </div>
+        </TabPanel>
+        <TabPanel value="invitation-email">
+          <div class="pt-4">
+            <InviteEmailTemplateEditor :key="applicationId" :application-id="applicationId" />
+          </div>
+        </TabPanel>
+      </TabPanels>
+    </Tabs>
   </div>
 </template>
 
@@ -53,7 +72,14 @@
 import { ref, defineProps, onMounted, watch } from 'vue'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { InputText, Textarea, Button, ToggleSwitch } from 'primevue'
+import Tab from 'primevue/tab'
+import TabList from 'primevue/tablist'
+import TabPanel from 'primevue/tabpanel'
+import TabPanels from 'primevue/tabpanels'
+import Tabs from 'primevue/tabs'
 import { PageHeader } from '@kinotic-ai/frontend-common'
+import InviteEmailTemplateEditor from '@/components/InviteEmailTemplateEditor.vue'
+import { useQueryTab } from '@/composables/useQueryTab'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -68,6 +94,7 @@ defineProps({
 })
 
 const toast = useToast()
+const activeTab = useQueryTab(['general', 'invitation-email'] as const)
 const appName = ref('')
 const appDescription = ref('')
 const tenantPerUser = ref(false)
@@ -90,6 +117,10 @@ onMounted(() => {
     tenantPerUser.value = Boolean(app.tenantPerUser)
   }
 })
+
+function selectTab(value: string | number): void {
+  activeTab.value = value === 'invitation-email' ? 'invitation-email' : 'general'
+}
 
 const saveSettings = async () => {
   if (!APPLICATION_STATE.currentApplication) {

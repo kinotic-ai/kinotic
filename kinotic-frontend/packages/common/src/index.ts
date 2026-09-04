@@ -30,6 +30,7 @@ export { default as PageHeader } from './components/PageHeader.vue'
 export { default as ProjectDeployTaskDetail } from './components/deploy/ProjectDeployTaskDetail.vue'
 export { default as SideBar } from './components/SideBar.vue'
 export { default as TelemetryPanel } from './components/telemetry/TelemetryPanel.vue'
+export { default as TraceDetail } from './components/telemetry/TraceDetail.vue'
 export { default as WorkloadLogView } from './components/WorkloadLogView.vue'
 export { default as WorkloadLogsDialog } from './components/WorkloadLogsDialog.vue'
 

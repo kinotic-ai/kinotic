@@ -53,7 +53,7 @@
       </Column>
     </DataTable>
 
-    <Dialog v-model:visible="detailVisible" modal maximizable :style="{ width: '90vw' }" :header="detailHeader">
+    <Dialog v-if="!traceRoute" v-model:visible="detailVisible" modal maximizable :style="{ width: '90vw' }" :header="detailHeader">
       <TraceDetail v-if="selectedTraceId" :organization-id="organizationId" :trace-id="selectedTraceId" />
     </Dialog>
   </div>
@@ -61,6 +61,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Checkbox from 'primevue/checkbox'
 import Column from 'primevue/column'
@@ -80,13 +81,17 @@ import { formatDuration } from './telemetryDisplay'
 
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
- * the one picked from the results.
+ * the one picked from the results: on the page {@code traceRoute} names when given, otherwise
+ * in a dialog over the results.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
   range: TimeRange
+  traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
+
+const router = useRouter()
 
 /** How many traces one search returns. */
 const SEARCH_LIMIT = 50
@@ -127,8 +132,12 @@ async function search() {
 }
 
 function openTrace(trace: TraceSummary) {
-  selectedTraceId.value = trace.traceId
-  detailVisible.value = true
+  if (props.traceRoute) {
+    router.push(props.traceRoute(trace.traceId))
+  } else {
+    selectedTraceId.value = trace.traceId
+    detailVisible.value = true
+  }
 }
 
 // The panel replaces the range on every refresh and scope change, so it is the one trigger

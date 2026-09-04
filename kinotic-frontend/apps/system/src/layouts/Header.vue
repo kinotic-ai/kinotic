@@ -1,6 +1,15 @@
 <template>
-  <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-800 bg-surface-950 px-6">
+  <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-800 bg-surface-950 px-4 md:px-6">
     <div class="flex items-center gap-3 text-white">
+      <button
+        type="button"
+        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-300 transition-colors hover:text-surface-0 md:hidden"
+        aria-label="Open navigation"
+        @click="emit('toggle-nav')"
+      >
+        <span class="pi pi-bars"></span>
+      </button>
+
       <RouterLink to="/dashboard" class="flex items-center gap-2">
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
@@ -96,6 +105,10 @@ import type { Organization, UserParticipantIdentity } from '@kinotic-ai/manageme
 import { avatarInitials, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
 
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
+
+const emit = defineEmits<{
+  (e: 'toggle-nav'): void
+}>()
 
 const route = useRoute()
 const router = useRouter()

@@ -22,7 +22,7 @@
       <TabPanels>
         <TabPanel value="traces">
           <KeepAlive>
-            <TraceSearch v-if="activeTab === 'traces'" :organization-id="organizationId" :application-id="applicationId" :range="range" />
+            <TraceSearch v-if="activeTab === 'traces'" :organization-id="organizationId" :application-id="applicationId" :range="range" :trace-route="traceRoute" />
           </KeepAlive>
         </TabPanel>
         <TabPanel value="metrics">
@@ -37,6 +37,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import Button from 'primevue/button'
 import Select from 'primevue/select'
 import Tab from 'primevue/tab'
@@ -55,10 +56,13 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetryApi'
  * The traces and metrics of an organization's workloads over a chosen time range, narrowed to
  * one application when one is given. The organization is the one whose tenant the signed-in
  * user may read: an organization user's own, or the one the system console is drilled into.
+ * A trace picked from the search opens on the page {@code traceRoute} names, or in a dialog
+ * when there is none.
  */
 const props = defineProps<{
   organizationId: string
   applicationId: string | null
+  traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
 
 const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch
