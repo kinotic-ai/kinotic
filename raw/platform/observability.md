@@ -12,7 +12,7 @@ Real-time monitoring of CPU, memory, and data throughput for all running service
 
 ## Traces and Spans
 
-Drill from high-level overviews into detailed execution logs. Distributed tracing follows requests across service boundaries, so you can pinpoint performance bottlenecks and errors in complex service interactions. A workload running in a micro VM ships its traces and metrics through the node that runs it — see [Workload Traces and Metrics](#workload-traces-and-metrics) — and the portal shows them per application under its **Observability** tab.
+Drill from high-level overviews into detailed execution logs. Distributed tracing follows requests across service boundaries, so you can pinpoint performance bottlenecks and errors in complex service interactions. A workload running in a micro VM ships its traces and metrics through the node that runs it — see [Workload Traces and Metrics](#workload-traces-and-metrics) — and the portal shows them on an application's **Observability** page, and across the organization at **Observability** in the organization sidebar.
 
 ## LLM Observability
 
@@ -516,7 +516,7 @@ Traces and metrics are pushed with `X-Scope-OrgID` set to the organization id, o
 
 The `TelemetryService` (`@kinotic-ai/management-api`, `Kinotic.telemetry`) searches traces (`searchTraces`, a TraceQL query over a time range), fetches one trace with all its spans (`findTrace`), and evaluates PromQL (`queryMetrics`, a range query at a step). Each call names an organization: an organization participant may name only its own, and a system participant any, or none for the platform's own telemetry. The tenant is the boundary; what a query selects within it is the caller's to decide. All three return the raw Tempo and Prometheus response bytes for the caller to parse.
 
-The portal shows them under an application's **Observability** tab: a trace search — by service, span name, errors, and duration — opening each trace as a waterfall of its spans with their attributes, and the requests, errors, and latency of the application's services beside a free PromQL query. The system console has the same view per organization, across all of its applications or one of them, at **Organizations → (organization) → Observability**.
+The portal shows them on an application's **Observability** page: a trace search — by service, span name, errors, and duration — opening each trace on its own page as a waterfall of its spans with their attributes, and the requests, errors, and latency of the application's services beside a free PromQL query. The organization's **Observability** page has the same view across all of its applications or one of them, and so does the system console at **Organizations → (organization) → Observability**.
 
 ## Configuration
 
