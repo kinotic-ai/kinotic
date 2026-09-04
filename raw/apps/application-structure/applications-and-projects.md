@@ -257,8 +257,8 @@ packages of its kind. The directory name never matters.
 
 ### The UI build contract
 
-Every UI is built during the deployment with `bun run build`, and the build is handed three
-variables. A UI built from the platform template honors them through its Vite config; a UI
+Every UI is built during the deployment with `bun run build`, and the build is handed one
+variable. A UI built from the platform template honors it through its Vite config; a UI
 with its own build must too:
 
 <table>
@@ -282,40 +282,6 @@ with its own build must too:
   <tr>
     <td>
       <code>
-        KINOTIC_UI_BASE_PATH
-      </code>
-    </td>
-    
-    <td>
-      <code>
-        /<commit sha>/
-      </code>
-    </td>
-    
-    <td>
-      The path the built assets are served under. Assets are addressed by commit and cached for a year, so a new commit is always a new path
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
-        KINOTIC_UI_COMMIT
-      </code>
-    </td>
-    
-    <td>
-      the commit sha
-    </td>
-    
-    <td>
-      Embedded in the page, so an open tab can tell when a newer commit has been published
-    </td>
-  </tr>
-  
-  <tr>
-    <td>
-      <code>
         KINOTIC_UI_SERVER_URL
       </code>
     </td>
@@ -333,22 +299,11 @@ with its own build must too:
 
 A build that does not write `dist/index.html` fails the deployment naming the UI.
 
-Each site also publishes the commit it serves as `version.json` next to its `index.html`,
-never cached, as `{ "commitSha": "<commit>" }`. A publish keeps the previous commit's assets,
-so a tab open on it keeps working; to learn it is behind, the tab compares the commit it was
-built from with the one the site serves:
-
-```ts
-import { checkUiVersion } from '@kinotic-ai/core'
-
-const { stale } = await checkUiVersion(import.meta.env.KINOTIC_UI_COMMIT)
-if (stale) {
-    // offer a reload: the site now serves a newer commit
-}
-```
-
-A site whose `version.json` cannot be read leaves the tab not stale, so a network blip never
-prompts a reload.
+`dist` is published as it is, from the site's root: files under `assets/` carry a content
+hash in their name and are cached for a year, everything else is never cached. Each site
+also publishes the commit it serves as `version.json` next to its `index.html`, never
+cached, as `{ "commitSha": "<commit>" }`. A publish replaces the previous commit's files;
+a tab left open on the previous commit loads the new commit when it next reloads.
 
 ## Typical Setup
 

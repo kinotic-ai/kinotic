@@ -50,8 +50,7 @@ through a short-lived publish VM that holds nothing but an upload URL valid for 
 then records each UI's site. The storage was created with your organization, so the step
 only reads it; a UI's first publish mints its site's hostname and creates the site, which
 is the one slow step a deployment ever takes on the platform's cloud, and later publishes
-keep the site and switch it to the new commit, retaining the previous commit's assets so
-tabs still open on it keep working. A UI the commit no longer
+keep the site and switch it to the new commit. A UI the commit no longer
 contains keeps serving but its deployment is marked orphaned, and a commit that brings it
 back adopts the site. The step expands on the job run page into the publish VM's log.
 
@@ -242,10 +241,7 @@ deployments the same way.
 
 The project's deployment page lists each UI with its site, status and the commit the site
 serves, and offers both actions; the project's and the application's overview pages list the
-published UIs with their sites as well. A tab left open on a site keeps working after a publish,
-since the commit it was built from stays published alongside the new one; it can find out it
-is behind with `checkUiVersion` from `@kinotic-ai/core` (see
-[the UI build contract](/apps/application-structure/applications-and-projects#the-ui-build-contract)).
+published UIs with their sites as well.
 
 ## Deployment status
 
