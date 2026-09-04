@@ -102,7 +102,9 @@ interface LogLine {
 }
 
 function isFinished(workload: Workload | undefined): boolean {
-  return workload?.status === WorkloadStatus.STOPPED || workload?.status === WorkloadStatus.FAILED
+  return workload?.status === WorkloadStatus.COMPLETED
+      || workload?.status === WorkloadStatus.STOPPED
+      || workload?.status === WorkloadStatus.FAILED
 }
 
 const spanOptions = computed(() => props.workload ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])

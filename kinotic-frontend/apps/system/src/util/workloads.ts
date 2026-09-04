@@ -13,12 +13,13 @@ const SCAN_PAGE_SIZE = 100
 /** The organization filter value that keeps the platform's own workloads, the ones with no organization. */
 export const PLATFORM_ONLY = 'platform'
 
-/** The states in the order every breakdown lists them. */
+/** The states in the order every breakdown lists them: the live ones first, then the ended ones. */
 export const WORKLOAD_STATES: WorkloadStatus[] = [
     WorkloadStatus.RUNNING,
     WorkloadStatus.STARTING,
     WorkloadStatus.PENDING,
     WorkloadStatus.STOPPING,
+    WorkloadStatus.COMPLETED,
     WorkloadStatus.STOPPED,
     WorkloadStatus.FAILED
 ]
@@ -34,7 +35,7 @@ export interface WorkloadScanOptions {
 /** Maps a workload status to the PrimeVue Tag severity it renders with. */
 export function workloadSeverity(status: WorkloadStatus): string {
     let ret: string
-    if (status === WorkloadStatus.RUNNING) {
+    if (status === WorkloadStatus.RUNNING || status === WorkloadStatus.COMPLETED) {
         ret = 'success'
     } else if (status === WorkloadStatus.STARTING || status === WorkloadStatus.PENDING) {
         ret = 'info'
@@ -51,6 +52,19 @@ export function workloadSeverity(status: WorkloadStatus): string {
 /** A state's name as a word, e.g. Running. */
 export function workloadStateLabel(status: WorkloadStatus): string {
     return status.charAt(0) + status.slice(1).toLowerCase()
+}
+
+/** Whether the workload has a run in progress that stopWorkload can end. */
+export function canStop(workload: Pick<Workload, 'status'>): boolean {
+    return workload.status === WorkloadStatus.RUNNING || workload.status === WorkloadStatus.STARTING
+}
+
+/** Whether restartWorkload can boot the workload's VM again. */
+export function canRestart(workload: Pick<Workload, 'status' | 'autoRemove'>): boolean {
+    // A run that ended with autoRemove has no VM left to restart
+    const dormant = (workload.status === WorkloadStatus.STOPPED || workload.status === WorkloadStatus.COMPLETED)
+        && !workload.autoRemove
+    return dormant || workload.status === WorkloadStatus.FAILED
 }
 
 export function countByStatus(workloads: Workload[]): Record<WorkloadStatus, number> {

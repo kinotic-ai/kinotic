@@ -62,12 +62,12 @@ import { useConfirm } from 'primevue/useconfirm'
 
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import type { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'
-import { shortImage, workloadSeverity } from '@/util/workloads'
+import { WORKLOAD_STATES, canRestart, canStop, shortImage, workloadSeverity } from '@/util/workloads'
 
 /**
  * The given workloads as a searchable, sortable table whose rows open the workload's page
@@ -103,7 +103,8 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   autoRemove: boolean
 }
 
-const DEFAULT_SORT = [new Order('created', Direction.DESC)]
+/** Live workloads first, the ended ones after, newest first within a state. */
+const DEFAULT_SORT = [new Order('status', Direction.ASC), new Order('created', Direction.DESC)]
 
 const router = useRouter()
 const confirm = useConfirm()
@@ -161,21 +162,31 @@ async function load(pageable: Pageable, searchText: string | null): Promise<Iter
   return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
 }
 
+// The default sort breaks the ties the table's own sort leaves
 function sortRows(rows: WorkloadRow[], sort: Sort | null | undefined): void {
-  const order = sort?.orders?.[0]
-  const property = order?.property ?? 'created'
-  const ascending = order?.direction === Direction.ASC
+  const orders = [...(sort?.orders ?? []), ...DEFAULT_SORT]
   rows.sort((a, b) => {
-    let cmp: number
-    if (property === 'name') {
-      cmp = a.name.localeCompare(b.name)
-    } else if (property === 'status') {
-      cmp = a.status.localeCompare(b.status)
-    } else {
-      cmp = (DatetimeUtil.toEpochMillis(a.created) ?? 0) - (DatetimeUtil.toEpochMillis(b.created) ?? 0)
+    let ret = 0
+    for (const order of orders) {
+      if (ret === 0) {
+        const cmp = compareBy(order.property, a, b)
+        ret = order.direction === Direction.DESC ? -cmp : cmp
+      }
     }
-    return ascending ? cmp : -cmp
+    return ret
   })
+}
+
+function compareBy(property: string, a: WorkloadRow, b: WorkloadRow): number {
+  let ret: number
+  if (property === 'name') {
+    ret = a.name.localeCompare(b.name)
+  } else if (property === 'status') {
+    ret = WORKLOAD_STATES.indexOf(a.status) - WORKLOAD_STATES.indexOf(b.status)
+  } else {
+    ret = (DatetimeUtil.toEpochMillis(a.created) ?? 0) - (DatetimeUtil.toEpochMillis(b.created) ?? 0)
+  }
+  return ret
 }
 
 function ownerOf(workload: Workload): string | null {
@@ -225,15 +236,14 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       }
     }
   ]
-  if (item.status === WorkloadStatus.RUNNING || item.status === WorkloadStatus.STARTING) {
+  if (canStop(item)) {
     actions.push({
       label: 'Stop',
       icon: 'pi pi-stop-circle',
       command: () => act(() => Kinotic.workloadOrchestration.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
     })
   }
-  // A workload stopped with autoRemove has no VM left to restart
-  if ((item.status === WorkloadStatus.STOPPED && !item.autoRemove) || item.status === WorkloadStatus.FAILED) {
+  if (canRestart(item)) {
     actions.push({
       label: 'Restart',
       icon: 'pi pi-replay',

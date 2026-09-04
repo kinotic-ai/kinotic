@@ -250,8 +250,8 @@ export class CloudHypervisorProvider implements IVmProvider {
 
     async restart(workloadId: string): Promise<Workload> {
         const workload = this.requireWorkload(workloadId)
-        if (workload.status !== WorkloadStatus.STOPPED) {
-            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
+        if (workload.status !== WorkloadStatus.STOPPED && workload.status !== WorkloadStatus.COMPLETED) {
+            throw new Error(`Workload ${workloadId} is neither stopped nor completed (status: ${workload.status})`)
         }
 
         workload.status = WorkloadStatus.STARTING
@@ -440,16 +440,19 @@ export class CloudHypervisorProvider implements IVmProvider {
             })
     }
 
-    // A guest that ended while no operation was in flight stopped cleanly only if it said so;
-    // anything else — including the 137 a memory limit produces — is a failure
+    // A guest that ended while no operation was in flight ended cleanly only if it said so;
+    // anything else — including the 137 a memory limit produces — is a failure. A clean end
+    // is what a foreground run is for, so it completed; a detached service merely stopped
     private exitedStatus(workload: Workload, info: ContainerInspectInfo): WorkloadStatus {
         let ret: WorkloadStatus
         if (workload.status === WorkloadStatus.STOPPING) {
             ret = WorkloadStatus.STOPPED
-        } else if (info.State.ExitCode === 0) {
+        } else if (info.State.ExitCode !== 0) {
+            ret = WorkloadStatus.FAILED
+        } else if (workload.detached ?? true) {
             ret = WorkloadStatus.STOPPED
         } else {
-            ret = WorkloadStatus.FAILED
+            ret = WorkloadStatus.COMPLETED
         }
         return ret
     }

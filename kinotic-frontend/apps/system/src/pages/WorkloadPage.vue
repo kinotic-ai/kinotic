@@ -9,9 +9,9 @@
       <template #actions>
         <Tag v-if="workload" :value="workload.status" :severity="workloadSeverity(workload.status)" />
         <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
-        <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
+        <Button v-if="stoppable" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
-        <Button v-if="canRestart" label="Restart" icon="pi pi-replay" severity="secondary" outlined
+        <Button v-if="restartable" label="Restart" icon="pi pi-replay" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.restartWorkload(workloadId), 'Workload restarting', 'Failed to restart workload')" />
         <Button label="Destroy" icon="pi pi-trash" severity="danger" outlined :disabled="!workload" @click="confirmDestroy" />
       </template>
@@ -124,7 +124,7 @@ import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, show
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
-import { workloadSeverity } from '@/util/workloads'
+import { canRestart, canStop, workloadSeverity } from '@/util/workloads'
 
 /**
  * One workload, opened from a Workloads list: its state with the exit code, where it runs and
@@ -163,10 +163,8 @@ const tab = computed<string>({
   set: value => { router.replace({ query: { ...route.query, tab: value === 'logs' ? 'logs' : undefined } }) }
 })
 
-const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
-// A workload stopped with autoRemove has no VM left to restart
-const canRestart = computed(() => (workload.value?.status === WorkloadStatus.STOPPED && !workload.value.autoRemove)
-    || workload.value?.status === WorkloadStatus.FAILED)
+const stoppable = computed(() => workload.value !== null && canStop(workload.value))
+const restartable = computed(() => workload.value !== null && canRestart(workload.value))
 
 const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
 const allowedHosts = computed(() => workload.value?.network?.allowedHosts ?? [])

@@ -260,12 +260,13 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Passes a foreground workload's run only when it exited cleanly; the workload is kept
-     * either way, so a failed run's logs stay inspectable.
+     * Passes a foreground workload's run only when it ran to completion; a run that was
+     * stopped or failed fails the job. The workload is kept either way, so a failed run's
+     * logs stay inspectable.
      */
     private static Future<String> requireSucceeded(Workload finished, String role) {
         Future<String> ret;
-        if (finished.getStatus() == WorkloadStatus.STOPPED && Integer.valueOf(0).equals(finished.getExitCode())) {
+        if (finished.getStatus() == WorkloadStatus.COMPLETED) {
             ret = Future.succeededFuture(finished.getId());
         } else {
             ret = Future.failedFuture(new IllegalStateException(

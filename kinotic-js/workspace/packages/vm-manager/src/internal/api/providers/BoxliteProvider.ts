@@ -319,8 +319,8 @@ export class BoxliteProvider implements IVmProvider {
         if (!workload) {
             throw new Error(`Workload not found: ${workloadId}`)
         }
-        if (workload.status !== WorkloadStatus.STOPPED) {
-            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
+        if (workload.status !== WorkloadStatus.STOPPED && workload.status !== WorkloadStatus.COMPLETED) {
+            throw new Error(`Workload ${workloadId} is neither stopped nor completed (status: ${workload.status})`)
         }
         const info = await this.runtime.getInfo(workloadId)
         if (!info) {
@@ -540,16 +540,19 @@ export class BoxliteProvider implements IVmProvider {
         await this.syncStatus(workload)
     }
 
-    // A guest that ended while no operation was in flight stopped cleanly only if it said so;
-    // anything else — including an exit whose code could not be read — is a failure
+    // A guest that ended while no operation was in flight ended cleanly only if it said so;
+    // anything else — including an exit whose code could not be read — is a failure. A clean
+    // end is what a foreground run is for, so it completed; a detached service merely stopped
     private exitedStatus(workload: Workload, exitCode: number | null): WorkloadStatus {
         let ret: WorkloadStatus
         if (workload.status === WorkloadStatus.STOPPING) {
             ret = WorkloadStatus.STOPPED
-        } else if (exitCode === 0) {
+        } else if (exitCode !== 0) {
+            ret = WorkloadStatus.FAILED
+        } else if (workload.detached ?? true) {
             ret = WorkloadStatus.STOPPED
         } else {
-            ret = WorkloadStatus.FAILED
+            ret = WorkloadStatus.COMPLETED
         }
         return ret
     }

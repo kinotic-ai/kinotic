@@ -11,9 +11,9 @@ export interface IWorkloadOrchestrationService {
      * Deploys a new workload to an appropriate node in the cluster. A workload carrying a
      * nodeId is deployed to that node instead, failing when the node is not registered, not
      * taking workloads, or lacks the capacity the workload requires. When the workload is not
-     * detached the returned Promise resolves only once the run has ended — STOPPED or
-     * FAILED, with the exit code set; otherwise it resolves as soon as the workload is
-     * started.
+     * detached the returned Promise resolves only once the run has ended — COMPLETED,
+     * STOPPED or FAILED, with the exit code set; otherwise it resolves as soon as the
+     * workload is started.
      * @param workload the workload configuration to deploy
      * @return a Promise resolving to the deployed workload (including assigned nodeId and id)
      */
