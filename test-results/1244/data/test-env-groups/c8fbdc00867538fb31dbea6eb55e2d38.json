@@ -1,1 +1,0 @@
-{"id":"c8fbdc00867538fb31dbea6eb55e2d38","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Non-async methods without scope should invoke combine with multiple args synchronously","name":"should invoke combine with multiple args synchronously","status":"passed","testResultsByEnv":{"default":"9f23a5775671d0458c4de3cf10c2f77d"}}

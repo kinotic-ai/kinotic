@@ -1,0 +1,1 @@
+{"id":"bd54fdbde53f500025a0eb73b5d42a0c","fullName":"@kinotic-ai/core:test/KinoticRpc.test.ts#Kinotic JS packages/core Kinotic RPC Tests should decode a byte[] return as a binary Uint8Array","name":"should decode a byte[] return as a binary Uint8Array","status":"passed","testResultsByEnv":{"default":"25bfb2f70f15323eb42078132fe6d16d"}}
