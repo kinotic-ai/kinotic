@@ -1,6 +1,6 @@
 <template>
   <DataTable :value="deployments" size="small">
-    <Column header="Microservice" style="width: 18%">
+    <Column header="Microservice" style="width: 20%">
       <template #body="{ data }"><span class="font-mono text-sm">{{ data.name }}</span></template>
     </Column>
     <Column header="Status" style="width: 14%">
@@ -17,7 +17,7 @@
         </span>
       </template>
     </Column>
-    <Column header="Entry point" style="width: 30%">
+    <Column header="Entry point" style="width: 28%">
       <template #body="{ data }"><span class="font-mono text-xs">{{ data.entryPoint ?? '—' }}</span></template>
     </Column>
     <Column style="width: 26%">

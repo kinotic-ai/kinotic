@@ -62,16 +62,16 @@
           issued for.
         </p>
         <DataTable :value="machines" size="small">
-          <Column field="usedFor" header="Used for" style="width: 26%" />
-          <Column field="displayName" header="Name" style="width: 26%" />
-          <Column header="Client ID" style="width: 32%">
-            <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
-          </Column>
-          <Column header="Status" style="width: 16%">
+          <Column field="usedFor" header="Used for" style="width: 20%" />
+          <Column header="Status" style="width: 14%">
             <template #body="{ data }">
               <Tag :value="data.enabled ? 'Active' : 'Disabled'"
                    :severity="data.enabled ? 'success' : 'danger'" />
             </template>
+          </Column>
+          <Column field="displayName" header="Name" style="width: 26%" />
+          <Column header="Client ID" style="width: 40%">
+            <template #body="{ data }"><span class="font-mono text-sm">{{ data.id }}</span></template>
           </Column>
         </DataTable>
       </section>

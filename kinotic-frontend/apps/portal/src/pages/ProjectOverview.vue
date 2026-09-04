@@ -46,21 +46,46 @@
       </div>
     </div>
 
-    <section :class="cardClass">
-      <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">About</h2>
-      <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-sm">
-        <dt class="text-muted-color">Project id</dt>
-        <dd class="m-0 font-mono">{{ projectId }}</dd>
-        <dt class="text-muted-color">Application</dt>
-        <dd class="m-0"><RouterLink :to="`/application/${encodeURIComponent(applicationId)}`" class="hover:underline">{{ applicationId }}</RouterLink></dd>
-        <dt class="text-muted-color">Repository</dt>
-        <dd class="m-0 font-mono">{{ project?.repoFullName ?? '—' }}<span v-if="project?.repoDefaultBranch"> · {{ project.repoDefaultBranch }}</span></dd>
-        <dt class="text-muted-color">Source of truth</dt>
-        <dd class="m-0">{{ project?.sourceOfTruth ?? '—' }}</dd>
-        <dt class="text-muted-color">Updated</dt>
-        <dd class="m-0">{{ project?.updated ? DatetimeUtil.formatRelativeDate(project.updated) : '—' }}</dd>
-      </dl>
-    </section>
+    <div class="grid gap-4 lg:grid-cols-2">
+      <section :class="cardClass">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">UIs</h2>
+          <RouterLink :to="`${basePath}/deployment`" class="text-xs font-medium text-primary-500 hover:underline">Deployment</RouterLink>
+        </div>
+        <div v-if="loading" class="mt-4 flex flex-col gap-3">
+          <Skeleton v-for="n in 2" :key="n" height="2.25rem" />
+        </div>
+        <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
+          No UI has been published yet. A UI the project contains is published with its next deployment.
+        </p>
+        <ul v-else class="mt-2 divide-y divide-surface-200 dark:divide-surface-700">
+          <li v-for="ui in uis" :key="ui.id ?? ui.name" class="flex items-center gap-3 py-3">
+            <i class="pi pi-globe text-surface-400" />
+            <div class="min-w-0 flex-1">
+              <div class="truncate text-sm font-medium">{{ ui.name }}</div>
+              <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
+            </div>
+            <Tag :value="ui.status.type" :severity="deploymentStatusSeverity(ui.status.type)" />
+          </li>
+        </ul>
+      </section>
+
+      <section :class="cardClass">
+        <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">About</h2>
+        <dl class="mt-3 grid grid-cols-[9rem_1fr] gap-x-4 gap-y-2 text-sm">
+          <dt class="text-muted-color">Project id</dt>
+          <dd class="m-0 font-mono">{{ projectId }}</dd>
+          <dt class="text-muted-color">Application</dt>
+          <dd class="m-0"><RouterLink :to="`/application/${encodeURIComponent(applicationId)}`" class="hover:underline">{{ applicationId }}</RouterLink></dd>
+          <dt class="text-muted-color">Repository</dt>
+          <dd class="m-0 font-mono">{{ project?.repoFullName ?? '—' }}<span v-if="project?.repoDefaultBranch"> · {{ project.repoDefaultBranch }}</span></dd>
+          <dt class="text-muted-color">Source of truth</dt>
+          <dd class="m-0">{{ project?.sourceOfTruth ?? '—' }}</dd>
+          <dt class="text-muted-color">Updated</dt>
+          <dd class="m-0">{{ project?.updated ? DatetimeUtil.formatRelativeDate(project.updated) : '—' }}</dd>
+        </dl>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -71,12 +96,13 @@ import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
-import { type Project, type ProjectDeployment, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
+import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
 import { DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
 
 /**
  * The landing page of one project: its repository, its deployment state, how many entities
- * it defines, and the facts that identify it. Each tile leads to the page with the detail.
+ * it defines, the UIs it has published with their sites, and the facts that identify it. Each
+ * tile leads to the page with the detail.
  */
 const props = defineProps<{
   applicationId: string
@@ -93,7 +119,7 @@ const basePath = computed(() => `/application/${encodeURIComponent(props.applica
 const project = ref<Project | null>(null)
 const deployment = ref<ProjectDeployment | null>(null)
 const microserviceCount = ref(0)
-const uiCount = ref(0)
+const uis = ref<UiDeployment[]>([])
 const entityCount = ref<number | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -103,8 +129,8 @@ const workloadSummary = computed(() => {
   if (microserviceCount.value > 0) {
     parts.push(`${microserviceCount.value} microservice${microserviceCount.value === 1 ? '' : 's'}`)
   }
-  if (uiCount.value > 0) {
-    parts.push(`${uiCount.value} UI${uiCount.value === 1 ? '' : 's'}`)
+  if (uis.value.length > 0) {
+    parts.push(`${uis.value.length} UI${uis.value.length === 1 ? '' : 's'}`)
   }
   return parts.length > 0 ? parts.join(', ') : 'No workloads yet'
 })
@@ -117,10 +143,10 @@ async function load(): Promise<void> {
   project.value = null
   deployment.value = null
   microserviceCount.value = 0
-  uiCount.value = 0
+  uis.value = []
   entityCount.value = null
   try {
-    const [loadedProject, loadedDeployment, microservices, uis, count] = await Promise.all([
+    const [loadedProject, loadedDeployment, microservices, loadedUis, count] = await Promise.all([
       Kinotic.projects.findById(props.projectId),
       Kinotic.projects.findDeployment(props.projectId),
       Kinotic.microserviceDeployments.findAllForProject(props.projectId),
@@ -130,7 +156,7 @@ async function load(): Promise<void> {
     project.value = loadedProject
     deployment.value = loadedDeployment
     microserviceCount.value = microservices.length
-    uiCount.value = uis.length
+    uis.value = loadedUis
     entityCount.value = count
   } catch (err) {
     error.value = err instanceof Error ? err.message : String(err)
