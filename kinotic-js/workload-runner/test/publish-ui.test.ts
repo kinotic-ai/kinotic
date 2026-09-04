@@ -11,7 +11,7 @@ const PUBLISH = join(import.meta.dir, '..', 'src', 'publish-ui.ts')
 const ACCOUNT = 'devstoreaccount1'
 const ACCOUNT_KEY = 'Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=='
 const ENDPOINT = process.env.AZURITE_BLOB_ENDPOINT ?? `http://127.0.0.1:10000/${ACCOUNT}`
-const CONTAINER = 'ui'
+const CONTAINER = 'sites'
 const SAS_VERSION = '2020-12-06'
 
 function sharedKeyHeaders(method: string, path: string, contentLength: number = 0, extra: Record<string, string> = {}): Record<string, string> {

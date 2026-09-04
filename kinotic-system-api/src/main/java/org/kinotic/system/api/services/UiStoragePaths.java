@@ -3,7 +3,7 @@ package org.kinotic.system.api.services;
 import org.apache.commons.lang3.Validate;
 
 /**
- * The layout of published UIs inside an organization's {@code ui} container. Every path is
+ * The layout of published UIs inside an organization's {@code sites} container. Every path is
  * built here, so the environment segment exists in exactly one place.
  *
  * <pre>
