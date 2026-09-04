@@ -152,18 +152,15 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 
 A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
 root: a resource group the organization storage accounts are created in, a Front Door
-Standard profile and endpoint under `apps-<environment>.<zone>`, and the roles the server
-needs on them. State is local, one environment per developer.
+Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
+for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
+Contributor on the zone, and Contributor on the email service. State is local, one
+environment per developer.
 
-The roles go to the identity the server authenticates as. `DefaultAzureCredential` takes the
-service principal named by `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`
-when those are set where the server runs, and the `az login` user otherwise. The root
-defaults to the identity running terraform, so a server that uses a service principal names
-it in `local.auto.tfvars` (gitignored):
-
-```hcl
-server_principal_object_id = "<az ad sp show --id $AZURE_CLIENT_ID --query id -o tsv>"
-```
+The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
+`.env.local` at the repository root (gitignored), replacing those three lines when present
+and leaving the rest of the file alone; the server picks them up through
+`DefaultAzureCredential`. Its secret is also in this root's local state.
 
 ```bash
 cd dev
