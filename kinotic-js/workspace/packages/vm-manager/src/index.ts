@@ -56,6 +56,17 @@ const RECONNECT_MAX_DELAY_MS = 120000
 const RECONNECT_MIN_JITTER_MS = 1000
 const RECONNECT_MAX_JITTER_MS = 5000
 
+/**
+ * How long the graceful shutdown is given before the process exits anyway. Releasing the node
+ * cleanly is worth a short wait, but not an unbounded one: installing a signal handler replaces
+ * the default terminate-on-signal, so a shutdown step that never settles is a vm-manager that
+ * Ctrl+C cannot kill.
+ */
+const SHUTDOWN_TIMEOUT_MS = 5000
+
+/** Exit status when the node was killed before it finished releasing what it holds. */
+const EXIT_UNCLEAN = 1
+
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
 function createProvider(reportStatus: (workload: Workload) => void): IVmProvider {
@@ -221,16 +232,41 @@ async function start() {
     console.log(`Heartbeat started (every ${config.heartbeatIntervalMs / 1000}s)`)
 }
 
-// Graceful shutdown
+/**
+ * Stops the node on SIGINT or SIGTERM, releasing the log shipper and the server connection
+ * before the process exits. The process always exits, within SHUTDOWN_TIMEOUT_MS even when a
+ * step of the release hangs or fails.
+ */
 async function shutdown() {
-    console.log('Shutting down VM Manager...')
+    // `bun run <script>` forwards the signal the process group was already sent, so one Ctrl+C
+    // arrives here twice. The first call owns the shutdown; a repeat must not restart it.
+    if (shuttingDown) {
+        return
+    }
     shuttingDown = true
+    console.log('Shutting down VM Manager...')
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer)
     }
-    await alloyManager?.stop()
-    await Kinotic.disconnect()
-    process.exit(0)
+
+    const forceExit = setTimeout(() => {
+        console.warn(`Shutdown did not finish within ${SHUTDOWN_TIMEOUT_MS / 1000}s, exiting anyway`)
+        process.exit(EXIT_UNCLEAN)
+    }, SHUTDOWN_TIMEOUT_MS)
+    try {
+        await alloyManager?.stop()
+        // The DISCONNECT frame only means something on a live connection, and asking for one
+        // otherwise costs the whole timeout: EventBus serializes disconnect behind the connect
+        // in flight, and a node whose server is unreachable retries that connect forever.
+        if (Kinotic.eventBus.isConnected()) {
+            await Kinotic.disconnect()
+        }
+        clearTimeout(forceExit)
+        process.exit(0)
+    } catch (error) {
+        console.error('Shutdown failed:', error)
+        process.exit(EXIT_UNCLEAN)
+    }
 }
 
 process.on('SIGINT', shutdown)
