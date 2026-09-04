@@ -25,15 +25,14 @@
 
     <DataTable
       :value="traces"
-      :loading="loading"
       dataKey="traceId"
       size="small"
       selectionMode="single"
-      class="text-sm"
+      :class="['text-sm', { 'datatable-loading': loading }]"
       @row-select="openTrace($event.data)"
     >
       <template #empty>
-        <div class="py-6 text-center text-sm text-muted-color">No traces match in this range</div>
+        <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Searching traces…' : 'No traces match in this range' }}</div>
       </template>
       <Column header="Started" style="width: 12rem">
         <template #body="{ data }">
@@ -71,6 +70,7 @@ import InputNumber from 'primevue/inputnumber'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
 
+import '../../styles/datatable-loading.css'
 import DatetimeUtil from '../../util/DatetimeUtil'
 import { errorMessage } from '../../util/helpers'
 import TraceDetail from './TraceDetail.vue'

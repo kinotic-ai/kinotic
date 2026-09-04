@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from "vue";
 import { useRoute } from "vue-router";
+import "../styles/datatable-loading.css";
 
 import DataTable from "primevue/datatable";
 import Column from "primevue/column";
@@ -527,7 +528,7 @@ defineExpose({ find });
           <DataTable
             :class="[
               'crud-table__datatable',
-              { 'crud-table__datatable--loading': loading },
+              { 'datatable-loading': loading },
               displayRows.length > 0 ? 'min-h-0 flex-1' : ''
             ]"
             :pt="dataTablePt"
@@ -622,33 +623,6 @@ defineExpose({ find });
 </template>
 
 <style>
-/* While loading, an indeterminate line overlays the header row's bottom divider. */
-.crud-table__datatable--loading .p-datatable-thead {
-  position: relative;
-}
-
-.crud-table__datatable--loading .p-datatable-thead::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--p-primary-500), transparent);
-  background-size: 40% 100%;
-  background-repeat: no-repeat;
-  animation: crud-table-loading-slide 1.2s ease-in-out infinite;
-}
-
-@keyframes crud-table-loading-slide {
-  0% {
-    background-position: -100% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
 .p-datatable-paginator-bottom {
   border: none !important;
   box-shadow: none !important;
