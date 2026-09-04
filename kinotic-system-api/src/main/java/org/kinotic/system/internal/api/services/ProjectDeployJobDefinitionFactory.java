@@ -494,7 +494,7 @@ public class ProjectDeployJobDefinitionFactory {
 
     private Future<String> uploadUis(Project project, DeployTarget target, Organization organization, String commitSha) {
         return organizationStorageService.issueUploadUrl(organization, project.getApplicationId(), UPLOAD_URL_TTL)
-                .map(uploadUrl -> publishWorkload(project, target, organization, uploadUrl, commitSha))
+                .map(uploadUrl -> publishWorkload(project, target, uploadUrl, commitSha))
                 .compose(workloadOrchestrationService::deployWorkload)
                 .compose(finished -> requireSucceeded(finished, "UI publish"));
     }
@@ -612,7 +612,6 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private Workload publishWorkload(Project project,
                                      DeployTarget target,
-                                     Organization organization,
                                      String uploadUrl,
                                      String commitSha) {
         DeploymentProperties deployment = deployment();
@@ -631,7 +630,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(List.of(URI.create(organization.getStorage().getAzureBlobEndpoint()).getHost()));
+        workload.getNetwork().setAllowedHosts(List.of(URI.create(uploadUrl).getHost()));
         return workload;
     }
 

@@ -40,8 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Blob-SDK backed {@link OrganizationStorageService}. Reaches each organization's account at
  * its recorded blob endpoint as the server's Azure identity, which signs upload URLs with a
- * user delegation key; when an Azurite connection string is configured every organization is
- * reached through it instead, with its shared key.
+ * user delegation key; while the provisioner is disabled every organization is reached through
+ * the configured Azurite instead, with its shared key.
  */
 @Slf4j
 @Component
@@ -164,8 +164,10 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         return organization.getStorage();
     }
 
+    // The switch that selects MockOrganizationStorageProvisioner, which is what points organizations
+    // at the Azurite; a profile layered on development keeps the connection string regardless
     private boolean azurite() {
-        return properties().getAzuriteConnectionString() != null && !properties().getAzuriteConnectionString().isBlank();
+        return properties().isDisableProvisioner();
     }
 
     private OrganizationStorageProperties properties() {

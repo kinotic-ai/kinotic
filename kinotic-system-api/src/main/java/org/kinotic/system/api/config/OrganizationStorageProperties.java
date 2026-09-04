@@ -74,7 +74,8 @@ public class OrganizationStorageProperties {
     private String privateDnsZoneId;
 
     /**
-     * Connection string of the Azurite the mock provisioner points every organization at.
+     * Connection string of the Azurite the mock provisioner points every organization at, and
+     * that organization storage is reached through, while {@link #disableProvisioner} is true.
      */
     private String azuriteConnectionString;
 
