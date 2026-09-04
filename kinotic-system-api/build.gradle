@@ -31,3 +31,15 @@ dependencies {
     testImplementation 'io.projectreactor:reactor-test'
     testImplementation 'tools.jackson.core:jackson-databind'
 }
+
+// A developer's .env.local (written by deployment/terraform/azure/dev) carries the service
+// principal AzureProvisioningIntegrationTest runs as; without it the test skips itself
+tasks.named('test') {
+    def envLocal = rootProject.file('.env.local')
+    if (envLocal.exists()) {
+        envLocal.readLines().findAll { it ==~ /^[A-Z_][A-Z0-9_]*=.*/ }.each { line ->
+            def (key, value) = line.split('=', 2)
+            environment key, value
+        }
+    }
+}

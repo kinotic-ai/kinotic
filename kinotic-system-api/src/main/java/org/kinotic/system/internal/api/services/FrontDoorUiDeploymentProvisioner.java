@@ -68,7 +68,7 @@ import java.util.function.Supplier;
  * {@code <label>.<sitesDomain>}. What an organization's sites share is created with the
  * organization, once its storage is ready: an origin group on the storage account and a rule
  * set that routes requests naming a file to that file and everything else to
- * {@code index.html}, each with a read-only SAS on the {@code ui} container. Every site gets a custom domain with a managed
+ * {@code index.html}, each with a read-only SAS on the {@code sites} container. Every site gets a custom domain with a managed
  * certificate, its CNAME and validation TXT records in the platform's DNS zone, and a route
  * from its domain to the UI's prefix in the container. A site is provisioning until Front
  * Door has validated its hostname and deployed its certificate, which the provisioner keeps
@@ -272,6 +272,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
      */
     private static RuleInner rule(String name, String token) {
         boolean spa = SPA_RULE.equals(name);
+        // Front Door validates the destination as a literal that must begin with "/", and the
+        // url_path server variable expands without its leading slash
         return new RuleInner()
                 .withOrder(spa ? 2 : 1)
                 .withConditions(List.of(new DeliveryRuleUrlFileExtensionCondition()
@@ -282,7 +284,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                 .withActions(List.of(new UrlRewriteAction()
                         .withParameters(new UrlRewriteActionParameters()
                                 .withSourcePattern("/")
-                                .withDestination((spa ? "/index.html" : "{url_path}") + "?" + token)
+                                .withDestination((spa ? "/index.html" : "/{url_path}") + "?" + token)
                                 .withPreserveUnmatchedPath(false))))
                 .withMatchProcessingBehavior(MatchProcessingBehavior.STOP);
     }

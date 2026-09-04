@@ -51,6 +51,20 @@ The last command writes the `local` Spring profile, gitignored, which turns both
 on and names the resources above. `.env.local` at the repository root now carries the
 principal's credentials; if the file existed, its other lines are untouched.
 
+## Checking the setup
+
+Provision a fixed organization and one site from a test, before starting the server. It
+reads `application-local.yml`, takes the principal from `.env.local`, and reads back from Azure
+what each step created, so whatever Azure rejects fails naming the call:
+
+```bash
+cd ../../../..
+./gradlew :kinotic-system-api:test --tests '*AzureProvisioningIntegrationTest*'
+```
+
+It creates the storage account of `kinotic-azure-it` in the resource group and the site
+`azure-it.apps-<environment>.kinotic.ai`, and leaves them, so a second run is quick.
+
 ## Running the server
 
 Start kinotic-server with `.env.local` in its environment and both profiles active:
