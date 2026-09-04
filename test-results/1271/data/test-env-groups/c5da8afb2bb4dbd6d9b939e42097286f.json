@@ -1,1 +1,0 @@
-{"id":"c5da8afb2bb4dbd6d9b939e42097286f","fullName":"test/SpawnEngine.test.ts#Kinotic JS packages/spawn SpawnEngine fails when a spawn inherits but no loadInherited callback is provided","name":"fails when a spawn inherits but no loadInherited callback is provided","status":"passed","testResultsByEnv":{"default":"595439b339b7bafcf02cc8a6108c44b8"}}
