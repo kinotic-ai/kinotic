@@ -10,7 +10,7 @@ catalog:
   '@kinotic-ai/idl': ^5.0.0-beta.1
   '@kinotic-ai/management-api': ^5.0.0-beta.25
   '@kinotic-ai/persistence': ^5.0.0-beta.9
-  '@kinotic-ai/system-api': ^5.0.0-beta.8
+  '@kinotic-ai/system-api': ^5.0.0-beta.9
 
 allowBuilds:
   '@tailwindcss/oxide': true
