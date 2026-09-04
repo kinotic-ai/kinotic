@@ -10,7 +10,7 @@
         size="small"
         :disabled="span === CUSTOM_SPAN"
       />
-      <SelectButton v-model="span" :options="SPAN_OPTIONS" option-label="label" option-value="value"
+      <SelectButton v-model="span" :options="spanOptions" option-label="label" option-value="value"
                     :allow-empty="false" size="small" />
       <Select v-model="limit" :options="LIMIT_OPTIONS" option-label="label" option-value="value" size="small" />
       <Button label="Reload" icon="pi pi-refresh" severity="secondary" outlined size="small"
@@ -57,6 +57,7 @@ import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import { Kinotic } from '@kinotic-ai/core'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import DatetimeUtil from '../util/DatetimeUtil'
 import { errorMessage, parseJsonBytes } from '../util/helpers'
 import type { TimeRange } from './telemetry/TimeRange'
@@ -64,16 +65,28 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetry/telemetryApi'
 
 const props = defineProps<{
   workloadId: string
+  /**
+   * The workload's record, when the caller has it. A workload whose run has ended opens on
+   * the span of that run rather than the last hour, and does not follow, since nothing more
+   * is coming; the run is also offered as a span for a workload still running.
+   */
+  workload?: Workload
 }>()
 
-/** The span option that reveals the absolute range pickers; every other option is a preset's milliseconds. */
+/** The span option that reveals the absolute range pickers. */
 const CUSTOM_SPAN = 'custom'
-type Span = number | typeof CUSTOM_SPAN
+/** The span option covering the workload's run, from its creation to its end or to now. */
+const RUN_SPAN = 'run'
+/** A preset's milliseconds, or one of the named spans. */
+type Span = number | typeof CUSTOM_SPAN | typeof RUN_SPAN
 
-const SPAN_OPTIONS: { label: string; value: Span; description: string }[] = [
-  ...TIME_RANGE_PRESETS.map(preset => ({ label: preset.shortLabel, value: preset.ms, description: `in the ${preset.label.toLowerCase()}` })),
-  { label: 'Custom', value: CUSTOM_SPAN, description: 'in the selected range' }
-]
+// Log lines carry the VM's clock and ship after the fact, so the run's span reaches a little past both ends
+const RUN_MARGIN_MS = 60_000
+
+const PRESET_OPTIONS: { label: string; value: Span; description: string }[] =
+    TIME_RANGE_PRESETS.map(preset => ({ label: preset.shortLabel, value: preset.ms, description: `in the ${preset.label.toLowerCase()}` }))
+const RUN_OPTION = { label: 'Whole run', value: RUN_SPAN, description: 'over the workload\'s run' }
+const CUSTOM_OPTION = { label: 'Custom', value: CUSTOM_SPAN, description: 'in the selected range' }
 // Loki rejects a limit above its max_entries_limit_per_query, 5000 unless configured higher
 const LIMIT_OPTIONS = [500, 1000, 2000, 5000].map(value => ({ value, label: `${value.toLocaleString()} lines` }))
 // The VirtualScroller keeps the DOM viewport-sized regardless of buffer length, so the
@@ -88,10 +101,16 @@ interface LogLine {
   line: string
 }
 
+function isFinished(workload: Workload | undefined): boolean {
+  return workload?.status === WorkloadStatus.STOPPED || workload?.status === WorkloadStatus.FAILED
+}
+
+const spanOptions = computed(() => props.workload ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])
+
 // shallowRef: lines are immutable once parsed, so per-line reactive proxies buy nothing
 const lines = shallowRef<LogLine[]>([])
-const following = ref(true)
-const span = ref<Span>(TIME_RANGE_PRESETS[1]!.ms)
+const following = ref(!isFinished(props.workload))
+const span = ref<Span>(isFinished(props.workload) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
 const limit = ref(1000)
 const customStart = ref<Date | null>(null)
 const customEnd = ref<Date | null>(null)
@@ -111,7 +130,7 @@ const rangeDescription = computed(() => {
   if (span.value === CUSTOM_SPAN && range) {
     ret = `between ${DatetimeUtil.formatEpochDateTime(range.start)} and ${DatetimeUtil.formatEpochDateTime(range.end)}`
   } else {
-    ret = SPAN_OPTIONS.find(option => option.value === span.value)!.description
+    ret = spanOptions.value.find(option => option.value === span.value)!.description
   }
   return ret
 })
@@ -145,12 +164,22 @@ function resolveRange(): TimeRange | null {
   let ret: TimeRange | null
   if (typeof span.value === 'number') {
     ret = rangeEndingNow(span.value)
+  } else if (span.value === RUN_SPAN) {
+    ret = runRange()
   } else if (customStart.value && customEnd.value && customStart.value < customEnd.value) {
     ret = { start: customStart.value.getTime(), end: customEnd.value.getTime() }
   } else {
     ret = null
   }
   return ret
+}
+
+// From the workload's creation to its last status change once it has ended, or to now while it runs
+function runRange(): TimeRange {
+  const workload = props.workload
+  const start = workload?.created ?? Date.now() - TIME_RANGE_PRESETS[1]!.ms
+  const end = isFinished(workload) && workload?.updated ? workload.updated + RUN_MARGIN_MS : Date.now()
+  return { start: start - RUN_MARGIN_MS, end }
 }
 
 async function loadHistory() {
@@ -240,6 +269,14 @@ watch(span, selected => {
 })
 
 watch(limit, loadHistory)
+
+// A workload that ends while on screen has nothing more to tail; its run is what is left to read
+watch(() => isFinished(props.workload), finished => {
+  if (finished) {
+    following.value = false
+    span.value = RUN_SPAN
+  }
+})
 
 function onScroll(event: Event) {
   const el = event.target as HTMLElement
