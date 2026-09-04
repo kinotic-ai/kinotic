@@ -83,9 +83,9 @@ interface DelegateRow extends DescriptiveIdentifiable {
 
 const headers: CrudHeader[] = [
   { field: 'displayName', header: 'Name', sortable: false, width: '30%' },
-  { field: 'kind', header: 'Kind', sortable: false, width: '22%' },
+  { field: 'kind', header: 'Kind', sortable: false, width: '22%', optional: true },
   { field: 'status', header: 'Status', sortable: false, width: '18%' },
-  { field: 'created', header: 'First authorized', sortable: false, width: '30%' }
+  { field: 'created', header: 'First authorized', sortable: false, width: '30%', optional: true }
 ]
 
 const sessionsDialogVisible = ref(false)

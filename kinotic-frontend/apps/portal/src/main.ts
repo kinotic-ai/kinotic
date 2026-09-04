@@ -66,5 +66,4 @@ const app = createKinoticApp({
 CONTINUUM_UI.initialize(router);
 
 app.directive('styleclass', StyleClass)
-KinoticStates.getApplicationState().initialize(router)
 app.mount('#app')

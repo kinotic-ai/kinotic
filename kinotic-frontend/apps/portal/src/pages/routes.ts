@@ -1,141 +1,126 @@
-
 import { type RouteMeta, type RouteRecordRaw } from 'vue-router'
 import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
-function organizationSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
-  return { group: 'organization', section: 'Organization', label, icon, order }
+/**
+ * The portal's navigation has four scopes, each with its own sidebar group: the
+ * organization, one application, one project, and the signed-in account. A route's
+ * scope is the {@code sidebarGroup} of its layout record; the sidebar items are the
+ * routes that declare a {@link SidebarItemMeta} for that group. Pages opened from a
+ * list (a job run, an entity, a trace) nest under the list's path so the sidebar keeps
+ * the list highlighted and the page header can point back to it.
+ */
+
+const layout = () => import('@/layouts/LayoutForPage.vue')
+
+function organizationItem(label: string, icon: string, order: number, section: string): SidebarItemMeta {
+  return { group: 'organization', section, label, icon, order }
 }
 
-function accountSidebarItem(label: string, icon: string, order: number): SidebarItemMeta {
+function applicationItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+  return { group: 'application', section, label, icon, order }
+}
+
+function projectItem(label: string, icon: string, order: number): SidebarItemMeta {
+  return { group: 'project', label, icon, order }
+}
+
+function accountItem(label: string, icon: string, order: number): SidebarItemMeta {
   return { group: 'account', section: 'Account', label, icon, order }
 }
 
-function organizationPlaceholderRoute(path: string, name: string, title: string, description: string,
-                                      icon: string, order: number): RouteRecordRaw {
+/** A top-level organization page: its own layout record carrying the sidebar item. */
+function organizationPage(path: string, sidebar: SidebarItemMeta, children: RouteRecordRaw[]): RouteRecordRaw {
   return {
     path,
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      label: title,
-      sidebar: organizationSidebarItem(title, icon, order)
-    } as RouteMeta,
-    children: [
-      {
-        name,
-        path: '',
-        component: () => import('@/pages/OrganizationWorkspacePlaceholder.vue'),
-        props: {
-          title,
-          description
-        }
-      }
-    ]
+    component: layout,
+    meta: { sidebarGroup: 'organization', sidebar } as RouteMeta,
+    children
   }
 }
 
 const pageRoutes: RouteRecordRaw[] = [
-  {
-    path: '/applications',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'microchip.svg',
-      label: 'Applications',
-      sidebar: { group: 'organization', section: 'Workspace', label: 'Applications', icon: 'pi-th-large', order: 10 } as SidebarItemMeta
-    } as RouteMeta,
-    children: [
-      {
-        name: "applications",
-        path: '',
-        component: () => import('@/pages/ApplicationList.vue'),
-      },
-    ]
-  },
+  organizationPage('/applications', organizationItem('Applications', 'pi-th-large', 10, 'Organization'), [
+    {
+      name: 'applications',
+      path: '',
+      component: () => import('@/pages/ApplicationList.vue')
+    }
+  ]),
+
+  organizationPage('/jobs', organizationItem('Jobs', 'pi-list-check', 20, 'Organization'), [
+    {
+      name: 'jobs',
+      path: '',
+      component: () => import('@/pages/JobsPage.vue')
+    },
+    {
+      name: 'job-run',
+      path: ':jobRunId',
+      component: () => import('@/pages/JobRunPage.vue'),
+      props: true
+    }
+  ]),
+
+  organizationPage('/observability', organizationItem('Observability', 'pi-chart-line', 30, 'Organization'), [
+    {
+      name: 'organization-observability',
+      path: '',
+      component: () => import('@/pages/OrganizationObservabilityPage.vue')
+    },
+    {
+      name: 'organization-trace',
+      path: 'traces/:traceId',
+      component: () => import('@/pages/TracePage.vue'),
+      props: true
+    }
+  ]),
+
+  organizationPage('/members', organizationItem('Members', 'pi-users', 40, 'People & access'), [
+    {
+      name: 'organization-members',
+      path: '',
+      component: () => import('@/pages/MembersPage.vue'),
+      props: { applicationId: null }
+    }
+  ]),
+
+  organizationPage('/organization-settings', organizationItem('Organization settings', 'pi-cog', 50, 'Settings'), [
+    {
+      name: 'organization-settings',
+      path: '',
+      component: () => import('@/pages/OrganizationSettings.vue')
+    }
+  ]),
 
   {
-    path: '/jobs',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      sidebar: { group: 'organization', section: 'Workspace', label: 'Jobs', icon: 'pi-list-check', order: 15 } as SidebarItemMeta
-    } as RouteMeta,
+    path: '/graphql',
+    component: layout,
+    meta: { sidebarGroup: 'organization', fullWidth: true } as RouteMeta,
     children: [
       {
-        name: 'jobs',
+        name: 'graphql-playground',
         path: '',
-        component: () => import('@/pages/JobsPage.vue'),
-      },
-      {
-        name: 'job-run',
-        path: ':jobRunId',
-        component: () => import('@/pages/JobRunPage.vue'),
-        props: true,
-      },
-    ]
-  },
-
-  {
-    path: '/members',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      label: 'Members',
-      sidebar: organizationSidebarItem('Members', 'pi-users', 20)
-    } as RouteMeta,
-    children: [
-      {
-        name: 'organization-members',
-        path: '',
-        component: () => import('@/pages/MembersPage.vue'),
-        props: { applicationId: null }
+        component: () => import('@/pages/GraphQLPlayground.vue')
       }
     ]
   },
-  organizationPlaceholderRoute('/roles-permissions', 'organization-roles', 'Roles & permissions', 'Define roles and control access across your organization.', 'pi-shield', 30),
-  organizationPlaceholderRoute('/authentication-providers', 'organization-auth-providers', 'Authentication providers', 'Configure the identity providers available to this organization.', 'pi-key', 40),
-  organizationPlaceholderRoute('/identity-mapping', 'organization-identity-mapping', 'Identity mapping', 'Map external identities to your organization users and roles.', 'pi-sort-alt', 50),
-  {
-    path: '/organization-settings',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      label: 'Organization settings',
-      sidebar: organizationSidebarItem('Organization settings', 'pi-cog', 60)
-    } as RouteMeta,
-    children: [
-      {
-        name: 'organization-settings',
-        path: '',
-        component: () => import('@/pages/OrganizationSettings.vue')
-      }
-    ]
-  },
-  organizationPlaceholderRoute('/billing-plan', 'organization-billing-plan', 'Billing & plan', 'Review subscription, billing, and usage details for this organization.', 'pi-credit-card', 70),
 
   {
     path: '/account',
     redirect: '/account/profile',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      label: 'Account',
-      sidebarGroup: 'account'
-    } as RouteMeta,
+    component: layout,
+    meta: { sidebarGroup: 'account' } as RouteMeta,
     children: [
       {
         name: 'account-profile',
         path: 'profile',
-        meta: {
-          sidebar: accountSidebarItem('Profile', 'pi-user', 10)
-        } as RouteMeta,
+        meta: { sidebar: accountItem('Profile', 'pi-user', 10) } as RouteMeta,
         component: () => import('@/pages/ProfilePage.vue')
       },
       {
         name: 'account-connected-apps',
         path: 'connected-apps',
-        meta: {
-          sidebar: accountSidebarItem('Connected apps', 'pi-link', 20)
-        } as RouteMeta,
+        meta: { sidebar: accountItem('Connected apps', 'pi-link', 20) } as RouteMeta,
         component: () => import('@/pages/ConnectedAppsPage.vue')
       }
     ]
@@ -143,220 +128,157 @@ const pageRoutes: RouteRecordRaw[] = [
 
   {
     path: '/application/:applicationId',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      label: 'Application Details',
-      icon: 'microchip.svg',
-      // Children declare their own sidebar items; any without one still render
-      // this group's sidebar.
-      sidebarGroup: 'application'
-    }  as RouteMeta,
+    component: layout,
+    meta: { sidebarGroup: 'application' } as RouteMeta,
     children: [
       {
-        name: 'application-details',
+        name: 'application-overview',
         path: '',
-        meta: {
-          sidebar: { group: 'application', label: 'Overview', icon: 'pi-objects-column', order: 10 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/ApplicationDetails.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
+        meta: { sidebar: applicationItem('Overview', 'pi-objects-column', 10) } as RouteMeta,
+        component: () => import('@/pages/ApplicationOverview.vue'),
+        props: true
       },
       {
-        name: 'application-members',
-        path: 'members',
-        meta: {
-          sidebar: { group: 'application', label: 'Members', icon: 'pi pi-users', order: 50 } as SidebarItemMeta
-        } as RouteMeta,
+        name: 'application-projects',
+        path: 'projects',
+        meta: { sidebar: applicationItem('Projects', 'pi-folder', 20) } as RouteMeta,
+        component: () => import('@/pages/ProjectsPage.vue'),
+        props: true
+      },
+      {
+        name: 'application-entities',
+        path: 'entities',
+        meta: { sidebar: applicationItem('Entities', 'pi-table', 30) } as RouteMeta,
+        component: () => import('@/pages/ApplicationEntitiesPage.vue'),
+        props: true
+      },
+      {
+        name: 'application-entity',
+        path: 'entities/:entityDefinitionId',
+        component: () => import('@/pages/EntityDetailPage.vue'),
+        props: true
+      },
+      {
+        name: 'application-observability',
+        path: 'observability',
+        meta: { sidebar: applicationItem('Observability', 'pi-chart-line', 40) } as RouteMeta,
+        component: () => import('@/pages/ObservabilityPage.vue'),
+        props: true
+      },
+      {
+        name: 'application-trace',
+        path: 'observability/traces/:traceId',
+        component: () => import('@/pages/TracePage.vue'),
+        props: true
+      },
+      {
+        name: 'application-users',
+        path: 'users',
+        meta: { sidebar: applicationItem('Users', 'pi-users', 50, 'Access') } as RouteMeta,
         component: () => import('@/pages/MembersPage.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
+        props: true
       },
       {
         name: 'application-machines',
         path: 'machines',
-        meta: {
-          sidebar: { group: 'application', label: 'Machines', icon: 'pi pi-server', order: 55 } as SidebarItemMeta
-        } as RouteMeta,
+        meta: { sidebar: applicationItem('Machines', 'pi-server', 60, 'Access') } as RouteMeta,
         component: () => import('@/pages/MachinesPage.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
-      },
-      {
-        name: 'application-invite-email',
-        path: 'invite-email',
-        meta: {
-          sidebar: { group: 'application', label: 'Invitation email', icon: 'pi pi-envelope', order: 60 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/InviteEmailTemplatePage.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
+        props: true
       },
       {
         name: 'application-settings',
         path: 'settings',
-        meta: {
-          sidebar: { group: 'application', label: 'Application settings', icon: 'pi pi-cog', order: 70 } as SidebarItemMeta
-        } as RouteMeta,
+        meta: { sidebar: applicationItem('Settings', 'pi-cog', 70, 'Settings') } as RouteMeta,
         component: () => import('@/pages/ApplicationSettings.vue'),
-        props: (route) => ({ applicationId: route.params.applicationId })
+        props: true
       }
     ]
   },
+
   {
-    path: '/projects',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'folder.svg',
-      label: 'Projects',
-    } as RouteMeta,
-  },
-  {
-    path: '/application/:applicationId/project/:projectId/entity-definitions',
-    name: 'project-entity-definitions-wrapper',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'objects-column.svg',
-      label: 'Project Entities',
-      sidebarGroup: 'project'
-    } as RouteMeta,
+    path: '/application/:applicationId/project/:projectId',
+    component: layout,
+    meta: { sidebarGroup: 'project' } as RouteMeta,
     children: [
       {
-        name: 'project-entity-definitions',
+        name: 'project-overview',
         path: '',
-        meta: {
-          sidebar: { group: 'project', label: 'Entities', icon: 'pi pi-table', order: 10 } as SidebarItemMeta
-        } as RouteMeta,
-        component: () => import('@/pages/ProjectEntityDefinitionsPage.vue'),
-        props: (route) => ({
-          applicationId: route.params.applicationId,
-          projectId: route.params.projectId,
-        }),
+        meta: { sidebar: projectItem('Overview', 'pi-objects-column', 10) } as RouteMeta,
+        component: () => import('@/pages/ProjectOverview.vue'),
+        props: true
       },
-    ],
-  },
-  {
-    path: '/application/:applicationId/project/:projectId/deployment',
-    name: 'project-deployment-wrapper',
-    component: () => import('@/layouts/LayoutForPage.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'objects-column.svg',
-      label: 'Project Deployment',
-      sidebarGroup: 'project'
-    } as RouteMeta,
-    children: [
+      {
+        name: 'project-entities',
+        path: 'entities',
+        meta: { sidebar: projectItem('Entities', 'pi-table', 20) } as RouteMeta,
+        component: () => import('@/pages/ProjectEntitiesPage.vue'),
+        props: true
+      },
+      {
+        name: 'project-entity',
+        path: 'entities/:entityDefinitionId',
+        component: () => import('@/pages/EntityDetailPage.vue'),
+        props: true
+      },
       {
         name: 'project-deployment',
-        path: '',
-        meta: {
-          sidebar: { group: 'project', label: 'Deployment', icon: 'pi pi-cloud-upload', order: 20 } as SidebarItemMeta
-        } as RouteMeta,
+        path: 'deployment',
+        meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 30) } as RouteMeta,
         component: () => import('@/pages/ProjectDeploymentPage.vue'),
-        props: (route) => ({
-          applicationId: route.params.applicationId,
-          projectId: route.params.projectId,
-        }),
-      },
-    ],
+        props: true
+      }
+    ]
   },
+
   {
     path: '/new-entity-definition',
-    component: () => import('@/pages/NewEntityDefinition.vue'),
-    meta: {
-      showInMainNav: false,
-      label: 'New Entity',
-    } as RouteMeta,
-  },
-  {
-    path: '/settings',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: true,
-      icon: 'settings.svg',
-      label: 'Settings',
-    } as RouteMeta,
+    component: () => import('@/pages/NewEntityDefinition.vue')
   },
   {
     path: '/login',
     component: () => import('@/pages/login/LoginPage.vue'),
-    meta: {
-      showInMainNav: false,
-      authenticationRequired: false
-    } as RouteMeta,
+    meta: { authenticationRequired: false } as RouteMeta
   },
   {
     path: '/signup',
     component: () => import('@/pages/signup/GithubSignup.vue'),
-    meta: {
-      showInMainNav: false,
-      authenticationRequired: false
-    } as RouteMeta,
+    meta: { authenticationRequired: false } as RouteMeta
   },
   {
     path: '/signup/verify',
     component: () => import('@/pages/signup/VerifyEmail.vue'),
-    meta: {
-      showInMainNav: false,
-      authenticationRequired: false
-    } as RouteMeta,
+    meta: { authenticationRequired: false } as RouteMeta
   },
   {
     path: '/register',
     component: () => import('@/pages/signup/CompleteOrg.vue'),
-    meta: {
-      showInMainNav: false,
-      authenticationRequired: false
-    } as RouteMeta,
+    meta: { authenticationRequired: false } as RouteMeta
   },
   {
     path: '/invite/accept',
     component: () => import('@/pages/signup/AcceptInvitation.vue'),
-    meta: {
-      showInMainNav: false,
-      authenticationRequired: false
-    } as RouteMeta,
+    meta: { authenticationRequired: false } as RouteMeta
   },
   {
     path: '/device',
-    meta: {
-      authenticationRequired: true
-    },
-    component: () => import('@/pages/login/DeviceVerification.vue'),
+    meta: { authenticationRequired: true },
+    component: () => import('@/pages/login/DeviceVerification.vue')
   },
   {
     path: '/oauth/consent',
-    meta: {
-      authenticationRequired: true
-    },
-    component: () => import('@/pages/login/OAuthConsent.vue'),
-  },
-  {
-    path: '/graphql',
-    component: () => import('@/layouts/MainLayout.vue'),
-    meta: {
-      showInMainNav: false,
-      icon: 'objects-column.svg',
-      label: 'GraphQLPlayground',
-    } as RouteMeta,
-    children: [
-      {
-        name: "GraphQLPlayground",
-        path: '',
-        component: () => import('@/pages/GraphQLPlayground.vue'),
-      }
-    ]
+    meta: { authenticationRequired: true },
+    component: () => import('@/pages/login/OAuthConsent.vue')
   },
   {
     name: 'github-install-callback',
     path: '/github/install/callback',
     component: () => import('@/pages/GitHubInstallCallback.vue'),
     meta: {
-      showInMainNav: false,
       // Runs completeInstall against the platform, so the session must be present;
       // an unauthenticated hit bounces through /login and returns here via referer.
-      authenticationRequired: true,
-    } as RouteMeta,
-  },
-];
+      authenticationRequired: true
+    } as RouteMeta
+  }
+]
 
 export default pageRoutes

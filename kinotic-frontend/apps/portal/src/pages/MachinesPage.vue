@@ -117,9 +117,9 @@ const props = defineProps<{
 
 const headers: CrudHeader[] = [
   { field: 'displayName', header: 'Name', sortable: false, width: '26%' },
-  { field: 'clientId', header: 'Client ID', sortable: false, width: '34%' },
+  { field: 'clientId', header: 'Client ID', sortable: false, width: '34%', optional: true },
   { field: 'status', header: 'Status', sortable: false, width: '16%' },
-  { field: 'created', header: 'Created', sortable: false, width: '24%' }
+  { field: 'created', header: 'Created', sortable: false, width: '24%', optional: true }
 ]
 
 const createDialogVisible = ref(false)

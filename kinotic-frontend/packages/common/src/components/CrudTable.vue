@@ -16,7 +16,6 @@ import type { DataTableSortMeta } from "primevue/datatable";
 import Paginator, { type PageState } from "primevue/paginator";
 import SelectButton from "primevue/selectbutton";
 import Skeleton from "primevue/skeleton";
-import { useToast } from "primevue/usetoast";
 import { useConfirm } from "primevue/useconfirm";
 
 import {
@@ -100,7 +99,6 @@ const emit = defineEmits<{
   (e: "items-count", count: number): void;
 }>();
 
-const toast = useToast()
 const route = useRoute()
 
 function getRowClass() {
@@ -378,18 +376,7 @@ function find() {
     });
 }
 
-function displayAlert(text: string) {
-  toast.add({
-    severity: 'error',
-    summary: 'Error',
-    detail: text,
-    life: 3000
-  });
-}
-
-// displayAlert is exposed because ProjectEntityDefinitionsTable and EntityDefinitionsList
-// surface publish errors through their crudTable ref.
-defineExpose({ find, displayAlert });
+defineExpose({ find });
 </script>
 
 <template>
@@ -563,6 +550,8 @@ defineExpose({ find, displayAlert });
               :sortable="col.sortable !== false"
               :style="{ width: col.width }"
               :headerStyle="col.centered ? { textAlign: 'center' } : {}"
+              :headerClass="col.optional ? 'hidden md:table-cell' : undefined"
+              :bodyClass="col.optional ? 'hidden md:table-cell' : undefined"
             >
               <template #body="slotProps">
                 <div :class="['flex min-h-[48px] items-center', col.centered ? 'w-full justify-center' : '']">

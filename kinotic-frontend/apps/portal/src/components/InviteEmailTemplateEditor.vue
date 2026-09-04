@@ -1,8 +1,5 @@
 <template>
   <div class="invite-email-page">
-    <PageHeader title="Invitation email"
-                description="The email people receive when they are invited to join. Customize it or keep the platform default." />
-
     <div v-if="loading" class="flex justify-center py-12">
       <i class="pi pi-spin pi-spinner text-3xl text-primary-500"></i>
     </div>
@@ -68,7 +65,6 @@ import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
 import { InviteEmailTemplate } from '@kinotic-ai/management-api'
-import { PageHeader } from '@kinotic-ai/frontend-common'
 import { showErrorToast } from '@kinotic-ai/frontend-common'
 
 /**

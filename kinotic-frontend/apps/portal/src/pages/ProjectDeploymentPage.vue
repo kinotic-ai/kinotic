@@ -1,12 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Deployment">
-      <template #actions>
-        <Button v-if="deployment?.lastJobRunId"
-                label="View in jobs" icon="pi pi-external-link" severity="secondary" outlined
-                @click="router.push({ name: 'job-run', params: { jobRunId: deployment.lastJobRunId } })" />
-      </template>
-    </PageHeader>
+    <PageHeader title="Deployment" />
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
@@ -95,8 +89,6 @@
 
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-import Button from 'primevue/button'
 import Column from 'primevue/column'
 import ConfirmDialog from 'primevue/confirmdialog'
 import DataTable from 'primevue/datatable'
@@ -135,7 +127,6 @@ const props = defineProps<{
 
 const POLL_INTERVAL_MS = 5000
 
-const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
 const StatusType = DeploymentStatusType
