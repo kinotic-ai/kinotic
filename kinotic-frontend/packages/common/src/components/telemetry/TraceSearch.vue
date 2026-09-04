@@ -82,7 +82,8 @@ import { formatDuration } from './telemetryDisplay'
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
  * the one picked from the results: on the page {@code traceRoute} names when given, otherwise
- * in a dialog over the results.
+ * in a dialog over the results. searchErrors() narrows the search to the traces with a failed
+ * span and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
@@ -106,6 +107,8 @@ const filters = reactive<Omit<TraceFilters, 'applicationId'>>({
 
 const traces = ref<TraceSummary[]>([])
 const loading = ref(false)
+// Searches can overlap when the range or the filters change mid-flight; only the latest lands
+let searchSequence = 0
 const error = ref<string | null>(null)
 const selectedTraceId = ref<string | null>(null)
 const detailVisible = ref(false)
@@ -119,16 +122,29 @@ const detailHeader = computed(() => {
 })
 
 async function search() {
+  const sequence = ++searchSequence
   loading.value = true
   error.value = null
   try {
-    traces.value = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
+    const found = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
+    if (sequence === searchSequence) {
+      traces.value = found
+    }
   } catch (err) {
-    traces.value = []
-    error.value = errorMessage(err, 'Failed to search traces')
+    if (sequence === searchSequence) {
+      traces.value = []
+      error.value = errorMessage(err, 'Failed to search traces')
+    }
   } finally {
-    loading.value = false
+    if (sequence === searchSequence) {
+      loading.value = false
+    }
   }
+}
+
+function searchErrors() {
+  filters.onlyErrors = true
+  return search()
 }
 
 function openTrace(trace: TraceSummary) {
@@ -142,4 +158,6 @@ function openTrace(trace: TraceSummary) {
 
 // The panel replaces the range on every refresh and scope change, so it is the one trigger
 watch(() => props.range, search, { immediate: true })
+
+defineExpose({ searchErrors })
 </script>

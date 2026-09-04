@@ -16,7 +16,12 @@
         :loading="errors.loading"
         :error="errors.error"
         :format="formatPercent"
-      />
+      >
+        <template #action>
+          <Button label="Failed traces" icon="pi pi-arrow-right" icon-pos="right" size="small" severity="secondary" text
+                  @click="emit('show-failed-traces')" />
+        </template>
+      </MetricChart>
       <MetricChart
         title="Latency"
         description="95th percentile call duration, by service."
@@ -64,12 +69,17 @@ import { formatDuration, formatPercent, formatRate } from './telemetryDisplay'
 
 /**
  * The RED metrics of the organization's services — or of one application's — over the given
- * range, and a free PromQL query over the same tenant beneath them.
+ * range, and a free PromQL query over the same tenant beneath them. Emits show-failed-traces
+ * when the user asks to see the traces behind the error rate.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
   range: TimeRange
+}>()
+
+const emit = defineEmits<{
+  (e: 'show-failed-traces'): void
 }>()
 
 interface Panel {
