@@ -1,0 +1,1 @@
+{"id":"a36652283f09d6769ab48871ae5fc42a","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenNotIndexedOnTypeThatDisallowsIt_thenParseFailsNamingLineAndToken","name":"whenNotIndexedOnTypeThatDisallowsIt_thenParseFailsNamingLineAndToken()","status":"passed","testResultsByEnv":{"default":"e42326a330382b245e6ace4d0904a0c4"}}

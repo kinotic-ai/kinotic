@@ -1,0 +1,1 @@
+{"id":"0cd5e50e360fe7a1f46e72278d20f163","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenEmptyObjectAndArrayLiterals_thenEmptyMapAndList","name":"whenEmptyObjectAndArrayLiterals_thenEmptyMapAndList()","status":"passed","testResultsByEnv":{"default":"4f49f79c25af618b48fe3a93e2999397"}}

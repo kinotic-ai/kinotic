@@ -1,0 +1,1 @@
+{"id":"4cd0575353afd22ce10c93cb4bf6d307","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Async methods without scope should invoke multiArgs with multiple args asynchronously","name":"should invoke multiArgs with multiple args asynchronously","status":"passed","testResultsByEnv":{"default":"27bf3ab38a42284f95af44f306f5a5ed"}}
