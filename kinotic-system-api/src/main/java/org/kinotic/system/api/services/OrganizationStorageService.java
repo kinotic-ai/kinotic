@@ -1,6 +1,7 @@
 package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 
 import java.time.Duration;
@@ -9,7 +10,7 @@ import java.util.List;
 /**
  * The data plane of an organization's storage: what the platform does with the blobs in the
  * {@code ui} container of an organization whose storage is
- * {@link org.kinotic.domain.api.model.OrganizationStorageStatusType#READY}. Prefixes are paths
+ * {@link org.kinotic.domain.api.model.DeploymentStatusType#READY}. Prefixes are paths
  * within that container, as {@link UiStoragePaths} builds them.
  */
 public interface OrganizationStorageService {

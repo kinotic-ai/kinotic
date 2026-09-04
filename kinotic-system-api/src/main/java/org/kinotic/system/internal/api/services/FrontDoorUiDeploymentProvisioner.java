@@ -21,7 +21,6 @@ import com.azure.resourcemanager.cdn.models.AfdQueryStringCachingBehavior;
 import com.azure.resourcemanager.cdn.models.AfdRouteCacheConfiguration;
 import com.azure.resourcemanager.cdn.models.CompressionSettings;
 import com.azure.resourcemanager.cdn.models.DeliveryRuleUrlFileExtensionCondition;
-import com.azure.resourcemanager.cdn.models.DeploymentStatus;
 import com.azure.resourcemanager.cdn.models.DomainValidationState;
 import com.azure.resourcemanager.cdn.models.EnabledState;
 import com.azure.resourcemanager.cdn.models.ForwardingProtocol;
@@ -43,12 +42,12 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.UiDeploymentStatus;
-import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.kinotic.system.api.services.OrganizationStorageService;
@@ -144,11 +143,11 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                 .recover(error -> {
                     log.error("Site {} could not be provisioned", hostname, error);
                     return Future.succeededFuture(deployment.setStatus(
-                            new UiDeploymentStatus(UiDeploymentStatusType.FAILED, error.getMessage())));
+                            new DeploymentStatus(DeploymentStatusType.FAILED, error.getMessage())));
                 })
                 .onSuccess(row -> {
                     log.info("Site {} is {}", hostname, row.getStatus().type());
-                    if (row.getStatus().type() == UiDeploymentStatusType.PROVISIONING) {
+                    if (row.getStatus().type() == DeploymentStatusType.PROVISIONING) {
                         schedulePoll(label, System.currentTimeMillis() + POLL_TIMEOUT_MS);
                     }
                 });
@@ -160,7 +159,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         ensureClients();
         return AzureUtil.toFuture(AzureUtil.emptyIfNotFound(cdn.getAfdCustomDomains().getAsync(resourceGroup, profileName, deployment.getId())), vertx)
                         .map(domain -> deployment.setStatus(domain == null
-                        ? new UiDeploymentStatus(UiDeploymentStatusType.FAILED,
+                        ? new DeploymentStatus(DeploymentStatusType.FAILED,
                                                  "The site's domain no longer exists; retry provisioning to create it again")
                         : statusOf(domain)));
     }
@@ -409,16 +408,16 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         return ret;
     }
 
-    private static UiDeploymentStatus statusOf(AfdDomainInner domain) {
+    private static DeploymentStatus statusOf(AfdDomainInner domain) {
         DomainValidationState validation = domain.domainValidationState();
-        UiDeploymentStatus ret;
-        if (DomainValidationState.APPROVED.equals(validation) && DeploymentStatus.SUCCEEDED.equals(domain.deploymentStatus())) {
-            ret = new UiDeploymentStatus(UiDeploymentStatusType.READY);
+        DeploymentStatus ret;
+        if (DomainValidationState.APPROVED.equals(validation) && com.azure.resourcemanager.cdn.models.DeploymentStatus.SUCCEEDED.equals(domain.deploymentStatus())) {
+            ret = new DeploymentStatus(DeploymentStatusType.READY);
         } else if (validationLapsed(validation) || DomainValidationState.INTERNAL_ERROR.equals(validation)) {
-            ret = new UiDeploymentStatus(UiDeploymentStatusType.FAILED, "Validation of " + domain.hostname() + " "
+            ret = new DeploymentStatus(DeploymentStatusType.FAILED, "Validation of " + domain.hostname() + " "
                     + validation + "; retry provisioning to validate again");
         } else {
-            ret = new UiDeploymentStatus(UiDeploymentStatusType.PROVISIONING);
+            ret = new DeploymentStatus(DeploymentStatusType.PROVISIONING);
         }
         return ret;
     }
@@ -433,12 +432,12 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
              .compose(v -> uiDeploymentRepository.findById(label))
              .compose(row -> {
                  Future<Void> ret;
-                 if (row == null || row.getStatus().type() != UiDeploymentStatusType.PROVISIONING) {
+                 if (row == null || row.getStatus().type() != DeploymentStatusType.PROVISIONING) {
                      ret = Future.succeededFuture();
                  } else {
                      ret = checkProvisioning(row).compose(checked -> {
                          Future<Void> saved;
-                         if (checked.getStatus().type() != UiDeploymentStatusType.PROVISIONING) {
+                         if (checked.getStatus().type() != DeploymentStatusType.PROVISIONING) {
                              log.info("Site {} is {}", properties().resolveHostname(label), checked.getStatus().type());
                              saved = uiDeploymentRepository.save(checked.setUpdated(new Date())).mapEmpty();
                          } else if (System.currentTimeMillis() < deadline) {

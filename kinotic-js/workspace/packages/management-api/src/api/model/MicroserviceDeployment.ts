@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import type { MicroserviceDeploymentStatus } from '@/api/model/MicroserviceDeploymentStatus'
+import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
 
 /**
  * The standing deployment of one microservice artifact of a Project: the VM running it, the
@@ -53,7 +53,7 @@ export class MicroserviceDeployment implements Identifiable<string> {
      */
     public commitSha: string | null = null
 
-    public status!: MicroserviceDeploymentStatus
+    public status!: DeploymentStatus
 
     public created: number | null = null
 
