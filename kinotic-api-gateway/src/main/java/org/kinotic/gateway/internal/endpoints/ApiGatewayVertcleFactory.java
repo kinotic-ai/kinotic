@@ -1,7 +1,6 @@
 package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.stomp.lite.StompServerHandlerFactory;
@@ -66,7 +65,7 @@ public class ApiGatewayVertcleFactory {
                       .setSessionCookieName(EventConstants.SESSION_COOKIE_NAME)
                       .setCookieHttpOnlyFlag(true)
                       .setCookieSecureFlag(true)
-                      .setCookieSameSite(CookieSameSite.LAX)
+                      .setCookieSameSite(properties.getApiGateway().getSessionCookieSameSite())
                       .setSessionTimeout(properties.getApiGateway().getSessionTimeout())
                       .setLazySession(true);
 
