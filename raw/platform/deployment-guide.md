@@ -44,7 +44,7 @@ account shares: the `rg-<prefix>-org-storage` resource group the accounts are cr
 `private-endpoints` subnet in the platform VNet (`private_endpoint_subnet_cidr` in
 `terraform.tfvars`), and the `privatelink.blob.core.windows.net` private DNS zone linked to
 that VNet. The accounts themselves are created at runtime by kinotic-server, one per
-organization, the first time a deployment publishes a UI. `keyvault.tf` grants the
+organization, when the organization is created. `keyvault.tf` grants the
 kinotic-server identity the roles that takes on the resource group (Storage Account
 Contributor, Storage Blob Data Contributor, Network Contributor), on the subnet (Network
 Contributor, to join it) and on the DNS zone (Private DNS Zone Contributor), and
@@ -63,3 +63,8 @@ identity CDN Profile Contributor on the profile and DNS Zone Contributor on the 
 `kinotic.tf` passes the profile, endpoint and zone as `KINOTIC_SYSTEMAPI_UIDEPLOYMENT_*`
 environment variables (see [Configuration](/platform/configuration#ui-sites)). The
 `kinotic-server` values file for development disables the provisioner instead.
+
+A developer machine gets the same two pieces from `deployment/terraform/azure/dev`: a resource
+group for the accounts and a Front Door profile and endpoint under `apps-<environment>.<zone>`,
+with no VNet, so the server there runs with private endpoints disabled. The
+[contributing guide](/platform/contributing#publishing-uis-against-azure) walks through it.

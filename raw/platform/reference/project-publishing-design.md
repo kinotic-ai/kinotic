@@ -192,11 +192,13 @@ One storage account per organization, named `"kin" + hex(sha256(organizationId))
 StorageV2, LRS, hierarchical namespace on, TLS 1.2, `allowBlobPublicAccess=false`, public
 network access open (Front Door reads from addresses the storage firewall cannot name, and
 every read is authorized by the SAS its rule set carries), a private endpoint in the platform
-VNet registered in `privatelink.blob.core.windows.net`, tagged `org=<id>`. It holds one
-container, `ui`.
+VNet registered in `privatelink.blob.core.windows.net` unless
+`kinotic.systemApi.organizationStorage.disablePrivateEndpoint` is set, as it is where the server
+runs outside the VNet, tagged `org=<id>`. It holds one container, `ui`.
 
 Recorded on `Organization.storage`, an `OrganizationStorage`: `subscriptionId`, `accountName`,
-`blobEndpoint`, `privateEndpointIp` and `status` (`PROVISIONING`, `READY` or `FAILED`, with a
+`blobEndpoint`, `publishHost` (the private endpoint's address, or the account's public host
+without one) and `status` (`PROVISIONING`, `READY` or `FAILED`, with a
 message). Provisioning is a grind job, `provision-organization-<id>`, with a **Provision
 storage** task and a **Prepare Front Door** task, both idempotent, owned by the organization
 and recorded on it as `provisioningJobRunId`. `OrganizationService.provision` runs every
@@ -276,7 +278,7 @@ The publish workload is named `project-ui-publish-<projectId>`, with id
 the same image in the foreground with entrypoint `bun src/publish-ui.ts`, the checkout mounted
 read-only at `/workspace`, env `KINOTIC_UI_COMMIT`, and the secret `KINOTIC_UI_UPLOAD_URL` =
 `<blob endpoint>/ui/prod/<app>/ui?<container SAS, create+write, TTL the run>`. Its allowed
-hosts are the organization's `storage.privateEndpointIp` only; it carries no Kinotic
+hosts are the organization's `storage.publishHost` only; it carries no Kinotic
 credentials and no machine identity, is kept after its run, and is retired by the next run's
 `resolveTarget`. Its exit check is the one `syncSource` uses, extracted to one method with two
 consumers. `publish-ui.ts` uploads, per UI, everything in `dist` except `index.html` under
@@ -302,7 +304,8 @@ exported by `@kinotic-ai/core`. There is no push mechanism.
 ## Properties and dependencies
 
 `kinotic.systemApi.organizationStorage.*`: `subscriptionIds`, `resourceGroup`, `location`,
-`privateEndpointSubnetId`, `privateDnsZoneId`, `azuriteConnectionString`, `disableProvisioner`.
+`privateEndpointSubnetId`, `privateDnsZoneId`, `azuriteConnectionString`, `disableProvisioner`,
+`disablePrivateEndpoint`.
 `kinotic.systemApi.uiDeployment.*`: `sitesDomain`, `dnsZoneId`, `frontDoorProfileId`,
 `frontDoorEndpointHostName`, `disableProvisioner`. Nothing else is a property.
 
@@ -339,7 +342,8 @@ identity; `findProjectMachines` lists the sync identity then one per microservic
 `DeploymentOperationsProxy`, and the portal's deployment page: a microservices table with logs, restart and remove, and the
 machines labelled by the deployment that records them.
 - **Organization storage.** `AzureOrganizationStorageProvisioner` creates the account, the
-`ui` container, and the private endpoint with its DNS zone group, recording the outcome on
+`ui` container, and, unless `disablePrivateEndpoint` is set, the private endpoint with its
+DNS zone group, recording the outcome on
 `Organization` with a status of `PROVISIONING`, `READY` or `FAILED`. It is the first task
 of the `provision-organization-<id>` job that `DeploymentOperationsService` runs on the
 system server when the organization is created, asked through the proxy by
@@ -350,7 +354,9 @@ not ready.
 `MockOrganizationStorageProvisioner` points every
 organization at Azurite. Terraform owns the resource group, private-endpoints subnet, private DNS zone and the
 kinotic-server roles. The account's public network stays open, with anonymous access off,
-so Front Door can read it; the platform comes in through the private endpoint.
+so Front Door can read it; the platform comes in through the private endpoint, or over the
+public endpoint where it has none. A developer runs the real path against their own
+subscription with the `deployment/terraform/azure/dev` root and the `local` profile.
 - **UIs built in the sync VM.** After the entity sync, `sync.ts` runs `bun run build` in
 every UI artifact with `KINOTIC_UI_BASE_PATH`, `KINOTIC_UI_COMMIT` and
 `KINOTIC_UI_SERVER_URL`, the last placed on the sync workload from
@@ -364,7 +370,7 @@ ready at once.
 - **The publish task.** The deploy job's fifth task, **Publish UIs**, runs
 `project-ui-publish-<projectId>` under `DeployTarget.uiPublishWorkloadId` with
 `publish-ui.ts`, the checkout read-only, `KINOTIC_UI_COMMIT`, the secret
-`KINOTIC_UI_UPLOAD_URL` (a one-hour container SAS) and the storage's private address as its
+`KINOTIC_UI_UPLOAD_URL` (a one-hour container SAS) and the storage's publish host as its
 only egress, then finalizes: mints labels with numeric suffixes on collision, provisions new
 sites, adopts returning ones, orphans vanished ones, keeps the current and previous commit
 directories and deletes the rest. The exit check is shared with the sync task, and the

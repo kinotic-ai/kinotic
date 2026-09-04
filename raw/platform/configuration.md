@@ -894,6 +894,24 @@ configured under `kinotic.systemApi.organizationStorage.*`:
   <tr>
     <td>
       <code>
+        disablePrivateEndpoint
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true no private endpoint is created and the platform reaches each account over its public endpoint, as a server outside the platform VNet, such as a developer machine, must
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         subscriptionIds
       </code>
     </td>
@@ -953,7 +971,11 @@ configured under `kinotic.systemApi.organizationStorage.*`:
     </td>
     
     <td>
-      Id of the subnet in the platform VNet each account's private endpoint is placed in. Required
+      Id of the subnet in the platform VNet each account's private endpoint is placed in. Required unless <code>
+        disablePrivateEndpoint
+      </code>
+      
+       is true
     </td>
   </tr>
   
@@ -973,7 +995,11 @@ configured under `kinotic.systemApi.organizationStorage.*`:
         privatelink.blob.core.windows.net
       </code>
       
-       private DNS zone each account is registered in. Required
+       private DNS zone each account is registered in. Required unless <code>
+        disablePrivateEndpoint
+      </code>
+      
+       is true
     </td>
   </tr>
   
@@ -999,8 +1025,10 @@ The required settings are validated at boot, like the GitHub App settings, so an
 that disables the provisioner still sets them, to placeholders; nothing reads them while it
 is disabled. In the Azure deployment, terraform creates the resource group, subnet and
 private DNS zone and passes their ids to the server (see the
-[deployment guide](/platform/deployment-guide)); the development profile disables the
-provisioner and points at a local Azurite.
+[deployment guide](/platform/deployment-guide)). The development profile disables the
+provisioner, points at a local Azurite and disables private endpoints; a developer who wants
+the real path adds the `local` profile with their own subscription, as the
+[contributing guide](/platform/contributing#publishing-uis-against-azure) describes.
 
 ## UI sites
 
@@ -1119,7 +1147,9 @@ Azure Front Door, configured under `kinotic.systemApi.uiDeployment.*`:
 
 Like organization storage, the required settings are validated at boot, and an environment
 that disables the provisioner sets them to placeholders. In the Azure deployment terraform creates the profile and endpoint and passes them to the
-server; the development profile disables the provisioner. Front Door reads an organization's
+server; the development profile disables the provisioner, and the `local` profile of the
+[contributing guide](/platform/contributing#publishing-uis-against-azure) enables it against a
+developer's own profile. Front Door reads an organization's
 storage with a read-only container SAS its rule set carries, signed with the account key and
 written again whenever a site of the organization is provisioned; the account's public
 network is open to it, with anonymous access off.
