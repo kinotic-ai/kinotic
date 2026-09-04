@@ -7,17 +7,16 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationStorage;
-import org.kinotic.domain.api.model.OrganizationStorageStatus;
-import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
 import java.util.Date;
 
 /**
@@ -49,17 +48,15 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
                     Future<Organization> ret;
                     if (organization.getStorage() != null
                             && organization.getStorage().getStatus() != null
-                            && organization.getStorage().getStatus().type() == OrganizationStorageStatusType.READY) {
+                            && organization.getStorage().getStatus().type() == DeploymentStatusType.READY) {
                         ret = Future.succeededFuture(organization);
                     } else {
                         ret = AzureUtil.toFuture(blobService.createBlobContainerIfNotExists(UI_CONTAINER), vertx)
                                        .compose(container -> {
-                                           URI endpoint = URI.create(blobService.getAccountUrl());
                                            organization.setStorage(new OrganizationStorage()
-                                                               .setAccountName(blobService.getAccountName())
-                                                               .setBlobEndpoint(blobService.getAccountUrl())
-                                                               .setPrivateEndpointIp(endpoint.getHost())
-                                                               .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY)))
+                                                               .setAzureAccountName(blobService.getAccountName())
+                                                               .setAzureBlobEndpoint(blobService.getAccountUrl())
+                                                               .setStatus(new DeploymentStatus(DeploymentStatusType.READY)))
                                                        .setUpdated(new Date());
                                            log.debug("MockOrganizationStorageProvisioner pointed organization {} at {}",
                                                      organizationId, blobService.getAccountUrl());

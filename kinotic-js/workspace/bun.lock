@@ -59,7 +59,7 @@
     },
     "packages/management-api": {
       "name": "@kinotic-ai/management-api",
-      "version": "5.0.0-beta.26",
+      "version": "5.0.0-beta.28",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -72,7 +72,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
       },
     },
     "packages/persistence": {
@@ -89,7 +89,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
       },
     },
     "packages/spawn": {
@@ -108,17 +108,16 @@
     },
     "packages/system-api": {
       "name": "@kinotic-ai/system-api",
-      "version": "5.0.0-beta.10",
-      "dependencies": {
-        "@kinotic-ai/management-api": "workspace:^",
-      },
+      "version": "5.0.0-beta.11",
       "devDependencies": {
         "@kinotic-ai/core": "workspace:*",
+        "@kinotic-ai/management-api": "workspace:*",
         "@types/bun": "^1.3.9",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
+        "@kinotic-ai/management-api": "workspace:^",
       },
     },
     "packages/vm-manager": {
@@ -137,9 +136,9 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
-        "@kinotic-ai/management-api": ">=5.0.0-beta.25",
-        "@kinotic-ai/system-api": ">=5.0.0-beta.7",
+        "@kinotic-ai/core": "workspace:^",
+        "@kinotic-ai/management-api": "workspace:^",
+        "@kinotic-ai/system-api": "workspace:^",
       },
     },
   },

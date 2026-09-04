@@ -1,6 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
-import type { ProjectDeploymentStatus } from '@/api/model/ProjectDeploymentStatus'
+import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
 
 /**
  * Records where a Project's code is deployed: the node holding the checkout, the sync workload
@@ -70,7 +70,7 @@ export class ProjectDeployment implements Identifiable<string> {
      */
     public lastJobRunId: string | null = null
 
-    public status!: ProjectDeploymentStatus
+    public status!: DeploymentStatus
 
     public created: number | null = null
 

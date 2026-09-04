@@ -6,9 +6,10 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
- * An organization's storage: the one account everything its deployments publish goes to,
- * and where that account is in its lifecycle. Held by {@link Organization} once a deployment
- * has first needed it; the account's details fill in as provisioning progresses.
+ * An organization's storage: the one Azure storage account everything its deployments publish
+ * goes to, and where that account is in its lifecycle. Held by {@link Organization} once its
+ * provisioning job has started; the account's details fill in as provisioning progresses. In
+ * development an Azurite stands in for the account and fills the same fields.
  */
 @Getter
 @Setter
@@ -17,30 +18,25 @@ import lombok.experimental.Accessors;
 public class OrganizationStorage {
 
     /**
-     * The Azure subscription holding the account, or {@code null} when it is not hosted in
-     * Azure.
+     * The Azure subscription holding the account, or {@code null} when an Azurite stands in
+     * for it.
      */
-    private String subscriptionId;
+    private String azureSubscriptionId;
 
     /**
-     * The name of the account.
+     * The name of the storage account.
      */
-    private String accountName;
+    private String azureAccountName;
 
     /**
-     * The blob service endpoint of the account, or {@code null} until it exists.
+     * The blob service endpoint of the account, {@code https://<account>.blob.core.windows.net/},
+     * or {@code null} until it exists. Its hostname is where workloads reach the account.
      */
-    private String blobEndpoint;
-
-    /**
-     * The address the account answers on inside the platform network, which is the one
-     * destination a publish workload may reach, or {@code null} until it exists.
-     */
-    private String privateEndpointIp;
+    private String azureBlobEndpoint;
 
     /**
      * Where the storage is in its lifecycle.
      */
-    private OrganizationStorageStatus status;
+    private DeploymentStatus status;
 
 }

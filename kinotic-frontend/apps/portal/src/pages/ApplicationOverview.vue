@@ -75,7 +75,7 @@ import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { type Project, ProjectDeploymentStatusType, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
+import { type Project, DeploymentStatusType, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
 import { createDebug, DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -108,14 +108,14 @@ const application = computed(() => {
 
 const projects = ref<Project[]>([])
 const loadingProjects = ref(true)
-const deploymentStatus = ref<Record<string, ProjectDeploymentStatusType>>({})
+const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
 const usersCount = ref<number | null>(null)
 const machinesCount = ref<number | null>(null)
 
 const tiles = computed(() => {
   const countsLoaded = application.value !== null && APPLICATION_STATE.countsLoaded
-  const deploying = Object.values(deploymentStatus.value).filter(s => s === ProjectDeploymentStatusType.DEPLOYING).length
-  const failed = Object.values(deploymentStatus.value).filter(s => s === ProjectDeploymentStatusType.FAILED).length
+  const deploying = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.DEPLOYING).length
+  const failed = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.FAILED).length
   let health: string
   if (failed > 0) {
     health = `${failed} failed`

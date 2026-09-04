@@ -5,10 +5,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.services.DeploymentOperationsProxy;
 import org.kinotic.management.api.services.UiDeploymentService;
@@ -50,7 +50,7 @@ public class DefaultUiDeploymentService implements UiDeploymentService {
     }
 
     private static boolean staleProvisioning(UiDeployment deployment) {
-        return deployment.getStatus().type() == UiDeploymentStatusType.PROVISIONING
+        return deployment.getStatus().type() == DeploymentStatusType.PROVISIONING
                 && deployment.getUpdated() != null
                 && deployment.getUpdated().getTime() < System.currentTimeMillis() - STALE_PROVISIONING_MS;
     }

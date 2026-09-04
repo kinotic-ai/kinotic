@@ -89,9 +89,9 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         } else {
             OrganizationStorage storage = requireStorage(organization);
             ret = AzureUtil.toFuture(accountKey(organization).map(key -> new BlobContainerClientBuilder()
-                    .endpoint(storage.getBlobEndpoint())
+                    .endpoint(storage.getAzureBlobEndpoint())
                     .containerName(OrganizationStorageProvisioner.UI_CONTAINER)
-                    .credential(new StorageSharedKeyCredential(storage.getAccountName(), key))
+                    .credential(new StorageSharedKeyCredential(storage.getAzureAccountName(), key))
                     .buildAsyncClient()
                     .generateSas(values)), vertx);
         }
@@ -102,12 +102,12 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     // Contributor on the resource group every organization account is created in
     private Mono<String> accountKey(Organization organization) {
         OrganizationStorage storage = requireStorage(organization);
-        Validate.notBlank(storage.getSubscriptionId(), "Organization %s has no storage subscription recorded", organization.getId());
-        Validate.notBlank(storage.getAccountName(), "Organization %s has no storage account recorded", organization.getId());
-        AzureProfile profile = new AzureProfile(null, storage.getSubscriptionId(), AzureEnvironment.AZURE);
+        Validate.notBlank(storage.getAzureSubscriptionId(), "Organization %s has no storage subscription recorded", organization.getId());
+        Validate.notBlank(storage.getAzureAccountName(), "Organization %s has no storage account recorded", organization.getId());
+        AzureProfile profile = new AzureProfile(null, storage.getAzureSubscriptionId(), AzureEnvironment.AZURE);
         return StorageManager.authenticate(credential, profile)
                              .storageAccounts()
-                             .getByResourceGroupAsync(properties().getResourceGroup(), storage.getAccountName())
+                             .getByResourceGroupAsync(properties().getResourceGroup(), storage.getAzureAccountName())
                              .flatMap(StorageAccount::getKeysAsync)
                              .map(keys -> keys.getFirst().value());
     }
@@ -146,7 +146,7 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
 
     private BlobServiceAsyncClient service(Organization organization) {
         OrganizationStorage storage = requireStorage(organization);
-        return clientsByEndpoint.computeIfAbsent(storage.getBlobEndpoint(), endpoint -> {
+        return clientsByEndpoint.computeIfAbsent(storage.getAzureBlobEndpoint(), endpoint -> {
             BlobServiceClientBuilder builder = new BlobServiceClientBuilder();
             if (azurite()) {
                 builder.connectionString(properties().getAzuriteConnectionString());
@@ -159,7 +159,7 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
 
     private static OrganizationStorage requireStorage(Organization organization) {
         Validate.notNull(organization, "organization is required");
-        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
+        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getAzureBlobEndpoint() != null,
                         "Organization %s has no storage endpoint recorded", organization.getId());
         return organization.getStorage();
     }

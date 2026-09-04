@@ -1,11 +1,13 @@
 package org.kinotic.system.api.config;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,13 @@ public class OrganizationStorageProperties {
     private boolean disableProvisioner = false;
 
     /**
+     * When true no private endpoint is created and the platform reaches each account over
+     * its public endpoint, as a server outside the platform VNet, such as a developer machine,
+     * must. {@link #privateEndpointSubnetId} and {@link #privateDnsZoneId} are then unused.
+     */
+    private boolean disablePrivateEndpoint = false;
+
+    /**
      * The Azure subscriptions organization storage accounts are spread over. An organization's
      * account is created in one of them and stays there.
      */
@@ -53,20 +62,26 @@ public class OrganizationStorageProperties {
 
     /**
      * Id of the subnet in the platform VNet that each account's private endpoint is placed in.
+     * Required unless {@link #disablePrivateEndpoint} is true.
      */
-    @NotBlank
     private String privateEndpointSubnetId;
 
     /**
      * Id of the {@code privatelink.blob.core.windows.net} private DNS zone each account is
-     * registered in, linked to the platform VNet.
+     * registered in, linked to the platform VNet. Required unless
+     * {@link #disablePrivateEndpoint} is true.
      */
-    @NotBlank
     private String privateDnsZoneId;
 
     /**
      * Connection string of the Azurite the mock provisioner points every organization at.
      */
     private String azuriteConnectionString;
+
+    @AssertTrue(message = "privateEndpointSubnetId and privateDnsZoneId are required unless disablePrivateEndpoint is true")
+    public boolean isPrivateEndpointConfigured() {
+        return disablePrivateEndpoint
+                || (StringUtils.isNotBlank(privateEndpointSubnetId) && StringUtils.isNotBlank(privateDnsZoneId));
+    }
 
 }

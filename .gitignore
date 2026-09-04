@@ -5,6 +5,7 @@ kinotic-frontend/apps/portal/public/config/app-config.override.json
 kinotic-frontend/apps/portal/public/config/app-config.json.local
 # Local service config overrides (not for source control)
 structures-server/src/main/resources/application-local.yml
+kinotic-server/src/main/resources/application-local.yml
 
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio and WebStorm
 # Reference: https://intellij-support.jetbrains.com/hc/en-us/articles/206544839
@@ -92,6 +93,9 @@ kinotic-js/workspace/packages/rpc/allure-report/
 kinotic-js/continuum-cli/
 
 terraform.tfstate
+terraform.tfstate.backup
+.terraform.tfstate.lock.info
+.terraform/
 
 .claude/worktrees/
 

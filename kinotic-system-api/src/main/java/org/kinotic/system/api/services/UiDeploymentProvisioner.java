@@ -1,13 +1,14 @@
 package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.UiDeployment;
 
 /**
  * Creates and removes what serves a published UI at its hostname. Provisioning is
  * asynchronous: {@link #provision} starts it and {@link #checkProvisioning} advances a
- * deployment left {@link org.kinotic.management.api.model.UiDeploymentStatusType#PROVISIONING}
+ * deployment left {@link DeploymentStatusType#PROVISIONING}
  * until it is ready or has failed.
  */
 public interface UiDeploymentProvisioner {

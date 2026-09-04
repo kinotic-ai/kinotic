@@ -17,15 +17,17 @@ kinotic:
       appPrivateKey: "-"
   systemApi:
     # UIs publish to a local Azurite (docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite)
-    # standing in for every organization's storage account
+    # standing in for every organization's storage account. To publish to a real subscription
+    # instead, run with the `local` profile as well and set the real values in the git-ignored
+    # application-local.yml (see the contributing guide, "Publishing UIs against Azure")
     organizationStorage:
       disableProvisioner: true
       # the Azure settings are validated at boot; nothing reads them while the provisioner is disabled
       subscriptionIds: ["-"]
       resourceGroup: "-"
       location: "-"
-      privateEndpointSubnetId: "-"
-      privateDnsZoneId: "-"
+      # A developer machine is outside any platform VNet, so it reaches the accounts publicly
+      disablePrivateEndpoint: true
       azuriteConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
     # No Front Door in development: published UIs are marked ready without a site
     uiDeployment:

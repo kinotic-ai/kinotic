@@ -13,13 +13,16 @@ const SPAN_METRIC_LATENCY = 'traces_spanmetrics_latency_bucket'
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
 
-/** The time ranges the telemetry views offer; the second is the one they open on. */
-export const TIME_RANGE_PRESETS: Array<{ label: string; ms: number }> = [
-    { label: 'Last 15 minutes', ms: 15 * 60_000 },
-    { label: 'Last hour', ms: 60 * 60_000 },
-    { label: 'Last 6 hours', ms: 6 * 60 * 60_000 },
-    { label: 'Last 24 hours', ms: 24 * 60 * 60_000 },
-    { label: 'Last 7 days', ms: 7 * 24 * 60 * 60_000 }
+/**
+ * The time ranges the telemetry and log views offer; the second is the one they open on.
+ * The label reads in a dropdown, the short label on a segmented button.
+ */
+export const TIME_RANGE_PRESETS: Array<{ label: string; shortLabel: string; ms: number }> = [
+    { label: 'Last 15 minutes', shortLabel: '15m', ms: 15 * 60_000 },
+    { label: 'Last hour', shortLabel: '1h', ms: 60 * 60_000 },
+    { label: 'Last 6 hours', shortLabel: '6h', ms: 6 * 60 * 60_000 },
+    { label: 'Last 24 hours', shortLabel: '24h', ms: 24 * 60 * 60_000 },
+    { label: 'Last 7 days', shortLabel: '7d', ms: 7 * 24 * 60 * 60_000 }
 ]
 
 export function rangeEndingNow(ms: number): TimeRange {

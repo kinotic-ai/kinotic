@@ -1,6 +1,7 @@
 package org.kinotic.management.api.model;
 
 import org.kinotic.domain.api.model.ApplicationScoped;
+import org.kinotic.domain.api.model.DeploymentStatus;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -83,7 +84,7 @@ public class ProjectDeployment implements ApplicationScoped<String> {
      */
     private String lastJobRunId;
 
-    private ProjectDeploymentStatus status;
+    private DeploymentStatus status;
 
     private Date created;
 
