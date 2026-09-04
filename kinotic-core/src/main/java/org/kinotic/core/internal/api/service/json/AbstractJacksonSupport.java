@@ -92,12 +92,16 @@ public abstract class AbstractJacksonSupport {
     }
 
     /**
-     * Transforms the JSON content to Java objects using the given expected parameter types
+     * Transforms the JSON content to Java objects using the given expected parameter types.
+     * Values the caller did not supply bind null, so a client that was built against a shorter
+     * parameter list still resolves. Every parameter that can hold null is therefore optional.
      * @param event the message containing the JSON content to be converted
      * @param parameters to determine the correct type for the {@link TokenBuffer} being decoded.
      * @param dataInArray if true the incoming data is expected to be within an array such as when decoding input arguments
      *
      * @return the deserialized JSON as Java objects
+     * @throws IllegalArgumentException if more values are supplied than there are parameters, or if
+     *         a primitive parameter has no value
      */
     protected Object[] createJavaObjectsFromJsonEvent(Event<byte[]> event, MethodParameter[] parameters, boolean dataInArray){
         Validate.notNull(event, "event must not be null");
@@ -140,10 +144,19 @@ public abstract class AbstractJacksonSupport {
 
                 ret.add(resolveParticipant(methodParameter));
 
-            } else {
-                if (tokenIdx >= tokenCount) {
+            } else if (tokenIdx >= tokenCount) {
+
+                // A trailing argument the caller left off binds null, the same way
+                // NamedJsonArgumentResolver treats an absent key. This is what lets a client built
+                // before a parameter was added keep invoking the method. A primitive cannot hold
+                // null, so leaving one off is still an error.
+                if (methodParameter.getParameterType().isPrimitive()) {
                     throw new IllegalArgumentException("Received too few json arguments, Expected: " + jsonParamCount + " Got: " + tokenCount);
                 }
+
+                ret.add(null);
+
+            } else {
 
                 Object arg = decodeInternal(tokens.get(tokenIdx), methodParameter);
                 ret.add(arg);

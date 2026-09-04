@@ -31,6 +31,12 @@ public interface RpcTestServiceProxy {
 
     Mono<String> concatString(String lhs, String rhs);
 
+    /**
+     * Declares one parameter fewer than {@link RpcTestService#concatWithOptionalSuffix(String, String)},
+     * so an invocation through this proxy is what a client built before the second parameter existed sends.
+     */
+    Mono<String> concatWithOptionalSuffix(String value);
+
     Mono<String> firstArgParticipant(String suffix);
 
     Mono<List<List<String>>> getAListOfLists(List<List<String>> inputList);
@@ -92,6 +98,12 @@ public interface RpcTestServiceProxy {
     Mono<Integer> putMapOfSimpleObjects(Map<String, SimpleObject> simpleObjects);
 
     Mono<Integer> putNestedGenerics(List<Map<String, Set<SimpleObject>>> objects);
+
+    /**
+     * Leaves off the primitive {@code times} parameter of {@link RpcTestService#repeatString(String, int)},
+     * which no value can be omitted for.
+     */
+    Mono<String> repeatString(String value);
 
     Mono<String> echoTokenBuffer(TokenBuffer tokenBuffer);
 }

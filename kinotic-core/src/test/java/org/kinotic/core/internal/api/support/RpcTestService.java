@@ -47,6 +47,8 @@ public interface RpcTestService {
 
     String concatString(String lhs, String rhs);
 
+    String concatWithOptionalSuffix(String value, String suffix);
+
     Mono<String> firstArgParticipant(Participant participant, String suffix);
 
     List<List<String>> getAListOfLists(List<List<String>> inputList);
@@ -108,6 +110,8 @@ public interface RpcTestService {
     Integer putMapOfSimpleObjects(Map<String, SimpleObject> simpleObjects);
 
     Integer putNestedGenerics(List<Map<String, Set<SimpleObject>>> objects);
+
+    String repeatString(String value, int times);
 
     String echoTokenBuffer(TokenBuffer tokenBuffer);
 

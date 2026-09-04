@@ -47,6 +47,11 @@ public class DefaultRpcTestService implements RpcTestService{
     }
 
     @Override
+    public String concatWithOptionalSuffix(String value, String suffix) {
+        return suffix == null ? value : value + suffix;
+    }
+
+    @Override
     public Mono<String> firstArgParticipant(Participant participant, String suffix){
         return Mono.just(participant.getId() + suffix);
     }
@@ -254,6 +259,11 @@ public class DefaultRpcTestService implements RpcTestService{
             }
         }
         return ret;
+    }
+
+    @Override
+    public String repeatString(String value, int times) {
+        return value.repeat(times);
     }
 
     @Override

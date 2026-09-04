@@ -124,6 +124,26 @@ public class RpcTests {
     }
 
     @Test
+    public void testOmittedTrailingArgumentBindsNull(){
+        Mono<String> mono = rpcTestServiceProxy.concatWithOptionalSuffix("Hello");
+
+        StepVerifier.create(mono)
+                    .expectNext("Hello")
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testOmittedPrimitiveArgumentFails(){
+        Mono<String> mono = rpcTestServiceProxy.repeatString("Hello");
+
+        StepVerifier.create(mono)
+                    .expectErrorMatches(throwable -> throwable instanceof IllegalArgumentException
+                            && throwable.getMessage().contains("Received too few json arguments"))
+                    .verify();
+    }
+
+    @Test
     public void testObjectMethodsAreAnsweredWithoutRemoteInvocation(){
         Assertions.assertTrue(rpcTestServiceProxy.toString().contains("RpcTestService"));
 
