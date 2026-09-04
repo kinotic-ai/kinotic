@@ -280,7 +280,9 @@ wildcard DNS record: each site has its own CNAME.
 
 `*.apps.kinotic.ai` is same-site with `api.kinotic.ai`, so the session cookie works unchanged
 and CORS already admits `(.+\.)?kinotic\.ai`. The session cookie is named
-`__Host-kinotic-session` (Secure and `Path=/` are already set). `apps.kinotic.ai` is never
+`__Host-kinotic-session` (Secure and `Path=/` are already set), `SameSite=Lax` unless
+`kinotic.apiGateway.sessionCookieSameSite` says otherwise, as a developer's profile does when
+the sites and the API sit on unrelated domains. `apps.kinotic.ai` is never
 put on the Public Suffix List.
 
 ## Build and upload contracts
