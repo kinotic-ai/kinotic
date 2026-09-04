@@ -89,14 +89,16 @@ function scopeFor(group: string | null): SidebarScopeProps {
                 isSidebarCollapsed ? 'md:pl-[64px]' : 'md:pl-[256px]'
             ]"
         >
-            <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-4 py-4 transition-colors md:px-8 md:py-6', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
+            <div :class="['h-[calc(100vh-64px)] overflow-y-auto px-4 pt-4 transition-colors md:px-8 md:pt-6', isDark ? 'bg-surface-900 text-surface-0' : 'bg-surface-0 text-surface-950']">
                 <router-view v-if="isFullWidth" />
                 <!-- h-full (not min-h-full) gives the page a definite height to divide up, so a
                      page that scrolls a region internally — a table keeping its paginator in
                      place — can size that region. min-h-0 lets the page shrink to it; taller
-                     pages overflow and scroll in the wrapper above as before. -->
+                     pages overflow and scroll in the wrapper above. The bottom padding sits on
+                     the page for that reason: a scroll container pads after its child's box,
+                     and a tall page's content ends past that box. -->
                 <div v-else class="mx-auto flex h-full w-full max-w-[1200px] flex-col">
-                    <router-view class="min-h-0 flex-1" />
+                    <router-view class="min-h-0 flex-1 pb-4 md:pb-6" />
                 </div>
             </div>
         </div>

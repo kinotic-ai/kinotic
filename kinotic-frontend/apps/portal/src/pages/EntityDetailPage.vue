@@ -5,31 +5,23 @@
     :draggable="false"
     :dismissable-mask="false"
     class="p-dialog-maximized"
+    :pt="{ header: { class: '!py-3' } }"
     content-class="flex min-h-0 flex-1 flex-col"
     @update:visible="close"
   >
     <template #header>
-      <div class="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-4">
-        <div class="min-w-0">
-          <div class="mb-1 flex items-center gap-1.5 text-sm text-surface-500 dark:text-surface-400">
-            <RouterLink :to="entitiesPath" class="hover:underline">Entities</RouterLink>
-            <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
-            <span>{{ entity?.name ?? entityDefinitionId }}</span>
-          </div>
-          <div class="flex flex-wrap items-center gap-3">
-            <h1 class="m-0 text-xl font-semibold tracking-tight text-surface-950 dark:text-surface-0">{{ entity?.name ?? entityDefinitionId }}</h1>
-            <Tag v-if="entity" :value="entity.published ? 'Published' : 'Unpublished'"
-                 :severity="entity.published ? 'success' : 'secondary'" rounded />
-          </div>
-          <p v-if="entity?.description" class="m-0 mt-1 max-w-[640px] text-sm text-surface-500 dark:text-surface-400">{{ entity.description }}</p>
-        </div>
-        <div v-if="entity" class="flex shrink-0 items-center gap-2">
-          <Button v-if="entity.published" label="Unpublish" icon="pi pi-eye-slash" severity="danger" outlined
-                  :loading="busyId === entity.id" @click="unpublish(entity)" />
-          <Button v-else label="Publish" icon="pi pi-eye"
-                  :loading="busyId === entity.id" @click="publish(entity)" />
-        </div>
+      <div class="flex min-w-0 flex-1 items-center gap-2 text-sm">
+        <RouterLink :to="entitiesPath" class="text-surface-500 hover:underline dark:text-surface-400">Entities</RouterLink>
+        <i class="pi pi-chevron-right text-surface-500 dark:text-surface-400" :style="{ fontSize: '10px' }" />
+        <span class="truncate font-semibold text-surface-950 dark:text-surface-0" :title="entity?.description || undefined">{{ entity?.name ?? entityDefinitionId }}</span>
+        <Tag v-if="entity" :value="entity.published ? 'Published' : 'Unpublished'"
+             :severity="entity.published ? 'success' : 'secondary'" rounded />
       </div>
+    </template>
+    <!-- Rendered here rather than by the dialog, which would move focus to its own close
+         button on open and draw the button's focus ring around it -->
+    <template #closebutton="{ closeCallback }">
+      <Button icon="pi pi-times" severity="secondary" text rounded aria-label="Close" @click="closeCallback" />
     </template>
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
@@ -48,7 +40,7 @@
         <TabPanel value="data" class="flex min-h-0 flex-1 flex-col">
           <EntityList v-if="entity.published" :key="entity.id ?? ''" :entity-definition-id="entity.id ?? undefined" />
           <div v-else class="rounded-2xl border border-dashed border-surface-300 p-8 text-center text-sm text-muted-color dark:border-surface-700">
-            Publish this entity to start storing data. Its schema is ready on the Schema tab.
+            Publish this entity from the Entities list to start storing data. Its schema is ready on the Schema tab.
           </div>
         </TabPanel>
         <TabPanel value="schema" class="flex min-h-0 flex-1 flex-col">
@@ -56,8 +48,6 @@
         </TabPanel>
       </TabPanels>
     </Tabs>
-
-    <ConfirmDialog />
   </Dialog>
 </template>
 
@@ -65,7 +55,6 @@
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import ConfirmDialog from 'primevue/confirmdialog'
 import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
 import Tab from 'primevue/tab'
@@ -78,15 +67,15 @@ import { Kinotic } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@kinotic-ai/management-api'
 import EntityDefinitionDiagram from '@/components/entity-definitions/EntityDefinitionDiagram.vue'
 import EntityList from '@/pages/EntityList.vue'
-import { useEntityPublishing } from '@/composables/entity-definition/useEntityPublishing'
 import { useQueryTab } from '@/composables/useQueryTab'
 
 /**
- * One entity definition: the data stored under it and its schema, with publishing as the
- * action that turns the schema into a store. It has its own route under the Entities list it
- * was opened from, and fills the viewport as a dialog over that list, since both the data table
- * and the schema diagram need the room; closing it returns to the list. The dialog wears the
- * theme's own maximized class, the one its maximize button would apply.
+ * One entity definition: the data stored under it and its schema. It has its own route under
+ * the Entities list it was opened from, and fills the viewport as a dialog over that list,
+ * since both the data table and the schema diagram need the room; the header is one row so
+ * they get as much of it as possible, and closing it returns to the list. Publishing stays on
+ * the list. The dialog wears the theme's own maximized class, the one its maximize button
+ * would apply.
  */
 const props = defineProps<{
   applicationId: string
@@ -103,7 +92,6 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 const activeTab = useQueryTab(TABS)
-const { busyId, publish, unpublish } = useEntityPublishing(load)
 
 const entitiesPath = computed(() => {
   const applicationPath = `/application/${encodeURIComponent(props.applicationId)}`
