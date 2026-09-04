@@ -99,6 +99,8 @@ logging:
   level:
     org:
       kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
 
 spring:
   ai:
