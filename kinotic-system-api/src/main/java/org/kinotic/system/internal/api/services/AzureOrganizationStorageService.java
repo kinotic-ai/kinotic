@@ -1,20 +1,14 @@
 package org.kinotic.system.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
-import com.azure.core.management.AzureEnvironment;
-import com.azure.core.management.profile.AzureProfile;
 import com.azure.identity.DefaultAzureCredentialBuilder;
-import com.azure.resourcemanager.storage.StorageManager;
-import com.azure.resourcemanager.storage.models.StorageAccount;
 import com.azure.storage.blob.BlobContainerAsyncClient;
-import com.azure.storage.blob.BlobContainerClientBuilder;
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.ListBlobsOptions;
 import com.azure.storage.blob.sas.BlobContainerSasPermission;
 import com.azure.storage.blob.sas.BlobServiceSasSignatureValues;
-import com.azure.storage.common.StorageSharedKeyCredential;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +22,6 @@ import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.kinotic.system.api.services.OrganizationStorageService;
 import org.kinotic.system.api.services.UiStoragePaths;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -76,40 +69,6 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
         }
         return sas.map(token -> container.getBlobContainerUrl() + "/" + UiStoragePaths.applicationPrefix(applicationId)
                 + "?" + token);
-    }
-
-    @Override
-    public Future<String> issueReadToken(Organization organization, Duration ttl) {
-        Validate.notNull(ttl, "ttl is required");
-        BlobServiceSasSignatureValues values = new BlobServiceSasSignatureValues(
-                OffsetDateTime.now(ZoneOffset.UTC).plus(ttl), new BlobContainerSasPermission().setReadPermission(true));
-        Future<String> ret;
-        if (azurite()) {
-            ret = Future.succeededFuture(container(organization).generateSas(values));
-        } else {
-            OrganizationStorage storage = requireStorage(organization);
-            ret = AzureUtil.toFuture(accountKey(organization).map(key -> new BlobContainerClientBuilder()
-                    .endpoint(storage.getAzureBlobEndpoint())
-                    .containerName(OrganizationStorageProvisioner.UI_CONTAINER)
-                    .credential(new StorageSharedKeyCredential(storage.getAzureAccountName(), key))
-                    .buildAsyncClient()
-                    .generateSas(values)), vertx);
-        }
-        return ret;
-    }
-
-    // The key is read through the management plane, where the server holds Storage Account
-    // Contributor on the resource group every organization account is created in
-    private Mono<String> accountKey(Organization organization) {
-        OrganizationStorage storage = requireStorage(organization);
-        Validate.notBlank(storage.getAzureSubscriptionId(), "Organization %s has no storage subscription recorded", organization.getId());
-        Validate.notBlank(storage.getAzureAccountName(), "Organization %s has no storage account recorded", organization.getId());
-        AzureProfile profile = new AzureProfile(null, storage.getAzureSubscriptionId(), AzureEnvironment.AZURE);
-        return StorageManager.authenticate(credential, profile)
-                             .storageAccounts()
-                             .getByResourceGroupAsync(properties().getResourceGroup(), storage.getAzureAccountName())
-                             .flatMap(StorageAccount::getKeysAsync)
-                             .map(keys -> keys.getFirst().value());
     }
 
     @Override

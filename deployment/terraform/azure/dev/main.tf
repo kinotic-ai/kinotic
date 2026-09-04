@@ -81,6 +81,21 @@ resource "azurerm_cdn_frontdoor_profile" "sites" {
   resource_group_name = azurerm_resource_group.main.name
   sku_name            = "Standard_AzureFrontDoor"
   tags                = local.common_tags
+
+  # The profile reads each organization's storage account as this identity: the server
+  # sets origin authentication on every origin group it creates
+  identity {
+    type = "SystemAssigned"
+  }
+}
+
+# The accounts live in the group above, so one assignment covers every organization. The
+# provider cannot read a new identity's principal id in the plan that creates it, so a fresh
+# root applies the profile first, as the README says
+resource "azurerm_role_assignment" "sites_blob_reader" {
+  scope                = azurerm_resource_group.main.id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = azurerm_cdn_frontdoor_profile.sites.identity[0].principal_id
 }
 
 resource "azurerm_cdn_frontdoor_endpoint" "sites" {

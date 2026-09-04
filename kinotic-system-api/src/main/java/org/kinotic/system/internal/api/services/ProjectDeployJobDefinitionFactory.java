@@ -520,8 +520,9 @@ public class ProjectDeployJobDefinitionFactory {
                                             String commitSha) {
         Future<UiDeployment> deployment;
         if (existing == null) {
+            // the files are up, so the site is ready once it serves this commit
             deployment = mintDeployment(project, ui)
-                    .compose(minted -> uiDeploymentProvisioner.provision(minted, organization));
+                    .compose(minted -> uiDeploymentProvisioner.provision(minted.setCommitSha(commitSha), organization));
         } else if (existing.getStatus().type() == DeploymentStatusType.ORPHANED) {
             // the site never stopped serving, so the UI's return needs no provisioning
             deployment = Future.succeededFuture(existing.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
