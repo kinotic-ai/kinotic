@@ -1,0 +1,1 @@
+{"id":"40e336766987ecbe783a614c051a0fda","fullName":"test/SpawnLint.test.ts#Kinotic JS packages/spawn SpawnEngine.lint does not flag registered filters or loop/assign locals as variables","name":"does not flag registered filters or loop/assign locals as variables","status":"passed","testResultsByEnv":{"default":"a7edc7ae2f10a1c384d40e5b32e9c6cc"}}
