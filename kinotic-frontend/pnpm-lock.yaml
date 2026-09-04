@@ -13,8 +13,8 @@ catalogs:
       specifier: ^5.0.0-beta.1
       version: 5.0.0-beta.1
     '@kinotic-ai/management-api':
-      specifier: ^5.0.0-beta.24
-      version: 5.0.0-beta.24
+      specifier: ^5.0.0-beta.25
+      version: 5.0.0-beta.25
     '@kinotic-ai/persistence':
       specifier: ^5.0.0-beta.9
       version: 5.0.0-beta.9
@@ -45,7 +45,7 @@ importers:
         version: 5.0.0-beta.1
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.9)
+        version: 5.0.0-beta.25(@kinotic-ai/core@5.0.0-beta.9)
       '@kinotic-ai/persistence':
         specifier: 'catalog:'
         version: 5.0.0-beta.9(@kinotic-ai/core@5.0.0-beta.9)
@@ -166,7 +166,7 @@ importers:
         version: link:../../packages/common
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.9)
+        version: 5.0.0-beta.25(@kinotic-ai/core@5.0.0-beta.9)
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
         version: 5.0.0-beta.8(@kinotic-ai/core@5.0.0-beta.9)
@@ -233,7 +233,7 @@ importers:
         version: 5.0.0-beta.9
       '@kinotic-ai/management-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.9)
+        version: 5.0.0-beta.25(@kinotic-ai/core@5.0.0-beta.9)
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -359,6 +359,11 @@ packages:
 
   '@kinotic-ai/management-api@5.0.0-beta.24':
     resolution: {integrity: sha512-TtZGxlgtQm+SsWGPEYMf9Il4Hv9SeG7sxP76evEvmViBwCzHPPK61AEH8t2VSncDWZfkibdAudCclzxOYQ1qvw==}
+    peerDependencies:
+      '@kinotic-ai/core': '>=5.0.0-beta.9'
+
+  '@kinotic-ai/management-api@5.0.0-beta.25':
+    resolution: {integrity: sha512-4Qy6zkM0TAasoIv+geVCg6WuBR729H0EUMQMgn0Sj1e4+5VKN00i43wbL3PeXCj5k4yYGGtBO7YsedGG3Y3+vg==}
     peerDependencies:
       '@kinotic-ai/core': '>=5.0.0-beta.9'
 
@@ -1745,6 +1750,13 @@ snapshots:
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
   '@kinotic-ai/management-api@5.0.0-beta.24(@kinotic-ai/core@5.0.0-beta.9)':
+    dependencies:
+      '@kinotic-ai/core': 5.0.0-beta.9
+      '@kinotic-ai/idl': 5.0.0-beta.1
+      '@kinotic-ai/persistence': 5.0.0-beta.9(@kinotic-ai/core@5.0.0-beta.9)
+      rxjs: 7.8.2
+
+  '@kinotic-ai/management-api@5.0.0-beta.25(@kinotic-ai/core@5.0.0-beta.9)':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.9
       '@kinotic-ai/idl': 5.0.0-beta.1
