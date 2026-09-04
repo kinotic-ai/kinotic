@@ -42,6 +42,17 @@ resource "helm_release" "kinotic_server" {
     # Cluster Key Vault for tenant/app secrets
     { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
+    # Organization storage — where kinotic-server provisions each organization's account
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_SUBSCRIPTIONIDS", value = data.azurerm_client_config.keyvault.subscription_id },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_RESOURCEGROUP", value = azurerm_resource_group.org_storage.name },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_LOCATION", value = var.location },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_PRIVATEENDPOINTSUBNETID", value = azurerm_subnet.private_endpoints.id },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_ORGANIZATIONSTORAGE_PRIVATEDNSZONEID", value = azurerm_private_dns_zone.blob.id },
+    # UI sites — the Front Door profile and DNS zone kinotic-server serves published UIs from
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_DNSZONEID", value = local.global.dns_zone_id },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_FRONTDOORPROFILEID", value = azurerm_cdn_frontdoor_profile.sites.id },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_FRONTDOORENDPOINTHOSTNAME", value = azurerm_cdn_frontdoor_endpoint.sites.host_name },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
@@ -68,6 +79,14 @@ resource "helm_release" "kinotic_server" {
     helm_release.reloader,
     azurerm_role_assignment.kinotic_server_kv_secrets,
     azurerm_role_assignment.kinotic_server_email_contributor,
+    azurerm_role_assignment.kinotic_server_org_storage_accounts,
+    azurerm_role_assignment.kinotic_server_org_storage_blobs,
+    azurerm_role_assignment.kinotic_server_org_storage_network,
+    azurerm_role_assignment.kinotic_server_private_endpoint_subnet,
+    azurerm_role_assignment.kinotic_server_blob_private_dns,
+    azurerm_private_dns_zone_virtual_network_link.blob,
+    azurerm_role_assignment.kinotic_server_frontdoor,
+    azurerm_role_assignment.kinotic_server_sites_dns,
     azurerm_federated_identity_credential.kinotic_server,
   ]
 }

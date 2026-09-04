@@ -1,6 +1,9 @@
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
+import { ProjectArtifactService, type IProjectArtifactService } from '@/api/services/IProjectArtifactService'
+import { MicroserviceDeploymentService, type IMicroserviceDeploymentService } from '@/api/services/IMicroserviceDeploymentService'
+import { UiDeploymentService, type IUiDeploymentService } from '@/api/services/IUiDeploymentService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
@@ -19,6 +22,9 @@ import { JobMonitoringService, type IJobMonitoringService } from '@/api/services
 export interface IManagementApiExtension {
     applications: IApplicationService
     projects: IProjectService
+    projectArtifacts: IProjectArtifactService
+    microserviceDeployments: IMicroserviceDeploymentService
+    uiDeployments: IUiDeploymentService
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
@@ -40,6 +46,9 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
         return {
             applications: new ApplicationService(kinotic),
             projects: new ProjectService(kinotic),
+            projectArtifacts: new ProjectArtifactService(kinotic),
+            microserviceDeployments: new MicroserviceDeploymentService(kinotic),
+            uiDeployments: new UiDeploymentService(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),

@@ -13,6 +13,8 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
+import org.kinotic.management.api.model.MicroserviceDeployment;
+import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.security.MachineService;
 import org.springframework.stereotype.Component;
@@ -29,6 +31,7 @@ public class DefaultMachineService implements MachineService {
     private final ParticipantIdentityService identityService;
     private final ApplicationRepository applicationRepository;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
 
     @Override
     public Future<MachineProvisionResult> createMachine(String displayName, String applicationId) {
@@ -65,15 +68,18 @@ public class DefaultMachineService implements MachineService {
                     if (deployment == null) {
                         ret = Future.succeededFuture(List.of());
                     } else {
-                        ret = loadMachines(deployment.getSyncMachineIdentityId(), deployment.getRuntimeMachineIdentityId());
+                        ret = microserviceDeploymentRepository.findAllForProject(projectId)
+                                .compose(microservices -> loadMachines(Stream.concat(
+                                        Stream.of(deployment.getSyncMachineIdentityId()),
+                                        microservices.stream().map(MicroserviceDeployment::getMachineIdentityId)).toList()));
                     }
                     return ret;
                 });
     }
 
     /** Resolves recorded machine ids, skipping any whose identity an org member has since removed. */
-    private Future<List<MachineParticipantIdentity>> loadMachines(String syncMachineIdentityId, String runtimeMachineIdentityId) {
-        List<Future<ParticipantIdentity>> lookups = Stream.of(syncMachineIdentityId, runtimeMachineIdentityId)
+    private Future<List<MachineParticipantIdentity>> loadMachines(List<String> machineIdentityIds) {
+        List<Future<ParticipantIdentity>> lookups = machineIdentityIds.stream()
                                                           .filter(Objects::nonNull)
                                                           .map(identityService::findById)
                                                           .toList();

@@ -14,6 +14,7 @@ import org.kinotic.domain.api.services.security.ParticipantIdentityService;
 import org.kinotic.domain.internal.api.repositories.ApplicationRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.model.security.PendingInviteSummary;
+import org.kinotic.system.api.services.DeploymentOperationsService;
 import org.kinotic.system.api.services.SystemOrganizationService;
 import org.springframework.stereotype.Component;
 
@@ -26,6 +27,7 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     private final ParticipantIdentityService identityService;
     private final InviteService inviteService;
     private final OrganizationService organizationService;
+    private final DeploymentOperationsService deploymentOperationsService;
 
     @Override
     public Future<Page<Organization>> findOrganizations(Pageable pageable) {
@@ -45,6 +47,11 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     @Override
     public Future<Long> countOrganizations() {
         return organizationService.count();
+    }
+
+    @Override
+    public Future<Organization> provisionOrganization(String organizationId) {
+        return deploymentOperationsService.provisionOrganization(organizationId);
     }
 
     @Override

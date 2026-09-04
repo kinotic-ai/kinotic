@@ -270,7 +270,10 @@ accepted.
   obscurity does not survive. It also breaks `/api/auth/me`: `SessionEndpointHandler` checks
   `SessionHandler.DEFAULT_SESSION_COOKIE_NAME`, the constant rather than the configured value, so a
   rename makes that route return 401 for authenticated callers. Doing it properly means making the
-  name shared config across two modules first.
+  name shared config across two modules first. (Done since, for a different reason: published UIs
+  live on sibling hosts of the API under `apps.kinotic.ai`, and the `__Host-` prefix keeps a page
+  there from planting a session cookie the API would read. `EventConstants.SESSION_COOKIE_NAME` is
+  the one name both modules use.)
 * `setNagHttps(true)` is already in effect — `DEFAULT_NAG_HTTPS` is true and nothing disables it.
   That is the "session cookies without https" line in the dev logs. It is a log warning, not a
   control.
@@ -282,6 +285,33 @@ accepted.
 (`Http1ServerResponse.cookies()`) for the connection's life, and clearing that is the same object
 `SessionHandler` uses to emit `Set-Cookie`. Signing does not change that either — it is a separate
 concern from what a dump contains.
+
+### First-deployment placement ignores the microservice count
+
+`ProjectDeployJobDefinitionFactory.resolveTarget` picks a first deployment's node with a probe
+sized for the sync VM alone (`deployment().getSyncMemoryMb()`), in task 1. The commit's artifacts,
+and so the number of runtime VMs the project needs, are only known in task 3, after the sync VM has
+run on that node and reported them through `ProjectArtifactService.recordArtifacts`. Once each
+microservice gets its own VM, every one of them must land on the node holding the checkout, so a
+first deployment can pick a node that fits the sync VM and not the runtime VMs behind it.
+
+The decision for now: probe for the sync VM only and let each runtime VM's placement on that node
+fail loudly. What that costs: a project's first push can sync successfully and then fail at
+"Ensure runtime workloads" on a node other projects could have used, and the project is pinned to
+that node from then on (the checkout lives there; nothing re-homes a project). Later deployments do
+not have the problem, the node is fixed by then.
+
+Ways to do better, once there is something to design against:
+
+* Size the probe from the artifacts of the previous deployment when there is one, which covers
+  every redeploy after a node loss, and only leaves the genuinely first push blind.
+* A reserve budget for first deployments (`syncMemoryMb + n × runtimeMemoryMb` for a configured
+  `n`), which is a property nobody has asked for yet.
+* Run discovery before choosing the node: a discovery VM on any node with its own shallow checkout,
+  or a server-side read of the commit, so task 1 knows the count. The second is what Phase 1 started
+  with and moved into the VM so discovery can use the Bun ecosystem.
+* Re-home a project whose node cannot fit its runtime VMs: move the checkout and its VMs to a node
+  that can. This is the one that fixes the pinning as well, and the one that needs real design.
 
 ### Outstanding
 * Move secret storage stuff out of the kinotic-core

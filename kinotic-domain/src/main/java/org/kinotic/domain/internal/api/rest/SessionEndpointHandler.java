@@ -4,7 +4,7 @@ import io.vertx.ext.web.Router;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
-import io.vertx.ext.web.handler.SessionHandler;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.springframework.stereotype.Component;
 
@@ -34,7 +34,7 @@ public class SessionEndpointHandler implements SuppliesGatewayRoutes {
     private void handleMe(RoutingContext ctx) {
         boolean authenticated = false;
         // Reading the session via ctx.session() actually creates a session, so we avoid creating an unessarcy session by checking the cookie first.
-        if (ctx.request().getCookie(SessionHandler.DEFAULT_SESSION_COOKIE_NAME) != null) {
+        if (ctx.request().getCookie(EventConstants.SESSION_COOKIE_NAME) != null) {
             Session session = ctx.session();
             authenticated = session.get(ConnectedInfo.SESSION_KEY) instanceof ConnectedInfo connectedInfo
                     && connectedInfo.getParticipant() != null;

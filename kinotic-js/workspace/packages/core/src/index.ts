@@ -7,6 +7,8 @@ export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
 export * from './api/IServiceRegistry'
 export * from './api/ServiceRegistry'
+export * from './api/UiVersionCheck'
+export * from './api/UiVersionUtil'
 export * from './api/ZoneUtil'
 
 

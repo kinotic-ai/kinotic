@@ -12,7 +12,7 @@
 
 <script setup lang="ts">
 import Dialog from 'primevue/dialog'
-import WorkloadLogView from '@/components/WorkloadLogView.vue'
+import WorkloadLogView from './WorkloadLogView.vue'
 
 defineProps<{
   workloadId: string

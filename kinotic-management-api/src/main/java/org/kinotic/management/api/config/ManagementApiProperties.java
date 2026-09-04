@@ -42,4 +42,6 @@ public class ManagementApiProperties {
     @NotBlank
     private String mimirUrl = "http://localhost:9009";
 
+
+
 }

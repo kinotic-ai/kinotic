@@ -1,4 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
+import type { OrganizationStorage } from '@/api/model/OrganizationStorage'
 
 /**
  * Represents an organization developing applications on the Kinotic OS platform.
@@ -12,6 +13,15 @@ export class Organization implements Identifiable<string> {
     public description: string | null = null
     public oidcConfigurationIds: string[] | null = null
     public createdBy: string | null = null
+    /**
+     * The organization's storage, or null until provisioning has recorded it.
+     */
+    public storage: OrganizationStorage | null = null
+    /**
+     * Id of the job run that last provisioned the organization, or null before the first one
+     * started.
+     */
+    public provisioningJobRunId: string | null = null
     public created: number | null = null
     public updated: number | null = null
 }

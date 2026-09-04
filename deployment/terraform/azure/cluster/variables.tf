@@ -98,6 +98,11 @@ variable "firecracker_vm_size" {
   default = "Standard_D4s_v3"
 }
 
+variable "private_endpoint_subnet_cidr" {
+  description = "CIDR of the subnet that holds the private endpoints of organization storage accounts"
+  type        = string
+}
+
 variable "firecracker_subnet_cidr" {
   type    = string
   default = "10.3.0.0/24"

@@ -43,7 +43,8 @@ import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { DatetimeUtil, errorMessage, parseJsonBytes } from '@kinotic-ai/frontend-common'
+import DatetimeUtil from '../util/DatetimeUtil'
+import { errorMessage, parseJsonBytes } from '../util/helpers'
 
 const props = defineProps<{
   workloadId: string

@@ -108,4 +108,14 @@ public interface SystemOrganizationService {
     Future<Page<PendingInviteSummary>> findPendingInvites(String organizationId,
                                                                      String applicationId,
                                                                      Pageable pageable);
+
+    /**
+     * Provisions the organization again: runs the provisioning job that its creation ran,
+     * which does whatever an earlier run left undone, and records the new run on the
+     * organization.
+     *
+     * @param organizationId the organization to provision
+     * @return a future emitting the organization with its new provisioning run
+     */
+    Future<Organization> provisionOrganization(String organizationId);
 }

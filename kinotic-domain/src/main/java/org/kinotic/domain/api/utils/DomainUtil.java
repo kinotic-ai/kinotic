@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.OrganizationScoped;
 import org.kinotic.domain.api.model.security.identity.DelegatingParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
@@ -281,6 +282,24 @@ public class DomainUtil {
             throw new IllegalArgumentException(notFoundMessage);
         }
         return type.cast(identity);
+    }
+
+    /**
+     * Confirms an organization-scoped entity a lookup returned belongs to the caller's
+     * organization. A missing entity and another organization's fail with the same message —
+     * no existence oracle.
+     *
+     * @param entity          the entity a lookup returned, possibly null
+     * @param organizationId  the caller's organization
+     * @param notFoundMessage the single failure message for every miss
+     * @return the entity
+     * @throws IllegalArgumentException with {@code notFoundMessage} on any miss
+     */
+    public static <T extends OrganizationScoped<?>> T requireOwned(T entity, String organizationId, String notFoundMessage) {
+        if (entity == null || !organizationId.equals(entity.getOrganizationId())) {
+            throw new IllegalArgumentException(notFoundMessage);
+        }
+        return entity;
     }
 
     /**

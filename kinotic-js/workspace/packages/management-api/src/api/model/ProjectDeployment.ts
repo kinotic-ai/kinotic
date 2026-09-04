@@ -1,10 +1,12 @@
 import type { Identifiable } from '@kinotic-ai/core'
+import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
 import type { ProjectDeploymentStatus } from '@/api/model/ProjectDeploymentStatus'
 
 /**
- * Records where a Project's code is deployed: the node holding the checkout, the
- * long-lived workload serving it, and the commit currently live. One row per project;
- * the id equals the project id. Absence of a row means the project has never been
+ * Records where a Project's code is deployed: the node holding the checkout, the sync workload
+ * and identity of its deployments, the artifacts of the synced commit, and the commit currently
+ * live. The microservices themselves are recorded one per MicroserviceDeployment. One row per
+ * project; the id equals the project id. Absence of a row means the project has never been
  * deployed.
  */
 export class ProjectDeployment implements Identifiable<string> {
@@ -19,7 +21,8 @@ export class ProjectDeployment implements Identifiable<string> {
     public applicationId!: string
 
     /**
-     * The id of the node hosting the project's checkout directory and runtime workload.
+     * The id of the node hosting the project's checkout directory and every workload of its
+     * deployments.
      */
     public nodeId: string | null = null
 
@@ -29,16 +32,16 @@ export class ProjectDeployment implements Identifiable<string> {
     public hostDir: string | null = null
 
     /**
-     * The id of the long-lived workload running the project's microservices, or null
-     * while the first deployment is still in progress.
-     */
-    public runtimeWorkloadId: string | null = null
-
-    /**
      * The id of the sync workload of the most recent deployment run, kept with its logs until
      * the next run retires it, or null before the first run resolved its target.
      */
     public syncWorkloadId: string | null = null
+
+    /**
+     * The id of the UI publish workload of the most recent deployment run, kept with its logs
+     * until the next run retires it, or null before a run has published a UI.
+     */
+    public uiPublishWorkloadId: string | null = null
 
     /**
      * The id of the machine identity the sync workload authenticates as, or null before the
@@ -47,16 +50,20 @@ export class ProjectDeployment implements Identifiable<string> {
     public syncMachineIdentityId: string | null = null
 
     /**
-     * The id of the machine identity the runtime workload authenticates as, or null while the
-     * first deployment is still in progress. Its secret is issued once, with the workload it
-     * belongs to.
-     */
-    public runtimeMachineIdentityId: string | null = null
-
-    /**
      * Sha of the last commit successfully synced to the node.
      */
     public commitSha: string | null = null
+
+    /**
+     * The artifacts the sync workload found in the checkout of artifactsCommitSha, or null
+     * before a sync has reported any.
+     */
+    public artifacts: ProjectArtifacts | null = null
+
+    /**
+     * Sha of the commit artifacts were found in.
+     */
+    public artifactsCommitSha: string | null = null
 
     /**
      * The id of the most recent deployment job run for this project.

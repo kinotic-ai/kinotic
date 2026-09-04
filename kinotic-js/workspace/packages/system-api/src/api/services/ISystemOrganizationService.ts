@@ -33,6 +33,13 @@ export interface ISystemOrganizationService {
 
     findPendingInvites(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<PendingInviteSummary>>
 
+    /**
+     * Provisions the organization again: runs the provisioning job that its creation ran, which
+     * does whatever an earlier run left undone, and records the new run on the organization.
+     * @param organizationId the organization to provision
+     */
+    provisionOrganization(organizationId: string): Promise<Organization>
+
 }
 
 export class SystemOrganizationService implements ISystemOrganizationService {
@@ -77,6 +84,10 @@ export class SystemOrganizationService implements ISystemOrganizationService {
 
     public findPendingInvites(organizationId: string, applicationId: string | null, pageable: Pageable): Promise<Page<PendingInviteSummary>> {
         return this.serviceProxy.invoke('findPendingInvites', [organizationId, applicationId, pageable])
+    }
+
+    public provisionOrganization(organizationId: string): Promise<Organization> {
+        return this.serviceProxy.invoke('provisionOrganization', [organizationId])
     }
 
 }

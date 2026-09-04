@@ -77,6 +77,11 @@ export function avatarInitials(displayName?: string | null, email?: string | nul
                  .join('')
 }
 
+/** A commit sha abbreviated to the 12 characters the console shows for one. */
+export function shortSha(sha: string): string {
+    return sha.slice(0, 12)
+}
+
 /** Renders a megabyte quantity as GB once it reaches one, e.g. 512 MB, 1.5 GB. */
 export function formatMb(mb: number): string {
     return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
