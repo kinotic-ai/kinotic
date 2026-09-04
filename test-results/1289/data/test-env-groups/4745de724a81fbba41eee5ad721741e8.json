@@ -1,0 +1,1 @@
+{"id":"4745de724a81fbba41eee5ad721741e8","fullName":"org.kinotic.test.tests.sql.CompositeTypeParserTest.whenParseUnionNotIndexed_thenIndexedFalse","name":"whenParseUnionNotIndexed_thenIndexedFalse()","status":"passed","testResultsByEnv":{"default":"63050ff804b96ef749e6542d0a7c156e"}}
