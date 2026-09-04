@@ -26,6 +26,122 @@ export class Person {
 
 The `@TenantId` field is populated automatically based on the authenticated user's tenant context. You do not need to set it manually when saving entities.
 
+## Where a user's tenant comes from
+
+Declaring the entity is only half of it. A user's tenant is assigned when the user is created, and only when the owning application has `tenantPerUser` enabled — the setting that decides whether each user of the application is isolated or everyone shares one set of data.
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Application <code>
+        tenantPerUser
+      </code>
+    </th>
+    
+    <th>
+      Entity
+    </th>
+    
+    <th>
+      Result
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        MultiTenancyType.NONE
+      </code>
+    </td>
+    
+    <td>
+      One shared dataset — every user sees every other user's rows
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        MultiTenancyType.NONE
+      </code>
+    </td>
+    
+    <td>
+      Still one shared dataset; the setting has nothing to act on
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        SHARED
+      </code>
+      
+       + <code>
+        @TenantId
+      </code>
+    </td>
+    
+    <td>
+      Users have no tenant, and writes fail with <code>
+        tenantId cannot be null or blank for shared multi tenancy
+      </code>
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        true
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        SHARED
+      </code>
+      
+       + <code>
+        @TenantId
+      </code>
+    </td>
+    
+    <td>
+      Each user isolated in their own tenant
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Choose it when the application is created — `createApplicationIfNotExist` takes it as an argument — and change it afterwards only from the portal, under **Application → Settings → Tenant per user**.
+
+It applies to users created while it is enabled. Existing users are never backfilled, so enabling it on an application that already has users leaves those users without a tenant, and every write they make to a `SHARED` entity fails. Settle it before the application has users.
+
+## Tenants and services
+
+A tenant comes from the authenticated participant, and only an application-scope participant carries one. A microservice running in a project's deployment connects at organization scope, so it cannot read or write a `SHARED` entity through the tenant-scoped repository — it uses the admin repository below, naming the tenants it means to act on. Per-user writes driven by the user belong on a client connected as that user.
+
 ## Tenant-Isolated Repository
 
 The standard generated `Repository` automatically filters all operations to the current tenant. No additional configuration is needed.
