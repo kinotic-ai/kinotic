@@ -65,6 +65,29 @@
         </dl>
       </section>
     </div>
+
+    <section :class="cardClass" class="mt-4">
+      <h2 class="text-sm font-semibold text-surface-950 dark:text-surface-0">UIs</h2>
+      <div v-if="loadingProjects" class="mt-4 flex flex-col gap-3">
+        <Skeleton v-for="n in 2" :key="n" height="2.25rem" />
+      </div>
+      <p v-else-if="uis.length === 0" class="mt-4 text-sm text-muted-color">
+        No UI has been published yet. A UI a project contains is published with that project's next deployment.
+      </p>
+      <ul v-else class="mt-2 divide-y divide-surface-200 dark:divide-surface-700">
+        <li v-for="ui in uis" :key="ui.id ?? `${ui.projectId}/${ui.name}`" class="flex items-center gap-3 py-3">
+          <i class="pi pi-globe text-surface-400" />
+          <div class="min-w-0 flex-1">
+            <div class="truncate text-sm font-medium">
+              {{ ui.name }}
+              <RouterLink :to="`${basePath}/project/${encodeURIComponent(ui.projectId)}`" class="ml-2 text-xs font-normal text-muted-color hover:underline">{{ ui.projectId }}</RouterLink>
+            </div>
+            <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
+          </div>
+          <Tag :value="ui.status.type" :severity="deploymentStatusSeverity(ui.status.type)" />
+        </li>
+      </ul>
+    </section>
   </div>
 </template>
 
@@ -75,7 +98,7 @@ import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { type Project, DeploymentStatusType, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
+import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
 import { createDebug, DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
@@ -84,7 +107,8 @@ const debug = createDebug('application-overview')
 
 /**
  * The landing page of one application: how much it holds, each count leading to its list,
- * its projects with their deployment state, and the facts that identify it.
+ * its projects with their deployment state, the facts that identify it, and every UI its
+ * projects have published with its site.
  */
 const props = defineProps<{
   applicationId: string
@@ -109,6 +133,7 @@ const application = computed(() => {
 const projects = ref<Project[]>([])
 const loadingProjects = ref(true)
 const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
+const uis = ref<UiDeployment[]>([])
 const usersCount = ref<number | null>(null)
 const machinesCount = ref<number | null>(null)
 
@@ -142,6 +167,7 @@ async function load(): Promise<void> {
   loadingProjects.value = true
   projects.value = []
   deploymentStatus.value = {}
+  uis.value = []
   usersCount.value = null
   machinesCount.value = null
   await Promise.all([loadProjects(), loadUsersCount(), loadMachinesCount()])
@@ -151,7 +177,7 @@ async function loadProjects(): Promise<void> {
   try {
     const page = await Kinotic.projects.findAllForApplication(props.applicationId, Pageable.create(0, PROJECT_PREVIEW_COUNT))
     projects.value = page.content ?? []
-    await Promise.all(projects.value.map(loadDeploymentStatus))
+    await Promise.all(projects.value.flatMap(project => [loadDeploymentStatus(project), loadUis(project)]))
   } catch (error) {
     debug('Failed to load projects: %O', error)
   } finally {
@@ -168,6 +194,16 @@ async function loadDeploymentStatus(project: Project): Promise<void> {
     }
   } catch (error) {
     debug('Failed to load deployment for %s: %O', project.id, error)
+  }
+}
+
+async function loadUis(project: Project): Promise<void> {
+  if (!project.id) return
+  try {
+    const published = await Kinotic.uiDeployments.findAllForProject(project.id)
+    uis.value = [...uis.value, ...published].sort((a, b) => a.name.localeCompare(b.name))
+  } catch (error) {
+    debug('Failed to load UIs for %s: %O', project.id, error)
   }
 }
 

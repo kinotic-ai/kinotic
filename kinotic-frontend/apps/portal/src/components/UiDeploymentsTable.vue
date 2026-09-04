@@ -1,18 +1,18 @@
 <template>
   <DataTable :value="deployments" size="small">
-    <Column header="UI" style="width: 16%">
+    <Column header="UI" style="width: 20%">
       <template #body="{ data }"><span class="font-mono text-sm">{{ data.name }}</span></template>
-    </Column>
-    <Column header="Site" style="width: 34%">
-      <template #body="{ data }">
-        <a :href="data.url" target="_blank" rel="noopener" class="font-mono text-sm break-all">{{ data.url }}</a>
-      </template>
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
         <span :title="data.status.message ?? undefined">
           <Tag :value="data.status.type" :severity="deploymentStatusSeverity(data.status.type)" />
         </span>
+      </template>
+    </Column>
+    <Column header="Site" style="width: 34%">
+      <template #body="{ data }">
+        <a :href="data.url" target="_blank" rel="noopener" class="font-mono text-sm break-all">{{ data.url }}</a>
       </template>
     </Column>
     <Column header="Commit" style="width: 12%">
@@ -22,7 +22,7 @@
         </span>
       </template>
     </Column>
-    <Column style="width: 24%">
+    <Column style="width: 20%">
       <template #body="{ data }">
         <div class="flex justify-end gap-1">
           <Button label="Retry" icon="pi pi-refresh" size="small" severity="secondary" text
