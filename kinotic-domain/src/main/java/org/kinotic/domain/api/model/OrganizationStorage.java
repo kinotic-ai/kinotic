@@ -7,8 +7,8 @@ import lombok.experimental.Accessors;
 
 /**
  * An organization's storage: the one account everything its deployments publish goes to,
- * and where that account is in its lifecycle. Held by {@link Organization} once a deployment
- * has first needed it; the account's details fill in as provisioning progresses.
+ * and where that account is in its lifecycle. Held by {@link Organization} once its
+ * provisioning job has started; the account's details fill in as provisioning progresses.
  */
 @Getter
 @Setter
@@ -33,10 +33,11 @@ public class OrganizationStorage {
     private String blobEndpoint;
 
     /**
-     * The address the account answers on inside the platform network, which is the one
-     * destination a publish workload may reach, or {@code null} until it exists.
+     * The one host a publish workload may reach, where the account answers the platform: its
+     * private endpoint's address inside the platform network, or its public host where no
+     * private endpoint exists. {@code null} until the account exists.
      */
-    private String privateEndpointIp;
+    private String publishHost;
 
     /**
      * Where the storage is in its lifecycle.

@@ -1,6 +1,6 @@
 # ── Organization storage ──────────────────────────────────────────────────────
 # Each organization gets one storage account, created at runtime by kinotic-server
-# (AzureOrganizationStorageProvisioner) the first time a deployment publishes a UI.
+# (AzureOrganizationStorageProvisioner) when the organization is created.
 # Terraform owns what the accounts share: the resource group they are created in, the
 # subnet their private endpoints are placed in, and the private DNS zone those
 # endpoints register in so the platform resolves each account to its private address.

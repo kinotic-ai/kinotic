@@ -31,16 +31,17 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.net.URI;
 import java.util.Date;
 
 /**
  * Provisions one Azure storage account per organization: a locked-down StorageV2 account with
  * hierarchical namespace, holding the {@code ui} container, reachable from the platform network
- * through a private endpoint registered in the platform's private DNS zone. Provisioning runs
- * inside the deployment that first needs the storage and takes minutes; deployments of other
- * projects of the organization that arrive meanwhile wait for it rather than provisioning twice.
- * Every step is idempotent, so an organization left failed is provisioned again from wherever
- * it stopped.
+ * through a private endpoint registered in the platform's private DNS zone, or over its public
+ * endpoint where private endpoints are disabled. Provisioning is the first task of the
+ * organization's provisioning job and takes minutes; a run that finds one in flight waits for
+ * it rather than provisioning twice. Every step is idempotent, so an organization left failed
+ * is provisioned again from wherever it stopped.
  */
 @Slf4j
 @Component
@@ -60,7 +61,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     private final Vertx vertx;
     private final KinoticSystemApiProperties kinoticProperties;
     // On AKS this resolves to the kinotic-server workload identity, which holds the storage
-    // and network roles on the resource group
+    // and network roles on the resource group; on a developer machine, to the az login identity
     private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
 
     @Override
@@ -120,7 +121,8 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     /**
      * Records the decisions (subscription, account name) and the PROVISIONING status before
      * touching Azure, so a retry after a failure targets the same account, then creates what is
-     * missing in order: account, container, private endpoint with its DNS registration.
+     * missing in order: account, container, and the private endpoint with its DNS registration
+     * unless private endpoints are disabled.
      */
     private Future<Organization> provision(Organization organization) {
         String organizationId = organization.getId();
@@ -139,10 +141,10 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
         return organizationService.saveSync(organization)
                 .compose(saved -> AzureUtil.toFuture(ensureAccount(storageManager, accountName, organizationId), vertx))
                 .compose(account -> AzureUtil.toFuture(ensureContainer(storageManager, accountName), vertx)
-                        .compose(container -> AzureUtil.toFuture(ensurePrivateEndpoint(network, account), vertx))
-                        .map(privateIp -> {
+                        .compose(container -> publishHost(network, account))
+                        .map(publishHost -> {
                             storage.setBlobEndpoint(account.endPoints().primary().blob())
-                                   .setPrivateEndpointIp(privateIp)
+                                   .setPublishHost(publishHost)
                                    .setStatus(new DeploymentStatus(DeploymentStatusType.READY));
                             return organization.setUpdated(new Date());
                         }))
@@ -185,6 +187,20 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                                 .withExistingStorageAccount(properties().getResourceGroup(), accountName)
                                 .withPublicAccess(PublicAccess.NONE)
                                 .createAsync()));
+    }
+
+    /**
+     * The one host publish workloads reach the account on: its private endpoint's address, or
+     * its public blob host when private endpoints are disabled.
+     */
+    private Future<String> publishHost(NetworkManager network, StorageAccount account) {
+        Future<String> ret;
+        if (properties().isDisablePrivateEndpoint()) {
+            ret = Future.succeededFuture(URI.create(account.endPoints().primary().blob()).getHost());
+        } else {
+            ret = AzureUtil.toFuture(ensurePrivateEndpoint(network, account), vertx);
+        }
+        return ret;
     }
 
     /**

@@ -1,6 +1,6 @@
 # Azure Deployment
 
-Three separate terraform roots — **global** (persistent), **cluster** (disposable), **frontend** (independent).
+Three separate terraform roots — **global** (persistent), **cluster** (disposable), **frontend** (independent) — plus **dev**, a developer's own UI publishing resources.
 
 ## Directory Structure
 
@@ -31,6 +31,9 @@ deployment/terraform/azure/
 ├── frontend/                  # Static Web App for SPA — deploy independently
 │   ├── main.tf
 │   ├── deploy.sh
+│   └── terraform.tfvars
+├── dev/                       # Storage resource group + Front Door for a kinotic-server on a developer machine
+│   ├── main.tf
 │   └── terraform.tfvars
 ├── modules/                   # Shared modules (aks, firecracker, identity, micro-vm-node, networking)
 ├── bootstrap-state.sh         # One-time state storage setup
@@ -145,6 +148,23 @@ terraform apply     # creates Static Web App + DNS CNAME (first time only)
 ./deploy.sh         # build + deploy SPA (run after every frontend change)
 ```
 
+## Developer UI Publishing
+
+A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
+root: a resource group the organization storage accounts are created in, and a Front Door
+Standard profile and endpoint under `apps-<environment>.<zone>`. State is local, one
+environment per developer.
+
+```bash
+cd dev
+terraform init
+terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
+terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
+```
+
+Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. The contributing guide
+on the website (Testing → Publishing UIs against Azure) has the full walkthrough.
+
 ## Deploy Options
 
 ```bash
@@ -180,6 +200,7 @@ terraform apply -var="beta_mode=false"
 | Firecracker VMs | `cluster/` | Disposable |
 | Static Web App (SPA) | `frontend/` | Independent |
 | portal.kinotic.ai CNAME | `frontend/` | Independent |
+| Developer storage resource group + Front Door (apps-<environment>.kinotic.ai) | `dev/` | Per developer, local state |
 
 ## Additional Docs
 

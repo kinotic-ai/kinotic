@@ -19,9 +19,11 @@ export interface OrganizationStorage {
      */
     blobEndpoint: string | null
     /**
-     * The address the account answers on inside the platform network, or null until it exists.
+     * The one host a publish workload may reach, where the account answers the platform: its
+     * private endpoint's address inside the platform network, or its public host where no
+     * private endpoint exists. Null until the account exists.
      */
-    privateEndpointIp: string | null
+    publishHost: string | null
     /**
      * Where the storage is in its lifecycle.
      */
