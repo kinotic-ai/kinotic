@@ -31,7 +31,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.net.URI;
 import java.util.Date;
 
 /**
@@ -127,10 +126,10 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     private Future<Organization> provision(Organization organization) {
         String organizationId = organization.getId();
         OrganizationStorage storage = organization.getStorage() != null ? organization.getStorage() : new OrganizationStorage();
-        String subscriptionId = storage.getSubscriptionId() != null ? storage.getSubscriptionId() : chooseSubscription(organizationId);
+        String subscriptionId = storage.getAzureSubscriptionId() != null ? storage.getAzureSubscriptionId() : chooseSubscription(organizationId);
         String accountName = accountName(organizationId);
-        storage.setSubscriptionId(subscriptionId)
-               .setAccountName(accountName)
+        storage.setAzureSubscriptionId(subscriptionId)
+               .setAzureAccountName(accountName)
                .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING));
         organization.setStorage(storage).setUpdated(new Date());
         AzureProfile profile = new AzureProfile(null, subscriptionId, AzureEnvironment.AZURE);
@@ -141,10 +140,9 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
         return organizationService.saveSync(organization)
                 .compose(saved -> AzureUtil.toFuture(ensureAccount(storageManager, accountName, organizationId), vertx))
                 .compose(account -> AzureUtil.toFuture(ensureContainer(storageManager, accountName), vertx)
-                        .compose(container -> publishHost(network, account))
-                        .map(publishHost -> {
-                            storage.setBlobEndpoint(account.endPoints().primary().blob())
-                                   .setPublishHost(publishHost)
+                        .compose(container -> ensurePrivateEndpoint(network, account))
+                        .map(v -> {
+                            storage.setAzureBlobEndpoint(account.endPoints().primary().blob())
                                    .setStatus(new DeploymentStatus(DeploymentStatusType.READY));
                             return organization.setUpdated(new Date());
                         }))
@@ -190,41 +188,31 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     }
 
     /**
-     * The one host publish workloads reach the account on: its private endpoint's address, or
-     * its public blob host when private endpoints are disabled.
-     */
-    private Future<String> publishHost(NetworkManager network, StorageAccount account) {
-        Future<String> ret;
-        if (properties().isDisablePrivateEndpoint()) {
-            ret = Future.succeededFuture(URI.create(account.endPoints().primary().blob()).getHost());
-        } else {
-            ret = AzureUtil.toFuture(ensurePrivateEndpoint(network, account), vertx);
-        }
-        return ret;
-    }
-
-    /**
      * Places the account's blob private endpoint in the platform subnet and registers it in the
      * private DNS zone through a zone group, so the platform resolves the account's public name
-     * to the private address. Emits that address.
+     * to the private address. Creates nothing when private endpoints are disabled.
      */
-    private Mono<String> ensurePrivateEndpoint(NetworkManager network, StorageAccount account) {
-        String endpointName = "pe-" + account.name();
-        return AzureUtil.emptyIfNotFound(network.privateEndpoints().getByResourceGroupAsync(properties().getResourceGroup(), endpointName))
-                        .switchIfEmpty(Mono.defer(() -> network.privateEndpoints()
-                                .define(endpointName)
-                                .withRegion(properties().getLocation())
-                                .withExistingResourceGroup(properties().getResourceGroup())
-                                .withSubnetId(properties().getPrivateEndpointSubnetId())
-                                .definePrivateLinkServiceConnection("blob")
-                                    .withResourceId(account.id())
-                                    .withSubResource(PrivateLinkSubResourceName.STORAGE_BLOB)
-                                    .attach()
-                                .createAsync()))
-                        .flatMap(endpoint -> ensureDnsZoneGroup(endpoint).thenReturn(endpoint))
-                        .flatMap(endpoint -> network.networkInterfaces()
-                                                    .getByIdAsync(endpoint.networkInterfaces().getFirst().id())
-                                                    .map(nic -> nic.primaryPrivateIP()));
+    private Future<Void> ensurePrivateEndpoint(NetworkManager network, StorageAccount account) {
+        Future<Void> ret;
+        if (properties().isDisablePrivateEndpoint()) {
+            ret = Future.succeededFuture();
+        } else {
+            String endpointName = "pe-" + account.name();
+            Mono<PrivateEndpoint> endpoint = AzureUtil.emptyIfNotFound(network.privateEndpoints().getByResourceGroupAsync(properties().getResourceGroup(), endpointName))
+                    .switchIfEmpty(Mono.defer(() -> network.privateEndpoints()
+                            .define(endpointName)
+                            .withRegion(properties().getLocation())
+                            .withExistingResourceGroup(properties().getResourceGroup())
+                            .withSubnetId(properties().getPrivateEndpointSubnetId())
+                            .definePrivateLinkServiceConnection("blob")
+                                .withResourceId(account.id())
+                                .withSubResource(PrivateLinkSubResourceName.STORAGE_BLOB)
+                                .attach()
+                            .createAsync()))
+                    .flatMap(created -> ensureDnsZoneGroup(created).thenReturn(created));
+            ret = AzureUtil.toFuture(endpoint, vertx).mapEmpty();
+        }
+        return ret;
     }
 
     // An endpoint carries at most one zone group, so any existing one is the registration

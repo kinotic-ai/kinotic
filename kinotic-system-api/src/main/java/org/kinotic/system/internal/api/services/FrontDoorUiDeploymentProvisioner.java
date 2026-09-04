@@ -216,7 +216,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     /** The organization's origin group and its one origin, the storage account's blob endpoint. Emits the group's id. */
     private Future<String> ensureOriginGroup(Organization organization) {
         String groupName = originGroupName(organization);
-        String host = URI.create(organization.getStorage().getBlobEndpoint()).getHost();
+        String host = URI.create(organization.getStorage().getAzureBlobEndpoint()).getHost();
         return getOrCreate(cdn.getAfdOriginGroups().getAsync(resourceGroup, profileName, groupName),
                            () -> cdn.getAfdOriginGroups().createAsync(resourceGroup, profileName, groupName, new AfdOriginGroupInner()
                                    .withLoadBalancingSettings(new LoadBalancingSettingsParameters()
@@ -501,7 +501,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
 
     private static void requireStorage(Organization organization) {
         Validate.notNull(organization, "organization is required");
-        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getBlobEndpoint() != null,
+        Validate.isTrue(organization.getStorage() != null && organization.getStorage().getAzureBlobEndpoint() != null,
                         "Organization %s has no storage endpoint recorded", organization.getId());
     }
 

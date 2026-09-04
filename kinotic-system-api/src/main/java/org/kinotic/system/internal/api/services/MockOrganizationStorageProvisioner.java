@@ -17,7 +17,6 @@ import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
 import java.util.Date;
 
 /**
@@ -54,11 +53,9 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
                     } else {
                         ret = AzureUtil.toFuture(blobService.createBlobContainerIfNotExists(UI_CONTAINER), vertx)
                                        .compose(container -> {
-                                           URI endpoint = URI.create(blobService.getAccountUrl());
                                            organization.setStorage(new OrganizationStorage()
-                                                               .setAccountName(blobService.getAccountName())
-                                                               .setBlobEndpoint(blobService.getAccountUrl())
-                                                               .setPublishHost(endpoint.getHost())
+                                                               .setAzureAccountName(blobService.getAccountName())
+                                                               .setAzureBlobEndpoint(blobService.getAccountUrl())
                                                                .setStatus(new DeploymentStatus(DeploymentStatusType.READY)))
                                                        .setUpdated(new Date());
                                            log.debug("MockOrganizationStorageProvisioner pointed organization {} at {}",

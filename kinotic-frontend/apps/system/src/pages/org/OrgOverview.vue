@@ -46,9 +46,9 @@
           <dd class="break-words">{{ organization.storage.status.message }}</dd>
         </template>
         <dt class="text-muted-color">Account</dt>
-        <dd class="font-mono">{{ organization?.storage?.accountName || '—' }}</dd>
+        <dd class="font-mono">{{ organization?.storage?.azureAccountName || '—' }}</dd>
         <dt class="text-muted-color">Endpoint</dt>
-        <dd class="font-mono break-all">{{ organization?.storage?.blobEndpoint || '—' }}</dd>
+        <dd class="font-mono break-all">{{ organization?.storage?.azureBlobEndpoint || '—' }}</dd>
         <dt class="text-muted-color">Last run</dt>
         <dd>
           <router-link v-if="organization?.provisioningJobRunId" class="font-mono text-primary"
