@@ -53,11 +53,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -437,8 +435,8 @@ public class ProjectDeployJobDefinitionFactory {
      * through a foreground publish workload holding nothing but a short-lived upload URL,
      * then records the outcome on each UI's {@link UiDeployment}. A UI's first publish mints
      * its site's hostname label and provisions the site; a later publish keeps the site and
-     * records the new commit, retaining the previous commit's assets for tabs still open on
-     * it and deleting older ones. A UI the commit no longer contains is marked orphaned and
+     * records the new commit, deleting the files of older ones. A UI the commit no longer
+     * contains is marked orphaned and
      * keeps serving; one that returns is adopted. A commit without UIs publishes nothing. A
      * site that cannot be provisioned is recorded failed and the others still publish; the
      * task then fails naming the failed ones.
@@ -529,13 +527,8 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             deployment = Future.succeededFuture(existing);
         }
-        return deployment.compose(row -> {
-                    if (!commitSha.equals(row.getCommitSha())) {
-                        row.setPreviousCommitSha(row.getCommitSha()).setCommitSha(commitSha);
-                    }
-                    return deleteStaleCommits(organization, project.getApplicationId(), row)
-                            .compose(v -> uiDeploymentRepository.save(row.setUpdated(new Date())));
-                });
+        return deployment.compose(row -> deleteStaleFiles(organization, project.getApplicationId(), row.setCommitSha(commitSha))
+                .compose(v -> uiDeploymentRepository.save(row.setUpdated(new Date()))));
     }
 
     /**
@@ -574,15 +567,9 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
-    // The current commit serves, the previous one keeps tabs opened on it working; anything
-    // older is unreachable and goes
-    private Future<Void> deleteStaleCommits(Organization organization, String applicationId, UiDeployment row) {
-        Set<String> kept = new HashSet<>();
-        kept.add(row.getCommitSha());
-        if (row.getPreviousCommitSha() != null) {
-            kept.add(row.getPreviousCommitSha());
-        }
-        return organizationStorageService.deleteFilesOfOtherCommits(organization, UiStoragePaths.uiPrefix(applicationId, row.getName()), kept);
+    // The index switched to the current commit, so nothing reaches another commit's files
+    private Future<Void> deleteStaleFiles(Organization organization, String applicationId, UiDeployment row) {
+        return organizationStorageService.deleteFilesOfOtherCommits(organization, UiStoragePaths.uiPrefix(applicationId, row.getName()), row.getCommitSha());
     }
 
     /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */

@@ -33,7 +33,6 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -80,19 +79,18 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     @Override
-    public Future<Void> deleteFilesOfOtherCommits(Organization organization, String prefix, Set<String> commits) {
+    public Future<Void> deleteFilesOfOtherCommits(Organization organization, String prefix, String commit) {
         Validate.notBlank(prefix, "prefix is required");
-        Validate.notEmpty(commits, "commits is required");
+        Validate.notBlank(commit, "commit is required");
         BlobContainerAsyncClient container = container(organization);
         ListBlobsOptions options = new ListBlobsOptions().setPrefix(prefix + "/")
                                                          .setDetails(new BlobListDetails().setRetrieveMetadata(true));
-        return deleteAll(container, container.listBlobs(options).filter(item -> isDirectory(item) || !isOf(item, commits)));
+        return deleteAll(container, container.listBlobs(options).filter(item -> isDirectory(item) || !isOf(item, commit)));
     }
 
     // A blob without the stamp predates stamping, so no publish keeps it
-    private static boolean isOf(BlobItem item, Set<String> commits) {
-        String commit = item.getMetadata() == null ? null : item.getMetadata().get(COMMIT_METADATA);
-        return commit != null && commits.contains(commit);
+    private static boolean isOf(BlobItem item, String commit) {
+        return item.getMetadata() != null && commit.equals(item.getMetadata().get(COMMIT_METADATA));
     }
 
     @Override

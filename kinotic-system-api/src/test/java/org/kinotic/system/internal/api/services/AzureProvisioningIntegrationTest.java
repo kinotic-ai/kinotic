@@ -57,7 +57,6 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -188,7 +187,7 @@ class AzureProvisioningIntegrationTest {
         String stale = UI_NAME + "/assets/old-" + COMMIT_SHA.substring(0, 8) + ".js";
         publish(stale, "// stale", "text/javascript", "1".repeat(40));
         String uiPrefix = UiStoragePaths.uiPrefix(APPLICATION_ID, UI_NAME);
-        await(storageService.deleteFilesOfOtherCommits(organization, uiPrefix, Set.of(COMMIT_SHA)));
+        await(storageService.deleteFilesOfOtherCommits(organization, uiPrefix, COMMIT_SHA));
         assertFalse(blob(uiPrefix + "/" + stale.substring(UI_NAME.length() + 1)).exists(), "the other commit's file is deleted");
         assertTrue(blob(uiPrefix + "/index.html").exists(), "the current commit's file stays");
         UiDeployment deployment = new UiDeployment().setId(SITE_LABEL)

@@ -60,9 +60,9 @@ sharing a name, fails the run naming the package. The result is reported to the 
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
 the deployment run can bind it once this workload exits.
 
-Every UI artifact is then built in place with `bun run build`, handed `KINOTIC_UI_COMMIT`
-and `KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html` fails the run naming
-the UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
+Every UI artifact is then built in place with `bun run build`, handed
+`KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html` fails the run naming the
+UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
 hash in their name and are cached for a year, everything else is never cached, and every
 blob is stamped with the commit so the deploy can delete what older publishes left.
 
