@@ -24,7 +24,7 @@ import { forwardOutput, log, logError } from './log.ts'
  * - KINOTIC_WORKSPACE_DIR  the shared checkout directory (default /workspace)
  * - KINOTIC_PROJECT_ID     the project the checkout belongs to; required to report artifacts
  * - KINOTIC_UI_SERVER_URL  the address a browser reaches the platform on, handed to every UI
- *                          build
+ *                          build as VITE_KINOTIC_HOST, VITE_KINOTIC_PORT and VITE_KINOTIC_USE_SSL
  * - KINOTIC_SERVER_* / KINOTIC_CLIENT_ID / KINOTIC_CLIENT_SECRET — standard Kinotic
  *   connection settings the CLI and the artifact report authenticate with; both are
  *   skipped when no credentials are present
@@ -157,13 +157,19 @@ async function reportArtifacts(commitSha: string, artifacts: ProjectArtifacts): 
 /**
  * Builds every UI of the commit in place, each with the three variables its build honors:
  * the base path its assets are served under, which is the commit so they can be cached
- * forever, the commit itself for the stale-tab check, and the server address. A build that
- * leaves no {@code dist/index.html} fails the run before the sentinel is written.
+ * forever, and the server address as the three variables the platform's own consoles
+ * connect with: Vite exposes VITE_* to the page on its own, so a Vite project needs no
+ * configuration to reach the platform. A build that leaves no {@code dist/index.html} fails
+ * the run before the sentinel is written.
  */
 async function buildUis(workspaceDir: string, uis: UiArtifact[]): Promise<void> {
     const env: Record<string, string> = {}
     if (process.env.KINOTIC_UI_SERVER_URL) {
-        env.KINOTIC_UI_SERVER_URL = process.env.KINOTIC_UI_SERVER_URL
+        const server = new URL(process.env.KINOTIC_UI_SERVER_URL)
+        const ssl = server.protocol === 'https:'
+        env.VITE_KINOTIC_HOST = server.hostname
+        env.VITE_KINOTIC_PORT = server.port || (ssl ? '443' : '80')
+        env.VITE_KINOTIC_USE_SSL = String(ssl)
     }
     for (const ui of uis) {
         log(`[workload-runner] building UI ${ui.name}`)
