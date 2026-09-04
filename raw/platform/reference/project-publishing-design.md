@@ -350,10 +350,11 @@ of the `provision-organization-<id>` job that `DeploymentOperationsService` runs
 system server when the organization is created, asked through the proxy by
 `DefaultOrganizationProvisioner`, the management module's `OrganizationProvisioner`, and
 whenever the system console's **Provision again** asks; the Front Door preparation is the
-second. The provisioners, the storage service and their settings live in system-api. A deployment that publishes a UI reads the outcome and fails when the storage is
-not ready.
-`MockOrganizationStorageProvisioner` points every
-organization at Azurite. Terraform owns the resource group, private-endpoints subnet, private DNS zone and the
+second. The provisioners, the storage service and their settings live in system-api. A
+deployment that publishes a UI reads the outcome and fails when the storage is not ready.
+`AzureProvisioningIntegrationTest` in system-api runs both provisioners against a
+developer's subscription, from the `local` profile and `.env.local`, and skips elsewhere.
+`MockOrganizationStorageProvisioner` points every organization at Azurite. Terraform owns the resource group, private-endpoints subnet, private DNS zone and the
 kinotic-server roles. The account's public network stays open, with anonymous access off,
 so Front Door can read it; the platform comes in through the private endpoint, or over the
 public endpoint where it has none. A developer runs the real path against their own

@@ -201,6 +201,20 @@ a developer machine is outside any platform VNet, so the server and the publish 
 each storage account over its public endpoint, and the workload's egress allowlist names that
 host.
 
+Before involving the server, run the provisioning against your subscription as a test. It
+does what the provisioning job and a deployment do, for a fixed organization `kinotic-azure-it`
+and a site `azure-it.apps-<environment>.<zone>`, and reads back from Azure what each step
+created, so a step Azure rejects fails naming the call:
+
+```bash
+./gradlew :kinotic-system-api:test --tests '*AzureProvisioningIntegrationTest*'
+```
+
+The module's test task puts `.env.local` in the test's environment, and the test reads your
+`application-local.yml`; without either it skips. What it creates is left in place, so a second
+run is quick, and `terraform destroy` removes the account with the resource group; the site's
+records under `apps-<environment>` in the zone are removed by hand.
+
 Then sign up an organization, or open an existing one in the system console and choose
 **Provision again**: the `provision-organization-<id>` job creates its storage account and
 prepares its Front Door origin group and rule set, and the organization's overview shows the
