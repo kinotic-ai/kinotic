@@ -232,6 +232,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         ret.put("projectSlug", SLUGIFY.slugify(project.getName()));
         ret.put("organizationId", project.getOrganizationId());
         ret.put("applicationId", project.getApplicationId());
+        ret.put("projectId", project.getId());
         return ret;
     }
 
