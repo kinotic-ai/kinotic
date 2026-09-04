@@ -244,6 +244,7 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     createdBy KEYWORD,
     storage OBJECT (subscriptionId KEYWORD, accountName KEYWORD, blobEndpoint KEYWORD, privateEndpointIp KEYWORD,
                     status OBJECT (type KEYWORD, message TEXT)),
+    provisioningJobRunId KEYWORD,
     created DATE,
     updated DATE
 );

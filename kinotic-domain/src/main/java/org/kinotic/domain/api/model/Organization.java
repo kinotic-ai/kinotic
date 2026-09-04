@@ -46,9 +46,15 @@ public class Organization implements Identifiable<String> {
     private String createdBy;
 
     /**
-     * The organization's storage, or {@code null} while no deployment has needed it yet.
+     * The organization's storage, or {@code null} until provisioning has recorded it.
      */
     private OrganizationStorage storage;
+
+    /**
+     * Id of the job run that last provisioned the organization, or {@code null} before the
+     * first one started.
+     */
+    private String provisioningJobRunId;
 
     private Date created;
 

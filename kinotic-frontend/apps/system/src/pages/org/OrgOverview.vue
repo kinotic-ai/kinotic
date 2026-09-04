@@ -21,17 +21,58 @@
         <dd>{{ formatEpochDate(organization?.created ?? null) }}</dd>
       </dl>
     </div>
+    <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
+      <div class="flex items-center justify-between gap-2">
+        <h2 class="text-base font-semibold">Provisioning</h2>
+        <Button label="Provision again" icon="pi pi-refresh" size="small" severity="secondary" outlined
+                :loading="provisioning" :disabled="!organization" @click="provision" />
+      </div>
+      <p class="text-sm text-muted-color mt-0">
+        The storage the organization's deployments publish to, and what serves its UIs from
+        it, created by a job when the organization was. Provision again runs that job once
+        more; it does whatever an earlier run left undone.
+      </p>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+        <dt class="text-muted-color">Storage</dt>
+        <dd>
+          <span v-if="organization?.storage" :title="organization.storage.status.message ?? undefined">
+            <Tag :value="organization.storage.status.type"
+                 :severity="deploymentStatusSeverity(organization.storage.status.type)" />
+          </span>
+          <span v-else>Not provisioned</span>
+        </dd>
+        <template v-if="organization?.storage?.status.message">
+          <dt class="text-muted-color">Reason</dt>
+          <dd class="break-words">{{ organization.storage.status.message }}</dd>
+        </template>
+        <dt class="text-muted-color">Account</dt>
+        <dd class="font-mono">{{ organization?.storage?.accountName || '—' }}</dd>
+        <dt class="text-muted-color">Endpoint</dt>
+        <dd class="font-mono break-all">{{ organization?.storage?.blobEndpoint || '—' }}</dd>
+        <dt class="text-muted-color">Last run</dt>
+        <dd>
+          <router-link v-if="organization?.provisioningJobRunId" class="font-mono text-primary"
+                       :to="{ name: 'job-run', params: { jobRunId: organization.provisioningJobRunId } }">
+            {{ organization.provisioningJobRunId }}
+          </router-link>
+          <span v-else>—</span>
+        </dd>
+      </dl>
+    </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import Button from 'primevue/button'
 import Message from 'primevue/message'
+import Tag from 'primevue/tag'
+import { useToast } from 'primevue/usetoast'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import type { Organization } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, deploymentStatusSeverity, showErrorToast } from '@kinotic-ai/frontend-common'
 
 import StatTile from '@/components/StatTile.vue'
 import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
@@ -40,7 +81,10 @@ const props = defineProps<{
   organizationId: string
 }>()
 
+const toast = useToast()
+
 const organization = ref<Organization | null>(null)
+const provisioning = ref(false)
 const applicationCount = ref<number | null>(null)
 const projectCount = ref<number | null>(null)
 const memberCount = ref<number | null>(null)
@@ -106,6 +150,18 @@ async function load() {
     inviteCount.value = invites.totalElements ?? 0
   } catch (err) {
     error.value = err instanceof Error ? err.message : 'Failed to load organization dashboard'
+  }
+}
+
+async function provision() {
+  provisioning.value = true
+  try {
+    organization.value = await Kinotic.systemOrganizations.provisionOrganization(props.organizationId)
+    toast.add({ severity: 'success', summary: 'Provisioning started', life: 3000 })
+  } catch (err) {
+    showErrorToast(toast, 'Failed to start provisioning', err, { life: 8000 })
+  } finally {
+    provisioning.value = false
   }
 }
 

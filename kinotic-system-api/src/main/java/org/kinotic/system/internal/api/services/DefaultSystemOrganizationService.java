@@ -48,6 +48,11 @@ public class DefaultSystemOrganizationService implements SystemOrganizationServi
     }
 
     @Override
+    public Future<Organization> provisionOrganization(String organizationId) {
+        return organizationService.provision(organizationId);
+    }
+
+    @Override
     public Future<Page<Application>> findApplications(String organizationId, Pageable pageable) {
         return applicationRepository.findAll(organizationId, pageable);
     }
