@@ -1,8 +1,12 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
-import type { LogTarget } from '@/internal/api/model/LogTarget'
+import type { Workload } from '@kinotic-ai/management-api'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
 import { LogFormat } from '@/internal/api/model/LogFormat'
+import type { OtlpSink } from '@/internal/api/telemetry/OtlpSink'
+import { OtlpEndpointRepository } from '@/internal/api/telemetry/OtlpEndpointRepository'
 
 // Alloy's default port, bound to loopback so the debug UI is not exposed off-host
 const LISTEN_ADDR = '127.0.0.1:12345'
@@ -17,12 +21,12 @@ const ALLOY_VERSION = 'v1.17.1'
  */
 const DOWNLOAD_TIMEOUT_MS = 120_000
 
-/** Attempts before the node gives up and runs without log shipping. */
+/** Attempts before the node gives up and runs without telemetry shipping. */
 const DOWNLOAD_ATTEMPTS = 3
 
-// Loki tenant for platform workloads with no organization (SYSTEM scope); must match
-// DefaultLogService.SYSTEM_LOG_TENANT on the server
-const SYSTEM_LOG_TENANT = 'kinotic-system'
+// Tenant for platform workloads with no organization (SYSTEM scope), for logs, traces, and
+// metrics alike; must match TenantAccess.SYSTEM_TENANT on the server
+const SYSTEM_TENANT = 'kinotic-system'
 
 /**
  * How often Alloy rescans a target's path for files. A one-shot workload can be over in
@@ -35,8 +39,12 @@ const SHIP_TIMEOUT_MS = 15_000
 const SHIP_POLL_MS = 250
 
 export interface AlloyManagerOptions {
-    /** Base URL of the Loki HTTP API logs are pushed to. */
-    lokiUrl: string
+    /** Base URL of the Loki HTTP API logs are pushed to; null ships no logs. */
+    lokiUrl: string | null
+    /** Base URL of the OTLP/HTTP endpoint traces are pushed to; null ships no traces. */
+    tempoUrl: string | null
+    /** Base URL of the OTLP/HTTP endpoint metrics are pushed to; null ships no metrics. */
+    mimirUrl: string | null
     /** This vm-manager node's id, applied as the node_id label on every stream. */
     nodeId: string
     /** Directory holding the generated config, Alloy's WAL, and downloaded binaries. */
@@ -44,15 +52,44 @@ export interface AlloyManagerOptions {
 }
 
 /**
- * Runs the Grafana Alloy process that ships workload logs to Loki. The pipeline config is
- * regenerated from the current log targets on every change; Alloy is started on the first
- * target and hot-reloads via SIGHUP afterwards.
+ * Runs the Grafana Alloy process that ships workload logs to Loki, workload traces to Tempo,
+ * and workload metrics to Mimir, and issues the workloads that elect telemetry the OTLP
+ * endpoints Alloy receives on. The pipeline config is regenerated from the current targets on
+ * every change; Alloy is started on the first target and hot-reloads via SIGHUP afterwards.
  */
 export class AlloyManager {
+
+    /**
+     * The environment a guest is started with: the workload's own, and — when it holds an
+     * endpoint — the service name its spans and metrics are grouped by defaulted to the
+     * workload's name beneath it, and the OTLP exporter configuration for that endpoint over
+     * it, in the standard OpenTelemetry variables every SDK reads. Each signal the endpoint
+     * does not accept is turned off, since the receiver would refuse it.
+     *
+     * @param host the address the guest reaches its node on, which each provider knows
+     */
+    static guestEnvironment(workload: Workload, host: string, endpoint: OtlpEndpoint | null): Record<string, string> {
+        return {
+            ...(endpoint !== null ? { OTEL_SERVICE_NAME: workload.name } : {}),
+            ...workload.environment,
+            ...workload.secrets,
+            ...(endpoint !== null ? {
+                OTEL_EXPORTER_OTLP_ENDPOINT: `http://${host}:${endpoint.port}`,
+                OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+                // Header values are percent-encoded, per the OTLP exporter specification
+                OTEL_EXPORTER_OTLP_HEADERS: `authorization=Bearer%20${endpoint.token}`,
+                OTEL_TRACES_EXPORTER: endpoint.signals.includes('traces') ? 'otlp' : 'none',
+                OTEL_METRICS_EXPORTER: endpoint.signals.includes('metrics') ? 'otlp' : 'none',
+                OTEL_LOGS_EXPORTER: 'none',
+            } : {}),
+        }
+    }
 
     private readonly options: AlloyManagerOptions
     private readonly configPath: string
     private readonly pidFile: string
+    // Null on a node that ships no OTLP signal, where a workload's election issues nothing
+    private readonly endpoints: OtlpEndpointRepository | null
     private child: ChildProcess | null = null
     private lastConfig: string | null = null
     private stopping = false
@@ -63,13 +100,44 @@ export class AlloyManager {
         this.options = options
         this.configPath = join(options.dataDir, 'config.alloy')
         this.pidFile = join(options.dataDir, 'alloy.pid')
+        this.endpoints = this.sinks().length > 0 ? new OtlpEndpointRepository(options.dataDir) : null
+    }
+
+    /** Whether this node ships any OTLP signal, and so issues endpoints to workloads that elect telemetry. */
+    issuesEndpoints(): boolean {
+        return this.endpoints !== null
+    }
+
+    /**
+     * Issues the workload an endpoint bound to the given host address when it elects telemetry
+     * and this node ships a signal, or returns the one it already holds; null otherwise.
+     */
+    issueEndpoint(workload: Workload, listenAddress: string): OtlpEndpoint | null {
+        return (workload.telemetry ?? false) && this.endpoints !== null
+            ? this.endpoints.issue(workload.id!, listenAddress, this.sinks().map(sink => sink.signal))
+            : null
+    }
+
+    /** The endpoint issued to the workload, or null when it holds none. */
+    endpointOf(workloadId: string): OtlpEndpoint | null {
+        return this.endpoints?.find(workloadId) ?? null
+    }
+
+    /** Releases the workload's endpoint, if it holds one. */
+    releaseEndpoint(workloadId: string): void {
+        this.endpoints?.release(workloadId)
+    }
+
+    /** Releases the endpoints of every workload not in the given set, left by a vm-manager that died mid-destroy. */
+    reconcileEndpoints(activeWorkloadIds: Set<string>): void {
+        this.endpoints?.reconcile(activeWorkloadIds)
     }
 
     /**
      * Regenerates the pipeline for the given targets, starting Alloy or reloading its
      * config as needed. No-op when Alloy is running and the config is unchanged.
      */
-    async applyTargets(targets: LogTarget[]): Promise<void> {
+    async applyTargets(targets: TelemetryTarget[]): Promise<void> {
         // start() is async and leaves this.child null while the binary downloads and
         // spawns, so concurrent callers would each spawn an Alloy — the loser of the
         // race then holds LISTEN_ADDR as an orphan the pid file no longer names.
@@ -83,7 +151,7 @@ export class AlloyManager {
      * deleted without losing what the workload wrote last. Gives up after a bounded wait,
      * with a warning, rather than holding the caller to a shipper that has stalled.
      */
-    async awaitShipped(target: LogTarget): Promise<void> {
+    async awaitShipped(target: TelemetryTarget): Promise<void> {
         if (!this.child) {
             return
         }
@@ -100,12 +168,12 @@ export class AlloyManager {
     }
 
     // The target's files on disk that Alloy's read counter has not caught up with
-    private unreadFiles(target: LogTarget, readBytesByPath: Map<string, number>): string[] {
+    private unreadFiles(target: TelemetryTarget, readBytesByPath: Map<string, number>): string[] {
         return this.filesOf(target).filter(file => (readBytesByPath.get(file) ?? 0) < statSync(file).size)
     }
 
     // A PLAIN target names a directory glob of *.log files; a DOCKER_JSON target one file
-    private filesOf(target: LogTarget): string[] {
+    private filesOf(target: TelemetryTarget): string[] {
         let ret: string[]
         if (target.format === LogFormat.PLAIN) {
             const dir = dirname(target.logPath)
@@ -140,17 +208,17 @@ export class AlloyManager {
     }
 
     /**
-     * Why this node is not shipping workload logs, or null when it is.
+     * Why this node is not shipping workload telemetry, or null when it is.
      *
-     * Reported rather than thrown: a node that loses log shipping keeps running, so the
-     * failure is visible and fixable, but it is not fit to take workloads whose logs would go
-     * nowhere. Silence would leave it accepting them and quietly dropping their output.
+     * Reported rather than thrown: a node that loses shipping keeps running, so the failure is
+     * visible and fixable, but it is not fit to take workloads whose output would go nowhere.
+     * Silence would leave it accepting them and quietly dropping their output.
      */
     shippingProblem(): string | null {
         let ret: string | null = null
         // Shutdown is deliberate, and a node on its way down has nothing to report
         if (!this.stopping && this.child === null) {
-            ret = `workload logs are not being shipped to ${this.options.lokiUrl}: the log shipper is not running`
+            ret = `workload ${this.destinations()} are not being shipped: the shipper is not running`
         }
         return ret
     }
@@ -172,7 +240,7 @@ export class AlloyManager {
         return result
     }
 
-    private async applyTargetsInternal(targets: LogTarget[]): Promise<void> {
+    private async applyTargetsInternal(targets: TelemetryTarget[]): Promise<void> {
         // A workload operation racing shutdown would otherwise respawn Alloy after stop
         if (this.stopping) {
             return
@@ -226,7 +294,7 @@ export class AlloyManager {
             stdio: ['ignore', 'inherit', 'inherit'],
         })
         writeFileSync(this.pidFile, String(this.child.pid))
-        console.log(`Alloy started (pid ${this.child.pid}), shipping logs to ${this.options.lokiUrl}`)
+        console.log(`Alloy started (pid ${this.child.pid}), shipping ${this.destinations()}`)
 
         this.child.on('exit', (code, signal) => {
             rmSync(this.pidFile, { force: true })
@@ -239,6 +307,14 @@ export class AlloyManager {
             this.child = null
             this.lastConfig = null
         })
+    }
+
+    // What this node was configured to ship, and where
+    private destinations(): string {
+        return [
+            ...(this.options.lokiUrl !== null ? [`logs to ${this.options.lokiUrl}`] : []),
+            ...this.sinks().map(sink => `${sink.signal} to ${sink.url}`),
+        ].join(', ')
     }
 
     /**
@@ -274,8 +350,8 @@ export class AlloyManager {
         mkdirSync(versionDir, { recursive: true })
         const zipPath = join(versionDir, `${asset}.zip`)
         // Buffered rather than streamed: Bun.write(path, response) never completes for this
-        // body, leaving the node with an empty version directory and no log shipping at all.
-        // The asset is ~100MB and read once per version, so holding it in memory is cheap.
+        // body, leaving the node with an empty version directory and no telemetry shipping at
+        // all. The asset is ~100MB and read once per version, so holding it in memory is cheap.
         await Bun.write(zipPath, await this.fetchArchive(url))
 
         const unzip = spawnSync('unzip', ['-o', zipPath, '-d', versionDir], { stdio: 'ignore' })
@@ -297,7 +373,7 @@ export class AlloyManager {
      *
      * This runs before the node registers, so a download that never finishes takes the node
      * with it — no workloads, no heartbeat, and nothing said about why. The bound is what
-     * turns that into a failure the caller can log and carry on without log shipping.
+     * turns that into a failure the caller can log and carry on without telemetry shipping.
      */
     private async fetchArchive(url: string): Promise<ArrayBuffer> {
         let lastFailure = ''
@@ -352,13 +428,26 @@ export class AlloyManager {
         }
     }
 
-    // Renders the pipeline: one file source per running VM, a shared process stage that
-    // routes each stream to its organization's Loki tenant, and a single write endpoint
-    private generateConfig(targets: LogTarget[]): string {
+    // Renders the pipelines: one file source per VM feeding a shared stage that routes each
+    // stream to its organization's Loki tenant, and one OTLP receiver per VM that elects
+    // telemetry feeding its organization's Tempo and Mimir exporters
+    private generateConfig(targets: TelemetryTarget[]): string {
         const sections: string[] = [
             '// Generated by vm-manager — do not edit. Regenerated as workloads come and go.',
             '',
-            ...targets.map(target => this.renderTarget(target)),
+        ]
+        if (this.options.lokiUrl !== null) {
+            sections.push(...this.renderLogPipeline(targets, this.options.lokiUrl))
+        }
+        if (this.endpoints !== null) {
+            sections.push(...this.renderOtlpPipeline(targets.filter(target => target.otlp !== null)))
+        }
+        return sections.join('\n')
+    }
+
+    private renderLogPipeline(targets: TelemetryTarget[], lokiUrl: string): string[] {
+        return [
+            ...targets.map(target => this.renderLogSource(target)),
             ...(targets.some(target => target.format === LogFormat.DOCKER_JSON)
                 ? [`loki.process "docker" {
   // Docker's json-file driver wraps every line as {"log":..,"stream":..,"time":..}; without
@@ -381,15 +470,14 @@ export class AlloyManager {
 
 loki.write "default" {
   endpoint {
-    url = ${this.river(this.options.lokiUrl + '/loki/api/v1/push')}
+    url = ${this.river(lokiUrl + '/loki/api/v1/push')}
   }
 }
 `,
         ]
-        return sections.join('\n')
     }
 
-    private renderTarget(target: LogTarget): string {
+    private renderLogSource(target: TelemetryTarget): string {
         const name = this.componentName(target.workloadId)
         const receiver = target.format === LogFormat.DOCKER_JSON
             ? 'loki.process.docker.receiver'
@@ -400,7 +488,7 @@ loki.write "default" {
             `      vm_id          = ${this.river(target.vmId)},`,
             `      node_id        = ${this.river(this.options.nodeId)},`,
             ...(target.applicationId ? [`      application_id = ${this.river(target.applicationId)},`] : []),
-            `      tenant         = ${this.river(target.organizationId ?? SYSTEM_LOG_TENANT)},`,
+            `      tenant         = ${this.river(this.tenantOf(target))},`,
         ]
         return `local.file_match ${this.river(name)} {
   sync_period  = ${this.river(FILE_SYNC_PERIOD)}
@@ -418,9 +506,112 @@ loki.source.file ${this.river(name)} {
 `
     }
 
+    // Where this node ships each OTLP signal, in the order the stages hand them on
+    private sinks(): OtlpSink[] {
+        return [
+            ...(this.options.tempoUrl !== null
+                ? [{ signal: 'traces' as const, statements: 'trace_statements', url: this.options.tempoUrl }]
+                : []),
+            ...(this.options.mimirUrl !== null
+                ? [{ signal: 'metrics' as const, statements: 'metric_statements', url: this.options.mimirUrl }]
+                : []),
+        ]
+    }
+
+    // The tenant is a property of the push rather than of the data, so unlike the log
+    // pipeline this one ends in an exporter per organization and signal
+    private renderOtlpPipeline(targets: TelemetryTarget[]): string[] {
+        const tenants = [...new Set(targets.map(target => this.tenantOf(target)))]
+        return [
+            ...targets.map(target => this.renderOtlpSource(target)),
+            ...tenants.map(tenant => this.renderOtlpSink(tenant)),
+        ]
+    }
+
+    // A receiver of the workload's own, so the component a push arrives on says which
+    // workload sent it, behind a token only that workload's guest holds
+    private renderOtlpSource(target: TelemetryTarget): string {
+        const name = this.componentName(target.workloadId)
+        const otlp = target.otlp!
+        const sink = this.tenantComponentName(this.tenantOf(target))
+        const attributes: Array<[string, string]> = [
+            ['workload_id', target.workloadId],
+            ['vm_id', target.vmId],
+            ['node_id', this.options.nodeId],
+            ...(target.applicationId ? [['application_id', target.applicationId] as [string, string]] : []),
+        ]
+        const statements = attributes.map(([key, value]) =>
+            `      ${this.river(`set(attributes[${JSON.stringify(key)}], ${JSON.stringify(value)})`)},`)
+        // The transform processor takes its statements per signal, under a block named for it
+        const stamping = this.sinks().map(sink => `  ${sink.statements} {
+    context    = "resource"
+    statements = [
+${statements.join('\n')}
+    ]
+  }`)
+        return `otelcol.auth.bearer ${this.river(name)} {
+  token = ${this.river(otlp.token)}
+}
+
+otelcol.receiver.otlp ${this.river(name)} {
+  http {
+    endpoint = ${this.river(`${otlp.listenAddress}:${otlp.port}`)}
+    auth     = otelcol.auth.bearer.${name}.handler
+  }
+${this.outputBlock(() => `otelcol.processor.transform.${name}.input`)}
+}
+
+otelcol.processor.transform ${this.river(name)} {
+  error_mode = "ignore"
+  // The identity labels the workload's log streams carry, as resource attributes
+${stamping.join('\n')}
+${this.outputBlock(() => `otelcol.processor.batch.${sink}.input`)}
+}
+`
+    }
+
+    private renderOtlpSink(tenant: string): string {
+        const name = this.tenantComponentName(tenant)
+        const exporters = this.sinks().map(sink => this.renderExporter(`${sink.signal}_${name}`, sink.url, tenant))
+        return `otelcol.processor.batch ${this.river(name)} {
+${this.outputBlock(signal => `otelcol.exporter.otlphttp.${signal}_${name}.input`)}
+}
+
+${exporters.join('\n')}`
+    }
+
+    private renderExporter(name: string, url: string, tenant: string): string {
+        return `otelcol.exporter.otlphttp ${this.river(name)} {
+  client {
+    endpoint = ${this.river(url)}
+    headers  = {
+      "X-Scope-OrgID" = ${this.river(tenant)},
+    }
+  }
+}
+`
+    }
+
+    // Wires every shipped signal of a stage to the next one
+    private outputBlock(next: (signal: string) => string): string {
+        return `  output {
+${this.sinks().map(sink => `    ${sink.signal} = [${next(sink.signal)}]`).join('\n')}
+  }`
+    }
+
+    private tenantOf(target: TelemetryTarget): string {
+        return target.organizationId ?? SYSTEM_TENANT
+    }
+
     // Alloy component labels must match [A-Za-z_][A-Za-z0-9_]*; workload ids are UUIDs
     private componentName(workloadId: string): string {
         return `wl_${workloadId.replace(/[^A-Za-z0-9_]/g, '_')}`
+    }
+
+    // Hex rather than the sanitized id: two organizations whose ids differ only in a
+    // character the label syntax forbids must not share an exporter
+    private tenantComponentName(tenant: string): string {
+        return `tenant_${Buffer.from(tenant).toString('hex')}`
     }
 
     // River string literals use JSON-compatible escaping

@@ -32,6 +32,11 @@ public static formatRelativeDate(dateStr: string | number | Date): string {
     if (diffDays === 1) return '1 day ago'
     return `${diffDays} days ago`
 }
+/** Renders epoch millis as the 24-hour locale time of day. */
+public static formatTime(epochMillis: number): string {
+    return new Date(epochMillis).toLocaleTimeString('en-US', { hour12: false })
+}
+
 /** Renders epoch millis as the locale date, or an em dash when absent. */
 public static formatEpochDate(epochMillis: number | null): string {
     return epochMillis ? new Date(epochMillis).toLocaleDateString() : '—'

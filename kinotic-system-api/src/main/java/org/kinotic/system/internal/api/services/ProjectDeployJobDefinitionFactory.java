@@ -676,6 +676,11 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
+        // The project's microservices export their traces and metrics through the node, grouped
+        // under the project's name; the sync and publish workloads are steps of the run and
+        // export nothing
+        workload.setTelemetry(true);
+        workload.getEnvironment().put("OTEL_SERVICE_NAME", project.getName());
         putKinoticConnection(workload, deployment, credentials);
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/app")

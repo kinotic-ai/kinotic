@@ -1,13 +1,15 @@
 import Docker from 'dockerode'
-import type { ContainerCreateOptions, ContainerInspectInfo } from 'dockerode'
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import type { ContainerCreateOptions, ContainerInspectInfo, NetworkInspectInfo } from 'dockerode'
+import { mkdirSync, readdirSync, readFileSync, rmSync, statfsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
-import type { LogTarget } from '@/internal/api/model/LogTarget'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
+import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
 import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
 import { Workload, WorkloadStatus, NetworkMode, PortProtocol } from '@kinotic-ai/management-api'
@@ -65,19 +67,25 @@ export class CloudHypervisorProvider implements IVmProvider {
     private readonly egress: EgressPolicyManager
     private readonly resolver: string | null
     private readonly onStatusChanged: ((workload: Workload) => void) | null
+    // Null on a node that ships nothing, where a workload's election issues nothing
+    private readonly alloyManager: AlloyManager | null
+    // The host's address on the workload bridge, read from the daemon on first use
+    private bridgeGateway: string | null = null
 
     constructor(stateDir: string,
                 docker: Docker,
                 workloadDataDir: string,
                 egress: EgressPolicyManager = new EgressPolicyManager(),
                 resolver: string | null = null,
-                onStatusChanged: ((workload: Workload) => void) | null = null) {
+                onStatusChanged: ((workload: Workload) => void) | null = null,
+                alloyManager: AlloyManager | null = null) {
         this.stateDir = stateDir
         this.docker = docker
         this.workloadDataDir = resolve(workloadDataDir)
         this.egress = egress
         this.resolver = resolver
         this.onStatusChanged = onStatusChanged
+        this.alloyManager = alloyManager
         mkdirSync(stateDir, { recursive: true })
         mkdirSync(this.workloadDataDir, { recursive: true })
         this.mounts = new VolumeMountManager(this.workloadDataDir, this.quotas)
@@ -86,9 +94,9 @@ export class CloudHypervisorProvider implements IVmProvider {
     /**
      * Builds the Docker create options for a workload. Entrypoint and cmd follow Kubernetes
      * semantics: a declared entrypoint runs exactly as given, suppressing the image CMD unless
-     * the workload declares its own.
+     * the workload declares its own. The environment is the guest's finished one.
      */
-    private buildCreateOptions(workload: Workload): ContainerCreateOptions {
+    private buildCreateOptions(workload: Workload, environment: Record<string, string>): ContainerCreateOptions {
         // A workload deserialized from the wire or a persisted state file may predate the
         // network field, whose absence means the policy the model defaults to
         const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
@@ -109,8 +117,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             name: workload.id!,
             Image: workload.image,
             Labels: { [WORKLOAD_LABEL]: workload.id!, [MANAGED_BY_LABEL]: MANAGED_BY },
-            Env: Object.entries({ ...workload.environment, ...workload.secrets })
-                       .map(([key, value]) => `${key}=${value}`),
+            Env: Object.entries(environment).map(([key, value]) => `${key}=${value}`),
             ...(workload.entrypoint.length > 0
                 ? { Entrypoint: workload.entrypoint, Cmd: workload.cmd }
                 : workload.cmd.length > 0 ? { Cmd: workload.cmd } : {}),
@@ -191,6 +198,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             await this.recoverContainer(workload)
         }
         this.egress.reconcile(new Set(this.containers.keys()))
+        this.alloyManager?.reconcileEndpoints(new Set(this.workloads.keys()))
     }
 
     async start(workload: Workload): Promise<Workload> {
@@ -215,7 +223,11 @@ export class CloudHypervisorProvider implements IVmProvider {
             // A container left by a previous run of this workload would collide on the name
             await this.removeContainer(id)
 
-            const container = await this.docker.createContainer(this.buildCreateOptions(workload))
+            const otlp = await this.issueEndpoint(workload)
+            this.requireEnforcement(workload, otlp !== null)
+            // The receiver is bound to the gateway, which is also where the guest reaches it
+            const container = await this.docker.createContainer(
+                this.buildCreateOptions(workload, AlloyManager.guestEnvironment(workload, otlp?.listenAddress ?? '', otlp)))
             await container.start()
 
             const info = await container.inspect()
@@ -248,6 +260,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         this.persist(workload)
 
         try {
+            this.requireEnforcement(workload, this.alloyManager?.endpointOf(workloadId) !== null)
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
             const container = this.docker.getContainer(workloadId)
@@ -308,6 +321,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         await this.removeContainer(workloadId)
         this.mounts.releaseQuotas(workload)
         this.egress.release(workloadId)
+        this.alloyManager?.releaseEndpoint(workloadId)
 
         this.containers.delete(workloadId)
         this.exitWatches.delete(workloadId)
@@ -329,7 +343,7 @@ export class CloudHypervisorProvider implements IVmProvider {
         return workloads
     }
 
-    async listLogTargets(): Promise<LogTarget[]> {
+    async listTelemetryTargets(): Promise<TelemetryTarget[]> {
         return Array.from(this.containers.entries()).map(([workloadId, container]) => {
             const workload = this.workloads.get(workloadId)!
             return {
@@ -337,6 +351,7 @@ export class CloudHypervisorProvider implements IVmProvider {
                 vmId: container.containerId,
                 logPath: container.logPath,
                 format: LogFormat.DOCKER_JSON,
+                otlp: this.alloyManager?.endpointOf(workloadId) ?? null,
                 organizationId: workload.organizationId,
                 applicationId: workload.applicationId,
             }
@@ -457,24 +472,62 @@ export class CloudHypervisorProvider implements IVmProvider {
     }
 
     /**
-     * Restricts what the workload's micro VM may reach. A node that does not deny by default
-     * cannot honour a declared allowlist, and saying so is better than writing rules that
-     * permit access nothing was withholding.
+     * Refuses a workload whose network grants this node cannot honour: a node that does not deny
+     * by default would write egress rules permitting access nothing was withholding, and would
+     * leave an OTLP receiver behind the floor that shields the host from every guest.
+     */
+    private requireEnforcement(workload: Workload, holdsEndpoint: boolean): void {
+        const allowedHosts = workload.network?.allowedHosts ?? []
+        const grants = [
+            ...(allowedHosts.length > 0 ? [`${allowedHosts.length} allowedHosts`] : []),
+            ...(holdsEndpoint ? ['an OTLP endpoint'] : []),
+        ]
+        if (grants.length > 0 && !this.egress.enforces()) {
+            throw new Error(`Workload ${workload.id} needs ${grants.join(' and ')}, but this node does not `
+                            + 'deny workload egress by default, so it cannot grant them')
+        }
+    }
+
+    /**
+     * Restricts what the workload's micro VM may reach: its allowed destinations, and the node's
+     * OTLP receiver when it holds an endpoint. Requires {@link requireEnforcement} to have passed.
      */
     private applyEgressPolicy(workload: Workload, info: ContainerInspectInfo): void {
-        const allowedHosts = workload.network?.allowedHosts ?? []
-        if (!this.egress.enforces()) {
-            if (allowedHosts.length > 0) {
-                throw new Error(`Workload ${workload.id} declares ${allowedHosts.length} allowedHosts, `
-                                + 'but this node does not deny workload egress by default')
-            }
-            return
-        }
         // A workload with no network has no address and nothing to restrict
         const address = info.NetworkSettings?.Networks?.bridge?.IPAddress
-        if (address) {
-            this.egress.apply(workload.id!, address, allowedHosts)
+        if (this.egress.enforces() && address) {
+            const endpoint = this.alloyManager?.endpointOf(workload.id!) ?? null
+            this.egress.apply(workload.id!,
+                              address,
+                              workload.network?.allowedHosts ?? [],
+                              endpoint !== null ? { address: endpoint.listenAddress, port: endpoint.port } : null)
         }
+    }
+
+    /**
+     * The endpoint issued to the workload when it elects telemetry on a node that ships it. The
+     * receiver binds to the bridge gateway: the one host address a guest can reach, and one
+     * nothing off the node can.
+     */
+    private async issueEndpoint(workload: Workload): Promise<OtlpEndpoint | null> {
+        let ret: OtlpEndpoint | null = null
+        if ((workload.telemetry ?? false) && (this.alloyManager?.issuesEndpoints() ?? false)) {
+            ret = this.alloyManager!.issueEndpoint(workload, await this.gateway())
+        }
+        return ret
+    }
+
+    // The bridge's gateway is the host's address on it, fixed for the daemon's life
+    private async gateway(): Promise<string> {
+        if (this.bridgeGateway === null) {
+            const bridge: NetworkInspectInfo = await this.docker.getNetwork('bridge').inspect()
+            const gateway = bridge.IPAM?.Config?.find(config => config.Gateway)?.Gateway
+            if (!gateway) {
+                throw new Error('The docker bridge network has no IPv4 gateway, so a guest cannot reach this node')
+            }
+            this.bridgeGateway = gateway
+        }
+        return this.bridgeGateway
     }
 
     // Removing a container that is not there is the state the caller wanted
@@ -496,12 +549,9 @@ export class CloudHypervisorProvider implements IVmProvider {
         return workload
     }
 
-    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state.
-    // Every status transition funnels through here, so the listener sees them all.
+    // Every status transition funnels through here, so the listener sees them all
     private persist(workload: Workload): void {
-        const file = this.stateFile(workload.id!)
-        writeFileSync(`${file}.tmp`, JSON.stringify(workload))
-        renameSync(`${file}.tmp`, file)
+        Util.writeJsonAtomically(this.stateFile(workload.id!), workload)
         this.onStatusChanged?.(workload)
     }
 

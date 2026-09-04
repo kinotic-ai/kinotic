@@ -43,6 +43,8 @@ import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import { Kinotic } from '@kinotic-ai/core'
+import DatetimeUtil from '../util/DatetimeUtil'
+import { errorMessage, parseJsonBytes } from '../util/helpers'
 
 const props = defineProps<{
   workloadId: string
@@ -72,8 +74,6 @@ const scroller = ref<InstanceType<typeof VirtualScroller> | null>(null)
 let pinnedToBottom = true
 let tailSubscription: { unsubscribe(): void } | null = null
 
-const decoder = new TextDecoder()
-
 // Both Loki payloads carry entries as streams of [nanosecond-timestamp, line] tuples
 function parseStreams(streams: Array<{ values?: [string, string][] }> | undefined): LogLine[] {
   const out: LogLine[] = []
@@ -97,11 +97,11 @@ async function loadHistory() {
       limit: HISTORY_LIMIT
     })
     // Raw Loki query_range response: {status, data: {result: [{stream, values}]}}
-    const body = JSON.parse(decoder.decode(bytes))
+    const body = parseJsonBytes(bytes)
     lines.value = parseStreams(body?.data?.result).sort((a, b) => a.ts - b.ts)
     scrollToBottom()
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load log history'
+    error.value = errorMessage(err, 'Failed to load log history')
   } finally {
     loadingHistory.value = false
   }
@@ -114,7 +114,7 @@ function startTail() {
   tailSubscription = Kinotic.logs.tail(props.workloadId).subscribe({
     next: (bytes: Uint8Array) => {
       // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
-      const frame = JSON.parse(decoder.decode(bytes))
+      const frame = parseJsonBytes(bytes)
       const fresh = parseStreams(frame?.streams)
       if (fresh.length > 0) {
         const merged = lines.value.concat(fresh)
@@ -125,7 +125,7 @@ function startTail() {
     error: (err: unknown) => {
       tailSubscription = null
       following.value = false
-      error.value = err instanceof Error ? err.message : 'Log tail disconnected'
+      error.value = errorMessage(err, 'Log tail disconnected')
     }
   })
 }
@@ -163,7 +163,5 @@ function scrollToBottom() {
   }
 }
 
-function formatTimestamp(epochMillis: number): string {
-  return new Date(epochMillis).toLocaleTimeString('en-US', { hour12: false })
-}
+const formatTimestamp = DatetimeUtil.formatTime
 </script>

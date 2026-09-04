@@ -1,3 +1,5 @@
+import { renameSync, writeFileSync } from 'node:fs'
+
 /** Docker Hub's registry API host, which differs from the docker.io name images carry. */
 const DOCKER_HUB_REGISTRY = 'registry-1.docker.io'
 
@@ -13,6 +15,15 @@ const MANIFEST_MEDIA_TYPES = [
  * Static utility functions used across the vm-manager.
  */
 export class Util {
+
+    /**
+     * Writes the value as JSON to the file atomically (write + rename), so a crash mid-write
+     * leaves the previous content rather than a truncated file.
+     */
+    public static writeJsonAtomically(file: string, value: unknown): void {
+        writeFileSync(`${file}.tmp`, JSON.stringify(value))
+        renameSync(`${file}.tmp`, file)
+    }
 
     /**
      * Whether a workload's image must be pulled before every start. A reference pinning a

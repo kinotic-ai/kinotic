@@ -240,12 +240,18 @@ importers:
       debug:
         specifier: ^4.4.3
         version: 4.4.3
+      echarts:
+        specifier: ^6.1.0
+        version: 6.1.0
       primevue:
         specifier: ^4.5.5
         version: 4.5.5(vue@3.5.41(typescript@5.8.3))
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.8.3)
+      vue-echarts:
+        specifier: ^8.1.0
+        version: 8.1.0(echarts@6.1.0)(vue@3.5.41(typescript@5.8.3))
       vue-router:
         specifier: ^5.2.0
         version: 5.2.0(@vue/compiler-sfc@3.5.41)(rolldown@1.2.3)(vite@8.2.1(@types/node@25.9.5)(jiti@2.7.0)(yaml@2.9.0))(vue@3.5.41(typescript@5.8.3))

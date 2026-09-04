@@ -384,6 +384,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     diskSizeMb INTEGER,
     network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
     logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
+    telemetry BOOLEAN,
     detached BOOLEAN,
     autoRemove BOOLEAN,
     status KEYWORD,

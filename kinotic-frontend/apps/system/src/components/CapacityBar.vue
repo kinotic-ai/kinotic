@@ -9,9 +9,7 @@
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
 
-import { isDark } from '@kinotic-ai/frontend-common'
-
-import '@/charts'
+import { accentColor, isDark } from '@kinotic-ai/frontend-common'
 
 /** A single allocation gauge: the percentage fills a surface-colored track. */
 const props = defineProps<{
@@ -20,7 +18,7 @@ const props = defineProps<{
 
 const option = computed(() => {
   const track = isDark.value ? '#27272A' : '#E5E5E7'
-  const fill = isDark.value ? '#38BDF8' : '#0EA5E9'
+  const fill = accentColor('sky', isDark.value)
   return {
     animationDuration: 300,
     grid: { left: 0, right: 0, top: 0, bottom: 0 },

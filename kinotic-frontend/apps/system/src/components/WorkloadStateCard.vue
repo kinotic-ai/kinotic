@@ -26,9 +26,7 @@ import VChart from 'vue-echarts'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus } from '@kinotic-ai/management-api'
-import { isDark } from '@kinotic-ai/frontend-common'
-
-import '@/charts'
+import { chartLegend, isDark } from '@kinotic-ai/frontend-common'
 
 type StatusBucket = 'running' | 'starting' | 'stopping' | 'stopped' | 'failed'
 
@@ -76,8 +74,6 @@ const total = computed(() => segments.value.reduce((sum, seg) => sum + seg.count
 // The legend stays in HTML below the chart, where it can carry the counts.
 const chartOption = computed(() => {
   const surface = isDark.value ? '#171717' : '#ffffff'
-  // The preset's muted text tokens, so legend text matches the card captions
-  const mutedText = isDark.value ? '#A1A1AA' : '#71717A'
   return {
     animationDuration: 300,
     grid: { left: 0, right: 0, top: 6, bottom: 30 },
@@ -85,13 +81,7 @@ const chartOption = computed(() => {
     yAxis: { type: 'category', show: false, data: [''] },
     tooltip: { trigger: 'item', confine: true },
     legend: {
-      bottom: 0,
-      left: 0,
-      icon: 'circle',
-      itemWidth: 10,
-      itemHeight: 10,
-      itemGap: 16,
-      textStyle: { color: mutedText },
+      ...chartLegend(isDark.value),
       // The legend carries the counts; clicking a state toggles it out of the bar
       formatter: (name: string) => {
         const seg = segments.value.find(s => s.label === name)
