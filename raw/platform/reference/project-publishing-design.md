@@ -285,9 +285,11 @@ put on the Public Suffix List.
 
 ## Build and upload contracts
 
-The sync step sets, per UI build: `KINOTIC_UI_SERVER_URL` (from `DomainProperties.resolveApiBaseUrl()`, placed on the sync
-workload by the job factory; `DeploymentProperties.serverHost` is an IPv4 for egress and not
-usable by a browser). A build that leaves no `dist/index.html` fails the deploy before the
+The sync step sets, per UI build, `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and
+`VITE_KINOTIC_USE_SSL`, split from `KINOTIC_UI_SERVER_URL` (`DomainProperties.resolveApiBaseUrl()`,
+placed on the sync workload by the job factory; `DeploymentProperties.serverHost` is an IPv4
+for egress and not usable by a browser). They are the variables the platform's own consoles
+connect with, and Vite exposes them to the page without configuration. A build that leaves no `dist/index.html` fails the deploy before the
 sentinel. `artifacts.ts` in workload-runner is the one enumeration of the artifacts, shared
 by the sync and publish entrypoints.
 
@@ -373,9 +375,10 @@ so Front Door can read it; the platform comes in through the private endpoint, o
 public endpoint where it has none. A developer runs the real path against their own
 subscription with the `deployment/terraform/azure/dev` root and the `local` profile.
 - **UIs built in the sync VM.** After the entity sync, `sync.ts` runs `bun run build` in
-every UI artifact with `KINOTIC_UI_SERVER_URL`, placed on the sync workload from
+every UI artifact with `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`,
+split from the `KINOTIC_UI_SERVER_URL` placed on the sync workload from
 `DomainProperties.resolveApiBaseUrl()`, and fails the run naming a UI whose build leaves no
-`dist/index.html`. The template repository's Vite config must honor the three variables.
+`dist/index.html`.
 - **UI deployments and the storage data plane.** `UiDeployment` rows keyed by the site's
 hostname label, `OrganizationStorageService` (`issueUploadUrl`, `exists`, `listCommitDirs`,
 `deletePrefix`) over the blob SDK or Azurite, `UiStoragePaths` as the one home of the

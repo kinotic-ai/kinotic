@@ -257,9 +257,10 @@ packages of its kind. The directory name never matters.
 
 ### The UI build contract
 
-Every UI is built during the deployment with `bun run build`, and the build is handed one
-variable. A UI built from the platform template honors it through its Vite config; a UI
-with its own build must too:
+Every UI is built during the deployment with `bun run build`, and the build is handed the
+platform's address as three variables. Vite exposes `VITE_*` variables to the page on its
+own, so a Vite project reads them with no configuration; a UI with another build tool must
+pass them through itself:
 
 <table>
 <thead>
@@ -273,7 +274,7 @@ with its own build must too:
     </th>
     
     <th>
-      What the build does with it
+      What the UI does with it
     </th>
   </tr>
 </thead>
@@ -282,20 +283,72 @@ with its own build must too:
   <tr>
     <td>
       <code>
-        KINOTIC_UI_SERVER_URL
+        VITE_KINOTIC_HOST
       </code>
     </td>
     
     <td>
-      the platform's public API address
+      e.g. <code>
+        api.kinotic.ai
+      </code>
     </td>
     
     <td>
-      The address the UI connects to Kinotic on from a browser
+      The host the UI connects to Kinotic on from a browser
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        VITE_KINOTIC_PORT
+      </code>
+    </td>
+    
+    <td>
+      e.g. <code>
+        443
+      </code>
+    </td>
+    
+    <td>
+      Its port
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        VITE_KINOTIC_USE_SSL
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        true
+      </code>
+      
+       or <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Whether to connect over TLS
     </td>
   </tr>
 </tbody>
 </table>
+
+```ts
+await Kinotic.connect({
+    server: {
+        host: import.meta.env.VITE_KINOTIC_HOST,
+        port: parseInt(import.meta.env.VITE_KINOTIC_PORT),
+        useSSL: import.meta.env.VITE_KINOTIC_USE_SSL === 'true',
+    },
+})
+```
 
 A build that does not write `dist/index.html` fails the deployment naming the UI.
 
