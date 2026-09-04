@@ -1,0 +1,1 @@
+{"id":"2b3a6b8e27ed090f73d69bf30ac0318b","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenAssignUsedInAllAssignmentPositions_thenParses","name":"whenAssignUsedInAllAssignmentPositions_thenParses()","status":"passed","testResultsByEnv":{"default":"6741ca282f9841fa7f63134b92a14a55"}}
