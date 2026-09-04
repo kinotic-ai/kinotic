@@ -1,4 +1,4 @@
-package org.kinotic.management.api.services;
+package org.kinotic.system.api.services;
 
 import org.apache.commons.lang3.Validate;
 

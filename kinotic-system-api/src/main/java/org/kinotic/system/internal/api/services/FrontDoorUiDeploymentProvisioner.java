@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
@@ -44,16 +44,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
-import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.config.UiDeploymentProperties;
+import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.model.UiDeploymentStatus;
 import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
-import org.kinotic.management.api.services.OrganizationStorageProvisioner;
-import org.kinotic.management.api.services.OrganizationStorageService;
-import org.kinotic.management.api.services.UiDeploymentProvisioner;
-import org.kinotic.management.api.services.UiStoragePaths;
+import org.kinotic.system.api.services.OrganizationStorageProvisioner;
+import org.kinotic.system.api.services.OrganizationStorageService;
+import org.kinotic.system.api.services.UiDeploymentProvisioner;
+import org.kinotic.system.api.services.UiStoragePaths;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -78,7 +78,7 @@ import java.util.function.Supplier;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.managementApi.uiDeployment.disableProvisioner",
+@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.disableProvisioner",
                        havingValue = "false", matchIfMissing = true)
 public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
@@ -100,7 +100,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     private static final long POLL_TIMEOUT_MS = 2 * 60 * 60_000;
 
     private final Vertx vertx;
-    private final KinoticManagementApiProperties kinoticProperties;
+    private final KinoticSystemApiProperties kinoticProperties;
     private final OrganizationStorageService organizationStorageService;
     private final UiDeploymentRepository uiDeploymentRepository;
     // On AKS this resolves to the kinotic-server workload identity, which holds CDN Profile
@@ -208,8 +208,8 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
         } else if (sitesDomain.toLowerCase().endsWith("." + zoneName.toLowerCase())) {
             ret = "." + sitesDomain.substring(0, sitesDomain.length() - zoneName.length() - 1);
         } else {
-            throw new IllegalStateException("kinotic.managementApi.uiDeployment.sitesDomain " + sitesDomain
-                    + " is not within the DNS zone " + zoneName + " of kinotic.managementApi.uiDeployment.dnsZoneId");
+            throw new IllegalStateException("kinotic.systemApi.uiDeployment.sitesDomain " + sitesDomain
+                    + " is not within the DNS zone " + zoneName + " of kinotic.systemApi.uiDeployment.dnsZoneId");
         }
         return ret;
     }
@@ -507,7 +507,7 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
     }
 
     private UiDeploymentProperties properties() {
-        return kinoticProperties.getManagementApi().getUiDeployment();
+        return kinoticProperties.getSystemApi().getUiDeployment();
     }
 
 }

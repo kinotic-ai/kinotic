@@ -15,6 +15,7 @@ kinotic:
     github:
       webhookSecret: "-"
       appPrivateKey: "-"
+  systemApi:
     # UIs publish to a local Azurite (docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite)
     # standing in for every organization's storage account
     organizationStorage:
@@ -33,7 +34,6 @@ kinotic:
       dnsZoneId: "-"
       frontDoorProfileId: "-"
       frontDoorEndpointHostName: "-"
-  systemApi:
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
       # Local development runs the BOXLITE provider, whose guests reach the host on the

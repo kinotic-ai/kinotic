@@ -1,4 +1,4 @@
-package org.kinotic.management.api.services;
+package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.domain.api.model.Organization;

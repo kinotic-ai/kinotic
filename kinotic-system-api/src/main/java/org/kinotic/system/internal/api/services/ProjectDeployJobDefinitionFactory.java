@@ -26,12 +26,11 @@ import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
-import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.config.UiDeploymentProperties;
-import org.kinotic.management.api.services.OrganizationStorageService;
+import org.kinotic.system.api.config.UiDeploymentProperties;
+import org.kinotic.system.api.services.OrganizationStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
-import org.kinotic.management.api.services.UiDeploymentProvisioner;
-import org.kinotic.management.api.services.UiStoragePaths;
+import org.kinotic.system.api.services.UiDeploymentProvisioner;
+import org.kinotic.system.api.services.UiStoragePaths;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.OrganizationStorage;
@@ -101,7 +100,6 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
     private final KinoticDomainProperties domainProperties;
-    private final KinoticManagementApiProperties managementApiProperties;
 
     /**
      * Creates the job definition deploying the given commit of the project.
@@ -748,7 +746,7 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     private UiDeploymentProperties uiDeployment() {
-        return managementApiProperties.getManagementApi().getUiDeployment();
+        return properties.getSystemApi().getUiDeployment();
     }
 
 }

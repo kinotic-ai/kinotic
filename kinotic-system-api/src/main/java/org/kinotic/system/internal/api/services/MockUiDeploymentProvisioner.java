@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
@@ -6,19 +6,19 @@ import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.model.UiDeploymentStatus;
 import org.kinotic.management.api.model.UiDeploymentStatusType;
-import org.kinotic.management.api.services.UiDeploymentProvisioner;
+import org.kinotic.system.api.services.UiDeploymentProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
  * Fallback {@link UiDeploymentProvisioner} used when site provisioning is disabled
- * ({@code kinotic.managementApi.uiDeployment.disableProvisioner=true}). Serves nothing, and
+ * ({@code kinotic.systemApi.uiDeployment.disableProvisioner=true}). Serves nothing, and
  * marks every deployment ready at once so publishing completes in development and tests
  * without Front Door.
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(value = "kinotic.managementApi.uiDeployment.disableProvisioner", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.systemApi.uiDeployment.disableProvisioner", havingValue = "true")
 public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     @Override

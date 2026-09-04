@@ -1,4 +1,4 @@
-package org.kinotic.management.api.config;
+package org.kinotic.system.api.config;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
@@ -8,7 +8,7 @@ import lombok.experimental.Accessors;
 
 /**
  * Where the platform serves each published UI from, bound under
- * {@code kinotic.managementApi.uiDeployment.*}. Every site is a hostname label under
+ * {@code kinotic.systemApi.uiDeployment.*}. Every site is a hostname label under
  * {@link #sitesDomain}. The Front Door and DNS fields are validated at boot, so an
  * environment that disables the provisioner still sets them, to placeholders.
  */

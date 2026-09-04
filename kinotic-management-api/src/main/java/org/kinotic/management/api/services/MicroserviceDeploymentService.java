@@ -1,9 +1,7 @@
-package org.kinotic.system.api.services;
+package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 
 import java.util.List;
@@ -12,10 +10,8 @@ import java.util.List;
  * The microservice deployments of the caller's organization's projects, as the console shows
  * and acts on them. Removal is the one path that destroys a microservice's VM and identity;
  * a deployment whose microservice a commit dropped stays orphaned until it is removed here.
- * Published in the management-api zone so organization members can reach it.
  */
 @Publish
-@Zone(DomainUtil.MANAGEMENT_API_ZONE)
 public interface MicroserviceDeploymentService {
 
     /**

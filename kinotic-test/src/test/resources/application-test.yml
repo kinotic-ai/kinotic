@@ -10,6 +10,11 @@ kinotic:
       appPrivateKey: "-"
       webhookSecret: "-"
       repoTemplate: "-"
+  maxNumberOfCoresToUse: 4
+  systemApi:
+    deployment:
+      # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
+      serverHost: localhost
     # placeholder storage and site config, validated at boot; no test deploys a UI
     organizationStorage:
       disableProvisioner: true
@@ -24,11 +29,6 @@ kinotic:
       dnsZoneId: "-"
       frontDoorProfileId: "-"
       frontDoorEndpointHostName: "-"
-  maxNumberOfCoresToUse: 4
-  systemApi:
-    deployment:
-      # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
-      serverHost: localhost
 
 logging:
   level:

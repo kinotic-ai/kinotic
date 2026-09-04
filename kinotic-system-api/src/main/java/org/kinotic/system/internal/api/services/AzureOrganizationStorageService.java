@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
@@ -22,11 +22,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationStorage;
-import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.config.OrganizationStorageProperties;
-import org.kinotic.management.api.services.OrganizationStorageProvisioner;
-import org.kinotic.management.api.services.OrganizationStorageService;
-import org.kinotic.management.api.services.UiStoragePaths;
+import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.system.api.config.OrganizationStorageProperties;
+import org.kinotic.system.api.services.OrganizationStorageProvisioner;
+import org.kinotic.system.api.services.OrganizationStorageService;
+import org.kinotic.system.api.services.UiStoragePaths;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -53,7 +53,7 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     private static final int DELETE_CONCURRENCY = 8;
 
     private final Vertx vertx;
-    private final KinoticManagementApiProperties kinoticProperties;
+    private final KinoticSystemApiProperties kinoticProperties;
     private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
     private final Map<String, BlobServiceAsyncClient> clientsByEndpoint = new ConcurrentHashMap<>();
 
@@ -169,7 +169,7 @@ public class AzureOrganizationStorageService implements OrganizationStorageServi
     }
 
     private OrganizationStorageProperties properties() {
-        return kinoticProperties.getManagementApi().getOrganizationStorage();
+        return kinoticProperties.getSystemApi().getOrganizationStorage();
     }
 
 }

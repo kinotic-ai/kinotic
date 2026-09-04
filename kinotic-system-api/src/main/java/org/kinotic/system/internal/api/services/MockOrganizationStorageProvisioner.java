@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import com.azure.storage.blob.BlobServiceAsyncClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
@@ -12,8 +12,8 @@ import org.kinotic.domain.api.model.OrganizationStorage;
 import org.kinotic.domain.api.model.OrganizationStorageStatus;
 import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.services.OrganizationStorageProvisioner;
+import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -22,19 +22,19 @@ import java.util.Date;
 
 /**
  * Fallback {@link OrganizationStorageProvisioner} used when storage provisioning is disabled
- * ({@code kinotic.managementApi.organizationStorage.disableProvisioner=true}). Points every
+ * ({@code kinotic.systemApi.organizationStorage.disableProvisioner=true}). Points every
  * organization at the one configured Azurite, creating the {@code ui} container there, so
  * deployments publish in development and tests without an Azure subscription.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.managementApi.organizationStorage.disableProvisioner", havingValue = "true")
+@ConditionalOnProperty(value = "kinotic.systemApi.organizationStorage.disableProvisioner", havingValue = "true")
 public class MockOrganizationStorageProvisioner implements OrganizationStorageProvisioner {
 
     private final OrganizationService organizationService;
     private final Vertx vertx;
-    private final KinoticManagementApiProperties kinoticProperties;
+    private final KinoticSystemApiProperties kinoticProperties;
     private BlobServiceAsyncClient blobService;
 
     @Override
@@ -74,9 +74,9 @@ public class MockOrganizationStorageProvisioner implements OrganizationStoragePr
     // without an Azurite configured
     private synchronized BlobServiceAsyncClient blobService() {
         if (blobService == null) {
-            String connectionString = kinoticProperties.getManagementApi().getOrganizationStorage().getAzuriteConnectionString();
+            String connectionString = kinoticProperties.getSystemApi().getOrganizationStorage().getAzuriteConnectionString();
             Validate.notBlank(connectionString,
-                              "kinotic.managementApi.organizationStorage.azuriteConnectionString is required when the provisioner is disabled");
+                              "kinotic.systemApi.organizationStorage.azuriteConnectionString is required when the provisioner is disabled");
             blobService = new BlobServiceClientBuilder()
                     .connectionString(connectionString)
                     .buildAsyncClient();

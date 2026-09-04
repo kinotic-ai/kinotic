@@ -1,4 +1,4 @@
-package org.kinotic.management.api.config;
+package org.kinotic.system.api.config;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -12,7 +12,7 @@ import java.util.List;
 
 /**
  * Where the platform provisions each organization's storage account, bound under
- * {@code kinotic.managementApi.organizationStorage.*}. In production the Azure fields name
+ * {@code kinotic.systemApi.organizationStorage.*}. In production the Azure fields name
  * the subscriptions, resource group and network the accounts are created in; in development
  * the provisioner is disabled and every organization is pointed at one Azurite. The Azure
  * fields are validated at boot, so an environment that disables the provisioner still sets

@@ -39,7 +39,7 @@ export class MicroserviceDeploymentService implements IMicroserviceDeploymentSer
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.system.api.services.MicroserviceDeploymentService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.MicroserviceDeploymentService`)
     }
 
     public findAllForProject(projectId: string): Promise<MicroserviceDeployment[]> {

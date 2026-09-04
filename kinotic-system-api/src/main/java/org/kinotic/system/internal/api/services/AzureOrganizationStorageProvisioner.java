@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.core.management.AzureEnvironment;
@@ -24,9 +24,9 @@ import org.kinotic.domain.api.model.OrganizationStorageStatus;
 import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.management.api.config.KinoticManagementApiProperties;
-import org.kinotic.management.api.config.OrganizationStorageProperties;
-import org.kinotic.management.api.services.OrganizationStorageProvisioner;
+import org.kinotic.system.api.config.KinoticSystemApiProperties;
+import org.kinotic.system.api.config.OrganizationStorageProperties;
+import org.kinotic.system.api.services.OrganizationStorageProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -45,7 +45,7 @@ import java.util.Date;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(value = "kinotic.managementApi.organizationStorage.disableProvisioner",
+@ConditionalOnProperty(value = "kinotic.systemApi.organizationStorage.disableProvisioner",
                        havingValue = "false", matchIfMissing = true)
 public class AzureOrganizationStorageProvisioner implements OrganizationStorageProvisioner {
 
@@ -58,7 +58,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
 
     private final OrganizationService organizationService;
     private final Vertx vertx;
-    private final KinoticManagementApiProperties kinoticProperties;
+    private final KinoticSystemApiProperties kinoticProperties;
     // On AKS this resolves to the kinotic-server workload identity, which holds the storage
     // and network roles on the resource group
     private final TokenCredential credential = new DefaultAzureCredentialBuilder().build();
@@ -224,7 +224,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
     }
 
     private OrganizationStorageProperties properties() {
-        return kinoticProperties.getManagementApi().getOrganizationStorage();
+        return kinoticProperties.getSystemApi().getOrganizationStorage();
     }
 
     /** Spreads organizations over the configured subscriptions deterministically, so a retry lands in the same one. */

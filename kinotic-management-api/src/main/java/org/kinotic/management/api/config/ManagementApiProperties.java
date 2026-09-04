@@ -42,16 +42,6 @@ public class ManagementApiProperties {
     @NotBlank
     private String mimirUrl = "http://localhost:9009";
 
-    /**
-     * Where each organization's storage account is provisioned.
-     */
-    @Valid
-    private OrganizationStorageProperties organizationStorage = new OrganizationStorageProperties();
 
-    /**
-     * Where each published UI is served from.
-     */
-    @Valid
-    private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
 
 }

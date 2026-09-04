@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.system.internal.api.services;
 
 import com.azure.core.management.exception.ManagementException;
 import io.vertx.core.Future;
