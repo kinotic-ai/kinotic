@@ -26,8 +26,9 @@ public interface WorkloadOrchestrationService {
      * requires.
      * <p>
      * When {@link Workload#isDetached()} is {@code false} the returned future completes only
-     * once the run has ended — the workload reached {@link WorkloadStatus#STOPPED} or
-     * {@link WorkloadStatus#FAILED}, with its {@link Workload#getExitCode() exit code} set.
+     * once the run has ended — the workload reached {@link WorkloadStatus#COMPLETED},
+     * {@link WorkloadStatus#STOPPED} or {@link WorkloadStatus#FAILED}, with its
+     * {@link Workload#getExitCode() exit code} set.
      * Otherwise it completes as soon as the workload is started.
      *
      * @param workload the workload configuration to deploy
@@ -36,10 +37,11 @@ public interface WorkloadOrchestrationService {
     Future<Workload> deployWorkload(Workload workload);
 
     /**
-     * Restarts a stopped workload in place on the node it is deployed to. The same VM
-     * boots again with its disk state intact and the workload's entrypoint runs again.
-     * Fails unless the workload is stopped; a workload stopped with
-     * {@link Workload#isAutoRemove()} {@code true} has no VM left to restart.
+     * Restarts a stopped or completed workload in place on the node it is deployed to. The
+     * same VM boots again with its disk state intact and the workload's entrypoint runs
+     * again. Fails unless the workload is {@link WorkloadStatus#STOPPED} or
+     * {@link WorkloadStatus#COMPLETED}; a workload with {@link Workload#isAutoRemove()}
+     * {@code true} has no VM left to restart.
      * Honors {@link Workload#isDetached()} the same way as {@link #deployWorkload(Workload)}.
      *
      * @param workloadId the id of the workload to restart

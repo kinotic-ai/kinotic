@@ -100,8 +100,8 @@ public class Workload implements Identifiable<String> {
      * restarts, and calls that start its run (deploy, restart) complete as soon as it is
      * running. When {@code false} the workload runs in the foreground: it ends when the
      * vm-manager exits, and calls that start its run complete only once the run has ended —
-     * {@link WorkloadStatus#STOPPED} or {@link WorkloadStatus#FAILED}, with
-     * {@link #getExitCode()} set.
+     * {@link WorkloadStatus#COMPLETED}, {@link WorkloadStatus#STOPPED} or
+     * {@link WorkloadStatus#FAILED}, with {@link #getExitCode()} set.
      */
     private boolean detached = true;
 

@@ -58,7 +58,7 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
                                             + " no longer exists; deploy the project again");
                                 }
                                 // restartWorkload only boots a stopped VM, so a running one is stopped first
-                                Future<Void> stopped = workload.getStatus().isComplete()
+                                Future<Void> stopped = workload.getStatus().hasEnded()
                                         ? Future.succeededFuture()
                                         : workloadOrchestrationService.stopWorkload(workload.getId());
                                 return stopped.compose(v -> workloadOrchestrationService.restartWorkload(workload.getId()));

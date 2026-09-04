@@ -66,12 +66,12 @@ public class WorkloadOrchestrationTest {
         assertFalse(run.isComplete());
         assertEquals(WorkloadStatus.RUNNING, workloads.saved.get(vmManager.lastStarted.getId()).getStatus());
 
-        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
+        vmManager.completeRun(WorkloadStatus.COMPLETED, 0);
 
         Workload finished = await(run);
-        assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
+        assertEquals(WorkloadStatus.COMPLETED, finished.getStatus());
         assertEquals(0, finished.getExitCode());
-        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(finished.getId()).getStatus());
+        assertEquals(WorkloadStatus.COMPLETED, workloads.saved.get(finished.getId()).getStatus());
         assertEquals(0, workloads.saved.get(finished.getId()).getExitCode());
     }
 
@@ -114,12 +114,14 @@ public class WorkloadOrchestrationTest {
     public void foregroundRestartCompletesAtRunEnd() throws Exception {
         Future<Workload> firstRun = orchestration.deployWorkload(newForegroundWorkload());
         String workloadId = vmManager.lastStarted.getId();
-        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
+        vmManager.completeRun(WorkloadStatus.COMPLETED, 0);
         await(firstRun);
 
+        // A completed run leaves the VM dormant, so it restarts the same way a stopped one does
         Future<Workload> secondRun = orchestration.restartWorkload(workloadId);
         assertFalse(secondRun.isComplete());
 
+        // Stopped by request mid-run this time
         vmManager.completeRun(WorkloadStatus.STOPPED, 3);
 
         Workload finished = await(secondRun);

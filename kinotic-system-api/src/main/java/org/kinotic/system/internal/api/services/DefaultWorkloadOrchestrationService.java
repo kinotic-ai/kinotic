@@ -90,9 +90,10 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         return Future.failedFuture(
                                 new IllegalArgumentException("Workload not found: " + workloadId));
                     }
-                    if (workload.getStatus() != WorkloadStatus.STOPPED) {
+                    WorkloadStatus status = workload.getStatus();
+                    if (status != WorkloadStatus.STOPPED && status != WorkloadStatus.COMPLETED) {
                         return Future.failedFuture(new IllegalStateException(
-                                "Workload " + workloadId + " is not stopped (status: " + workload.getStatus() + ")"));
+                                "Workload " + workloadId + " is neither stopped nor completed (status: " + status + ")"));
                     }
 
                     workload.setStatus(WorkloadStatus.STARTING);
@@ -180,7 +181,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // Destroyed while the dispatch was in flight — a save here would
                         // resurrect the record
                         ret = Future.succeededFuture(startedWorkload);
-                    } else if (startedWorkload.getStatus().isComplete()
+                    } else if (startedWorkload.getStatus().hasEnded()
                             || current.getStatus() == WorkloadStatus.STARTING) {
                         // A terminal reply — a non-detached run that already ended — is the
                         // node's final word. A RUNNING reply only promotes from STARTING: a

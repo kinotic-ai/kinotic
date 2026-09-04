@@ -88,8 +88,8 @@ export class Workload implements Identifiable<string> {
      * When true the VM runs detached from the vm-manager process and survives its restarts,
      * and calls that start its run (deploy, restart) complete as soon as it is running.
      * When false the workload runs in the foreground: it ends when the vm-manager exits,
-     * and calls that start its run complete only once the run has ended — STOPPED or
-     * FAILED, with the exit code set.
+     * and calls that start its run complete only once the run has ended — COMPLETED,
+     * STOPPED or FAILED, with the exit code set.
      */
     public detached: boolean = true
 

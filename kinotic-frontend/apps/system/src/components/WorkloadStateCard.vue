@@ -40,6 +40,7 @@ const ACCENT_BY_STATE: Record<WorkloadStatus, ChartAccent | null> = {
   [WorkloadStatus.STARTING]: 'sky',
   [WorkloadStatus.PENDING]: 'violet',
   [WorkloadStatus.STOPPING]: 'amber',
+  [WorkloadStatus.COMPLETED]: 'teal',
   [WorkloadStatus.STOPPED]: null,
   [WorkloadStatus.FAILED]: 'red'
 }
