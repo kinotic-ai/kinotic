@@ -1,0 +1,1 @@
+{"id":"91a2b84a293fcaa1ab274ea818e0e7ba","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects a name containing a dot","name":"rejects a name containing a dot","status":"passed","testResultsByEnv":{"default":"d7ac34f3b6a4ef44eb6099e02ad145fc"}}

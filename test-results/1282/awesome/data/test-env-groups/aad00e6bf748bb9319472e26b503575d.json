@@ -1,0 +1,1 @@
+{"id":"aad00e6bf748bb9319472e26b503575d","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenArrayOfObjectLiterals_thenListOfMaps","name":"whenArrayOfObjectLiterals_thenListOfMaps()","status":"passed","testResultsByEnv":{"default":"54535032c61c5d4b4613dec713b2db0e"}}
