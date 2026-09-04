@@ -2,7 +2,7 @@
   <div class="flex flex-col">
     <PageHeader title="Deployment" />
 
-    <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
+    <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
     <div v-if="!loading && !deployment" class="p-6 text-sm text-muted-color">
       This project has never been deployed. Pushing to its repository's default branch deploys it.
@@ -19,7 +19,7 @@
       </div>
 
       <Message v-if="deployment.status.type === StatusType.FAILED && deployment.status.message"
-               severity="error" :closable="false">{{ deployment.status.message }}</Message>
+               severity="error" :closable="false" class="mb-4">{{ deployment.status.message }}</Message>
 
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"

@@ -43,15 +43,16 @@ public static formatEpochDate(epochMillis: number | null): string {
 }
 
 /**
- * Formats the elapsed time between two epoch timestamps, measuring against nowMs while
- * finished is absent. Returns an em dash when started is absent.
+ * Formats the elapsed time between two timestamps, measuring against nowMs while finished is
+ * absent. Returns an em dash when started is absent or unreadable.
  */
-public static formatDuration(started: number | null, finished: number | null, nowMs: number = Date.now()): string {
+public static formatDuration(started: number | string | Date | null, finished: number | string | Date | null, nowMs: number = Date.now()): string {
     let ret: string
-    if (!started) {
+    const startedMs = DatetimeUtil.toEpochMillis(started)
+    if (startedMs === null) {
         ret = '—'
     } else {
-        const totalSeconds = Math.max(0, Math.floor(((finished ?? nowMs) - started) / 1000))
+        const totalSeconds = Math.max(0, Math.floor(((DatetimeUtil.toEpochMillis(finished) ?? nowMs) - startedMs) / 1000))
         const hours = Math.floor(totalSeconds / 3600)
         const minutes = Math.floor((totalSeconds % 3600) / 60)
         const seconds = totalSeconds % 60
@@ -62,6 +63,18 @@ public static formatDuration(started: number | null, finished: number | null, no
         } else {
             ret = `${seconds}s`
         }
+    }
+    return ret
+}
+
+/** Epoch millis of a timestamp however it arrived (millis, a date string, a Date), or null when absent or unreadable. */
+private static toEpochMillis(value: number | string | Date | null): number | null {
+    let ret: number | null
+    if (!value) {
+        ret = null
+    } else {
+        const millis = new Date(value).getTime()
+        ret = isNaN(millis) ? null : millis
     }
     return ret
 }
