@@ -1,0 +1,1 @@
+{"id":"394eaf01ad7d3e5d7d56b2e21e1fdd7b","fullName":"@kinotic-ai/core:test/KinoticRpc.test.ts#Kinotic JS packages/core Kinotic RPC Tests should get participant id from vert.x context in executeBlocking","name":"should get participant id from vert.x context in executeBlocking","status":"passed","testResultsByEnv":{"default":"b9d73de51b1cca8878c07e48285ced07"}}
