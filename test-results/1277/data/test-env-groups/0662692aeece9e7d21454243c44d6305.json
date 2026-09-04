@@ -1,0 +1,1 @@
+{"id":"0662692aeece9e7d21454243c44d6305","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Method parsing and conflict avoidance should handle scoped vs unscoped services independently","name":"should handle scoped vs unscoped services independently","status":"passed","testResultsByEnv":{"default":"1cce1ac8a9227c823a02c0470b9e2fb6"}}

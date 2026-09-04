@@ -1,0 +1,1 @@
+{"id":"f9a10385f0313215e1f727d066cd2bde","fullName":"org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactoryTest.replyDestinationIsScopedToTheConnectionsReplyToId","name":"replyDestinationIsScopedToTheConnectionsReplyToId()","status":"passed","testResultsByEnv":{"default":"8d6f5afcb0d7b76bc6da2865bbeb85b3"}}
