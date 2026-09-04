@@ -1,1 +1,0 @@
-{"id":"ac623a640ecd4dee1ac0d493e97c6b8e","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenBinaryAssignment_thenOperandsKeptAsWritten","name":"whenBinaryAssignment_thenOperandsKeptAsWritten()","status":"passed","testResultsByEnv":{"default":"05cf95c825ccbdd99cbf4a5c404bef9a"}}

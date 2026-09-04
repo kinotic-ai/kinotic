@@ -1,1 +1,0 @@
-{"id":"724e9bb737b02d02ede1674455116b16","fullName":"@kinotic-ai/core:test/ServiceIdentifier.test.ts#Kinotic JS packages/core ServiceIdentifier construction rejects a scope containing the zone delimiter","name":"rejects a scope containing the zone delimiter","status":"passed","testResultsByEnv":{"default":"3b0102fac04c138e34fe5faaaa2b8063"}}

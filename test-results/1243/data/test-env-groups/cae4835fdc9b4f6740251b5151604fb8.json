@@ -1,1 +1,0 @@
-{"id":"cae4835fdc9b4f6740251b5151604fb8","fullName":"@kinotic-ai/core:test/Publish.test.ts#Kinotic JS packages/core Publish Mechanism Non-async methods with scope should invoke greet with scope synchronously","name":"should invoke greet with scope synchronously","status":"passed","testResultsByEnv":{"default":"be2b58b32aa322bdd9f45948ab7e8df8"}}
