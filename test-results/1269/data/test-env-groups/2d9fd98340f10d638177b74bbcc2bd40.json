@@ -1,0 +1,1 @@
+{"id":"2d9fd98340f10d638177b74bbcc2bd40","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenArrayOfObjectLiteralsAssignment_thenLiteralCarriesList","name":"whenArrayOfObjectLiteralsAssignment_thenLiteralCarriesList()","status":"passed","testResultsByEnv":{"default":"d026ec588ca17b91ca81b8d2a8df4a8a"}}

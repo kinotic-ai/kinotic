@@ -1,1 +1,0 @@
-{"id":"99cd92cac4bc607522082d9364b5328f","fullName":"org.kinotic.sql.parsers.InsertStatementParserTest.whenNoRoutingOptions_thenTheyAreAbsentSoTheDocumentRoutesByItsOwnId","name":"whenNoRoutingOptions_thenTheyAreAbsentSoTheDocumentRoutesByItsOwnId()","status":"passed","testResultsByEnv":{"default":"0e53c4b0f888cf40df31203b99b04093"}}
