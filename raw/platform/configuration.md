@@ -641,9 +641,9 @@ On `BOXLITE` nodes a workload may declare at most one entry in `volumeMounts`: t
 ## Project deployment
 
 The system server deploys a project on every push to its repository's default branch (see
-[Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs two workloads per
-project — a short-lived sync VM per deployment and one long-lived runtime VM — configured
-under `kinotic.systemApi.deployment.*`:
+[Push to Deploy](/apps/deployment/push-to-deploy)). The pipeline runs a short-lived sync VM
+per deployment and one long-lived runtime VM per microservice, configured under
+`kinotic.systemApi.deployment.*`:
 
 <table>
 <thead>
@@ -779,7 +779,7 @@ under `kinotic.systemApi.deployment.*`:
     </td>
     
     <td>
-      Destinations the runtime workload may reach beyond the gateway
+      Destinations the runtime workloads may reach beyond the gateway
     </td>
   </tr>
   
@@ -833,7 +833,7 @@ under `kinotic.systemApi.deployment.*`:
     </td>
     
     <td>
-      Memory of the runtime VM
+      Memory of each microservice's runtime VM
     </td>
   </tr>
 </tbody>
@@ -843,7 +843,286 @@ The pipeline also requires the GitHub module (it mints the short-lived fetch tok
 the org's App installation) and at least one online node advertising a workload data
 directory — the project's checkout lives at `<workloadDataDir>/projects/<projectId>` on
 the node that first deployed it, mounted read-write into the sync VM and read-only into
-the runtime VM.
+the runtime VMs.
+
+## Organization storage
+
+A deployment of a commit that contains a UI needs storage to publish it to. The platform
+keeps one storage account per organization, provisioned when the organization is created and
+configured under `kinotic.systemApi.organizationStorage.*`:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        disableProvisioner
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true, no Azure account is provisioned; every organization is pointed at the Azurite named by <code>
+        azuriteConnectionString
+      </code>
+      
+      , which stands in for its account in development and tests
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        subscriptionIds
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        []
+      </code>
+    </td>
+    
+    <td>
+      The Azure subscriptions accounts are spread over; an organization's account is created in one of them and stays there. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        resourceGroup
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The resource group, present in every listed subscription, holding the accounts and their private endpoints. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        location
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The Azure region the accounts are created in. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        privateEndpointSubnetId
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Id of the subnet in the platform VNet each account's private endpoint is placed in. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        privateDnsZoneId
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Id of the <code>
+        privatelink.blob.core.windows.net
+      </code>
+      
+       private DNS zone each account is registered in. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        azuriteConnectionString
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Connection string of the Azurite the mock provisioner uses. Required when the provisioner is disabled
+    </td>
+  </tr>
+</tbody>
+</table>
+
+The required settings are validated at boot, like the GitHub App settings, so an environment
+that disables the provisioner still sets them, to placeholders; nothing reads them while it
+is disabled. In the Azure deployment, terraform creates the resource group, subnet and
+private DNS zone and passes their ids to the server (see the
+[deployment guide](/platform/deployment-guide)); the development profile disables the
+provisioner and points at a local Azurite.
+
+## UI sites
+
+Each published UI is served from its own site, a hostname under a platform domain fronted by
+Azure Front Door, configured under `kinotic.systemApi.uiDeployment.*`:
+
+<table>
+<thead>
+  <tr>
+    <th>
+      Property
+    </th>
+    
+    <th>
+      Default
+    </th>
+    
+    <th>
+      Meaning
+    </th>
+  </tr>
+</thead>
+
+<tbody>
+  <tr>
+    <td>
+      <code>
+        disableProvisioner
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      When true no site is created; every published UI is marked ready at once, so publishing works in development and tests without Front Door
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        sitesDomain
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      The domain every site is a label under, e.g. <code>
+        apps.kinotic.ai
+      </code>
+      
+      . Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        dnsZoneId
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Id of the Azure DNS zone holding <code>
+        sitesDomain
+      </code>
+      
+      , where each site's CNAME and validation TXT are written. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        frontDoorProfileId
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Id of the Front Door Standard profile every site is served through. Required
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        frontDoorEndpointHostName
+      </code>
+    </td>
+    
+    <td>
+      —
+    </td>
+    
+    <td>
+      Host name of the profile's endpoint, the target of every site's CNAME. Required
+    </td>
+  </tr>
+</tbody>
+</table>
+
+Like organization storage, the required settings are validated at boot, and an environment
+that disables the provisioner sets them to placeholders. In the Azure deployment terraform creates the profile and endpoint and passes them to the
+server; the development profile disables the provisioner. Front Door reads an organization's
+storage with a read-only container SAS its rule set carries, signed with the account key and
+written again whenever a site of the organization is provisioned; the account's public
+network is open to it, with anonymous access off.
 
 ## Workload storage and log limits
 
