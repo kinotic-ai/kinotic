@@ -88,35 +88,45 @@ public class ClientMetadataDocumentService {
      */
     private URI validateClientIdUrl(String clientId) {
         OAuthProperties oauth = domainProperties.getDomain().getOauth();
+
         // client_id comes straight off the query string and may be absent
         if (clientId == null || !oauth.getAllowedClientIds().contains(clientId)) {
             throw new IllegalArgumentException("client_id is not allowed by this deployment");
         }
+
         URI uri;
         try {
             uri = new URI(clientId);
         } catch (Exception e) {
             throw new IllegalArgumentException("client_id is not a valid URL: " + clientId);
         }
+
         String path = uri.getPath();
+
         if (!"https".equals(uri.getScheme())) {
             throw new IllegalArgumentException("client_id must be an https URL");
         }
+
         if (uri.getHost() == null || uri.getHost().isBlank()) {
             throw new IllegalArgumentException("client_id must contain a host");
         }
+
         if (path == null || path.isBlank() || "/".equals(path)) {
             throw new IllegalArgumentException("client_id must contain a path component");
         }
+
         if (path.contains("/.") || path.contains("/..")) {
             throw new IllegalArgumentException("client_id must not contain dot path segments");
         }
+
         if (uri.getFragment() != null) {
             throw new IllegalArgumentException("client_id must not contain a fragment");
         }
+
         if (uri.getUserInfo() != null) {
             throw new IllegalArgumentException("client_id must not contain a username or password");
         }
+
         return uri;
     }
 

@@ -157,6 +157,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         return workloadService.findById(report.getWorkloadId())
                 .compose(workload -> {
                     Future<Workload> ret;
+
                     if (workload == null) {
                         // Destroyed since the node recorded the status — stale report
                         ret = Future.succeededFuture();
@@ -180,10 +181,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     } else {
                         log.info("Workload {} status {} -> {} per report from node {}",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
+
                         workload.setStatus(report.getStatus());
                         workload.setExitCode(report.getExitCode());
                         ret = workloadService.saveSync(workload);
                     }
+
                     return ret;
                 });
     }
