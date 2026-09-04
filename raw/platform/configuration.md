@@ -1015,7 +1015,7 @@ configured under `kinotic.systemApi.organizationStorage.*`:
     </td>
     
     <td>
-      Connection string of the Azurite the mock provisioner uses. Required when the provisioner is disabled
+      Connection string of the Azurite the mock provisioner points every organization at, and that organization storage is reached through, while the provisioner is disabled. Required then, and unread otherwise
     </td>
   </tr>
 </tbody>
