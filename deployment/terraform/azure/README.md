@@ -159,9 +159,9 @@ Contributor on the zone, and Contributor on the email service. State is local, o
 environment per developer.
 
 The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
-`.env.local` at the repository root (gitignored), replacing those three lines when present
-and leaving the rest of the file alone; the server picks them up through
-`DefaultAzureCredential`. Its secret is also in this root's local state.
+`.env.local` at the repository root (gitignored) as a commented block after a blank line,
+replacing the block a previous apply wrote and leaving the rest of the file alone; the server
+picks them up through `DefaultAzureCredential`. Its secret is also in this root's local state.
 
 ```bash
 cd dev

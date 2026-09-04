@@ -108,21 +108,44 @@ resource "azuread_application_password" "server" {
   display_name   = "${local.name_prefix}-server"
 }
 
-# Keeps the three AZURE_* lines current and everything else in the file as it was: they are
-# replaced when present and appended when not. The secret travels through the environment
-# rather than the command, so it stays out of terraform's output.
+# Keeps the block below current and everything else in the file as it was: a block a
+# previous run wrote (its comment through AZURE_TENANT_ID) and any stray AZURE_* lines are
+# dropped, trailing blank lines trimmed, and the block appended after one blank line. The
+# secret travels through the environment rather than the command, so it stays out of
+# terraform's output. The script is among the triggers, so editing it rewrites the file on
+# the next apply.
+locals {
+  env_local_script = <<-EOT
+    set -eu
+    f="${local.env_local}"
+    touch "$f"
+    awk '
+      /^# kinotic-server Azure identity/ { skip = 1 }
+      skip && /^AZURE_TENANT_ID=/ { skip = 0; next }
+      skip { next }
+      /^AZURE_(CLIENT_ID|CLIENT_SECRET|TENANT_ID)=/ { next }
+      { lines[++n] = $0; if ($0 !~ /^[[:space:]]*$/) last = n }
+      END { for (i = 1; i <= last; i++) print lines[i] }
+    ' "$f" > "$f.tmp"
+    if [ -s "$f.tmp" ]; then printf '\n' >> "$f.tmp"; fi
+    cat >> "$f.tmp" <<EOF
+    # kinotic-server Azure identity: the ${local.name_prefix}-server service principal, created by
+    # deployment/terraform/azure/dev with the roles the server needs to publish UIs and send email.
+    # DefaultAzureCredential reads these before anything else. Written by terraform apply there;
+    # to write them again: terraform apply -replace=terraform_data.env_local
+    AZURE_CLIENT_ID=$AZURE_CLIENT_ID
+    AZURE_CLIENT_SECRET=$AZURE_CLIENT_SECRET
+    AZURE_TENANT_ID=$AZURE_TENANT_ID
+    EOF
+    mv "$f.tmp" "$f"
+  EOT
+}
+
 resource "terraform_data" "env_local" {
-  triggers_replace = [azuread_application_password.server.key_id]
+  triggers_replace = [azuread_application_password.server.key_id, local.env_local_script]
 
   provisioner "local-exec" {
-    command = <<-EOT
-      set -euo pipefail
-      f="${local.env_local}"
-      touch "$f"
-      { grep -v -E '^AZURE_(CLIENT_ID|CLIENT_SECRET|TENANT_ID)=' "$f" || true
-        printf 'AZURE_CLIENT_ID=%s\nAZURE_CLIENT_SECRET=%s\nAZURE_TENANT_ID=%s\n' "$AZURE_CLIENT_ID" "$AZURE_CLIENT_SECRET" "$AZURE_TENANT_ID"
-      } > "$f.tmp" && mv "$f.tmp" "$f"
-    EOT
+    command = local.env_local_script
     environment = {
       AZURE_CLIENT_ID     = azuread_application.server.client_id
       AZURE_CLIENT_SECRET = azuread_application_password.server.value
