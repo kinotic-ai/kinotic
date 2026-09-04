@@ -1,0 +1,1 @@
+{"id":"5268cdc5e33f5118756177e63b472570","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenEmptyArrayAssignment_thenLiteralCarriesEmptyList","name":"whenEmptyArrayAssignment_thenLiteralCarriesEmptyList()","status":"passed","testResultsByEnv":{"default":"78596eee25a6af0b6b45969a5e993fc2"}}
