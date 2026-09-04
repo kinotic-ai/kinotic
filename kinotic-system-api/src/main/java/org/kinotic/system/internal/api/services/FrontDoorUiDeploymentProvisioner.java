@@ -432,11 +432,13 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
              .compose(v -> uiDeploymentRepository.findById(label))
              .compose(row -> {
                  Future<Void> ret;
+
                  if (row == null || row.getStatus().type() != DeploymentStatusType.PROVISIONING) {
                      ret = Future.succeededFuture();
                  } else {
                      ret = checkProvisioning(row).compose(checked -> {
                          Future<Void> saved;
+
                          if (checked.getStatus().type() != DeploymentStatusType.PROVISIONING) {
                              log.info("Site {} is {}", properties().resolveHostname(label), checked.getStatus().type());
                              saved = uiDeploymentRepository.save(checked.setUpdated(new Date())).mapEmpty();
@@ -448,13 +450,16 @@ public class FrontDoorUiDeploymentProvisioner implements UiDeploymentProvisioner
                                       properties().resolveHostname(label), POLL_TIMEOUT_MS / 60_000);
                              saved = Future.succeededFuture();
                          }
+
                          return saved;
                      });
                  }
+
                  return ret;
              })
              .onFailure(error -> {
                  log.warn("Checking site {} failed", properties().resolveHostname(label), error);
+
                  if (System.currentTimeMillis() < deadline) {
                      schedulePoll(label, deadline);
                  }

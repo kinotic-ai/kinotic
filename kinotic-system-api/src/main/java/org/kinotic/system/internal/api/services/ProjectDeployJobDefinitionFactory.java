@@ -185,6 +185,7 @@ public class ProjectDeployJobDefinitionFactory {
         Future<DeployTarget> ret;
         String syncWorkloadId = UUID.randomUUID().toString();
         String uiPublishWorkloadId = UUID.randomUUID().toString();
+
         if (existing != null && existing.getNodeId() != null) {
             ret = destroyPreviousWorkload(existing.getSyncWorkloadId(), "sync", projectId)
                     .compose(v -> destroyPreviousWorkload(existing.getUiPublishWorkloadId(), "UI publish", projectId))
@@ -195,14 +196,18 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             Workload probe = new Workload();
             probe.setMemoryMb(deployment().getSyncMemoryMb());
+
             log.debug("Resolving deploy target for project {}: asking for a node with {} vcpus, {}MB memory, {}MB disk",
                      projectId, probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
+
             ret = vmNodeOrchestrationService.findAvailableNode(probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb())
                     .onFailure(error -> log.error("Placement query failed for project {}", projectId, error))
                     .compose(node -> {
                         log.info("Placement query for project {} returned {}", projectId,
                                  node != null ? node.getId() + " (workloadDataDir=" + node.getWorkloadDataDir() + ")" : "no node");
+
                         Future<DeployTarget> resolved;
+
                         if (node == null) {
                             resolved = Future.failedFuture(new IllegalStateException(
                                     "No available node with sufficient resources to deploy project " + projectId));
@@ -216,9 +221,11 @@ public class ProjectDeployJobDefinitionFactory {
                                                      syncWorkloadId,
                                                      uiPublishWorkloadId));
                         }
+
                         return resolved;
                     });
         }
+
         return ret;
     }
 

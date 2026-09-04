@@ -128,15 +128,19 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
         OrganizationStorage storage = organization.getStorage() != null ? organization.getStorage() : new OrganizationStorage();
         String subscriptionId = storage.getAzureSubscriptionId() != null ? storage.getAzureSubscriptionId() : chooseSubscription(organizationId);
         String accountName = accountName(organizationId);
+
         storage.setAzureSubscriptionId(subscriptionId)
                .setAzureAccountName(accountName)
                .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING));
         organization.setStorage(storage).setUpdated(new Date());
+
         AzureProfile profile = new AzureProfile(null, subscriptionId, AzureEnvironment.AZURE);
         StorageManager storageManager = StorageManager.authenticate(credential, profile);
         NetworkManager network = NetworkManager.authenticate(credential, profile);
+
         log.info("Provisioning storage account {} for organization {} in subscription {}",
                  accountName, organizationId, subscriptionId);
+
         return organizationService.saveSync(organization)
                 .compose(saved -> AzureUtil.toFuture(ensureAccount(storageManager, accountName, organizationId), vertx))
                 .compose(account -> AzureUtil.toFuture(ensureContainer(storageManager, accountName), vertx)
@@ -149,7 +153,9 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                 .compose(organizationService::saveSync)
                 .recover(error -> {
                     log.error("Storage provisioning for organization {} failed", organizationId, error);
+
                     storage.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, error.getMessage()));
+
                     return organizationService.saveSync(organization.setUpdated(new Date()))
                                               .compose(v -> Future.failedFuture(new IllegalStateException(
                                                       "Storage of organization " + organizationId
