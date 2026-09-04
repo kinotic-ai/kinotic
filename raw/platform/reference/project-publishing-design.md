@@ -196,10 +196,9 @@ VNet registered in `privatelink.blob.core.windows.net` unless
 `kinotic.systemApi.organizationStorage.disablePrivateEndpoint` is set, as it is where the server
 runs outside the VNet, tagged `org=<id>`. It holds one container, `ui`.
 
-Recorded on `Organization.storage`, an `OrganizationStorage`: `subscriptionId`, `accountName`,
-`blobEndpoint`, `publishHost` (the private endpoint's address, or the account's public host
-without one) and `status` (`PROVISIONING`, `READY` or `FAILED`, with a
-message). Provisioning is a grind job, `provision-organization-<id>`, with a **Provision
+Recorded on `Organization.storage`, an `OrganizationStorage`: `azureSubscriptionId`,
+`azureAccountName`, `azureBlobEndpoint` and `status` (`PROVISIONING`, `READY` or `FAILED`,
+with a message). Provisioning is a grind job, `provision-organization-<id>`, with a **Provision
 storage** task and a **Prepare Front Door** task, both idempotent, owned by the organization
 and recorded on it as `provisioningJobRunId`. `OrganizationService.provision` runs every
 `OrganizationProvisioner` (a domain hook) on the organization: the signup flow calls it once
@@ -278,7 +277,8 @@ The publish workload is named `project-ui-publish-<projectId>`, with id
 the same image in the foreground with entrypoint `bun src/publish-ui.ts`, the checkout mounted
 read-only at `/workspace`, env `KINOTIC_UI_COMMIT`, and the secret `KINOTIC_UI_UPLOAD_URL` =
 `<blob endpoint>/ui/prod/<app>/ui?<container SAS, create+write, TTL the run>`. Its allowed
-hosts are the organization's `storage.publishHost` only; it carries no Kinotic
+hosts are the hostname of the organization's `storage.azureBlobEndpoint` only, which the
+platform network resolves to the account's private endpoint; it carries no Kinotic
 credentials and no machine identity, is kept after its run, and is retired by the next run's
 `resolveTarget`. Its exit check is the one `syncSource` uses, extracted to one method with two
 consumers. `publish-ui.ts` uploads, per UI, everything in `dist` except `index.html` under
@@ -370,7 +370,7 @@ ready at once.
 - **The publish task.** The deploy job's fifth task, **Publish UIs**, runs
 `project-ui-publish-<projectId>` under `DeployTarget.uiPublishWorkloadId` with
 `publish-ui.ts`, the checkout read-only, `KINOTIC_UI_COMMIT`, the secret
-`KINOTIC_UI_UPLOAD_URL` (a one-hour container SAS) and the storage's publish host as its
+`KINOTIC_UI_UPLOAD_URL` (a one-hour container SAS) and the storage account's hostname as its
 only egress, then finalizes: mints labels with numeric suffixes on collision, provisions new
 sites, adopts returning ones, orphans vanished ones, keeps the current and previous commit
 directories and deletes the rest. The exit check is shared with the sync task, and the
