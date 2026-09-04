@@ -1,1 +1,0 @@
-{"id":"3e787b1eef55b8b9d1a61842afe52bf1","fullName":"org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactoryTest.applicationIdsThatCannotFormAValidZoneAreRejected","name":"applicationIdsThatCannotFormAValidZoneAreRejected()","status":"passed","testResultsByEnv":{"default":"6c90a283dab30d55f74c012d858d98a0"}}
