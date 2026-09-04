@@ -18,10 +18,10 @@ import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.model.OrganizationStorage;
-import org.kinotic.domain.api.model.OrganizationStorageStatus;
-import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -72,10 +72,10 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                         throw new IllegalArgumentException("Organization not found: " + organizationId);
                     }
                     Future<Organization> ret;
-                    OrganizationStorageStatusType status = statusOf(organization);
-                    if (status == OrganizationStorageStatusType.READY) {
+                    DeploymentStatusType status = statusOf(organization);
+                    if (status == DeploymentStatusType.READY) {
                         ret = Future.succeededFuture(organization);
-                    } else if (status == OrganizationStorageStatusType.PROVISIONING && !stale(organization)) {
+                    } else if (status == DeploymentStatusType.PROVISIONING && !stale(organization)) {
                         ret = awaitProvisioning(organizationId, System.currentTimeMillis() + PROVISIONING_TIMEOUT_MS);
                     } else {
                         ret = provision(organization);
@@ -84,7 +84,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                 });
     }
 
-    private static OrganizationStorageStatusType statusOf(Organization organization) {
+    private static DeploymentStatusType statusOf(Organization organization) {
         return organization != null && organization.getStorage() != null && organization.getStorage().getStatus() != null
                 ? organization.getStorage().getStatus().type() : null;
     }
@@ -101,10 +101,10 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                 .compose(v -> organizationService.findById(organizationId))
                 .compose(organization -> {
                     Future<Organization> ret;
-                    OrganizationStorageStatusType status = statusOf(organization);
-                    if (status == OrganizationStorageStatusType.READY) {
+                    DeploymentStatusType status = statusOf(organization);
+                    if (status == DeploymentStatusType.READY) {
                         ret = Future.succeededFuture(organization);
-                    } else if (status == OrganizationStorageStatusType.FAILED) {
+                    } else if (status == DeploymentStatusType.FAILED) {
                         ret = Future.failedFuture(new IllegalStateException("Storage of organization " + organizationId
                                 + " failed to provision: " + organization.getStorage().getStatus().message()));
                     } else if (System.currentTimeMillis() > deadline) {
@@ -129,7 +129,7 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
         String accountName = accountName(organizationId);
         storage.setSubscriptionId(subscriptionId)
                .setAccountName(accountName)
-               .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.PROVISIONING));
+               .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING));
         organization.setStorage(storage).setUpdated(new Date());
         AzureProfile profile = new AzureProfile(null, subscriptionId, AzureEnvironment.AZURE);
         StorageManager storageManager = StorageManager.authenticate(credential, profile);
@@ -143,13 +143,13 @@ public class AzureOrganizationStorageProvisioner implements OrganizationStorageP
                         .map(privateIp -> {
                             storage.setBlobEndpoint(account.endPoints().primary().blob())
                                    .setPrivateEndpointIp(privateIp)
-                                   .setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.READY));
+                                   .setStatus(new DeploymentStatus(DeploymentStatusType.READY));
                             return organization.setUpdated(new Date());
                         }))
                 .compose(organizationService::saveSync)
                 .recover(error -> {
                     log.error("Storage provisioning for organization {} failed", organizationId, error);
-                    storage.setStatus(new OrganizationStorageStatus(OrganizationStorageStatusType.FAILED, error.getMessage()));
+                    storage.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, error.getMessage()));
                     return organizationService.saveSync(organization.setUpdated(new Date()))
                                               .compose(v -> Future.failedFuture(new IllegalStateException(
                                                       "Storage of organization " + organizationId

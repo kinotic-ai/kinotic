@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
@@ -58,7 +59,7 @@ public class UiDeployment implements OrganizationScoped<String> {
      */
     private String previousCommitSha;
 
-    private UiDeploymentStatus status;
+    private DeploymentStatus status;
 
     private Date created;
 

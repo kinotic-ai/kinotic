@@ -6,20 +6,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 
 import org.kinotic.management.api.model.MicroserviceArtifact;
 import org.kinotic.management.api.model.MicroserviceDeployment;
-import org.kinotic.management.api.model.MicroserviceDeploymentStatus;
-import org.kinotic.management.api.model.MicroserviceDeploymentStatusType;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.ProjectRepoToken;
 import org.kinotic.management.api.model.UiArtifact;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.UiDeploymentStatus;
-import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
@@ -34,7 +32,6 @@ import org.kinotic.system.api.services.UiStoragePaths;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.domain.api.model.OrganizationStorage;
-import org.kinotic.domain.api.model.OrganizationStorageStatusType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.DeploymentProperties;
@@ -322,7 +319,7 @@ public class ProjectDeployJobDefinitionFactory {
                             }));
                 })
                 .compose(rows -> requireNoneFailed(rows,
-                                                   row -> row.getStatus().type() == MicroserviceDeploymentStatusType.FAILED,
+                                                   row -> row.getStatus().type() == DeploymentStatusType.FAILED,
                                                    row -> row.getName() + ": " + row.getStatus().message(),
                                                    "Microservices of project " + project.getId() + " could not be deployed"))
                 .map(MicroserviceDeployments::new);
@@ -349,7 +346,7 @@ public class ProjectDeployJobDefinitionFactory {
                     .setApplicationId(project.getApplicationId())
                     .setProjectId(project.getId())
                     .setName(artifact.name())
-                    .setStatus(new MicroserviceDeploymentStatus(MicroserviceDeploymentStatusType.FAILED,
+                    .setStatus(new DeploymentStatus(DeploymentStatusType.FAILED,
                                                                 "Deployment in progress"))
                     .setCreated(new Date())
                     .setUpdated(new Date()));
@@ -357,11 +354,11 @@ public class ProjectDeployJobDefinitionFactory {
         return deployment.compose(current -> ensureWorkload(project, target, current, entryPoint)
                 .map(workloadId -> current.setWorkloadId(workloadId)
                                           .setEntryPoint(entryPoint)
-                                          .setStatus(new MicroserviceDeploymentStatus(MicroserviceDeploymentStatusType.DEPLOYED)))
+                                          .setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED)))
                 .recover(error -> {
                     log.error("Microservice {} of project {} could not be deployed", artifact.name(), project.getId(), error);
-                    return Future.succeededFuture(current.setStatus(new MicroserviceDeploymentStatus(
-                            MicroserviceDeploymentStatusType.FAILED, error.getMessage())));
+                    return Future.succeededFuture(current.setStatus(new DeploymentStatus(
+                            DeploymentStatusType.FAILED, error.getMessage())));
                 })
                 .compose(updated -> microserviceDeploymentRepository.save(updated.setCommitSha(commitSha)
                                                                                  .setUpdated(new Date()))));
@@ -416,11 +413,11 @@ public class ProjectDeployJobDefinitionFactory {
     private Future<List<MicroserviceDeployment>> orphan(List<MicroserviceDeployment> deployments) {
         List<Future<MicroserviceDeployment>> saves = new ArrayList<>();
         for (MicroserviceDeployment deployment : deployments) {
-            if (deployment.getStatus().type() == MicroserviceDeploymentStatusType.ORPHANED) {
+            if (deployment.getStatus().type() == DeploymentStatusType.ORPHANED) {
                 saves.add(Future.succeededFuture(deployment));
             } else {
                 saves.add(microserviceDeploymentRepository.save(deployment
-                        .setStatus(new MicroserviceDeploymentStatus(MicroserviceDeploymentStatusType.ORPHANED))
+                        .setStatus(new DeploymentStatus(DeploymentStatusType.ORPHANED))
                         .setUpdated(new Date())));
             }
         }
@@ -459,7 +456,7 @@ public class ProjectDeployJobDefinitionFactory {
                             }));
                 })
                 .compose(rows -> requireNoneFailed(rows,
-                                                   row -> row.getStatus().type() == UiDeploymentStatusType.FAILED,
+                                                   row -> row.getStatus().type() == DeploymentStatusType.FAILED,
                                                    row -> row.getName() + ": " + row.getStatus().message(),
                                                    "UIs of project " + project.getId() + " could not be published"))
                 .map(UiDeployments::new);
@@ -477,8 +474,8 @@ public class ProjectDeployJobDefinitionFactory {
                         throw new IllegalStateException("Organization " + organizationId + " no longer exists");
                     }
                     OrganizationStorage storage = organization.getStorage();
-                    OrganizationStorageStatusType status = storage != null && storage.getStatus() != null ? storage.getStatus().type() : null;
-                    if (status != OrganizationStorageStatusType.READY) {
+                    DeploymentStatusType status = storage != null && storage.getStatus() != null ? storage.getStatus().type() : null;
+                    if (status != DeploymentStatusType.READY) {
                         throw new IllegalStateException("Storage of organization " + organizationId + " is "
                                 + (status == null ? "not provisioned" : status + (storage.getStatus().message() != null ? ": " + storage.getStatus().message() : ""))
                                 + "; UIs cannot be published until it is ready");
@@ -517,9 +514,9 @@ public class ProjectDeployJobDefinitionFactory {
         if (existing == null) {
             deployment = mintDeployment(project, ui)
                     .compose(minted -> uiDeploymentProvisioner.provision(minted, organization));
-        } else if (existing.getStatus().type() == UiDeploymentStatusType.ORPHANED) {
+        } else if (existing.getStatus().type() == DeploymentStatusType.ORPHANED) {
             // the site never stopped serving, so the UI's return needs no provisioning
-            deployment = Future.succeededFuture(existing.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));
+            deployment = Future.succeededFuture(existing.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
         } else {
             deployment = Future.succeededFuture(existing);
         }
@@ -558,7 +555,7 @@ public class ProjectDeployJobDefinitionFactory {
                             .setApplicationId(project.getApplicationId())
                             .setProjectId(project.getId())
                             .setName(ui.name())
-                            .setStatus(new UiDeploymentStatus(UiDeploymentStatusType.PROVISIONING))
+                            .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING))
                             .setCreated(new Date())
                             .setUpdated(new Date()))
                     .recover(error -> error instanceof AlreadyExistsException
@@ -588,11 +585,11 @@ public class ProjectDeployJobDefinitionFactory {
     private Future<List<UiDeployment>> orphanUis(List<UiDeployment> deployments) {
         List<Future<UiDeployment>> saves = new ArrayList<>();
         for (UiDeployment deployment : deployments) {
-            if (deployment.getStatus().type() == UiDeploymentStatusType.ORPHANED) {
+            if (deployment.getStatus().type() == DeploymentStatusType.ORPHANED) {
                 saves.add(Future.succeededFuture(deployment));
             } else {
                 saves.add(uiDeploymentRepository.save(deployment
-                        .setStatus(new UiDeploymentStatus(UiDeploymentStatusType.ORPHANED))
+                        .setStatus(new DeploymentStatus(DeploymentStatusType.ORPHANED))
                         .setUpdated(new Date())));
             }
         }

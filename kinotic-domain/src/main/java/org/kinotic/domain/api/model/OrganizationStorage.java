@@ -41,6 +41,6 @@ public class OrganizationStorage {
     /**
      * Where the storage is in its lifecycle.
      */
-    private OrganizationStorageStatus status;
+    private DeploymentStatus status;
 
 }

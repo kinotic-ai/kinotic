@@ -1,6 +1,7 @@
 package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 
 /**
@@ -21,7 +22,7 @@ public interface OrganizationStorageProvisioner {
      *
      * @param organizationId the organization needing storage
      * @return a future emitting the organization with its storage
-     *         {@link org.kinotic.domain.api.model.OrganizationStorageStatusType#READY}
+     *         {@link org.kinotic.domain.api.model.DeploymentStatusType#READY}
      */
     Future<Organization> ensureStorage(String organizationId);
 

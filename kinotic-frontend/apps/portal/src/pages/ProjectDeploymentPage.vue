@@ -107,9 +107,7 @@ import { useToast } from 'primevue/usetoast'
 import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
          WorkloadLogsDialog, deploymentStatusSeverity, shortSha, showErrorToast } from '@kinotic-ai/frontend-common'
 import { Kinotic } from '@kinotic-ai/core'
-import { MicroserviceDeploymentStatusType,
-         ProjectDeploymentStatusType,
-         UiDeploymentStatusType,
+import { DeploymentStatusType,
          type MachineParticipantIdentity,
          type MicroserviceDeployment,
          type ProjectDeployment,
@@ -140,7 +138,7 @@ const POLL_INTERVAL_MS = 5000
 const router = useRouter()
 const toast = useToast()
 const confirm = useConfirm()
-const StatusType = ProjectDeploymentStatusType
+const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
 const microservices = ref<MicroserviceDeployment[]>([])
@@ -161,7 +159,7 @@ async function loadDeployment(): Promise<void> {
     // keeps provisioning after the run, so those are watched until they settle
     if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
       await loadDetails()
-    } else if (uis.value.some(ui => ui.status.type === UiDeploymentStatusType.PROVISIONING)) {
+    } else if (uis.value.some(ui => ui.status.type === DeploymentStatusType.PROVISIONING)) {
       await loadUis()
     }
   } catch (err) {
@@ -214,7 +212,7 @@ function confirmRestart(microservice: MicroserviceDeployment): void {
 }
 
 function confirmRemove(microservice: MicroserviceDeployment): void {
-  confirmRemoval(microservice.name, microservice.status.type === MicroserviceDeploymentStatusType.ORPHANED,
+  confirmRemoval(microservice.name, microservice.status.type === DeploymentStatusType.ORPHANED,
                  'Remove microservice',
                  `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
                  () => Kinotic.microserviceDeployments.remove(microservice.id!))
@@ -226,7 +224,7 @@ function retryUi(ui: UiDeployment): void {
 }
 
 function confirmRemoveUi(ui: UiDeployment): void {
-  confirmRemoval(ui.name, ui.status.type === UiDeploymentStatusType.ORPHANED, 'Remove UI',
+  confirmRemoval(ui.name, ui.status.type === DeploymentStatusType.ORPHANED, 'Remove UI',
                  `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
                  () => Kinotic.uiDeployments.remove(ui.id!))
 }

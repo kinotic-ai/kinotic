@@ -7,10 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
-import org.kinotic.management.api.model.ProjectDeploymentStatus;
-import org.kinotic.management.api.model.ProjectDeploymentStatusType;
 import org.kinotic.grind.api.model.JobOwner;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
@@ -163,11 +163,11 @@ public class ProjectDeployOrchestrator {
                             }
                         },
                         error -> recordOutcome(deployment, target.get(), null,
-                                               new ProjectDeploymentStatus(ProjectDeploymentStatusType.FAILED,
+                                               new DeploymentStatus(DeploymentStatusType.FAILED,
                                                                            error.getMessage()))
                                 .onComplete(unused -> outcome.fail(error)),
                         () -> recordOutcome(deployment, target.get(), commitSha,
-                                            new ProjectDeploymentStatus(ProjectDeploymentStatusType.RUNNING, null))
+                                            new DeploymentStatus(DeploymentStatusType.RUNNING, null))
                                 .<Void>mapEmpty()
                                 .onComplete(outcome)));
         return outcome.future();
@@ -180,7 +180,7 @@ public class ProjectDeployOrchestrator {
                 .setApplicationId(project.getApplicationId())
                 .setCreated(new Date());
         deployment.setLastJobRunId(jobRunId);
-        deployment.setStatus(new ProjectDeploymentStatus(ProjectDeploymentStatusType.DEPLOYING, null));
+        deployment.setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYING, null));
         deployment.setUpdated(new Date());
         return projectDeploymentRepository.save(deployment, deployment.getOrganizationId());
     }
@@ -188,7 +188,7 @@ public class ProjectDeployOrchestrator {
     private Future<ProjectDeployment> recordOutcome(ProjectDeployment deployment,
                                                     DeployTarget target,
                                                     String syncedCommitSha,
-                                                    ProjectDeploymentStatus status) {
+                                                    DeploymentStatus status) {
         // The run's own tasks write to this record — provisioning the sync machine records its
         // id before handing the credential out, the sync workload reports the artifacts — so the
         // copy captured before the job started is stale by now and writing it back would drop
