@@ -76,10 +76,11 @@ kinotic:
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   apiGateway:
     cors:
-      # Covers both ways dev runs: localhost (pnpm dev) and an ngrok tunnel (pnpm dev:tunnel).
-      # The tunnel is same-origin but still CORS-checked, because the social login forms POST
-      # and browsers send Origin on a POST navigation.
-      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
+      # Covers both ways dev runs: localhost (pnpm dev) and an ngrok tunnel (pnpm dev:tunnel),
+      # and the sites a developer publishes under apps-<environment>.kinotic.ai, which reach
+      # the server through the tunnel. The tunnel is same-origin but still CORS-checked,
+      # because the social login forms POST and browsers send Origin on a POST navigation.
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)|https:\\/\\/[a-z0-9-]+\\.apps-[a-z0-9-]+\\.kinotic\\.ai"
       allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:

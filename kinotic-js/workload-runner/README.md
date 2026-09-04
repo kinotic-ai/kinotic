@@ -39,7 +39,7 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
 | `KINOTIC_PROJECT_ID` | the project the checkout belongs to, named in the artifact report | required with credentials |
-| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the platform on, handed to every UI build | — |
+| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the platform on, handed to every UI build as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL` | — |
 | `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI and the artifact report connect with; both are skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
@@ -60,9 +60,10 @@ sharing a name, fails the run naming the package. The result is reported to the 
 through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
 the deployment run can bind it once this workload exits.
 
-Every UI artifact is then built in place with `bun run build`, handed
-`KINOTIC_UI_SERVER_URL`. A build that leaves no `dist/index.html` fails the run naming the
-UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
+Every UI artifact is then built in place with `bun run build`, handed the platform's
+address as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`, the
+variables the platform's own consoles connect with. A build that leaves no `dist/index.html`
+fails the run naming the UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
 hash in their name and are cached for a year, everything else is never cached, and every
 blob is stamped with the commit so the deploy can delete what older publishes left.
 

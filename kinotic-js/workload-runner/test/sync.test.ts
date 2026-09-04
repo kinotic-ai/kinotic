@@ -221,7 +221,7 @@ describe('sync entrypoint', () => {
     it('builds each UI with the server address, before the sentinel', () => {
         // the build records what it was handed and writes the index the check looks for
         const sha = commitUi('admin',
-            'mkdir -p dist && echo "$KINOTIC_UI_SERVER_URL" > dist/env.txt && echo ok > dist/index.html')
+            'mkdir -p dist && echo "$VITE_KINOTIC_HOST $VITE_KINOTIC_PORT $VITE_KINOTIC_USE_SSL" > dist/env.txt && echo ok > dist/index.html')
 
         const result = runSync({
             GIT_CLONE_URL: `file://${originDir}`,
@@ -232,7 +232,7 @@ describe('sync entrypoint', () => {
 
         expect(result.status).toBe(0)
         expect(readFileSync(join(workspaceDir, 'packages', 'ui', 'admin', 'dist', 'env.txt'), 'utf-8').trim())
-            .toBe('https://api.kinotic.test')
+            .toBe('api.kinotic.test 443 true')
         expect(readFileSync(join(workspaceDir, '.kinotic', 'reload'), 'utf-8')).toBe(sha)
     }, 30_000)
 
