@@ -1,29 +1,25 @@
 import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
 
 /**
- * An organization's storage: the one account everything its deployments publish goes to,
- * and where that account is in its lifecycle. The account's details fill in as provisioning
- * progresses.
+ * An organization's storage: the one Azure storage account everything its deployments publish
+ * goes to, and where that account is in its lifecycle. The account's details fill in as
+ * provisioning progresses. In development an Azurite stands in for the account and fills the
+ * same fields.
  */
 export interface OrganizationStorage {
     /**
-     * The Azure subscription holding the account, or null when it is not hosted in Azure.
+     * The Azure subscription holding the account, or null when an Azurite stands in for it.
      */
-    subscriptionId: string | null
+    azureSubscriptionId: string | null
     /**
-     * The name of the account.
+     * The name of the storage account.
      */
-    accountName: string | null
+    azureAccountName: string | null
     /**
-     * The blob service endpoint of the account, or null until it exists.
+     * The blob service endpoint of the account, https://<account>.blob.core.windows.net/, or
+     * null until it exists. Its hostname is where workloads reach the account.
      */
-    blobEndpoint: string | null
-    /**
-     * The one host a publish workload may reach, where the account answers the platform: its
-     * private endpoint's address inside the platform network, or its public host where no
-     * private endpoint exists. Null until the account exists.
-     */
-    publishHost: string | null
+    azureBlobEndpoint: string | null
     /**
      * Where the storage is in its lifecycle.
      */

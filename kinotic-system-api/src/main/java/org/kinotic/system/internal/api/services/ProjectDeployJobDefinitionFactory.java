@@ -54,6 +54,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -599,7 +600,7 @@ public class ProjectDeployJobDefinitionFactory {
     /**
      * The publish workload carries the built UIs to the organization's storage and nothing
      * else: no Kinotic credentials, no machine identity, a read-only checkout, and an egress
-     * policy naming the storage's publish host alone. Kept after its run, like the sync
+     * policy naming the storage account's host alone. Kept after its run, like the sync
      * workload, so its logs stay inspectable until the next run retires it.
      */
     private Workload publishWorkload(Project project,
@@ -623,7 +624,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
                                                         .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(List.of(organization.getStorage().getPublishHost()));
+        workload.getNetwork().setAllowedHosts(List.of(URI.create(organization.getStorage().getAzureBlobEndpoint()).getHost()));
         return workload;
     }
 
