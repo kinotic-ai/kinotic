@@ -26,7 +26,8 @@
               @click="loadHistory" />
     </div>
     <div v-if="lines.length === 0" class="h-[60vh] p-3 rounded-md bg-surface-950 text-surface-400 font-mono text-xs">
-      <span v-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
+      <span v-if="pending && loadedRange === null">Waiting for the workload to start</span>
+      <span v-else-if="!loadingHistory">No log entries {{ rangeDescription }}</span>
     </div>
     <VirtualScroller
       v-else
@@ -71,6 +72,12 @@ const props = defineProps<{
    * is coming; the run is also offered as a span for a workload still running.
    */
   workload?: Workload
+  /**
+   * True while whatever creates the workload is still running, so the workload may not
+   * exist yet. A failure to reach its logs is then retried until it succeeds or pending
+   * turns false, instead of being reported.
+   */
+  pending?: boolean
 }>()
 
 /** The span option that reveals the absolute range pickers. */
@@ -95,6 +102,8 @@ const MAX_LINES = 25_000
 /** Fixed row height the VirtualScroller positions rows by; rows must render at exactly this height. */
 const LINE_HEIGHT_PX = 20
 const DAY_MS = 24 * 60 * 60_000
+/** How long a pending workload's logs are given before they are asked for again. */
+const RETRY_MS = 2000
 
 interface LogLine {
   ts: number
@@ -125,6 +134,7 @@ const scroller = ref<InstanceType<typeof VirtualScroller> | null>(null)
 // Auto-scroll only while the user is at the bottom; scrolling up pins the view in place
 let pinnedToBottom = true
 let tailSubscription: { unsubscribe(): void } | null = null
+let retryTimer: ReturnType<typeof setTimeout> | null = null
 
 const rangeDescription = computed(() => {
   let ret: string
@@ -208,9 +218,35 @@ async function loadHistory() {
     limitReached.value = lines.value.length >= limit.value
     scrollToBottom()
   } catch (err) {
-    error.value = errorMessage(err, 'Failed to load log history')
+    fail(err, 'Failed to load log history')
   } finally {
     loadingHistory.value = false
+  }
+}
+
+// A pending workload's record may not exist yet, which the log service reports as a failure
+function fail(err: unknown, fallback: string) {
+  if (props.pending) {
+    scheduleRetry()
+  } else {
+    error.value = errorMessage(err, fallback)
+  }
+}
+
+function scheduleRetry() {
+  if (retryTimer === null) {
+    retryTimer = setTimeout(retry, RETRY_MS)
+  }
+}
+
+function retry() {
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer)
+    retryTimer = null
+  }
+  loadHistory()
+  if (following.value) {
+    startTail()
   }
 }
 
@@ -231,8 +267,12 @@ function startTail() {
     },
     error: (err: unknown) => {
       tailSubscription = null
-      following.value = false
-      error.value = errorMessage(err, 'Log tail disconnected')
+      if (props.pending) {
+        scheduleRetry()
+      } else {
+        following.value = false
+        error.value = errorMessage(err, 'Log tail disconnected')
+      }
     }
   })
 }
@@ -249,7 +289,20 @@ onMounted(() => {
   }
 })
 
-onUnmounted(stopTail)
+onUnmounted(() => {
+  stopTail()
+  if (retryTimer !== null) {
+    clearTimeout(retryTimer)
+  }
+})
+
+// The creator has finished, so the record exists if it ever will: a pending retry runs now
+// and reports what it finds
+watch(() => props.pending, pending => {
+  if (!pending && retryTimer !== null) {
+    retry()
+  }
+})
 
 watch(following, follow => {
   if (follow) {
