@@ -20,7 +20,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -43,8 +43,9 @@ const buckets = computed(() => {
     return { label: day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }), completed: 0, failed: 0 }
   })
   for (const run of props.runs) {
-    if (run.started === null) continue
-    const index = Math.floor((run.started - firstDay) / DAY_MS)
+    const started = DatetimeUtil.toEpochMillis(run.started)
+    if (started === null) continue
+    const index = Math.floor((started - firstDay) / DAY_MS)
     const bucket = ret[index]
     if (!bucket) continue
     if (run.status === ExecutionStatus.COMPLETED) {
