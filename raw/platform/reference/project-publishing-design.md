@@ -194,7 +194,8 @@ network access open (Front Door reads from addresses the storage firewall cannot
 every read is authorized by the SAS its rule set carries), a private endpoint in the platform
 VNet registered in `privatelink.blob.core.windows.net` unless
 `kinotic.systemApi.organizationStorage.disablePrivateEndpoint` is set, as it is where the server
-runs outside the VNet, tagged `org=<id>`. It holds one container, `ui`.
+runs outside the VNet, tagged `org=<id>`. It holds one container, `sites` (container names
+are 3 to 63 characters, so not `ui`).
 
 Recorded on `Organization.storage`, an `OrganizationStorage`: `azureSubscriptionId`,
 `azureAccountName`, `azureBlobEndpoint` and `status` (`PROVISIONING`, `READY` or `FAILED`,
@@ -213,9 +214,9 @@ provisioned by a deployment. A mock provisioner under
 at the configured Azurite connection string.
 
 ```text
-kin<hash>/ui/prod/orders/ui/admin/index.html          Cache-Control: no-cache; uploaded last: the atomic switch
-kin<hash>/ui/prod/orders/ui/admin/version.json        Cache-Control: no-cache; { "commitSha": "<sha>" }
-kin<hash>/ui/prod/orders/ui/admin/<sha>/assets/…      Cache-Control: public, max-age=31536000, immutable
+kin<hash>/sites/prod/orders/ui/admin/index.html          Cache-Control: no-cache; uploaded last: the atomic switch
+kin<hash>/sites/prod/orders/ui/admin/version.json        Cache-Control: no-cache; { "commitSha": "<sha>" }
+kin<hash>/sites/prod/orders/ui/admin/<sha>/assets/…      Cache-Control: public, max-age=31536000, immutable
 ```
 
 `prod` is one constant in the prefix builder; nothing else knows the environment. The
@@ -239,7 +240,7 @@ Per site, created on first publish: a custom domain `<label>.<sitesDomain>` with
 certificate; DNS in the `kinotic.ai` zone, `CNAME <label>.apps → <profile endpoint host>` and
 `TXT _dnsauth.<label>.apps → <validation token>`; and a route for that domain with pattern
 `/*`, HTTPS only with redirect, the organization's origin group, origin path
-`/ui/prod/<app>/ui/<ui>`, the organization's rule set, caching on and query strings ignored.
+`/sites/prod/<app>/ui/<ui>`, the organization's rule set, caching on and query strings ignored.
 The SAS is signed with the account key (`OrganizationStorageService.issueReadToken`) and
 lasts ten years; each rule is written once, with the organization, and nothing writes it
 again yet, so a rotated account key has no path back into the rule set. Front Door writes are slow, serialized per profile, and answer 409 when one is in
@@ -276,7 +277,7 @@ The publish workload is named `project-ui-publish-<projectId>`, with id
 `DeployTarget.uiPublishWorkloadId` decided in `resolveTarget` like `syncWorkloadId`. It runs
 the same image in the foreground with entrypoint `bun src/publish-ui.ts`, the checkout mounted
 read-only at `/workspace`, env `KINOTIC_UI_COMMIT`, and the secret `KINOTIC_UI_UPLOAD_URL` =
-`<blob endpoint>/ui/prod/<app>/ui?<container SAS, create+write, TTL the run>`. Its allowed
+`<blob endpoint>/sites/prod/<app>/ui?<container SAS, create+write, TTL the run>`. Its allowed
 hosts are the hostname of the organization's `storage.azureBlobEndpoint` only, which the
 platform network resolves to the account's private endpoint; it carries no Kinotic
 credentials and no machine identity, is kept after its run, and is retired by the next run's
@@ -342,7 +343,7 @@ identity; `findProjectMachines` lists the sync identity then one per microservic
 `DeploymentOperationsProxy`, and the portal's deployment page: a microservices table with logs, restart and remove, and the
 machines labelled by the deployment that records them.
 - **Organization storage.** `AzureOrganizationStorageProvisioner` creates the account, the
-`ui` container, and, unless `disablePrivateEndpoint` is set, the private endpoint with its
+`sites` container, and, unless `disablePrivateEndpoint` is set, the private endpoint with its
 DNS zone group, recording the outcome on
 `Organization` with a status of `PROVISIONING`, `READY` or `FAILED`. It is the first task
 of the `provision-organization-<id>` job that `DeploymentOperationsService` runs on the
