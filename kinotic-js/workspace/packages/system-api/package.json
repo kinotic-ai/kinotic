@@ -38,7 +38,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "dependencies": {
-    "@kinotic-ai/management-api": "workspace:*"
+    "@kinotic-ai/management-api": "workspace:^"
   },
   "peerDependencies": {
     "@kinotic-ai/core": ">=5.0.0-beta.9"
