@@ -26,7 +26,7 @@
       <template #body="{ data }">
         <div class="flex justify-end gap-1">
           <Button label="Retry" icon="pi pi-refresh" size="small" severity="secondary" text
-                  :disabled="data.status.type !== UiDeploymentStatusType.FAILED" @click="emit('retry', data)" />
+                  :disabled="data.status.type !== DeploymentStatusType.FAILED" @click="emit('retry', data)" />
           <Button label="Remove" icon="pi pi-trash" size="small" severity="danger" text
                   @click="emit('remove', data)" />
         </div>
@@ -41,7 +41,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
-import { UiDeploymentStatusType, type UiDeployment } from '@kinotic-ai/management-api'
+import { DeploymentStatusType, type UiDeployment } from '@kinotic-ai/management-api'
 
 /**
  * The UIs a project's deployments have published, one row each with its site, its status,

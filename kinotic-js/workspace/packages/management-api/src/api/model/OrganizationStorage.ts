@@ -1,4 +1,4 @@
-import type { OrganizationStorageStatus } from '@/api/model/OrganizationStorageStatus'
+import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
 
 /**
  * An organization's storage: the one account everything its deployments publish goes to,
@@ -25,5 +25,5 @@ export interface OrganizationStorage {
     /**
      * Where the storage is in its lifecycle.
      */
-    status: OrganizationStorageStatus
+    status: DeploymentStatus
 }

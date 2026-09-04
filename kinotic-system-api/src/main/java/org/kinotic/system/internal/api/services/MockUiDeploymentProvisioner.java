@@ -2,10 +2,10 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
+import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.UiDeploymentStatus;
-import org.kinotic.management.api.model.UiDeploymentStatusType;
 import org.kinotic.system.api.services.UiDeploymentProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -29,12 +29,12 @@ public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
     @Override
     public Future<UiDeployment> provision(UiDeployment deployment, Organization organization) {
         log.debug("MockUiDeploymentProvisioner marked site {} ready", deployment.getId());
-        return Future.succeededFuture(deployment.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));
+        return Future.succeededFuture(deployment.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
     }
 
     @Override
     public Future<UiDeployment> checkProvisioning(UiDeployment deployment) {
-        return Future.succeededFuture(deployment.setStatus(new UiDeploymentStatus(UiDeploymentStatusType.READY)));
+        return Future.succeededFuture(deployment.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
     }
 
     @Override

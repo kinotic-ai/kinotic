@@ -1,5 +1,5 @@
 import type { Identifiable } from '@kinotic-ai/core'
-import type { UiDeploymentStatus } from '@/api/model/UiDeploymentStatus'
+import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
 
 /**
  * The standing deployment of one UI artifact of a Project: the site serving it, the commit
@@ -45,7 +45,7 @@ export class UiDeployment implements Identifiable<string> {
      */
     public previousCommitSha: string | null = null
 
-    public status!: UiDeploymentStatus
+    public status!: DeploymentStatus
 
     public created: number | null = null
 
