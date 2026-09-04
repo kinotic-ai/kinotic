@@ -57,15 +57,13 @@ const RECONNECT_MIN_JITTER_MS = 1000
 const RECONNECT_MAX_JITTER_MS = 5000
 
 /**
- * How long the graceful shutdown is given before the process exits anyway. Releasing the node
+ * How long the graceful shutdown is given before the node kills itself. Releasing the node
  * cleanly is worth a short wait, but not an unbounded one: installing a signal handler replaces
  * the default terminate-on-signal, so a shutdown step that never settles is a vm-manager that
- * Ctrl+C cannot kill.
+ * Ctrl+C cannot kill. Shorter than the SIGKILL escalation AlloyManager.stop() runs on its own
+ * child, so an Alloy that ignores SIGTERM is left to the pid file terminateStale() reads.
  */
 const SHUTDOWN_TIMEOUT_MS = 5000
-
-/** Exit status when the node was killed before it finished releasing what it holds. */
-const EXIT_UNCLEAN = 1
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
@@ -249,9 +247,13 @@ async function shutdown() {
         clearInterval(heartbeatTimer)
     }
 
+    // SIGKILL rather than process.exit, which is not itself a guarantee: exiting runs the
+    // cleanup hooks the native runtimes registered, and one that blocks holds the process open
+    // with the main thread inside it, where no later timer can ever run. The kernel's kill is
+    // the only termination nothing in the process can hold up.
     const forceExit = setTimeout(() => {
-        console.warn(`Shutdown did not finish within ${SHUTDOWN_TIMEOUT_MS / 1000}s, exiting anyway`)
-        process.exit(EXIT_UNCLEAN)
+        console.warn(`Shutdown did not finish within ${SHUTDOWN_TIMEOUT_MS / 1000}s, killing this node`)
+        process.kill(process.pid, 'SIGKILL')
     }, SHUTDOWN_TIMEOUT_MS)
     try {
         await alloyManager?.stop()
@@ -261,12 +263,11 @@ async function shutdown() {
         if (Kinotic.eventBus.isConnected()) {
             await Kinotic.disconnect()
         }
-        clearTimeout(forceExit)
-        process.exit(0)
     } catch (error) {
         console.error('Shutdown failed:', error)
-        process.exit(EXIT_UNCLEAN)
     }
+    clearTimeout(forceExit)
+    process.exit(0)
 }
 
 process.on('SIGINT', shutdown)
