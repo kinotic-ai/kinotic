@@ -76,6 +76,11 @@ export function filteredPageLoader<D, Row extends DescriptiveIdentifiable>(
   return load
 }
 
+/** The zero-based page an offset pageable asks for; the first page for a cursor pageable. */
+export function pageNumberOf(pageable: Pageable): number {
+  return (pageable as Pageable & { pageNumber?: number }).pageNumber ?? 0
+}
+
 /** Severity of an identity status badge: Active is in good standing, Invited pending, the rest cut off. */
 export function statusSeverity(status: string): string {
   let ret: string

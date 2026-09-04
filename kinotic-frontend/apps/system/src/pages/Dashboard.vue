@@ -1,79 +1,53 @@
 <template>
   <div>
-    <PageHeader title="Dashboard" description="Cluster health and platform totals at a glance." />
+    <PageHeader title="Dashboard" description="The platform at a glance, and what needs an operator.">
+      <template #actions>
+        <Button label="Refresh" icon="pi pi-refresh" severity="secondary" outlined :loading="loading" @click="load" />
+      </template>
+    </PageHeader>
 
-    <Message v-if="clusterError" severity="error" :closable="false" class="mb-4">{{ clusterError }}</Message>
+    <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div class="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-      <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
-    </div>
+    <!-- The page reads in bands, one kind of content per row: how much, what needs me, how
+         healthy, what happened -->
+    <div class="flex flex-col gap-4">
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+      </div>
 
-    <div class="mt-6 grid gap-4 lg:grid-cols-2">
-      <div class="rounded-lg border border-surface p-4">
-        <h2 class="text-base font-semibold">Worker capacity</h2>
-        <p class="mb-4 text-xs text-muted-color">
-          Allocated versus total across the worker nodes that are online.
-        </p>
-        <div v-if="workerNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
-          No worker nodes registered
-        </div>
-        <div v-else-if="onlineNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
-          None of the {{ workerNodes.length }} registered worker nodes are online
-        </div>
-        <div v-else class="flex flex-col gap-3">
-          <div v-for="row in capacityRows" :key="row.label">
-            <div class="mb-1 flex justify-between text-sm">
-              <span class="text-muted-color">{{ row.label }}</span>
-              <span>{{ row.text }}</span>
+      <AttentionList :items="attention" />
+
+      <div class="grid gap-4 lg:grid-cols-3">
+        <div class="rounded-lg border border-surface p-4">
+          <div class="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 class="text-base font-semibold">Worker capacity</h2>
+              <p class="text-xs text-muted-color">Allocated on the nodes that are online.</p>
             </div>
-            <CapacityBar :pct="row.pct" />
+            <RouterLink to="/worker-nodes" class="whitespace-nowrap text-sm text-muted-color hover:text-color">Nodes</RouterLink>
+          </div>
+          <div v-if="nodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+            No worker nodes registered
+          </div>
+          <div v-else-if="onlineNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+            None of the {{ nodes.length }} registered worker nodes are online
+          </div>
+          <CapacityRows v-else :capacity="capacity" />
+          <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-color">
+            <span v-for="state in nodeStates" :key="state.label" class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full" :style="{ background: state.color }" />
+              {{ state.label }} <b class="font-semibold text-color">{{ state.count }}</b>
+            </span>
           </div>
         </div>
+
+        <WorkloadStateCard :workloads="workloads" description="Every workload on the platform." view-all-to="/workloads" />
+
+        <JobRunsByDayChart :runs="runs" view-all-to="/jobs" />
       </div>
 
-      <WorkloadStateCard description="Every workload on the platform, by state." view-all-to="/worker-nodes" />
+      <RecentRunsTable :runs="recentRuns" :scope="{}" />
     </div>
-
-    <div class="mt-6 rounded-lg border border-surface">
-      <div class="px-4 pt-4 pb-2">
-        <h2 class="text-base font-semibold">Server nodes</h2>
-        <p class="text-xs text-muted-color">
-          Every kinotic-server in the cluster. One node serves this console's connection.
-        </p>
-      </div>
-      <div class="overflow-x-auto px-4 pb-4">
-        <table class="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Node</th>
-              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Version</th>
-              <th class="border-b border-surface px-2 py-1.5 text-left font-medium text-muted-color">Join order</th>
-              <th class="border-b border-surface px-2 py-1.5"></th>
-              <th class="border-b border-surface px-2 py-1.5"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="node in clusterInfo?.nodes ?? []" :key="node.nodeId">
-              <td class="border-b border-surface px-2 py-1.5 font-mono text-xs">{{ node.nodeId }}</td>
-              <td class="border-b border-surface px-2 py-1.5">{{ node.version }}</td>
-              <td class="border-b border-surface px-2 py-1.5">{{ node.order }}</td>
-              <td class="border-b border-surface px-2 py-1.5">
-                <Tag v-if="node.local" severity="info" value="serving request" />
-              </td>
-              <td class="border-b border-surface px-2 py-1.5 text-right">
-                <Button label="Logging" icon="pi pi-sliders-h" severity="secondary" text size="small"
-                        @click="openLogLevel(node.nodeId)" />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <div v-if="!clusterError && (clusterInfo?.nodes ?? []).length === 0" class="py-6 text-center text-sm text-muted-color">
-          Loading cluster topology…
-        </div>
-      </div>
-    </div>
-
-    <LogLevelDialog v-if="logLevelNodeId" v-model:visible="logLevelVisible" :node-id="logLevelNodeId" />
   </div>
 </template>
 
@@ -81,126 +55,141 @@
 import { computed, onMounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import Tag from 'primevue/tag'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
-import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import { DeploymentStatusType, ExecutionStatus, WorkloadStatus,
+         type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
+import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
+import { PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
-import { PageHeader, formatMb } from '@kinotic-ai/frontend-common'
-
-import CapacityBar from '@/components/CapacityBar.vue'
-import LogLevelDialog from '@/components/LogLevelDialog.vue'
-import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
+import AttentionList from '@/components/AttentionList.vue'
+import CapacityRows from '@/components/CapacityRows.vue'
+import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
+import RecentRunsTable from '@/components/RecentRunsTable.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
+import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
+import { platformAttention } from '@/util/attention'
+import { capacityOf, loadNodes } from '@/util/nodes'
+import { scanWorkloads } from '@/util/workloads'
 
-const clusterInfo = ref<KinoticClusterInfo | null>(null)
-const clusterError = ref<string | null>(null)
+const DAY_MS = 24 * 60 * 60 * 1000
+/** How far back the runs chart and the recent-runs list look. */
+const RUN_WINDOW_DAYS = 7
+/** How many organizations the ready-to-deploy count and the attention list consider. */
+const ORGANIZATION_PAGE_SIZE = 100
+const RECENT_RUN_COUNT = 5
+
+const cluster = ref<KinoticClusterInfo | null>(null)
+const nodes = ref<VmNode[]>([])
+const workloads = ref<Workload[]>([])
+const runs = ref<JobRun[]>([])
+const organizations = ref<Organization[]>([])
 const organizationCount = ref<number | null>(null)
-const workerNodeCount = ref<number | null>(null)
-const workerNodes = ref<VmNode[]>([])
+const loading = ref(false)
+const error = ref<string | null>(null)
 
 // A workload can only be placed on an ONLINE node, so an offline node's free capacity is not
 // the platform's to hand out — counting it reports headroom no placement can actually use.
-const onlineNodes = computed(() => workerNodes.value.filter(node => node.status?.type === VmNodeStatusType.ONLINE))
+const onlineNodes = computed(() => nodes.value.filter(node => node.status.type === VmNodeStatusType.ONLINE))
+const capacity = computed(() => capacityOf(onlineNodes.value))
 
-const capacityRows = computed(() => {
-  const total = { cpus: 0, memoryMb: 0, diskMb: 0 }
-  const used = { cpus: 0, memoryMb: 0, diskMb: 0 }
-  for (const node of onlineNodes.value) {
-    total.cpus += node.totalCpus
-    total.memoryMb += node.totalMemoryMb
-    total.diskMb += node.totalDiskMb
-    used.cpus += node.totalCpus - node.availableCpus
-    used.memoryMb += node.totalMemoryMb - node.availableMemoryMb
-    used.diskMb += node.totalDiskMb - node.availableDiskMb
-  }
-  const pct = (allocated: number, all: number) => all > 0 ? Math.round((allocated / all) * 100) : 0
+const nodeStates = computed(() => {
+  const count = (type: VmNodeStatusType) => nodes.value.filter(node => node.status.type === type).length
   return [
-    { label: 'CPU', text: `${used.cpus} / ${total.cpus} vCPU`, pct: pct(used.cpus, total.cpus) },
-    { label: 'Memory', text: `${formatMb(used.memoryMb)} / ${formatMb(total.memoryMb)}`, pct: pct(used.memoryMb, total.memoryMb) },
-    { label: 'Disk', text: `${formatMb(used.diskMb)} / ${formatMb(total.diskMb)}`, pct: pct(used.diskMb, total.diskMb) }
+    { label: 'Online', count: count(VmNodeStatusType.ONLINE), color: accentColor('green', isDark.value) },
+    { label: 'Draining', count: count(VmNodeStatusType.DRAINING), color: accentColor('amber', isDark.value) },
+    { label: 'Offline', count: count(VmNodeStatusType.OFFLINE), color: accentColor('red', isDark.value) }
   ]
 })
 
-const logLevelNodeId = ref<string | null>(null)
-const logLevelVisible = ref(false)
+const attention = computed(() => platformAttention(cluster.value, nodes.value, workloads.value, runs.value, organizations.value))
+
+const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 
 interface Stat {
   label: string
   value: string
   description: string
   tag?: string
-  /** Route the tile navigates to on click; unset renders a static tile. */
   to?: string
   icon?: string
   accent?: StatTileAccent
 }
 
-const stats = computed<Stat[]>(() => [
-  {
-    label: 'Server nodes',
-    value: clusterInfo.value?.serverNodeCount?.toString() ?? '—',
-    description: 'kinotic-server instances in the cluster',
-    icon: 'pi-server',
-    accent: 'sky'
-  },
-  {
-    label: 'Cluster state',
-    value: clusterInfo.value?.clusterState ?? '—',
-    description: 'Whether the cluster is serving requests',
-    tag: clusterInfo.value ? (clusterInfo.value.active ? 'success' : 'danger') : 'secondary',
-    icon: 'pi-shield',
-    accent: clusterInfo.value && !clusterInfo.value.active ? 'red' : 'green'
-  },
-  {
-    label: 'Topology version',
-    value: clusterInfo.value?.topologyVersion?.toString() ?? '—',
-    description: 'Increments each time a node joins or leaves',
-    icon: 'pi-sync',
-    accent: 'violet'
-  },
-  {
-    label: 'Worker nodes',
-    value: workerNodeCount.value === null ? '—' : `${onlineNodes.value.length} / ${workerNodeCount.value}`,
-    description: 'VmManager nodes online, of those registered',
-    to: '/worker-nodes',
-    icon: 'pi-box',
-    accent: workerNodeCount.value !== null && onlineNodes.value.length === 0 ? 'red' : 'amber'
-  },
-  {
-    label: 'Organizations',
-    value: organizationCount.value?.toString() ?? '—',
-    description: 'Organizations registered on the platform',
-    to: '/organizations',
-    icon: 'pi-building',
-    accent: 'teal'
-  }
-])
+const stats = computed<Stat[]>(() => {
+  const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
+  const dayAgo = Date.now() - DAY_MS
+  const today = runs.value.filter(run => (run.started ?? 0) >= dayAgo)
+  const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
+  const ready = organizations.value.filter(org => org.storage?.status.type === DeploymentStatusType.READY).length
+  return [
+    {
+      label: 'Cluster',
+      value: cluster.value?.clusterState ?? '—',
+      description: cluster.value ? `${cluster.value.serverNodeCount} server nodes` : 'Whether the cluster is serving requests',
+      tag: cluster.value ? (cluster.value.active ? 'success' : 'danger') : 'secondary',
+      to: '/cluster',
+      icon: 'pi-shield',
+      accent: cluster.value && !cluster.value.active ? 'red' : 'green'
+    },
+    {
+      label: 'Worker nodes',
+      value: nodes.value.length === 0 && !loading.value ? '0' : `${onlineNodes.value.length} / ${nodes.value.length}`,
+      description: 'online, of those registered',
+      to: '/worker-nodes',
+      icon: 'pi-server',
+      accent: nodes.value.length > 0 && onlineNodes.value.length === 0 ? 'red' : 'amber'
+    },
+    {
+      label: 'Workloads',
+      value: `${running}`,
+      description: `running of ${workloads.value.length}`,
+      to: '/workloads',
+      icon: 'pi-box',
+      accent: 'sky'
+    },
+    {
+      label: 'Jobs · 24 h',
+      value: `${today.length}`,
+      description: `${runningRuns} running now`,
+      to: '/jobs',
+      icon: 'pi-list-check',
+      accent: 'violet'
+    },
+    {
+      label: 'Organizations',
+      value: organizationCount.value?.toString() ?? '—',
+      description: `${ready} ready to deploy`,
+      to: '/organizations',
+      icon: 'pi-building',
+      accent: 'teal'
+    }
+  ]
+})
 
-function openLogLevel(nodeId: string) {
-  logLevelNodeId.value = nodeId
-  logLevelVisible.value = true
+// Each source loads on its own so one that fails leaves the others standing
+async function load() {
+  loading.value = true
+  error.value = null
+  const failures: string[] = []
+  await Promise.all([
+    Kinotic.clusterInfo.getClusterInfo().then(info => { cluster.value = info })
+           .catch(err => failures.push(errorMessage(err, 'Failed to load cluster info'))),
+    loadNodes().then(list => { nodes.value = list })
+               .catch(err => failures.push(errorMessage(err, 'Failed to load worker nodes'))),
+    scanWorkloads({}).then(list => { workloads.value = list })
+                     .catch(err => failures.push(errorMessage(err, 'Failed to load workloads'))),
+    scanJobRuns({ since: Date.now() - RUN_WINDOW_DAYS * DAY_MS }).then(list => { runs.value = list })
+                                                                  .catch(err => failures.push(errorMessage(err, 'Failed to load job runs'))),
+    Kinotic.systemOrganizations.findOrganizations(Pageable.create(0, ORGANIZATION_PAGE_SIZE))
+           .then(page => { organizations.value = page.content ?? [] })
+           .catch(err => failures.push(errorMessage(err, 'Failed to load organizations'))),
+    Kinotic.systemOrganizations.countOrganizations().then(count => { organizationCount.value = count })
+           .catch(() => { /* the tile shows an em dash */ })
+  ])
+  error.value = failures.length > 0 ? failures.join('. ') : null
+  loading.value = false
 }
 
-onMounted(async () => {
-  try {
-    clusterInfo.value = await Kinotic.clusterInfo.getClusterInfo()
-  } catch (err) {
-    clusterError.value = err instanceof Error ? err.message : 'Failed to load cluster info'
-  }
-  try {
-    organizationCount.value = await Kinotic.systemOrganizations.countOrganizations()
-  } catch {
-    // The tile shows an em dash; the count is cosmetic and must not block the page
-  }
-  try {
-    // One fetch feeds the worker tile and the capacity card
-    const page = await Kinotic.vmNodes.findAll(Pageable.create(0, 100))
-    workerNodes.value = page.content ?? []
-    workerNodeCount.value = page.totalElements ?? workerNodes.value.length
-  } catch {
-    // Same em-dash fallback as the organization count; the capacity card shows its empty state
-  }
-})
+onMounted(load)
 </script>

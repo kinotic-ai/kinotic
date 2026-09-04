@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { SideBar } from '@kinotic-ai/frontend-common'
+import { SideBar, SidebarScope } from '@kinotic-ai/frontend-common'
 import Header from './Header.vue'
-import SidebarScope from '@/components/SidebarScope.vue'
 import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 import { PROFILE_STATE } from '@/states/IProfileState'
 import { USER_STATE } from '@/states/IUserState'

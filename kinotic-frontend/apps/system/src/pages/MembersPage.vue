@@ -1,37 +1,37 @@
 <template>
   <div class="flex flex-col">
-  <PageHeader title="Members" description="People with access to this organization." />
-  <CrudTable
-    ref="crudTable"
-    :headers="headers"
-    :data-source="dataSource"
-    :search="tableSearch"
-    :is-show-add-new="false"
-    :disable-modifications="true"
-    empty-state-text="No members"
-    @update:search="tableSearch = $event"
-  >
-    <template #item.displayName="{ item }">
-      {{ item.displayName || '—' }}
-    </template>
+    <PageHeader :title="applicationId ? 'Users' : 'Members'" :description="description" />
+    <CrudTable
+      ref="crudTable"
+      :headers="headers"
+      :data-source="dataSource"
+      :search="tableSearch"
+      :is-show-add-new="false"
+      :disable-modifications="true"
+      empty-state-text="No members"
+      @update:search="tableSearch = $event"
+    >
+      <template #item.displayName="{ item }">
+        {{ item.displayName || '—' }}
+      </template>
 
-    <template #item.status="{ item }">
-      <Tag :value="item.status" :severity="statusSeverity(item.status)" />
-    </template>
+      <template #item.status="{ item }">
+        <Tag :value="item.status" :severity="statusSeverity(item.status)" />
+      </template>
 
-    <template #item.authType="{ item }">
-      {{ item.authType || '—' }}
-    </template>
+      <template #item.authType="{ item }">
+        {{ item.authType || '—' }}
+      </template>
 
-    <template #item.created="{ item }">
-      {{ item.created ? formatDate(item.created) : '—' }}
-    </template>
-  </CrudTable>
+      <template #item.created="{ item }">
+        {{ item.created ? formatDate(item.created) : '—' }}
+      </template>
+    </CrudTable>
   </div>
 </template>
 
 <script setup lang="ts">
-import { watch } from 'vue'
+import { computed, watch } from 'vue'
 import Tag from 'primevue/tag'
 
 import {
@@ -46,15 +46,25 @@ import {
   CrudTable,
   PageHeader,
   DatetimeUtil,
+  pageNumberOf,
   statusSeverity,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
 } from '@kinotic-ai/frontend-common'
 
+/**
+ * The people with access to an organization, or the users of one of its applications, with
+ * pending invitations inline. Read-only: inviting, disabling and removing are the
+ * organization's to do.
+ */
 const props = defineProps<{
   organizationId: string
+  applicationId?: string
 }>()
+
+/** How many pending invitations the first page lists ahead of the members. */
+const INVITE_PAGE_SIZE = 100
 
 /** One table row — a member or, when {@link invite} is true, a pending invitation. */
 interface MemberRow extends DescriptiveIdentifiable {
@@ -69,11 +79,15 @@ interface MemberRow extends DescriptiveIdentifiable {
 
 const headers: CrudHeader[] = [
   { field: 'email', header: 'Email', sortable: false },
-  { field: 'displayName', header: 'Name', sortable: false },
+  { field: 'displayName', header: 'Name', sortable: false, optional: true },
   { field: 'status', header: 'Status', sortable: false },
-  { field: 'authType', header: 'Auth type', sortable: false },
-  { field: 'created', header: 'Created', sortable: false }
+  { field: 'authType', header: 'Auth type', sortable: false, optional: true },
+  { field: 'created', header: 'Created', sortable: false, optional: true }
 ]
+
+const description = computed(() => props.applicationId
+    ? 'Everyone who signs in to this application, including pending invitations. Inviting, disabling and removing are the organization\'s to do.'
+    : 'People with access to this organization, including pending invitations.')
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
@@ -82,11 +96,12 @@ const formatDate = DatetimeUtil.formatEpochDate
 // Mirrors the portal MembersPage: pending invitations render inline ahead of the members
 // on the first page; member search is server-side, invite filtering client-side.
 async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
+  const applicationId = props.applicationId ?? null
   const membersPage = searchText
-      ? await Kinotic.systemOrganizations.searchMembers(searchText, props.organizationId, null, pageable)
-      : await Kinotic.systemOrganizations.findMembers(props.organizationId, null, pageable)
+      ? await Kinotic.systemOrganizations.searchMembers(searchText, props.organizationId, applicationId, pageable)
+      : await Kinotic.systemOrganizations.findMembers(props.organizationId, applicationId, pageable)
 
-  const invites = await Kinotic.systemOrganizations.findPendingInvites(props.organizationId, null, Pageable.create(0, 100, null))
+  const invites = await Kinotic.systemOrganizations.findPendingInvites(props.organizationId, applicationId, Pageable.create(0, INVITE_PAGE_SIZE, null))
   let inviteRows = (invites.content ?? []).map(invite => toInviteRow(invite))
   let inviteTotal = invites.totalElements ?? inviteRows.length
   if (searchText) {
@@ -107,10 +122,6 @@ async function load(pageable: Pageable, searchText: string | null): Promise<Iter
   }
 
   return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
-}
-
-function pageNumberOf(pageable: Pageable): number {
-  return (pageable as Pageable & { pageNumber?: number }).pageNumber ?? 0
 }
 
 function toInviteRow(invite: PendingInviteSummary): MemberRow {
@@ -136,7 +147,6 @@ function toMemberRow(user: UserParticipantIdentity): MemberRow {
   }
 }
 
-// The header's organization switcher navigates in place, so the router reuses this
-// component instance; refetch when the target organization changes
-watch(() => props.organizationId, () => refreshTable())
+// The header's switchers navigate in place, so the router reuses this instance across scopes
+watch(() => [props.organizationId, props.applicationId], () => refreshTable())
 </script>
