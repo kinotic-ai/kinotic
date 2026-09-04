@@ -151,7 +151,9 @@ function sortRows(list: ProjectRow[], sort: Sort | null | undefined): void {
   const byUpdated = order?.property === 'updated'
   const ascending = order ? order.direction === Direction.ASC : true
   list.sort((a, b) => {
-    const cmp = byUpdated ? (a.updated ?? 0) - (b.updated ?? 0) : a.name.localeCompare(b.name)
+    const cmp = byUpdated
+        ? (DatetimeUtil.toEpochMillis(a.updated) ?? 0) - (DatetimeUtil.toEpochMillis(b.updated) ?? 0)
+        : a.name.localeCompare(b.name)
     return ascending ? cmp : -cmp
   })
 }

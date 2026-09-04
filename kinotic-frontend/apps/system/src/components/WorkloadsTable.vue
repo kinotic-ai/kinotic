@@ -172,7 +172,7 @@ function sortRows(rows: WorkloadRow[], sort: Sort | null | undefined): void {
     } else if (property === 'status') {
       cmp = a.status.localeCompare(b.status)
     } else {
-      cmp = (a.created ?? 0) - (b.created ?? 0)
+      cmp = (DatetimeUtil.toEpochMillis(a.created) ?? 0) - (DatetimeUtil.toEpochMillis(b.created) ?? 0)
     }
     return ascending ? cmp : -cmp
   })

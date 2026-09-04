@@ -60,7 +60,7 @@ import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { DeploymentStatusType, ExecutionStatus, WorkloadStatus,
          type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
-import { PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
@@ -119,7 +119,7 @@ interface Stat {
 const stats = computed<Stat[]>(() => {
   const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
   const dayAgo = Date.now() - DAY_MS
-  const today = runs.value.filter(run => (run.started ?? 0) >= dayAgo)
+  const today = runs.value.filter(run => (DatetimeUtil.toEpochMillis(run.started) ?? 0) >= dayAgo)
   const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
   const ready = organizations.value.filter(org => org.storage?.status.type === DeploymentStatusType.READY).length
   return [

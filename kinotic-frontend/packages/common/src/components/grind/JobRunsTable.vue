@@ -188,7 +188,7 @@ function sortRuns(runs: JobRun[], sort: Sort | null | undefined): void {
   runs.sort((a, b) => {
     const cmp = byName
         ? a.name.localeCompare(b.name)
-        : (a.started ?? 0) - (b.started ?? 0)
+        : (DatetimeUtil.toEpochMillis(a.started) ?? 0) - (DatetimeUtil.toEpochMillis(b.started) ?? 0)
     return ascending ? cmp : -cmp
   })
 }

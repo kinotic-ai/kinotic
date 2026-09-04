@@ -7,8 +7,11 @@
       </div>
       <RouterLink v-if="viewAllTo" :to="viewAllTo" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
     </div>
+    <div v-if="runs.length === 0" class="flex h-44 items-center justify-center text-sm text-muted-color">
+      No runs in the last {{ days }} days
+    </div>
     <!-- vue-echarts sizes from inline style, so the fixed height lives on a wrapper -->
-    <div class="h-44 w-full">
+    <div v-else class="h-44 w-full">
       <VChart style="height: 100%; width: 100%;" :option="option" autoresize />
     </div>
   </div>
@@ -20,7 +23,7 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -43,8 +46,9 @@ const buckets = computed(() => {
     return { label: day.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' }), completed: 0, failed: 0 }
   })
   for (const run of props.runs) {
-    if (run.started === null) continue
-    const index = Math.floor((run.started - firstDay) / DAY_MS)
+    const started = DatetimeUtil.toEpochMillis(run.started)
+    if (started === null) continue
+    const index = Math.floor((started - firstDay) / DAY_MS)
     const bucket = ret[index]
     if (!bucket) continue
     if (run.status === ExecutionStatus.COMPLETED) {
@@ -70,7 +74,8 @@ const option = computed(() => {
   })
   return {
     animationDuration: 300,
-    grid: { left: 28, right: 8, top: 8, bottom: 30, containLabel: false },
+    // containLabel keeps the axis labels inside the grid's box; the bottom margin is the legend's row
+    grid: { left: 8, right: 16, top: 12, bottom: 36, containLabel: true },
     tooltip: { trigger: 'axis', confine: true },
     legend: chartLegend(dark),
     xAxis: {

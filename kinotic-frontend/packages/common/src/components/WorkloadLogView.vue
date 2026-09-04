@@ -177,8 +177,10 @@ function resolveRange(): TimeRange | null {
 // From the workload's creation to its last status change once it has ended, or to now while it runs
 function runRange(): TimeRange {
   const workload = props.workload
-  const start = workload?.created ?? Date.now() - TIME_RANGE_PRESETS[1]!.ms
-  const end = isFinished(workload) && workload?.updated ? workload.updated + RUN_MARGIN_MS : Date.now()
+  const created = DatetimeUtil.toEpochMillis(workload?.created ?? null)
+  const updated = DatetimeUtil.toEpochMillis(workload?.updated ?? null)
+  const start = created ?? Date.now() - TIME_RANGE_PRESETS[1]!.ms
+  const end = isFinished(workload) && updated !== null ? updated + RUN_MARGIN_MS : Date.now()
   return { start: start - RUN_MARGIN_MS, end }
 }
 

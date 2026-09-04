@@ -1,5 +1,6 @@
 import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
 import type { ExecutionStatus, JobRun } from '@kinotic-ai/management-api'
+import DatetimeUtil from '../../util/DatetimeUtil'
 
 /**
  * Which job runs a scan keeps. An unset field matches every run; {@code organizationId} set
@@ -25,7 +26,7 @@ export function matchesJobRunFilter(run: JobRun, filter: JobRunFilter): boolean 
       && (filter.applicationId === undefined || run.applicationId === filter.applicationId)
       && (filter.projectId === undefined || run.projectId === filter.projectId)
       && (filter.status === undefined || run.status === filter.status)
-      && (filter.since === undefined || (run.started ?? 0) >= filter.since)
+      && (filter.since === undefined || (DatetimeUtil.toEpochMillis(run.started) ?? 0) >= filter.since)
 }
 
 /**
@@ -48,7 +49,8 @@ export async function scanJobRuns(filter: JobRunFilter, limit: number = JOB_RUN_
     }
     read += content.length
     const oldest = content[content.length - 1]
-    const pastSince = filter.since !== undefined && oldest !== undefined && (oldest.started ?? 0) < filter.since
+    const pastSince = filter.since !== undefined && oldest !== undefined
+        && (DatetimeUtil.toEpochMillis(oldest.started) ?? 0) < filter.since
     if (content.length < SCAN_PAGE_SIZE || pastSince) {
       break
     }
