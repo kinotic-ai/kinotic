@@ -1,1 +1,0 @@
-{"id":"10cbb0fbede9fc2d350b8eae66e9ba6a","fullName":"org.kinotic.test.tests.sql.MigrationExecutorIntegrationTest.whenDecimalValues_thenStoredAndComparedAsNumbers","name":"whenDecimalValues_thenStoredAndComparedAsNumbers()","status":"passed","testResultsByEnv":{"default":"6237ec2165f41497bc372dae954ff8a4"}}
