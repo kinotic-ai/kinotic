@@ -15,6 +15,7 @@ const versionRegistry = new WeakMap<Function, string>()
 const zonesRegistry = new WeakMap<Function, string>()
 const advertisedRegistry = new WeakMap<Function, boolean>()
 const contextMarkedFunctions = new WeakSet<Function>()
+const abacPolicyRegistry = new WeakMap<Function, string>()
 
 // A Version above @Publish stamps the replacement class while one below it stamps the
 // original, so the lookup walks the constructor prototype chain to find either.
@@ -149,6 +150,30 @@ export function Context(value: Function, _context: ClassMethodDecoratorContext):
 export function receivesContext(serviceInstance: object, methodName: string): boolean {
     const method = (serviceInstance as any)[methodName]
     return typeof method === 'function' && contextMarkedFunctions.has(method)
+}
+
+/**
+ * Attaches an ABAC policy expression to a published service method. Use boolean logic
+ * (and, or, not) within the expression to combine conditions.
+ * @param expression the ABAC policy expression string
+ */
+export function AbacPolicy(expression: string) {
+    return function (value: Function, _context: ClassMethodDecoratorContext): void {
+        // Keyed by the method function itself, like Context, so Bun's decorator-context bugs
+        // cannot affect it.
+        abacPolicyRegistry.set(value, expression)
+    }
+}
+
+/**
+ * Returns the ABAC policy expression attached to the given method of a service instance, or
+ * undefined when the method carries none.
+ * @param serviceInstance the service instance to inspect
+ * @param methodName the method to look up
+ */
+export function abacPolicyFor(serviceInstance: object, methodName: string): string | undefined {
+    const method = (serviceInstance as any)[methodName]
+    return typeof method === 'function' ? abacPolicyRegistry.get(method) : undefined
 }
 
 // Effective zone = zonePrefix . declaredZone. The prefix comes from the client's static

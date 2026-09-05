@@ -1,0 +1,61 @@
+plugins {
+	id 'org.kinotic.java-library-conventions'
+	id 'io.freefair.lombok'
+    id 'antlr'
+}
+
+// Configure ANTLR plugin
+generateGrammarSource {
+	arguments += ['-package', 'org.kinotic.auth.parser']
+	arguments += ['-visitor']
+
+	// Output directly to the parser package
+	outputDirectory = file("${projectDir}/src/main/java/org/kinotic/auth/parser")
+	enabled = project.gradle.startParameter.taskNames.contains(':kinotic-auth:generateGrammarSource')
+}
+
+// Configure Javadoc to exclude generated files
+tasks.withType(Javadoc) {
+    exclude '**/parser/AbacPolicy*.java'
+    exclude '**/parser/AbacPolicy*.interp'
+    exclude '**/parser/AbacPolicy*.tokens'
+}
+
+tasks.named('sourcesJar') {
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+dependencies {
+    // Kinotic dependencies
+    implementation project(':kinotic-idl')
+
+    // Elasticsearch dependencies
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    // Json
+    implementation 'tools.jackson.core:jackson-core'
+    implementation 'tools.jackson.core:jackson-databind'
+
+    // Parsing dependencies
+	implementation 'org.antlr:antlr4-runtime:4.13.2'
+	antlr 'org.antlr:antlr4:4.13.2'
+
+    // Cedar (uber jar bundles the native library and old Jackson internally)
+    implementation 'com.cedarpolicy:cedar-java:4.8.0:uber'
+    // Cedar SDK uses old Jackson (com.fasterxml) for policy serialization
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
+    // jackson-annotations is shared with tools.jackson (Jackson 3) databind and must be at least
+    // the version tools.jackson's BOM requires (3.1.x needs 2.21, e.g. JsonSerializeAs); this
+    // explicit pin overrides the lower Jackson 2 managed version. Bump it alongside tools.jackson.
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.21'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.3'
+
+    // jCasbin provides the AviatorScript matcher engine; CasbinAuthorizationService evaluates
+    // pre-compiled AviatorScript expressions directly (jCasbin's Enforcer recompiles per call).
+    implementation 'org.casbin:jcasbin:1.99.0'
+
+    // Testing
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}

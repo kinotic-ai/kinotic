@@ -97,6 +97,7 @@ terraform.tfstate.backup
 .terraform.tfstate.lock.info
 .terraform/
 
+# Claude Code worktree state (local only)
 .claude/worktrees/
 
 kinotic-js/e2e-tests/test/repository/generated/
