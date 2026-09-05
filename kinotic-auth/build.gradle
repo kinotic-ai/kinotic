@@ -46,9 +46,10 @@ dependencies {
     // Cedar SDK uses old Jackson (com.fasterxml) for policy serialization
     implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
-    // jackson-annotations is shared with tools.jackson (Jackson 3) databind, which needs 2.20
-    // (JsonFormat.Shape.POJO); pin the higher version so both Jackson lines link at runtime.
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.20'
+    // jackson-annotations is shared with tools.jackson (Jackson 3) databind and must be at least
+    // the version tools.jackson's BOM requires (3.1.x needs 2.21, e.g. JsonSerializeAs); this
+    // explicit pin overrides the lower Jackson 2 managed version. Bump it alongside tools.jackson.
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.21'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.3'
 
     // jCasbin provides the AviatorScript matcher engine; CasbinAuthorizationService evaluates
