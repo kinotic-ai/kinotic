@@ -3,17 +3,20 @@
 
 package org.kinotic.core.internal;
 
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.RpcServiceProxy;
 import org.kinotic.core.api.ServiceRegistry;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.internal.utils.KinoticUtil;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.stereotype.Component;
@@ -28,15 +31,18 @@ import java.util.function.BiConsumer;
  * Created by Navid Mitchell on 11/28/18.
  */
 @Component
+@RequiredArgsConstructor
 public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBeanPostProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
-    private final ServiceRegistry serviceRegistry;
-
-    public ServiceRegistrationBeanPostProcessor(ServiceRegistry serviceRegistry) {
-        this.serviceRegistry = serviceRegistry;
-    }
+    // Resolved through a provider rather than injected directly: a BeanPostProcessor's constructor
+    // dependencies are instantiated during the post-processor registration phase, and the registry's
+    // own dependencies (Vertx, EventBusService, Kinotic) would come up before the rest of the context
+    // and be ineligible for later post-processors. The first @Publish bean materializes the registry
+    // during ordinary singleton initialization instead.
+    private final ObjectProvider<ServiceRegistry> serviceRegistryProvider;
+    private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
@@ -46,14 +52,28 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Registering Service {}", serviceIdentifier);
 
             try {
-                serviceRegistry.register(serviceIdentifier, clazz, bean)
+                serviceRegistryProvider.getObject()
+                               .register(serviceIdentifier, clazz, bean)
                                .toCompletionStage()
                                .toCompletableFuture()
                                .join();
 
                 log.trace("Successfully Registered service {}", serviceIdentifier);
             } catch (Exception e) {
+                // A service that is not actually serving must not advertise itself in the directory
                 log.error("Error Registering service {}", serviceIdentifier, e);
+                return;
+            }
+
+            // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.
+            // With no directory bean present, nothing at all happens here.
+            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
+            if (serviceDirectory != null) {
+                try {
+                    serviceDirectory.register(serviceIdentifier, clazz, bean.getClass());
+                } catch (Exception e) {
+                    log.error("Failed to register service {} in the ServiceDirectory", serviceIdentifier, e);
+                }
             }
         });
         return bean;
@@ -66,7 +86,8 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
             log.info("Un-Registering Service {}", serviceIdentifier);
 
             try {
-                serviceRegistry.unregister(serviceIdentifier)
+                serviceRegistryProvider.getObject()
+                               .unregister(serviceIdentifier)
                                .toCompletionStage()
                                .toCompletableFuture()
                                .join();
@@ -74,6 +95,15 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 log.trace("Successfully Un-Registered service {}", serviceIdentifier);
             } catch (Exception e) {
                 log.error("Error Un-Registering service {}", serviceIdentifier, e);
+            }
+
+            ServiceDirectory serviceDirectory = serviceDirectoryProvider.getIfAvailable();
+            if (serviceDirectory != null) {
+                try {
+                    serviceDirectory.unregister(serviceIdentifier);
+                } catch (Exception e) {
+                    log.error("Failed to mark service {} offline in the ServiceDirectory", serviceIdentifier, e);
+                }
             }
         });
     }
@@ -102,10 +132,15 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                             String version = MetaUtil.getVersion(inter);
 
                             if (!StringUtils.isNotBlank(version)) {
-                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or an ancestor package.");
+                                throw new FatalBeanException("Version must be specified on the Published interface " + inter.getName() + " or in its package's package-info.java.");
                             }
 
-                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+                            // A service is addressable in its declared zone; with no declaration
+                            // it registers a single un-zoned address, whose reachability is
+                            // whatever the gateway's routing rules allow
+                            String zone = MetaUtil.getZone(inter);
+                            ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                                        namespace,
                                                                                         name,
                                                                                         scope,
                                                                                         version);

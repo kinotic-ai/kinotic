@@ -3,7 +3,10 @@ package org.kinotic.server.clienttest;
 
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.domain.api.utils.DomainUtil;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -15,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
  */
 @Publish
 @Version("1.0.0")
+@Zone(DomainUtil.MANAGEMENT_API_ZONE)
 public interface ITestService {
 
     String testMethodWithString(String value);
@@ -22,24 +26,26 @@ public interface ITestService {
     UUID getTestUUID();
 
     /**
+     * Returns a fixed binary payload to exercise the {@code application/octet-stream} passthrough.
+     */
+    byte[] getBinaryData();
+
+    /**
+     * Streams fixed binary chunks to exercise per-element {@code application/octet-stream} passthrough.
+     */
+    Flux<byte[]> getBinaryDataStream();
+
+    /**
      * Returns the Participant ID from the Vert.x context directly
      */
     String getParticipantIdFromContext();
 
-    /**
-     * Delegates to an internal method that reads Participant from context
-     */
-    String getParticipantIdFromContextViaDispatch();
 
     /**
      * Reads Participant from context inside vertx.executeBlocking()
      */
     CompletableFuture<String> getParticipantIdFromContextInExecuteBlocking();
 
-    /**
-     * Takes a Participant as a method parameter and also reads from context, verifies they match
-     */
-    String verifyParticipantParameterMatchesContext(Participant participant);
 
     /**
      * Returns a map of all Participant fields from the context (id, tenantId, roles, metadata)
@@ -47,10 +53,11 @@ public interface ITestService {
     Map<String, Object> getFullParticipantFromContext();
 
     /**
-     * Method with only a Participant parameter, returns the participant's info.
-     * Exercises the zero-JSON-args code path.
+     * Takes a Participant as its only parameter; the caller sends no arguments, so the invoker
+     * must supply it. Returns the injected Participant's fields (id, tenantId, roles, metadata).
      */
     Map<String, Object> getParticipantOnlyParam(Participant participant);
+
 
     /**
      * Reads Participant inside a Mono reactive chain
@@ -62,10 +69,6 @@ public interface ITestService {
      */
     CompletableFuture<String> getParticipantIdFromNestedExecuteBlocking();
 
-    /**
-     * Reads the Participant N times in a loop to verify consistency within a single invocation
-     */
-    List<String> getParticipantIdRepeated(int count);
 
     /**
      * Participant as first arg with a suffix, verifies context matches param

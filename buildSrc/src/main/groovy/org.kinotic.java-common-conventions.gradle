@@ -16,6 +16,39 @@ java {
     withSourcesJar()
 }
 
+javadoc {
+    // Delombok generates the sources javadoc runs on, so the entities and test services it emits
+    // carry no doc comments; Xdoclint:none keeps those missing-comment notes off the build log
+    options.addStringOption('Xdoclint:none', '-quiet')
+
+    if (JavaVersion.current().isJava9Compatible()) {
+        options.addBooleanOption('html5', true)
+    }
+}
+
+// Byte-identical archives for identical inputs, so CI can key "already published" checks
+// on a jar's hash and skip republishing images whose contents did not change
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
+
+// Package.getImplementationVersion() reads this at runtime, e.g. the MCP initialize
+// result's serverInfo.version; without it the manifest carries no version at all
+tasks.withType(Jar).configureEach {
+    manifest {
+        attributes 'Implementation-Version': project.version
+    }
+}
+
+// Retain method parameter names in class files: the IDL converter reads them for service schemas
+// and MCP tool input schemas (IdlUtil.parameterName). KinoticJacksonConfig disables Jackson's
+// DETECT_PARAMETER_NAMES so the now-visible constructor names cannot change how value types
+// deserialize.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << '-parameters'
+}
+
 
 repositories {
     // Use Maven Central for resolving dependencies.
@@ -51,32 +84,55 @@ dependencyManagement {
     imports {
         mavenBom "io.opentelemetry:opentelemetry-bom:${otelBomVersion}"
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
+        mavenBom "net.openhft:chronicle-bom:${chronicleBomVersion}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
         mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }
     dependencies {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
         dependency "co.elastic.clients:elasticsearch-rest5-client:${elasticClientVersion}"
 
-        dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
+        dependency "com.azure:azure-communication-email:${azureCommunicationEmailVersion}"
+        dependency "com.azure:azure-identity:${azureIdentityVersion}"
+        dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
+        dependency "com.azure:azure-storage-blob:${azureStorageBlobVersion}"
+        dependency "com.azure.resourcemanager:azure-resourcemanager-cdn:${azureResourcemanagerCdnVersion}"
+        dependency "com.azure.resourcemanager:azure-resourcemanager-dns:${azureResourcemanagerDnsVersion}"
+        dependency "com.azure.resourcemanager:azure-resourcemanager-network:${azureResourcemanagerNetworkVersion}"
+        dependency "com.azure.resourcemanager:azure-resourcemanager-storage:${azureResourcemanagerStorageVersion}"
 
-        dependency "com.graphql-java:graphql-java:${graphQlJavaVersion}"
+        dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
+        dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
         dependency "commons-io:commons-io:${commonsIoVersion}"
+
+        // JWT and OIDC dependencies
+        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
+        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
 
         dependency "io.vertx:vertx-auth-common:${vertxVersion}"
         dependency "io.vertx:vertx-auth-jwt:${vertxVersion}"
         dependency "io.vertx:vertx-auth-oauth2:${vertxVersion}"
         dependency "io.vertx:vertx-core:${vertxVersion}"
         dependency "io.vertx:vertx-grpc-server:${vertxVersion}"
-        dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
         dependency "io.vertx:vertx-grpcio-client:${vertxVersion}"
+        dependency "io.vertx:vertx-grpcio-server:${vertxVersion}"
         dependency "io.vertx:vertx-health-check:${vertxVersion}"
         dependency "io.vertx:vertx-ignite:${vertxVersion}"
+        dependency "io.vertx:vertx-micrometer-metrics:${vertxVersion}"
         dependency "io.vertx:vertx-reactive-streams:${vertxVersion}"
         dependency "io.vertx:vertx-web:${vertxVersion}"
         dependency "io.vertx:vertx-web-client:${vertxVersion}"
-        dependency "io.vertx:vertx-web-graphql:${vertxVersion}"
+
+        // Spring no longer uses javax annotations
+        dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
+        // must be overridden for the elastic client
+        dependency "jakarta.json:jakarta.json-api:${jakartaJsonVersion}"
+
+        dependency "org.antlr:antlr4:${antlrVersion}"
+        dependency "org.antlr:antlr4-runtime:${antlrVersion}"
 
         dependency "org.apache.commons:commons-compress:${apacheCommonsCompressVersion}"
         dependency "org.apache.commons:commons-lang3:${apacheCommonsLangVersion}"
@@ -84,26 +140,26 @@ dependencyManagement {
 
         dependency "org.apache.groovy:groovy:${groovyVersion}"
 
-        dependency "org.apache.ignite:ignite-core:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-indexing:${igniteVersion}"
         dependency "org.apache.ignite:ignite-calcite:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
-        dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-core:${igniteVersion}"
         dependency "org.apache.ignite:ignite-kubernetes:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-slf4j:${igniteVersion}"
+        dependency "org.apache.ignite:ignite-spring:${igniteVersion}"
 
+        dependency "org.kinotic:vertx-jackson3-codec:${vertxJackson3CodecVersion}"
         dependency "org.kinotic:vertx-stomp-lite:${vertxStompLiteVersion}"
 
         dependency "org.springframework.boot:spring-boot-configuration-processor:${springBootVersion}"
+    }
+}
 
-        // Spring no longer uses javax annotations
-        dependency "jakarta.annotation:jakarta.annotation-api:${jakartaAnnotationVersion}"
-        // must be overridden for the elastic client
-        dependency 'jakarta.json:jakarta.json-api:2.0.1'
-
-        // JWT and OIDC dependencies
-        dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
-        dependency "io.jsonwebtoken:jjwt-impl:${jsonwebtokenVersion}"
-        dependency "io.jsonwebtoken:jjwt-jackson:${jsonwebtokenVersion}"
+// McpToolDocProcessor (shipped in kinotic-idl) extracts method Javadoc into jar resources that
+// DefaultSchemaFactory serves as MCP tool descriptions; kinotic-idl cannot be its own processor,
+// it wires the processor over its test fixtures in its own build.gradle
+if (project.name != 'kinotic-idl') {
+    dependencies {
+        annotationProcessor project(':kinotic-idl')
+        testAnnotationProcessor project(':kinotic-idl')
     }
 }
 
@@ -117,6 +173,19 @@ dependencies {
 
     implementation 'io.opentelemetry:opentelemetry-api'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations'
+
+    // reactor-netty, pulled in by the Azure SDK, pins these three natives to x86 classifiers only, so on
+    // Apple Silicon and arm64 Linux NativeLibraryLoader looks up the *_aarch_64 library and finds none.
+    // MacOSDnsServerAddressStreamProvider reports that as an UnsatisfiedLinkError and Netty drops to
+    // resolv.conf parsing that ignores the VPN and per-domain resolvers; epoll and kqueue just fall back
+    // to NIO. Declaring both classifiers of each keeps one build correct on either architecture. There is
+    // no macOS-style DNS native for Linux, netty reads resolv.conf in pure Java there.
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-x86_64'
+    runtimeOnly 'io.netty:netty-transport-native-epoll::linux-aarch_64'
+    runtimeOnly 'io.netty:netty-transport-native-epoll::linux-x86_64'
+    runtimeOnly 'io.netty:netty-transport-native-kqueue::osx-aarch_64'
+    runtimeOnly 'io.netty:netty-transport-native-kqueue::osx-x86_64'
 
     implementation 'jakarta.annotation:jakarta.annotation-api'
 
@@ -132,8 +201,31 @@ dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter-engine'
 }
 
+// ModuleSuiteListener (registered via META-INF/services) regroups each test's Allure suite labels
+// as Kinotic Java > <module> > <class>. Only inject it where tests exist: adding test source to a
+// test-less module trips Gradle's failOnNoDiscoveredTests.
+if (!fileTree('src/test/java').matching { include '**/*.java' }.isEmpty()) {
+    sourceSets.test.java.srcDir(rootProject.file('gradle/allure-support/java'))
+    sourceSets.test.resources.srcDir(rootProject.file('gradle/allure-support/resources'))
+}
+
 test {
     useJUnitPlatform()
+    // Fail a hung test with a stack trace at the offending line instead of stalling the whole test task
+    // until its timeout. SEPARATE_THREAD is required: the default SAME_THREAD mode only checks after the
+    // method returns, so a test blocked in CompletableFuture.join()/StepVerifier.verify() is never preempted.
+    systemProperty 'junit.jupiter.execution.timeout.default', '120 s'
+    systemProperty 'junit.jupiter.execution.timeout.thread.mode.default', 'SEPARATE_THREAD'
+    // Keep the Allure report correct under org.gradle.caching.
+    // The Allure JUnit listener writes results to allure.results.directory as a side effect of running the tests:
+    //  - point every module at build/allure-results (replaces the per-module allure.properties)
+    //  - declare it as a task output so a cached/up-to-date test task restores the results FROM-CACHE instead of producing nothing
+    //  - delete it before each execution so a re-run doesn't accumulate stale result files.
+    systemProperty 'allure.results.directory', 'build/allure-results'
+    // Module name consumed by ModuleSuiteListener to set the suite (middle) level of the Allure tree.
+    systemProperty 'kinotic.allure.module', project.name
+    outputs.dir(layout.buildDirectory.dir('allure-results')).withPropertyName('allureResults')
+    doFirst { delete layout.buildDirectory.dir('allure-results') }
     jvmArgs(
         "-javaagent:${configurations.agent.singleFile}",
         "--add-opens=java.base/java.nio=ALL-UNNAMED",
@@ -141,5 +233,12 @@ test {
         "--add-opens=java.base/java.lang=ALL-UNNAMED",
         "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
     )
+    // Show full stack traces with messages and cause chains on test failures (the default 'short'
+    // format prints only class:line, which hides the real reason).
+    testLogging {
+        exceptionFormat = 'full'
+        showCauses = true
+        showStackTraces = true
+    }
 }
 

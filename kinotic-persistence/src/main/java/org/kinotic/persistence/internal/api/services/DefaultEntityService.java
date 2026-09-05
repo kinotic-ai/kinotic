@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.bulk.BulkResponseItem;
 import co.elastic.clients.elasticsearch.core.mget.MultiGetOperation;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.lang3.ObjectUtils;
@@ -35,7 +36,6 @@ import tools.jackson.databind.node.ObjectNode;
 import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 /**
@@ -53,12 +53,12 @@ public class DefaultEntityService implements EntityService {
     private final NamedQueriesService namedQueriesService;
     private final ObjectMapper objectMapper;
     private final ReadPreProcessor readPreProcessor;
-    private final EntityDefinition entityDefinition;
+    private final EntityDescriptor entityDescriptor;
     private final PersistenceProperties persistenceProperties;
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Void> bulkSave(T entities, EntityContext context) {
+    public <T> Future<Void> bulkSave(T entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_SAVE,
                              context,
@@ -67,25 +67,24 @@ public class DefaultEntityService implements EntityService {
                                  // We do this since there is no way to set an initial primary_term / seq_no combination
                                  // Or if using streams since this is the only supported operation
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                 if((entityDefinition.isOptimisticLockingEnabled()
+                                 if((entityDescriptor.isOptimisticLockingEnabled()
                                          && elasticVersion == null)
-                                     || entityDefinition.isStream()
+                                     || entityDescriptor.isStream()
                                  ){
 
                                      return b.create(c ->
-                                                             c.index(entityDefinition.getItemIndex())
+                                                             c.index(entityDescriptor.itemIndex())
                                                               .id(entityHolder.getDocumentId())
                                                               .routing(entityHolder.tenantId())
                                                               .document(entityHolder.entity()));
                                  }else{
                                      return b.index(i -> {
-                                         i.index(entityDefinition.getItemIndex())
+                                         i.index(entityDescriptor.itemIndex())
                                           .id(entityHolder.getDocumentId())
                                           .routing(entityHolder.tenantId())
                                           .document(entityHolder.entity());
 
-                                         if(entityDefinition.isOptimisticLockingEnabled()
-                                                 && elasticVersion != null){
+                                         if(entityDescriptor.isOptimisticLockingEnabled()){
                                              i.ifPrimaryTerm(elasticVersion.primaryTerm());
                                              i.ifSeqNo(elasticVersion.seqNo());
                                          }
@@ -97,7 +96,7 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Void> bulkUpdate(T entities, EntityContext context) {
+    public <T> Future<Void> bulkUpdate(T entities, EntityContext context) {
         return doPersistBulk(entities,
                              EntityOperation.BULK_UPDATE,
                              context,
@@ -105,7 +104,7 @@ public class DefaultEntityService implements EntityService {
                                      .update(u -> {
 
                                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                                 u.index(entityDefinition.getItemIndex())
+                                                 u.index(entityDescriptor.itemIndex())
                                                   .id(entityHolder.getDocumentId())
                                                   .routing(entityHolder.tenantId())
                                                   .action(upB -> {
@@ -118,12 +117,12 @@ public class DefaultEntityService implements EntityService {
                                                       return upB;
                                                   });
 
-                                                 if(entityDefinition.isOptimisticLockingEnabled()
+                                                 if(entityDescriptor.isOptimisticLockingEnabled()
                                                          && elasticVersion != null) {
 
                                                      u.ifPrimaryTerm(elasticVersion.primaryTerm())
                                                       .ifSeqNo(elasticVersion.seqNo());
-                                                 } else if (entityDefinition.isOptimisticLockingEnabled()) {
+                                                 } else if (entityDescriptor.isOptimisticLockingEnabled()) {
                                                      throw new IllegalArgumentException("A Version must be provided when calling update");
                                                  }
                                                  return u;
@@ -133,194 +132,194 @@ public class DefaultEntityService implements EntityService {
 
     @WithSpan
     @Override
-    public CompletableFuture<Long> count(EntityContext context) {
+    public Future<Long> count(EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.COUNT, context))
-                .thenCompose(un -> crudServiceTemplate
-                        .count(entityDefinition.getItemIndex(),
-                               builder -> readPreProcessor.beforeCount(entityDefinition, null, builder, context)));
+                .compose(un -> authService.authorize(EntityOperation.COUNT, context))
+                .compose(un -> crudServiceTemplate
+                        .count(entityDescriptor.itemIndex(),
+                               builder -> readPreProcessor.beforeCount(entityDescriptor, null, builder, context)));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Long> countByQuery(String query, EntityContext context) {
+    public Future<Long> countByQuery(String query, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
-                .thenCompose(un -> crudServiceTemplate
-                        .count(entityDefinition.getItemIndex(),
-                               builder -> readPreProcessor.beforeCount(entityDefinition, query, builder, context)));
+                .compose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
+                .compose(un -> crudServiceTemplate
+                        .count(entityDescriptor.itemIndex(),
+                               builder -> readPreProcessor.beforeCount(entityDescriptor, query, builder, context)));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(String id, EntityContext context) {
+    public Future<Void> deleteById(String id, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
-                .thenApply(un -> composeId(id, context))
-                .thenCompose(composedId -> crudServiceTemplate
-                        .deleteById(entityDefinition.getItemIndex(),
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
+                .map(un -> composeId(id, context))
+                .compose(composedId -> crudServiceTemplate
+                        .deleteById(entityDescriptor.itemIndex(),
                                     composedId,
-                                    builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
-                        .thenApply(deleteResponse -> null));
+                                    builder -> readPreProcessor.beforeDelete(entityDescriptor, builder, context))
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(TenantSpecificId id, EntityContext context) {
+    public Future<Void> deleteById(TenantSpecificId id, EntityContext context) {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
-                .thenApply(un -> composeId(id))
-                .thenCompose(composedId -> crudServiceTemplate
-                        .deleteById(entityDefinition.getItemIndex(),
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
+                .map(un -> composeId(id))
+                .compose(composedId -> crudServiceTemplate
+                        .deleteById(entityDescriptor.itemIndex(),
                                     composedId,
-                                    builder -> readPreProcessor.beforeDelete(entityDefinition, builder, context))
-                        .thenApply(deleteResponse -> null));
+                                    builder -> readPreProcessor.beforeDelete(entityDescriptor, builder, context))
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteByQuery(String query, EntityContext context) {
+    public Future<Void> deleteByQuery(String query, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
-                .thenCompose(un -> crudServiceTemplate
-                        .deleteByQuery(entityDefinition.getItemIndex(),
-                                       builder -> readPreProcessor.beforeDeleteByQuery(entityDefinition, query, builder, context))
-                        .thenApply(deleteResponse -> null));
+                .compose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
+                .compose(un -> crudServiceTemplate
+                        .deleteByQuery(entityDescriptor.itemIndex(),
+                                       builder -> readPreProcessor.beforeDeleteByQuery(entityDescriptor, query, builder, context))
+                        .mapEmpty());
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
+    public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
-                .thenCompose(un -> {
+                .compose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
+                .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
-                        if(entityDefinition.isOptimisticLockingEnabled()){
+                        if(entityDescriptor.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             Map.class,
-                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
                                             hit -> type.cast(new FastestType(updateVersionForEntity(hit.source(),
                                                                                               hit.primaryTerm(),
                                                                                               hit.seqNo()
                                             ))));
                         }else{
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             RawJson.class,
-                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
                                             hit -> type.cast(new FastestType(hit.source())));
                         }
                     }else{
 
-                        if(entityDefinition.isOptimisticLockingEnabled()){
+                        if(entityDescriptor.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context),
+                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context),
                                             hit -> updateVersionForEntity(hit.source(),
                                                                           hit.primaryTerm(),
                                                                           hit.seqNo()
                                             ));
                         }else{
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeFindAll(entityDefinition, builder, context));
+                                            builder -> readPreProcessor.beforeFindAll(entityDescriptor, builder, context));
                         }
                     }
-                }).thenApply(createParanoidCheck(context, "FindAll"));
+                }).map(createParanoidCheck(context, "FindAll"));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> findById(String id, Class<T> type, EntityContext context) {
+    public <T> Future<T> findById(String id, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
-                .thenApply(un -> composeId(id, context))
-                .thenCompose(composedId -> doFindById(composedId, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
+                .map(un -> composeId(id, context))
+                .compose(composedId -> doFindById(composedId, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> findById(TenantSpecificId id, Class<T> type, EntityContext context) {
+    public <T> Future<T> findById(TenantSpecificId id, Class<T> type, EntityContext context) {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
-                .thenApply(un -> composeId(id))
-                .thenCompose(composedId -> doFindById(composedId, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
+                .map(un -> composeId(id))
+                .compose(composedId -> doFindById(composedId, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
+    public <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
-                .thenApply(un -> composeIds(ids, context))
-                .thenCompose(composedIds -> doFindByIds(composedIds, type, context));
+                .compose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
+                .map(un -> composeIds(ids, context))
+                .compose(composedIds -> doFindByIds(composedIds, type, context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context) {
+    public <T> Future<List<T>> findByIdsWithTenant(List<TenantSpecificId> ids, Class<T> type, EntityContext context) {
         return  validate_ComposeIds_AddTenantsToContext(ids, context)
-                .thenCompose(composedIds
+                .compose(composedIds
                                      -> authService.authorize(EntityOperation.FIND_BY_IDS, context)
-                                                   .thenCompose(v -> doFindByIds(composedIds, type, context)));
+                                                   .compose(v -> doFindByIds(composedIds, type, context)));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<List<T>> namedQuery(String queryName,
-                                                     ParameterHolder parameterHolder,
-                                                     Class<T> type,
-                                                     EntityContext context) {
+    public <T> Future<List<T>> namedQuery(String queryName,
+                                          ParameterHolder parameterHolder,
+                                          Class<T> type,
+                                          EntityContext context) {
         // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
         return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQuery(entityDefinition,
+                .compose(unused -> namedQueriesService.executeNamedQuery(entityDescriptor,
+                                                                         queryName,
+                                                                         parameterHolder,
+                                                                         type,
+                                                                         context));
+    }
+
+    @WithSpan
+    @Override
+    public <T> Future<Page<T>> namedQueryPage(String queryName,
+                                              ParameterHolder parameterHolder,
+                                              Pageable pageable,
+                                              Class<T> type,
+                                              EntityContext context) {
+        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
+        return validateContext(context)
+                .compose(unused -> namedQueriesService.executeNamedQueryPage(entityDescriptor,
                                                                              queryName,
                                                                              parameterHolder,
+                                                                             pageable,
                                                                              type,
                                                                              context));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> namedQueryPage(String queryName,
-                                                         ParameterHolder parameterHolder,
-                                                         Pageable pageable,
-                                                         Class<T> type,
-                                                         EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return validateContext(context)
-                .thenCompose(unused -> namedQueriesService.executeNamedQueryPage(entityDefinition,
-                                                                                 queryName,
-                                                                                 parameterHolder,
-                                                                                 pageable,
-                                                                                 type,
-                                                                                 context));
-    }
-
-    @WithSpan
-    @Override
-    public <T> CompletableFuture<T> save(T entity, EntityContext context) {
+    public <T> Future<T> save(T entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.SAVE,
                          context,
-                         entityHolder -> esAsyncClient.index(i -> {
+                         entityHolder -> crudServiceTemplate.toFuture(esAsyncClient.index(i -> {
                              i.routing(entityHolder.tenantId())
-                              .index(entityDefinition.getItemIndex())
+                              .index(entityDescriptor.itemIndex())
                               .id(entityHolder.getDocumentId())
                               .document(entityHolder.entity())
                               .refresh(Refresh.True);
@@ -329,42 +328,41 @@ public class DefaultEntityService implements EntityService {
                              // We do this since there is no way to set an initial primary_term / seq_no combination
                              // Or if using streams since this is the only supported operation
                              ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                             if((entityDefinition.isOptimisticLockingEnabled()
+                             if((entityDescriptor.isOptimisticLockingEnabled()
                                      && elasticVersion == null)
-                                 || entityDefinition.isStream()
+                                 || entityDescriptor.isStream()
                              ){
 
                                  i.opType(OpType.Create);
 
-                             }else if(entityDefinition.isOptimisticLockingEnabled()
-                                     && elasticVersion != null){
+                             }else if(entityDescriptor.isOptimisticLockingEnabled()){
 
                                  i.ifPrimaryTerm(elasticVersion.primaryTerm());
                                  i.ifSeqNo(elasticVersion.seqNo());
                              }
 
                              return i;
-                         }).thenApply(indexResponse -> postProcessSaveOrUpdate(entity,
-                                                                               entityHolder,
-                                                                               indexResponse.primaryTerm(),
-                                                                               indexResponse.seqNo())));
+                         })).map(indexResponse -> postProcessSaveOrUpdate(entity,
+                                                                          entityHolder,
+                                                                          indexResponse.primaryTerm(),
+                                                                          indexResponse.seqNo())));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
+    public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
         return validateContext(context)
-                .thenCompose(un -> authService.authorize(EntityOperation.SEARCH, context))
-                .thenCompose(un -> {
+                .compose(un -> authService.authorize(EntityOperation.SEARCH, context))
+                .compose(un -> {
 
                     if(FastestType.class.isAssignableFrom(type)){
 
-                        if(entityDefinition.isOptimisticLockingEnabled()){
+                        if(entityDescriptor.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             Map.class,
-                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
+                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -374,10 +372,10 @@ public class DefaultEntityService implements EntityService {
                                             ))));
                         }else{
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             RawJson.class,
-                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
+                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -385,12 +383,12 @@ public class DefaultEntityService implements EntityService {
                         }
                     }else{
 
-                        if(entityDefinition.isOptimisticLockingEnabled()){
+                        if(entityDescriptor.isOptimisticLockingEnabled()){
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
+                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context),
@@ -400,30 +398,28 @@ public class DefaultEntityService implements EntityService {
                                             ));
                         }else{
                             return crudServiceTemplate
-                                    .search(entityDefinition.getItemIndex(),
+                                    .search(entityDescriptor.itemIndex(),
                                             pageable,
                                             type,
-                                            builder -> readPreProcessor.beforeSearch(entityDefinition,
+                                            builder -> readPreProcessor.beforeSearch(entityDescriptor,
                                                                                      searchText,
                                                                                      builder,
                                                                                      context));
                         }
                     }
-                }).thenApply(createParanoidCheck(context, "Search"));
+                }).map(createParanoidCheck(context, "Search"));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> syncIndex(EntityContext context) {
+    public Future<Void> syncIndex(EntityContext context) {
         return authService.authorize(EntityOperation.SYNC_INDEX, context)
-                          .thenCompose(un -> esAsyncClient.indices().refresh(
-                                  b -> b.index(entityDefinition.getItemIndex())))
-                          .thenApply(unused -> null);
+                          .compose(un -> crudServiceTemplate.syncIndex(entityDescriptor.itemIndex()));
     }
 
     @WithSpan
     @Override
-    public <T> CompletableFuture<T> update(T entity, EntityContext context) {
+    public <T> Future<T> update(T entity, EntityContext context) {
         return doPersist(entity,
                          EntityOperation.UPDATE,
                          context,
@@ -431,19 +427,19 @@ public class DefaultEntityService implements EntityService {
 
                              UpdateRequest<?,?> request = UpdateRequest.of(u -> {
                                  u.routing(entityHolder.tenantId())
-                                  .index(entityDefinition.getItemIndex())
+                                  .index(entityDescriptor.itemIndex())
                                   .id(entityHolder.getDocumentId())
                                   .doc(entityHolder.entity())
                                   .refresh(Refresh.True);
 
                                  ElasticVersion elasticVersion = entityHolder.getElasticVersionIfPresent();
-                                 if(entityDefinition.isOptimisticLockingEnabled()
+                                 if(entityDescriptor.isOptimisticLockingEnabled()
                                          && elasticVersion != null) {
 
                                      u.ifPrimaryTerm(elasticVersion.primaryTerm())
                                       .ifSeqNo(elasticVersion.seqNo());
 
-                                 } else if (entityDefinition.isOptimisticLockingEnabled()) {
+                                 } else if (entityDescriptor.isOptimisticLockingEnabled()) {
                                      throw new IllegalArgumentException("A Version must be provided when calling update");
                                  }else{
                                      u.docAsUpsert(true);
@@ -451,8 +447,8 @@ public class DefaultEntityService implements EntityService {
                                  return u;
                              });
 
-                             return esAsyncClient.update(request, entityHolder.entity().getClass())
-                                                 .thenApply(updateResponse ->
+                             return crudServiceTemplate.toFuture(esAsyncClient.update(request, entityHolder.entity().getClass()))
+                                                       .map(updateResponse ->
                                                                     postProcessSaveOrUpdate(entity,
                                                                                             entityHolder,
                                                                                             updateResponse.primaryTerm(),
@@ -462,8 +458,8 @@ public class DefaultEntityService implements EntityService {
 
     private String composeId(final String id, final EntityContext context){
         String ret;
-        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.getParticipant().getTenantId();
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+            String tenantId = context.requireTenantId();
             ret = tenantId + "-" + id;
         }else{
             ret = id;
@@ -477,12 +473,12 @@ public class DefaultEntityService implements EntityService {
 
     private List<MultiGetOperation> composeIds(final List<String> ids, final EntityContext context){
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
-        boolean multiTenancyShared = entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED;
+        boolean multiTenancyShared = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED;
 
-        String tenantId = context.getParticipant().getTenantId();
+        String tenantId = multiTenancyShared ? context.requireTenantId() : null;
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
-            builder.index(entityDefinition.getItemIndex());
+            builder.index(entityDescriptor.itemIndex());
             if(multiTenancyShared){
                 builder.id(tenantId + "-" + id)
                        .routing(tenantId);
@@ -498,10 +494,10 @@ public class DefaultEntityService implements EntityService {
     private <T> Function<Page<T>, Page<T>> createParanoidCheck(EntityContext context, String what){
         return page -> {
             // This is a temporary bit of code to make sure multi tenancy is working properly
-            if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
+            if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
                 String tenantIdFieldName
-                        = entityDefinition.isMultiTenantSelectionEnabled()
-                        ? entityDefinition.getTenantIdFieldName() : persistenceProperties.getTenantIdFieldName();
+                        = entityDescriptor.isMultiTenantSelectionEnabled()
+                        ? entityDescriptor.tenantIdFieldName() : persistenceProperties.getTenantIdFieldName();
 
                 List<Object> result = new ArrayList<>(page.getContent().size());
                 Set<String> tenantIds = Collections.emptySet();
@@ -519,20 +515,21 @@ public class DefaultEntityService implements EntityService {
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected one of: {} got: {}\nData:\n{}",
                                     what,
-                                    entityDefinition,
+                                    entityDescriptor,
                                     String.join(",", tenantIds),
                                     tenant,
                                     formatToPrintJson(object));
                         }
                     }else {
-                        if (tenant != null && tenant.equals(context.getParticipant().getTenantId())) {
+                        String tenantId = context.requireTenantId();
+                        if (tenant != null && tenant.equals(tenantId)) {
                             result.add(object);
                         }else{
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
-                                    entityDefinition,
-                                    context.getParticipant().getTenantId(),
+                                    entityDescriptor,
+                                    tenantId,
                                     tenant,
                                     formatToPrintJson(object));
                         }
@@ -554,57 +551,57 @@ public class DefaultEntityService implements EntityService {
         };
     }
 
-    private <T> CompletableFuture<T> doFindById(String id, Class<T> type, EntityContext context) {
+    private <T> Future<T> doFindById(String id, Class<T> type, EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
-            if(entityDefinition.isOptimisticLockingEnabled()){
+            if(entityDescriptor.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
-                        .findById(entityDefinition.getItemIndex(),
+                        .findById(entityDescriptor.itemIndex(),
                                   id,
                                   Map.class,
-                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
                                   result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
                                                                                      result.primaryTerm(),
                                                                                      result.seqNo()
                                   ))));
             }else{
                 return crudServiceTemplate
-                        .findById(entityDefinition.getItemIndex(),
+                        .findById(entityDescriptor.itemIndex(),
                                   id,
                                   RawJson.class,
-                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
-            if(entityDefinition.isOptimisticLockingEnabled()){
+            if(entityDescriptor.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
-                        .findById(entityDefinition.getItemIndex(),
+                        .findById(entityDescriptor.itemIndex(),
                                   id,
                                   type,
-                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context),
                                   result -> updateVersionForEntity(result.source(),
                                                                    result.primaryTerm(),
                                                                    result.seqNo()
                                   ));
             }else{
                 return crudServiceTemplate
-                        .findById(entityDefinition.getItemIndex(),
+                        .findById(entityDescriptor.itemIndex(),
                                   id,
                                   type,
-                                  builder -> readPreProcessor.beforeFindById(entityDefinition, builder, context));
+                                  builder -> readPreProcessor.beforeFindById(entityDescriptor, builder, context));
             }
         }
     }
 
-    private <T> CompletableFuture<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
-                                                       Class<T> type,
-                                                       EntityContext context) {
+    private <T> Future<List<T>> doFindByIds(List<MultiGetOperation> composedIds,
+                                            Class<T> type,
+                                            EntityContext context) {
         if(FastestType.class.isAssignableFrom(type)){
-            if(entityDefinition.isOptimisticLockingEnabled()){
+            if(entityDescriptor.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   Map.class,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
                                   result -> type.cast(new FastestType(updateVersionForEntity(result.source(),
                                                                                      result.primaryTerm(),
                                                                                      result.seqNo()
@@ -613,16 +610,16 @@ public class DefaultEntityService implements EntityService {
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   RawJson.class,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
                                   result -> type.cast(new FastestType(result.source())));
             }
         }else{
 
-            if(entityDefinition.isOptimisticLockingEnabled()){
+            if(entityDescriptor.isOptimisticLockingEnabled()){
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   type,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
                                   result -> updateVersionForEntity(result.source(),
                                                                    result.primaryTerm(),
                                                                    result.seqNo()
@@ -631,58 +628,58 @@ public class DefaultEntityService implements EntityService {
                 return crudServiceTemplate
                         .multiGet(composedIds,
                                   type,
-                                  builder -> readPreProcessor.beforeFindByIds(entityDefinition, builder, context),
+                                  builder -> readPreProcessor.beforeFindByIds(entityDescriptor, builder, context),
                                   null);
             }
         }
     }
 
-    private <T> CompletableFuture<T> doPersist(T entity,
-                                               EntityOperation operation,
-                                               EntityContext context,
-                                               Function<EntityHolder<?>, CompletableFuture<T>> persistLogic){
+    private <T> Future<T> doPersist(T entity,
+                                    EntityOperation operation,
+                                    EntityContext context,
+                                    Function<EntityHolder<?>, Future<T>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
-        if(entityDefinition.isMultiTenantSelectionEnabled()){
+        if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
-                    .thenCompose(un -> delegatingUpsertPreProcessor.process(entity, context))
-                    .thenCompose(entityHolder ->
+                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+                    .compose(entityHolder ->
                                          authService.authorize(operation, context)
-                                                    .thenCompose(un -> persistLogic.apply(entityHolder)));
+                                                    .compose(un -> persistLogic.apply(entityHolder)));
         }else{
             return validateContext(context)
-                    .thenCompose(un -> authService.authorize(operation, context))
-                    .thenCompose(un -> delegatingUpsertPreProcessor.process(entity, context))
-                    .thenCompose(persistLogic);
+                    .compose(un -> authService.authorize(operation, context))
+                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+                    .compose(persistLogic);
         }
     }
 
-    private <T> CompletableFuture<Void> doPersistBulk(T entities,
-                                                      EntityOperation operation,
-                                                      EntityContext context,
-                                                      Function<EntityHolder<?>, BulkOperation> persistLogic){
+    private <T> Future<Void> doPersistBulk(T entities,
+                                           EntityOperation operation,
+                                           EntityContext context,
+                                           Function<EntityHolder<?>, BulkOperation> persistLogic){
         // We do this since ideally processing data before auth is not ideal
         // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
-        if(entityDefinition.isMultiTenantSelectionEnabled()){
+        if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
             return validateContext(context)
-                    .thenCompose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
-                    .thenCompose(entityList ->
+                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+                    .compose(entityList ->
                                          authService.authorize(operation, context)
-                                                    .thenCompose(un -> doPersistBulkLogic(entityList, persistLogic)))
-                    .thenApply(unused -> null);
+                                                    .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
+                    .mapEmpty();
         }else {
             return validateContext(context)
-                    .thenCompose(un -> authService.authorize(operation, context))
-                    .thenCompose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
-                    .thenCompose(list -> doPersistBulkLogic(list, persistLogic))
-                    .thenApply(un -> null);
+                    .compose(un -> authService.authorize(operation, context))
+                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+                    .compose(list -> doPersistBulkLogic(list, persistLogic))
+                    .mapEmpty();
         }
     }
 
-    private CompletableFuture<BulkResponse> doPersistBulkLogic(List<EntityHolder<Object>> list,
-                                                               Function<EntityHolder<?>, BulkOperation> persistLogic) {
+    private Future<BulkResponse> doPersistBulkLogic(List<EntityHolder<Object>> list,
+                                                    Function<EntityHolder<?>, BulkOperation> persistLogic) {
 
         BulkRequest.Builder br = new BulkRequest.Builder();
 
@@ -692,12 +689,12 @@ public class DefaultEntityService implements EntityService {
         }
 
         if(bulkOperations.isEmpty()){
-            return CompletableFuture.failedFuture(new IllegalArgumentException("No items found to create bulk request for"));
+            return Future.failedFuture(new IllegalArgumentException("No items found to create bulk request for"));
         }
 
         br.operations(bulkOperations);
 
-        return esAsyncClient.bulk(br.build()).thenCompose(bulkResponse -> {
+        return crudServiceTemplate.toFuture(esAsyncClient.bulk(br.build())).compose(bulkResponse -> {
             if (bulkResponse.errors()) {
                 StringBuilder builder = new StringBuilder();
                 for (BulkResponseItem item : bulkResponse.items()) {
@@ -707,9 +704,9 @@ public class DefaultEntityService implements EntityService {
                     }
                 }
                 String errorMessage = !builder.isEmpty() ? builder.toString() : "Unknown error occurred during bulk operation";
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + errorMessage));
+                return Future.failedFuture(new IllegalArgumentException("Bulk save failed with errors:\n" + errorMessage));
             } else {
-                return CompletableFuture.completedFuture(bulkResponse);
+                return Future.succeededFuture(bulkResponse);
             }
         });
     }
@@ -751,7 +748,7 @@ public class DefaultEntityService implements EntityService {
         // All token buffers received will be converted to RawJson in the upsert preprocessor
         // This is done since it uses less memory for bulk operations
         // So we convert those cases back to a TokenBuffer before returning
-        if(entityDefinition.isOptimisticLockingEnabled()){
+        if(entityDescriptor.isOptimisticLockingEnabled()){
             return (T) updateVersionForEntity(entityHolder.entity(),
                                               primaryTerm,
                                               seqNo,
@@ -790,7 +787,7 @@ public class DefaultEntityService implements EntityService {
                     JsonNode node = objectMapper.readTree(buffer.asParser(objectMapper._deserializationContext()));
 
                     node.withObject(JsonPointer.empty())
-                        .put(entityDefinition.getVersionFieldName(), versionValue);
+                        .put(entityDescriptor.versionFieldName(), versionValue);
 
                     // Serialize back to TokenBuffer
                     TokenBuffer updatedBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
@@ -801,12 +798,12 @@ public class DefaultEntityService implements EntityService {
                     throw new IllegalStateException("Failed to update version in TokenBuffer", e);
                 }
             }
-            case Map map -> map.put(entityDefinition.getVersionFieldName(), versionValue);
+            case Map map -> map.put(entityDescriptor.versionFieldName(), versionValue);
             case RawJson rawJson -> {
 
                 try {
                     ObjectNode node = (ObjectNode) objectMapper.readTree(rawJson.data());
-                    node.put(entityDefinition.getVersionFieldName(), versionValue);
+                    node.put(entityDescriptor.versionFieldName(), versionValue);
 
                     // All token buffers passed to save or update will receive a RawJson object do to how the upsert pre processor works
                     // So we convert if need be
@@ -829,48 +826,48 @@ public class DefaultEntityService implements EntityService {
         return entity;
     }
 
-    private CompletableFuture<Void> validateContext(final EntityContext context){
-        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED){
-            if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
+    private Future<Void> validateContext(final EntityContext context){
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
+            if(context.getTenantId() != null) {
 
                 // Check if tenant selection is trying to be used but not enabled
                 if (ObjectUtils.isNotEmpty(context.getTenantSelection())
-                        && !entityDefinition.isMultiTenantSelectionEnabled()) {
+                        && !entityDescriptor.isMultiTenantSelectionEnabled()) {
 
-                    return CompletableFuture.failedFuture(
+                    return Future.failedFuture(
                             new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                                    entityDefinition.getName()))
+                                    entityDescriptor.name()))
                     );
                 } else {
-                    return CompletableFuture.completedFuture(null);
+                    return Future.succeededFuture();
                 }
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
             }
         }else if(ObjectUtils.isNotEmpty(context.getTenantSelection())){
             // This check is here since continuum will allow any published service to be called.
             // So someone could call the admin service even though it is not enabled for this EntityDefinition
             // Multitenant access can only be enabled if MultiTenancyType.SHARED
-            return CompletableFuture.failedFuture(
+            return Future.failedFuture(
                     new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                            entityDefinition.getName()))
+                            entityDescriptor.name()))
             );
         }else{
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
     }
 
-    private CompletableFuture<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
-        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
-                && entityDefinition.isMultiTenantSelectionEnabled()){
+    private Future<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
+                && entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            if(entityContext.getParticipant() != null && entityContext.getParticipant().getTenantId() != null) {
+            if(entityContext.getTenantId() != null) {
 
                 List<MultiGetOperation> ret = new ArrayList<>(ids.size());
                 List<String> tenants = new ArrayList<>(ids.size());
                 for (TenantSpecificId id : ids) {
                     MultiGetOperation.Builder builder = new MultiGetOperation.Builder();
-                    builder.index(entityDefinition.getItemIndex())
+                    builder.index(entityDescriptor.itemIndex())
                            .id(id.tenantId() + "-" + id.entityId())
                            .routing(id.tenantId());
 
@@ -879,15 +876,15 @@ public class DefaultEntityService implements EntityService {
                 }
 
                 entityContext.setTenantSelection(tenants);
-                return CompletableFuture.completedFuture(ret);
+                return Future.succeededFuture(ret);
 
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
+                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
             }
         }else{
-            return CompletableFuture.failedFuture(
+            return Future.failedFuture(
                     new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                            entityDefinition.getName()))
+                            entityDescriptor.name()))
             );
         }
     }

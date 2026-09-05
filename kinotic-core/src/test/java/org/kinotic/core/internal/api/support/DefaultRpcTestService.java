@@ -4,6 +4,7 @@ package org.kinotic.core.internal.api.support;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.security.Participant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -61,6 +62,21 @@ public class DefaultRpcTestService implements RpcTestService{
     }
 
     @Override
+    public Buffer getBuffer() {
+        return Buffer.buffer(RpcTestService.BINARY_VALUE);
+    }
+
+    @Override
+    public byte[] getByteArray() {
+        return RpcTestService.BINARY_VALUE;
+    }
+
+    @Override
+    public Flux<byte[]> getByteArrayFlux() {
+        return Flux.fromArray(RpcTestService.BINARY_CHUNKS);
+    }
+
+    @Override
     public Flux<String> getInfiniteFlux() {
         return Flux.create(sink -> {
             AtomicLong count = new AtomicLong(0);
@@ -84,6 +100,11 @@ public class DefaultRpcTestService implements RpcTestService{
     @Override
     public List<String> getListOfStrings() {
         return LIST_OF_STRINGS;
+    }
+
+    @Override
+    public Mono<byte[]> getMonoByteArray() {
+        return Mono.just(RpcTestService.BINARY_VALUE);
     }
 
     @Override
@@ -170,6 +191,11 @@ public class DefaultRpcTestService implements RpcTestService{
     @Override
     public List<String> modifyListOfStrings(String[] stringsToModify) {
         return Arrays.stream(stringsToModify).map(s -> "Hello "+ s).collect(Collectors.toList());
+    }
+
+    @Override
+    public Mono<String> narrowParticipant(NarrowParticipant participant){
+        return Mono.just(participant.getId());
     }
 
     @Override

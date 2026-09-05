@@ -1,5 +1,7 @@
+import debug from 'debug'
+
 /**
- * Logging utilities for the Kinoitc library.
+ * Logging utilities for the Kinotic library.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
@@ -21,18 +23,12 @@ export class NoOpLogger implements Logger {
 }
 
 export function createDebugLogger(namespace: string): Logger {
-    let debug: any
-    try {
-        debug = require("debug")(namespace)
-    } catch (e) {
-        debug = (...args: any[]) => console.debug(`[${namespace}]`, ...args)
-    }
-
+    const debugLogger = debug(namespace)
     return {
-        trace: (...args) => debug("TRACE", ...args),
-        debug: (...args) => debug("DEBUG", ...args),
-        info: (...args) => debug("INFO", ...args),
-        warn: (...args) => debug("WARN", ...args),
-        error: (...args) => debug("ERROR", ...args),
+        trace: (...args) => debugLogger("TRACE", ...args),
+        debug: (...args) => debugLogger("DEBUG", ...args),
+        info: (...args) => debugLogger("INFO", ...args),
+        warn: (...args) => debugLogger("WARN", ...args),
+        error: (...args) => debugLogger("ERROR", ...args),
     }
 }

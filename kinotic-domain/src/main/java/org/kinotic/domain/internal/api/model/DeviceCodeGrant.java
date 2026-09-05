@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.util.Date;
 
@@ -30,11 +31,14 @@ public class DeviceCodeGrant implements Identifiable<String> {
     /** Low-entropy, human-typed code shown by the CLI and entered in the browser. */
     private String userCode;
 
+    /** Optional device name the CLI supplied; becomes the label of the issued token family. */
+    private String deviceName;
+
     /**
-     * Id of the {@link org.kinotic.domain.api.model.iam.IamUser} that approved the grant,
+     * Id of the {@link ParticipantIdentity} that approved the grant,
      * or {@code null} while the grant is still pending approval.
      */
-    private String userId;
+    private String identityId;
 
     private Date created;
 

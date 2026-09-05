@@ -3,6 +3,7 @@
 package org.kinotic.core.internal.api.support;
 
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Proxy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -36,6 +37,12 @@ public interface RpcTestServiceProxy {
 
     Future<String> getAnotherString();
 
+    Mono<Buffer> getBuffer();
+
+    Mono<byte[]> getByteArray();
+
+    Flux<byte[]> getByteArrayFlux();
+
     Flux<String> getInfiniteFlux();
 
     Flux<Integer> getLimitedFlux();
@@ -43,6 +50,8 @@ public interface RpcTestServiceProxy {
     Mono<List<String>> getListOfStrings();
 
     Mono<String> getMissingRemoteMethodFailure();
+
+    Mono<byte[]> getMonoByteArray();
 
     Mono<String> getMonoEmptyString();
 
@@ -73,6 +82,8 @@ public interface RpcTestServiceProxy {
     Mono<String> middleArgParticipant(String prefix, String suffix);
 
     Mono<List<String>> modifyListOfStrings(List<String> stringsToModify);
+
+    Mono<String> narrowParticipant();
 
     Mono<Integer> putListOfSimpleObjects(List<SimpleObject> simpleObjects);
 

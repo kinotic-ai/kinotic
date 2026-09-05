@@ -4,13 +4,14 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.Vertx;
 import io.vertx.ext.stomp.lite.AbstractStompServerHandler;
 import io.vertx.ext.stomp.lite.frame.Frame;
 import io.vertx.ext.stomp.lite.frame.InvalidConnectFrame;
 import io.vertx.ext.web.RoutingContext;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.Event;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,28 +28,25 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultStompServerHandler.class);
 
-    private final Vertx vertx;
     private final EndpointConnectionHandler endpointConnectionHandler;
     private final JsonMapper jsonMapper;
+    private final TraceLogFilter traceLogFilter;
 
 
-    public DefaultStompServerHandler(Vertx vertx,
-                                     Services services) {
-        this.vertx = vertx;
+    public DefaultStompServerHandler(Services services) {
         this.endpointConnectionHandler = new EndpointConnectionHandler(services);
         this.jsonMapper = services.jsonMapper;
+        this.traceLogFilter = services.traceLogFilter;
     }
 
     @Override
     public Future<MultiMap> handshake(RoutingContext routingContext) {
-        return Future.fromCompletionStage(endpointConnectionHandler.handshake(routingContext),
-                                                                       vertx.getOrCreateContext());
+        return endpointConnectionHandler.handshake(routingContext);
     }
 
     @Override
     public Future<Map<String, String>> connect(Map<String, String> connectHeaders) {
-        return Future.fromCompletionStage(endpointConnectionHandler.connect(connectHeaders),
-                                          vertx.getOrCreateContext());
+        return endpointConnectionHandler.connect(connectHeaders);
     }
 
     @Override
@@ -57,7 +55,16 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
         // We pause the client to effectively make all client requests block until the previous request is handled asynchronously
         stompServerConnection.pause();
 
-        log.trace("Send Frame received\n{}", frame.toString());
+        if(log.isTraceEnabled()){
+            if(traceLogFilter.isExcluded(frame.getDestination())){
+                // The reply comes back on the client's reply destination, which names no service to
+                // match, so the exclusion is marked here and rides back on the reply, which persists
+                // every __ header of the request it answers
+                frame.getHeaders().put(EventConstants.TRACE_EXCLUDED_HEADER, "true");
+            }else{
+                log.trace("Send Frame received\n{}", frame.toString());
+            }
+        }
 
         Event<byte[]> incomingEvent = new FrameEventAdapter(frame);
 
@@ -65,7 +72,7 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
                 .send(incomingEvent)
                 .onComplete(ar -> {
                     if(ar.failed()){
-                        stompServerConnection.sendErrorAndDisconnect(ar.cause());
+                        failConnection("send to " + frame.getDestination() + " failed", ar.cause());
                     }else{
                         stompServerConnection.sendReceiptIfNeeded(frame);
                         stompServerConnection.resume();
@@ -84,12 +91,11 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
             CRI cri = CRI.create(frame.getDestination());
 
-            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper);
+            StompSubscriptionEventSubscriber subscriber = new StompSubscriptionEventSubscriber(cri.raw(), subscriptionId, stompServerConnection, jsonMapper, traceLogFilter);
             endpointConnectionHandler.subscribe(cri, subscriptionId, subscriber);
 
         } catch (Exception e) {
-            log.error("Exception occurred handling subscribe", e);
-            stompServerConnection.sendErrorAndDisconnect(e);
+            failConnection("subscribe to " + frame.getDestination() + " failed", e);
         }
     }
 
@@ -103,9 +109,17 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
             endpointConnectionHandler.unsubscribe(subscriptionId);
 
         } catch (Exception e) {
-            log.error("Exception occurred handling unsubscribe", e);
-            stompServerConnection.sendErrorAndDisconnect(e);
+            failConnection("unsubscribe " + frame.getHeader(Frame.ID) + " failed", e);
         }
+    }
+
+    /**
+     * Logs the failure, then sends an ERROR frame and closes the connection — the
+     * STOMP-mandated response to any frame the server cannot process.
+     */
+    private void failConnection(String detail, Throwable cause) {
+        log.error("Terminating STOMP connection: {}", detail, cause);
+        stompServerConnection.sendErrorAndDisconnect(cause);
     }
 
     @Override

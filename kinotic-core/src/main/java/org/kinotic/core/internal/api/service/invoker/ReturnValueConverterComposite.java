@@ -4,6 +4,7 @@ package org.kinotic.core.internal.api.service.invoker;
 
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.Metadata;
+import org.springframework.core.MethodParameter;
 import org.springframework.util.Assert;
 
 import java.util.Collections;
@@ -38,18 +39,18 @@ public class ReturnValueConverterComposite implements ReturnValueConverter {
     }
 
     @Override
-    public Event<byte[]> convert(Metadata incomingMetadata, Class<?> returnType, Object returnValue) {
+    public Event<byte[]> convert(Metadata incomingMetadata, MethodParameter returnType, Object returnValue) {
         ReturnValueConverter converter = selectConverter(incomingMetadata, returnType);
         Assert.notNull(converter,"Unsupported Return Value no ReturnValueConverter can be found. Should call supports() first.");
         return converter.convert(incomingMetadata, returnType, returnValue);
     }
 
     @Override
-    public boolean supports(Metadata incomingMetadata, Class<?> returnType) {
+    public boolean supports(Metadata incomingMetadata, MethodParameter returnType) {
         return selectConverter(incomingMetadata, returnType) != null;
     }
 
-    private ReturnValueConverter selectConverter(Metadata incomingMetadata, Class<?> returnType){
+    private ReturnValueConverter selectConverter(Metadata incomingMetadata, MethodParameter returnType){
         ReturnValueConverter ret = null;
         for(ReturnValueConverter converter : converters){
             if(converter.supports(incomingMetadata, returnType)){

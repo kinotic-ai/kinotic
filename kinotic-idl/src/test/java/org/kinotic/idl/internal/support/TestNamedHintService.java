@@ -1,0 +1,30 @@
+package org.kinotic.idl.internal.support;
+
+import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.annotations.McpToolInfo;
+
+import java.util.concurrent.CompletableFuture;
+
+/**
+ * A bare {@code @McpTool} states no hints, so every function here serves what its name implies.
+ */
+@McpTool
+public interface TestNamedHintService {
+
+    CompletableFuture<Long> peopleCount();
+
+    CompletableFuture<TestObject> getOrCreatePerson(String name);
+
+    CompletableFuture<Void> purgeRetiredPeople();
+
+    CompletableFuture<TestObject> createPersonIfNotExist(TestObject person);
+
+    CompletableFuture<Void> notifyPeople();
+
+    @McpTool(idempotentHint = true)
+    CompletableFuture<Void> savePersonDraft(TestObject person);
+
+    @McpToolInfo(idempotentHint = true)
+    CompletableFuture<Void> savePersonNote(TestObject person);
+
+}

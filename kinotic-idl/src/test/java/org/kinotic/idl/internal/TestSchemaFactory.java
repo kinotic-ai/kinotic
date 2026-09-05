@@ -2,10 +2,38 @@ package org.kinotic.idl.internal;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.schema.ArrayC3Type;
+import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.EnumC3Type;
+import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.ReferenceC3Type;
 import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StreamC3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.kinotic.idl.api.utils.IdlUtil;
+import org.kinotic.idl.internal.support.BrokenTestService;
+import org.kinotic.idl.internal.support.DefaultTestRenamedService;
+import org.kinotic.idl.internal.support.TestRenamedService;
+import org.kinotic.idl.internal.support.OtherTestService;
+import org.kinotic.idl.internal.support.TestAddress;
+import org.kinotic.idl.internal.support.TestCollidingPageService;
+import org.kinotic.idl.internal.support.TestObject;
+import org.kinotic.idl.internal.support.TestNamedHintService;
+import org.kinotic.idl.internal.support.TestNestedPageService;
+import org.kinotic.idl.internal.support.TestObjectCrudService;
+import org.kinotic.idl.internal.support.TestOverloadedService;
+import org.kinotic.idl.internal.support.TestPage;
+import org.kinotic.idl.internal.support.TestPagedService;
+import org.kinotic.idl.internal.support.TestRawPageService;
 import org.kinotic.idl.internal.support.TestService;
+import org.kinotic.idl.internal.support.TestStatus;
+import org.kinotic.idl.internal.support.TestSweptService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +41,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.Optional;
+import java.util.List;
 
 /**
  * Created by Navíd Mitchell 🤪 on 4/14/23.
@@ -32,20 +60,327 @@ public class TestSchemaFactory {
 
     @Test
     public void testSchemaFactory() throws Exception {
-        NamespaceDefinition namespaceDefinition = schemaFactory.createForService(TestService.class);
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
 
-        Optional<ServiceDefinition> serviceOptional = namespaceDefinition.getServices().stream().findFirst();
+        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
 
-        Assertions.assertTrue(serviceOptional.isPresent());
+        ServiceDefinition testService = findService(namespaceDefinition, TestService.class);
+        Assertions.assertEquals(4, testService.getFunctions().size());
 
-        Assertions.assertEquals(TestService.class.getName(), serviceOptional.get().getQualifiedName());
+        ServiceDefinition otherTestService = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertEquals(5, otherTestService.getFunctions().size());
 
-        ServiceDefinition serviceDefinition = serviceOptional.get();
+        // async and streaming returns wrap the same value type the synchronous variant resolves to
+        C3Type personType = findFunction(otherTestService, "findPerson").getReturnType();
+        Assertions.assertEquals(new AsyncC3Type(personType),
+                                findFunction(otherTestService, "findPersonAsync").getReturnType());
+        Assertions.assertEquals(new StreamC3Type(personType),
+                                findFunction(otherTestService, "streamPeople").getReturnType());
+        Assertions.assertEquals(new AsyncC3Type(findFunction(otherTestService, "findAddress").getReturnType()),
+                                findFunction(otherTestService, "findAddressAsync").getReturnType());
 
-        Assertions.assertEquals(3, serviceDefinition.getFunctions().size());
+        // TestObject and TestAddress are referenced by BOTH services but converted in one session,
+        // so each appears exactly once in the namespace; the enum property converts inline so it
+        // adds no complex type of its own
+        Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+
+        // an enum property converts as an EnumC3Type with the constant names, not through the
+        // PojoTypeConverter catch-all (which would introspect Enum internals and fail on Class<E>)
+        C3Type statusType = findProperty(findComplexType(namespaceDefinition, "TestObject"), "status");
+        Assertions.assertEquals(new EnumC3Type().setNamespace(TestStatus.class.getPackageName())
+                                                .setName(TestStatus.class.getSimpleName())
+                                                .setValues(List.of("ACTIVE", "RETIRED")),
+                                statusType);
 
         String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(namespaceDefinition);
         log.info("Namespace Definition\n"+json);
+    }
+
+    @Test
+    public void testInheritedGenericSignaturesResolve() {
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestObjectCrudService.class, TestObjectCrudService.class)));
+
+        ServiceDefinition crudService = findService(namespaceDefinition, TestObjectCrudService.class);
+        // save is redeclared with T substituted and findById is purely inherited, and each publishes once
+        Assertions.assertEquals(2, crudService.getFunctions().size());
+
+        // T and ID bind against TestObjectCrudService, so the inherited signatures convert concretely
+        // instead of failing as unresolved type variables
+        C3Type testObjectReference = new ReferenceC3Type(TestObject.class.getName());
+        FunctionDefinition save = findFunction(crudService, "save");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), save.getReturnType());
+        Assertions.assertEquals(testObjectReference, save.getParameters().getFirst().getType());
+        // -parameters retains the source names, so the interface carries "entity", not arg0
+        Assertions.assertEquals("entity", save.getParameters().getFirst().getName());
+
+        // the redeclaration is the most specific declaration, so its Javadoc describes the function
+        McpToolC3Decorator redeclared = save.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(redeclared);
+        Assertions.assertEquals("Saves the given test object.", redeclared.getDescription());
+
+        FunctionDefinition findById = findFunction(crudService, "findById");
+        Assertions.assertEquals(new AsyncC3Type(testObjectReference), findById.getReturnType());
+        Assertions.assertEquals(new StringC3Type(), findById.getParameters().getFirst().getType());
+        Assertions.assertEquals("id", findById.getParameters().getFirst().getName());
+
+        // an inherited function's description comes from the Javadoc on the generic base declaring it,
+        // even though GenericCrudService declares no @McpTool of its own
+        McpToolC3Decorator inherited = findById.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(inherited);
+        Assertions.assertEquals("Finds the entity with the given id.", inherited.getDescription());
+
+        // nothing declares findById a tool but TestObjectCrudService's type-level sweep, so its name decides
+        Assertions.assertTrue(inherited.isReadOnlyHint());
+        Assertions.assertFalse(inherited.isDestructiveHint());
+    }
+
+    @Test
+    public void testGenericInstantiationsMonomorphize() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestPagedService.class, TestPagedService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestPagedService.class);
+
+        // each instantiation publishes as its own concrete type named for its type argument, so the two
+        // pages coexist instead of colliding on the raw name "TestPage"
+        String namespace = TestPage.class.getPackageName();
+        Assertions.assertEquals(new AsyncC3Type(new ReferenceC3Type(namespace + ".TestObjectTestPage")),
+                                findFunction(service, "findObjects").getReturnType());
+        Assertions.assertEquals(new ReferenceC3Type(namespace + ".TestAddressTestPage"),
+                                findFunction(service, "findAddresses").getReturnType());
+
+        // TestObjectTestPage, TestAddressTestPage, TestObject, TestAddress
+        Assertions.assertEquals(4, namespaceDefinition.getComplexC3Types().size());
+
+        // the structure is bound to the same instantiation the name states
+        Assertions.assertEquals(new ArrayC3Type(new ReferenceC3Type(TestObject.class.getName())),
+                                findProperty(findComplexType(namespaceDefinition, "TestObjectTestPage"), "content"));
+        Assertions.assertEquals(new ArrayC3Type(new ReferenceC3Type(TestAddress.class.getName())),
+                                findProperty(findComplexType(namespaceDefinition, "TestAddressTestPage"), "content"));
+    }
+
+    @Test
+    public void testGenericArgumentNameCollisionRejected() {
+        // both functions' returns monomorphize to "TestObjectTestPage" in the same namespace — one per
+        // argument package — with different content types, so conversion fails and the service is omitted
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestCollidingPageService.class, TestCollidingPageService.class),
+                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
+        findService(namespaceDefinition, OtherTestService.class);
+    }
+
+    @Test
+    public void testRawGenericRejected() {
+        // a raw TestPage leaves T unresolved, and an open signature cannot be described to a wire consumer
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRawPageService.class, TestRawPageService.class)));
+
+        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
+    }
+
+    @Test
+    public void testNestedGenericInstantiationRejected() {
+        // TestPage<List<TestObject>>'s name would need a segment naming no class, so conversion fails and
+        // the service is omitted; a nested instantiation must be published as a named DTO
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNestedPageService.class, TestNestedPageService.class)));
+
+        Assertions.assertTrue(namespaceDefinition.getServices().isEmpty());
+    }
+
+    @Test
+    public void testHintsDeriveFromEveryWordOfTheFunctionName() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestNamedHintService.class, TestNamedHintService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestNamedHintService.class);
+
+        // the reading verb trails the noun, so a leading-word rule would miss this one
+        McpToolC3Decorator count = mcpTool(service, "peopleCount");
+        Assertions.assertTrue(count.isReadOnlyHint());
+
+        // "get" reads, but the same name also creates, and serving a mutation as read-only invites a host
+        // to call it unattended
+        McpToolC3Decorator getOrCreate = mcpTool(service, "getOrCreatePerson");
+        Assertions.assertFalse(getOrCreate.isReadOnlyHint());
+        Assertions.assertFalse(getOrCreate.isDestructiveHint());
+
+        McpToolC3Decorator purge = mcpTool(service, "purgeRetiredPeople");
+        Assertions.assertTrue(purge.isDestructiveHint());
+        Assertions.assertTrue(purge.isIdempotentHint());
+        Assertions.assertFalse(purge.isReadOnlyHint());
+
+        // a create that yields to an existing entity is idempotent, and stays additive
+        McpToolC3Decorator createIfNotExist = mcpTool(service, "createPersonIfNotExist");
+        Assertions.assertTrue(createIfNotExist.isIdempotentHint());
+        Assertions.assertFalse(createIfNotExist.isDestructiveHint());
+
+        // a name naming no verb the table knows states nothing
+        McpToolC3Decorator notify = mcpTool(service, "notifyPeople");
+        Assertions.assertFalse(notify.isReadOnlyHint());
+        Assertions.assertFalse(notify.isDestructiveHint());
+        Assertions.assertFalse(notify.isIdempotentHint());
+
+        // a declaration on the method owns the hints, so the name is never read for these two and the
+        // destructive hint "save" implies never reaches either of them
+        McpToolC3Decorator draft = mcpTool(service, "savePersonDraft");
+        Assertions.assertTrue(draft.isIdempotentHint());
+        Assertions.assertFalse(draft.isDestructiveHint());
+
+        McpToolC3Decorator note = mcpTool(service, "savePersonNote");
+        Assertions.assertTrue(note.isIdempotentHint());
+        Assertions.assertFalse(note.isDestructiveHint());
+    }
+
+    @Test
+    public void testMcpToolInfoAloneExposesNothing() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        // OtherTestService.findPerson carries only @McpToolInfo, which describes a tool without making one
+        ServiceDefinition service = findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertNull(findFunction(service, "findPerson").findDecorator(McpToolC3Decorator.class));
+    }
+
+    @Test
+    public void testInterfaceDecidesNamesAndImplementationDecidesAnnotations() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestRenamedService.class, DefaultTestRenamedService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestRenamedService.class);
+        FunctionDefinition greet = findFunction(service, "greet");
+        // AopUtils.selectInvocableMethod hands the invoker the interface's method, so the interface's
+        // parameter name is what named-argument binding resolves — not the implementation's "name"
+        Assertions.assertEquals("recipientName", greet.getParameters().getFirst().getName());
+        // @McpTool declared only on the implementation's override still marks the function
+        McpToolC3Decorator decorator = greet.findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(decorator);
+        Assertions.assertEquals("Greets the recipient", decorator.getDescription());
+        // an explicit description with no title still gets a derived title, qualified by the service name
+        Assertions.assertEquals("Test Renamed Service Greet", decorator.getTitle());
+    }
+
+    @Test
+    public void testTypeLevelMcpToolMarksEveryFunction() {
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestSweptService.class, TestSweptService.class)));
+
+        ServiceDefinition service = findService(namespaceDefinition, TestSweptService.class);
+
+        // a documented method's description is the Javadoc main description extracted at compile time,
+        // with inline tags resolved; the type-level title leads the title, the function name follows
+        McpToolC3Decorator documented = findFunction(service, "findByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(documented);
+        Assertions.assertEquals("Finds the test object with the given name.", documented.getDescription());
+        Assertions.assertEquals("Swept Objects Find By Name", documented.getTitle());
+        // the sweep exposes it, its own name hints it
+        Assertions.assertTrue(documented.isReadOnlyHint());
+
+        // no annotation description and no Javadoc: the description derives from the function name, and so
+        // does the function half of the title
+        McpToolC3Decorator derived = findFunction(service, "countByName").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(derived);
+        Assertions.assertEquals("Count by name", derived.getDescription());
+        Assertions.assertEquals("Swept Objects Count By Name", derived.getTitle());
+
+        // a method-level @McpTool owns that method: it supplies the description and title, and the hints
+        // it does not declare are served as declared rather than borrowed from the type-level annotation
+        McpToolC3Decorator specific = findFunction(service, "countAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(specific);
+        Assertions.assertEquals("Counts every test object", specific.getDescription());
+        // a method-level title replaces only the function half; the service half still leads
+        Assertions.assertEquals("Swept Objects Count Objects", specific.getTitle());
+        Assertions.assertFalse(specific.isReadOnlyHint());
+
+        // a type-level readOnlyHint cannot mislabel a function it does not hold for, because the sweep
+        // hints nothing — deleteAll is hinted by its own name
+        McpToolC3Decorator swept = findFunction(service, "deleteAll").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(swept);
+        Assertions.assertFalse(swept.isReadOnlyHint());
+        Assertions.assertTrue(swept.isDestructiveHint());
+        Assertions.assertTrue(swept.isIdempotentHint());
+
+        // one declaration describes a function whole: the method's own @McpTool titles it and states no
+        // description, so the description falls to the function name rather than borrowing the
+        // @McpToolInfo's — nothing further down the list is consulted once a nearer one is found
+        McpToolC3Decorator nearest = findFunction(service, "draftObjects").findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(nearest);
+        Assertions.assertEquals("Swept Objects Draft Objects", nearest.getTitle());
+        Assertions.assertEquals("Draft objects", nearest.getDescription());
+    }
+
+    @Test
+    public void testOverloadedFunctionRejected() {
+        // a caller addresses a function by name alone, so neither find can be served
+        IllegalStateException e = Assertions.assertThrows(IllegalStateException.class,
+                                                         () -> IdlUtil.serviceFunctions(TestOverloadedService.class));
+
+        // both clashing declarations are named, so the developer can see what to change
+        Assertions.assertTrue(e.getMessage().contains("find(java.lang.String)"), e.getMessage());
+        Assertions.assertTrue(e.getMessage().contains("find(java.lang.String,int)"), e.getMessage());
+
+        // an overloaded service is unconvertible like any other, so it is omitted and the batch survives
+        NamespaceDefinition namespaceDefinition =
+                schemaFactory.createForServices(List.of(new ServiceDeclaration(TestOverloadedService.class, TestOverloadedService.class),
+                                                        new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        Assertions.assertEquals(1, namespaceDefinition.getServices().size());
+        findService(namespaceDefinition, OtherTestService.class);
+    }
+
+    @Test
+    public void testUnconvertibleServiceOmitted() {
+        NamespaceDefinition namespaceDefinition = schemaFactory.createForServices(List.of(new ServiceDeclaration(TestService.class, TestService.class),
+                                                                                          new ServiceDeclaration(BrokenTestService.class, BrokenTestService.class),
+                                                                                          new ServiceDeclaration(OtherTestService.class, OtherTestService.class)));
+
+        // BrokenTestService fails to convert and is omitted; the rest of the batch is unaffected
+        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
+        findService(namespaceDefinition, TestService.class);
+        findService(namespaceDefinition, OtherTestService.class);
+        Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
+    }
+
+    private McpToolC3Decorator mcpTool(ServiceDefinition service, String functionName) {
+        McpToolC3Decorator ret = findFunction(service, functionName).findDecorator(McpToolC3Decorator.class);
+        Assertions.assertNotNull(ret, functionName + " is not exposed as a tool");
+        return ret;
+    }
+
+    private ObjectC3Type findComplexType(NamespaceDefinition namespaceDefinition, String name) {
+        return (ObjectC3Type) namespaceDefinition.getComplexC3Types()
+                                                 .stream()
+                                                 .filter(type -> type.getName().equals(name))
+                                                 .findFirst()
+                                                 .orElseThrow();
+    }
+
+    private C3Type findProperty(ObjectC3Type objectC3Type, String name) {
+        return objectC3Type.getProperties()
+                           .stream()
+                           .filter(property -> property.getName().equals(name))
+                           .findFirst()
+                           .orElseThrow()
+                           .getType();
+    }
+
+    private ServiceDefinition findService(NamespaceDefinition namespaceDefinition, Class<?> serviceInterface) {
+        return namespaceDefinition.getServices()
+                                  .stream()
+                                  .filter(service -> service.getQualifiedName().equals(serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName()))
+                                  .findFirst()
+                                  .orElseThrow();
+    }
+
+    private FunctionDefinition findFunction(ServiceDefinition serviceDefinition, String name) {
+        return serviceDefinition.getFunctions()
+                                .stream()
+                                .filter(function -> function.getName().equals(name))
+                                .findFirst()
+                                .orElseThrow();
     }
 
 }

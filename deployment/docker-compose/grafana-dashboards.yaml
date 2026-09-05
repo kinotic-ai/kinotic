@@ -1,0 +1,13 @@
+apiVersion: 1
+providers:
+  - name: kinotic
+    orgId: 1
+    folder: Kinotic
+    type: file
+    disableDeletion: false
+    # Edits in the UI stick until the file changes on disk, so a panel can be tweaked live
+    # and then copied back into the JSON.
+    allowUiUpdates: true
+    updateIntervalSeconds: 10
+    options:
+      path: /var/lib/grafana/dashboards

@@ -1,16 +1,16 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.internal.api.services.sql.QueryContext;
 import org.kinotic.persistence.internal.api.services.sql.elasticsearch.ElasticVertxClient;
 
+import io.vertx.core.Future;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -23,11 +23,11 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     private final String statement;
     private final PersistenceProperties persistenceProperties;
 
-    public AggregateQueryExecutor(EntityDefinition entityDefinition,
+    public AggregateQueryExecutor(EntityDescriptor entityDescriptor,
                                   ElasticVertxClient elasticVertxClient,
                                   String statement,
                                   PersistenceProperties persistenceProperties) {
-        super(entityDefinition);
+        super(entityDescriptor);
         this.elasticVertxClient = elasticVertxClient;
         this.statement = statement;
         this.persistenceProperties = persistenceProperties;
@@ -35,16 +35,16 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     }
 
     @Override
-    public <T> CompletableFuture<List<T>> execute(QueryContext context, Class<T> type) {
+    public <T> Future<List<T>> execute(QueryContext context, Class<T> type) {
 
         return executePage(context, null, type)
-                                 .thenApply(Page::getContent);
+                                 .map(Page::getContent);
     }
 
     @Override
-    public <T> CompletableFuture<Page<T>> executePage(QueryContext context,
-                                                      Pageable pageable,
-                                                      Class<T> type) {
+    public <T> Future<Page<T>> executePage(QueryContext context,
+                                           Pageable pageable,
+                                           Class<T> type) {
         JsonObject filter = createFilterIfNeeded(context);
 
         return elasticVertxClient.querySql(statement,
@@ -58,9 +58,9 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     private JsonObject createFilterIfNeeded(QueryContext context) {
         JsonObject filter = null;
         // add multi tenancy filters if needed
-        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED) {
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
 
-            if(entityDefinition.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
+            if(entityDescriptor.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
 
                 // Filter must fit the Query DSL format, and look like the following
                 //     "bool":{
@@ -77,10 +77,10 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("terms", new JsonObject()
-                                        .put(entityDefinition.getTenantIdFieldName(), tenants)))
+                                        .put(entityDescriptor.tenantIdFieldName(), tenants)))
                         ));
 
-            }else if(!entityDefinition.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
+            }else if(!entityDescriptor.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
                 throw new IllegalArgumentException("Tenant selection is not supported for this EntityDefinition");
             }else{
 
@@ -102,7 +102,7 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 //       ]
                 //     }
 
-                String tenantId = context.getEntityContext().getParticipant().getTenantId();
+                String tenantId = context.getEntityContext().requireTenantId();
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("term", new JsonObject()

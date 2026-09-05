@@ -1,6 +1,7 @@
 package org.kinotic.core.api.crud;
 
-import java.util.concurrent.CompletableFuture;
+import io.vertx.core.Future;
+import org.kinotic.idl.api.annotations.McpToolInfo;
 
 /**
  * Generic CRUD service interface for domain objects.
@@ -12,55 +13,61 @@ public interface CrudService<T, ID> {
      * entity instance completely.
      *
      * @param entity must not be {@literal null}
-     * @return {@link CompletableFuture} emitting the saved entity
+     * @return {@link Future} emitting the saved entity
      * @throws IllegalArgumentException in case the given {@literal entity} is {@literal null}
      */
-    CompletableFuture<T> save(T entity);
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
+    Future<T> save(T entity);
 
     /**
      * Saves a given entity and waits for the changes to be visible in search results before returning.
      * Use this when you need read-your-write consistency.
      *
      * @param entity must not be {@literal null}
-     * @return {@link CompletableFuture} emitting the saved entity after it is searchable
+     * @return {@link Future} emitting the saved entity after it is searchable
      * @throws IllegalArgumentException in case the given {@literal entity} is {@literal null}
      */
-    CompletableFuture<T> saveSync(T entity);
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
+    Future<T> saveSync(T entity);
 
     /**
      * Retrieves an entity by its id.
      *
      * @param id must not be {@literal null}
-     * @return {@link CompletableFuture} emitting the entity with the given id or {@link CompletableFuture} emitting null if none found
+     * @return {@link Future} emitting the entity with the given id or {@link Future} emitting null if none found
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
-    CompletableFuture<T> findById(ID id);
+    @McpToolInfo(readOnlyHint = true)
+    Future<T> findById(ID id);
 
     /**
      * Returns the number of entities available.
      *
-     * @return {@link CompletableFuture} emitting the number of entities
+     * @return {@link Future} emitting the number of entities
      */
-    CompletableFuture<Long> count();
+    @McpToolInfo(readOnlyHint = true)
+    Future<Long> count();
 
     /**
      * Deletes the entity with the given id.
      *
      * @param id must not be {@literal null}
-     * @return {@link CompletableFuture} signaling when operation has completed
+     * @return {@link Future} signaling when operation has completed
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
-    CompletableFuture<Void> deleteById(ID id);
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
+    Future<Void> deleteById(ID id);
 
     /**
      * Deletes the entity with the given id and waits for the deletion to be visible in search results
      * before returning. Use this when you need read-your-write consistency.
      *
      * @param id must not be {@literal null}
-     * @return {@link CompletableFuture} signaling when the deletion is visible to search
+     * @return {@link Future} signaling when the deletion is visible to search
      * @throws IllegalArgumentException in case the given {@literal id} is {@literal null}
      */
-    CompletableFuture<Void> deleteByIdSync(ID id);
+    @McpToolInfo(destructiveHint = true, idempotentHint = true)
+    Future<Void> deleteByIdSync(ID id);
 
     /**
      * Returns a {@link Page} of entities meeting the paging restriction provided in the {@link Pageable} object.
@@ -68,7 +75,8 @@ public interface CrudService<T, ID> {
      * @param pageable the page settings to be used
      * @return a page of entities
      */
-    CompletableFuture<Page<T>> findAll(Pageable pageable);
+    @McpToolInfo(readOnlyHint = true)
+    Future<Page<T>> findAll(Pageable pageable);
 
     /**
      * Returns a {@link Page} of entities matching the search text and paging restriction provided in the {@link Pageable} object.
@@ -77,13 +85,15 @@ public interface CrudService<T, ID> {
      * @param pageable the page settings to be used
      * @return a page of entities
      */
-    CompletableFuture<Page<T>> search(String searchText, Pageable pageable);
+    @McpToolInfo(readOnlyHint = true)
+    Future<Page<T>> search(String searchText, Pageable pageable);
 
     /**
      * Forces a refresh of the underlying index, making all recent writes immediately available for search.
      * This should only be used in test or batch-load scenarios.
      *
-     * @return {@link CompletableFuture} signaling when the index has been refreshed
+     * @return {@link Future} signaling when the index has been refreshed
      */
-    CompletableFuture<Void> syncIndex();
+    @McpToolInfo(idempotentHint = true)
+    Future<Void> syncIndex();
 }

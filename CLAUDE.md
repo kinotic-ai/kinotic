@@ -2,7 +2,7 @@
 
 ## Building in Claude Code Cloud
 
-The cloud environment has JDK 21 installed but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
+The cloud environment has JDK 21 installed, but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
 
 ```bash
 curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
@@ -27,16 +27,45 @@ CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
 
+## Branch and pull request workflow
+
+A merged pull request is finished — never stack new commits onto its history, and never reuse
+it to track follow-up work. When your PR merges, restart your working branch from the latest
+`develop` (keeping the same branch name, force-with-lease push) and open a **new** pull
+request for the next unit of work. If the branch carries unmerged commits, rebase them onto
+the new base instead of discarding them.
+
 ## Don't guess from names
 
 Names suggest meaning but don't define it. Before using an annotation, framework hook, base class, or library helper you haven't used in this codebase before, read its source or docs and confirm what it actually does. Don't infer behaviour from a plausible-sounding name and ship it. If you can't verify the behaviour, ask — don't write a comment justifying the guess.
+
+## Explain with code, not prose
+
+The maintainers of this repo read code faster than English. When explaining anything that has a code representation — a design decision, a trade-off, a bug, an API, a proposed change — show the code itself and use prose only as connective tissue:
+
+- Lead with the relevant snippet, quoted from the actual repo with `path:line` references — not a paragraph describing it.
+- Present options and trade-offs as side-by-side code blocks the reader can compare directly, with a short comment marking the line where they differ. Let the code carry the comparison; one sentence per option for what the code can't show.
+- Never describe code indirectly when you can show it. A sentence about what a change does to an API is opaque; the call site that now compiles (or no longer compiles), with a one-line comment, is immediately legible.
+- Show failure modes as code that compiles-but-misbehaves (or the verbatim compiler/test error), not as an abstract description of the risk.
+- Review findings follow the same law: every finding leads with the offending snippet (`path:line`), then the input or call site that misbehaves, then the corrected code. A finding delivered as a prose summary is unfinished work — restate it with the code before presenting it.
+- Keep prose for what code cannot express: intent, constraints, and consequences — one or two sentences placed next to the snippet they explain.
+
+This governs how you communicate *about* the code in conversation — chat replies, PR descriptions, review responses. It does not apply to the repo's own artifacts: documentation (this file, READMEs) and code comments.
 
 
 ## Java Conventions
 
 Always use Lombok where possible: `@Getter`, `@Setter`, `@Accessors(chain = true)`, `@NoArgsConstructor`, `@RequiredArgsConstructor`, `@Slf4j`, `@Data`, `@Builder`. Prefer `@RequiredArgsConstructor` over hand-written constructors for dependency injection. Use `@Slf4j` instead of manual `LoggerFactory.getLogger()` calls.
 
-Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthScopeType`, `AuthType`, `OidcProviderKind`. If a field is `String authScopeType` accepting `"ORGANIZATION"`/`"APPLICATION"`/`"SYSTEM"`, that's a special case — not a pattern to repeat.
+Prefer a single `return` per method. Guard clauses that short-circuit errors or degenerate cases at the top of a method are fine (throwing, or bailing before the real work), but branching LOGIC paths use if/else assigning a result variable that is returned once at the end (the `String ret; if (...) { ret = ...; } else { ret = ...; } return ret;` idiom used throughout the codebase) — never a `return` inside each branch.
+
+Use `enum` for any field whose value is constrained to a known set — never `String` with magic-string constants. Spring and Vert.x both auto-coerce JSON strings to enum values when deserializing into typed POJOs (Jackson's `@JsonCreator` / case-insensitive matching is built-in), so the wire contract stays string-friendly while the in-process type catches typos at compile time. Examples: `AuthType`, `OidcProviderKind`.
+
+When bridging a `CompletableFuture` into Vert.x, always pass the context: `Future.fromCompletionStage(stage, vertx.getOrCreateContext())`, never the single-argument overload. The stage may complete on a foreign thread (Azure SDK, Caffeine loader, JDK executor), and without the context argument everything composed after it leaves the request's Vert.x context — breaking anything downstream that reads a context-local, such as `SecurityContext`'s participant. For delays, use `vertx.timer(...)` instead of a JDK scheduled executor for the same reason.
+
+## MCP tools
+
+`@McpTool` on a `@Publish`ed service interface exposes every function as an MCP tool, and everything about each tool is derived: the title from the service and method names, the description from the method's Javadoc, and the behavior hints from the words in the method name (`find`/`get` → read-only, `save`/`delete` → destructive and idempotent, `create`/`send` → neither, `...IfNotExist` → idempotent). Don't add a method-level `@McpTool` that restates what derivation already produces — use one only to override a derivation that comes out wrong, e.g. `ProjectService.findByRepoFullName` retitles itself "Find by GitHub Repo", and `retryRepoInitialization` sets `openWorldHint` which no name can imply.
 
 ## Package Structure (Crucial!!)
 
@@ -45,7 +74,7 @@ Both Java and TypeScript modules follow the same layout convention. The rule is:
 - `api/` — Public interfaces, types, and DTOs used by other modules or nodes (shared/exported)
 - `internal/` — Everything private to this module (not shared/exported)
   - `internal/api/` — Implementations of public `api/` interfaces (`@Publish`, `@Component`, etc.)
-  - `internal/model/` — DTOs and value objects only used within this module
+  - `internal/api/model/` — DTOs and value objects only used within this module
 
 The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. 
 
@@ -59,11 +88,17 @@ Don't create a new package or folder to hold a single file. Single-file folders 
 
 ## Comments
 
+**IMPORTANT: Write comments the way you would explain the code to another developer.**
+
 Javadoc — block comments on classes, methods, fields, anything else — describes the contract from the caller's perspective: what something is for, what guarantees it makes, what the inputs and outputs mean. It should not document implementation details — how the class persists, which helper it delegates to, what bypass mechanism it uses internally — that's noise for someone using the API and rots when the implementation changes. Also they should not document what something does not do. Only what it does do. (Unless it is a security concern, Does not validate user) 
 
 Inline comments inside method bodies are different: they're for implementation details that aren't obvious from reading the code, and only when they aren't. A subtle invariant, the reason for an unusual ordering, a workaround for a specific bug, a non-obvious choice between two valid approaches — those earn an inline comment. Self-evident code does not. If you find yourself writing a comment that restates what the next line does, delete it.
 
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
+
+Keep comments concise — usually a single line. Spend more words only where the logic is genuinely not straightforward and the extra explanation earns its place: a subtle invariant, a non-obvious interaction, a reason that isn't visible in the code. A comment's length should track how hard the code is to follow, not how important the code is.
+
+Comment the code as it is now, not its history. Don't narrate what the code used to do or the edit you're making — no "before", "previously", "used to", "changed from", or "now does X instead" phrasing. The diff and git history record what changed; the comment describes the present state.
 
 Use standard programming vocabulary in comments — the terms from GoF, Fowler's Refactoring, and the JDK/framework docs: delegate, factory, guard clause, invariant, idempotent, race condition, callback, dispatch. Never literary metaphors or coined phrases ("prologue", "dance", "journey", "saga"). Reference the actual method and class names involved rather than describing them indirectly. State cause and effect directly.
 
@@ -71,6 +106,43 @@ Never remove or alter an existing authorship comment — `Created by <name> on <
 
 ## Properties
 Properties should never be created for something that will not need to be configured differently in different environments. i.e. Kinotic Cloud dev vs Kinotic Cloud prod. In the case of a route or something that will be the same for multiple environments, create a constant.
+
+Never gate a bean on a Spring profile — `@Profile` is for test contexts only; profile-gated beans are hard to audit. Profiles are property bundles: an `application-<name>.yml` selects property values for a deployment shape. Enabling or disabling behavior is done with explicit `kinotic.*` properties read by `@ConditionalOnProperty` (the `kinotic.disable*` module flags are the established idiom), so what a deployment runs can be read from its YAML alone.
+
+Properties are always scoped to the module and feature they configure: a setting lives as a field on the properties class of the thing it controls, nested under that module's tree (`kinotic.managementApi.github.disableProvisioner`, `kinotic.systemApi.deployment.serverHost`). The only root-level `kinotic.*` entries are the whole-module `disable*` switches and genuinely platform-wide settings. Never park a feature-level flag at the root — a flag whose home class exists belongs on it, both as a field and in the `@ConditionalOnProperty` path.
+
+## Dependency Versions
+
+Never hardcode a dependency version in a module `build.gradle`. Every version lives as a `*Version` property in `gradle.properties` (kept alphabetical) and is pinned once in the `dependencyManagement` block of `buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle`. The module declares the artifact with no version, so the managed version applies.
+
+One version per artifact across every module, one place to bump it. A literal version repeated across modules is Shotgun Surgery; the same artifact pinned at two versions in two files is a latent bug. Verify a move with `dependencyInsight` on the module's `compileClasspath` — `selected by rule` confirms the managed version is in effect.
+
+## Never work around an unpublished npm package
+
+When a change needs an npm package version that is not on the registry yet — a new
+package, or a cross-boundary bump like the CLI depending on a new workspace package —
+declare the real dependency and ask the maintainer to publish. Never dodge the publish
+with an image-level install, a `file:`/`link:` reference, a vendored tarball, or a
+downgrade to an older published version that lacks what the change needs. The publish is
+part of the change, and asking for it is always cheaper than the workaround.
+
+## Snapshot versions — nothing is in stone
+
+While `kinoticVersion` in `gradle.properties` is a `-SNAPSHOT`, nothing is deployed and no released artifact depends on this code, so there is nothing to stay backwards-compatible with. Edit existing migrations in place (schema in `V1__init.sql`, seed rows in `V2__kinotic_data_inserts.sql`) instead of appending new versioned files, rename fields, break APIs, and reshape wire contracts freely. Append-only migration discipline, deprecation shims, and compatibility fallbacks start when the first release exists — building them sooner is Speculative Generality.
+
+## Keep migrations in sync with persisted entities
+
+Every entity stored through an Elasticsearch-backed Repository gets its index mapping from the
+migration DDL in `kinotic-migration/src/main/resources/migrations/`, and mappings are strict — an
+entity field missing from its CREATE TABLE fails the first save of that entity at runtime.
+Whenever you change a persisted entity's fields, update its table in the same change (edit the
+CREATE TABLE in place while the version is -SNAPSHOT — see above). For DDL syntax and column
+types, see `website/content/01.apps/09.reference/02.migration-sql-grammar.md` or the
+`kinotic-sql` module.
+
+## Keep docs in sync with code
+
+When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
 
 ## Avoid these code smells
 
@@ -87,14 +159,14 @@ These are the named smells from Martin Fowler and Kent Beck's catalog in *Refact
 **Bloaters — things that have grown past one responsibility**
 
 - **Long Function.** A method that does several things at different levels of abstraction gets decomposed, each piece named for what it does.
-- **Large Class / junk drawers.** No `Constants`/`Utils`/`Helper`/`Manager` grab bags accumulating unrelated members. Name a class for the one thing it holds; if you can't name it honestly, split it. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have.
+- **Large Class / junk drawers.** The smell is a class that accumulates *unrelated* members and changes for many reasons; split it along the reasons it changes. Entities too: a class holding one kind of thing must not carry a name claiming generality it doesn't have. The name itself isn't the smell: a shared `Util`/`Constants`/`Helper` class is fine for cohesive, stateless, well-named static members — a single known home beats scattering them. Don't overcorrect either — a class or file created to hold a single static method is a Lazy Element; fold it into the nearest cohesive home instead of trading a grab bag for file sprawl.
 - **Long Parameter List / flag arguments.** A boolean or mode parameter that forks a method's whole behavior is two methods. More than ~4 parameters is a sign some of them are a missing type.
 - **Data Clumps.** Values that always travel together belong in one type, not loose parameter pairs repeated across signatures.
 - **Primitive Obsession.** Covered by the enum rule in Java Conventions — applies equally to ids, keys, and wire codes used across boundaries.
 
 **Couplers — classes that know too much about each other**
 
-- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
+- **Middle Man / needless indirection.** No support class, wrapper, or dispatch layer with a single consumer — inline it until at least two real consumers exist; a test is never the second consumer. A flow's logic should be followable inside one class; if understanding it requires hopping between classes, the indirection is the smell. Same rule for constants: used in one class → declared in that class; shared catalogs only for genuine cross-class or cross-boundary contracts.
 - **Feature Envy.** A method that mostly reads and combines another class's data belongs on that class. If a handler keeps reaching into an entity to make a decision the entity could make, move the decision.
 - **Inappropriate Intimacy.** Don't reach through another class's internals (its repository, its private collaborators) — go through its interface. Crossing the `api`/`internal` boundary from another module is this smell by definition.
 - **Message Chains.** `a.getB().getC().getD()` couples the caller to the whole path. Ask the nearest object for what you actually need.
@@ -111,3 +183,23 @@ These are the named smells from Martin Fowler and Kent Beck's catalog in *Refact
 - **Refused Bequest.** Don't extend a base class to use one method while ignoring or overriding-to-nothing the rest — compose instead.
 - **Temporary Field.** A field only meaningful during one operation is a missing parameter or a missing small object, not state.
 - **Data Class with leaked logic.** Entities/DTOs stay dumb (this codebase's convention), but the logic operating on them must then live in ONE service — not spread across every caller.
+
+## Tests serve the code — they never shape it
+
+The smells catalog binds with no testability exception: never extract, export, widen
+visibility, or add a parameter/seam whose only consumer is a test. A test is never the
+second consumer under the Rule of Three. Test through the interface a real caller uses
+and assert on outputs the code already produces (the file written, the response returned,
+the process killed); reach edge branches by controlling real inputs, not by opening
+internals. Prefer one behavioral test with real infrastructure (processes, temp dirs,
+containers) — gated to skip when the environment lacks it — over unit tests that each
+cost a structural concession. Behavior unobservable through any public interface is a
+production API gap: raise it, don't add a test-only door.
+
+The same preference governs test level: an e2e/integration test against real
+collaborators beats a unit test that must fake or mock significant functionality — the
+faked collaborator is where the bugs live (wire dispatch, deserialization, persistence
+hooks), and a slower test that exercises them is worth more than a fast one that assumes
+them. The exception is logic with no external collaborators (parsing, guards, pure
+transforms): there a unit test localizes failures earlier and more precisely than any
+e2e test can, and needs no fakes to begin with.

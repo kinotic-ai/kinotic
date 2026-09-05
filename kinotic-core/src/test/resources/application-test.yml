@@ -1,7 +1,6 @@
   # YAML Reference http://www.yaml.org/refcard.html
   continuum:
     debug: true
-    disableClustering: false
     cluster:
       discoveryType: SHAREDFS
       joinTimeoutMs: 0
@@ -11,11 +10,6 @@
       kubernetesNamespace: default
       kubernetesServiceName: structures
       kubernetesIncludeNotReadyAddresses: false
-
-  kinotic:
-    secret-storage:
-      # Dummy Base64-encoded key for tests only; lets SecretNameDeriver start in the test context.
-      master-key: a2lub3RpYy10ZXN0LW1hc3Rlci1rZXktZHVtbXktMDA=
 
   logging:
     level:

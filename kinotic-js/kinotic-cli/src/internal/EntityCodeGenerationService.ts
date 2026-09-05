@@ -4,7 +4,7 @@ import {Liquid} from 'liquidjs'
 import path from 'path'
 import {Project, Type} from 'ts-morph'
 import {fileURLToPath} from 'url'
-import {type EntitiesPathConfig, KinoticProjectConfig, PageableC3Type, PageC3Type} from '@kinotic-ai/os-api'
+import {type EntitiesPathConfig, KinoticProjectConfig, PageableC3Type, PageC3Type} from '@kinotic-ai/management-api'
 import {createImportString, StatementMapper} from './converter/codegen/StatementMapper'
 import {StatementMapperConversionState} from './converter/codegen/StatementMapperConversionState'
 import {StatementMapperConverterStrategy} from './converter/codegen/StatementMapperConverterStrategy'
@@ -79,7 +79,7 @@ export class EntityCodeGenerationService {
 
         for (const resolvedPathConfig of resolvedConfigs) {
             const config: ConversionConfiguration = {
-                application        : projectConfig.application,
+                application        : projectConfig.applicationId,
                 entitiesPath       : resolvedPathConfig.path,
                 verbose            : verbose,
                 logger             : this.logger
@@ -146,19 +146,10 @@ export class EntityCodeGenerationService {
                                                                          repositoryOutputPath))
                 }
 
-                if(config.verbose){
+                await writeEntityJsonToFilesystem(config, entityInfo.entity)
 
-                    await writeEntityJsonToFilesystem(repositoryOutputPath,
-                                                      entityInfo.entity,
-                                                      this.logger)
-
-                    for(let generatedServiceInfo of generatedServices) {
-                        if (generatedServiceInfo.namedQueries.length > 0) {
-                            await writeGeneratedServiceInfoToFilesystem(repositoryOutputPath,
-                                                                        generatedServiceInfo,
-                                                                        this.logger)
-                        }
-                    }
+                for(let generatedServiceInfo of generatedServices) {
+                    await writeGeneratedServiceInfoToFilesystem(config, generatedServiceInfo)
                 }
 
                 if(entityProcessor){
@@ -225,7 +216,7 @@ export class EntityCodeGenerationService {
                                                                        {
                                                                            entityName,
                                                                            entityNamespace,
-                                                                           organizationId: projectConfig.organization,
+                                                                           organizationId: projectConfig.organizationId,
                                                                            defaultExport,
                                                                            entityImportPath,
                                                                            validationLogic,

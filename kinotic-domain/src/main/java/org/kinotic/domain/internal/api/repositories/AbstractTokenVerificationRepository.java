@@ -1,11 +1,10 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import org.kinotic.domain.api.model.iam.PendingVerification;
+import io.vertx.core.Future;
+import org.kinotic.domain.api.model.security.PendingVerification;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
 import java.util.Date;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Persistence base for short-lived, single-use token records. Layers token lookup and
@@ -19,13 +18,12 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
 
     protected AbstractTokenVerificationRepository(String indexName,
                                                   Class<T> type,
-                                                  ElasticsearchAsyncClient esAsyncClient,
                                                   CrudServiceTemplate crudServiceTemplate) {
-        super(indexName, type, esAsyncClient, crudServiceTemplate);
+        super(indexName, type, crudServiceTemplate);
     }
 
     /** Finds a record by its verification token, or {@code null} if none matches. */
-    public CompletableFuture<T> findByVerificationToken(String verificationToken) {
+    public Future<T> findByVerificationToken(String verificationToken) {
         return findFirst(b -> b.query(termFilter("verificationToken", verificationToken)));
     }
 
@@ -34,17 +32,17 @@ public abstract class AbstractTokenVerificationRepository<T extends PendingVerif
      * has expired; fails if no record matches the token. Returns the live record otherwise —
      * callers consume it and delete it on success.
      */
-    public CompletableFuture<T> findValidByToken(String verificationToken) {
-        return findByVerificationToken(verificationToken).thenCompose(pending -> {
+    public Future<T> findValidByToken(String verificationToken) {
+        return findByVerificationToken(verificationToken).compose(pending -> {
             if (pending == null) {
-                return CompletableFuture.failedFuture(new IllegalArgumentException(
+                return Future.failedFuture(new IllegalArgumentException(
                         "Invalid or already consumed token."));
             }
             if (pending.getExpiresAt().before(new Date())) {
-                return deleteById(pending.getId()).thenCompose(v -> CompletableFuture.failedFuture(
+                return deleteById(pending.getId()).compose(v -> Future.failedFuture(
                         new IllegalArgumentException("This link has expired. Please start over.")));
             }
-            return CompletableFuture.completedFuture(pending);
+            return Future.succeededFuture(pending);
         });
     }
 }

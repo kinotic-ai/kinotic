@@ -12,12 +12,11 @@ node {
 
     // Version of node to download and install (only used if download is true)
     // It will be unpacked in the workDir
-    version = "22.13.1"
+    version = "24.17.0"
 
     // Version of Pnpm to use
     // Any Pnpm task first installs Pnpm in the pnpmWorkDir
-    // It uses the specified version if defined and the latest version otherwise (by default)
-    pnpmVersion = "9"
+    pnpmVersion = "11"
 
     // Base URL for fetching node distributions
     // Only used if download is true

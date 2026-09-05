@@ -69,8 +69,6 @@ spec:
             {{- if .Values.kinotic.webServer.enabled }}
             - containerPort: {{ .Values.kinotic.webServer.port | default 9090 }} # SPA static server
             {{- end }}
-            - containerPort: {{ .Values.kinotic.graphqlPort| default 4000 }} # GraphQL Port
-            - containerPort: {{ .Values.kinotic.openApiPort| default 8080 }} # OpenAPI Port
             - containerPort: {{ .Values.kinotic.stomp.port| default 58503 }} # STOMP Port
             - containerPort: {{ .Values.kinotic.restPort| default 58504 }} # REST Port
             - containerPort: {{ .Values.kinotic.cluster.discoveryPort | default 47500 }} # Ignite Discovery Port
@@ -88,9 +86,9 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            - name: KINOTIC_PERSISTENCE_ELASTICUSERNAME
+            - name: KINOTIC_DOMAIN_ELASTICUSERNAME
               value: "{{ .Values.kinotic.elastic.username }}"
-            - name: KINOTIC_PERSISTENCE_ELASTICPASSWORD
+            - name: KINOTIC_DOMAIN_ELASTICPASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.kinotic.elastic.secretName }}

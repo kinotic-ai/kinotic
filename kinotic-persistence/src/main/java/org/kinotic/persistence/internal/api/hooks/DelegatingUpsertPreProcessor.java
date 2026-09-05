@@ -1,8 +1,9 @@
 package org.kinotic.persistence.internal.api.hooks;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 import org.kinotic.persistence.api.model.EntityContext;
@@ -16,7 +17,6 @@ import org.kinotic.persistence.internal.api.services.EntityHolder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Created by Navíd Mitchell 🤪 on 6/7/23.
@@ -30,20 +30,20 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
 
     public DelegatingUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                         JsonMapper jsonMapper,
-                                        EntityDefinition entityDefinition,
+                                        EntityDescriptor entityDescriptor,
                                         Map<String, DecoratorLogic> fieldPreProcessors) {
 
         tokenBufferUpsertPreProcessor = new TokenBufferUpsertPreProcessor(persistenceProperties,
                                                                           jsonMapper,
-                                                                          entityDefinition,
+                                                                          entityDescriptor,
                                                                           fieldPreProcessors);
 
         rawJsonUpsertPreProcessor = new RawJsonUpsertPreProcessor(persistenceProperties,
                                                                   jsonMapper,
-                                                                  entityDefinition,
+                                                                  entityDescriptor,
                                                                   fieldPreProcessors);
 
-        mapUpsertPreProcessor = new MapUpsertPreProcessor(entityDefinition,
+        mapUpsertPreProcessor = new MapUpsertPreProcessor(entityDescriptor,
                                                           persistenceProperties,
                                                           fieldPreProcessors);
         pojoUpsertPreProcessor = new PojoUpsertPreProcessor();
@@ -51,7 +51,7 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
 
     @SuppressWarnings("unchecked")
     @Override
-    public CompletableFuture<EntityHolder<Object>> process(Object entity, EntityContext context) {
+    public Future<EntityHolder<Object>> process(Object entity, EntityContext context) {
         Validate.notNull(entity, "entity must not be null");
         Object ret;
         if(entity instanceof TokenBuffer) {
@@ -63,12 +63,12 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
         } else {
             ret = pojoUpsertPreProcessor.process(entity, context);
         }
-        return (CompletableFuture<EntityHolder<Object>>) ret;
+        return (Future<EntityHolder<Object>>) ret;
     }
 
     @SuppressWarnings("unchecked")
     @Override
-    public CompletableFuture<List<EntityHolder<Object>>> processArray(Object entities, EntityContext context) {
+    public Future<List<EntityHolder<Object>>> processArray(Object entities, EntityContext context) {
         Validate.notNull(entities, "entities must not be null");
 
         Object ret;
@@ -85,11 +85,11 @@ public class DelegatingUpsertPreProcessor implements UpsertPreProcessor<Object, 
                     ret = pojoUpsertPreProcessor.processArray((List<Object>) entities, context);
                 }
             }else{
-                ret = CompletableFuture.completedFuture(new ArrayList<>());
+                ret = Future.succeededFuture(new ArrayList<>());
             }
         }else {
             throw new IllegalArgumentException("Unsupported type: " + entities.getClass().getName());
         }
-        return (CompletableFuture<List<EntityHolder<Object>>>) ret;
+        return (Future<List<EntityHolder<Object>>>) ret;
     }
 }

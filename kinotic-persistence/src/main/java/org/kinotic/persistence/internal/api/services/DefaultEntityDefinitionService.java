@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.mapping.Property;
 import co.elastic.clients.elasticsearch.indices.DataStreamVisibility;
 import io.opentelemetry.instrumentation.annotations.SpanAttribute;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -13,6 +14,7 @@ import org.kinotic.domain.internal.api.services.AbstractProjectScopedService;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
 import org.kinotic.persistence.api.services.EntityDefinitionService;
 import org.kinotic.persistence.internal.api.repositories.EntityDefinitionRepository;
@@ -23,7 +25,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 
@@ -53,18 +54,19 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     @WithSpan
     @Override
-    public CompletableFuture<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+    public Future<EntityDefinition> create(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         return validateAndCreate(entityDefinition, super::create);
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<EntityDefinition> createSync(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+    public Future<EntityDefinition> createSync(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         return validateAndCreate(entityDefinition, super::createSync);
     }
 
-    private CompletableFuture<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
-                                                                  Function<EntityDefinition, CompletableFuture<EntityDefinition>> createOp) {
+    private Future<EntityDefinition> validateAndCreate(EntityDefinition entityDefinition,
+                                                       Function<EntityDefinition,
+                                                               Future<EntityDefinition>> createOp) {
         try {
             // will throw an exception if invalid
             PersistenceUtil.validateEntityDefinition(entityDefinition);
@@ -76,8 +78,9 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                                                                                entityDefinition.getApplicationId(),
                                                                                entityDefinition.getName());
 
-            if(logicalIndexName.length() > 255){
-                throw new IllegalArgumentException("EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters");
+            if (logicalIndexName.length() > 255) {
+                return Future.failedFuture(new IllegalArgumentException(
+                        "EntityDefinition Id is too long, 'applicationId.name' must be less than 256 characters"));
             }
 
             // TODO: how to ensure EntityDefinition application name match the C3Type name
@@ -98,42 +101,43 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
             entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
             entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
 
-        } catch (IllegalArgumentException e) {
-            return CompletableFuture.failedFuture(e);
+        } catch (Exception e) {
+            // never throw synchronously from a Future-returning method: it strands callers.
+            return Future.failedFuture(e);
         }
 
         // The base create uses the ES create op-type, so the uniqueness check is atomic at
-        // the shard — a concurrent duplicate fails instead of overwriting the way the
-        // previous findById-then-save did.
+        // the shard — a concurrent duplicate fails instead of overwriting.
         return createOp.apply(entityDefinition)
-                .exceptionallyCompose(ex -> AlreadyExistsException.isCause(ex)
-                        ? CompletableFuture.failedFuture(new IllegalArgumentException(
-                                "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
-                        : CompletableFuture.failedFuture(ex));
+                       .recover(ex -> AlreadyExistsException.isCause(ex)
+                               ? Future.failedFuture(new IllegalArgumentException(
+                               "EntityDefinition Application+Name must be unique, '" + entityDefinition.getId() + "' already exists."))
+                               : Future.failedFuture(ex));
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    public Future<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
         return deleteAndEvict(entityDefinitionId);
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    public Future<Void> deleteByIdSync(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
         return deleteAndEvict(entityDefinitionId);
     }
 
-    private CompletableFuture<Void> deleteAndEvict(String entityDefinitionId) {
+    private Future<Void> deleteAndEvict(String entityDefinitionId) {
         return findById(entityDefinitionId)
-                .thenCompose(entityDefinition -> {
+                .compose(entityDefinition -> {
 
-                    if(entityDefinition == null){
-                        return CompletableFuture.failedFuture(new IllegalArgumentException("EntityDefinition cannot be found for id: " + entityDefinitionId));
+                    if (entityDefinition == null) {
+                        return Future.failedFuture(new IllegalArgumentException(
+                                "EntityDefinition cannot be found for id: " + entityDefinitionId));
                     }
 
-                    if(entityDefinition.isPublished()){
-                        return CompletableFuture
+                    if (entityDefinition.isPublished()) {
+                        return Future
                                 .failedFuture(new IllegalStateException("EntityDefinition must be Un-Published before Deleting"));
                     }
 
@@ -141,30 +145,34 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     // eviction fires, and the eviction must fire last — either way around,
                     // a concurrent read could re-cache the old row with no eviction behind it.
                     return super.deleteByIdSync(entityDefinitionId)
-                            .thenApply(v -> {
-                                this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(entityDefinition.getOrganizationId(), entityDefinition.getApplicationId(), entityDefinition.getId()));
-                                return null;
-                            });
+                                .compose(v -> {
+                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localDeletedEntityDefinition(
+                                            entityDefinition.getOrganizationId(),
+                                            entityDefinition.getApplicationId(),
+                                            entityDefinition.getId()));
+                                    return Future.succeededFuture();
+                                });
                 });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId, Pageable pageable) {
+    public Future<Page<EntityDefinition>> findAllPublishedForApplication(@SpanAttribute("applicationId") String applicationId,
+                                                                         Pageable pageable) {
         return entityDefinitionRepository.findAllPublishedForApplication(applicationId, requireOrganizationId(), pageable);
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> publish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    public Future<Void> publish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
         return findById(entityDefinitionId)
-                .thenCompose(entityDefinition -> {
+                .compose(entityDefinition -> {
                     if (entityDefinition == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("EntityDefinition cannot be found for id: " + entityDefinitionId));
                     }
                     if (entityDefinition.isPublished()) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalStateException("EntityDefinition is already published"));
                     }
 
@@ -173,27 +181,37 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     String templateName = entityDefinition.getItemIndex() + "_tpl";
                     boolean allowCustomRouting = entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED;
 
-                    CompletableFuture<Void> creationFuture = entityDefinition.isStream()
-                            ? crudServiceTemplate
-                            .createIndexTemplate(templateName,
-                                                 entityDefinition.getItemIndex() + "*",
-                                                 DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
-                                                 mappings)
-                            .thenCompose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
-                            : crudServiceTemplate
-                            .createIndex(entityDefinition.getItemIndex(), true, mappings);
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
 
-                    return creationFuture.thenCompose(v -> {
+                    Future<Void> creationFuture = descriptor.isStream()
+                            ? crudServiceTemplate
+                              .createIndexTemplate(templateName,
+                                                   entityDefinition.getItemIndex() + "*",
+                                                   DataStreamVisibility.of(b -> b.allowCustomRouting(allowCustomRouting)),
+                                                   persistenceProperties.getNumberOfShards(),
+                                                   persistenceProperties.getNumberOfReplicas(),
+                                                   mappings)
+                              .compose(v -> crudServiceTemplate.createDataStream(entityDefinition.getItemIndex()))
+                            : crudServiceTemplate
+                              .createIndex(entityDefinition.getItemIndex(),
+                                           true,
+                                           persistenceProperties.getNumberOfShards(),
+                                           persistenceProperties.getNumberOfReplicas(),
+                                           mappings);
+
+                    return creationFuture.compose(v -> {
                         entityDefinition.setPublished(true);
                         entityDefinition.setPublishedTimestamp(new Date());
                         entityDefinition.setUpdated(entityDefinition.getPublishedTimestamp());
                         // saveSync so the published state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(),
-                                                                                                                     entityDefinition1.getId()));
-                                    return null;
-                                });
+                                    .compose(entityDefinition1 -> {
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                entityDefinition1.getOrganizationId(),
+                                                entityDefinition1.getApplicationId(),
+                                                entityDefinition1.getId()));
+                                        return Future.succeededFuture();
+                                    });
                     });
                 });
     }
@@ -205,24 +223,24 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
      */
     @WithSpan
     @Override
-    public CompletableFuture<EntityDefinition> saveSync(EntityDefinition entityDefinition) {
+    public Future<EntityDefinition> saveSync(EntityDefinition entityDefinition) {
         return save(entityDefinition);
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<EntityDefinition> save(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
+    public Future<EntityDefinition> save(@SpanAttribute("entityDefinition") EntityDefinition entityDefinition) {
         try {
             Validate.notBlank(entityDefinition.getId(), "EntityDefinition Id Invalid");
             PersistenceUtil.validateEntityDefinition(entityDefinition);
         } catch (IllegalArgumentException e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
 
         return findById(entityDefinition.getId())
-                .thenCompose(existingEntityDefinition -> {
+                .compose(existingEntityDefinition -> {
                     if (existingEntityDefinition == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("EntityDefinition cannot be found for id: " + entityDefinition.getId()));
                     }
 
@@ -245,17 +263,23 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                     entityDefinition.setTenantIdFieldName(result.tenantIdFieldName());
                     entityDefinition.setTimeReferenceFieldName(result.timeReferenceFieldName());
 
+                    EntityDescriptor existingDescriptor = existingEntityDefinition.toDescriptor();
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
+
                     if (entityDefinition.isPublished()) {
-                        if (!existingEntityDefinition.isMultiTenantSelectionEnabled()
-                                && entityDefinition.isMultiTenantSelectionEnabled()
-                                && !persistenceProperties.getTenantIdFieldName().equals(entityDefinition.getTenantIdFieldName())) {
-                            return CompletableFuture.failedFuture(
-                                    new IllegalArgumentException("When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
+                        if (!existingDescriptor.isMultiTenantSelectionEnabled()
+                                && descriptor.isMultiTenantSelectionEnabled()
+                                && !persistenceProperties.getTenantIdFieldName()
+                                                         .equals(entityDefinition.getTenantIdFieldName())) {
+                            return Future.failedFuture(
+                                    new IllegalArgumentException(
+                                            "When enabling multi-tenant selection for an existing published EntityDefinition, the tenantId field must be set to: " + persistenceProperties.getTenantIdFieldName()));
                         }
 
-                        if (!existingEntityDefinition.isStream() && entityDefinition.isStream()) {
-                            return CompletableFuture.failedFuture(
-                                    new IllegalArgumentException("Cannot change an existing published EntityDefinition from a non-stream to a stream"));
+                        if (!existingDescriptor.isStream() && descriptor.isStream()) {
+                            return Future.failedFuture(
+                                    new IllegalArgumentException(
+                                            "Cannot change an existing published EntityDefinition from a non-stream to a stream"));
                         }
 
                         // FIXME: how to best handle an operation where the mapping completes but the save fails.
@@ -265,12 +289,12 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         //        Then this could be moved to save the EntityDefinition first with optimistic locking, and if that succeeds then update the mapping
 
 
-                        CompletableFuture<Void> updateFuture;
-                        if (entityDefinition.isStream()) {
+                        Future<Void> updateFuture;
+                        if (descriptor.isStream()) {
                             String templateName = entityDefinition.getItemIndex() + "_tpl";
                             // Update both the template (for future indices) and the data stream's current indices
                             updateFuture = crudServiceTemplate.updateIndexTemplate(templateName, mappings)
-                                                              .thenCompose(v -> crudServiceTemplate.updateIndexMapping(
+                                                              .compose(v -> crudServiceTemplate.updateIndexMapping(
                                                                       entityDefinition.getItemIndex(), mappings));
                         } else {
                             // For regular indices, just update the mappings
@@ -280,11 +304,15 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
                         // saveSync so the new definition is searchable before the eviction
                         // fires — a reload racing the index refresh would re-cache the old
                         // row with no eviction left to clear it.
-                        return updateFuture.thenCompose(v -> super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                    return entityDefinition1;
-                                }));
+                        return updateFuture.compose(
+                                v -> super.saveSync(entityDefinition)
+                                          .map(entityDefinition1 -> {
+                                              this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                      entityDefinition1.getOrganizationId(),
+                                                      entityDefinition1.getApplicationId(),
+                                                      entityDefinition1.getId()));
+                                              return entityDefinition1;
+                                          }));
                     } else {
                         return super.saveSync(entityDefinition);
                     }
@@ -293,40 +321,46 @@ public class DefaultEntityDefinitionService extends AbstractProjectScopedService
 
     @WithSpan
     @Override
-    public CompletableFuture<Void> unPublish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
+    public Future<Void> unPublish(@SpanAttribute("entityDefinitionId") String entityDefinitionId) {
         return findById(entityDefinitionId)
-                .thenCompose(entityDefinition -> {
+                .compose(entityDefinition -> {
                     if (entityDefinition == null) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalArgumentException("EntityDefinition cannot be found for id: " + entityDefinitionId));
                     }
 
                     if (!entityDefinition.isPublished()) {
-                        return CompletableFuture.failedFuture(
+                        return Future.failedFuture(
                                 new IllegalStateException("EntityDefinition is not published"));
                     }
 
-                    CompletableFuture<Void> deleteStorageFuture;
-                    if (entityDefinition.isStream()) {
+                    EntityDescriptor descriptor = entityDefinition.toDescriptor();
+
+                    Future<Void> deleteStorageFuture;
+                    if (descriptor.isStream()) {
                         String templateName = entityDefinition.getItemIndex() + "_tpl";
                         // Delete the data stream and its template
                         deleteStorageFuture = crudServiceTemplate.deleteDataStream(entityDefinition.getItemIndex())
-                                                                 .thenCompose(v -> crudServiceTemplate.deleteIndexTemplate(templateName));
+                                                                 .compose(v -> crudServiceTemplate.deleteIndexTemplate(
+                                                                         templateName));
                     } else {
                         // Delete the regular index
                         deleteStorageFuture = crudServiceTemplate.deleteIndex(entityDefinition.getItemIndex());
                     }
 
-                    return deleteStorageFuture.thenCompose(v -> {
+                    return deleteStorageFuture.compose(v -> {
                         entityDefinition.setPublished(false);
                         entityDefinition.setPublishedTimestamp(null);
                         entityDefinition.setUpdated(new Date());
                         // saveSync so the unpublished state is searchable before the eviction fires
                         return super.saveSync(entityDefinition)
-                                .thenApply(entityDefinition1 -> {
-                                    this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(entityDefinition1.getOrganizationId(), entityDefinition1.getApplicationId(), entityDefinition1.getId()));
-                                    return null;
-                                });
+                                    .compose(entityDefinition1 -> {
+                                        this.eventPublisher.publishEvent(CacheEvictionEvent.localModifiedEntityDefinition(
+                                                entityDefinition1.getOrganizationId(),
+                                                entityDefinition1.getApplicationId(),
+                                                entityDefinition1.getId()));
+                                        return Future.succeededFuture();
+                                    });
                     });
                 });
     }

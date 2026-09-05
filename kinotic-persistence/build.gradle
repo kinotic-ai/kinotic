@@ -6,39 +6,24 @@ plugins {
 dependencies {
 	implementation project(':kinotic-core')
 	implementation project(':kinotic-domain')
-	implementation project(':kinotic-os-api')
+	implementation project(':kinotic-api-gateway')
     implementation project(':kinotic-idl')
 	implementation project(':kinotic-sql')
 
 	implementation 'co.elastic.clients:elasticsearch-java'
-	implementation 'co.elastic.clients:elasticsearch-rest5-client'
-
-	implementation "com.apollographql.federation:federation-graphql-java-support:${graphQlFederationJvmVersion}"
 
 	implementation 'com.fasterxml.jackson.core:jackson-annotations'
 
 	implementation "com.github.ben-manes.caffeine:caffeine"
 
-	implementation "com.github.slugify:slugify:${slugifyVersion}"
-
-	implementation "com.graphql-java:graphql-java"
-	implementation "com.graphql-java:graphql-java-extended-scalars:${graphQlJavaExtendedScalarsVersion}"
-
 	implementation 'io.projectreactor:reactor-core'
 
-	implementation "io.swagger.core.v3:swagger-models:${swaggerCoreVersion}"
-	implementation "io.swagger.core.v3:swagger-core:${swaggerCoreVersion}"
-
 	implementation "io.vertx:vertx-core"
-	implementation "io.vertx:vertx-web"
-	implementation "io.vertx:vertx-web-graphql"
 	implementation "io.vertx:vertx-web-client"
 	implementation "io.vertx:vertx-health-check"
 
 	implementation 'org.apache.ignite:ignite-core'
 	implementation 'org.apache.ignite:ignite-kubernetes'
-
-	implementation 'org.reactivestreams:reactive-streams'
 
 	// Spring AI TODO does not support spring boot 4
 //	implementation 'org.springframework.ai:spring-ai-commons'

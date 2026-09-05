@@ -38,6 +38,26 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitCreateTableStatement(KinoticSQLParser.CreateTableStatementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#createDataStreamStatement}.
+	 * @param ctx the parse tree
+	 */
+	void enterCreateDataStreamStatement(KinoticSQLParser.CreateDataStreamStatementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#createDataStreamStatement}.
+	 * @param ctx the parse tree
+	 */
+	void exitCreateDataStreamStatement(KinoticSQLParser.CreateDataStreamStatementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#dataStreamOption}.
+	 * @param ctx the parse tree
+	 */
+	void enterDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#dataStreamOption}.
+	 * @param ctx the parse tree
+	 */
+	void exitDataStreamOption(KinoticSQLParser.DataStreamOptionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#createComponentTemplateStatement}.
 	 * @param ctx the parse tree
 	 */
@@ -138,6 +158,16 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 */
 	void exitInsertStatement(KinoticSQLParser.InsertStatementContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#insertOption}.
+	 * @param ctx the parse tree
+	 */
+	void enterInsertOption(KinoticSQLParser.InsertOptionContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#insertOption}.
+	 * @param ctx the parse tree
+	 */
+	void exitInsertOption(KinoticSQLParser.InsertOptionContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#valueList}.
 	 * @param ctx the parse tree
 	 */
@@ -157,6 +187,56 @@ public interface KinoticSQLListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitValue(KinoticSQLParser.ValueContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void enterNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#namedParameter}.
+	 * @param ctx the parse tree
+	 */
+	void exitNamedParameter(KinoticSQLParser.NamedParameterContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#objectLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitObjectLiteral(KinoticSQLParser.ObjectLiteralContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#objectField}.
+	 * @param ctx the parse tree
+	 */
+	void enterObjectField(KinoticSQLParser.ObjectFieldContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#objectField}.
+	 * @param ctx the parse tree
+	 */
+	void exitObjectField(KinoticSQLParser.ObjectFieldContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#arrayLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterArrayLiteral(KinoticSQLParser.ArrayLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#arrayLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitArrayLiteral(KinoticSQLParser.ArrayLiteralContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link KinoticSQLParser#numberLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void enterNumberLiteral(KinoticSQLParser.NumberLiteralContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link KinoticSQLParser#numberLiteral}.
+	 * @param ctx the parse tree
+	 */
+	void exitNumberLiteral(KinoticSQLParser.NumberLiteralContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link KinoticSQLParser#assignment}.
 	 * @param ctx the parse tree

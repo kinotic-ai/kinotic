@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.persistence.api.model.EntityDefinition;
-import org.kinotic.persistence.internal.sample.Person;
+import org.kinotic.test.support.sample.Person;
 
 import java.util.ArrayList;
 import java.util.List;

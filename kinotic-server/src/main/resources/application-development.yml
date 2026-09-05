@@ -1,31 +1,90 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
-  github:
-    webhookSecret: "-"
-    appPrivateKey: "-"
+  traceLog:
+    excludes:
+      - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/heartbeat"
+      - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/reportWorkloadStatus"
+  persistence:
+    # A single-node dev cluster cannot assign replicas, and every published EntityDefinition costs
+    # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
+    # green and lets a developer publish far more definitions before hitting the cap.
+    numberOfShards: 1
+    numberOfReplicas: 0
+  managementApi:
+    github:
+      webhookSecret: "-"
+      appPrivateKey: "-"
+  systemApi:
+    # UIs publish to a local Azurite (docker run -p 10000:10000 mcr.microsoft.com/azure-storage/azurite)
+    # standing in for every organization's storage account. To publish to a real subscription
+    # instead, run with the `local` profile as well and set the real values in the git-ignored
+    # application-local.yml (see the contributing guide, "Publishing UIs against Azure")
+    organizationStorage:
+      disableProvisioner: true
+      # the Azure settings are validated at boot; nothing reads them while the provisioner is disabled
+      subscriptionIds: ["-"]
+      resourceGroup: "-"
+      location: "-"
+      # A developer machine is outside any platform VNet, so it reaches the accounts publicly
+      disablePrivateEndpoint: true
+      azuriteConnectionString: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+    # No Front Door in development: published UIs are marked ready without a site
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      dnsZoneId: "-"
+      frontDoorProfileId: "-"
+      frontDoorEndpointHostName: "-"
+    deployment:
+      # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
+      # Local development runs the BOXLITE provider, whose guests reach the host on the
+      # gvisor-tap-vsock host alias; boxlite's proxy completes the last hop over this machine's
+      # loopback, so the gateway needs no exposure beyond it.
+      #
+      # A CLOUD_HYPERVISOR node instead puts its workloads on the node's docker bridge, where
+      # they reach the gateway at 172.17.0.1.
+      serverHost: 192.168.127.254
+      # The sync workload fetches the project from GitHub and runs bun install
+      syncAllowedHosts:
+        - github.com
+        - registry.npmjs.org
   domain:
-    # IDE dev runs the SPA on vite (5173); kinotic-server is just the backend on 58503.
-    # Verification email URLs and OIDC redirect URIs are built from this base, so they
-    # need to point at the SPA's origin — not at kinotic-server's static port (9090).
-    appBaseUrl: http://localhost:5173
+    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel, or
+    # pnpm dev:tunnel:build for a production build over a slow upstream),
+    # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With
+    # appBaseUrl on the tunnel origin, apiBaseUrl and oauth.issuerBaseUrl fall back to it,
+    # so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP surface all
+    # share the one origin. For plain localhost dev (pnpm dev, no tunnel) use instead:
+    #   appBaseUrl: http://localhost:5173
+    #   apiBaseUrl: http://localhost:58503
+    appBaseUrl: https://platinum-protector-thesis.ngrok-free.dev
     email:
       # No real ACS in dev — EmailService logs verification URLs instead of sending.
       # To test against real ACS, flip enabled=true (endpoint/sender are pre-filled).
-      enabled: false
+      enabled: true
       endpoint: https://acs-kinotic.communication.azure.com
       sender-address: "DoNotReply@kinotic.ai"
-  cors:
-    allowedOriginPattern: "http:\\/\\/localhost:\\d+"
-    allowCredentials: true
+    elastic-connections:
+      - scheme: "http"
+        host: "localhost"
+        port: "9200"
+    secretStorage:
+      backend: ~
+      # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
+      # storage names. Dev-only value — production supplies this via Azure Key Vault.
+      masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
+  apiGateway:
+    cors:
+      # Covers both ways dev runs: localhost (pnpm dev) and an ngrok tunnel (pnpm dev:tunnel),
+      # and the sites a developer publishes under apps-<environment>.kinotic.ai, which reach
+      # the server through the tunnel. The tunnel is same-origin but still CORS-checked,
+      # because the social login forms POST and browsers send Origin on a POST navigation.
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)|https:\\/\\/[a-z0-9-]+\\.apps-[a-z0-9-]+\\.kinotic\\.ai"
+      allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
     discoveryType: SHAREDFS
-  secretStorage:
-    backend: ~
-    # Base64-encoded 32-byte key used by SecretNameDeriver to derive opaque, deterministic
-    # storage names. Dev-only value — production supplies this via Azure Key Vault.
-    masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   platformSecrets:
     # Auto-seeded on first boot by DevPlatformSecretsGenerator (dev profile only). Each
     # developer machine ends up with its own random keys; none of this is committed.
@@ -33,19 +92,16 @@ kinotic:
     # different origin.
     jwtSigningKeysPath: ${user.home}/.kinotic/dev-platform-secrets/jwt-signing-keys
   # OIDC client secrets resolve via SecretReferenceResolver — Azure Key Vault when
-  # kinotic.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
+  # kinotic.domain.secretStorage.azure.vaultUrl is set, otherwise from KINOTIC_AKV_<name> env vars
   # (uppercased, non-alphanumerics → "_"). For local dev, export the env var matching the
   # secret name on the seeded OrgSignupOidcConfiguration / OidcConfiguration row.
-  persistence:
-    elastic-connections:
-      - scheme: "http"
-        host: "localhost"
-        port: "9200"
 
 logging:
   level:
     org:
       kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
 
 spring:
   ai:

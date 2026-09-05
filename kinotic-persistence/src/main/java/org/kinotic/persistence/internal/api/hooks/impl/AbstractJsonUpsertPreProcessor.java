@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
+import io.vertx.core.Future;
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType;
@@ -12,7 +13,7 @@ import tools.jackson.core.util.ByteArrayBuilder;
 import tools.jackson.databind.json.JsonMapper;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.domain.api.model.RawJson;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.decorators.*;
 import org.kinotic.persistence.internal.api.hooks.DecoratorLogic;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
@@ -21,7 +22,6 @@ import org.kinotic.persistence.internal.api.services.EntityHolder;
 import org.kinotic.persistence.internal.api.services.json.JsonStreamProcessor;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * This class was created to make the extraction of needed data as performant as possible
@@ -34,14 +34,14 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
     /** Mapper with FAIL_ON_TRAILING_TOKENS disabled for stream reads (Jackson 3; not needed in Jackson 2). */
     protected final JsonMapper jsonMapper;
-    protected final EntityDefinition entityDefinition;
+    protected final EntityDescriptor entityDescriptor;
     protected final PersistenceProperties persistenceProperties;
     // Map of json path to decorator logic
     private final Map<String, DecoratorLogic> fieldPreProcessors;
 
     public AbstractJsonUpsertPreProcessor(PersistenceProperties persistenceProperties,
                                           JsonMapper jsonMapper,
-                                          EntityDefinition entityDefinition,
+                                          EntityDescriptor entityDescriptor,
                                           Map<String, DecoratorLogic> fieldPreProcessors) {
         this.persistenceProperties = persistenceProperties;
         // Jackson 3 fails on trailing tokens by default; we stream-parse and readValue() one field at a time,
@@ -49,13 +49,13 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
         this.jsonMapper = jsonMapper.rebuild()
                 .disable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                 .build();
-        this.entityDefinition = entityDefinition;
+        this.entityDescriptor = entityDescriptor;
         this.fieldPreProcessors = fieldPreProcessors;
     }
 
     @Override
-    public CompletableFuture<EntityHolder<RawJson>> process(T entity, EntityContext context) {
-        return doProcess(entity, context, false).thenApply(list -> {
+    public Future<EntityHolder<RawJson>> process(T entity, EntityContext context) {
+        return doProcess(entity, context, false).map(list -> {
             if(list.size() != 1){
                 throw new IllegalStateException("Expected exactly one entity to be returned, got " + list.size());
             }
@@ -64,7 +64,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
     }
 
     @Override
-    public CompletableFuture<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
+    public Future<List<EntityHolder<RawJson>>> processArray(T entities, EntityContext context) {
         return doProcess(entities, context, true);
     }
 
@@ -77,7 +77,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
      * @param context the context of the entity
      * @return a new {@link RawJson} with the appropriate decorators applied
      */
-    private CompletableFuture<List<EntityHolder<RawJson>>> doProcess(T json, EntityContext context, boolean processArray){
+    private Future<List<EntityHolder<RawJson>>> doProcess(T json, EntityContext context, boolean processArray){
         Deque<String> jsonPathStack = new ArrayDeque<>();
         List<EntityHolder<RawJson>> ret = new ArrayList<>();
         List<String> tenantsSelected = new ArrayList<>();
@@ -118,7 +118,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         C3Decorator decorator = preProcessorLogic.getDecorator();
                         UpsertFieldPreProcessor<C3Decorator, Object, Object> preProcessor = preProcessorLogic.getProcessor();
                         Object input = jsonMapper.readValue(jsonParser, preProcessor.supportsFieldType());
-                        Object value = preProcessor.process(entityDefinition, fieldName, decorator, input, context);
+                        Object value = preProcessor.process(fieldName, decorator, input, context);
 
                         // We exclude the version field from the data to be persisted
                         if(!(decorator instanceof VersionDecorator)) {
@@ -175,15 +175,15 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }
                     }else{
                         // Check if this is the tenant id if MultiTenancyType.SHARED is enabled
-                        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
-                                && !entityDefinition.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as the configured prop
+                        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
+                                && !entityDescriptor.isMultiTenantSelectionEnabled() // just in case there is a field with the same name as the configured prop
                                 && currentJsonPath.equals(persistenceProperties.getTenantIdFieldName())){
 
                             // since the tenant id field is already present check its value to make sure it is null
                             // or matches the logged in tenant
                             jsonParser.nextToken(); // move to value token
                             currentTenantId = jsonMapper.readValue(jsonParser, String.class);
-                            if(currentTenantId != null && !currentTenantId.equals(context.getParticipant().getTenantId())){
+                            if(currentTenantId != null && !currentTenantId.equals(context.requireTenantId())){
                                 throw new IllegalArgumentException("Tenant Id invalid for logged in participant");
                             }
 
@@ -204,18 +204,18 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         }
 
                         // If this is enabled a tenant id should always be present in the data
-                        if(entityDefinition.isMultiTenantSelectionEnabled() && currentTenantId == null){
+                        if(entityDescriptor.isMultiTenantSelectionEnabled() && currentTenantId == null){
 
                             throw new IllegalArgumentException("Could not find TenantId for Entity");
 
-                        } else if (entityDefinition.isMultiTenantSelectionEnabled() && currentTenantId != null) {
+                        } else if (entityDescriptor.isMultiTenantSelectionEnabled() && currentTenantId != null) {
                             tenantsSelected.add(currentTenantId);
                         }
 
                         // If this is a multi tenant EntityDefinition and multi tenant selection is not enabled, add the tenant if necessary
-                        if(entityDefinition.getMultiTenancyType() == MultiTenancyType.SHARED
+                        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
                                 && currentTenantId == null){
-                            currentTenantId = context.getParticipant().getTenantId();
+                            currentTenantId = context.requireTenantId();
                             jsonGenerator.writeStringProperty(persistenceProperties.getTenantIdFieldName(), currentTenantId);
                         }
 
@@ -224,7 +224,7 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
                         jsonGenerator.flush();
                         ret.add(new EntityHolder<>(new RawJson(byteArrayBuilder.toByteArray()),
                                                    currentId,
-                                                   entityDefinition.getMultiTenancyType(),
+                                                   entityDescriptor.multiTenancyType(),
                                                    currentTenantId,
                                                    currentVersion
                         ));
@@ -260,14 +260,14 @@ public abstract class AbstractJsonUpsertPreProcessor<T> implements UpsertPreProc
 
             // We always blow away tenant selection on save/update since the only tenants that mater are the ones in the data
             // This is a sanity check, in case somehow it was already provided. We want to make sure auth services see the correct list.
-            if(entityDefinition.isMultiTenantSelectionEnabled()){
+            if(entityDescriptor.isMultiTenantSelectionEnabled()){
                 context.setTenantSelection(tenantsSelected);
             }
 
-            return CompletableFuture.completedFuture(ret);
+            return Future.succeededFuture(ret);
 
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
     }
 

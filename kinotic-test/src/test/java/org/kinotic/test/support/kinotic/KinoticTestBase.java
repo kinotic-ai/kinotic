@@ -1,13 +1,16 @@
 package org.kinotic.test.support.kinotic;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.ParticipantConstants;
 import org.kinotic.core.api.security.SecurityContext;
-import org.kinotic.domain.api.security.ApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultApplicationParticipant;
-import org.kinotic.domain.api.security.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
+import org.kinotic.test.support.sample.TestDataService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
@@ -15,11 +18,10 @@ import org.springframework.test.context.ContextConfiguration;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 /**
- * Test base for tests that need the full Kinotic stack (Elasticsearch + kinotic-server)
+ * Test base for tests that need the Kinotic stack (Elasticsearch + kinotic-migration)
  * via Docker Compose (compose.kinotic-test.yml).
  * Uses Testcontainers Docker Compose support.
  */
@@ -37,9 +39,9 @@ public abstract class KinoticTestBase {
 
     /**
      * Default application id used by test fixtures. Matches the Application that the sample
-     * {@code TestDataService} creates its EntityDefinitions under.
+     * {@link TestDataService} creates its EntityDefinitions under.
      */
-    public static final String TEST_APP_ID = "org.kinotic.sample";
+    public static final String TEST_APP_ID = TestDataService.SAMPLE_APP_ID;
 
     /**
      * The {@link OrganizationParticipant} that {@link #runAsOrganization(Supplier)} binds to
@@ -91,19 +93,18 @@ public abstract class KinoticTestBase {
      * {@link #TEST_ORG_ID} from the current participant. This lets tests exercise scoped
      * services without authenticating through the gateway.
      */
-    protected <T> CompletableFuture<T> runAsOrganization(Supplier<CompletableFuture<T>> supplier) {
-        CompletableFuture<T> result = new CompletableFuture<>();
+    protected <T> Future<T> runAsOrganization(Supplier<Future<T>> supplier) {
+        Promise<T> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
             securityContext.setParticipant(context, TEST_ORGANIZATION_PARTICIPANT);
-            supplier.get().whenComplete((value, error) -> {
-                if (error != null) {
-                    result.completeExceptionally(error);
-                } else {
-                    result.complete(value);
-                }
-            });
+            try {
+                supplier.get().onComplete(promise);
+            } catch (Throwable t) {
+                // a service that throws synchronously would otherwise leave the promise uncompleted, hanging the test
+                promise.fail(t);
+            }
         });
-        return result;
+        return promise.future();
     }
 }

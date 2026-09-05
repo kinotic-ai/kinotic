@@ -30,4 +30,10 @@ public @interface Publish {
      */
     String name() default "";
 
+    /**
+     * When true the service advertises itself in the {@link org.kinotic.core.api.directory.ServiceDirectory},
+     * so it appears in directory listings
+     */
+    boolean advertise() default false;
+
 }

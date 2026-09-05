@@ -1,12 +1,8 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
-import co.elastic.clients.elasticsearch.core.CountRequest;
-import co.elastic.clients.elasticsearch.core.DeleteRequest;
-import co.elastic.clients.elasticsearch.core.GetRequest;
-import co.elastic.clients.elasticsearch.core.IndexRequest;
-import co.elastic.clients.elasticsearch.core.SearchRequest;
+import co.elastic.clients.elasticsearch.core.*;
+import io.vertx.core.Future;
 import jakarta.annotation.PostConstruct;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +11,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -35,7 +30,6 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
     protected final String indexName;
     @Getter
     protected final Class<T> type;
-    protected final ElasticsearchAsyncClient esAsyncClient;
     protected final CrudServiceTemplate crudServiceTemplate;
 
     @PostConstruct
@@ -43,7 +37,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         crudServiceTemplate.verifyIndexExists(indexName);
     }
 
-    public CompletableFuture<Long> count() {
+    public Future<Long> count() {
         return count(null);
     }
 
@@ -51,37 +45,37 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      * Counts documents with full builder access. Subclasses use this overload to issue
      * specialized count queries.
      */
-    protected CompletableFuture<Long> count(Consumer<CountRequest.Builder> builderConsumer) {
+    protected Future<Long> count(Consumer<CountRequest.Builder> builderConsumer) {
         return crudServiceTemplate.count(indexName, builderConsumer);
     }
 
-    public CompletableFuture<T> findById(String id) {
+    public Future<T> findById(String id) {
         return findById(id, null);
     }
 
-    protected CompletableFuture<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
+    protected Future<T> findById(String id, Consumer<GetRequest.Builder> builderConsumer) {
         return crudServiceTemplate.findById(indexName, id, type, builderConsumer);
     }
 
-    public CompletableFuture<Void> deleteById(String id) {
+    public Future<Void> deleteById(String id) {
         return deleteById(id, null);
     }
 
-    protected CompletableFuture<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+    protected Future<Void> deleteById(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteById(indexName, id, builderConsumer)
-                                  .thenApply(_ -> null);
+                                  .mapEmpty();
     }
 
-    public CompletableFuture<Void> deleteByIdSync(String id) {
+    public Future<Void> deleteByIdSync(String id) {
         return deleteByIdSync(id, null);
     }
 
-    protected CompletableFuture<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
+    protected Future<Void> deleteByIdSync(String id, Consumer<DeleteRequest.Builder> builderConsumer) {
         return crudServiceTemplate.deleteByIdSync(indexName, id, builderConsumer)
-                                  .thenApply(_ -> null);
+                                  .mapEmpty();
     }
 
-    public CompletableFuture<Page<T>> findAll(Pageable pageable) {
+    public Future<Page<T>> findAll(Pageable pageable) {
         return findAll(pageable, null);
     }
 
@@ -89,26 +83,26 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      * Issues a paginated search with full builder access. Subclasses use this overload to
      * issue specialized queries.
      */
-    protected CompletableFuture<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
+    protected Future<Page<T>> findAll(Pageable pageable, Consumer<SearchRequest.Builder> builderConsumer) {
         return crudServiceTemplate.search(indexName, pageable, type, builderConsumer);
     }
 
-    public CompletableFuture<T> save(T value) {
+    public Future<T> save(T value) {
         return save(value, null);
     }
 
-    protected CompletableFuture<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+    protected Future<T> save(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.save(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(_ -> value);
+                                  .map(value);
     }
 
-    public CompletableFuture<T> saveSync(T value) {
+    public Future<T> saveSync(T value) {
         return saveSync(value, null);
     }
 
-    protected CompletableFuture<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+    protected Future<T> saveSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.saveSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(_ -> value);
+                                  .map(value);
     }
 
     /**
@@ -116,35 +110,33 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
      * which overwrites, this fails with {@link org.kinotic.core.api.exceptions.AlreadyExistsException}
      * on an id collision — use it to enforce uniqueness on a caller-assigned id.
      */
-    public CompletableFuture<T> create(T value) {
+    public Future<T> create(T value) {
         return crudServiceTemplate.create(indexName, value.getId(), value)
-                                  .thenApply(_ -> value);
+                                  .map(value);
     }
 
     /**
      * Persists a new entity like {@link #create}, additionally waiting for it to be visible
      * in search results before returning.
      */
-    public CompletableFuture<T> createSync(T value) {
+    public Future<T> createSync(T value) {
         return createSync(value, null);
     }
 
-    protected CompletableFuture<T> createSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
+    protected Future<T> createSync(T value, Consumer<IndexRequest.Builder<T>> builderConsumer) {
         return crudServiceTemplate.createSync(indexName, value.getId(), value, builderConsumer)
-                                  .thenApply(_ -> value);
+                                  .map(value);
     }
 
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+    public Future<Page<T>> search(String searchText, Pageable pageable) {
         if (searchText == null || searchText.isEmpty()) {
             return findAll(pageable);
         }
         return findAll(pageable, b -> b.q(searchText));
     }
 
-    public CompletableFuture<Void> syncIndex() {
-        return esAsyncClient.indices()
-                            .refresh(b -> b.index(indexName))
-                            .thenApply(_ -> null);
+    public Future<Void> syncIndex() {
+        return crudServiceTemplate.syncIndex(indexName);
     }
 
     protected Query composeFilter(Query... filters) {
@@ -175,7 +167,7 @@ public abstract class AbstractRepository<T extends Identifiable<String>> {
         return crudServiceTemplate.missingFilter(field);
     }
 
-    protected CompletableFuture<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {
+    protected Future<T> findFirst(Consumer<SearchRequest.Builder> builderConsumer) {
         return crudServiceTemplate.findFirst(indexName, type, builderConsumer);
     }
 

@@ -5,8 +5,8 @@ package org.kinotic.idl.internal.directory.jdk;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.schema.MapC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.internal.directory.ConversionContext;
-import org.kinotic.idl.internal.directory.GenericTypeConverter;
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
@@ -33,10 +33,13 @@ public class MapTypeConverter implements GenericTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType, ConversionContext conversionContext) {
 
-        ResolvableType keyType = resolvableType.getGeneric(0);
-        Validate.notNull(keyType, "Map Key type must not be null for "+ resolvableType);
-        ResolvableType valueType = resolvableType.getGeneric(1);
-        Validate.notNull(valueType, "Map Value type must not be null for "+ resolvableType);
+        // the key/value types off the Map view, not the declared type: a class implementing Map<K, V>
+        // declares no generics of its own, so asking it directly yields NONE
+        ResolvableType mapType = resolvableType.as(Map.class);
+        ResolvableType keyType = mapType.getGeneric(0);
+        Validate.isTrue(!keyType.equals(ResolvableType.NONE), "Map Key type must be resolvable for "+ resolvableType);
+        ResolvableType valueType = mapType.getGeneric(1);
+        Validate.isTrue(!valueType.equals(ResolvableType.NONE), "Map Value type must be resolvable for "+ resolvableType);
 
         return new MapC3Type(conversionContext.convert(keyType), conversionContext.convert(valueType));
     }

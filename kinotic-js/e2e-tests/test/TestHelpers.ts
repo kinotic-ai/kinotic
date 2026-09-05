@@ -1,8 +1,8 @@
 import {faker} from '@faker-js/faker/locale/en'
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import {ConnectionInfo, IWebSocket, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, SessionKeepAliveMode, WebSocketFactory} from '@kinotic-ai/core'
-import {WebSocket} from 'ws'
+import {BasicCredentialsResolver, buildBrokerUrl, buildServerUrl, type ConnectOptions, type CredentialsResolver, Kinotic, KinoticSingleton, Direction, Order, Pageable, IterablePage, type ServerInfo, SessionKeepAliveMode} from '@kinotic-ai/core'
+import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {
     ObjectC3Type,
     FunctionDefinition
@@ -10,13 +10,13 @@ import {
 import {randomUUID} from 'node:crypto'
 import {expect} from 'vitest'
 import {
-    OsApiPlugin,
+    ManagementApiPlugin,
     EntityDefinition,
     KinoticProjectConfig,
     NamedQueriesDefinition,
     QueryDecorator,
     Project
-} from '@kinotic-ai/os-api'
+} from '@kinotic-ai/management-api'
 import {
     IEntityRepository,
     IAdminEntityRepository,
@@ -30,7 +30,10 @@ import {PersonWithTenant} from './domain/PersonWithTenant.js'
 import {Cat, Dog} from './domain/Pet.js'
 import {Vehicle, Wheel} from './domain/Vehicle.js'
 
-Kinotic.use(OsApiPlugin)
+// header-credential connects need a WebSocket constructor that accepts upgrade headers
+ensureNodeWebSocket()
+
+Kinotic.use(ManagementApiPlugin)
 
 type SchemaCreationResult ={
     entityDefinitionSchema: ObjectC3Type
@@ -38,51 +41,74 @@ type SchemaCreationResult ={
 }
 let schemas: Map<string, SchemaCreationResult> = new Map<string, SchemaCreationResult>()
 
-/**
- * Credentials passed as WebSocket upgrade headers; the gateway's
- * {@link KinoticSecurityService} authenticates the participant from these
- * before the STOMP CONNECT frame is processed.
- */
-export interface AuthHeaders {
-    login: string
-    passcode: string
-    authScopeType: 'SYSTEM' | 'ORGANIZATION' | 'APPLICATION'
-    authScopeId: string
+/** Organization that owns every e2e fixture user (V3 test users + V5 app fixtures). */
+export const E2E_ORGANIZATION_ID = 'kinotic-test'
+
+/** Password of every user the e2e migrations seed. */
+export const E2E_FIXTURE_PASSWORD = 'kinotic'
+
+/** Tenant id of the V5-seeded APPLICATION-scope fixture users. */
+export const E2E_APP_TENANT = 'kinotic'
+
+/** The seeded ORGANIZATION-scope admin of the e2e organization. */
+export const E2E_ORG_USER_EMAIL = 'kinotic@kinotic.local'
+
+/** The seeded SYSTEM-scope admin. */
+export const E2E_SYSTEM_USER_EMAIL = 'admin@kinotic.local'
+
+/** Email convention of the V5-seeded APPLICATION-scope fixture users. */
+export function appFixtureEmail(applicationId: string, tenantId: string): string {
+    return `app-${applicationId}-${tenantId}@test.local`
 }
 
-function buildWsUrl(host: string, port: number, useSSL: boolean = false): string {
-    return `${useSSL ? 'wss' : 'ws'}://${host}:${port}/v1`
+export function kinoticHost(): string {
+    // @ts-ignore
+    return inject('KINOTIC_HOST') as string
 }
 
-function authedWebSocketFactory(wsUrl: string, headers: AuthHeaders): WebSocketFactory {
-    return () => new WebSocket(wsUrl, { headers: headers as unknown as Record<string, string> }) as unknown as IWebSocket
+export function kinoticPort(): number {
+    // @ts-ignore
+    return inject('KINOTIC_PORT') as number
 }
 
-function buildConnectionInfo(host: string, port: number, headers: AuthHeaders): ConnectionInfo {
-    const ci = new ConnectionInfo()
-    ci.host = host
-    ci.port = port
-    ci.useSSL = false
-    ci.sessionKeepAlive = SessionKeepAliveMode.NONE
-    ci.webSocketFactory = authedWebSocketFactory(buildWsUrl(host, port), headers)
-    return ci
+/** The gateway under test as a {@link ServerInfo} — the suite always runs without TLS. */
+export function serverUnderTest(): ServerInfo {
+    return {host: kinoticHost(), port: kinoticPort(), useSSL: false}
+}
+
+/** REST base URL of the gateway under test. */
+export function restBase(): string {
+    return buildServerUrl(serverUnderTest(), 'http')
+}
+
+/** STOMP broker URL of the gateway under test. */
+export function stompUrl(): string {
+    return buildBrokerUrl(serverUnderTest())
+}
+
+/** POSTs an application/x-www-form-urlencoded body — the shape of every OAuth endpoint call. */
+export function postForm(url: string, params: Record<string, string>): Promise<Response> {
+    return fetch(url, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams(params)
+    })
+}
+
+export function buildConnectOptions(credentials: CredentialsResolver): ConnectOptions {
+    return {
+        server: serverUnderTest(),
+        sessionKeepAlive: SessionKeepAliveMode.NONE,
+        credentials
+    }
 }
 
 export async function initKinoticClient(): Promise<void> {
     try {
-        // @ts-ignore
-        const host = inject('KINOTIC_HOST') as string
-        // @ts-ignore
-        const port = inject('KINOTIC_PORT') as number
+        console.log('Connecting to Kinotic at ' + kinoticHost())
 
-        console.log('Connecting to Kinotic at ' + host)
-
-        await Kinotic.connect(buildConnectionInfo(host, port, {
-            login: 'kinotic@kinotic.local',
-            passcode: 'kinotic',
-            authScopeType: 'ORGANIZATION',
-            authScopeId: 'kinotic-test'
-        }))
+        await Kinotic.connect(buildConnectOptions(
+            new BasicCredentialsResolver(E2E_ORG_USER_EMAIL, E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID)))
 
         console.log('Connected to Kinotic')
     } catch (e) {
@@ -102,28 +128,19 @@ export async function shutdownKinoticClient(): Promise<void> {
 
 /**
  * Creates a fresh {@link KinoticSingleton} connected as the APPLICATION-scoped user seeded for
- * the given (applicationId, tenantId) pair by the V5__e2e_app_fixtures migration (email
+ * the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
- * responsible for disconnecting it when done. The instance has {@code OsApiPlugin} and
+ * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
  * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
  * {@code AdminEntityRepository} used to act on SHARED entity data.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
-    const email = `app-${applicationId}-${tenantId}@test.local`
-    // @ts-ignore
-    const host = inject('KINOTIC_HOST') as string
-    // @ts-ignore
-    const port = inject('KINOTIC_PORT') as number
-
     const appKinotic = new KinoticSingleton()
-    appKinotic.use(OsApiPlugin).use(PersistencePlugin)
+    appKinotic.use(ManagementApiPlugin).use(PersistencePlugin)
 
-    await appKinotic.connect(buildConnectionInfo(host, port, {
-        login: email,
-        passcode: 'kinotic',
-        authScopeType: 'APPLICATION',
-        authScopeId: applicationId
-    }))
+    await appKinotic.connect(buildConnectOptions(
+        new BasicCredentialsResolver(appFixtureEmail(applicationId, tenantId),
+                                     E2E_FIXTURE_PASSWORD, E2E_ORGANIZATION_ID, applicationId)))
     return appKinotic
 }
 
@@ -142,8 +159,8 @@ export async function createSchema(organizationId: string, applicationId: string
                                                                 new ConsoleLogger())
 
         const config = new KinoticProjectConfig()
-        config.organization = organizationId
-        config.application = applicationId
+        config.organizationId = organizationId
+        config.applicationId = applicationId
         config.entitiesPaths = [{
             path: path.resolve(__dirname, './domain'),
             repositoryPath: path.resolve(__dirname, './repository'),

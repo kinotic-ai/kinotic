@@ -3,7 +3,6 @@ package org.kinotic.persistence.internal.api.services;
 import co.elastic.clients.elasticsearch._types.mapping.ObjectProperty;
 import co.elastic.clients.elasticsearch._types.mapping.Property;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
-import io.swagger.v3.oas.models.media.Schema;
 import lombok.RequiredArgsConstructor;
 import org.kinotic.idl.api.converter.IdlConverter;
 import org.kinotic.idl.api.converter.IdlConverterFactory;
@@ -12,11 +11,6 @@ import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.EntityType;
 import org.kinotic.persistence.internal.converters.elastic.ElasticConversionState;
 import org.kinotic.persistence.internal.converters.elastic.ElasticConverterStrategy;
-import org.kinotic.persistence.internal.converters.graphql.GqlConversionState;
-import org.kinotic.persistence.internal.converters.graphql.GqlConverterStrategy;
-import org.kinotic.persistence.internal.converters.graphql.GqlTypeHolder;
-import org.kinotic.persistence.internal.converters.openapi.OpenApiConversionState;
-import org.kinotic.persistence.internal.converters.openapi.OpenApiConverterStrategy;
 import org.springframework.stereotype.Component;
 
 /**
@@ -66,16 +60,6 @@ public class DefaultEntityDefinitionConversionService implements EntityDefinitio
                                            state.getVersionFieldName(),
                                            state.getTenantIdFieldName(),
                                            state.getTimeReferenceFieldName());
-    }
-
-    @Override
-    public IdlConverter<GqlTypeHolder, GqlConversionState> createGqlConverter() {
-        return idlConverterFactory.createConverter(new GqlConverterStrategy(persistenceProperties));
-    }
-
-    @Override
-    public IdlConverter<Schema<?>, OpenApiConversionState> createOpenApiConverter(){
-        return idlConverterFactory.createConverter(new OpenApiConverterStrategy(persistenceProperties));
     }
 
 }

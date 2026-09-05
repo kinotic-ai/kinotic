@@ -1,8 +1,11 @@
 services:
   kinotic-server:
     container_name: kinotic-server
-    pull_policy: always
-    image: kinoticai/kinotic-server:${kinoticVersion:-4.2.0-SNAPSHOT}
+    # Matches kinotic-migration: a locally present image wins, so CI can point the stack at the
+    # image built from this commit by tagging it here. Run `docker compose pull` to refresh from
+    # Docker Hub.
+    pull_policy: missing
+    image: kinoticai/kinotic-server:${kinoticVersion:-5.0.0-SNAPSHOT}
     depends_on:
       kinotic-elasticsearch:
         condition: service_healthy
@@ -17,8 +20,6 @@ services:
     ports:
       - "127.0.0.1:9090:9090" # UI PORT
       - "127.0.0.1:9091:9091" # UI PORT
-      - "127.0.0.1:4000:4000" # GraphQL Port
-      - "127.0.0.1:8080:8080" # OpenAPI Port
       - "127.0.0.1:58503:58503" # Stomp Port
     environment:
       BPL_JVM_HEAD_ROOM: 10
@@ -29,9 +30,12 @@ services:
       # HFT, run from the IDE on a full JDK instead — see application-development.yml.
       JAVA_TOOL_OPTIONS: -XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
       KINOTIC_MAX_OFF_HEAP_MEMORY: 419430400
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_SCHEME: http
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
-      KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_0_PORT: 9200
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_SCHEME: http
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_HOST: kinotic-elasticsearch
+      KINOTIC_DOMAIN_ELASTICCONNECTIONS_0_PORT: 9200
+      KINOTIC_MANAGEMENTAPI_LOKIURL: http://loki:3100
+      KINOTIC_MANAGEMENTAPI_TEMPOURL: http://tempo:3200
+      KINOTIC_MANAGEMENTAPI_MIMIRURL: http://mimir:9009
       KINOTIC_APIGATEWAY_WEBSERVER_PORT: 9090
       OTEL_SERVICE_NAME: kinotic-server
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
@@ -40,6 +44,13 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: otlp
       OTEL_LOGS_EXPORTER: otlp
+      # jvm.buffer.* and jvm.system.cpu.* are Development-stability metrics the agent gates
+      # behind this flag. Direct buffers matter here — Vert.x and Netty allocate off-heap
+      # against MaxDirectMemorySize.
+      OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY: "true"
+      # Names the bare PUT/GET transport spans under each Elasticsearch call, which otherwise
+      # carry only an HTTP method in the waterfall.
+      OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING: "kinotic-elasticsearch:9200=elasticsearch"
       SPRING_PROFILES_ACTIVE: development,compose
       KINOTIC_DOMAIN_APPBASEURL: "http://localhost:9090"
       KINOTIC_DOMAIN_EMAIL_ENABLED: "false"

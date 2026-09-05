@@ -8,7 +8,7 @@ import {
 } from '@opentelemetry/semantic-conventions'
 import { Observable } from 'rxjs'
 import { first, map } from 'rxjs/operators'
-import info from '../../package.json' assert { type: 'json' }
+import info from '../../package.json' with { type: 'json' }
 import { Event } from './event/EventBus'
 import { EventConstants, type IEvent, type IEventBus } from './event/IEventBus'
 import type {IEventFactory, IServiceProxy, IServiceRegistry} from './IServiceRegistry'
@@ -60,7 +60,7 @@ export class ServiceRegistry implements IServiceRegistry {
     private _eventBus: IEventBus
     private supervisors: Map<string, ServiceInvocationSupervisor> = new Map()
     private contextInterceptor: ContextInterceptor<any> | null = null
-    private debugLogger = debug('kinoitc:serviceRegistry')
+    private debugLogger = debug('kinotic:serviceRegistry')
 
     constructor(eventBus: IEventBus) {
         this._eventBus = eventBus
@@ -131,10 +131,7 @@ class ServiceProxy implements IServiceProxy {
         }
         this.serviceIdentifier = serviceIdentifier
         this.serviceRegistry = serviceRegistry
-        this.tracer = opentelemetry.trace.getTracer(
-            'kinoitc.client',
-            info.version
-        )
+        this.tracer = opentelemetry.trace.getTracer(info.name, info.version)
     }
 
     invoke(methodIdentifier: string,
@@ -148,9 +145,9 @@ class ServiceProxy implements IServiceProxy {
             },
             async (span) => {
                 if (scope) {
-                    span.setAttribute('kinoitc.scope', scope)
+                    span.setAttribute('kinotic.scope', scope)
                 }
-                span.setAttribute('rpc.system', 'kinoitc')
+                span.setAttribute('rpc.system', 'kinotic')
                 span.setAttribute('rpc.service', this.serviceIdentifier)
                 span.setAttribute('rpc.method', methodIdentifier)
 
@@ -204,10 +201,12 @@ class ServiceProxy implements IServiceProxy {
                             .pipe(map<IEvent, any>((value: IEvent): any => {
                                 const contentType: string | undefined = value.getHeader(EventConstants.CONTENT_TYPE_HEADER)
                                 if (contentType !== undefined) {
-                                    if (contentType === 'application/json') {
+                                    if (contentType === EventConstants.CONTENT_JSON) {
                                         return JSON.parse(value.getDataString())
-                                    } else if (contentType === 'text/plain') {
+                                    } else if (contentType === EventConstants.CONTENT_TEXT) {
                                         return value.getDataString()
+                                    } else if (contentType === EventConstants.CONTENT_OCTET_STREAM) {
+                                        return value.data.orUndefined()
                                     } else {
                                         throw new Error('Content Type ' + contentType + ' is not supported')
                                     }

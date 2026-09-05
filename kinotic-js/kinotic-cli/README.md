@@ -12,7 +12,7 @@ $ npm install -g @kinotic-ai/kinotic-cli
 $ kinotic COMMAND
 running command...
 $ kinotic (--version)
-@kinotic-ai/kinotic-cli/2.2.0 darwin-arm64 node-v22.13.1
+@kinotic-ai/kinotic-cli/5.2.0-beta.4 darwin-arm64 node-v22.13.1
 $ kinotic --help [COMMAND]
 USAGE
   $ kinotic COMMAND
@@ -21,33 +21,14 @@ USAGE
 <!-- usagestop -->
 # Commands
 <!-- commands -->
-* [`kinotic create project NAME`](#kinotic-create-project-name)
 * [`kinotic gen`](#kinotic-gen)
 * [`kinotic generate`](#kinotic-generate)
 * [`kinotic init`](#kinotic-init)
 * [`kinotic initialize`](#kinotic-initialize)
+* [`kinotic login`](#kinotic-login)
+* [`kinotic spawn lint`](#kinotic-spawn-lint)
 * [`kinotic sync`](#kinotic-sync)
 * [`kinotic synchronize`](#kinotic-synchronize)
-
-## `kinotic create project NAME`
-
-Creates a Kinotic Project
-
-```
-USAGE
-  $ kinotic create project NAME
-
-ARGUMENTS
-  NAME  The name for the project
-
-DESCRIPTION
-  Creates a Kinotic Project
-
-EXAMPLES
-  $ kinotic create project MyProjectName
-```
-
-_See code: [src/commands/create/project.ts](https://github.com/kinotic-ai/kinotic/blob/v2.2.0/src/commands/create/project.ts)_
 
 ## `kinotic gen`
 
@@ -105,7 +86,7 @@ EXAMPLES
   $ kinotic gen --force
 ```
 
-_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/v2.2.0/src/commands/generate.ts)_
+_See code: [src/commands/generate.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/generate.ts)_
 
 ## `kinotic init`
 
@@ -167,7 +148,54 @@ EXAMPLES
   $ kinotic init -a my.app -e path/to/entities -r path/to/repository --mirror
 ```
 
-_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/v2.2.0/src/commands/initialize.ts)_
+_See code: [src/commands/initialize.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/initialize.ts)_
+
+## `kinotic login`
+
+Log in to a Kinotic Server and store credentials for subsequent commands.
+
+```
+USAGE
+  $ kinotic login [-s <value>]
+
+FLAGS
+  -s, --server=<value>  The Kinotic server to log in to
+
+DESCRIPTION
+  Log in to a Kinotic Server and store credentials for subsequent commands
+
+EXAMPLES
+  $ kinotic login
+
+  $ kinotic login --server http://localhost:9090
+```
+
+_See code: [src/commands/login.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/login.ts)_
+
+## `kinotic spawn lint`
+
+Reports variables used in a spawn template that are not declared in its spawn.json.
+
+```
+USAGE
+  $ kinotic spawn lint [DIR] [--fix]
+
+ARGUMENTS
+  DIR  [default: .] The spawn template directory
+
+FLAGS
+  --fix  Add stub propertySchema entries for undeclared variables
+
+DESCRIPTION
+  Reports variables used in a spawn template that are not declared in its spawn.json
+
+EXAMPLES
+  $ kinotic spawn lint
+
+  $ kinotic spawn lint ./my-template --fix
+```
+
+_See code: [src/commands/spawn/lint.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/spawn/lint.ts)_
 
 ## `kinotic sync`
 
@@ -175,15 +203,14 @@ Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ kinotic sync [-s <value>] [-p] [-v] [-f <value>] [--dryRun] [--force]
+  $ kinotic sync [-s <value>] [-p] [-v] [--dryRun] [--force]
 
 FLAGS
-  -f, --authHeaderFile=<value>  JSON File containing authentication headers
-  -p, --publish                 Publish each Entity after save/update
-  -s, --server=<value>          The Kinotic server to connect to
-  -v, --verbose                 Enable verbose logging
-      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
-      --force                   Force full regeneration, ignoring incremental change detection
+  -p, --publish         Publish each Entity after save/update
+  -s, --server=<value>  The Kinotic server to connect to
+  -v, --verbose         Enable verbose logging
+      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+      --force           Force full regeneration, ignoring incremental change detection
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Kinotic Server
@@ -207,15 +234,14 @@ Synchronize the local Entity definitions with the Kinotic Server
 
 ```
 USAGE
-  $ kinotic synchronize [-s <value>] [-p] [-v] [-f <value>] [--dryRun] [--force]
+  $ kinotic synchronize [-s <value>] [-p] [-v] [--dryRun] [--force]
 
 FLAGS
-  -f, --authHeaderFile=<value>  JSON File containing authentication headers
-  -p, --publish                 Publish each Entity after save/update
-  -s, --server=<value>          The Kinotic server to connect to
-  -v, --verbose                 Enable verbose logging
-      --dryRun                  Dry run enables verbose logging and does not save any changes to the server
-      --force                   Force full regeneration, ignoring incremental change detection
+  -p, --publish         Publish each Entity after save/update
+  -s, --server=<value>  The Kinotic server to connect to
+  -v, --verbose         Enable verbose logging
+      --dryRun          Dry run enables verbose logging and does not save any changes to the server
+      --force           Force full regeneration, ignoring incremental change detection
 
 DESCRIPTION
   Synchronize the local Entity definitions with the Kinotic Server
@@ -233,5 +259,5 @@ EXAMPLES
   $ kinotic sync -p -v -s http://localhost:9090
 ```
 
-_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/v2.2.0/src/commands/synchronize.ts)_
+_See code: [src/commands/synchronize.ts](https://github.com/kinotic-ai/kinotic/blob/develop/kinotic-js/kinotic-cli/src/commands/synchronize.ts)_
 <!-- commandsstop -->

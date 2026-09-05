@@ -20,24 +20,24 @@ public class KinoticTestContextInitializer implements ApplicationContextInitiali
         log.info("KinoticTestContextInitializer: Ensuring Kinotic Compose stack is ready...");
 
         try {
-            if (!KinoticTestConfiguration.areContainersRunning()) {
+            if (!KinoticTestComposeBoostrap.areContainersRunning()) {
                 log.info("KinoticTestContextInitializer: Starting Docker Compose...");
-                KinoticTestConfiguration.startContainersSynchronously();
-            } else if (!KinoticTestConfiguration.areContainersReady()) {
+                KinoticTestComposeBoostrap.startContainersSynchronously();
+            } else if (!KinoticTestComposeBoostrap.areContainersReady()) {
                 log.info("KinoticTestContextInitializer: Waiting for containers...");
-                KinoticTestConfiguration.waitForContainersReady();
+                KinoticTestComposeBoostrap.waitForContainersReady();
             }
 
-            KinoticTestConfiguration.ensureContainersReady();
+            KinoticTestComposeBoostrap.ensureContainersReady();
 
-            String esHost = KinoticTestConfiguration.getElasticsearchHost();
-            int esPort = KinoticTestConfiguration.getElasticsearchPort();
+            String esHost = KinoticTestComposeBoostrap.getElasticsearchHost();
+            int esPort = KinoticTestComposeBoostrap.getElasticsearchPort();
 
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].host=" + esHost)
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].host=" + esHost)
                 .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].port=" + esPort)
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].port=" + esPort)
                 .applyTo(applicationContext);
-            TestPropertyValues.of("kinotic.persistence.elastic-connections[0].scheme=http")
+            TestPropertyValues.of("kinotic.domain.elastic-connections[0].scheme=http")
                 .applyTo(applicationContext);
 
             log.info("KinoticTestContextInitializer: Kinotic stack ready, elasticsearch={}:{}", esHost, esPort);

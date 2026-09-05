@@ -1,9 +1,34 @@
 # YAML Reference http://www.yaml.org/refcard.html
 kinotic:
   debug: true
-  disableClustering: false
-  disableGithub: true
+  # placeholder GitHub App config; the github beans are registered but never called in tests
+  managementApi:
+    github:
+      disableProvisioner: true
+      appId: "-"
+      appSlug: "-"
+      appPrivateKey: "-"
+      webhookSecret: "-"
+      repoTemplate: "-"
   maxNumberOfCoresToUse: 4
+  systemApi:
+    deployment:
+      # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
+      serverHost: localhost
+    # placeholder storage and site config, validated at boot; no test deploys a UI
+    organizationStorage:
+      disableProvisioner: true
+      subscriptionIds: ["-"]
+      resourceGroup: "-"
+      location: "-"
+      privateEndpointSubnetId: "-"
+      privateDnsZoneId: "-"
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      dnsZoneId: "-"
+      frontDoorProfileId: "-"
+      frontDoorEndpointHostName: "-"
 
 logging:
   level:

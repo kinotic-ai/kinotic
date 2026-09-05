@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.entity;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -10,9 +11,9 @@ import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
-import org.kinotic.persistence.internal.sample.Car;
-import org.kinotic.persistence.internal.sample.Person;
-import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.sample.Car;
+import org.kinotic.test.support.sample.Person;
+import org.kinotic.test.support.sample.TestDataService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.kinotic.test.tests.core.support.StructureAndPersonHolder;
 import org.kinotic.test.tests.core.support.TestHelper;
@@ -24,7 +25,6 @@ import reactor.test.StepVerifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 
 @SpringBootTest
@@ -76,23 +76,23 @@ public class BulkUpdateTests extends KinoticTestBase {
         Assertions.assertNotNull(holder2);
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        runAsOrganization(() -> entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1)).join();
-        runAsOrganization(() -> entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2)).join();
+        runAsOrganization(() -> entitiesService.syncIndex(holder1.getEntityDefinition().getId(), context1)).await();
+        runAsOrganization(() -> entitiesService.syncIndex(holder2.getEntityDefinition().getId(), context2)).await();
 
         // TODO: verify all data items as well, not just sizes
-        StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> entitiesService.findAll(holder1.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.findAll(holder1.getEntityDefinition().getId(),
                                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2),// make sure page size is larger than number of entities
                                                                                    RawJson.class,
-                                                                                   context1))))
+                                                                                   context1)).toCompletionStage()))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
                             && rawJsons.getContent().size() == numberOfPeopleToCreate)
                     .as("Verifying Tenant 1 has "+numberOfPeopleToCreate+" entities")
                     .verifyComplete();
 
-        StepVerifier.create(Mono.fromFuture(runAsOrganization(() -> entitiesService.findAll(holder2.getEntityDefinition().getId(),
+        StepVerifier.create(Mono.fromCompletionStage(runAsOrganization(() -> entitiesService.findAll(holder2.getEntityDefinition().getId(),
                                                                                    Pageable.ofSize(numberOfPeopleToCreate * 2), // make sure page size is larger than number of entities
                                                                                    RawJson.class,
-                                                                                   context2))))
+                                                                                   context2)).toCompletionStage()))
                     .expectNextMatches(rawJsons -> rawJsons.getTotalElements() == numberOfPeopleToCreate
                             && rawJsons.getContent().size() == numberOfPeopleToCreate)
                     .as("Verifying Tenant 2 has "+numberOfPeopleToCreate+" entities")
@@ -102,15 +102,15 @@ public class BulkUpdateTests extends KinoticTestBase {
     @Test
     public void bulkSaveObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds"));
+        Future<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkSaveMultipleIds"));
 
-        StepVerifier.create(Mono.fromFuture(createStructure))
+        StepVerifier.create(Mono.fromCompletionStage(createStructure.toCompletionStage()))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
                     .verifyComplete();
 
-        EntityDefinition entityDefinition = createStructure.join().getLeft();
+        EntityDefinition entityDefinition = createStructure.await().getLeft();
 
-        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
+        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).await();
 
         Assertions.assertEquals(50, personList.size(), "Failed to create test person");
 
@@ -126,12 +126,12 @@ public class BulkUpdateTests extends KinoticTestBase {
             cars.add(car);
         }
 
-        testHelper.bulkSaveCarsAsRawJson(cars, entityDefinition, entityContext).join();
+        testHelper.bulkSaveCarsAsRawJson(cars, entityDefinition, entityContext).await();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).join();
+        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).await();
 
-        Page<RawJson> page = runAsOrganization(() -> entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).join();
+        Page<RawJson> page = runAsOrganization(() -> entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).await();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }
@@ -139,15 +139,15 @@ public class BulkUpdateTests extends KinoticTestBase {
     @Test
     public void bulkUpdateObjectWithMultipleIds() throws Exception{
         EntityContext entityContext = new DefaultEntityContext(applicationParticipant());
-        CompletableFuture<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds"));
+        Future<Pair<EntityDefinition, Boolean>> createStructure = runAsOrganization(() -> testDataService.createCarEntityDefinitionIfNotExists("_bulkUpdateMultipleIds"));
 
-        StepVerifier.create(Mono.fromFuture(createStructure))
+        StepVerifier.create(Mono.fromCompletionStage(createStructure.toCompletionStage()))
                     .expectNextMatches(pair -> pair.getLeft() != null && pair.getRight())
                     .verifyComplete();
 
-        EntityDefinition entityDefinition = createStructure.join().getLeft();
+        EntityDefinition entityDefinition = createStructure.await().getLeft();
 
-        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).join();
+        List<Person> personList = testDataService.createRandomTestPeopleWithId(50).await();
 
         Assertions.assertEquals(50, personList.size(), "Failed to create test person");
 
@@ -163,12 +163,12 @@ public class BulkUpdateTests extends KinoticTestBase {
             cars.add(car);
         }
 
-        testHelper.bulkUpdateCarsAsRawJson(cars, entityDefinition, entityContext).join();
+        testHelper.bulkUpdateCarsAsRawJson(cars, entityDefinition, entityContext).await();
 
         // Sync Index since bulk updates are not queryable until they are indexed
-        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).join();
+        runAsOrganization(() -> entitiesService.syncIndex(entityDefinition.getId(), entityContext)).await();
 
-        Page<RawJson> page = runAsOrganization(() -> entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).join();
+        Page<RawJson> page = runAsOrganization(() -> entitiesService.findAll(entityDefinition.getId(), Pageable.ofSize(10), RawJson.class, entityContext)).await();
 
         Assertions.assertEquals(50, page.getTotalElements(), "Wrong number of entities");
     }

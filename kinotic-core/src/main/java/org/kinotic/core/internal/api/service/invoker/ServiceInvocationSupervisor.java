@@ -1,26 +1,29 @@
-
-
-
 package org.kinotic.core.internal.api.service.invoker;
 
 import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.StatusCode;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
+import io.opentelemetry.context.propagation.TextMapPropagator;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
+import org.jspecify.annotations.NonNull;
+import org.kinotic.core.api.annotations.ScopeOptional;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
-import org.kinotic.core.api.service.ServiceFunction;
-import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
-import org.kinotic.core.internal.api.event.MetadataTextMapGetter;
+import org.kinotic.core.api.service.FunctionDescriptor;
+import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
-import org.kinotic.core.internal.config.KinoticVertxConfig;
 import org.kinotic.core.internal.utils.EventUtil;
-import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
+import org.kinotic.core.internal.utils.TelemetryUtil;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -29,13 +32,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.core.ReactiveAdapter;
 import org.springframework.core.ReactiveAdapterRegistry;
+import org.springframework.core.annotation.AnnotationUtils;
 import reactor.core.publisher.BaseSubscriber;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 
 import java.lang.reflect.Method;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -49,62 +55,71 @@ public class ServiceInvocationSupervisor {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceInvocationSupervisor.class);
 
+    private static final String INSTRUMENTATION_NAME = "org.kinotic.core.service-invoker";
+
     private final AtomicBoolean active = new AtomicBoolean(false);
     private final ConcurrentHashMap<String, StreamSubscriber> activeStreamingResults = new ConcurrentHashMap<>();
-    private final MetadataTextMapGetter textMapGetter = new MetadataTextMapGetter();
     private final ArgumentResolver argumentResolver;
     private final EventBusService eventBusService;
     private final ExceptionConverter exceptionConverter;
-    private final JsonMapper jsonMapper;
     private final Map<String, HandlerMethod> methodMap;
+    private final Set<String> scopeOptionalMethodIds;
     private final SecurityContext securityContext;
     private final ReactiveAdapterRegistry reactiveAdapterRegistry;
     private final ReturnValueConverter returnValueConverter;
     private final ServiceDescriptor serviceDescriptor;
+    private final TextMapPropagator propagator;
+    private final TraceLogFilter traceLogFilter;
+    private final Tracer tracer;
     private final Vertx vertx;
-    private final OpenTelemetry openTelemetry;
 
 
+    // Consumer for the address the service is addressable by
     private EventConsumer methodInvocationEventConsumer;
 
+    // Present only for a scoped service with ScopeOptional methods: the shared unscoped
+    // address every instance listens on for the methods any instance can answer
+    private EventConsumer unscopedInvocationEventConsumer;
 
 
     public ServiceInvocationSupervisor(ServiceDescriptor serviceDescriptor,
-                                       ServiceFunctionInstanceProvider instanceProvider,
+                                       FunctionInstanceProvider instanceProvider,
                                        ArgumentResolver argumentResolver,
                                        ReturnValueConverter returnValueConverter,
                                        ExceptionConverter exceptionConverter,
                                        EventBusService eventBusService,
                                        ReactiveAdapterRegistry reactiveAdapterRegistry,
                                        Vertx vertx,
+                                       SecurityContext securityContext,
                                        OpenTelemetry openTelemetry,
-                                       JsonMapper jsonMapper,
-                                       SecurityContext securityContext) {
+                                       TraceLogFilter traceLogFilter) {
 
         Validate.notNull(serviceDescriptor, "ServiceDescriptor must not be null");
-        Validate.notNull(instanceProvider, "ServiceFunctionInstanceProvider must not be null");
+        Validate.notNull(instanceProvider, "FunctionInstanceProvider must not be null");
         Validate.notNull(argumentResolver, "argumentResolver must not be null");
         Validate.notNull(returnValueConverter, "returnValueConverter must not be null");
         Validate.notNull(exceptionConverter, "exceptionConverter must not be null");
         Validate.notNull(eventBusService, "eventBusService must not be null");
         Validate.notNull(reactiveAdapterRegistry, "reactiveAdapterRegistry must not be null");
         Validate.notNull(vertx, "vertx must not be null");
-        Validate.notNull(openTelemetry, "OpenTelemetry must not be null");
-        Validate.notNull(jsonMapper, "jsonMapper must not be null");
         Validate.notNull(securityContext, "securityContext must not be null");
+        Validate.notNull(openTelemetry, "openTelemetry must not be null");
+        Validate.notNull(traceLogFilter, "traceLogFilter must not be null");
 
         this.serviceDescriptor = serviceDescriptor;
         this.argumentResolver = argumentResolver;
         this.returnValueConverter = returnValueConverter;
         this.exceptionConverter = exceptionConverter;
         this.eventBusService = eventBusService;
-        this.jsonMapper = jsonMapper;
         this.securityContext = securityContext;
         this.reactiveAdapterRegistry = reactiveAdapterRegistry;
         this.vertx = vertx;
-        this.openTelemetry = openTelemetry;
+        this.traceLogFilter = traceLogFilter;
+        this.tracer = openTelemetry.getTracer(INSTRUMENTATION_NAME);
+        this.propagator = openTelemetry.getPropagators().getTextMapPropagator();
 
         this.methodMap = buildMethodMap(serviceDescriptor, instanceProvider);
+        this.scopeOptionalMethodIds = buildScopeOptionalMethodIds(serviceDescriptor);
     }
 
     public boolean isActive(){
@@ -118,23 +133,39 @@ public class ServiceInvocationSupervisor {
     public Future<Void> start(){
         if(active.compareAndSet(false, true)){
             // begin listening on the event bus for service invocation requests
-            methodInvocationEventConsumer = eventBusService.listen(serviceDescriptor.serviceIdentifier().cri());
+            methodInvocationEventConsumer = listenAt(serviceDescriptor.serviceIdentifier().cri());
 
-            methodInvocationEventConsumer
-                    .handler(event -> vertx.executeBlocking(() -> {
-                        processEvent(event);
-                        return null;
-                    }))
-                    .exceptionHandler(throwable -> log.error("Event listener error", throwable))
-                    .endHandler(v -> {
-                        log.error("Should not happen! Event listener stopped for some reason!! Changing supervisor state to inactive");
-                        active.set(false);
-                    });
-
-            return methodInvocationEventConsumer.completion();
+            Future<Void> ret = methodInvocationEventConsumer.completion();
+            // a scoped service with ScopeOptional methods also joins the shared unscoped
+            // address, where any instance may answer the methods that opted in
+            if(serviceDescriptor.serviceIdentifier().scope() != null && !scopeOptionalMethodIds.isEmpty()){
+                unscopedInvocationEventConsumer = listenAt(serviceDescriptor.serviceIdentifier().unscopedCri());
+                ret = Future.all(ret, unscopedInvocationEventConsumer.completion()).mapEmpty();
+            }
+            return ret;
         }else{
             return Future.failedFuture(new IllegalStateException("Service already started"));
         }
+    }
+
+    private EventConsumer listenAt(CRI cri){
+        EventConsumer consumer = eventBusService.listen(cri);
+        consumer.handler(event -> vertx.executeBlocking(() -> {
+                    processEvent(event);
+                    return null;
+                }))
+                .exceptionHandler(throwable -> log.error("Event listener error", throwable))
+                // Vert.x invokes the end handler on every unregistration, including the one stop() performs.
+                // stop() clears active before unregistering, so a successful CAS here means something other
+                // than stop() unregistered the consumer and this supervisor is no longer fully serving
+                // invocations - losing either of its addresses makes it inactive
+                .endHandler(_ -> {
+                    if(active.compareAndSet(true, false)){
+                        log.warn("Event listener for {} was unregistered without a call to stop(), supervisor is now inactive",
+                                 cri);
+                    }
+                });
+        return consumer;
     }
 
     /**
@@ -147,28 +178,29 @@ public class ServiceInvocationSupervisor {
                 streamSubscribers.getValue().cancel();
             }
 
-            if(methodInvocationEventConsumer != null){
-                return methodInvocationEventConsumer.unregister();
+            Future<Void> ret = methodInvocationEventConsumer.unregister();
+            if(unscopedInvocationEventConsumer != null){
+                ret = Future.all(ret, unscopedInvocationEventConsumer.unregister()).mapEmpty();
             }
-            return Future.succeededFuture();
+            return ret;
         }else{
             return Future.failedFuture(new IllegalStateException("Service already stopped"));
         }
     }
 
     private Map<String, HandlerMethod> buildMethodMap(ServiceDescriptor serviceDescriptor,
-                                                      ServiceFunctionInstanceProvider instanceProvider) {
+                                                      FunctionInstanceProvider instanceProvider) {
         final HashMap<String, HandlerMethod> ret = new HashMap<>();
 
-        for(ServiceFunction serviceFunction : serviceDescriptor.functions()){
-            Object instance = instanceProvider.provideInstance(serviceFunction);
-            Method specificMethod = AopUtils.selectInvocableMethod(serviceFunction.invocationMethod(), instance.getClass());
+        for(FunctionDescriptor functionDescriptor : serviceDescriptor.functions()){
+            Object instance = instanceProvider.provideInstance(functionDescriptor);
+            Method specificMethod = AopUtils.selectInvocableMethod(functionDescriptor.invocationMethod(), instance.getClass());
 
             // add a / since uri paths contain this
             String methodName = "/" + specificMethod.getName();
 
             if(ret.containsKey(methodName)){
-                throw new IllegalArgumentException("Multiple ServiceFunctions provided with the name " + specificMethod.getName());
+                throw new IllegalArgumentException("Multiple FunctionDescriptors provided with the name " + specificMethod.getName());
             }else{
                 HandlerMethod handlerMethod = new HandlerMethod(instance, specificMethod);
                 ret.put(methodName,  handlerMethod);
@@ -177,12 +209,33 @@ public class ServiceInvocationSupervisor {
         return ret;
     }
 
+    /**
+     * The method ids the shared unscoped address may invoke: those the published interface
+     * annotated {@link ScopeOptional}, keyed like {@link #methodMap}.
+     */
+    private Set<String> buildScopeOptionalMethodIds(ServiceDescriptor serviceDescriptor) {
+        final Set<String> ret = new HashSet<>();
+        for(FunctionDescriptor functionDescriptor : serviceDescriptor.functions()){
+            if(AnnotationUtils.findAnnotation(functionDescriptor.invocationMethod(), ScopeOptional.class) != null){
+                ret.add("/" + functionDescriptor.invocationMethod().getName());
+            }
+        }
+        return ret;
+    }
+
     private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result) {
+        convertAndSend(incomingMetadata, handlerMethod, result, null);
+    }
+
+    private void convertAndSend(Metadata incomingMetadata, HandlerMethod handlerMethod, Object result, String originCri) {
         try {
             Event<byte[]> resultEvent = returnValueConverter.convert(incomingMetadata,
-                                                                     handlerMethod.getReturnType()
-                                                                                  .getParameterType(),
+                                                                     handlerMethod.getReturnType(),
                                                                      result);
+            // Set the origin CRI on the reply so a streaming client can route a cancel back to this service.
+            if (originCri != null) {
+                resultEvent.metadata().put(EventConstants.ORIGIN_CRI_HEADER, originCri);
+            }
             eventBusService.send(resultEvent);
         } catch (Exception e) {
             if(log.isDebugEnabled()){
@@ -206,7 +259,7 @@ public class ServiceInvocationSupervisor {
         String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         Validate.notNull(correlationId, "Streaming control plain messages require a CORRELATION_ID_HEADER to be set");
 
-        activeStreamingResults.computeIfPresent(correlationId, (s, streamSubscriber) -> {
+        activeStreamingResults.computeIfPresent(correlationId, (_, streamSubscriber) -> {
             streamSubscriber.processControlEvent(incomingEvent);
             return streamSubscriber;
         });
@@ -215,7 +268,9 @@ public class ServiceInvocationSupervisor {
     private void processEvent(Event<byte[]> incomingEvent){
         boolean isControl = incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER);
 
-        log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+            log.trace("Service {} requested for {}", isControl ? "Control" : "Invocation", incomingEvent.cri());
+        }
 
         if(exceptionConverter.supports(incomingEvent.metadata())) {
             try {
@@ -257,8 +312,20 @@ public class ServiceInvocationSupervisor {
                     throw new RpcMissingMethodException("No method could be resolved for methodId " + incomingEvent.cri().path());
                 }
 
+                // A scoped service answers on the shared unscoped address only for methods that
+                // declared themselves instance-independent: an instance-affine method invoked
+                // without a scope would execute on whichever instance received it, so it fails
+                // loud instead
+                if(serviceDescriptor.serviceIdentifier().scope() != null
+                        && !incomingEvent.cri().hasScope()
+                        && !scopeOptionalMethodIds.contains(incomingEvent.cri().path())){
+                    throw new RpcInvocationException("Method " + incomingEvent.cri().path()
+                            + " of " + serviceDescriptor.serviceIdentifier().qualifiedName()
+                            + " requires a scoped invocation naming the service instance");
+                }
+
                 if (!returnValueConverter.supports(incomingEvent.metadata(),
-                                                   handlerMethod.getReturnType().getParameterType())) {
+                                                   handlerMethod.getReturnType())) {
                     throw new IllegalStateException("No compatible ReturnValueConverter found");
                 }
 
@@ -271,21 +338,38 @@ public class ServiceInvocationSupervisor {
                     }
                 }
 
-                Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+                Span span = startInvocationSpan(incomingEvent);
+                // Making the span current is what nests everything the service method touches —
+                // Elasticsearch calls, outbound HTTP, @WithSpan methods — underneath this invocation.
+                try (Scope ignored = span.makeCurrent()) {
 
-                // separate try catch since we do not want to log invocation errors
-                Object result = null;
-                boolean error = false;
-                try {
-                    // Invoke the method and then handle the result
-                    result = handlerMethod.invoke(arguments);
+                    Object[] arguments = argumentResolver.resolveArguments(incomingEvent, handlerMethod);
+
+                    if(log.isTraceEnabled() && !traceLogFilter.isExcluded(incomingEvent)){
+                        log.trace(handlerMethod.formatInvokeMessage("Invoking ", arguments));
+                    }
+
+                    // separate try catch since we do not want to log invocation errors
+                    Object result = null;
+                    boolean error = false;
+                    try {
+                        // Invoke the method and then handle the result
+                        result = handlerMethod.invoke(arguments);
+                    } catch (Exception e) {
+                        error = true;
+                        failSpan(span, e);
+                        handleException(incomingEvent.metadata(), e);
+                    }
+
+                    if (!error) {
+                        // A reactive result is still in flight here, so the span ends with the result
+                        // rather than with this method.
+                        processMethodInvocationResult(incomingEvent, handlerMethod, result, span);
+                    }
+
                 } catch (Exception e) {
-                    error = true;
-                    handleException(incomingEvent.metadata(), e);
-                }
-
-                if (!error) {
-                    processMethodInvocationResult(incomingEvent, handlerMethod, result);
+                    failSpan(span, e);
+                    throw e;
                 }
 
         } else {
@@ -293,7 +377,7 @@ public class ServiceInvocationSupervisor {
         }
     }
 
-    private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result){
+    private void processMethodInvocationResult(Event<byte[]> incomingEvent, HandlerMethod handlerMethod, Object result, Span span){
 
         Metadata incomingMetadata = incomingEvent.metadata();
 
@@ -302,13 +386,14 @@ public class ServiceInvocationSupervisor {
         if(reactiveAdapter == null){
 
             convertAndSend(incomingMetadata, handlerMethod, result);
+            span.end();
 
         }else{
 
             if(!reactiveAdapter.isMultiValue()){
 
                 Publisher<?> publisher = reactiveAdapter.toPublisher(result);
-                publisher.subscribe(new SingleValueSubscriber(incomingMetadata, handlerMethod, incomingEvent));
+                publisher.subscribe(new SingleValueSubscriber(incomingMetadata, handlerMethod, incomingEvent, span));
 
             }else{
 
@@ -318,19 +403,47 @@ public class ServiceInvocationSupervisor {
                 }
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-                activeStreamingResults.computeIfAbsent(correlationId, s -> {
-                    //  FIXME: logic error here clients like the js client will stay alive during multiple requests even though previous request was invalidated indirectly
+
+                activeStreamingResults.computeIfAbsent(correlationId, _ -> {
                     Flux<?> flux = Flux.from(reactiveAdapter.toPublisher(result));
 
                     CRI replyCRI = CRI.create(incomingEvent.metadata().get(EventConstants.REPLY_TO_HEADER));
                     Flux<ListenerStatus> replyListenerStatus = eventBusService.monitorListenerStatus(replyCRI);
 
-                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus);
+                    StreamSubscriber streamSubscriber = new StreamSubscriber(incomingMetadata, handlerMethod, replyListenerStatus, incomingEvent.cri().raw(), span);
                     flux.subscribe(streamSubscriber);
                     return streamSubscriber;
                 });
             }
         }
+    }
+
+    /**
+     * Starts the span covering one service method invocation, continuing the caller's trace when the
+     * incoming event carries a trace context.
+     * @param incomingEvent the invocation request, whose metadata may carry the caller's trace context
+     * @return a started {@link Span} the caller is responsible for ending
+     */
+    private Span startInvocationSpan(Event<byte[]> incomingEvent){
+        io.opentelemetry.context.Context parent = propagator.extract(io.opentelemetry.context.Context.current(),
+                                                                     incomingEvent.metadata(),
+                                                                     TelemetryUtil.METADATA_GETTER);
+        // The path is the method id, carrying the leading / the method map is keyed by
+        String methodName = incomingEvent.cri().path().substring(1);
+        String serviceName = serviceDescriptor.serviceIdentifier().qualifiedName();
+        return tracer.spanBuilder(serviceDescriptor.serviceIdentifier().name() + "/" + methodName)
+                     .setParent(parent)
+                     .setSpanKind(SpanKind.SERVER)
+                     .setAttribute(TelemetryUtil.RPC_SYSTEM, TelemetryUtil.SYSTEM_VALUE)
+                     .setAttribute(TelemetryUtil.RPC_SERVICE, serviceName)
+                     .setAttribute(TelemetryUtil.RPC_METHOD, methodName)
+                     .startSpan();
+    }
+
+    private void failSpan(Span span, Throwable throwable){
+        span.recordException(throwable);
+        span.setStatus(StatusCode.ERROR);
+        span.end();
     }
 
     private void sendCompletionEvent(Metadata incomingMetadata){
@@ -368,12 +481,14 @@ public class ServiceInvocationSupervisor {
         private final Metadata incomingMetadata;
         private final HandlerMethod handlerMethod;
         private final Event<byte[]> incomingEvent;
+        private final Span span;
         private boolean valueReceived = false;
 
-        public SingleValueSubscriber(Metadata incomingMetadata, HandlerMethod handlerMethod, Event<byte[]> incomingEvent) {
+        public SingleValueSubscriber(Metadata incomingMetadata, HandlerMethod handlerMethod, Event<byte[]> incomingEvent, Span span) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.incomingEvent = incomingEvent;
+            this.span = span;
         }
 
         @Override
@@ -395,6 +510,7 @@ public class ServiceInvocationSupervisor {
                           t);
             }
             handleException(incomingMetadata, t);
+            failSpan(span, t);
         }
 
         @Override
@@ -402,6 +518,7 @@ public class ServiceInvocationSupervisor {
             if(!valueReceived){
                 convertAndSend(incomingMetadata, handlerMethod, null);
             }
+            span.end();
         }
     }
 
@@ -424,14 +541,14 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             // This condition should not occur under normal operation
             log.error("Reply Listener Monitor threw an exception. Terminating streaming result.", throwable);
             streamSubscription.cancel();
         }
 
         @Override
-        protected void hookOnNext(ListenerStatus status) {
+        protected void hookOnNext(@NonNull ListenerStatus status) {
             if(log.isTraceEnabled()){
                 log.trace("Received ListenerStatus {}", status);
             }
@@ -455,14 +572,20 @@ public class ServiceInvocationSupervisor {
         private final HandlerMethod handlerMethod;
         private final Metadata incomingMetadata;
         private final Flux<ListenerStatus> replyListenerStatus;
+        private final String originCri;
+        private final Span span;
         private ReplyListenerStatusSubscriber replyListenerStatusSubscriber;
 
         public StreamSubscriber(Metadata incomingMetadata,
                                 HandlerMethod handlerMethod,
-                                Flux<ListenerStatus> replyListenerStatus) {
+                                Flux<ListenerStatus> replyListenerStatus,
+                                String originCri,
+                                Span span) {
             this.incomingMetadata = incomingMetadata;
             this.handlerMethod = handlerMethod;
             this.replyListenerStatus = replyListenerStatus;
+            this.originCri = originCri;
+            this.span = span;
         }
 
         public void processControlEvent(Event<byte[]> incomingEvent){
@@ -486,8 +609,11 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookFinally(SignalType type) {
+        protected void hookFinally(@NonNull SignalType type) {
             log.trace("Stream Cleanup Now");
+
+            // Covers every terminal signal the stream can end on, cancellation included
+            span.end();
 
             replyListenerStatusSubscriber.cancel();
 
@@ -507,23 +633,26 @@ public class ServiceInvocationSupervisor {
         }
 
         @Override
-        protected void hookOnError(Throwable throwable) {
+        protected void hookOnError(@NonNull Throwable throwable) {
             if(log.isTraceEnabled()){
                 log.trace("Stream Error",throwable);
             }
             handleException(incomingMetadata, throwable);
+            // hookFinally ends the span, this only marks why it ended
+            span.recordException(throwable);
+            span.setStatus(StatusCode.ERROR);
         }
 
         @Override
-        protected void hookOnNext(Object value) {
-            if(log.isTraceEnabled()){
+        protected void hookOnNext(@NonNull Object value) {
+            if(log.isTraceEnabled() && !traceLogFilter.isExcluded(originCri)){
                 log.trace("Next stream value {}", value);
             }
-            convertAndSend(incomingMetadata, handlerMethod, value);
+            convertAndSend(incomingMetadata, handlerMethod, value, originCri);
         }
 
         @Override
-        protected void hookOnSubscribe(Subscription subscription) {
+        protected void hookOnSubscribe(@NonNull Subscription subscription) {
 
             replyListenerStatusSubscriber = new ReplyListenerStatusSubscriber(this);
             replyListenerStatus.subscribe(replyListenerStatusSubscriber);

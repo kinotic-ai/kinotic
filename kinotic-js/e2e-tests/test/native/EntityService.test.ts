@@ -1,10 +1,12 @@
 import {Direction, Kinotic, KinoticSingleton, Order, Page, Pageable} from '@kinotic-ai/core'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Person} from '../domain/Person.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
     createTestPeopleAndVerify,
     createTestPerson,
@@ -18,8 +20,9 @@ import {
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
+// Fixed id: the app client logs in as app-<APP_ID>-<APP_TENANT>@test.local, an APPLICATION-scoped
+// user that V4__e2e_app_fixtures seeds only for this applicationId.
+const APP_ID = 'e2e-entity-service'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
@@ -27,11 +30,11 @@ interface LocalTestContext {
     entityService: IEntityRepository<Person>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('EntityService Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('EntityService')
         await initKinoticClient()
     }, 300000)
 
@@ -42,7 +45,7 @@ describe('End To End Tests', () => {
     beforeEach<LocalTestContext>(async (context: any) => {
         // Platform metadata (Application, Project, EntityDefinition) is created as the
         // ORGANIZATION user via the default Kinotic singleton.
-        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, generateRandomString(10), generateRandomString(5))
+        context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5))
         expect(context.entityDefinition).toBeDefined()
 
         // Entity data lives under an APPLICATION-scoped user inside the application just

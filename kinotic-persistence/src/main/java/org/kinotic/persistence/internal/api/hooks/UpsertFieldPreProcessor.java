@@ -2,7 +2,6 @@ package org.kinotic.persistence.internal.api.hooks;
 
 import org.kinotic.idl.api.schema.decorators.C3Decorator;
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.EntityDefinition;
 
 /**
  * {@link UpsertFieldPreProcessor} is used to modify the value of a field before it is upserted into the database.
@@ -31,15 +30,13 @@ public interface UpsertFieldPreProcessor<D extends C3Decorator, R, T> {
     /**
      * Process the value of a field before it is upserted into the database.
      *
-     * @param entityDefinition the {@link EntityDefinition} that is being processed
      * @param fieldName the name of the field that is being processed
      * @param decorator the {@link C3Decorator} that is being processed
      * @param value     the value of the field that is being processed
      * @param context   the context for this operation
      * @return the value that should be upserted into the database
      */
-    R process(EntityDefinition entityDefinition,
-              String fieldName,
+    R process(String fieldName,
               D decorator,
               T value,
               EntityContext context);

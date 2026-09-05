@@ -17,14 +17,23 @@ resource "azurerm_key_vault" "platform" {
   tags = local.common_tags
 }
 
-# ── Terraform principal access ────────────────────────────────────────────────
-# Vault uses RBAC, so the terraform caller needs an explicit data-plane role to
+# ── Terraform operator access ─────────────────────────────────────────────────
+# Vault uses RBAC, so whoever runs terraform needs an explicit data-plane role to
 # manage secrets. Without this the apply 403s on the very first secret check.
+# The role is granted to the kinotic-terraform-operators Entra group rather than the
+# calling principal, so applies by different operators do not replace each other's
+# assignment. Membership is managed out-of-band (`az ad group member add ...`).
+
+data "azuread_group" "terraform_operators" {
+  display_name     = "kinotic-terraform-operators"
+  security_enabled = true
+}
 
 resource "azurerm_role_assignment" "platform_kv_tf_secrets_officer" {
   scope                = azurerm_key_vault.platform.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = data.azuread_group.terraform_operators.object_id
+  principal_type       = "Group"
 }
 
 # Wait for RBAC propagation before the provider hits the data plane.
@@ -119,6 +128,26 @@ resource "azurerm_key_vault_secret" "google_client_secret" {
   key_vault_id = azurerm_key_vault.platform.id
   content_type = "OIDC client secret for the Continue-with-Google social provider"
   value        = var.google_client_secret
+
+  tags = local.common_tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [terraform_data.wait_for_kv_rbac]
+}
+
+# GitHub OAuth client secret — the kinotic-ai GitHub App's user-authorization
+# credential (GitHub app registrations aren't terraform-managed). Operator supplies
+# the value via the github_client_secret variable on first apply; rotations happen
+# out-of-band via `az keyvault secret set ...` and lifecycle.ignore_changes prevents
+# terraform from reverting them.
+resource "azurerm_key_vault_secret" "github_client_secret" {
+  name         = "github-platform"
+  key_vault_id = azurerm_key_vault.platform.id
+  content_type = "OAuth client secret for the Continue-with-GitHub social provider"
+  value        = var.github_client_secret
 
   tags = local.common_tags
 

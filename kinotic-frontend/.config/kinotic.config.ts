@@ -1,8 +1,8 @@
-import type { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import type { KinoticProjectConfig } from '@kinotic-ai/management-api'
 
 const config: KinoticProjectConfig = {
-  organization: "kinotic",
-  application: "structures__system",
+  organizationId: "kinotic",
+  applicationId: "structures__system",
   entitiesPaths: [
     "src/domain"
   ],

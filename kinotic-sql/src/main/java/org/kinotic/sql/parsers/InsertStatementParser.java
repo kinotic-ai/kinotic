@@ -15,6 +15,7 @@ import java.util.List;
  */
 @Component
 public class InsertStatementParser implements StatementParser {
+    private final ValueVisitor valueVisitor = new ValueVisitor();
 
     @Override
     public boolean supports(KinoticSQLParser.StatementContext ctx) {
@@ -35,22 +36,26 @@ public class InsertStatementParser implements StatementParser {
         }
 
         // Parse values from valueList
-        insertContext.valueList().value().forEach(value -> {
-            if (value.STRING() != null) {
-                // Remove quotes from string literals
-                values.add(value.STRING().getText().substring(1, value.STRING().getText().length() - 1));
-            } else if (value.INTEGER_LITERAL() != null) {
-                values.add(Integer.parseInt(value.INTEGER_LITERAL().getText()));
-            } else if (value.BOOLEAN_LITERAL() != null) {
-                values.add(Boolean.parseBoolean(value.BOOLEAN_LITERAL().getText()));
-            } else if (value.PARAMETER() != null) {
-                values.add(null); // Parameter will be set later
+        insertContext.valueList().value().forEach(value -> values.add(valueVisitor.visitValue(value)));
+
+        boolean refresh = false;
+        String routing = null;
+        String documentId = null;
+        for (KinoticSQLParser.InsertOptionContext option : insertContext.insertOption()) {
+            if (option.REFRESH() != null) {
+                refresh = true;
+            } else if (option.ROUTING() != null) {
+                routing = unquote(option.STRING().getText());
+            } else {
+                documentId = unquote(option.STRING().getText());
             }
-        });
+        }
 
-        // Check for WITH REFRESH
-        boolean refresh = insertContext.WITH() != null && insertContext.REFRESH() != null;
+        return new InsertStatement(tableName, columns, values, refresh, routing, documentId);
+    }
 
-        return new InsertStatement(tableName, columns, values, refresh);
+    /** Strips the single quotes the STRING token carries. */
+    private static String unquote(String literal) {
+        return literal.substring(1, literal.length() - 1);
     }
 } 

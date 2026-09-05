@@ -4,8 +4,6 @@
 
 Kinotic is a next-generation Operating System for the Cloud. Just as traditional OSs (like Linux or Windows) abstracted away the complexity of hardware, **Kinotic OS abstracts away the complexity of modern cloud-based applications.** We believe that by removing the friction of infrastructure, networking, and deployment, we enable AI to rapidly prototype and build enterprise-grade applications that can operate at internet scale.
 
-
-
 ---
 
 ## 🚀 The Vision
@@ -13,7 +11,7 @@ Kinotic is a next-generation Operating System for the Cloud. Just as traditional
 Modern cloud development is bogged down by "plumbing"—IAM roles, VPCs, CI/CD pipelines, and service meshes. Kinotic OS handles this underlying complexity, allowing developers (and AI agents) to focus on the **vibe**: the core logic, user experience, and business value.
 
 * **Rapid Prototyping:** Move from idea to a scalable Kubernetes deployment in minutes.
-* **Enterprise Ready:** Built-in RBAC, SBOM support, and observability from day one.
+* **Enterprise Ready:** Built-in SBOM support and observability from day one.
 * **Internet Scale:** Designed to handle massive throughput with automated dependency management and Firecracker VM isolation.
 
 ---
@@ -42,11 +40,9 @@ Kinotic organizes work into **Applications** (logical containers) and **Projects
 ### **2. Service Directory**
 A centralized registry providing a source of truth for all services within an application:
 * Function definitions and input schemas.
-* RBAC policies required for access.
 * Metadata for AI-agent discovery and documentation.
 
-### **3. Security & Identity (Powered by Cedar)**
-We use the **Cedar Policy Language** for fine-grained, high-performance authorization across three hierarchies:
+### **3. Security & Identity **
 * **System Level:** For Kinotic OS administrators.
 * **Organization Level:** For development teams.
 * **Application Level:** For end-users and machine-to-machine connections.
@@ -92,11 +88,17 @@ Kinotic OS isn't just a development platform; it is a **SaaS Launchpad**. Develo
 ## 💻 Technical Stack
 
 * **Orchestration:** Kinotic OS / Kubernetes
-* **Policy Engine:** [Cedar](https://www.cedarpolicy.com/)
-* **Runtimes:** Firecracker VM, Bun
-* **Database:** Postgres (Hibernate Reactive)
+* **Runtimes:** Firecracker VM, Boxlite, Bun
 * **Logging:** Grafana Loki
 * **Payments:** Stripe Connect
+
+---
+
+## ✅ Test Reports
+
+Every push to `develop` and `main` runs the Java and `kinotic-js/e2e-tests` suites and publishes an [Allure](https://allurereport.org/) report with full trend history:
+
+* **Latest report:** [kinotic.ai/test-results](https://kinotic.ai/test-results/)
 
 ---
 

@@ -1,7 +1,6 @@
 package org.kinotic.persistence.internal.api.hooks.impl;
 
 import org.kinotic.persistence.api.model.EntityContext;
-import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.api.model.idl.decorators.VersionDecorator;
 import org.kinotic.persistence.internal.api.hooks.UpsertFieldPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.UpsertPreProcessor;
@@ -25,7 +24,7 @@ public class VersionUpsertFieldPreProcessor implements UpsertFieldPreProcessor<V
     }
 
     @Override
-    public String process(EntityDefinition entityDefinition, String fieldName, VersionDecorator decorator, String fieldValue, EntityContext context) {
+    public String process(String fieldName, VersionDecorator decorator, String fieldValue, EntityContext context) {
         return fieldValue;
     }
 }

@@ -7,43 +7,353 @@ on:
       - main
     paths-ignore:
       - 'helm/**'
+      - 'deployment/**'
       - 'docker-compose/**'
-      - 'kinotic-js/**'
-      - 'webdocs/**' 
+      - 'docs/**'
+      - 'kinotic-js/boxlite-test/**'
+      - 'kinotic-js/firecracker-vmm-manager/**'
+      - 'kinotic-js/kinotic-cli/**'
+      - 'kinotic-js/load-generator/**'
       - 'website/**'
+  # Nightly full run. This is what refreshes the 5.0.0-SNAPSHOT jars on Sonatype: the publish job
+  # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
 
+# Supersedes the previous styfle/cancel-workflow-action step: native concurrency cancels the older
+# run before its runners are allocated rather than after they have started billing.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAVA_VERSION: '25'
+
+# Application images are staged on ghcr.io under sha-<commit> and promoted to Docker Hub by the
+# results job only after every suite passes, so the tags outside CI consume are never advanced to an
+# unvalidated build. Nothing reads the staged tags except this workflow; ghcr-cleanup.yml prunes
+# them once they are past the window in which a run's jobs might still be re-run.
 jobs:
-  gradle_build_and_publish:
-    name: Build and Publish
+  # Only the jar and the image — kinotic-migration's tests run in the `build` job with every other
+  # module's. Kept separate from `build` because nothing here depends on the main build, so this
+  # runs concurrently with it and the staged image is ready when the test jobs need it.
+  migration_image:
+    name: Migration Image
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: Cancel Previous Runs
-        uses: styfle/cancel-workflow-action@0.12.1
-
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: 'zulu'
-          java-version: 25
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build migration image
+        run: ./gradlew :kinotic-migration:bootBuildImage
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage migration image on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          staged="ghcr.io/${{ github.repository_owner }}/kinotic-migration:sha-${{ github.sha }}"
+          docker tag "kinoticai/kinotic-migration:${version}" "$staged"
+          docker push "$staged"
+
+  # Compiles everything, runs every module's unit tests, and stages the server image. Excludes
+  # :kinotic-test:test, which needs Elasticsearch + the migration image and runs in its own job.
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # :kinotic-test:testClasses is requested explicitly: excluding :kinotic-test:test also drops
+      # its compilation, and building it here puts the result in the Gradle build cache that the
+      # kinotic_test job restores, keeping that compile off the slowest branch.
+      - name: Build with Gradle
+        run: ./gradlew build :kinotic-test:testClasses -x :kinotic-test:test
+
+      # Ahead of the Maven staging below: js_workspace_tests and e2e_tests block on this whole job,
+      # so anything they do not need belongs after the image they do.
+      - name: Build server image
+        run: ./gradlew :kinotic-server:bootBuildImage
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage server image on ghcr.io
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          staged="ghcr.io/${{ github.repository_owner }}/kinotic-server:sha-${{ github.sha }}"
+          docker tag "kinoticai/kinotic-server:${version}" "$staged"
+          docker push "$staged"
+
+      # Staged here rather than in the publish job so that job needs only the artifacts, not a
+      # second compile of the whole tree. jreleaserDeploy has no task dependency on publish.
+      # Guarded by the same expression as the publish job below — keep the two in step.
+      - name: Stage Maven artifacts
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        run: ./gradlew publish
+
+      - name: Upload staged Maven artifacts
+        if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-deploy
+          path: '*/build/staging-deploy/**'
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Collect Allure results
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/collect-allure
+        with:
+          name: build
+
+  # Elasticsearch + the migration image via compose.kinotic-test.yml. Needs migration_image but not
+  # the server image, so it starts as soon as the compiled classes and that image are ready.
+  kinotic_test:
+    name: Kinotic Integration Tests
+    needs: [build, migration_image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Bundled Compose fails on the compose files' include: + overrides; install a current one
+      # before the testcontainers suite below.
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
+
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-migration
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The elasticsearch image is ~1GB and the pull is otherwise paid inside the test task, after
+      # Gradle has finished. Backgrounding it here overlaps the pull with Gradle's configuration and
+      # compile phases; ComposeContainer.start() then finds the image already local. Concurrent
+      # pulls of the same ref are deduplicated by the daemon, so a still-running pull is safe.
+      - name: Run kinotic-test integration tests
+        run: |
+          docker compose -f deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
+          ./gradlew :kinotic-test:test
+
+      - name: Collect Allure results
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/collect-allure
+        with:
+          name: kinotic-test
+
+  # USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the server image via testcontainers;
+  # the other suites ignore it.
+  js_workspace_tests:
+    name: JS Workspace Tests
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('kinotic-js/workspace/bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
+
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-server
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # After this step the runner user can open /dev/kvm and create unprivileged user namespaces —
+      # everything boxlite needs to boot micro VMs — so the VM test suites run for real instead of
+      # skipping. The final check fails the job if KVM is unusable rather than letting the VM tests
+      # silently skip.
+      - name: Enable KVM and user namespaces for boxlite
+        run: |
+          ls -l /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm -a -w /dev/kvm
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Run JS workspace tests
+        env:
+          USE_GATEWAY_DOCKER: "true"
+        run: |
+          cd kinotic-js/workspace
+          bun install --frozen-lockfile
+          # Cross-package imports resolve to each package's dist/, which bunup builds
+          bun run build
+          bun run --filter '*' test
+
+      - name: Collect Allure results
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/collect-allure
+        with:
+          name: js-workspace
+
+  # compose.kinotic-e2e-test.yml brings up Elasticsearch + migration + the server image.
+  e2e_tests:
+    name: E2E Tests
+    needs: [build, migration_image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # kinotic-js/e2e-tests is a standalone Gradle build whose node-gradle plugin unpacks Node and
+      # pnpm under the project's own .gradle dir — outside the Gradle User Home that setup-gradle
+      # caches, so without this they are re-downloaded on every run.
+      - name: Cache Node and pnpm toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            kinotic-js/e2e-tests/.gradle/nodejs
+            kinotic-js/e2e-tests/.gradle/pnpm
+          key: e2e-node-${{ runner.os }}-${{ hashFiles('kinotic-js/e2e-tests/build.gradle') }}
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/pnpm/store
+          key: e2e-pnpm-${{ runner.os }}-${{ hashFiles('kinotic-js/e2e-tests/pnpm-lock.yaml') }}
+          restore-keys: e2e-pnpm-${{ runner.os }}-
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v2
+        with:
+          version: v5.1.4
+
+      - name: Load staged images
+        uses: ./.github/actions/load-staged-images
+        with:
+          images: kinotic-migration kinotic-server
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable KVM and user namespaces for boxlite
+        run: |
+          ls -l /dev/kvm
+          sudo chmod 0666 /dev/kvm
+          test -r /dev/kvm -a -w /dev/kvm
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Run E2E tests
+        run: |
+          cd kinotic-js/e2e-tests
+          docker compose -f ../../deployment/docker-compose/compose.elasticsearch.yml pull --quiet &
+          gradle pnpmInstall
+          gradle pnpmTest
+
+      - name: Collect Allure results
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/collect-allure
+        with:
+          name: e2e
+
+  # All library jars publish here in one pass (apps publish images, not jars). Gated to main and the
+  # nightly schedule: the ~3.5 min of per-file uploads to Sonatype gates nothing else in this
+  # pipeline, and no develop push consumes the snapshot it produces. The same expression guards the
+  # staging steps in the build job that produce this job's input — keep the two in step.
+  publish:
+    name: Publish to Maven Central
+    needs: build
+    if: ${{ github.ref == 'refs/heads/main' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'zulu'
+          java-version: ${{ env.JAVA_VERSION }}
           gpg-private-key: ${{ secrets.GPG_KEY_NEW }}
           gpg-passphrase: ${{ secrets.GPG_KEY_PASS_NEW }}
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
-      - name: Build with Gradle
-        id: gradle_build
-        continue-on-error: true
-#        env:
-#          TESTCONTAINERS_RYUK_DISABLED: true
-        run: ./gradlew build -x test
+      - name: Download staged Maven artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: staging-deploy
 
-      - name: Publish to Maven Central with JReleaser
-        if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew publish && ./gradlew jreleaserDeploy --info
+      - name: Deploy with JReleaser
+        run: ./gradlew jreleaserDeploy
         env:
           JRELEASER_MAVENCENTRAL_USERNAME: ${{ secrets.MAVEN_TOKEN_USERNAME }}
           JRELEASER_MAVENCENTRAL_TOKEN: ${{ secrets.MAVEN_TOKEN_PASSWORD }}
@@ -52,74 +362,70 @@ jobs:
           JRELEASER_GPG_SECRET_KEY: ${{ secrets.GPG_KEY_NEW }}
           JRELEASER_GPG_PASSPHRASE: ${{ secrets.GPG_KEY_PASS_NEW }}
 
-      - name: Publish to Docker Hub
-        if: ${{ steps.gradle_build.outcome == 'success' }}
-        run: ./gradlew bootBuildImage --publishImage
-        env:
-          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+  # Promotes the staged images and is the single required check for branch protection. Both live
+  # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
+  results:
+    name: Build Result
+    needs: [migration_image, build, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    env:
+      # Both registry logins and the promotion itself gate on this, so it is expressed once here
+      # rather than repeated on three steps. Deliberately independent of the publish job: a Sonatype
+      # outage should not hold back an image every suite has already validated. The ref guard keeps a
+      # workflow_dispatch run on some other branch from advancing the published tag to a build off
+      # that branch.
+      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
 
-#      - name: Run E2E Tests
-#        id: run_e2e_tests
-#        continue-on-error: true
-#        run: |
-#          cd structures-js/structures-e2e
-#          gradle pnpmInstall
-#          gradle pnpmTest
-#
-#      - name: Merge Test Results
-#        run: |
-#          mkdir -p allure-results
-#          cp -r */build/allure-results/* allure-results/ || true
-#          cp -r structures-js/*/allure-results/* allure-results/ || true
-#
-#      - name: Get Allure history
-#        uses: actions/checkout@v4
-#        continue-on-error: true
-#        with:
-#          ref: gh-pages
-#          path: gh-pages
-#
-#      - name: Generate Allure report
-#        uses: simple-elf/allure-report-action@v1.13
-#        id: allure-report
-#        with:
-#          allure_results: allure-results
-#          gh_pages: gh-pages
-#          subfolder: allure
-#          allure_report: allure-report
-#          allure_history: allure-history
-#
-#      - name: Deploy report to Github Pages
-#        uses: peaceiris/actions-gh-pages@v4
-#        with:
-#          github_token: ${{ secrets.GITHUB_TOKEN }}
-#          publish_dir: allure-history
-#          publish_branch: gh-pages
-#          keep_files: true
-#
-#      - name: Add status to Commit
-#        uses: guibranco/github-status-action-v2@v1.1.13
-#        with:
-#          authToken: ${{ secrets.GITHUB_TOKEN }}
-#          context: 'Test Report'
-#          description: 'Passed'
-#          state: 'success'
-#          sha: ${{ github.sha }}
-#          target_url: https://kinotic-ai.github.io/kinotic/allure/${{ github.run_number }}
-#
-#      - name: Check If Failure
-#        if: ${{ steps.gradle_build.outcome == 'failure' || steps.run_e2e_tests.outcome == 'failure' }}
-#        run: |
-#          if [ "${{ steps.gradle_build.outcome }}" == "failure" ]; then
-#            echo "Gradle Build failed."
-#          fi
-#
-#          if [ "${{ steps.run_e2e_tests.outcome }}" == "failure" ]; then
-#            echo "E2E Tests failed."
-#          fi
-#
-#          # Optionally mark the job as failed
-#          exit 1
-#
-#          https://kinoitc-ai.github.io/kinotic/webdocs/guide/overview.html
+      - name: Log in to GitHub Container Registry
+        if: ${{ env.PROMOTE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        if: ${{ env.PROMOTE == 'true' }}
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+
+      - name: Promote validated images to Docker Hub
+        if: ${{ env.PROMOTE == 'true' }}
+        run: |
+          version=$(grep -E '^kinoticVersion=' gradle.properties | cut -d= -f2)
+          for image in kinotic-migration kinotic-server; do
+            staged="ghcr.io/${{ github.repository_owner }}/${image}:sha-${{ github.sha }}"
+            docker pull "$staged"
+            docker tag "$staged" "kinoticai/${image}:${version}"
+            docker push "kinoticai/${image}:${version}"
+          done
+
+      # `skipped` is a pass: the publish job is skipped on every develop push by design.
+      - name: Fail if any job failed
+        run: |
+          failed=false
+          check() {
+            case "$2" in
+              success|skipped) ;;
+              *) echo "::error::$1: $2" ; failed=true ;;
+            esac
+          }
+          check "Migration image" "${{ needs.migration_image.result }}"
+          check "Build" "${{ needs.build.result }}"
+          check "Kinotic integration tests" "${{ needs.kinotic_test.result }}"
+          check "JS workspace tests" "${{ needs.js_workspace_tests.result }}"
+          check "E2E tests" "${{ needs.e2e_tests.result }}"
+          check "Publish to Maven Central" "${{ needs.publish.result }}"
+          if [ "$failed" = true ]; then
+            exit 1
+          fi
+          echo "All jobs passed."

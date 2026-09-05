@@ -3,3 +3,20 @@ allowBuilds:
   esbuild: true
   protobufjs: false
   ssh2: false
+# Transitive advisories with no direct dependency to bump. Keyed per major so each
+# consumer keeps the API it was built against.
+overrides:
+  brace-expansion@1: '^1.1.16'
+  brace-expansion@2: '^2.1.2'
+  brace-expansion@5: '^5.0.7'
+  protobufjs@7: '^7.5.5'
+minimumReleaseAge: 1440 # minutes; third-party releases younger than 24h are rejected
+# First-party packages are trusted at any version, so a freshly published release
+# never blocks the build.
+minimumReleaseAgeExclude:
+  - '@kinotic-ai/core'
+  - '@kinotic-ai/idl'
+  - '@kinotic-ai/kinotic-cli'
+  - '@kinotic-ai/os-api'
+  - '@kinotic-ai/persistence'
+  - '@kinotic-ai/spawn'

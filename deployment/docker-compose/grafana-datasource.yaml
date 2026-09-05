@@ -7,16 +7,19 @@ datasources:
     access: proxy
     isDefault: false
     jsonData:
+      # Loki runs multi-tenant; browse the system tenant by default. Multi-tenant
+      # queries accept pipe-separated ids (e.g. "acme|kinotic-system").
+      httpHeaderName1: X-Scope-OrgID
       derivedFields:
-        - datasourceUid: Tempo
-          matcherRegex: "trace_id=(\\w+)"
-          name: TraceID
+        # OTLP log records carry the trace context as structured metadata, not in the log
+        # line, so this matches the trace_id key rather than the body text.
+        - name: TraceID
+          datasourceUid: Tempo
+          matcherType: label
+          matcherRegex: trace_id
           url: "$${__value.raw}"
-    fields:
-      - name: trace_id
-        matcherRegex: "trace_id=([\\w]+)"
-      - name: span_id
-        matcherRegex: "span_id=([\\w]+)"
+    secureJsonData:
+      httpHeaderValue1: kinotic-system
   - name: Mimir
     type: prometheus
     uid: Mimir
@@ -25,10 +28,18 @@ datasources:
     isDefault: true
     jsonData:
       httpMethod: POST
+      prometheusType: Mimir
+      # Mimir runs multi-tenant; browse the platform tenant by default, like Loki
+      httpHeaderName1: X-Scope-OrgID
+      # Matches OTEL_METRIC_EXPORT_INTERVAL on the server, so $__rate_interval resolves to a
+      # window that actually contains samples.
+      timeInterval: "15s"
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: Tempo
           urlDisplayLabel: "View Trace"
+    secureJsonData:
+      httpHeaderValue1: kinotic-system
   - name: Tempo
     type: tempo
     uid: Tempo
@@ -41,22 +52,24 @@ datasources:
         datasourceUid: Mimir
       nodeGraph:
         enabled: true
-      search:
-        hide: false
-      tracesToLogs:
+      tracesToLogsV2:
         datasourceUid: Loki
-        tags: ["job", "instance", "pod", "namespace", "service.name"]
-        mappedTags: [{ key: "service.name", value: "service_name" }]
-        mapTagNamesEnabled: true
-        spanStartTimeShift: "1h"
+        # Widen the log window around the span on both sides — a start shift has to be
+        # negative to search backwards.
+        spanStartTimeShift: "-1h"
         spanEndTimeShift: "1h"
-        filterByTraceID: false
-        filterBySpanID: false
+        filterByTraceID: true
+        tags: [{ key: "service.name", value: "service_name" }]
       tracesToMetrics:
         datasourceUid: Mimir
-        tags: [{ key: "service.name", value: "service_name" }, { key: "job" }]
+        # service.name is the `service` label on the metrics-generator's span metrics.
+        tags: [{ key: "service.name", value: "service" }]
         queries:
-          - name: "Sample query"
-            query: "sum(rate(tempo_spanmetrics_latency_bucket{$$__tags}[5m]))"
-      lokiSearch:
-        datasourceUid: Loki
+          - name: "Request rate"
+            query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))"
+          - name: "p95 latency"
+            query: "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags}[$$__rate_interval])))"
+      # Tempo runs multi-tenant; browse the platform tenant by default, like Loki
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: kinotic-system

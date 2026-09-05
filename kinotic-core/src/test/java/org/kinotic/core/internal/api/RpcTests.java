@@ -5,10 +5,13 @@ package org.kinotic.core.internal.api;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.eventbus.MessageConsumer;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.exceptions.RpcInvocationException;
 import org.kinotic.core.api.exceptions.RpcMissingMethodException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
@@ -25,6 +28,7 @@ import reactor.util.function.Tuple2;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -120,12 +124,65 @@ public class RpcTests {
     }
 
     @Test
+    public void testObjectMethodsAreAnsweredWithoutRemoteInvocation(){
+        Assertions.assertTrue(rpcTestServiceProxy.toString().contains("RpcTestService"));
+
+        Assertions.assertEquals(rpcTestServiceProxy, rpcTestServiceProxy);
+        Assertions.assertNotEquals(rpcTestServiceProxy, nonExistentServiceProxy);
+
+        // exercises hashCode and equals together, and would hang or throw if either went to the remote end
+        Assertions.assertTrue(Set.of(rpcTestServiceProxy, nonExistentServiceProxy).contains(rpcTestServiceProxy));
+    }
+
+    @Test
     public void testFirstArgParticipant(){
         String suffix = " Wat";
         Mono<String> mono = withParticipant(() -> rpcTestServiceProxy.firstArgParticipant(suffix));
 
         StepVerifier.create(mono)
                     .expectNext(PARTICIPANT_ID + suffix)
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetBuffer(){
+        Mono<Buffer> mono = rpcTestServiceProxy.getBuffer();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(buffer -> Arrays.equals(buffer.getBytes(), RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetMonoByteArray(){
+        Mono<byte[]> mono = rpcTestServiceProxy.getMonoByteArray();
+
+        StepVerifier.create(mono)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_VALUE))
+                    .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testGetByteArrayFlux(){
+        Flux<byte[]> flux = rpcTestServiceProxy.getByteArrayFlux();
+
+        StepVerifier.create(flux)
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[0]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[1]))
+                    .expectNextMatches(bytes -> Arrays.equals(bytes, RpcTestService.BINARY_CHUNKS[2]))
                     .expectComplete()
                     .verify();
     }
@@ -141,6 +198,32 @@ public class RpcTests {
                     .expectNextMatches(s -> s.startsWith("Hello Sucka"))
                     .thenCancel()
                     .verify();
+    }
+
+    /**
+     * A streaming result monitors its reply listener so it can be terminated when the listener goes
+     * away. Registration changes on other addresses must not affect the stream.
+     */
+    @Test
+    public void testInfiniteFluxSurvivesUnrelatedConsumerChurn(){
+        Flux<String> flux = rpcTestServiceProxy.getInfiniteFlux();
+
+        StepVerifier.create(flux)
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .then(() -> {
+                        try {
+                            MessageConsumer<Object> unrelated =
+                                    vertx.eventBus().consumer("some.completely.unrelated.address", msg -> {});
+                            unrelated.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+                            unrelated.unregister().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .expectNextMatches(s -> s.startsWith("Hello Sucka"))
+                    .thenCancel()
+                    .verify(Duration.ofSeconds(15));
     }
 
     @Test
@@ -175,6 +258,17 @@ public class RpcTests {
         StepVerifier.create(mono)
                     .expectNext(prefix + PARTICIPANT_ID + suffix)
                     .expectComplete()
+                    .verify();
+    }
+
+    @Test
+    public void testNarrowParticipantRejectsWiderCaller(){
+        // the bound participant is a plain Participant, so it is not the NarrowParticipant the
+        // service declares
+        Mono<String> mono = withParticipant(rpcTestServiceProxy::narrowParticipant);
+
+        StepVerifier.create(mono)
+                    .expectErrorMatches(throwable -> throwable instanceof AuthorizationException)
                     .verify();
     }
 

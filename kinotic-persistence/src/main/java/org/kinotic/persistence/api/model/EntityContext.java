@@ -1,6 +1,6 @@
 package org.kinotic.persistence.api.model;
 
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 
 import java.util.List;
 
@@ -25,13 +25,48 @@ public interface EntityContext {
     boolean hasIncludedFieldsFilter();
 
     /**
-     * The {@link ApplicationParticipant} performing the operation. Entity data is always
-     * application-scoped end-user data, so an entity operation is always carried out by an
-     * Application participant.
+     * The id of the Organization that owns the data this operation reads or writes. Every
+     * {@link EntityDefinition} belongs to one Organization, so this is never null.
      *
-     * @return the {@link ApplicationParticipant} that is performing the operation
+     * @return the id of the Organization this operation is carried out within
      */
-    ApplicationParticipant getParticipant();
+    String getOrganizationId();
+
+    /**
+     * The {@link ScopedParticipant} performing the operation. An Application's end users reach
+     * entity data as Application participants, and the console reaches it as an Organization
+     * participant, so both scopes appear here.
+     *
+     * @return the {@link ScopedParticipant} that is performing the operation
+     */
+    ScopedParticipant getParticipant();
+
+    /**
+     * The tenant slice of an Application's end-user data this operation is confined to, or null
+     * when the participant carries no tenant. An {@link EntityDefinition} whose
+     * {@link org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType} is
+     * {@code SHARED} requires one.
+     *
+     * @return the tenant this operation is confined to, or null
+     */
+    String getTenantId();
+
+    /**
+     * The tenant this operation is confined to, for an operation that cannot be carried out
+     * without one — every read and write of an {@link EntityDefinition} whose
+     * {@link org.kinotic.persistence.api.model.idl.decorators.MultiTenancyType} is
+     * {@code SHARED}.
+     *
+     * @return the tenant this operation is confined to; never null
+     * @throws IllegalStateException if the participant carries no tenant
+     */
+    default String requireTenantId() {
+        String tenantId = getTenantId();
+        if (tenantId == null) {
+            throw new IllegalStateException("This operation requires a Participant with a TenantId");
+        }
+        return tenantId;
+    }
 
     /**
      * Checks if a tenant selection is provided for the current operation
@@ -42,7 +77,7 @@ public interface EntityContext {
 
     /**
      * Gets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @return the lists of tenants that data is being requested for
      */
@@ -50,7 +85,7 @@ public interface EntityContext {
 
     /**
      * Sets the tenant selection for the current operation
-     * NOTE: This should only be set if {@link EntityDefinition#isMultiTenantSelectionEnabled()} is true
+     * NOTE: This should only be set if multi-tenant selection is enabled for the {@link EntityDefinition}
      *
      * @param tenantSelection the lists of tenants that data is being requested for
      */

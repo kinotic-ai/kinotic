@@ -68,10 +68,16 @@ Example boot_args from `config-overlay-example.json`:
 console=ttyS0 reboot=k panic=1 pci=off overlay_root=vdb data_root=vdc data_mount=/data init=/sbin/overlay-init.sh ip=172.16.0.2::172.16.0.1:255.255.255.252::eth0:off loglevel=7 earlyprintk=serial
 ```
 
-    
-```
+### Running the VM
 
-This expects a `config.json` in the parent directory. You can copy `config-overlay-example.json` as a starting point.
+`config-overlay-example.json` is a complete Firecracker config whose `path_on_host` entries
+are relative to this directory, so run Firecracker from here:
+
+```bash
+cp config-overlay-example.json config.json   # then edit the network/machine config to taste
+sudo ip tuntap add tap0 mode tap && sudo ip link set tap0 up   # see NET.md for the bridge
+firecracker --no-api --config-file config.json
+```
 
 ### Accessing the VM
 
@@ -92,7 +98,7 @@ sudo mount build/alpine-data.ext4 /tmp/data-mount
 sudo umount /tmp/data-mount
 ```
 
-When the VM boots, it will see your changes commit`/data`.
+When the VM boots, it will see your changes under `/data`.
 
 ## Notes
 

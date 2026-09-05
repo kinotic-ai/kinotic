@@ -4,8 +4,8 @@ package org.kinotic.idl.internal.directory.jdk;
 
 import org.kinotic.idl.api.schema.ArrayC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.internal.directory.ConversionContext;
-import org.kinotic.idl.internal.directory.GenericTypeConverter;
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
@@ -32,7 +32,9 @@ public class IterableTypeConverter implements GenericTypeConverter {
                           ConversionContext conversionContext) {
         ArrayC3Type ret = new ArrayC3Type();
 
-        ResolvableType genericType = resolvableType.getGeneric(0);
+        // the element type off the Iterable view, not the declared type: a class implementing Iterable<T>
+        // declares no generic of its own, so asking it directly yields NONE and a headless ArrayC3Type
+        ResolvableType genericType = resolvableType.as(Iterable.class).getGeneric(0);
 
         if(!genericType.equals(ResolvableType.NONE)){
             C3Type containsC3Type = conversionContext.convert(genericType);

@@ -1,40 +1,36 @@
-
-
-
 package org.kinotic.core.internal.api;
 
-import java.util.concurrent.ConcurrentHashMap;
-
+import io.opentelemetry.api.OpenTelemetry;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
+import io.vertx.core.Vertx;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
-import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
+import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
-import org.kinotic.core.api.service.ServiceFunctionInstanceProvider;
+import org.kinotic.core.api.service.FunctionInstanceProvider;
 import org.kinotic.core.api.service.ServiceIdentifier;
-import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
+import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
 import org.kinotic.core.internal.api.service.invoker.ReturnValueConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ServiceInvocationSupervisor;
 import org.kinotic.core.internal.api.service.rpc.DefaultRpcServiceProxyHandle;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
-import org.kinotic.core.internal.utils.KinoticUtil;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.MetaUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 
-import io.opentelemetry.api.OpenTelemetry;
-import io.vertx.core.Future;
-import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
-import tools.jackson.databind.json.JsonMapper;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  *
@@ -65,26 +61,26 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     @Autowired
     private Vertx vertx; //TODO: move thread scheduling and execution functionality into Continuum API such as Scheduling Service ect..
     @Autowired
+    private SecurityContext securityContext;
+    @Autowired
     private OpenTelemetry openTelemetry;
     @Autowired
-    private JsonMapper jsonMapper;
-    @Autowired
-    private SecurityContext securityContext;
+    private TraceLogFilter traceLogFilter;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
         try {
-            return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), ServiceFunctionInstanceProvider.create(instance));
+            return register(ServiceDescriptor.create(serviceIdentifier, serviceInterface), FunctionInstanceProvider.create(instance));
         } catch (Exception e) {
             return Future.failedFuture(e);
         }
     }
 
     @Override
-    public Future<Void> register(ServiceDescriptor serviceDescriptor, ServiceFunctionInstanceProvider instanceProvider) {
+    public Future<Void> register(ServiceDescriptor serviceDescriptor, FunctionInstanceProvider instanceProvider) {
         Promise<Void> promise = Promise.promise();
         supervisors.compute(serviceDescriptor.serviceIdentifier(),
-                            (serviceIdentifier, serviceInvocationSupervisor) -> {
+                            (_, serviceInvocationSupervisor) -> {
                                 if(serviceInvocationSupervisor == null){
                                     try {
                                         serviceInvocationSupervisor = new ServiceInvocationSupervisor(
@@ -96,9 +92,9 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                 eventBusService,
                                                 reactiveAdapterRegistry,
                                                 vertx,
+                                                securityContext,
                                                 openTelemetry,
-                                                jsonMapper,
-                                                securityContext);
+                                                traceLogFilter);
 
                                         serviceInvocationSupervisor
                                                 .start()
@@ -131,7 +127,10 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  vertx,
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry,
+                                                  traceLogFilter);
     }
 
     @Override
@@ -146,7 +145,10 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
-                                                  Thread.currentThread().getContextClassLoader());
+                                                  vertx,
+                                                  Thread.currentThread().getContextClassLoader(),
+                                                  openTelemetry,
+                                                  traceLogFilter);
     }
 
     @Override
@@ -158,7 +160,11 @@ public class DefaultServiceRegistry implements ServiceRegistry {
         String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
         String version = MetaUtil.getVersion(serviceInterface);
 
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(namespace,
+        // A proxy targets one address; with no declaration it targets the un-zoned address
+        String zone = MetaUtil.getZone(serviceInterface);
+
+        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
+                                                                    namespace,
                                                                     name,
                                                                     null,
                                                                     version);

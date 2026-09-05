@@ -1,19 +1,16 @@
 import {Kinotic} from '@kinotic-ai/core'
-import { Project, IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/os-api'
+import { Project, IMigrationService, MigrationDefinition, MigrationRequest } from '@kinotic-ai/management-api'
 import { ProjectMigrationService } from '@kinotic-ai/kinotic-cli/dist/internal/ProjectMigrationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
 import * as allure from 'allure-js-commons'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { WebSocket } from 'ws'
 import { writeFile, mkdir, rm } from 'fs/promises'
 import { join } from 'path'
-import { 
+import {
     generateRandomString,
     initKinoticClient,
     shutdownKinoticClient
 } from '../TestHelpers.js'
-
-Object.assign(global, { WebSocket })
 
 interface LocalTestContext {
     project: Project
@@ -23,11 +20,11 @@ interface LocalTestContext {
     applicationId: string
 }
 
-describe('Migration Service End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Migration Service Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('MigrationService')
         await initKinoticClient()
     }, 300000)
 
@@ -36,8 +33,9 @@ describe('Migration Service End To End Tests', () => {
     }, 60000)
 
     beforeEach<LocalTestContext>(async (context) => {
-        // Create application and project
-        context.applicationId = generateRandomString(10)
+        // Create application and project; lowercased so the id the server stores after
+        // normalization matches every later reference
+        context.applicationId = generateRandomString(10).toLowerCase()
         await Kinotic.applications.createApplicationIfNotExist(context.applicationId, 'Test Application')
         
         const project = new Project(null, context.applicationId, generateRandomString(5), 'Test Project')

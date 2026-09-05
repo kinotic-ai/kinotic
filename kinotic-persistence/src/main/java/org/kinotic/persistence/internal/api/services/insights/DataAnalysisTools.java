@@ -1,7 +1,8 @@
 package org.kinotic.persistence.internal.api.services.insights;
 
+import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.security.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
@@ -12,7 +13,6 @@ import reactor.core.publisher.FluxSink;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 /**
@@ -25,10 +25,10 @@ import java.util.stream.Collectors;
 public class DataAnalysisTools {
 
     private final EntitiesService entitiesService;
-    private final ApplicationParticipant participant;
+    private final ScopedParticipant participant;
     private final FluxSink<InsightProgress> progressSink;
     
-    public DataAnalysisTools(EntitiesService entitiesService, ApplicationParticipant participant, FluxSink<InsightProgress> progressSink) {
+    public DataAnalysisTools(EntitiesService entitiesService, ScopedParticipant participant, FluxSink<InsightProgress> progressSink) {
         this.entitiesService = entitiesService;
         this.participant = participant;
         this.progressSink = progressSink;
@@ -61,8 +61,8 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             
             Pageable pageable = Pageable.ofSize(limitedSampleSize);
-            CompletableFuture<Page<Map>> future = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
-            Page<Map> dataPage = future.join(); // Blocking wait - not ideal but needed for tool interface
+            Future<Page<Map>> future = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            Page<Map> dataPage = future.toCompletionStage().toCompletableFuture().join(); // Blocking wait - not ideal but needed for tool interface
             
             if (dataPage.getContent().isEmpty()) {
                 return String.format("No data found in EntityDefinition: %s", entityDefinitionId);
@@ -111,8 +111,8 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             
             // Get total count
-            CompletableFuture<Long> countFuture = entitiesService.count(entityDefinitionId, context);
-            long totalCount = countFuture.join();
+            Future<Long> countFuture = entitiesService.count(entityDefinitionId, context);
+            long totalCount = countFuture.toCompletionStage().toCompletableFuture().join();
             
             if (totalCount == 0) {
                 return String.format("EntityDefinition '%s' contains no data.", entityDefinitionId);
@@ -120,8 +120,8 @@ public class DataAnalysisTools {
             
             // Get sample for field analysis
             Pageable pageable = Pageable.ofSize(Math.min(100, (int) totalCount));
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
-            Page<Map> sampleData = dataFuture.join();
+            Future<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            Page<Map> sampleData = dataFuture.toCompletionStage().toCompletableFuture().join();
             
             StringBuilder result = new StringBuilder();
             result.append(String.format("Data Statistics for EntityDefinition '%s':\n\n", entityDefinitionId));
@@ -159,8 +159,8 @@ public class DataAnalysisTools {
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(limitedSize);
             
-            CompletableFuture<Page<Map>> searchFuture = entitiesService.search(entityDefinitionId, searchQuery, pageable, Map.class, context);
-            Page<Map> searchResults = searchFuture.join();
+            Future<Page<Map>> searchFuture = entitiesService.search(entityDefinitionId, searchQuery, pageable, Map.class, context);
+            Page<Map> searchResults = searchFuture.toCompletionStage().toCompletableFuture().join();
             
             StringBuilder result = new StringBuilder();
             result.append(String.format("Search Results for '%s' in EntityDefinition '%s':\n\n", searchQuery, entityDefinitionId));
@@ -205,8 +205,8 @@ public class DataAnalysisTools {
             // Get sample data to analyze the field
             EntityContext context = createEntityContext();
             Pageable pageable = Pageable.ofSize(100);
-            CompletableFuture<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
-            Page<Map> sampleData = dataFuture.join();
+            Future<Page<Map>> dataFuture = entitiesService.findAll(entityDefinitionId, pageable, Map.class, context);
+            Page<Map> sampleData = dataFuture.toCompletionStage().toCompletableFuture().join();
             
             if (sampleData.getContent().isEmpty()) {
                 return String.format("No data available to analyze field '%s' in EntityDefinition '%s'", fieldName, entityDefinitionId);

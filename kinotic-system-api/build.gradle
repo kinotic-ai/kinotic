@@ -1,0 +1,46 @@
+plugins {
+    id 'org.kinotic.java-library-conventions'
+}
+
+
+dependencies {
+    implementation project(':kinotic-core')
+    implementation project(':kinotic-domain')
+    implementation project(':kinotic-grind')
+    implementation project(':kinotic-management-api')
+
+    implementation 'io.projectreactor:reactor-core'
+
+    implementation 'com.azure:azure-identity'
+    implementation 'com.azure:azure-storage-blob'
+    implementation 'com.azure.resourcemanager:azure-resourcemanager-cdn'
+    implementation 'com.azure.resourcemanager:azure-resourcemanager-dns'
+    implementation 'com.azure.resourcemanager:azure-resourcemanager-network'
+    implementation 'com.azure.resourcemanager:azure-resourcemanager-storage'
+
+    implementation 'io.vertx:vertx-core'
+    implementation 'io.vertx:vertx-web-client'
+
+    implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
+
+    implementation 'org.apache.ignite:ignite-core'
+
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'tools.jackson.core:jackson-databind'
+}
+
+// A developer's .env.local (written by deployment/terraform/azure/dev) carries the service
+// principal AzureProvisioningIntegrationTest runs as; without it the test skips itself
+tasks.named('test') {
+    def envLocal = rootProject.file('.env.local')
+    if (envLocal.exists()) {
+        envLocal.readLines().findAll { it ==~ /^[A-Z_][A-Z0-9_]*=.*/ }.each { line ->
+            def (key, value) = line.split('=', 2)
+            environment key, value
+        }
+    }
+}

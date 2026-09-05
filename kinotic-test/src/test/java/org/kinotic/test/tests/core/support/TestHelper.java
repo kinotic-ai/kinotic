@@ -1,15 +1,17 @@
 package org.kinotic.test.tests.core.support;
 
 import io.vertx.core.Context;
+import io.vertx.core.Future;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.persistence.api.model.EntityContext;
 import org.kinotic.persistence.api.model.EntityDefinition;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
 import org.kinotic.persistence.internal.api.model.DefaultEntityContext;
-import org.kinotic.persistence.internal.sample.Car;
-import org.kinotic.persistence.internal.sample.Person;
-import org.kinotic.persistence.internal.sample.TestDataService;
+import org.kinotic.test.support.sample.Car;
+import org.kinotic.test.support.sample.Person;
+import org.kinotic.test.support.sample.TestDataService;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -22,7 +24,6 @@ import tools.jackson.databind.util.TokenBuffer;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 @Component
@@ -48,20 +49,19 @@ public class TestHelper {
      * {@link KinoticTestBase#TEST_ORGANIZATION_PARTICIPANT} bound, so that org-scoped
      * services resolve {@link KinoticTestBase#TEST_ORG_ID} from the current participant.
      */
-    public <T> CompletableFuture<T> runAsOrganization(Supplier<CompletableFuture<T>> supplier) {
-        CompletableFuture<T> result = new CompletableFuture<>();
+    public <T> Future<T> runAsOrganization(Supplier<Future<T>> supplier) {
+        Promise<T> promise = Promise.promise();
         Context context = vertx.getOrCreateContext();
         context.runOnContext(v -> {
             securityContext.setParticipant(context, KinoticTestBase.TEST_ORGANIZATION_PARTICIPANT);
-            supplier.get().whenComplete((value, error) -> {
-                if (error != null) {
-                    result.completeExceptionally(error);
-                } else {
-                    result.complete(value);
-                }
-            });
+            try {
+                supplier.get().onComplete(promise);
+            } catch (Throwable t) {
+                // a service that throws synchronously would otherwise leave the promise uncompleted, hanging the test
+                promise.fail(t);
+            }
         });
-        return result;
+        return promise.future();
     }
 
 
@@ -96,35 +96,35 @@ public class TestHelper {
         return ret;
     }
 
-    public CompletableFuture<Void> bulkUpdateCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
+    public Future<Void> bulkUpdateCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
         return runAsOrganization(() -> entitiesService.bulkUpdate(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
-    public CompletableFuture<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
+    public Future<Void> bulkSaveCarsAsRawJson(List<Car> cars, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(cars);
         } catch (JacksonException e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
         return runAsOrganization(() -> entitiesService.bulkSave(entityDefinition.getId(), tokenBuffer, entityContext));
     }
 
-    public CompletableFuture<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
+    public Future<Car> saveCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
         } catch (JacksonException e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
         return runAsOrganization(() -> entitiesService.save(entityDefinition.getId(), tokenBuffer, entityContext))
-                                 .thenApply(saved -> {
+                                 .map(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
                                   } catch (JacksonException e) {
@@ -134,16 +134,16 @@ public class TestHelper {
     }
 
 
-    public CompletableFuture<Car> updateCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
+    public Future<Car> updateCarAsRawJson(Car car, EntityDefinition entityDefinition, EntityContext entityContext){
         TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
         try {
             tokenBuffer.writePOJO(car);
         } catch (JacksonException e) {
-            return CompletableFuture.failedFuture(e);
+            return Future.failedFuture(e);
         }
 
         return runAsOrganization(() -> entitiesService.update(entityDefinition.getId(), tokenBuffer, entityContext))
-                                 .thenApply(saved -> {
+                                 .map(saved -> {
                                   try (JsonParser parser = saved.asParser()) {
                                       return objectMapper.readValue(parser, Car.class);
                                   } catch (JacksonException e) {
@@ -164,72 +164,70 @@ public class TestHelper {
                                                                            boolean randomPeople,
                                                                            EntityContext entityContext,
                                                                            String structureNameSuffix){
-        return Mono.fromFuture(() -> runAsOrganization(() -> testDataService
+        return Mono.fromCompletionStage(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
-                .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
-                                             .thenCompose(people -> {
+                .compose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
+                                             .compose(people -> {
                                                  EntityDefinition entityDefinition = pair.getLeft();
-                                                 List<CompletableFuture<Person>> completableFutures = new ArrayList<>();
+                                                 List<Future<Person>> futures = new ArrayList<>();
                                                  for(Person person : people){
                                                      try (TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false)) {
                                                          tokenBuffer.writePOJO(person);
-                                                         completableFutures.add(entitiesService.save(entityDefinition.getId(),
-                                                                                                     tokenBuffer,
-                                                                                                     entityContext)
-                                                                                               .thenCompose(saved -> {
-                                                                                                   try (JsonParser parser = saved.asParser()) {
-                                                                                                       Person deserializedPerson = objectMapper.readValue(parser,
-                                                                                                                                                          Person.class);
-                                                                                                       return CompletableFuture.completedFuture(deserializedPerson);
-                                                                                                   } catch (JacksonException e) {
-                                                                                                       return CompletableFuture.failedFuture(e);
-                                                                                                   }
-                                                                                               }));
+                                                         futures.add(entitiesService.save(entityDefinition.getId(),
+                                                                                          tokenBuffer,
+                                                                                          entityContext)
+                                                                                    .compose(saved -> {
+                                                                                        try (JsonParser parser = saved.asParser()) {
+                                                                                            Person deserializedPerson = objectMapper.readValue(parser,
+                                                                                                                                               Person.class);
+                                                                                            return Future.succeededFuture(deserializedPerson);
+                                                                                        } catch (JacksonException e) {
+                                                                                            return Future.failedFuture(e);
+                                                                                        }
+                                                                                    }));
                                                      } catch (JacksonException e) {
-                                                         return CompletableFuture.failedFuture(e);
+                                                         return Future.failedFuture(e);
                                                      }
                                                  }
-                                                 return CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0]))
-                                                                         .thenApply(v -> {
-                                                                             StructureAndPersonHolder holder = new StructureAndPersonHolder();
-                                                                             holder.setEntityDefinition(entityDefinition);
-                                                                             for(CompletableFuture<Person> future : completableFutures){
-                                                                                 holder.addPerson(future.join());
-                                                                             }
-                                                                             return holder;
-                                                                         });
-                                             }))));
+                                                 return Future.all(futures)
+                                                              .map(cf -> {
+                                                                  StructureAndPersonHolder holder = new StructureAndPersonHolder();
+                                                                  holder.setEntityDefinition(entityDefinition);
+                                                                  for(Person person : cf.<Person>list()){
+                                                                      holder.addPerson(person);
+                                                                  }
+                                                                  return holder;
+                                                              });
+                                             }))).toCompletionStage());
     }
 
     public Mono<StructureAndPersonHolder> createPersonStructureAndEntitiesBulk(int numberOfPeopleToCreate,
                                                                                boolean randomPeople,
                                                                                EntityContext entityContext,
                                                                                String structureNameSuffix){
-        return Mono.fromFuture(() -> runAsOrganization(() -> testDataService
+        return Mono.fromCompletionStage(() -> runAsOrganization(() -> testDataService
                 .createPersonEntityDefinitionIfNotExists(structureNameSuffix)
-                .thenCompose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
-                                             .thenCompose(people -> {
+                .compose(pair -> createTestPeopleWithCorrectMethod(numberOfPeopleToCreate, randomPeople)
+                                             .compose(people -> {
                                                  EntityDefinition entityDefinition = pair.getLeft();
                                                  TokenBuffer tokenBuffer = new TokenBuffer(objectMapper._serializationContext(), false);
                                                  try {
                                                      tokenBuffer.writePOJO(people);
                                                  } catch (JacksonException e) {
-                                                     return CompletableFuture.failedFuture(e);
+                                                     return Future.failedFuture(e);
                                                  }
 
                                                  return entitiesService.bulkSave(entityDefinition.getId(),
                                                                                  tokenBuffer,
                                                                                  entityContext)
-                                                                       .thenCompose(unused -> CompletableFuture
-                                                                 .completedFuture(new StructureAndPersonHolder(
-                                                                         entityDefinition,
-                                                                         people)));
-                                             }))));
+                                                                       .map(new StructureAndPersonHolder(entityDefinition,
+                                                                                                         people));
+                                             }))).toCompletionStage());
     }
 
 
-    private CompletableFuture<List<Person>> createTestPeopleWithCorrectMethod(int numberOfPeopleToCreate,
-                                                                              boolean randomPeople){
+    private Future<List<Person>> createTestPeopleWithCorrectMethod(int numberOfPeopleToCreate,
+                                                                   boolean randomPeople){
         if(randomPeople){
             return testDataService.createRandomTestPeople(numberOfPeopleToCreate);
         }else {

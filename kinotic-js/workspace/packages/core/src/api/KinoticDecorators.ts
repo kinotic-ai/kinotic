@@ -1,7 +1,7 @@
-import 'reflect-metadata'
 import { Kinotic } from '@/api/Kinotic'
 
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
+import { validateZone } from '@/api/ZoneUtil'
 
 /**
  * Decorator for registering services with the Kinotic ServiceRegistry.
@@ -9,72 +9,227 @@ import { ServiceIdentifier } from '@/api/ServiceIdentifier'
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025
  */
-const SCOPE_METADATA_KEY = Symbol('scope')
-const VERSION_METADATA_KEY = Symbol('version')
-export const CONTEXT_METADATA_KEY: unique symbol = Symbol('context')
-export const ABAC_POLICY_METADATA_KEY: unique symbol = Symbol('abacPolicy')
+const scopeFunctions = new WeakSet<Function>()
+const scopeOptionalFunctions = new WeakSet<Function>()
+const versionRegistry = new WeakMap<Function, string>()
+const zonesRegistry = new WeakMap<Function, string>()
+const advertisedRegistry = new WeakMap<Function, boolean>()
+const contextMarkedFunctions = new WeakSet<Function>()
+const abacPolicyRegistry = new WeakMap<Function, string>()
 
-//@ts-ignore
-export function Scope(target: any, propertyKey: string, descriptor?: PropertyDescriptor): void {
-    Reflect.defineMetadata(SCOPE_METADATA_KEY, propertyKey, target)
+// A Version above @Publish stamps the replacement class while one below it stamps the
+// original, so the lookup walks the constructor prototype chain to find either.
+function findInConstructorChain<T>(registry: WeakMap<Function, T>, constructor: Function): T | undefined {
+    let current: Function | null = constructor
+    while (current) {
+        const value = registry.get(current)
+        if (value !== undefined) {
+            return value
+        }
+        current = Object.getPrototypeOf(current)
+    }
+    return undefined
 }
 
+// Scans prototype descriptors for the member marked @Scope; keyed by function identity,
+// so the member's name is irrelevant and getters are not invoked while scanning.
+function resolveScope(instance: object): unknown {
+    let proto = Object.getPrototypeOf(instance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            if (key === 'constructor') {
+                continue
+            }
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (descriptor?.get && scopeFunctions.has(descriptor.get)) {
+                return descriptor.get.call(instance)
+            }
+            if (typeof descriptor?.value === 'function' && scopeFunctions.has(descriptor.value)) {
+                return descriptor.value.call(instance)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return undefined
+}
+
+/**
+ * Marks the getter or method that provides the service's scope, which targets requests at one
+ * specific instance of the service, such as the copy running on a particular node. It is
+ * invoked on each instance when the instance registers with the ServiceRegistry.
+ */
+export function Scope(value: Function, _context: ClassGetterDecoratorContext | ClassMethodDecoratorContext): void {
+    scopeFunctions.add(value)
+}
+
+/**
+ * Marks a method of a scoped published service that any instance may answer, because its
+ * result does not depend on which instance executes it - typically a read of shared state
+ * rather than of the instance's own.
+ *
+ * A scoped service normally listens only at its scoped address, so every invocation must name
+ * an instance. When at least one method carries ScopeOptional, each instance also listens on
+ * the service's shared unscoped address, where only the annotated methods may be invoked: an
+ * unscoped invocation of any other method is rejected, since it would execute on whichever
+ * instance happened to receive it.
+ */
+export function ScopeOptional(value: Function, _context: ClassMethodDecoratorContext): void {
+    scopeOptionalFunctions.add(value)
+}
+
+// Scans prototype descriptors for methods marked @ScopeOptional; keyed by function identity
+// like resolveScope, and descriptors are used so getters are not invoked while scanning.
+export function scopeOptionalMethodNames(instance: object): Set<string> {
+    const ret = new Set<string>()
+    let proto = Object.getPrototypeOf(instance)
+    while (proto && proto !== Object.prototype) {
+        for (const key of Object.getOwnPropertyNames(proto)) {
+            const descriptor = Object.getOwnPropertyDescriptor(proto, key)
+            if (typeof descriptor?.value === 'function' && scopeOptionalFunctions.has(descriptor.value)) {
+                ret.add(key)
+            }
+        }
+        proto = Object.getPrototypeOf(proto)
+    }
+    return ret
+}
+
+/**
+ * Sets the semantic version a service registers under.
+ * @param version the version in X.Y.Z[-optional] format
+ */
 export function Version(version: string) {
     if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$/.test(version)) {
         throw new Error(`Invalid semantic version: ${version}. Must follow X.Y.Z[-optional] format.`)
     }
-    return function (target: Function): void {
-        Reflect.defineMetadata(VERSION_METADATA_KEY, version, target)
-    }
-}
-
-export function Context() {
-    return function (target: any, propertyKey: string, parameterIndex: number): void {
-        const existingContexts = Reflect.getMetadata(CONTEXT_METADATA_KEY, target, propertyKey) || [];
-        existingContexts.push(parameterIndex);
-        Reflect.defineMetadata(CONTEXT_METADATA_KEY, existingContexts, target, propertyKey);
+    return function (value: Function, _context: ClassDecoratorContext<any>): void {
+        versionRegistry.set(value, version)
     }
 }
 
 /**
- * Decorator that attaches an ABAC policy expression to a published service method.
- * Use boolean logic (and, or, not) within the expression to combine conditions.
- *
- * @param expression the ABAC policy expression string
+ * Declares the zone a service is addressable in, relative to this client's trust context: the
+ * declared zone is appended to {@link KinoticSingleton#zonePrefix}, so an application's service
+ * can never leave its own `app.<organizationId>.<applicationId>` zone. When absent,
+ * {@link KinoticSingleton#defaultZone} (typically loaded from the project package.json
+ * `kinotic.zone` field) applies.
+ * @param zone one or more dot separated labels of lowercase letters, digits, and interior
+ *        dashes, e.g. `billing` or `billing.internal`
  */
-export function AbacPolicy(expression: string) {
-    return function (target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor {
-        Reflect.defineMetadata(ABAC_POLICY_METADATA_KEY, expression, target, propertyKey)
-        return descriptor
+export function Zone(zone: string) {
+    validateZone(zone)
+    return function (value: Function, _context: ClassDecoratorContext<any>): void {
+        zonesRegistry.set(value, zone)
     }
 }
 
-export function Publish(namespace: string, name?: string) {
-    return function (target: Function) {
-        const original = target
-        const serviceIdentifier = new ServiceIdentifier(namespace, name || target.name)
+/**
+ * Returns whether the given service instance's class was published with `advertise` set.
+ * @param serviceInstance the service instance to inspect
+ */
+export function isAdvertised(serviceInstance: object): boolean {
+    return findInConstructorChain(advertisedRegistry, serviceInstance.constructor) === true
+}
 
-        const version = Reflect.getMetadata(VERSION_METADATA_KEY, target)
-        if (version) {
-            serviceIdentifier.version = version
-        }
+/**
+ * Marks a service method that receives the {@link ServiceContext} produced by the registered
+ * {@link ContextInterceptor}. The context parameter MUST be the method's final parameter:
+ * callers do not pass it, and the platform appends it after the caller-supplied arguments.
+ */
+export function Context(value: Function, _context: ClassMethodDecoratorContext): void {
+    // Keyed by the method function itself, like Scope, so Bun's decorator-context bugs
+    // cannot affect it.
+    contextMarkedFunctions.add(value)
+}
 
-        const newConstructor: any = function (this: any, ...args: any[]) {
-            const instance = Reflect.construct(original, args)
+/**
+ * Returns whether the given method of a service instance is marked with {@link Context}.
+ * @param serviceInstance the service instance to inspect
+ * @param methodName the method to look up
+ */
+export function receivesContext(serviceInstance: object, methodName: string): boolean {
+    const method = (serviceInstance as any)[methodName]
+    return typeof method === 'function' && contextMarkedFunctions.has(method)
+}
 
-            const scopeProperty = Reflect.getMetadata(SCOPE_METADATA_KEY, target.prototype)
-            if (scopeProperty) {
-                const scopeValue = instance[scopeProperty]
-                serviceIdentifier.scope = typeof scopeValue === 'function' ? scopeValue.call(instance) : scopeValue
+/**
+ * Attaches an ABAC policy expression to a published service method. Use boolean logic
+ * (and, or, not) within the expression to combine conditions.
+ * @param expression the ABAC policy expression string
+ */
+export function AbacPolicy(expression: string) {
+    return function (value: Function, _context: ClassMethodDecoratorContext): void {
+        // Keyed by the method function itself, like Context, so Bun's decorator-context bugs
+        // cannot affect it.
+        abacPolicyRegistry.set(value, expression)
+    }
+}
+
+/**
+ * Returns the ABAC policy expression attached to the given method of a service instance, or
+ * undefined when the method carries none.
+ * @param serviceInstance the service instance to inspect
+ * @param methodName the method to look up
+ */
+export function abacPolicyFor(serviceInstance: object, methodName: string): string | undefined {
+    const method = (serviceInstance as any)[methodName]
+    return typeof method === 'function' ? abacPolicyRegistry.get(method) : undefined
+}
+
+// Effective zone = zonePrefix . declaredZone. The prefix comes from the client's static
+// configuration (never from the service itself), so a wrong declaration can only route nowhere,
+// not into another application's zone — the gateway validates the prefix on every send/subscribe.
+// A null result means the service registers at its un-zoned legacy address.
+function resolveEffectiveZone(constructor: Function): string | null {
+    const declaredZone = findInConstructorChain(zonesRegistry, constructor) ?? Kinotic.defaultZone
+    const prefix = Kinotic.zonePrefix
+    let effectiveZone: string | null
+    if (prefix != null && declaredZone != null) {
+        effectiveZone = `${prefix}.${declaredZone}`
+    } else if (prefix != null) {
+        effectiveZone = prefix
+    } else {
+        effectiveZone = declaredZone ?? null
+    }
+    if (effectiveZone != null) {
+        validateZone(effectiveZone)
+    }
+    return effectiveZone
+}
+
+/**
+ * Registers each instance of the decorated class with the Kinotic ServiceRegistry.
+ * The service name defaults to the class name; {@link Version}, {@link Scope}, and {@link Zone}
+ * on the same class refine the registration.
+ * @param namespace the optional namespace the service is published under
+ * @param name the service name, defaults to the class name
+ * @param advertise when true the service advertises itself in the platform ServiceDirectory,
+ *        so it appears in directory listings
+ */
+export function Publish(namespace?: string | null, name?: string, advertise: boolean = false) {
+    return function <T extends new (...args: any[]) => object>(value: T, _context: ClassDecoratorContext<any>): T {
+        advertisedRegistry.set(value, advertise)
+        return class extends value {
+            constructor(...args: any[]) {
+                super(...args)
+
+                const zone = resolveEffectiveZone(this.constructor)
+                const serviceIdentifier = new ServiceIdentifier(namespace ?? null,
+                                                                name || value.name,
+                                                                zone ?? undefined)
+
+                const version = findInConstructorChain(versionRegistry, this.constructor)
+                if (version) {
+                    serviceIdentifier.version = version
+                }
+
+                const scope = resolveScope(this)
+                if (scope !== undefined) {
+                    serviceIdentifier.scope = scope as string
+                }
+
+                Kinotic.serviceRegistry.register(serviceIdentifier, this)
             }
-
-            // Register with the default Kinotic's ServiceRegistry
-            Kinotic.serviceRegistry.register(serviceIdentifier, instance)
-
-            return instance
         }
-
-        newConstructor.prototype = original.prototype
-        return newConstructor as any
     }
 }

@@ -1,4 +1,5 @@
-import {ConnectionInfo} from '@/api/ConnectionInfo'
+import type {ConnectOptions} from '@/api/ConnectOptions'
+import {Util} from '@/internal/api/Util'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {EventBus} from '@/api/event/EventBus'
 import type {IEventBus} from '@/api/event/IEventBus'
@@ -18,11 +19,26 @@ export interface IKinotic {
     eventBus: IEventBus
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * The zone prefix every service published by this client registers under, such as
+     * `app.<organizationId>.<applicationId>` for an application or `system` for a platform
+     * workload. Must be set from static configuration before service classes are instantiated.
+     * When null, services register at un-zoned legacy addresses.
+     */
+    zonePrefix: string | null
+
+    /**
+     * The zone applied to published services that carry no {@link Zone} declaration of their
+     * own, typically loaded from the project package.json `kinotic.zone` field.
+     */
+    defaultZone: string | null
+
+    /**
+     * Connects to a Kinotic server. Every option is optional: absent server fields and
+     * credentials resolve from the environment — see {@link ConnectOptions}.
+     * @param options overrides for the resolved connection, or nothing to resolve everything
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo>
+    connect(options?: ConnectOptions): Promise<ConnectedInfo>
 
     /**
      * Disconnects the client from the server
@@ -62,6 +78,10 @@ export class KinoticSingleton implements IKinotic {
      */
     readonly serviceRegistry!: ServiceRegistry
 
+    public zonePrefix: string | null = null
+
+    public defaultZone: string | null = null
+
     constructor() {
         this._eventBus = new EventBus()
         this.serviceRegistry = new ServiceRegistry(this._eventBus)
@@ -77,12 +97,13 @@ export class KinoticSingleton implements IKinotic {
     }
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * Connects to a Kinotic server. Every option is optional: absent server fields and
+     * credentials resolve from the environment — see {@link ConnectOptions}.
+     * @param options overrides for the resolved connection, or nothing to resolve everything
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo> {
-        return this._eventBus.connect(connectionInfo)
+    connect(options?: ConnectOptions): Promise<ConnectedInfo> {
+        return this._eventBus.connect(Util.resolveConnectOptions(options))
     }
 
     /**

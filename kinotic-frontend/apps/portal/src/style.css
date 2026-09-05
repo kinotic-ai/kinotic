@@ -1,0 +1,61 @@
+@import 'primeicons/primeicons.css';
+@import '@kinotic-ai/frontend-common/src/styles/auth-pages.css';
+
+@import "tailwindcss";
+@import "tailwindcss-primeui";
+
+/* useTheme toggles .dark on <html> and PrimeVue's darkModeSelector follows it. Tailwind v4
+   resolves dark: against prefers-color-scheme, which the in-app toggle cannot drive, so bind
+   the variant to the same class — otherwise components and utilities switch independently. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tailwind v4 skips node_modules during source detection; the shared workspace
+   package resolves through a symlink there, so scan it explicitly. */
+@source "../../../packages/common/src";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@theme {
+  --filter-home: brightness(0) saturate(100%) invert(46%) sepia(14%) saturate(612%) hue-rotate(176deg) brightness(94%) contrast(95%);
+}
+
+@layer components {
+  .btn-v4 {
+    @apply bg-indigo-900 text-white font-semibold px-4 py-2 rounded;
+  }
+}
+
+.custom-flow-controls .vue-flow__controls-button.vue-flow__controls-zoomout {
+  transform: rotate(90deg) !important;
+}
+
+html,
+body {
+  overscroll-behavior: none;
+}
+
+/* PrimeVue Tabs as the portal draws them: flat tab strip, brand-colored active bar, no borders
+   around the tabs in either theme. */
+.p-tabpanels {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+.p-tab {
+  padding: 14px 15px !important;
+  border: none !important;
+}
+html.dark .p-tablist {
+  border-bottom-color: var(--p-surface-800) !important;
+  background: transparent !important;
+}
+html.dark .p-tab {
+  background: transparent !important;
+  color: var(--p-surface-400) !important;
+}
+html.dark .p-tab.p-tab-active {
+  color: var(--p-surface-0) !important;
+}
+html.dark .p-tablist-active-bar {
+  background: var(--p-primary-500) !important;
+}

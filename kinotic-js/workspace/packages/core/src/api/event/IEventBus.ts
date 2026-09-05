@@ -1,10 +1,10 @@
 import { Optional } from 'typescript-optional'
 import { Observable } from 'rxjs'
 import {ConnectedInfo} from '@/api/security/ConnectedInfo'
-import {ConnectionInfo, ServerInfo} from '@/api/ConnectionInfo'
+import {type ConnectOptions, ServerInfo} from '@/api/ConnectOptions'
 
 /**
- * Part of the low level portion of kinoitc representing data to be processed
+ * Part of the low level portion of kinotic representing data to be processed
  *
  * This is similar to a Stomp Frame but with more required information and no control plane semantics.
  *
@@ -71,7 +71,7 @@ export interface IEvent {
 }
 
 /**
- * Part of the low level portion of kinoitc representing a connection to a kinoitc server
+ * Part of the low level portion of kinotic representing a connection to a kinotic server
  * This is similar to a Stomp Client but with more required information and no control plane semantics.
  *
  * Created by Navid Mitchell on 2019-01-04.
@@ -90,11 +90,12 @@ export interface IEventBus {
     serverInfo: ServerInfo | null
 
     /**
-     * Requests a connection to the given Stomp url
-     * @param connectionInfo provides the information needed to connect to the kinoitc server
+     * Connects to a Kinotic server using fully resolved options — {@link IKinotic#connect}
+     * performs the resolution.
+     * @param options the resolved connection options
      * @return Promise containing the result of the initial connection attempt
      */
-    connect(connectionInfo: ConnectionInfo): Promise<ConnectedInfo>
+    connect(options: ConnectOptions): Promise<ConnectedInfo>
 
     /**
      * Disconnects the client from the server
@@ -109,7 +110,7 @@ export interface IEventBus {
 
     /**
      * Determines if the connection is connected.
-     * This means that there is an open connection to the Kinoitc server
+     * This means that there is an open connection to the Kinotic server
      * @return true if the connection is active false if not
      */
     isConnected(): boolean
@@ -117,7 +118,8 @@ export interface IEventBus {
     /**
      * Determines if the connection is active.
      * This means {@link IEventBus#connect()} was called and was successful. The underlying connection may not be established yet.
-     * If this is true and {@link IEventBus#isConnected} is false messages sent will be queued
+     * Subscriptions made while active are established once the connection comes up; sends require
+     * {@link IEventBus#isConnected}
      * @return true if the connection is active false if not
      */
     isConnectionActive(): boolean
@@ -154,8 +156,11 @@ export interface IEventBus {
     requestStream(event: IEvent, sendControlEvents: boolean): Observable<IEvent>
 
     /**
-     * Send a single {@link IEvent} to the connected server
+     * Send a single {@link IEvent} to the connected server. Events are never held for a later
+     * connection, so the caller decides what an event it could not send means — see
+     * {@link isConnected}.
      * @param event to send
+     * @throws if the connection is not established
      */
     send(event: IEvent): void
 
@@ -171,7 +176,7 @@ export enum EventConstants {
     REPLY_TO_HEADER = 'reply-to',
 
     /**
-     * Header provided by the server on connection to provide the {@link ConnectionInfo} as a JSON string
+     * Header provided by the server on connection to provide the {@link ConnectedInfo} as a JSON string
      */
     CONNECTED_INFO_HEADER = 'connected-info',
 
@@ -185,6 +190,11 @@ export enum EventConstants {
      * Headers that start with __ will always be persisted between messages
      */
     CORRELATION_ID_HEADER = '__correlation-id',
+
+    /**
+     * Origin service CRI the server sends on stream replies so the client can route a cancel back to it.
+     */
+    ORIGIN_CRI_HEADER = '__origin-cri',
 
     /**
      * Denotes that something caused an error. Will contain a brief message about the error
@@ -221,6 +231,7 @@ export enum EventConstants {
 
     CONTENT_JSON = 'application/json',
     CONTENT_TEXT = 'text/plain',
+    CONTENT_OCTET_STREAM = 'application/octet-stream',
 
     /**
      * The traceparent HTTP header field identifies the incoming request in a tracing system. It has four fields:

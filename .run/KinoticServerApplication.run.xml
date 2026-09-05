@@ -1,15 +1,23 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="KinoticServerApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
-    <option name="ACTIVE_PROFILES" value="development" />
+    <option name="ACTIVE_PROFILES" value="development, local" />
     <option name="ALTERNATIVE_JRE_PATH" value="graalvm-ce-25" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="true" />
     <option name="ENABLE_JMX_AGENT" value="false" />
+    <envs>
+      <env name="OTEL_SERVICE_NAME" value="kinotic-server" />
+      <env name="OTEL_EXPORTER_OTLP_ENDPOINT" value="http://localhost:4317" />
+      <env name="OTEL_EXPORTER_OTLP_PROTOCOL" value="grpc" />
+      <env name="OTEL_TRACES_EXPORTER" value="otlp" />
+      <env name="OTEL_METRICS_EXPORTER" value="otlp" />
+      <env name="OTEL_LOGS_EXPORTER" value="none" />
+      <env name="OTEL_METRIC_EXPORT_INTERVAL" value="15000" />
+      <env name="OTEL_INSTRUMENTATION_RUNTIME_TELEMETRY_EMIT_EXPERIMENTAL_TELEMETRY" value="true" />
+      <env name="OTEL_INSTRUMENTATION_COMMON_PEER_SERVICE_MAPPING" value="localhost:9200=elasticsearch" />
+    </envs>
     <module name="kinotic.kinotic-server.main" />
-    <selectedOptions>
-      <option name="environmentVariables" />
-    </selectedOptions>
     <option name="SPRING_BOOT_MAIN_CLASS" value="org.kinotic.server.KinoticServerApplication" />
-    <option name="VM_PARAMETERS" value="-XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
+    <option name="VM_PARAMETERS" value="-javaagent:$PROJECT_DIR$/kinotic-server/build/otel-agent/opentelemetry-javaagent.jar -XX:MaxDirectMemorySize=1g -Xmx4096m -XX:+AlwaysPreTouch -XX:+DisableExplicitGC --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED" />
     <extension name="net.ashald.envfile">
       <option name="IS_ENABLED" value="true" />
       <option name="IS_SUBST" value="false" />
@@ -27,6 +35,7 @@
       <option name="useCurrentConnection" value="false" />
     </extension>
     <method v="2">
+      <option name="Gradle.BeforeRunTask" enabled="true" tasks=":kinotic-server:otelAgentJar" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
       <option name="Make" enabled="true" />
     </method>
   </configuration>

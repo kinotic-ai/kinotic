@@ -4,14 +4,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import org.kinotic.domain.api.model.security.KinoticAudience;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.identity.ParticipantIdentity;
 
 import java.util.Date;
 
 /**
- * A rotating refresh token for a CLI session. Each redemption revokes this record and issues
- * a replacement in the same {@link #familyId} lineage; presenting an already-revoked token
- * (reuse) revokes the entire family.
+ * A rotating refresh token for an OAuth client session. Each redemption revokes this record and
+ * issues a replacement in the same {@link #familyId} lineage carrying the same {@link #audience};
+ * presenting an already-revoked token (reuse) revokes the entire family.
  * <p>
  * Internal-only — never published. Only ever holds a SHA-256 hash of the token, never the
  * plaintext.
@@ -27,11 +29,24 @@ public class RefreshToken implements Identifiable<String> {
     /** SHA-256 hash of the refresh token. The plaintext is returned to the client once and never stored. */
     private String tokenHash;
 
-    /** Id of the {@link org.kinotic.domain.api.model.iam.IamUser} this token authenticates. */
-    private String userId;
+    /** Id of the {@link ParticipantIdentity} this token authenticates. */
+    private String identityId;
 
     /** Groups every token in one rotation lineage so that reuse can revoke the whole family. */
     private String familyId;
+
+    /**
+     * Optional human-readable label for the lineage, shown wherever the identity's sessions are
+     * listed — e.g. the device name the CLI supplied when the flow started. Preserved across
+     * rotation. Null when the client supplied none.
+     */
+    private String label;
+
+    /**
+     * The surface access tokens minted from this lineage are valid for. Fixed when the grant
+     * that created the lineage was redeemed, and preserved across every rotation.
+     */
+    private KinoticAudience audience;
 
     private Date created;
 

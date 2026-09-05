@@ -3,11 +3,15 @@ plugins {
 }
 
 dependencies {
+    // api scope: idl types (ServiceDefinition, C3Type) appear in core's public directory API
+    api project(':kinotic-idl')
+
+    // supplies the configurable Jackson 3 codec for Vert.x JSON; KinoticVertxConfig installs the
+    // Spring-managed mapper into it
+    implementation 'org.kinotic:vertx-jackson3-codec'
+
     implementation "com.github.ben-manes.caffeine:caffeine"
-    implementation 'com.azure:azure-identity:1.15.4'
-    implementation 'com.azure:azure-security-keyvault-secrets:4.9.2'
     implementation 'commons-io:commons-io'
-    implementation 'net.openhft:chronicle-map:3.27ea2'
 
     implementation 'io.jsonwebtoken:jjwt-api'
     implementation 'io.jsonwebtoken:jjwt-impl'
@@ -20,8 +24,12 @@ dependencies {
     implementation 'io.vertx:vertx-auth-common'
     implementation 'io.vertx:vertx-auth-oauth2'
     implementation 'io.vertx:vertx-ignite'
+    implementation 'io.vertx:vertx-micrometer-metrics'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
+
+    // XXHash128 for minting MCP tool names
+    implementation 'net.openhft:zero-allocation-hashing'
 
     // Apache Ignite
     implementation 'org.apache.ignite:ignite-core'
@@ -46,4 +54,6 @@ dependencies {
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'io.projectreactor:reactor-test'
+    // Collects the spans ServiceInvocationSupervisor produces, in place of the agent's SDK
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing'
 }

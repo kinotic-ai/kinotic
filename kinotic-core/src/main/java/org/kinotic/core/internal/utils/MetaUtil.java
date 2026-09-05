@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.kinotic.core.api.annotations.Scope;
 import org.kinotic.core.api.annotations.Version;
+import org.kinotic.core.api.annotations.Zone;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
@@ -21,6 +22,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -162,29 +164,60 @@ public class MetaUtil {
     }
 
     /**
-     * Returns the interface or interfaces that declares the given annotation
+     * Returns the interface or interfaces that declares the given annotation.
+     * The whole type hierarchy is searched: superclasses, and every interface reachable
+     * through {@code extends}, so an annotation on a superinterface is found even when the
+     * class only implements a sub-interface of it.
      * @param clazz to check for the annotation
      * @param annotation to look for
-     * @return a list of interfaces that declare the annotation
+     * @return a list of interfaces that declare the annotation, each listed once
      */
     public static List<Class<?>> getInterfaceDeclaringAnnotation(Class<?> clazz, Class<? extends Annotation> annotation){
-        ArrayList<Class<?>> ret = new ArrayList<>();
+        // LinkedHashSet dedupes diamonds (a class reaching the same annotated interface twice)
+        // while keeping discovery order
+        Set<Class<?>> ret = new LinkedHashSet<>();
+        collectInterfacesDeclaringAnnotation(clazz, annotation, ret);
+        return new ArrayList<>(ret);
+    }
 
+    private static void collectInterfacesDeclaringAnnotation(Class<?> clazz, Class<? extends Annotation> annotation, Set<Class<?>> found){
         for(Class<?> interClass: clazz.getInterfaces()){
             if(interClass.isAnnotationPresent(annotation)){
-                ret.add(interClass);
+                found.add(interClass);
+            }
+            // interface annotations are never inherited, so an annotated superinterface is
+            // only found by walking the extends chain explicitly
+            collectInterfacesDeclaringAnnotation(interClass, annotation, found);
+        }
+        if(clazz.getSuperclass() != null){
+            collectInterfacesDeclaringAnnotation(clazz.getSuperclass(), annotation, found);
+        }
+    }
+
+    /**
+     * Gets the zone for the class by searching for a {@link Zone} annotation.
+     * If the class contains the annotation, that zone is returned; otherwise it returns the zone from the package-info.java file annotation if found.
+     * @param clazz to search for a zone
+     * @return the zone or null if not found
+     */
+    public static String getZone(Class<?> clazz){
+        String ret = null;
+        Zone zone = AnnotationUtils.findAnnotation(clazz, Zone.class);
+        if(zone == null){
+            Package pkg = clazz.getPackage();
+            if(pkg != null){
+                zone = AnnotationUtils.findAnnotation(pkg, Zone.class);
             }
         }
-        // If there is a superclass we need its interfaces as well
-        if(clazz.getSuperclass() != null){
-            ret.addAll(getInterfaceDeclaringAnnotation(clazz.getSuperclass(), annotation));
+        if(zone != null){
+            ret = zone.value();
         }
         return ret;
     }
 
     /**
      * Gets the version for the class by searching for a {@link Version} annotation.
-     * If the class contains the annotation, that version is returned otherwise it returns the version from the package-info.java file annotation if found.
+     * If the class contains the annotation, that version is returned; otherwise it returns the version from the package-info.java file annotation if found.
      * @param clazz to search for a version
      * @return the version or null if not found
      */

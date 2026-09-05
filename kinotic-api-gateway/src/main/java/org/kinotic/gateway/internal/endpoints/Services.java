@@ -5,11 +5,14 @@ package org.kinotic.gateway.internal.endpoints;
 import io.vertx.core.Vertx;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
 import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.json.JsonMapper;
@@ -34,7 +37,11 @@ public class Services {
     @Autowired
     public SecurityService securityService;
     @Autowired
+    public ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
+    @Autowired
     public StompAuthorizerFactory stompAuthorizerFactory;
+    @Autowired
+    public TraceLogFilter traceLogFilter;
     @Autowired
     public Vertx vertx;
 }

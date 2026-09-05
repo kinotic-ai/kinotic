@@ -74,6 +74,19 @@ variable "google_client_secret" {
   default     = ""
 }
 
+# Operator-supplied: the OAuth client_secret of the kinotic-ai GitHub App's
+# "Request user authorization (OAuth)" credential, used for Continue-with-GitHub
+# sign-in and for verifying installation ownership when an org links GitHub. Provide via
+# `TF_VAR_github_client_secret` at apply time — never commit a value here. After the
+# first apply the AKV secret is managed via `az keyvault secret set ...`;
+# lifecycle.ignore_changes on the resource stops terraform from clobbering rotations.
+variable "github_client_secret" {
+  description = "GitHub App OAuth client secret for Continue-with-GitHub sign-in and install-ownership verification"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 data "azurerm_client_config" "current" {}
 
 locals {
@@ -121,17 +134,18 @@ resource "azuread_application" "kinotic_platform" {
   # paths under /api/auth/org. Each flow's social callback is namespaced under /social/ so the
   # gateway can disambiguate social vs per-org SSO callbacks at the same handler. Microsoft
   # permits http://localhost:* for dev without HTTPS. The portal.* URI is for production; the
-  # others cover bare-local Java (9090), the Vite dev server (5173), and KinD with mkcert
-  # (https://localhost). The configId "entra-platform" in the path matches the row seeded by
-  # V2__kinotic_data_inserts.sql into kinotic_org_signup_oidc_configuration.
+  # others cover bare-local Java's static shape (9090), IDE dev against the api-gateway
+  # port (58503 — the vite server has no /api proxy, so callbacks go to the backend), and
+  # KinD with mkcert (https://localhost). The configId "entra-platform" in the path matches
+  # the row seeded by V2__kinotic_data_inserts.sql into kinotic_org_signup_oidc_configuration.
   web {
     redirect_uris = [
       "https://portal.${var.domain_name}/api/auth/org/login/social/callback/entra-platform",
       "https://portal.${var.domain_name}/api/auth/org/signup/social/callback/entra-platform",
       "http://localhost:9090/api/auth/org/login/social/callback/entra-platform",
       "http://localhost:9090/api/auth/org/signup/social/callback/entra-platform",
-      "http://localhost:5173/api/auth/org/login/social/callback/entra-platform",
-      "http://localhost:5173/api/auth/org/signup/social/callback/entra-platform",
+      "http://localhost:58503/api/auth/org/login/social/callback/entra-platform",
+      "http://localhost:58503/api/auth/org/signup/social/callback/entra-platform",
       "https://localhost/api/auth/org/login/social/callback/entra-platform",
       "https://localhost/api/auth/org/signup/social/callback/entra-platform",
     ]

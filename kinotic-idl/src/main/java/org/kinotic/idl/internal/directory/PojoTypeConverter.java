@@ -2,11 +2,15 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
+
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import groovy.lang.GroovyObject;
 import groovy.lang.MetaClass;
 import org.springframework.beans.BeanUtils;
+import org.springframework.core.MethodParameter;
 import org.springframework.core.ResolvableType;
 import org.springframework.util.Assert;
 
@@ -42,7 +46,7 @@ public class PojoTypeConverter implements GenericTypeConverter {
 
         ObjectC3Type ret = new ObjectC3Type();
         ret.setNamespace(rawClass.getPackage().getName());
-        ret.setName(rawClass.getSimpleName());
+        ret.setName(monomorphicName(resolvableType, rawClass));
 
         PropertyDescriptor[] descriptors = BeanUtils.getPropertyDescriptors(rawClass);
 
@@ -50,7 +54,11 @@ public class PojoTypeConverter implements GenericTypeConverter {
 
             if(!ignorePropertyDescriptor(descriptor)) {
 
-                ResolvableType returnTypeResolvableType = ResolvableType.forMethodReturnType(descriptor.getReadMethod());
+                // resolving against the owner type binds type variables the property declares,
+                // so List<T> getContent() on a Page<Project> converts with T bound to Project
+                ResolvableType returnTypeResolvableType =
+                        ResolvableType.forMethodParameter(new MethodParameter(descriptor.getReadMethod(), -1),
+                                                          resolvableType);
 
                 C3Type fieldC3Type = conversionContext.convert(returnTypeResolvableType);
 
@@ -58,6 +66,40 @@ public class PojoTypeConverter implements GenericTypeConverter {
             }
         }
         return ret;
+    }
+
+    /**
+     * The C3 name for the given instantiation. C3 has no generics, so each instantiation of a generic class
+     * publishes as its own concrete type, named by prefixing the resolved type arguments' simple names onto
+     * the raw class's simple name: {@code Page<Organization>} is named "OrganizationPage" and
+     * {@code CursorPage<Person>} "PersonCursorPage". A non-generic class keeps its simple name.
+     * @param resolvableType the instantiation being converted
+     * @param rawClass the raw class of {@code resolvableType}
+     * @return the name for the {@link ObjectC3Type}
+     * @throws IllegalStateException if a type argument does not resolve to a class, since a signature with an
+     *         open type variable cannot be described to a wire consumer; or if a type argument is itself
+     *         generic — every segment of a published name is the simple name of a concrete class, so a nested
+     *         instantiation must be published as a named DTO instead
+     */
+    private String monomorphicName(ResolvableType resolvableType, Class<?> rawClass) {
+        StringBuilder name = new StringBuilder();
+        for (ResolvableType typeArgument : resolvableType.getGenerics()) {
+            Class<?> argumentClass = typeArgument.resolve();
+            if (argumentClass == null) {
+                throw new IllegalStateException("Cannot convert " + resolvableType + ": type argument '"
+                        + typeArgument.getType() + "' of " + rawClass.getName()
+                        + " does not resolve to a class, so it cannot be described to a wire consumer");
+            }
+            if (argumentClass.getTypeParameters().length > 0) {
+                throw new IllegalStateException("Cannot convert " + resolvableType + ": type argument "
+                        + argumentClass.getSimpleName() + " of " + rawClass.getName()
+                        + " is itself generic; publish a named DTO for it instead");
+            }
+            // an array class's simple name is bracketed ("Foo[]"), which cannot appear in a type name
+            name.append(argumentClass.getSimpleName().replace("[]", "Array"));
+        }
+        name.append(rawClass.getSimpleName());
+        return name.toString();
     }
 
     private boolean ignorePropertyDescriptor(PropertyDescriptor descriptor){

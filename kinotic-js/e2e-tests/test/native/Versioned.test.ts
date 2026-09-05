@@ -1,10 +1,12 @@
 import {Kinotic, KinoticSingleton, Page, Pageable} from '@kinotic-ai/core'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Vehicle} from '../domain/Vehicle.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createTestVehicle,
     createTestVehicles,
     createVehicleEntityDefinitionIfNotExist,
@@ -16,9 +18,7 @@ import {
     shutdownKinoticClient
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-versioned'
 
 interface LocalTestContext {
@@ -27,11 +27,11 @@ interface LocalTestContext {
     entityService: IEntityRepository<Vehicle>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Versioned Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('Versioned')
         await initKinoticClient()
     }, 300000)
 
@@ -78,14 +78,15 @@ describe('End To End Tests', () => {
          expect(savedVehicle.version).toBeDefined()
 
          const loaded = await logFailure(entityService.findById(savedVehicle.id), 'Failed to find vehicle')
-         expect(savedVehicle.id).toEqual(loaded.id)
-         expect(savedVehicle.version).toEqual(loaded.version)
+         expect(loaded).not.toBeNull()
+         expect(savedVehicle.id).toEqual(loaded!.id)
+         expect(savedVehicle.version).toEqual(loaded!.version)
 
          // Count
          await expect(entityService.count()).resolves.toBe(1)
 
          // Delete
-         await expect(entityService.deleteById(loaded.id)).resolves.toBeNull()
+         await expect(entityService.deleteById(loaded!.id)).resolves.toBeNull()
      })
 
     it<LocalTestContext>('Test Optimistic Locking',

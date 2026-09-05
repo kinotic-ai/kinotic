@@ -1,11 +1,9 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
-import org.kinotic.domain.api.model.iam.PendingSignUp;
+import io.vertx.core.Future;
+import org.kinotic.domain.api.model.security.PendingSignUp;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Persistence for {@link PendingSignUp} records: email lookup plus the token-based, single-use,
@@ -15,13 +13,12 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class PendingSignUpRepository extends AbstractTokenVerificationRepository<PendingSignUp> {
 
-    public PendingSignUpRepository(ElasticsearchAsyncClient esAsyncClient,
-                                   CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_pending_signup", PendingSignUp.class, esAsyncClient, crudServiceTemplate);
+    public PendingSignUpRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_pending_signup", PendingSignUp.class, crudServiceTemplate);
     }
 
     /** Finds a pending sign-up by email, or {@code null} — used to block duplicate submissions. */
-    public CompletableFuture<PendingSignUp> findByEmail(String email) {
+    public Future<PendingSignUp> findByEmail(String email) {
         return findFirst(b -> b.query(termFilter("email", email)));
     }
 }

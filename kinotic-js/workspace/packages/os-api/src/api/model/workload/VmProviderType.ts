@@ -1,6 +1,0 @@
-
-export enum VmProviderType {
-    BOXLITE = 'BOXLITE',
-    FIRECRACKER = 'FIRECRACKER',
-    CLOUD_HYPERVISOR = 'CLOUD_HYPERVISOR'
-}

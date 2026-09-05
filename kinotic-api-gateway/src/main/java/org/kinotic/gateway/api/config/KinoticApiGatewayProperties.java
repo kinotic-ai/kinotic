@@ -26,7 +26,7 @@ public class KinoticApiGatewayProperties extends KinoticProperties {
     /**
      * API gateway properties configuration
      */
-    private ApiGatewayProperties apiGateway = new ApiGatewayProperties(this);
+    private ApiGatewayProperties apiGateway = new ApiGatewayProperties();
 
 
 }

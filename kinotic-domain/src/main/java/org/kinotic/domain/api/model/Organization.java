@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.domain.api.model.security.OidcConfiguration;
 
 import java.util.Date;
 
@@ -43,6 +44,17 @@ public class Organization implements Identifiable<String> {
      * User ID of the administrator who created this organization.
      */
     private String createdBy;
+
+    /**
+     * The organization's storage, or {@code null} until provisioning has recorded it.
+     */
+    private OrganizationStorage storage;
+
+    /**
+     * Id of the job run that last provisioned the organization, or {@code null} before the
+     * first one started.
+     */
+    private String provisioningJobRunId;
 
     private Date created;
 

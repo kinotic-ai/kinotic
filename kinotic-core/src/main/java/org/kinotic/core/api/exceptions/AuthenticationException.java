@@ -7,7 +7,7 @@ import org.kinotic.core.api.security.SecurityService;
  * Should typically be used when implementing the {@link SecurityService}
  * Created by Navíd Mitchell 🤪on 7/11/23.
  */
-public class AuthenticationException extends ContinuumException{
+public class AuthenticationException extends KinoticException {
     public AuthenticationException() {
     }
 

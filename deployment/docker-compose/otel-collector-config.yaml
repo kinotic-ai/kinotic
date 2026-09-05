@@ -1,15 +1,31 @@
+extensions:
+  # Tempo and Mimir run multi-tenant. A push that names its tenant (X-Scope-OrgID, as a
+  # vm-manager's Alloy does for workload telemetry) keeps it; the server's own agent names
+  # none and lands in the platform tenant.
+  headers_setter:
+    headers:
+      - action: upsert
+        key: X-Scope-OrgID
+        from_context: X-Scope-OrgID
+        default_value: kinotic-system
+
 receivers:
   otlp:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
+        include_metadata: true
       http:
         endpoint: 0.0.0.0:4318
+        include_metadata: true
 
 processors:
   batch:
     timeout: 1s
     send_batch_size: 1024
+    # Batched per tenant, so a batch never mixes pushes headers_setter would route apart
+    metadata_keys:
+      - X-Scope-OrgID
   resource:
     attributes:
       - key: service.name
@@ -21,18 +37,26 @@ exporters:
     endpoint: "tempo:4317"  # Traces to Tempo (gRPC)
     tls:
       insecure: true
+    auth:
+      authenticator: headers_setter
   # Logs to Loki via OTLP (Loki 3.x exposes /otlp natively). The dedicated `loki`
   # exporter was removed from otelcol-contrib; otlphttp is the supported path.
   otlphttp/loki:
     endpoint: "http://loki:3100/otlp"
+    # Only the server's logs come this way; workload logs are shipped by each node's Alloy
+    headers:
+      X-Scope-OrgID: kinotic-system
     tls:
       insecure: true
   otlphttp/mimir:  # Metrics to Mimir via OTLP
     endpoint: "http://mimir:9009/otlp"
     tls:
       insecure: true
+    auth:
+      authenticator: headers_setter
 
 service:
+  extensions: [headers_setter]
   pipelines:
     traces:
       receivers: [otlp]

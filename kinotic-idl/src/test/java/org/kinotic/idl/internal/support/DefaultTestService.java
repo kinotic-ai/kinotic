@@ -23,6 +23,11 @@ public class DefaultTestService implements TestService{
 
     @Override
     public TestObject test() {
-        return new TestObject("Bob", 42, true);
+        return new TestObject("Bob", 42, true, TestStatus.ACTIVE);
+    }
+
+    @Override
+    public TestAddress address(String who) {
+        return new TestAddress("42 Wallaby Way", "Sydney");
     }
 }

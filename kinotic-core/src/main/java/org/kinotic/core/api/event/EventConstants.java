@@ -16,6 +16,14 @@ public class EventConstants {
 
     public static final String CONTENT_TYPE_HEADER = "content-type";
 
+    /**
+     * Content type whose body is a single JSON object keyed by parameter name, bound to the invoked
+     * method's parameters by name. Missing names bind null; a name matching no parameter fails the
+     * invocation. Cross-runtime contract: every service runtime binds it from its C3 contract's
+     * parameter names.
+     */
+    public static final String CONTENT_TYPE_NAMED_JSON = "application/x-kinotic-named-json";
+
     public static final String CONTENT_LENGTH_HEADER = "content-length";
 
     public static final String REPLY_TO_HEADER = "reply-to";
@@ -26,9 +34,12 @@ public class EventConstants {
     public static final String SESSION_HEADER = "session";
 
     /**
-     * Cookie name used by browser clients to provide the session id during WebSocket handshake.
+     * Name of the browser session cookie, set by the api-gateway on login and presented on every
+     * request and WebSocket handshake. The {@code __Host-} prefix makes browsers accept it only
+     * when Secure, path {@code /} and without a Domain, so no page on a sibling host can plant
+     * or override it.
      */
-    public static final String SESSION_COOKIE_NAME = "kinotic-session";
+    public static final String SESSION_COOKIE_NAME = "__Host-kinotic-session";
 
     /**
      * Browser-readable cookie that indicates whether a session may be available.
@@ -50,6 +61,22 @@ public class EventConstants {
      * Headers that start with __ will always be persisted between messages
      */
     public static final String CORRELATION_ID_HEADER = "__correlation-id";
+
+    /**
+     * Origin service CRI sent on stream replies so a client can route a cancel back to the service.
+     */
+    public static final String ORIGIN_CRI_HEADER = "__origin-cri";
+
+    /**
+     * Marks a request the gateway matched against {@code kinotic.traceLog}. Persisted onto every
+     * reply the request produces, so a reply frame, which is addressed to the caller and names no
+     * service to match, is left out of trace logging along with the request it answers.
+     *
+     * Server-side bookkeeping, set only while trace logging is on: it travels between the gateway
+     * and whatever answers the request, and the gateway strips it from every frame it writes to a
+     * client.
+     */
+    public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
 
     /**
      * Denotes that something caused an error. Will contain a brief message about the error.
@@ -78,18 +105,23 @@ public class EventConstants {
     public static final String STREAM_DESTINATION_SCHEME = "stream";
 
     /**
+     * Scheme for cluster-wide fan-out event destinations. An event published to a topic destination
+     * is delivered to every registered consumer on every node (never round-robined), fire-and-forget
+     * with at-most-once delivery. The resource name is the fully qualified name of the event type.
+     */
+    public static final String TOPIC_DESTINATION_SCHEME = "topic";
+
+    /**
+     * Content type for a JSON encoded event body.
+     */
+    public static final String CONTENT_TYPE_JSON = "application/json";
+
+    /**
      * Scheme for RPC reply destinations. A reply destination is a one-way sink scoped to a
      * single connected client: it receives responses to requests that client made, is never
      * itself invoked, and a reply event never carries its own reply-to.
      */
     public static final String REPLY_DESTINATION_SCHEME = "reply";
-
-    /**
-     * Scheme for non-persistent broadcast events (no request/response, no acknowledgement).
-     * Used for republishing external system events (webhooks, etc.) onto the bus where
-     * any number of subscribers may listen on a CRI like {@code evt://github/push/<org>/<project>}.
-     */
-    public static final String EVENT_DESTINATION_SCHEME = "evt";
 
     /**
      * Event data format that is pretty much a stomp frame.

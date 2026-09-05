@@ -6,6 +6,7 @@ migrations
 
 statement
     : createTableStatement
+    | createDataStreamStatement
     | createComponentTemplateStatement
     | createIndexTemplateStatement
     | alterTableStatement
@@ -20,6 +21,15 @@ createTableStatement
     : CREATE TABLE (IF NOT EXISTS)? ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN SEMICOLON
     ;
 
+createDataStreamStatement
+    : CREATE DATA STREAM ID LPAREN columnDefinition (COMMA columnDefinition)* RPAREN (WITH LPAREN dataStreamOption (COMMA dataStreamOption)* RPAREN)? SEMICOLON
+    ;
+
+dataStreamOption
+    : DATA_RETENTION ASSIGN STRING
+    | TIME_REFERENCE ASSIGN STRING
+    ;
+
 createComponentTemplateStatement
     : CREATE COMPONENT TEMPLATE ID LPAREN templatePart (COMMA templatePart)* RPAREN SEMICOLON
     ;
@@ -29,8 +39,8 @@ createIndexTemplateStatement
     ;
 
 templatePart
-    : NUMBER_OF_SHARDS EQUALS INTEGER_LITERAL
-    | NUMBER_OF_REPLICAS EQUALS INTEGER_LITERAL
+    : NUMBER_OF_SHARDS ASSIGN INTEGER_LITERAL
+    | NUMBER_OF_REPLICAS ASSIGN INTEGER_LITERAL
     | columnDefinition
     ;
 
@@ -47,15 +57,15 @@ reindexOptions
     ;
 
 reindexOption
-    : CONFLICTS EQUALS (ABORT | PROCEED)
-    | MAX_DOCS EQUALS INTEGER_LITERAL
-    | SLICES EQUALS (AUTO | INTEGER_LITERAL)
-    | SIZE EQUALS INTEGER_LITERAL
-    | SOURCE_FIELDS EQUALS STRING
-    | QUERY EQUALS STRING
-    | SCRIPT EQUALS STRING
-    | WAIT EQUALS (TRUE | FALSE)
-    | SKIP_IF_NO_SOURCE EQUALS (TRUE | FALSE)
+    : CONFLICTS ASSIGN (ABORT | PROCEED)
+    | MAX_DOCS ASSIGN INTEGER_LITERAL
+    | SLICES ASSIGN (AUTO | INTEGER_LITERAL)
+    | SIZE ASSIGN INTEGER_LITERAL
+    | SOURCE_FIELDS ASSIGN STRING
+    | QUERY ASSIGN STRING
+    | SCRIPT ASSIGN STRING
+    | WAIT ASSIGN (TRUE | FALSE)
+    | SKIP_IF_NO_SOURCE ASSIGN (TRUE | FALSE)
     ;
 
 updateStatement
@@ -67,7 +77,13 @@ deleteStatement
     ;
 
 insertStatement
-    : INSERT INTO tableName (LPAREN columnName (COMMA columnName)* RPAREN)? VALUES LPAREN valueList RPAREN (WITH REFRESH)? SEMICOLON
+    : INSERT INTO tableName (LPAREN columnName (COMMA columnName)* RPAREN)? VALUES LPAREN valueList RPAREN (WITH insertOption (COMMA insertOption)*)? SEMICOLON
+    ;
+
+insertOption
+    : REFRESH
+    | ROUTING STRING
+    | DOCUMENT_ID STRING
     ;
 
 valueList
@@ -76,20 +92,44 @@ valueList
 
 value
     : STRING
-    | INTEGER_LITERAL
+    | numberLiteral
     | BOOLEAN_LITERAL
-    | PARAMETER
+    | NULL_LITERAL
+    | namedParameter
+    | objectLiteral
+    | arrayLiteral
+    ;
+
+// Two tokens rather than one ':name' lexer rule, which would swallow the colon of an object field
+// whose value starts a word: '{ street:null }' lexes as ID COLON NULL_LITERAL either way
+namedParameter
+    : COLON ID
+    ;
+
+// JSON style literals that populate OBJECT/NESTED/UNION columns: an object literal is one
+// sub-document, an array literal a list of them. Both nest to any depth.
+objectLiteral
+    : LBRACE (objectField (COMMA objectField)*)? RBRACE
+    ;
+
+objectField
+    : (ID | STRING) COLON value
+    ;
+
+arrayLiteral
+    : LBRACKET (value (COMMA value)*)? RBRACKET
+    ;
+
+numberLiteral
+    : MINUS? (INTEGER_LITERAL | DECIMAL_LITERAL)
     ;
 
 assignment
-    : ID EQUALS expression
+    : ID ASSIGN expression
     ;
 
 expression
-    : PARAMETER
-    | STRING
-    | INTEGER_LITERAL
-    | BOOLEAN_LITERAL
+    : value
     | ID operator expression  // e.g., age + 1, status == 'active'
     | LPAREN expression RPAREN
     ;
@@ -110,7 +150,7 @@ whereClause
     ;
 
 condition
-    : ID comparisonOperator (PARAMETER | STRING | INTEGER_LITERAL | BOOLEAN_LITERAL)
+    : ID comparisonOperator (namedParameter | STRING | numberLiteral | BOOLEAN_LITERAL)
     ;
 
 comparisonOperator
@@ -172,8 +212,11 @@ COLUMN: 'COLUMN';
 COMPONENT: 'COMPONENT';
 CONFLICTS: 'CONFLICTS';
 CREATE: 'CREATE';
+DATA: 'DATA';
+DATA_RETENTION: 'DATA_RETENTION';
 DATE: 'DATE';
 DELETE: 'DELETE';
+DOCUMENT_ID: 'DOCUMENT_ID';
 DOUBLE: 'DOUBLE';
 EXISTS: 'EXISTS';
 FLOAT: 'FLOAT';
@@ -194,13 +237,16 @@ PROCEED: 'PROCEED';
 QUERY: 'QUERY';
 REFRESH: 'REFRESH';
 REINDEX: 'REINDEX';
+ROUTING: 'ROUTING';
 SCRIPT: 'SCRIPT';
 SET: 'SET';
 SIZE: 'SIZE';
 SLICES: 'SLICES';
 SOURCE_FIELDS: 'SOURCE_FIELDS';
+STREAM: 'STREAM';
 TABLE: 'TABLE';
 TEMPLATE: 'TEMPLATE';
+TIME_REFERENCE: 'TIME_REFERENCE';
 UPDATE: 'UPDATE';
 USING: 'USING';
 VALUES: 'VALUES';
@@ -227,24 +273,33 @@ DECIMAL: 'DECIMAL';
 UNION: 'UNION';
 
 // Punctuation and Operators
+// '=' assigns (WITH options, SET); '==' compares (WHERE, expressions) — each role has exactly one operator
+ASSIGN: '=';
+COLON: ':';
 COMMA: ',';
 DIVIDE: '/';
 EQUALS: '==';
 GREATER_THAN: '>';
 GREATER_THAN_EQUALS: '>=';
+LBRACE: '{';
+LBRACKET: '[';
 LESS_THAN: '<';
 LESS_THAN_EQUALS: '<=';
 LPAREN: '(';
 MINUS: '-';
 MULTIPLY: '*';
 NOT_EQUALS: '!=';
-PARAMETER: '?';
 PLUS: '+';
+RBRACE: '}';
+RBRACKET: ']';
 RPAREN: ')';
 SEMICOLON: ';';
 
 // Literals and Identifiers
 BOOLEAN_LITERAL: 'true' | 'false';
+DECIMAL_LITERAL: [0-9]+ '.' [0-9]+;
+// Word literals are declared before ID because a match of equal length goes to whichever rule comes first
+NULL_LITERAL: 'null';
 ID: [a-zA-Z_][a-zA-Z_0-9]*;
 INTEGER_LITERAL: [0-9]+;
 STRING: '\'' ~[']* '\'';

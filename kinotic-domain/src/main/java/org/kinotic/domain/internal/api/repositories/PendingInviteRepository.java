@@ -1,27 +1,24 @@
 package org.kinotic.domain.internal.api.repositories;
 
-import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.iam.PendingInvite;
+import org.kinotic.domain.api.model.security.PendingInvite;
+import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
-import org.kinotic.domain.internal.utils.DomainUtil;
 import org.springframework.stereotype.Component;
-
-import java.util.concurrent.CompletableFuture;
 
 @Component
 public class PendingInviteRepository extends AbstractTokenVerificationRepository<PendingInvite> {
 
-    public PendingInviteRepository(ElasticsearchAsyncClient esAsyncClient,
-                                   CrudServiceTemplate crudServiceTemplate) {
-        super("kinotic_pending_invite", PendingInvite.class, esAsyncClient, crudServiceTemplate);
+    public PendingInviteRepository(CrudServiceTemplate crudServiceTemplate) {
+        super("kinotic_pending_invite", PendingInvite.class, crudServiceTemplate);
     }
 
-    public CompletableFuture<PendingInvite> findByEmailAndScope(String email,
-                                                                String organizationId,
-                                                                String applicationId) {
+    public Future<PendingInvite> findByEmailAndScope(String email,
+                                                     String organizationId,
+                                                     String applicationId) {
         return findFirst(b -> b.query(composeFilter(
                 termFilter("email", DomainUtil.normalizeEmail(email)),
                 scopeFilter(organizationId, applicationId))));
@@ -32,9 +29,9 @@ public class PendingInviteRepository extends AbstractTokenVerificationRepository
      * here rather than deleted — physical cleanup still happens on consumption via
      * {@link #findValidByToken}.
      */
-    public CompletableFuture<Page<PendingInvite>> findByScope(String organizationId,
-                                                              String applicationId,
-                                                              Pageable pageable) {
+    public Future<Page<PendingInvite>> findByScope(String organizationId,
+                                                   String applicationId,
+                                                   Pageable pageable) {
         return findAll(pageable, b -> b.query(composeFilter(
                 scopeFilter(organizationId, applicationId),
                 notExpiredFilter())));

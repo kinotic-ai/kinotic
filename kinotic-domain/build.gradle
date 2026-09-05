@@ -5,14 +5,22 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
 
-    implementation 'com.azure:azure-communication-email:1.1.2'
-    implementation 'com.azure:azure-identity:1.18.2'
+    implementation 'com.azure:azure-communication-email'
+    implementation 'com.azure:azure-identity'
+    implementation 'com.azure:azure-security-keyvault-secrets'
+    implementation 'net.openhft:chronicle-map'
 
+    implementation 'io.vertx:vertx-auth-common'
+    implementation 'io.vertx:vertx-auth-jwt'
+    implementation 'io.vertx:vertx-auth-oauth2'
     implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-web-client'
 
+    implementation 'io.projectreactor:reactor-core'
+
     implementation 'co.elastic.clients:elasticsearch-java'
+    implementation 'co.elastic.clients:elasticsearch-rest5-client'
 
     implementation 'org.apache.ignite:ignite-core'
 
@@ -27,7 +35,7 @@ dependencies {
     implementation 'org.springframework:spring-core'
     implementation 'org.springframework:spring-context'
     implementation 'org.springframework.security:spring-security-crypto'
-    implementation('com.github.jknack:handlebars:4.5.1') {
+    implementation('com.github.jknack:handlebars') {
         // Nashorn is only used by handlebars for server-side JS precompilation, which we never do.
         exclude group: 'org.openjdk.nashorn', module: 'nashorn-core'
     }

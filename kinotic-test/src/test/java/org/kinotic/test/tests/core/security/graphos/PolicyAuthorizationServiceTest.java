@@ -1,5 +1,6 @@
 package org.kinotic.test.tests.core.security.graphos;
 
+import io.vertx.core.Future;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.schema.ObjectC3Type;
 import org.kinotic.core.api.exceptions.AuthorizationException;
@@ -12,8 +13,6 @@ import org.kinotic.persistence.api.services.security.graphos.EntityDefinitionPol
 import org.kinotic.persistence.api.services.security.graphos.PolicyAuthorizer;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -32,9 +31,9 @@ public class PolicyAuthorizationServiceTest {
 
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
+        Future<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
-        assertDoesNotThrow(result::join); // Should pass since there are no policies
+        assertDoesNotThrow(() -> { result.await(); }); // Should pass since there are no policies
     }
 
     @Test
@@ -49,9 +48,9 @@ public class PolicyAuthorizationServiceTest {
 
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
+        Future<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
-        assertDoesNotThrow(result::join); // Should pass since the READ operation policy is allowed
+        assertDoesNotThrow(() -> { result.await(); }); // Should pass since the READ operation policy is allowed
     }
 
     @Test
@@ -66,11 +65,10 @@ public class PolicyAuthorizationServiceTest {
 
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(structure, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
+        Future<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
-        Throwable exception = assertThrows(CompletionException.class, result::join);
-        assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertTrue(exception.getCause().getMessage().endsWith("Entity access not allowed.")); // Fails due to policy2
+        AuthorizationException exception = assertThrows(AuthorizationException.class, result::await);
+        assertTrue(exception.getMessage().endsWith("Entity access not allowed.")); // Fails due to policy2
     }
 
     @Test
@@ -78,9 +76,9 @@ public class PolicyAuthorizationServiceTest {
         EntityDefinition entityDefinition = createStructureWithNoFieldPolicies();
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
+        Future<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
-        assertDoesNotThrow(result::join); // Should pass since the READ operation policy is allowed
+        assertDoesNotThrow(() -> { result.await(); }); // Should pass since the READ operation policy is allowed
     }
 
     @Test
@@ -88,11 +86,10 @@ public class PolicyAuthorizationServiceTest {
         EntityDefinition entityDefinition = createStructureWithNoFieldPolicies();
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.SAVE, null);
+        Future<Void> result = service.authorize(EntityOperation.SAVE, null);
 
-        Throwable exception = assertThrows(CompletionException.class, result::join);
-        assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertTrue(exception.getCause().getMessage().contains("Operation SAVE not allowed.")); // Fails due to policy2
+        AuthorizationException exception = assertThrows(AuthorizationException.class, result::await);
+        assertTrue(exception.getMessage().contains("Operation SAVE not allowed.")); // Fails due to policy2
     }
 
     @Test
@@ -100,11 +97,10 @@ public class PolicyAuthorizationServiceTest {
         EntityDefinition entityDefinition = createStructureWithFieldPolicies();
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
+        Future<Void> result = service.authorize(EntityOperation.FIND_ALL, null);
 
-        Throwable exception = assertThrows(CompletionException.class, result::join);
-        assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertEquals("testapplication.testname Fields [lastName] access not allowed.", exception.getCause().getMessage());
+        AuthorizationException exception = assertThrows(AuthorizationException.class, result::await);
+        assertEquals("testorganization.testapplication.testname Fields [lastName] access not allowed.", exception.getMessage());
     }
 
     @Test
@@ -112,15 +108,15 @@ public class PolicyAuthorizationServiceTest {
         EntityDefinition entityDefinition = createStructureWithFieldPolicies();
         EntityDefinitionPolicyAuthorizationService service = new EntityDefinitionPolicyAuthorizationService(entityDefinition, authorizer);
 
-        CompletableFuture<Void> result = service.authorize(EntityOperation.SAVE, null);
+        Future<Void> result = service.authorize(EntityOperation.SAVE, null);
 
-        Throwable exception = assertThrows(CompletionException.class, result::join);
-        assertInstanceOf(AuthorizationException.class, exception.getCause());
-        assertTrue(exception.getCause().getMessage().contains("Operation SAVE not allowed."));
+        AuthorizationException exception = assertThrows(AuthorizationException.class, result::await);
+        assertTrue(exception.getMessage().contains("Operation SAVE not allowed."));
     }
 
     private EntityDefinition createStructureWithNoFieldPolicies() {
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
@@ -153,6 +149,7 @@ public class PolicyAuthorizationServiceTest {
 
     private EntityDefinition createStructureWithFieldPolicies() {
         EntityDefinition structure = new EntityDefinition();
+        structure.setOrganizationId("testOrganization");
         structure.setApplicationId("testApplication");
         structure.setName("testName");
 
@@ -203,7 +200,7 @@ public class PolicyAuthorizationServiceTest {
 
     private static class MockPolicyAuthorizer implements PolicyAuthorizer {
         @Override
-        public CompletableFuture<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
+        public Future<Void> authorize(List<PolicyAuthorizationRequest> requests, EntityContext entityContext) {
             for (PolicyAuthorizationRequest request : requests) {
                 switch (request.policy()) {
                     case "policy1", "policy4", "policy5", "policy6" -> request.authorize(); // Authorized policies
@@ -211,7 +208,7 @@ public class PolicyAuthorizationServiceTest {
                     default -> request.deny(); // Default deny
                 }
             }
-            return CompletableFuture.completedFuture(null);
+            return Future.succeededFuture();
         }
     }
 }

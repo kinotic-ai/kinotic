@@ -1,14 +1,11 @@
 package org.kinotic.persistence.api.config;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.apache.commons.lang3.Validate;
-
-import java.time.Duration;
-import java.util.List;
 
 @Getter
 @Setter
@@ -16,97 +13,42 @@ import java.util.List;
 @NoArgsConstructor
 public class PersistenceProperties {
 
-    private String structuresBaseUrl = "http://localhost";
-
     private final String indexPrefix = "kinotic_";
 
     @NotNull
     private String tenantIdFieldName = "tenantId";
 
-    @NotNull
-    private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
-
-    @NotNull
-    private Duration elasticSocketTimeout = Duration.ofMinutes(1);
+    /**
+     * Primary shards for the Elasticsearch index backing a published {@code EntityDefinition}.
+     */
+    @Min(1)
+    private int numberOfShards = 3;
 
     /**
-     * The interval to check the health of the elastic cluster
+     * Replicas of each primary shard for the index backing a published {@code EntityDefinition}.
+     * An index costs {@code numberOfShards * (1 + numberOfReplicas)} against the cluster's shard
+     * budget, and a replica stays unassigned until the cluster has another node to hold it.
      */
-    @NotNull
-    private Duration elasticHealthCheckInterval = Duration.ofMinutes(1);
-
-    @NotNull
-    private List<ElasticConnectionInfo> elasticConnections = List.of(new ElasticConnectionInfo());
-
-    private String elasticUsername = null;
-
-    private String elasticPassword = null;
+    @Min(0)
+    private int numberOfReplicas = 2;
 
     /**
-     * The max length of all HTTP headers in bytes. Default is 8KB.
+     * Most cached {@code EntityService} instances to keep, one per active {@code EntityDefinition}.
+     * Past this the cache evicts and the next request reloads the definition from Elasticsearch.
      */
-    private int maxHttpHeaderSize = 1024 * 8; // 8KB
+    @Min(1)
+    private int entityServiceCacheMaxSize = 10_000;
 
     /**
-     * The max length of the HTTP body in bytes, -1 for no limit. Default is no limit.
+     * Most cached {@code QueryExecutor} instances to keep, one per named query per
+     * {@code EntityDefinition}. Past this the cache evicts and the next call rebuilds the executor.
      */
-    private long maxHttpBodySize = -1; // No Limit
-
-    private OpenApiSecurityType openApiSecurityType = OpenApiSecurityType.NONE;
-
-    private int openApiPort = 8080;
-
-    private String openApiPath = "/api/";
-
-    private String openApiAdminPath = "/admin/api/";
-
-    private int graphqlPort = 4000;
-
-    private String graphqlPath = "/graphql/";
-
-    /**
-     * MCP server configuration
-     */
-    private Integer mcpPort = 3001;
+    @Min(1)
+    private int namedQueriesCacheMaxSize = 10_000;
 
     /**
      * Cluster eviction configuration
      */
     private ClusterEvictionProperties clusterEviction = new ClusterEvictionProperties();
 
-
-    public boolean hasElasticUsernameAndPassword(){
-        return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();
-    }
-
-    public PersistenceProperties setOpenApiAdminPath(String path){
-        Validate.notBlank(path, "openApiAdminPath must not be blank");
-        if(path.endsWith("/")){
-            this.openApiAdminPath = path;
-        }else{
-            this.openApiAdminPath = path + "/";
-        }
-        return this;
-    }
-
-
-    public PersistenceProperties setOpenApiPath(String path){
-        Validate.notBlank(path, "openApiPath must not be blank");
-        if(path.endsWith("/")){
-            this.openApiPath = path;
-        }else{
-            this.openApiPath = path + "/";
-        }
-        return this;
-    }
-
-    public PersistenceProperties setGraphqlPath(String path) {
-        Validate.notBlank(path, "graphqlPath must not be blank");
-        if(path.endsWith("/")){
-            this.graphqlPath = path;
-        }else{
-            this.graphqlPath = path + "/";
-        }
-        return this;
-    }
 }

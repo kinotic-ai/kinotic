@@ -23,39 +23,39 @@ public class ElasticConverterStrategy implements IdlConverterStrategy<Property, 
 
     private static final Property BOOL = BooleanProperty.of(f -> f)._toProperty();
     private static final Property BOOL_NO_INDEX 
-        = BooleanProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = BooleanProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property BYTE = ByteNumberProperty.of(f -> f)._toProperty();
     private static final Property BYTE_NO_INDEX 
-        = ByteNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = ByteNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property KEYWORD = KeywordProperty.of(f -> f)._toProperty();
     private static final Property KEYWORD_NO_INDEX 
-        = KeywordProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = KeywordProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property DATE = DateProperty.of(f -> f)._toProperty();
     private static final Property DATE_NO_INDEX 
-        = DateProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = DateProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property DOUBLE = DoubleNumberProperty.of(f -> f)._toProperty();
     private static final Property DOUBLE_NO_INDEX 
-        = DoubleNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = DoubleNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property FLOAT = FloatNumberProperty.of(f -> f)._toProperty();
     private static final Property FLOAT_NO_INDEX 
-        = FloatNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = FloatNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property INT = IntegerNumberProperty.of(f -> f)._toProperty();
     private static final Property INT_NO_INDEX 
-        = IntegerNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = IntegerNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property LONG = LongNumberProperty.of(f -> f)._toProperty();
     private static final Property LONG_NO_INDEX 
-        = LongNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = LongNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Property SHORT = ShortNumberProperty.of(f -> f)._toProperty();
     private static final Property SHORT_NO_INDEX 
-        = ShortNumberProperty.of(f -> f.index(false).docValues(false))._toProperty();
+        = ShortNumberProperty.of(f -> f.index(false).docValues(dv -> dv.enabled(false)))._toProperty();
 
     private static final Set<C3TypeConverter<Property, ? extends C3Type, ElasticConversionState>> converters;
     private final PersistenceProperties persistenceProperties;

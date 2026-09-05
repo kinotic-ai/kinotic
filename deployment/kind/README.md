@@ -56,11 +56,10 @@ host ports through NodePort services to the pods.
 
 ```
 localhost:443   ──> NodePort 30443 ──> kinotic-server (Vert.x TLS, Web UI)
-localhost:8080  ──> NodePort 30080 ──> kinotic-server (Vert.x TLS, OpenAPI)
-localhost:4000  ──> NodePort 30400 ──> kinotic-server (Vert.x TLS, GraphQL)
+localhost:9090  ──> NodePort 30090 ──> kinotic-server (plain HTTP, when use_mkcert=false)
 localhost:58503 ──> NodePort 30503 ──> kinotic-server (Vert.x TLS, STOMP/WS)
 localhost:8888  ──> NodePort 30888 ──> keycloak       (Keycloak TLS, when enabled)
-localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS)
+localhost:3000  ──> NodePort 30300 ──> grafana        (Grafana TLS)
 ```
 
 ### Namespaces
@@ -79,8 +78,6 @@ localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS
 | Service | URL |
 |---------|-----|
 | Kinotic UI | https://localhost/ |
-| OpenAPI | https://localhost:8080/api/ |
-| GraphQL | https://localhost:4000/graphql/ |
 | WebSocket (STOMP) | wss://localhost:58503/v1 |
 | Keycloak Admin | https://localhost:8888/auth/admin |
 | Grafana | https://localhost:3000/ |
@@ -90,8 +87,6 @@ localhost:3000  ─���> NodePort 30300 ──> grafana        (Grafana TLS
 | Service | URL |
 |---------|-----|
 | Kinotic UI | http://localhost:9090/ |
-| OpenAPI | http://localhost:8080/api/ |
-| GraphQL | http://localhost:4000/graphql/ |
 | WebSocket (STOMP) | ws://localhost:58503/v1 |
 | Grafana | http://localhost:3000/ |
 
@@ -145,11 +140,15 @@ Keycloak and redeploy kinotic-server with OIDC -- no manual steps needed.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `cluster_name` | `kinotic-cluster` | KinD cluster name |
+| `node_image` | `""` | KinD node image override (empty = provider default) |
 | `kinotic_version` | `latest` | Kinotic server image tag |
 | `worker_count` | `3` | Number of worker nodes |
 | `enable_keycloak` | `false` | Deploy Keycloak + PostgreSQL for OIDC |
 | `enable_load_generator` | `false` | Run load generator via Terraform |
-| `use_mkcert` | `true` | Generate browser-trusted certs with mkcert |
+| `use_mkcert` | `true` | Generate browser-trusted certs with mkcert (declared in `tls.tf`) |
+| `keycloak_db_username` | `keycloak` | Keycloak PostgreSQL user |
+| `keycloak_db_password` | `keycloak` | Keycloak PostgreSQL password |
+| `keycloak_admin_password` | `admin` | Keycloak admin console password |
 | `deploy_timeout` | `600` | Helm release timeout (seconds) |
 
 ## Load Generator
@@ -192,7 +191,8 @@ Override values in `config/load-generator/values.yaml`:
 |-------|----------------|-------------|
 | `kinotic.host` | `kinotic-server` | Service hostname (cluster-internal) |
 | `kinotic.port` | `58503` | STOMP port |
-| `kinotic.useSsl` | `false` | Use TLS (false for cluster-internal) |
+| `kinotic.useSsl` | `true` | Use TLS — the pods serve TLS even cluster-internally |
+| `kinotic.tlsInsecure` | `true` | Skip verification so the mkcert CA isn't needed in the Job |
 | `loadGenerator.config.testName` | `generateComplexEntities` | Test to run |
 | `loadGenerator.config.maxConcurrentRequests` | `1` | Parallel requests |
 | `loadGenerator.config.maxRequestsPerSecond` | `100` | Rate limit |
@@ -200,14 +200,14 @@ Override values in `config/load-generator/values.yaml`:
 ## Testing Local Changes
 
 ```bash
-# Build image locally (requires Java 21 + Gradle)
+# Build image locally (requires JDK 25 + Gradle)
 ./gradlew :kinotic-server:bootBuildImage
 
 # Load into running cluster
-kind load docker-image kinoticai/kinotic-server:4.2.0-SNAPSHOT --name kinotic-cluster
+kind load docker-image kinoticai/kinotic-server:5.0.0-SNAPSHOT --name kinotic-cluster
 
 # Restart to pick up new image
-kubectl rollout restart deployment/kinotic-server
+kubectl rollout restart deployment/kinotic-server -n kinotic
 ```
 
 ## Troubleshooting
@@ -215,7 +215,7 @@ kubectl rollout restart deployment/kinotic-server
 **Port conflicts:**
 ```bash
 lsof -i :443
-lsof -i :8080
+lsof -i :9090
 lsof -i :58503
 ```
 
@@ -227,7 +227,8 @@ kubectl describe pod <pod-name>
 
 **View logs:**
 ```bash
-kubectl logs -l app=kinotic-server -n kinotic -f
+# The `app` label comes from the chart name, so it's `kinotic`, not `kinotic-server`
+kubectl logs -l app=kinotic -n kinotic -f
 kubectl logs -l app=keycloak -n kinotic -f        # if Keycloak enabled
 ```
 
@@ -253,15 +254,18 @@ terraform apply
 ```
 deployment/kind/
 ├── setup.sh                         # One-time environment setup (prerequisites, mkcert CA)
+├── dev-reload.sh                    # Rebuild the server image and reload it into the cluster
 ├── terraform/
 │   ├── main.tf                      # KinD cluster + providers + port mappings
-│   ├── tls.tf                       # mkcert certificate generation
+│   ├── tls.tf                       # mkcert certificate generation (declares use_mkcert)
+│   ├── platform-secrets.tf          # JWT signing keys + secret-storage master key Secret
 │   ├── elasticsearch.tf             # ECK operator + Elasticsearch (eck-stack chart)
 │   ├── kinotic.tf                   # Kinotic server (NodePort + TLS)
 │   ├── observability.tf             # Loki + Alloy + Grafana (TLS)
 │   ├── keycloak.tf                  # PostgreSQL + Keycloak (conditional, NodePort + TLS)
 │   ├── load-generator.tf            # Load generator (conditional)
 │   ├── variables.tf                 # Input variables
+│   ├── terraform.tfvars             # Default values for this cluster
 │   └── outputs.tf                   # Cluster info + access URLs
 ├── config/                          # Helm values overrides for KinD
 │   ├── eck-operator/values.yaml

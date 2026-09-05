@@ -1,6 +1,6 @@
 import { EntityCodeGenerationService } from '@kinotic-ai/kinotic-cli/dist/internal/EntityCodeGenerationService.js'
 import { ConsoleLogger } from '@kinotic-ai/kinotic-cli/dist/internal/Logger.js'
-import { KinoticProjectConfig } from '@kinotic-ai/os-api'
+import { KinoticProjectConfig } from '@kinotic-ai/management-api'
 import path from 'path'
 import fs from 'fs/promises'
 
@@ -15,8 +15,8 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
-        namespaceConfig.organization = 'kinotic-test'
-        namespaceConfig.application = namespace
+        namespaceConfig.organizationId = 'kinotic-test'
+        namespaceConfig.applicationId = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/ecommerce'),
@@ -45,8 +45,8 @@ async function buildEntityDefinitions() {
         const codeGenerationService = new EntityCodeGenerationService(namespace, '.js', logger)
 
         const namespaceConfig: KinoticProjectConfig = new KinoticProjectConfig()
-        namespaceConfig.organization = 'kinotic-test'
-        namespaceConfig.application = namespace
+        namespaceConfig.organizationId = 'kinotic-test'
+        namespaceConfig.applicationId = namespace
         namespaceConfig.validate = false
         namespaceConfig.entitiesPaths = [{
             path: path.resolve(__dirname, '../entity/domain/health'),

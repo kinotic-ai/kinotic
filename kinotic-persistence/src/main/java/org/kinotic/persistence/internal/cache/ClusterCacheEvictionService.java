@@ -9,7 +9,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.cluster.ClusterGroup;
 import org.apache.ignite.lang.IgniteFuture;
-import org.kinotic.core.api.config.KinoticProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionEvent;
 import org.kinotic.persistence.internal.cache.events.CacheEvictionSource;
@@ -33,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 public class ClusterCacheEvictionService {
 
     private final PersistenceProperties persistenceProperties;
-    private final KinoticProperties kinoticProperties;
     private final Ignite ignite;
 
     private final LongCounter evictionRequestCounter;
@@ -41,11 +39,9 @@ public class ClusterCacheEvictionService {
     private final LongHistogram clusterDurationHistogram;
     private final LongCounter retryCounter;
 
-    public ClusterCacheEvictionService(KinoticProperties kinoticProperties,
-                                       PersistenceProperties persistenceProperties,
+    public ClusterCacheEvictionService(PersistenceProperties persistenceProperties,
                                        Ignite ignite,
                                        OpenTelemetry openTelemetry) {
-        this.kinoticProperties = kinoticProperties;
         this.persistenceProperties = persistenceProperties;
         this.ignite = ignite;
 
@@ -85,10 +81,7 @@ public class ClusterCacheEvictionService {
         try {
             // we need to clear on both eviction types
             if (event.getEvictionSource() == CacheEvictionSource.LOCAL_MESSAGE) {
-                long timestamp = System.currentTimeMillis();
-                if (!kinoticProperties.isDisableClustering()) {
-                    evictCachesClusterWideWithRetry(event, timestamp);
-                }
+                evictCachesClusterWideWithRetry(event, System.currentTimeMillis());
             }
 
         } catch (Exception e) {

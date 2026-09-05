@@ -34,14 +34,6 @@ spec:
       port: {{ .Values.kinotic.webServer.port | default 9090 }}
       targetPort: {{ .Values.kinotic.webServer.port | default 9090 }}
     {{- end }}
-    - name: "open-api"
-      protocol: TCP
-      port: {{ .Values.kinotic.openApiPort }}
-      targetPort: {{ .Values.kinotic.openApiPort }}
-    - name: "graph-ql"
-      protocol: TCP
-      port: {{ .Values.kinotic.graphqlPort }}
-      targetPort: {{ .Values.kinotic.graphqlPort }}
     - name: "stomp-internal"
       protocol: TCP
       port: {{ .Values.kinotic.stomp.port | default 58503 }}
@@ -83,20 +75,6 @@ spec:
       nodePort: {{ .Values.service.nodePorts.uiDirect }}
       {{- end }}
     {{- end }}
-    - name: "open-api"
-      protocol: TCP
-      port: {{ .Values.kinotic.openApiPort }}
-      targetPort: {{ .Values.kinotic.openApiPort }}
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.openApi }}
-      nodePort: {{ .Values.service.nodePorts.openApi }}
-      {{- end }}
-    - name: "graph-ql"
-      protocol: TCP
-      port: {{ .Values.kinotic.graphqlPort }}
-      targetPort: {{ .Values.kinotic.graphqlPort }}
-      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePorts.graphql }}
-      nodePort: {{ .Values.service.nodePorts.graphql }}
-      {{- end }}
     - name: "stomp"
       protocol: TCP
       port: {{ .Values.kinotic.stomp.port | default 58503 }}

@@ -2,6 +2,11 @@
 
 package org.kinotic.idl.internal.directory;
 
+import org.kinotic.idl.api.directory.ConversionContext;
+import org.kinotic.idl.api.directory.GenericTypeConverter;
+import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.idl.api.directory.SpecificTypeConverter;
+
 import org.apache.commons.lang3.Validate;
 import org.kinotic.idl.api.schema.C3Type;
 import org.springframework.core.ResolvableType;
@@ -62,7 +67,7 @@ public class ResolvableTypeConverterComposite implements GenericTypeConverter {
     @Override
     public boolean supports(ResolvableType resolvableType) {
         Validate.notNull(resolvableType, "ResolvableType cannot be null");
-        return selectConverter(resolvableType) != null;
+        return selectConverter(resolveIfNeeded(resolvableType)) != null;
     }
 
     @Override
@@ -70,9 +75,23 @@ public class ResolvableTypeConverterComposite implements GenericTypeConverter {
                           ConversionContext conversionContext) {
         Validate.notNull(resolvableType, "ResolvableType cannot be null");
 
-        ResolvableTypeConverter converter = selectConverter(resolvableType);
+        ResolvableType resolved = resolveIfNeeded(resolvableType);
+        ResolvableTypeConverter converter = selectConverter(resolved);
         Assert.notNull(converter, "Unsupported Class no ResolvableTypeConverter can be found for " + resolvableType);
-        return converter.convert(resolvableType, conversionContext);
+        return converter.convert(resolved, conversionContext);
+    }
+
+    // A type variable or wildcard carries no raw class of its own even when it resolves against an
+    // implementation type, so dispatch on the resolved class: converters see String, not ID
+    private static ResolvableType resolveIfNeeded(ResolvableType resolvableType) {
+        ResolvableType ret = resolvableType;
+        if (resolvableType.getRawClass() == null) {
+            Class<?> resolved = resolvableType.resolve();
+            if (resolved != null) {
+                ret = ResolvableType.forClass(resolved);
+            }
+        }
+        return ret;
     }
 
     private ResolvableTypeConverter selectConverter(ResolvableType resolvableType){

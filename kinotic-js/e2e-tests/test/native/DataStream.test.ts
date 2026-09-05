@@ -1,12 +1,13 @@
 import {Kinotic, KinoticSingleton, Pageable} from '@kinotic-ai/core'
 import {PropertyDefinition, StringC3Type} from '@kinotic-ai/idl'
-import {EntityDefinition} from '@kinotic-ai/os-api'
+import {EntityDefinition} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
-import {WebSocket} from 'ws'
 import {Alert} from '../domain/Alert.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createAlertEntityDefinitionIfNotExist,
     createTestAlert,
     createTestAlerts,
@@ -17,12 +18,7 @@ import {
     logFailure,
     shutdownKinoticClient
 } from '../TestHelpers.js'
-
-Object.assign(global, { WebSocket })
-
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-datastream'
 
 interface LocalTestContext {
@@ -31,10 +27,10 @@ interface LocalTestContext {
     entityService: IEntityRepository<Alert>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Data Stream Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('DataStream')
         await initKinoticClient()
     }, 300000)
 

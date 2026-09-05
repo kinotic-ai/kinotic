@@ -25,10 +25,14 @@ services:
       - "3200:3200"  # Tempo HTTP
 
   loki:
-    image: grafana/loki:3.3.2
+    # Canonical Loki version: helm/observability/values-loki.yaml pins the same tag, and
+    # LokiClientIntegrationTest parses this file so it always tests the deployed version.
+    image: grafana/loki:3.4.2
     ports:
       - "3100:3100"  # Loki API (logs) — also serves /otlp for OTLP ingestion
-    command: -config.file=/etc/loki/local-config.yaml
+    # Multi-tenant: X-Scope-OrgID routes each org's workload logs to its own tenant;
+    # multi-tenant queries let platform operators read across tenants (orgA|kinotic-system)
+    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true
 
   mimir:
     image: grafana/mimir:2.14.3
@@ -51,9 +55,17 @@ services:
     environment:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      # Land on the server dashboard instead of the empty stock home page
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/kinotic-server.json
     volumes:
       - ./grafana-datasource.yaml:/etc/grafana/provisioning/datasources/datasource.yaml
+      - ./grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/dashboards.yaml
+      - ./dashboards:/var/lib/grafana/dashboards
+      # Grafana 12 downloads the Drilldown apps on first start; keeping /var/lib/grafana
+      # means a container recreate doesn't re-fetch them (and works offline afterwards).
+      - grafana-data:/var/lib/grafana
 
 volumes:
   tempo-data:
   mimir-data:
+  grafana-data:

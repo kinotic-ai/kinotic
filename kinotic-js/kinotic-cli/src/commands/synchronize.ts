@@ -1,24 +1,20 @@
-import {isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
+import {chdirToProjectRoot, isKinoticProject, loadKinoticProjectConfig} from '@/internal/state/KinoticProjectConfigUtil'
 import {FunctionDefinition, ObjectC3Type} from '@kinotic-ai/idl'
 import { Kinotic } from '@kinotic-ai/core'
 import {EntityDefinition,
         IEntityDefinitionService,
         INamedQueriesDefinitionService,
         NamedQueriesDefinition,
-        OsApiPlugin,
-        Project,
-        ProjectType} from '@kinotic-ai/os-api'
+        ManagementApiPlugin,
+        Project} from '@kinotic-ai/management-api'
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
-import {WebSocket} from 'ws'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
 import {ProjectMigrationService} from '@/internal/ProjectMigrationService'
 import {resolveServer} from '@/internal/state/Environment'
 import {CliAuthenticator} from '@/internal/CliAuthenticator'
 
-// This is required when running Kinotic from node
-Object.assign(global, { WebSocket})
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
 
 export class Synchronize extends Command {
     static aliases = ['sync']
@@ -49,6 +45,7 @@ export class Synchronize extends Command {
             if(!(await isKinoticProject())){
                 this.error('The working directory is not a Kinotic Project')
             }
+            chdirToProjectRoot()
 
             const kinoticProjectConfig = await loadKinoticProjectConfig()
 
@@ -62,76 +59,60 @@ export class Synchronize extends Command {
                 this.error('Could not connect to the Kinotic Server')
             }
 
-            try {
-
-                let project: Project | null = null
-                if(!flags.dryRun) {
-                    await Kinotic.applications.createApplicationIfNotExist(kinoticProjectConfig.application, '')
-                    project = new Project(null,
-                                          kinoticProjectConfig.application,
-                                          kinoticProjectConfig.name as string,
-                                          kinoticProjectConfig.description)
-                    project.organizationId = kinoticProjectConfig.organization
-                    project.sourceOfTruth = ProjectType.TYPESCRIPT
-                    project = await Kinotic.projects.createProjectIfNotExist(project)
-                }
-
-                const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.application,
-                                                                              kinoticProjectConfig.fileExtensionForImports,
-                                                                              this)
-
-                await codeGenerationService
-                    .generateAllEntities(kinoticProjectConfig,
-                                         flags.verbose || flags.dryRun,
-                                         async (entityInfo, services) =>{
-
-                                             // combine named queries from generated services
-                                             const namedQueries: FunctionDefinition[] = []
-                                             for(let serviceInfo of services){
-                                                 namedQueries.push(...serviceInfo.namedQueries)
-                                             }
-
-                                             // We sync named queries first since currently the backend cache eviction logic is a little dumb
-                                             // i.e. The cache eviction for the EntityDefinition deletes the GraphQL schema
-                                             //      This will evict the named query execution plan cache
-                                             //      We want to make sure the GraphQL schema is updated after both these are updated and the EntityDefinition below
-                                             if(!flags.dryRun && namedQueries.length > 0){
-                                                 await this.synchronizeNamedQueries(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, namedQueries)
-                                             }
-
-                                             if(!flags.dryRun) {
-                                                 await this.synchronizeEntity(kinoticProjectConfig.organization, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
-                                             }
-                                         },
-                                         flags.force)
-
-                // Apply migrations after entity synchronization
-                if (!flags.dryRun) {
-                    const migrationService = new ProjectMigrationService(this)
-                    await migrationService.applyMigrations(
-                        project!.id as string,
-                        './migrations',
-                        flags.verbose
-                    )
-                }
-
-                this.log(`Synchronization Complete For application: ${kinoticProjectConfig.application}`)
-
-            } catch (e) {
-                if (e instanceof Error) {
-                    this.error(e.message)
+            let project: Project | null = null
+            if(!flags.dryRun) {
+                project = await Kinotic.projects.findById(kinoticProjectConfig.projectId)
+                if(!project) {
+                    this.error(`Project ${kinoticProjectConfig.projectId} does not exist on ${serverUrl}. `
+                               + 'Create it in Kinotic OS first, then set projectId in .config/kinotic.config.ts to its id.')
                 }
             }
-            await Kinotic.disconnect()
-        } catch (e) {
-            if(e instanceof Error){
-                this.log(chalk.red('Error: ') + e.message)
-            }else{
-                this.log(chalk.red('Error: ') + e as string)
+
+            const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.applicationId,
+                                                                          kinoticProjectConfig.fileExtensionForImports,
+                                                                          this)
+
+            await codeGenerationService
+                .generateAllEntities(kinoticProjectConfig,
+                                     flags.verbose || flags.dryRun,
+                                     async (entityInfo, services) =>{
+
+                                         // combine named queries from generated services
+                                         const namedQueries: FunctionDefinition[] = []
+                                         for(let serviceInfo of services){
+                                             namedQueries.push(...serviceInfo.namedQueries)
+                                         }
+
+                                         // We sync named queries first since currently the backend cache eviction logic is a little dumb
+                                         // i.e. The cache eviction for the EntityDefinition deletes the GraphQL schema
+                                         //      This will evict the named query execution plan cache
+                                         //      We want to make sure the GraphQL schema is updated after both these are updated and the EntityDefinition below
+                                         if(!flags.dryRun && namedQueries.length > 0){
+                                             await this.synchronizeNamedQueries(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, namedQueries)
+                                         }
+
+                                         if(!flags.dryRun) {
+                                             await this.synchronizeEntity(kinoticProjectConfig.organizationId, (project as Project).id as string, entityInfo.entity, flags.publish, flags.verbose)
+                                         }
+                                     },
+                                     flags.force)
+
+            // Apply migrations after entity synchronization
+            if (!flags.dryRun) {
+                const migrationService = new ProjectMigrationService(this)
+                await migrationService.applyMigrations(
+                    project!.id as string,
+                    './migrations',
+                    flags.verbose
+                )
             }
+
+            this.log(`Synchronization Complete For application: ${kinoticProjectConfig.applicationId}`)
+        } finally {
+            // Any failure above propagates to oclif, which reports it and exits non-zero; a
+            // sync that could not do its job must never look like one that did
             await Kinotic.disconnect()
         }
-        return
     }
 
     public logVerbose(message: string | ( () => string ), verbose: boolean): void {
@@ -182,6 +163,7 @@ export class Synchronize extends Command {
         } catch (e: any) {
             const message = e?.message || e
             this.log(chalk.red('Error') + ` Synchronizing Entity: ${entityDefinitionId}, Exception: ${message}`)
+            throw e
         }
     }
 
@@ -207,6 +189,7 @@ export class Synchronize extends Command {
         } catch (e: any) {
             const message = e?.message || e
             this.log(chalk.red('Error') + ` Synchronizing Named Queries for Entity: ${id}, Exception: ${message}`)
+            throw e
         }
     }
 }

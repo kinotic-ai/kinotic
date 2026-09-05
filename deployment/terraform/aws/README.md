@@ -1,6 +1,9 @@
-# Atlas Forge - Terraform Infrastructure
+# AWS Firecracker Host - Terraform Infrastructure
 
 This Terraform configuration deploys a bare metal AWS EC2 instance configured to run Firecracker microVMs with multi-tenant network isolation using VXLAN overlay networking.
+
+> This root is a standalone experiment and is not part of the deployed Kinotic
+> platform — production Firecracker hosts live in `deployment/terraform/azure/`.
 
 ## Overview
 

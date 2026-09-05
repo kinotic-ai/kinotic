@@ -1,27 +1,19 @@
-import {OsApiPlugin} from '@kinotic-ai/os-api'
+import {ManagementApiPlugin} from '@kinotic-ai/management-api'
 import {Kinotic} from '@kinotic-ai/core'
+import {ensureNodeWebSocket} from '@kinotic-ai/core/node'
 import {PersistencePlugin} from '@kinotic-ai/persistence'
 // @ts-ignore
 import path from 'node:path'
-// @ts-ignore
-import os from 'node:os'
 import {StartedDockerComposeEnvironment, DockerComposeEnvironment, Wait} from 'testcontainers'
 // @ts-ignore
 import {TestProject} from 'vitest/node.js'
-import {WebSocket} from 'ws'
 
-Object.assign(global, {WebSocket})
+ensureNodeWebSocket()
 
-Kinotic.use(OsApiPlugin)
+Kinotic.use(ManagementApiPlugin)
        .use(PersistencePlugin)
 
 let environment: StartedDockerComposeEnvironment
-
-function isOSX_M1() {
-    const arch = os.arch()
-    const platform = os.platform()
-    return platform === 'darwin' && arch === 'arm64'
-}
 
 // Run once before all tests
 export async function setup(project: TestProject) {
@@ -31,9 +23,6 @@ export async function setup(project: TestProject) {
 
         const resolvedPath = path.resolve('../../deployment/docker-compose/')
         const files = ['compose.kinotic-e2e-test.yml']
-        if (isOSX_M1()) {
-            files.push('compose.ek-m4.override.yml')
-        }
         environment = await new DockerComposeEnvironment(resolvedPath, files)
             .withWaitStrategy('kinotic-elasticsearch', Wait.forHttp('/_cluster/health', 9200))
             .withWaitStrategy('kinotic-server', Wait.forHttp('/health', 9090))
@@ -42,12 +31,24 @@ export async function setup(project: TestProject) {
 
         const container = environment.getContainer('kinotic-server')
 
+        // Surface server-side failures in the test output: without this, a broken server startup
+        // only ever shows up as opaque timeouts in the suites
+        try {
+            const logStream = await container.logs()
+            logStream.on('data', (chunk: Buffer | string) => {
+                const text = String(chunk)
+                if (text.includes('ERROR')) {
+                    console.error('[kinotic-server]', text.trimEnd())
+                }
+            })
+        } catch (e) {
+            console.error('Could not attach to kinotic-server logs', e)
+        }
+
         // @ts-ignore
         project.provide('KINOTIC_HOST', container.getHost())
         // @ts-ignore
         project.provide('KINOTIC_PORT', container.getMappedPort(58503))
-        // @ts-ignore
-        project.provide('KINOTIC_OPENAPI_PORT', container.getMappedPort(8080))
 
         console.log('Kinotic started.')
     }else{
@@ -55,8 +56,6 @@ export async function setup(project: TestProject) {
         project.provide('KINOTIC_HOST', '127.0.0.1')
         // @ts-ignore
         project.provide('KINOTIC_PORT', 58503)
-        // @ts-ignore
-        project.provide('KINOTIC_OPENAPI_PORT', 8080)
         console.log('Skipping Kinotic setup because VITE_USE_KINOTIC_DOCKER is false')
     }
 }

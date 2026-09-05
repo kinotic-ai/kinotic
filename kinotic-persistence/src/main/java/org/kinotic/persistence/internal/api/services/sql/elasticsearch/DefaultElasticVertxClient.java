@@ -7,6 +7,7 @@ import co.elastic.clients.json.JsonpMapper;
 import co.elastic.clients.json.SimpleJsonpMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
+import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.PoolOptions;
@@ -24,11 +25,12 @@ import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.persistence.api.config.PersistenceProperties;
+import org.kinotic.domain.api.config.DomainProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.persistence.internal.cache.DefaultCaffeineCacheFactory;
-import org.kinotic.persistence.api.config.ElasticConnectionInfo;
+import org.kinotic.domain.api.config.ElasticConnectionInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -44,7 +46,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Provides access to ElasticSearch via Vertx.
@@ -62,10 +63,11 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
 
     public DefaultElasticVertxClient(ObjectMapper objectMapper,
-                                     PersistenceProperties persistenceProperties,
+                                     KinoticDomainProperties kinoticDomainProperties,
                                      Vertx vertx,
                                      DefaultCaffeineCacheFactory cacheFactory) {
         this.objectMapper = objectMapper;
+        DomainProperties domainProperties = kinoticDomainProperties.getDomain();
         this.columnsCache = cacheFactory.<String, List<ElasticColumn>>newBuilder()
                                         .name("elasticColumnsCache")
                                         .expireAfterAccess(Duration.ofMinutes(35))
@@ -73,7 +75,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                         .build();
 
         WebClientOptions options = new WebClientOptions()
-                .setConnectTimeout((int) persistenceProperties.getElasticConnectionTimeout().toMillis())
+                .setConnectTimeout((int) domainProperties.getElasticConnectionTimeout().toMillis())
                 .setTcpNoDelay(true)
                 .setTcpKeepAlive(true)
                 .setTracingPolicy(TracingPolicy.IGNORE);
@@ -84,18 +86,18 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
 
         this.webClient = WebClient.create(vertx, options, poolOptions);
 
-        Validate.notEmpty(persistenceProperties.getElasticConnections(), "No Elastic connections defined");
+        Validate.notEmpty(domainProperties.getElasticConnections(), "No Elastic connections defined");
 
-        ElasticConnectionInfo elasticConnectionInfo = persistenceProperties.getElasticConnections().getFirst();
+        ElasticConnectionInfo elasticConnectionInfo = domainProperties.getElasticConnections().getFirst();
 
         sqlQueryRequest = webClient.post(elasticConnectionInfo.getPort(),
                                          elasticConnectionInfo.getHost(), "/_sql");
         if(elasticConnectionInfo.getScheme().equalsIgnoreCase("https")){
             sqlQueryRequest.ssl(true);
         }
-        if(persistenceProperties.hasElasticUsernameAndPassword()){
-            sqlQueryRequest.basicAuthentication(persistenceProperties.getElasticUsername(),
-                                                persistenceProperties.getElasticPassword());
+        if(domainProperties.hasElasticUsernameAndPassword()){
+            sqlQueryRequest.basicAuthentication(domainProperties.getElasticUsername(),
+                                                domainProperties.getElasticPassword());
         }
 
         sqlTranslateRequest = sqlQueryRequest.copy().uri("/_sql/translate");
@@ -110,12 +112,12 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
     @WithSpan
     @Override
     @SuppressWarnings("unchecked")
-    public <T> CompletableFuture<Page<T>> querySql(String statement,
-                                                   List<?> parameters,
-                                                   JsonObject filter,
-                                                   QueryOptions options,
-                                                   Pageable pageable,
-                                                   Class<T> type) {
+    public <T> Future<Page<T>> querySql(String statement,
+                                        List<?> parameters,
+                                        JsonObject filter,
+                                        QueryOptions options,
+                                        Pageable pageable,
+                                        Class<T> type) {
         JsonObject json = new JsonObject();
         boolean foundCursor = false;
         MutableObject<String> cursorProvided = new MutableObject<>(null);
@@ -129,7 +131,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                     json.put("fetch_size", pageable.getPageSize());
                 }
             }else{
-                return CompletableFuture.failedFuture(new IllegalArgumentException("Only CursorPageable is supported for queries containing Aggregations."));
+                return Future.failedFuture(new IllegalArgumentException("Only CursorPageable is supported for queries containing Aggregations."));
             }
         }
 
@@ -179,14 +181,13 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                   }else{
                                       throw convertErrorResponse(new ByteArrayInputStream(resp.body().getBytes()));
                                   }
-                              }).toCompletionStage()
-                              .toCompletableFuture();
+                              });
     }
 
     @WithSpan
     @Override
-    public CompletableFuture<TranslateResponse> translateSql(String statement,
-                                                             List<?> parameters){
+    public Future<TranslateResponse> translateSql(String statement,
+                                                  List<?> parameters){
         JsonObject json = new JsonObject().put("query", statement);
         if(parameters != null) {
             JsonArray paramsJson = new JsonArray();
@@ -210,8 +211,7 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
                                       } else {
                                           throw convertErrorResponse(input);
                                       }
-                                  }).toCompletionStage()
-                                  .toCompletableFuture();
+                                  });
     }
 
     private IllegalArgumentException convertErrorResponse(InputStream input) {

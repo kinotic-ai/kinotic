@@ -1,11 +1,10 @@
 package org.kinotic.persistence.internal;
 
 import org.kinotic.core.api.config.KinoticProperties;
+import org.kinotic.domain.api.config.KinoticDomainProperties;
 import org.kinotic.persistence.api.config.PersistenceProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
@@ -28,6 +27,7 @@ public class PersistenceInitializer {
     private final ElasticsearchAsyncClient esAsyncClient;
     private final HealthChecks healthChecks;
     private final PersistenceProperties properties;
+    private final KinoticDomainProperties domainProperties;
     private final Vertx vertx;
     private Throwable lastEsError = null;
     private boolean lastEsStatus = true;
@@ -45,7 +45,7 @@ public class PersistenceInitializer {
             }
         });
 
-        vertx.setPeriodic(properties.getElasticHealthCheckInterval().toMillis(),
+        vertx.setPeriodic(domainProperties.getDomain().getElasticHealthCheckInterval().toMillis(),
                           event -> esAsyncClient
                                   .cluster()
                                   .health(builder -> builder.index(properties.getIndexPrefix() + "application")
@@ -56,22 +56,11 @@ public class PersistenceInitializer {
                                           lastEsStatus = false;
                                           lastEsError = throwable;
                                       }else{
-                                          log.debug("Elasticsearch cluster health check succeeded");
+                                          log.trace("Elasticsearch cluster health check succeeded");
                                           lastEsStatus = true;
                                           lastEsError = null;
                                       }
                                   }));
-    }
-
-    @EventListener
-    public void onApplicationReadyEvent(ApplicationReadyEvent event) {
-        log.info("Rest API listening on port {}", properties.getOpenApiPort());
-        log.info("OpenApi Json available at http://localhost:{}/api-docs/[KINOTIC APPLICATION]/openapi.json",
-                 properties.getOpenApiPort());
-        log.info("GraphQL listening on port {}", properties.getGraphqlPort());
-        log.info("GraphQL available at http://localhost:{}{}[KINOTIC APPLICATION]/",
-                 properties.getGraphqlPort(),
-                 properties.getGraphqlPath());
     }
 
 }

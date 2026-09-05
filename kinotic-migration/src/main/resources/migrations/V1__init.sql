@@ -2,6 +2,7 @@
 CREATE TABLE IF NOT EXISTS kinotic_application (
     id KEYWORD,
     organizationId KEYWORD,
+    name KEYWORD,
     description TEXT,
     oidcConfigurationIds KEYWORD,
     tenantPerUser BOOLEAN,
@@ -19,7 +20,7 @@ CREATE TABLE IF NOT EXISTS kinotic_named_query_service_definition (
 );
 
 -- Create the project table if it does not exist.
--- repoFullName / repoId / defaultBranch are stamped by the GitHub repo provisioner
+-- repoFullName / repoId / repoDefaultBranch are stamped by the GitHub repo provisioner
 -- when the project is created; every project is backed by a GitHub repo.
 CREATE TABLE IF NOT EXISTS kinotic_project (
     id KEYWORD,
@@ -30,9 +31,63 @@ CREATE TABLE IF NOT EXISTS kinotic_project (
     sourceOfTruth KEYWORD,
     repoFullName KEYWORD,
     repoId LONG,
-    defaultBranch KEYWORD,
+    repoDefaultBranch KEYWORD,
     repoPrivate BOOLEAN,
-    repositoryConnectionStatus KEYWORD,
+    repoConnectionStatus KEYWORD,
+    updated DATE
+);
+
+-- Deployment state per project: which node holds the checkout, which workload serves it,
+-- and the commit currently live. One row per project; id equals the projectId.
+CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    nodeId KEYWORD,
+    hostDir KEYWORD,
+    syncWorkloadId KEYWORD,
+    uiPublishWorkloadId KEYWORD,
+    syncMachineIdentityId KEYWORD,
+    commitSha KEYWORD,
+    artifacts OBJECT (
+        microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
+        uis OBJECT (name KEYWORD, dir KEYWORD)
+    ),
+    artifactsCommitSha KEYWORD,
+    lastJobRunId KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
+-- Microservice deployments: one row per microservice artifact a project deployment has ensured.
+CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    name KEYWORD,
+    workloadId KEYWORD,
+    machineIdentityId KEYWORD,
+    entryPoint KEYWORD,
+    commitSha KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
+-- UI deployments: one row per UI artifact a project deployment has published, keyed by the
+-- site's hostname label.
+CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    name KEYWORD,
+    url KEYWORD,
+    commitSha KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
     updated DATE
 );
 
@@ -70,17 +125,54 @@ CREATE TABLE IF NOT EXISTS kinotic_entity_definition (
     timeReferenceFieldName KEYWORD NOT INDEXED
 );
 
--- IAM User: authenticated identities at each scope layer. Scope is encoded structurally by
+-- Create the service_directory table if it does not exist
+CREATE TABLE IF NOT EXISTS kinotic_service_directory (
+    id KEYWORD,
+    serviceAddress KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    namespace KEYWORD,
+    name KEYWORD,
+    version KEYWORD,
+    zone KEYWORD,
+    description TEXT,
+    serviceDefinition JSON NOT INDEXED,
+    advertised BOOLEAN,
+    mcpExposed BOOLEAN,
+    mcpTools OBJECT (
+        name KEYWORD,
+        title KEYWORD,
+        description TEXT,
+        inputSchema JSON NOT INDEXED,
+        cri KEYWORD NOT INDEXED,
+        annotations OBJECT (
+            readOnlyHint BOOLEAN,
+            destructiveHint BOOLEAN,
+            idempotentHint BOOLEAN
+        ) NOT INDEXED
+    ),
+    online BOOLEAN,
+    lastStatusChange DATE
+);
+
+-- Participant Identity: authenticated identities at each scope layer — a person (type=USER)
+-- or a client acting on a person's behalf (type=DELEGATE). Scope is encoded structurally by
 -- which of organizationId / applicationId is set: both null = SYSTEM, organizationId only =
 -- ORGANIZATION, both set = APPLICATION.
--- Uniqueness rule (enforced in service layer): one row per (email, organizationId, applicationId).
-CREATE TABLE IF NOT EXISTS kinotic_iam_user (
+-- Uniqueness rules (enforced in service layer): one USER per (email, organizationId,
+-- applicationId); one DELEGATE per (ownerId, clientKey).
+CREATE TABLE IF NOT EXISTS kinotic_participant_identity (
     id KEYWORD,
+    type KEYWORD,
     email KEYWORD,
     displayName KEYWORD,
     authType KEYWORD,
     oidcSubject KEYWORD,
     oidcConfigId KEYWORD,
+    ownerId KEYWORD,
+    clientKey KEYWORD,
+    delegateKind KEYWORD,
     organizationId KEYWORD,
     applicationId KEYWORD,
     tenantId KEYWORD,
@@ -90,9 +182,9 @@ CREATE TABLE IF NOT EXISTS kinotic_iam_user (
 );
 
 -- IAM Credential: password hashes stored separately from user entities
-CREATE TABLE IF NOT EXISTS kinotic_iam_credential (
+CREATE TABLE IF NOT EXISTS kinotic_identity_credential (
     id KEYWORD,
-    passwordHash KEYWORD NOT INDEXED
+    secretHash KEYWORD NOT INDEXED
 );
 
 -- OIDC Configuration: per-org OIDC provider configs. Each row is owned by an organization
@@ -107,15 +199,12 @@ CREATE TABLE IF NOT EXISTS kinotic_oidc_configuration (
     clientId KEYWORD NOT INDEXED,
     secretNameRef KEYWORD NOT INDEXED,
     authority KEYWORD,
-    backChannelAuthority KEYWORD NOT INDEXED,
-    redirectUri KEYWORD NOT INDEXED,
-    postLogoutRedirectUri KEYWORD NOT INDEXED,
-    silentRedirectUri KEYWORD NOT INDEXED,
-    domains KEYWORD,
+    authorizationUri KEYWORD NOT INDEXED,
+    tokenUri KEYWORD NOT INDEXED,
+    userInfoUri KEYWORD NOT INDEXED,
+    userEmailsUri KEYWORD NOT INDEXED,
+    scopes KEYWORD NOT INDEXED,
     audience KEYWORD NOT INDEXED,
-    rolesClaimPath KEYWORD NOT INDEXED,
-    additionalScopes KEYWORD NOT INDEXED,
-    provisioningMode KEYWORD,
     enabled BOOLEAN,
     created DATE,
     updated DATE
@@ -131,6 +220,11 @@ CREATE TABLE IF NOT EXISTS kinotic_org_signup_oidc_configuration (
     clientId KEYWORD NOT INDEXED,
     secretNameRef KEYWORD NOT INDEXED,
     authority KEYWORD,
+    authorizationUri KEYWORD NOT INDEXED,
+    tokenUri KEYWORD NOT INDEXED,
+    userInfoUri KEYWORD NOT INDEXED,
+    userEmailsUri KEYWORD NOT INDEXED,
+    scopes KEYWORD NOT INDEXED,
     audience KEYWORD NOT INDEXED,
     enabled BOOLEAN,
     created DATE,
@@ -147,6 +241,9 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     description TEXT,
     ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
+    storage OBJECT (azureSubscriptionId KEYWORD, azureAccountName KEYWORD, azureBlobEndpoint KEYWORD,
+                    status OBJECT (type KEYWORD, message TEXT)),
+    provisioningJobRunId KEYWORD,
     created DATE,
     updated DATE
 );
@@ -195,35 +292,142 @@ CREATE TABLE IF NOT EXISTS kinotic_invite_email_template (
     updated DATE
 );
 
+-- OAuth 2.0 Device Authorization Grant (RFC 8628): pending CLI device-code login flows.
+-- Short-lived (minutes); deleted once the CLI collects its tokens. deviceCodeHash is the
+-- SHA-256 of the high-entropy device_code the CLI polls with — the plaintext is never stored.
+CREATE TABLE IF NOT EXISTS kinotic_device_code_grant (
+    id KEYWORD,
+    deviceCodeHash KEYWORD,
+    userCode KEYWORD,
+    identityId KEYWORD,
+    deviceName KEYWORD NOT INDEXED,
+    created DATE,
+    expiresAt DATE,
+    lastPolledAt DATE,
+    intervalSeconds INTEGER
+);
+
+-- Rotating refresh tokens for CLI sessions. tokenHash is the SHA-256 of the refresh token —
+-- the plaintext lives only on the client. familyId groups a rotation lineage so presenting
+-- an already-rotated token (reuse) can revoke the whole family.
+-- audience is the surface access tokens minted from a lineage are valid for; rotation
+-- preserves it, so an MCP host's lineage can never mint a published-services token or the
+-- reverse.
+CREATE TABLE IF NOT EXISTS kinotic_refresh_token (
+    id KEYWORD,
+    tokenHash KEYWORD,
+    identityId KEYWORD,
+    familyId KEYWORD,
+    label KEYWORD NOT INDEXED,
+    audience KEYWORD,
+    created DATE,
+    expiresAt DATE,
+    lastUsedAt DATE,
+    revoked BOOLEAN,
+    replacedById KEYWORD NOT INDEXED
+);
+
+-- OAuth 2.1 authorization server (PKCE authorization-code grant) that MCP hosts drive to reach
+-- POST /mcp. Clients are not stored: a client_id is a Client ID Metadata Document URL the
+-- authorization server fetches and validates per request
+-- (draft-ietf-oauth-client-id-metadata-document).
+--
+-- Authorization-code flows in progress: created by the authorize endpoint, bound to a user when
+-- the consent page approves, and deleted when the code is exchanged. codeHash is the SHA-256 of
+-- the authorization code — the plaintext is never stored.
+CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
+    id KEYWORD,
+    clientId KEYWORD,
+    clientName KEYWORD NOT INDEXED,
+    redirectUri KEYWORD NOT INDEXED,
+    codeChallenge KEYWORD NOT INDEXED,
+    scope KEYWORD NOT INDEXED,
+    resource KEYWORD NOT INDEXED,
+    state KEYWORD NOT INDEXED,
+    identityId KEYWORD,
+    codeHash KEYWORD,
+    created DATE,
+    expiresAt DATE
+);
+
 -- Create the vm_node table for tracking VmManager nodes
 CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,
     name KEYWORD,
     hostname KEYWORD,
-    status KEYWORD,
+    status OBJECT (type KEYWORD, healthMessage TEXT),
+    providerType KEYWORD,
     totalCpus INTEGER,
     totalMemoryMb INTEGER,
     totalDiskMb INTEGER,
-    allocatedCpus INTEGER,
-    allocatedMemoryMb INTEGER,
-    allocatedDiskMb INTEGER,
-    lastSeen DATE
+    availableCpus INTEGER,
+    availableMemoryMb INTEGER,
+    availableDiskMb INTEGER,
+    lastSeen DATE,
+    workloadDataDir KEYWORD
 );
 
--- Create the workload table for tracking deployed workloads
+-- Create the workload table for tracking deployed workloads.
+-- organizationId/applicationId encode who the workload runs on behalf of (both null = platform
+-- workload); the mapping is strict, so every Workload entity field must be declared here.
 CREATE TABLE IF NOT EXISTS kinotic_workload (
     id KEYWORD,
     name KEYWORD,
     description TEXT,
     nodeId KEYWORD,
-    providerType KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
     image KEYWORD,
     vcpus INTEGER,
     memoryMb INTEGER,
     diskSizeMb INTEGER,
+    network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
+    logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
+    telemetry BOOLEAN,
+    detached BOOLEAN,
+    autoRemove BOOLEAN,
     status KEYWORD,
+    exitCode INTEGER,
     environment JSON NOT INDEXED,
-    portMappings JSON NOT INDEXED,
+    secrets JSON NOT INDEXED,
+    portMappings OBJECT (hostPort INTEGER, guestPort INTEGER, protocol KEYWORD, hostIp KEYWORD),
+    volumeMounts OBJECT (hostPath KEYWORD, guestPath KEYWORD, readOnly BOOLEAN, sizeLimitMb INTEGER),
+    entrypoint KEYWORD NOT INDEXED,
+    cmd KEYWORD NOT INDEXED,
     created DATE,
     updated DATE
+);
+
+-- Create the job_run table for the persistent history of grind job executions
+CREATE TABLE IF NOT EXISTS kinotic_job_run (
+    id KEYWORD,
+    name KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    version KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    error TEXT,
+    resumedFrom KEYWORD,
+    nodeId KEYWORD,
+    started DATE,
+    finished DATE
+);
+
+-- Create the task_record table for the per-task history of a job run
+CREATE TABLE IF NOT EXISTS kinotic_task_record (
+    id KEYWORD,
+    jobRunId KEYWORD,
+    taskPath KEYWORD,
+    description TEXT,
+    status KEYWORD,
+    storeType KEYWORD,
+    dynamicTasks BOOLEAN,
+    storedName KEYWORD,
+    stateValueType KEYWORD,
+    stateValue JSON NOT INDEXED,
+    error TEXT,
+    started DATE,
+    finished DATE
 );

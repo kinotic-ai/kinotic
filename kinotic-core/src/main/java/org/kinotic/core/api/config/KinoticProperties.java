@@ -1,16 +1,13 @@
 package org.kinotic.core.api.config;
 
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
 import org.apache.ignite.configuration.DataStorageConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 import org.springframework.validation.annotation.Validated;
-
-import lombok.Getter;
-import lombok.Setter;
-import lombok.experimental.Accessors;
 
 /**
  *
@@ -31,12 +28,6 @@ public class KinoticProperties {
      * This is off by default since this could reveal server implementation details
      */
     private boolean debug = false;
-
-    /**
-     * If disabled, clustering will be disabled.
-     * When disabled properties under {@link #getIgnite()} will be ignored.
-     */
-    private boolean disableClustering = false;
 
     /**
      * Sets the host. Defaults to null.
@@ -70,11 +61,13 @@ public class KinoticProperties {
     private IgniteProperties ignite = new IgniteProperties();
 
     /**
-     * CORS configuration applied to all Vert.x HTTP servers that expose browser-facing routes.
+     * The largest event payload the platform accepts, in bytes. It bounds the STOMP body, the
+     * WebSocket frame carrying it, and the JSON document the invoker will parse. A frame's payload is
+     * allocated off heap in full as it arrives, so this also sets how much direct memory a single
+     * connection can demand and must be raised together with {@code -XX:MaxDirectMemorySize}.
+     * NOTE: {@code -XX:MaxDirectMemorySize} will need to be maxEventPayloadSize x (maxNumberOfConnections sending frames at this size)
      */
-    private CorsProperties cors = new CorsProperties();
-
-    private int maxEventPayloadSize = 1024 * 1024 * 100; // 100MB
+    private int maxEventPayloadSize = 1024 * 1024 * 2; // 2MB
 
     /**
      * The maximum number of CPU cores if not set or less than 1, this will default to the available number of cores.
@@ -87,17 +80,18 @@ public class KinoticProperties {
     private long maxOffHeapMemory = DataStorageConfiguration.DFLT_DATA_REGION_MAX_SIZE;
 
     /**
-     * Secret storage configuration. If null, an in-memory backend is used.
-     */
-    private SecretStorageProperties secretStorage;
-
-    /**
      * Paths to platform-level secret files (JWT signing keys, secret-storage master keys).
      * Files are mounted into the pod by the Azure Key Vault CSI driver in production or
      * by a Kubernetes Secret volume locally, and watched for changes so rotation flows
      * through without a restart.
      */
     private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
+
+    /**
+     * The CRI patterns that decide what trace logging prints.
+     * This is what a node starts with; {@code LogManager} replaces the patterns on a running node.
+     */
+    private TraceLogProperties traceLog = new TraceLogProperties();
 
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {

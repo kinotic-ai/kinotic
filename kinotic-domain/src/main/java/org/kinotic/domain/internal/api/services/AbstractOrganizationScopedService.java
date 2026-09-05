@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
@@ -7,11 +8,9 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.OrganizationScoped;
-import org.kinotic.domain.api.security.ApplicationParticipant;
-import org.kinotic.domain.api.security.OrganizationParticipant;
+import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.internal.api.repositories.AbstractOrganizationScopedRepository;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Service base that adds organization-scope enforcement on top of an
@@ -33,23 +32,23 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
     }
 
     @Override
-    public CompletableFuture<Long> count() {
+    public Future<Long> count() {
         return scopedRepository.count(requireOrganizationId());
     }
 
     @Override
-    public CompletableFuture<T> findById(String id) {
+    public Future<T> findById(String id) {
         return scopedRepository.findById(id, requireOrganizationId());
     }
 
     @Override
-    public CompletableFuture<Void> deleteById(String id) {
-        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteById(id, requireOrganizationId()));
+    public Future<Void> deleteById(String id) {
+        return beforeDelete(id).compose(v -> scopedRepository.deleteById(id, requireOrganizationId()));
     }
 
     @Override
-    public CompletableFuture<Void> deleteByIdSync(String id) {
-        return beforeDelete(id).thenCompose(v -> scopedRepository.deleteByIdSync(id, requireOrganizationId()));
+    public Future<Void> deleteByIdSync(String id) {
+        return beforeDelete(id).compose(v -> scopedRepository.deleteByIdSync(id, requireOrganizationId()));
     }
 
     /**
@@ -58,42 +57,42 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
      * Override to validate the delete or cascade dependent data; the org-scoped delete
      * proceeds when the returned future completes.
      */
-    protected CompletableFuture<Void> beforeDelete(String id) {
-        return CompletableFuture.completedFuture(null);
+    protected Future<Void> beforeDelete(String id) {
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Page<T>> findAll(Pageable pageable) {
+    public Future<Page<T>> findAll(Pageable pageable) {
         return scopedRepository.findAll(requireOrganizationId(), pageable);
     }
 
     @Override
-    public CompletableFuture<T> save(T value) {
-        return beforeSave(value).thenCompose(v -> {
+    public Future<T> save(T value) {
+        return beforeSave(value).compose(v -> {
             enforceOrgOnSave(value);
             return scopedRepository.save(value, resolveWriteOrgId(value));
         });
     }
 
     @Override
-    public CompletableFuture<T> saveSync(T value) {
-        return beforeSave(value).thenCompose(v -> {
+    public Future<T> saveSync(T value) {
+        return beforeSave(value).compose(v -> {
             enforceOrgOnSave(value);
             return scopedRepository.saveSync(value, resolveWriteOrgId(value));
         });
     }
 
     @Override
-    public CompletableFuture<T> create(T value) {
-        return beforeSave(value).thenCompose(v -> {
+    public Future<T> create(T value) {
+        return beforeSave(value).compose(v -> {
             enforceOrgOnSave(value);
             return scopedRepository.create(value, resolveWriteOrgId(value));
         });
     }
 
     @Override
-    public CompletableFuture<T> createSync(T value) {
-        return beforeSave(value).thenCompose(v -> {
+    public Future<T> createSync(T value) {
+        return beforeSave(value).compose(v -> {
             enforceOrgOnSave(value);
             return scopedRepository.createSync(value, resolveWriteOrgId(value));
         });
@@ -105,24 +104,24 @@ public abstract class AbstractOrganizationScopedService<T extends OrganizationSc
      * path and not the others. Override to validate and prepare the entity (defaults, ids,
      * timestamps); org enforcement and the write proceed when the returned future completes.
      */
-    protected CompletableFuture<Void> beforeSave(T entity) {
-        return CompletableFuture.completedFuture(null);
+    protected Future<Void> beforeSave(T entity) {
+        return Future.succeededFuture();
     }
 
     @Override
-    public CompletableFuture<Page<T>> search(String searchText, Pageable pageable) {
+    public Future<Page<T>> search(String searchText, Pageable pageable) {
         return scopedRepository.search(searchText, requireOrganizationId(), pageable);
     }
 
     @Override
-    public CompletableFuture<Void> syncIndex() {
+    public Future<Void> syncIndex() {
         return scopedRepository.syncIndex();
     }
 
     /**
-     * Ensures the current participant carries an {@code organizationId} — either an
-     * {@link OrganizationParticipant} or its {@link ApplicationParticipant} subtype — and
-     * returns that id.
+     * Returns the {@code organizationId} of the current {@link OrganizationParticipant}.
+     * {@link ApplicationParticipant} is a sibling type, not a subtype, so application-scoped
+     * callers are rejected — this check is what keeps org-scoped services closed to applications.
      *
      * @throws IllegalStateException if no participant is bound to the current context
      * @throws AuthorizationException if the participant is not an {@code OrganizationParticipant}

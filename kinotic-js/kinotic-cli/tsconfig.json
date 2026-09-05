@@ -2,12 +2,10 @@
     "compilerOptions": {
         "allowSyntheticDefaultImports": true,
         "declaration": true,
-        "emitDecoratorMetadata": true,
-        "experimentalDecorators": true,
         "esModuleInterop": true,
         "importHelpers": true,
         "module": "ES2020",
-        "moduleResolution": "node",
+        "moduleResolution": "bundler",
         "outDir": "dist",
         "rootDir": "src",
         "skipLibCheck": true,

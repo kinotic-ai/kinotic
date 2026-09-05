@@ -39,13 +39,13 @@ Data moving between services is serialized and deserialized according to the sch
 `@kinotic-ai/idl` sits just above the core transport layer:
 
 ```
-@kinotic-ai/os-api      ← cloud OS management
+@kinotic-ai/management-api      ← cloud OS management
 @kinotic-ai/persistence ← schema-driven data access
 @kinotic-ai/idl         ← cross-language type schemas (this package)
 @kinotic-ai/core        ← connection & transport
 ```
 
-`@kinotic-ai/persistence` and `@kinotic-ai/os-api` both depend on the schema definitions this package provides. Start here when you need to describe data that crosses a service boundary.
+`@kinotic-ai/persistence` and `@kinotic-ai/management-api` both depend on the schema definitions this package provides. Start here when you need to describe data that crosses a service boundary.
 
 ---
 

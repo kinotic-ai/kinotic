@@ -29,6 +29,10 @@ export class CrudServiceProxy<T extends Identifiable<string>> implements ICrudSe
         return this.serviceProxy.invoke('deleteById', [id])
     }
 
+    public deleteByIdSync(id: string): Promise<void> {
+        return this.serviceProxy.invoke('deleteByIdSync', [id])
+    }
+
     public async findAll(pageable: Pageable): Promise<IterablePage<T>> {
         const page = await this.findAllSinglePage(pageable)
         return new FindAllIterablePage(pageable, page, this)

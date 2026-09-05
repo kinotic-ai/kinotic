@@ -5,8 +5,7 @@ plugins {
 dependencies {
     implementation project(':kinotic-core')
     implementation project(':kinotic-domain')
-    implementation project(':kinotic-os-api')
-    implementation project(':kinotic-github')
+    implementation project(':kinotic-management-api')
 
     // reactive streams apis
     implementation 'io.projectreactor:reactor-core'
@@ -14,8 +13,6 @@ dependencies {
     implementation 'io.vertx:vertx-core'
     implementation 'io.vertx:vertx-web'
     implementation 'io.vertx:vertx-health-check'
-    implementation 'io.vertx:vertx-auth-common'
-    implementation 'io.vertx:vertx-auth-oauth2'
 
     implementation 'org.apache.ignite:ignite-core'
 
@@ -29,9 +26,6 @@ dependencies {
 
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
-
-    testImplementation 'io.vertx:vertx-web-client'
-    testImplementation 'org.awaitility:awaitility'
 }
 
 // kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime
@@ -40,8 +34,12 @@ dependencies {
 //
 // Gradle 9 enforces explicit dependencies on every task that reads from the resources dir —
 // processResources for the main jar, sourcesJar for the published sources artifact. Hook both.
-['processResources', 'sourcesJar'].each { taskName ->
-    tasks.matching { it.name == taskName }.configureEach {
-        dependsOn ':kinotic-frontend:copyDist'
+// CLAUDE_CLOUD_COMPILE excludes kinotic-frontend from the build entirely (see settings.gradle),
+// so the task path only exists when that flag is off.
+if (!Boolean.parseBoolean(System.getenv('CLAUDE_CLOUD_COMPILE'))) {
+    ['processResources', 'sourcesJar'].each { taskName ->
+        tasks.matching { it.name == taskName }.configureEach {
+            dependsOn ':kinotic-frontend:copyDist'
+        }
     }
 }

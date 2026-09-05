@@ -3,6 +3,7 @@
 package org.kinotic.core.internal.api.support;
 
 import io.vertx.core.Future;
+import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.internal.api.RpcTests;
@@ -33,6 +34,10 @@ public interface RpcTestService {
      */
     String STRING_VALUE = "Hello Sucka!";
 
+    byte[] BINARY_VALUE = {0, 1, 2, 3, (byte) 0xFF, (byte) 0xFE, 42, -1};
+
+    byte[][] BINARY_CHUNKS = {{10, 20, 30}, {40, 50}, {60, 70, 80, 90}};
+
     ABunchOfArgumentsHolder acceptABunchOfArguments(int intValue,
                                                     long longValue,
                                                     String stringValue,
@@ -48,11 +53,19 @@ public interface RpcTestService {
 
     String getAnotherString();
 
+    Buffer getBuffer();
+
+    byte[] getByteArray();
+
+    Flux<byte[]> getByteArrayFlux();
+
     Flux<String> getInfiniteFlux();
 
     Flux<Integer> getLimitedFlux();
 
     List<String> getListOfStrings();
+
+    Mono<byte[]> getMonoByteArray();
 
     Mono<String> getMonoEmptyString();
 
@@ -85,6 +98,8 @@ public interface RpcTestService {
     Mono<String> middleArgParticipant(String prefix, Participant participant, String suffix);
 
     List<String> modifyListOfStrings(String[] stringsToModify);
+
+    Mono<String> narrowParticipant(NarrowParticipant participant);
 
     Integer putListOfSimpleObjects(List<SimpleObject> simpleObjects);
 

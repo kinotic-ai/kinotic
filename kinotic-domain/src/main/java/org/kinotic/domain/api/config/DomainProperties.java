@@ -1,9 +1,13 @@
 package org.kinotic.domain.api.config;
 
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
-import org.kinotic.core.api.config.SslProperties;
+
+import java.time.Duration;
+import java.util.List;
 
 /**
  *
@@ -33,14 +37,43 @@ public class DomainProperties {
     private String apiBaseUrl = null;
 
     /**
-     * SSL/TLS configuration for all Vert.x HTTP servers.
-     */
-    private SslProperties ssl = new SslProperties();
-
-    /**
      * Email / outbound-mail configuration.
      */
     private EmailProperties email = new EmailProperties();
+
+    /**
+     * OAuth 2.1 authorization-server configuration.
+     */
+    @Valid
+    private OAuthProperties oauth = new OAuthProperties();
+
+    /**
+     * Secret storage configuration. If null, an in-memory backend is used.
+     */
+    private SecretStorageProperties secretStorage;
+
+    @NotNull
+    private Duration elasticConnectionTimeout = Duration.ofSeconds(5);
+
+    @NotNull
+    private Duration elasticSocketTimeout = Duration.ofMinutes(1);
+
+    /**
+     * The interval to check the health of the elastic cluster
+     */
+    @NotNull
+    private Duration elasticHealthCheckInterval = Duration.ofMinutes(1);
+
+    @NotNull
+    private List<ElasticConnectionInfo> elasticConnections = List.of(new ElasticConnectionInfo());
+
+    private String elasticUsername = null;
+
+    private String elasticPassword = null;
+
+    public boolean hasElasticUsernameAndPassword(){
+        return elasticUsername != null && !elasticUsername.isBlank() && elasticPassword != null && !elasticPassword.isBlank();
+    }
 
     /**
      * Returns {@link #apiBaseUrl} when set, otherwise falls back to {@link #appBaseUrl}.
@@ -49,6 +82,18 @@ public class DomainProperties {
      */
     public String resolveApiBaseUrl() {
         return (apiBaseUrl != null && !apiBaseUrl.isBlank()) ? apiBaseUrl : appBaseUrl;
+    }
+
+    /**
+     * Returns {@link OAuthProperties#getIssuerBaseUrl()} when set, otherwise falls back to
+     * {@link #resolveApiBaseUrl()}. Use this when publishing the OAuth 2.1 surface MCP hosts
+     * discover, which their backends reach directly rather than through the browser.
+     */
+    // FIXME: shotgun surgery — one of five places that know the OAuth surface has its own base URL.
+    // See "OAuth base URL split" in docs/NavidNotes.md for the topologies that would remove it.
+    public String resolveIssuerBaseUrl() {
+        String issuerBaseUrl = oauth.getIssuerBaseUrl();
+        return (issuerBaseUrl != null && !issuerBaseUrl.isBlank()) ? issuerBaseUrl : resolveApiBaseUrl();
     }
 
 }

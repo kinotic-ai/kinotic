@@ -1,5 +1,6 @@
 import type { QueryParameter } from '@/api/model/QueryParameter'
 import type { TenantSpecificId } from '@/api/model/TenantSpecificId'
+import { APP_API_ZONE } from '@/api/IEntitiesRepository'
 import type { IKinotic } from '@kinotic-ai/core'
 import {
     type IServiceProxy,
@@ -124,7 +125,7 @@ export class AdminEntitiesRepository implements IAdminEntitiesRepository {
     protected serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy('org.kinotic.persistence.api.services.AdminJsonEntitiesRepository')
+        this.serviceProxy = kinotic.serviceProxy(`${APP_API_ZONE}~org.kinotic.persistence.api.services.AdminJsonEntitiesRepository`)
     }
 
     public count(entityDefinitionId: string, tenantSelection: TenantSelection): Promise<number> {

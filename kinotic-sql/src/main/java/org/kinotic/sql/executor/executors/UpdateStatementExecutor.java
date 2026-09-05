@@ -5,9 +5,13 @@ import co.elastic.clients.elasticsearch._types.ScriptSource;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.json.JsonData;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.sql.domain.BinaryExpression;
 import org.kinotic.sql.domain.Expression;
+import org.kinotic.sql.domain.LiteralExpression;
+import org.kinotic.sql.domain.NamedParameter;
 import org.kinotic.sql.domain.Statement;
 import org.kinotic.sql.domain.statements.UpdateStatement;
+import org.kinotic.sql.executor.ParameterUtils;
 import org.kinotic.sql.executor.QueryBuilder;
 import org.kinotic.sql.executor.StatementExecutor;
 import org.springframework.stereotype.Component;
@@ -24,6 +28,66 @@ import java.util.concurrent.CompletableFuture;
 @Component
 @RequiredArgsConstructor
 public class UpdateStatementExecutor implements StatementExecutor<UpdateStatement, Long> {
+
+    private static final String ASSIGNMENT = """
+            ctx._source.%1$s = params.%1$s;
+            """;
+
+    private static final String BINARY_ASSIGNMENT = """
+            ctx._source.%1$s = ctx._source.%2$s %3$s %4$s;
+            """;
+
+    // A null clears the field, leaving the document as though it had never carried one
+    private static final String CLEARING_ASSIGNMENT = """
+            ctx._source.remove("%1$s");
+            """;
+
+    // An object is merged into the stored one rather than replacing it, so sub-fields the statement
+    // does not mention survive. A stored scalar, array, or missing field is turned into an empty object
+    // first so that the merge, and the removal a null in it asks for, applies at every depth.
+    private static final String MERGE_ASSIGNMENT = """
+            if (params.%1$s instanceof Map) {
+              if (!(ctx._source.%1$s instanceof Map)) {
+                ctx._source.%1$s = [:];
+              }
+              mergeTargets.add(ctx._source.%1$s);
+              mergeSources.add(params.%1$s);
+            } else {
+              ctx._source.%1$s = params.%1$s;
+            }
+            """;
+
+    private static final String MERGE_QUEUE = """
+            List mergeTargets = new ArrayList();
+            List mergeSources = new ArrayList();
+            """;
+
+    // Merges every queued pair, appending nested objects to the queue as it finds them, which is what
+    // makes the merge recursive without a recursive function: size() is re-read on each pass, so pairs
+    // appended during the loop are picked up by it.
+    private static final String MERGE_DRAIN = """
+            for (int i = 0; i < mergeTargets.size(); i++) {
+              Map target = (Map) mergeTargets.get(i);
+              Map source = (Map) mergeSources.get(i);
+              for (def key : source.keySet()) {
+                def incoming = source.get(key);
+                if (incoming == null) {
+                  target.remove(key);
+                } else if (incoming instanceof Map) {
+                  def current = target.get(key);
+                  if (!(current instanceof Map)) {
+                    current = [:];
+                    target.put(key, current);
+                  }
+                  mergeTargets.add(current);
+                  mergeSources.add(incoming);
+                } else {
+                  target.put(key, incoming);
+                }
+              }
+            }
+            """;
+
     private final ElasticsearchAsyncClient client;
 
     @Override
@@ -38,7 +102,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
 
     @Override
     public CompletableFuture<Long> executeQuery(UpdateStatement statement, Map<String, Object> parameters) {
-        ScriptSource scriptSource = buildScript(statement.assignments(), parameters);
+        ScriptSource scriptSource = buildScript(statement.assignments());
         Map<String, Object> params = buildScriptParams(statement.assignments(), parameters);
         Map<String, JsonData> scriptParams = convertToJsonDataMap(params);
 
@@ -50,64 +114,74 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
         ).thenApply(UpdateByQueryResponse::updated);
     }
 
-    private ScriptSource buildScript(Map<String, Expression> assignments, Map<String, Object> parameters) {
+    private ScriptSource buildScript(Map<String, Expression> assignments) {
         StringBuilder script = new StringBuilder();
+        boolean merges = assignments.values().stream().anyMatch(UpdateStatementExecutor::mergesIntoStoredObject);
+
+        if (merges) {
+            script.append(MERGE_QUEUE);
+        }
+
         assignments.forEach((field, expr) -> {
-            if (expr instanceof Expression.Literal literal) {
-                if ("?".equals(literal.getValue())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized assignment not supported without parameters");
-                    }
-                    script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
-                } else {
-                    script.append("ctx._source.").append(field).append(" = params.").append(field).append(";");
-                }
-            } else if (expr instanceof Expression.BinaryExpression binExpr) {
-                String operator = switch (binExpr.getOperator()) {
+            if (expr instanceof BinaryExpression(String left, String binaryOperator, String rightOperand)) {
+                String operator = switch (binaryOperator) {
                     case "+" -> "+";
                     case "-" -> "-";
                     case "*" -> "*";
                     case "/" -> "/";
                     case "==" -> "=="; // Not typically used in SET, but included
-                    default -> throw new IllegalStateException("Unsupported operator: " + binExpr.getOperator());
+                    default -> throw new IllegalStateException("Unsupported operator: " + binaryOperator);
                 };
-                String right = "?".equals(binExpr.getRight()) ? "params." + field : binExpr.getRight();
-                script.append("ctx._source.").append(field).append(" = ctx._source.").append(binExpr.getLeft())
-                      .append(" ").append(operator).append(" ").append(right).append(";");
+
+                String right = ParameterUtils.isReference(rightOperand) ? "params." + field : rightOperand;
+
+                script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
+            } else if (clearsStoredValue(expr)) {
+                script.append(CLEARING_ASSIGNMENT.formatted(field));
+            } else if (mergesIntoStoredObject(expr)) {
+                script.append(MERGE_ASSIGNMENT.formatted(field));
+            } else {
+                // Literals and parameters alike are passed as script params, so an object or array
+                // value crosses as JSON instead of being rendered into the script source
+                script.append(ASSIGNMENT.formatted(field));
             }
         });
+
+        if (merges) {
+            script.append(MERGE_DRAIN);
+        }
+
         return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
+    }
+
+    /**
+     * Whether the field is assigned a null literal, which removes it rather than storing a value.
+     */
+    private static boolean clearsStoredValue(Expression expression) {
+        return expression instanceof LiteralExpression(Object value) && value == null;
+    }
+
+    /**
+     * Whether the value assigned to a field can be an object that merges into the stored one.
+     * A parameter qualifies because what it is bound to is only known when the statement runs,
+     * which is why the generated script tests both sides before merging.
+     */
+    private static boolean mergesIntoStoredObject(Expression expression) {
+        return expression instanceof NamedParameter
+                || (expression instanceof LiteralExpression(Object value) && value instanceof Map);
     }
 
     private Map<String, Object> buildScriptParams(Map<String, Expression> assignments, Map<String, Object> parameters) {
         Map<String, Object> params = new HashMap<>();
         assignments.forEach((field, expr) -> {
-            if (expr instanceof Expression.Literal literal) {
-                if ("?".equals(literal.getValue())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized assignment not supported without parameters");
-                    }
-                    Object paramValue = parameters.get(field);
-                    if (paramValue == null) {
-                        throw new IllegalArgumentException("Missing parameter for " + field);
-                    }
-                    params.put(field, paramValue);
-                } else {
-                    params.put(field, QueryBuilder.parseValue(literal.getValue()));
+            if (expr instanceof LiteralExpression(Object value)) {
+                if (value != null) { // a null is written into the script itself, not passed as a param
+                    params.put(field, ParameterUtils.bind(value, parameters));
                 }
-            } else if (expr instanceof Expression.BinaryExpression binExpr) {
-                if ("?".equals(binExpr.getRight())) {
-                    if (parameters == null) {
-                        throw new IllegalStateException("Parameterized expression not supported without parameters");
-                    }
-                    Object paramValue = parameters.get(field);
-                    if (paramValue == null) {
-                        throw new IllegalArgumentException("Missing parameter for " + field);
-                    }
-                    params.put(field, paramValue);
-                } else if (!binExpr.getRight().matches("[a-zA-Z_][a-zA-Z_0-9]*")) { // Not a field reference
-                    params.put(field, QueryBuilder.parseValue(binExpr.getRight()));
-                }
+            } else if (expr instanceof NamedParameter(String name)) {
+                params.put(field, ParameterUtils.resolve(name, parameters));
+            } else if (expr instanceof BinaryExpression binExpr && ParameterUtils.isReference(binExpr.right())) {
+                params.put(field, ParameterUtils.resolve(ParameterUtils.nameOf(binExpr.right()), parameters));
             }
         });
         return params;
@@ -115,9 +189,7 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
 
     private Map<String, JsonData> convertToJsonDataMap(Map<String, Object> params) {
         Map<String, JsonData> jsonDataParams = new HashMap<>();
-        if (params != null) {
-            params.forEach((key, value) -> jsonDataParams.put(key, JsonData.of(value)));
-        }
+        params.forEach((key, value) -> jsonDataParams.put(key, JsonData.of(value)));
         return jsonDataParams;
     }
 }

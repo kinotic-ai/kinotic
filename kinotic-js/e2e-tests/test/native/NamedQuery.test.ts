@@ -1,11 +1,13 @@
 import {Kinotic, KinoticSingleton, Page, Pageable} from '@kinotic-ai/core'
 import {ArrayC3Type, FunctionDefinition, LongC3Type, ObjectC3Type, StringC3Type} from '@kinotic-ai/idl'
-import {EntityDefinition, NamedQueriesDefinition, PageableC3Type, PageC3Type, QueryDecorator} from '@kinotic-ai/os-api'
+import {EntityDefinition, NamedQueriesDefinition, PageableC3Type, PageC3Type, QueryDecorator} from '@kinotic-ai/management-api'
 import {EntitiesRepository, EntityRepository, IEntityRepository} from '@kinotic-ai/persistence'
 import * as allure from 'allure-js-commons'
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {Person} from '../domain/Person.js'
 import {
+    E2E_APP_TENANT as APP_TENANT,
+    E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
     createTestPeopleAndVerify,
     deleteEntityDefinition,
@@ -15,9 +17,7 @@ import {
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-const TEST_ORG_ID = 'kinotic-test'
-const APP_TENANT = 'kinotic'
-// Seeded by the V5__e2e_app_fixtures migration, with the matching app user for APP_TENANT.
+// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-named-query'
 
 interface LocalTestContext {
@@ -28,11 +28,11 @@ interface LocalTestContext {
     entityService: IEntityRepository<Person>
 }
 
-describe('End To End Tests', () => {
+describe('Kinotic JS', () => {
 
     beforeAll(async () => {
-        await allure.suite('Typescript Client')
-        await allure.subSuite('Named Query Tests')
+        await allure.suite('e2e-tests/native')
+        await allure.subSuite('NamedQuery')
         await initKinoticClient()
     }, 300000)
 

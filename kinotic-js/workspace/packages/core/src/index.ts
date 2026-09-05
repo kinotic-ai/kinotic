@@ -1,12 +1,14 @@
 /**
  * Export all the things
  */
-export * from './api/ConnectionInfo'
+export * from './api/ConnectOptions'
 export * from './api/ContextInterceptor'
 export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
 export * from './api/IServiceRegistry'
 export * from './api/ServiceRegistry'
+export * from './api/ZoneUtil'
+
 
 export * from './api/crud/AbstractIterablePage'
 export * from './api/crud/CrudServiceProxy'
@@ -26,7 +28,13 @@ export * from './api/event/DefaultCRI'
 export * from './api/event/EventBus'
 export * from './api/event/IEventBus'
 
+export * from './api/security/BasicCredentialsResolver'
+export * from './api/security/BearerCredentialsResolver'
+export * from './api/security/ChainedCredentialsResolver'
+export * from './api/security/CredentialsResolver'
+export * from './api/security/EnvCredentialsResolver'
 export * from './api/security/ConnectedInfo'
+export * from './api/security/SessionCredentialsResolver'
 export * from './api/security/IParticipant'
 export * from './api/security/Participant'
 export * from './api/security/ParticipantConstants'

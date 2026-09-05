@@ -26,16 +26,19 @@ data:
 
   # ── Elasticsearch connection ──────────────────────────────
   {{ range $index,$value:= .Values.kinotic.elastic.connections }}
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
-  KINOTIC_PERSISTENCE_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_SCHEME: "{{ $value.scheme }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_HOST: "{{ $value.host }}"
+  KINOTIC_DOMAIN_ELASTICCONNECTIONS_{{ $index }}_PORT: "{{ $value.port }}"
   {{ end }}
+
+  # ── Loki (LogService) ─────────────────────────────────────
+  KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ .Values.kinotic.managementApi.lokiUrl }}"
 
   {{- if .Values.tls.enabled }}
   # ── SSL/TLS ──────────────────────────────────────────────
-  KINOTIC_DOMAIN_SSL_ENABLED: "true"
-  KINOTIC_DOMAIN_SSL_CERTPATH: "/certs/tls.crt"
-  KINOTIC_DOMAIN_SSL_KEYPATH: "/certs/tls.key"
+  KINOTIC_APIGATEWAY_SSL_ENABLED: "true"
+  KINOTIC_APIGATEWAY_SSL_CERTPATH: "/certs/tls.crt"
+  KINOTIC_APIGATEWAY_SSL_KEYPATH: "/certs/tls.key"
   {{- end }}
 
   {{- if .Values.evictionTracking.enabled }}

@@ -1,0 +1,376 @@
+package org.kinotic.core.internal.api.directory;
+
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.ignite.Ignite;
+import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.CursorPageable;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.directory.McpToolAnnotations;
+import org.kinotic.core.api.directory.McpToolDefinition;
+import org.kinotic.core.api.directory.McpToolDefinitionList;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.api.directory.ServiceDirectoryEntry;
+import org.kinotic.core.api.directory.ServiceDirectoryStrategy;
+import io.vertx.core.Future;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.event.EventConstants;
+import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.utils.KinoticUtil;
+import org.kinotic.idl.api.annotations.McpTool;
+import org.kinotic.idl.api.converter.IdlConverterFactory;
+import org.kinotic.idl.api.converter.jsonschema.McpJsonSchemaGenerator;
+import org.kinotic.idl.api.directory.ServiceDeclaration;
+import org.kinotic.idl.api.directory.SchemaFactory;
+import org.kinotic.idl.api.utils.IdlUtil;
+import org.kinotic.idl.api.schema.AsyncC3Type;
+import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.ComplexC3Type;
+import org.kinotic.idl.api.schema.FunctionDefinition;
+import org.kinotic.idl.api.schema.NamespaceDefinition;
+import org.kinotic.idl.api.schema.ObjectC3Type;
+import org.kinotic.idl.api.schema.ServiceDefinition;
+import org.kinotic.idl.api.schema.StreamC3Type;
+import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.util.ClassUtils;
+import org.springframework.stereotype.Component;
+
+import java.lang.reflect.Method;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * The {@link ServiceDirectory}: publishes the contracts of services that opt in with
+ * {@code @Publish(advertise = true)} or expose an {@code @McpTool} function, keeps liveness verified against
+ * cluster registrations, serves the directory queries, and deploys the {@link ServiceLivenessUpdater} as one HA
+ * cluster singleton on startup. Storage is supplied by a {@link ServiceDirectoryStrategy}; the directory bean
+ * exists only when a strategy bean does, so a deployment without one has no directory at all.
+ */
+@Slf4j
+@Component
+// Evaluated at scan time: a module contributing a strategy must register its definitions before core's
+// scan runs — KinoticDomainAutoConfiguration declares before = KinoticCoreAutoConfiguration for this
+@ConditionalOnBean(ServiceDirectoryStrategy.class)
+public class DefaultServiceDirectory implements ServiceDirectory {
+
+    private static final String LIVENESS_SINGLETON_NAME = "kinotic-service-liveness-updater";
+
+    // A strategy pattern is used, to favor composition over inheritance
+    private final ServiceDirectoryStrategy strategy;
+    private final EventBusService eventBusService;
+    private final SchemaFactory schemaFactory;
+    private final McpJsonSchemaGenerator schemaGenerator;
+    private final Ignite ignite;
+
+    // Registrations arriving during startup are held here and published in ONE conversion session on
+    // ApplicationReadyEvent, so model types shared between services are converted once per node
+    private final Map<ServiceIdentifier, ServiceDeclaration> pendingRegistrations = new HashMap<>();
+    // Identifiers this node has published or queued, so unregister(ServiceIdentifier) knows whether
+    // liveness needs a refresh without the caller re-supplying the registration classes
+    private final Set<ServiceIdentifier> registered = new HashSet<>(); // guarded by registrationLock
+    private final Object registrationLock = new Object();
+    private boolean startupComplete; // guarded by registrationLock
+
+    // Collapses repeated NO_HANDLERS reports for the same CRI into one verification (seconds).
+    private final Cache<String, Boolean> reportDebounce = Caffeine.newBuilder()
+                                                                  .expireAfterWrite(Duration.ofSeconds(5))
+                                                                  .build();
+
+    public DefaultServiceDirectory(ServiceDirectoryStrategy strategy,
+                                   EventBusService eventBusService,
+                                   SchemaFactory schemaFactory,
+                                   IdlConverterFactory idlConverterFactory,
+                                   Ignite ignite) {
+        this.strategy = strategy;
+        this.eventBusService = eventBusService;
+        this.schemaFactory = schemaFactory;
+        this.schemaGenerator = new McpJsonSchemaGenerator(idlConverterFactory);
+        this.ignite = ignite;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        drainStartupRegistrations();
+        deployLivenessSingleton();
+    }
+
+    @Override
+    public void register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Class<?> serviceImplementation) {
+        // the user class, so an AOP proxy never becomes the naming source
+        ServiceDeclaration registration = new ServiceDeclaration(serviceInterface, ClassUtils.getUserClass(serviceImplementation));
+        if (!shouldPublishToDirectory(registration)) {
+            return;
+        }
+        boolean queued;
+        synchronized (registrationLock) {
+            registered.add(serviceIdentifier);
+            queued = !startupComplete;
+            if (queued) {
+                pendingRegistrations.put(serviceIdentifier, registration);
+            }
+        }
+        if (!queued) {
+            // a late registration (lazily created bean) cannot join a batch, publish it immediately.
+            // The entry starts with online unset and its ACTIVE registration event may have fired before the
+            // entry existed, so refresh from the verified cluster state after the upsert
+            publishAllToDirectory(Map.of(serviceIdentifier, registration))
+                    .compose(v -> refreshOnline(serviceIdentifier))
+                    .onFailure(throwable -> log.error("Failed to register service {} in the directory", serviceIdentifier, throwable));
+        }
+    }
+
+    @Override
+    public void unregister(ServiceIdentifier serviceIdentifier) {
+        boolean published;
+        synchronized (registrationLock) {
+            // a registration still pending never reached the directory, removing it from the batch is enough
+            published = registered.remove(serviceIdentifier) && pendingRegistrations.remove(serviceIdentifier) == null;
+        }
+        if (published) {
+            // this node leaving says nothing about other instances of the service — verify, never
+            // write offline blindly
+            refreshOnline(serviceIdentifier)
+                    .onFailure(throwable -> log.error("Failed to refresh liveness for unregistered service {}", serviceIdentifier, throwable));
+        }
+    }
+
+    private void drainStartupRegistrations() {
+        Map<ServiceIdentifier, ServiceDeclaration> batch;
+        synchronized (registrationLock) {
+            startupComplete = true;
+            batch = new HashMap<>(pendingRegistrations);
+            pendingRegistrations.clear();
+        }
+        if (!batch.isEmpty()) {
+            try {
+                // one reconcile corrects the liveness of every entry from a single cluster snapshot,
+                // instead of one registration query per service
+                publishAllToDirectory(batch).compose(v -> reconcileLiveness())
+                                            .onFailure(throwable -> log.error("Startup directory publish failed", throwable));
+            } catch (Exception e) {
+                log.error("Startup directory publish failed", e);
+            }
+        }
+    }
+
+    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    private void deployLivenessSingleton() {
+        // ServiceLivenessUpdater is an Ignite Service that manages the liveness of services
+        ignite.services().deployClusterSingleton(LIVENESS_SINGLETON_NAME, new ServiceLivenessUpdater());
+    }
+
+    /**
+     * Converts and upserts entries for all given registrations in one conversion session, so model types shared
+     * between services are converted once.
+     */
+    private Future<Void> publishAllToDirectory(Map<ServiceIdentifier, ServiceDeclaration> registrations) {
+        NamespaceDefinition namespace = schemaFactory.createForServices(registrations.values());
+        Map<String, ObjectC3Type> referenceResolver = referenceResolver(namespace.getComplexC3Types());
+        Map<String, ServiceDefinition> definitionsByQualifiedName = new HashMap<>();
+        for (ServiceDefinition definition : namespace.getServices()) {
+            definitionsByQualifiedName.put(definition.getQualifiedName(), definition);
+        }
+
+        List<Future<Void>> writes = new ArrayList<>();
+        for (Map.Entry<ServiceIdentifier, ServiceDeclaration> registration : registrations.entrySet()) {
+            try {
+                // the definition's qualified name is package + '.' + simpleName per the SchemaFactory
+                // contract — never Class.getName(), which uses '$' for nested types
+                Class<?> serviceInterface = registration.getValue().serviceInterface();
+                ServiceDefinition definition = definitionsByQualifiedName.get(
+                        serviceInterface.getPackageName() + "." + serviceInterface.getSimpleName());
+                if (definition == null) {
+                    // conversion failed, SchemaFactory omitted the service and logged the cause
+                    continue;
+                }
+                writes.add(strategy.upsertEntry(buildEntry(registration.getKey(),
+                                                           serviceInterface,
+                                                           definition,
+                                                           referenceResolver)));
+            } catch (Exception e) {
+                // one bad service (e.g. an invalid @McpTool name) must not block the rest of the directory
+                log.error("Failed to publish service {} to the directory", registration.getKey(), e);
+            }
+        }
+        return Future.all(writes).mapEmpty();
+    }
+
+    @Override
+    public Future<Page<ServiceDirectoryEntry>> findEntriesScopedTo(String organizationId,
+                                                                   String applicationId,
+                                                                   Pageable pageable) {
+        return strategy.findEntriesScopedTo(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public Future<McpToolDefinitionList> findMcpToolsCallableBy(String organizationId,
+                                                                String applicationId,
+                                                                CursorPageable pageable) {
+        return strategy.findMcpToolsCallableBy(organizationId, applicationId, pageable);
+    }
+
+    @Override
+    public Future<McpToolDefinition> findMcpToolByName(String toolName,
+                                                       String organizationId,
+                                                       String applicationId) {
+        return strategy.findMcpToolByName(toolName, organizationId, applicationId);
+    }
+
+    @Override
+    public Future<Void> reportUnreachable(String cri) {
+        Future<Void> ret;
+        if (reportDebounce.getIfPresent(cri) != null) {
+            ret = Future.succeededFuture();
+        } else {
+            reportDebounce.put(cri, Boolean.TRUE);
+            // a report is an invalidation trigger, not a value — verifyLiveness writes the verified state
+            ret = verifyLiveness(CRI.create(cri).baseResource());
+        }
+        return ret;
+    }
+
+    @Override
+    public Future<Void> verifyLiveness(String serviceAddress) {
+        return eventBusService.isAnybodyListening(CRI.create(serviceAddress))
+                              .compose(online -> strategy.setOnlineByAddress(serviceAddress, online, Instant.now()));
+    }
+
+    @Override
+    public Future<Void> reconcileLiveness() {
+        return eventBusService.activeServiceAddresses()
+                              .compose(addresses -> strategy.reconcileLiveness(addresses, Instant.now()));
+    }
+
+    /**
+     * Sets the entry's liveness to the verified cluster-wide registration state.
+     */
+    private Future<Void> refreshOnline(ServiceIdentifier serviceIdentifier) {
+        return eventBusService.isAnybodyListening(serviceIdentifier.cri())
+                              .compose(online -> strategy.setOnline(serviceIdentifier.qualifiedName(),
+                                                                    online,
+                                                                    Instant.now()));
+    }
+
+    private ServiceDirectoryEntry buildEntry(ServiceIdentifier serviceIdentifier,
+                                             Class<?> serviceInterface,
+                                             ServiceDefinition serviceDefinition,
+                                             Map<String, ObjectC3Type> referenceResolver) {
+        List<McpToolDefinition> tools = new ArrayList<>();
+        Set<String> toolNames = new HashSet<>();
+
+        // tool-ness is carried by the C3 contract: SchemaFactory attached the decorator during conversion
+        for (FunctionDefinition function : serviceDefinition.getFunctions()) {
+
+            McpToolC3Decorator decorator = function.findDecorator(McpToolC3Decorator.class);
+            if (decorator != null) {
+
+                // A CompletableFuture<Flux<T>> converts to AsyncC3Type(StreamC3Type), so the stream
+                // check must look through the async wrapper at the resolved value type
+                C3Type returnType = function.getReturnType();
+                if (returnType instanceof AsyncC3Type asyncC3Type) {
+                    returnType = asyncC3Type.getValueType();
+                }
+                if (returnType instanceof StreamC3Type) {
+                    throw new IllegalStateException("@McpTool function '" + function.getName() + "' on service " + serviceIdentifier
+                                                            + " has a streaming return type, which MCP tools do not support");
+                }
+
+                String toolName = KinoticUtil.mcpToolName(serviceIdentifier.qualifiedName(), function.getName());
+                if (!toolNames.add(toolName)) {
+                    // the name is a hash, so it names nothing on its own — the function it was minted from
+                    // is what a reader needs to act on this
+                    throw new IllegalStateException("Duplicate MCP tool name '" + toolName + "' for function '"
+                                                            + function.getName() + "' on service " + serviceIdentifier);
+                }
+
+                tools.add(new McpToolDefinition()
+                                  .setName(toolName)
+                                  .setTitle(decorator.getTitle())
+                                  .setDescription(decorator.getDescription())
+                                  .setInputSchema(schemaGenerator.generateInputSchema(function, referenceResolver))
+                                  // the full invocation CRI, so dispatching a call needs no reconstruction;
+                                  // no version: the invoker does not support version-specific routing
+                                  .setCri(CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME,
+                                                     serviceIdentifier.scope(),
+                                                     serviceIdentifier.qualifiedName(),
+                                                     "/" + function.getName(),
+                                                     null).raw())
+                                  .setAnnotations(new McpToolAnnotations()
+                                                          .setReadOnlyHint(decorator.isReadOnlyHint())
+                                                          .setDestructiveHint(decorator.isDestructiveHint())
+                                                          .setIdempotentHint(decorator.isIdempotentHint())
+                                                          .setOpenWorldHint(decorator.isOpenWorldHint())));
+            }
+        }
+
+        return new ServiceDirectoryEntry()
+                .setId(serviceIdentifier.qualifiedName())
+                .setServiceAddress(serviceIdentifier.cri().baseResource())
+                .setNamespace(serviceIdentifier.namespace())
+                .setName(serviceIdentifier.name())
+                .setVersion(serviceIdentifier.version())
+                .setZone(serviceIdentifier.zone())
+                .setServiceDefinition(serviceDefinition)
+                .setAdvertised(isAdvertised(serviceInterface))
+                .setMcpExposed(!tools.isEmpty())
+                .setMcpTools(tools.isEmpty() ? null : tools);
+    }
+
+    // Directory inclusion is opt-in via @Publish(advertise = true); an @McpTool function is already
+    // explicit intent to expose the service, so it implies inclusion
+    private boolean shouldPublishToDirectory(ServiceDeclaration registration) {
+        return isAdvertised(registration.serviceInterface()) || hasMcpToolFunction(registration);
+    }
+
+    private boolean isAdvertised(Class<?> serviceInterface) {
+        Publish publish = AnnotationUtils.findAnnotation(serviceInterface, Publish.class);
+        return publish != null && publish.advertise();
+    }
+
+    private boolean hasMcpToolFunction(ServiceDeclaration registration) {
+        // a type-level @McpTool marks every function a tool, so the interface alone decides
+        boolean ret = AnnotationUtils.findAnnotation(registration.serviceInterface(), McpTool.class) != null;
+        if (!ret) {
+            for (Method method : IdlUtil.serviceFunctions(registration.serviceInterface()).values()) {
+                // findAnnotation on the most specific method honors @McpTool declared on the interface method
+                // or only on the implementation's override, matching DefaultSchemaFactory's discovery
+                Method specificMethod = ClassUtils.getMostSpecificMethod(method, registration.serviceImplementation());
+                if (AnnotationUtils.findAnnotation(specificMethod, McpTool.class) != null) {
+                    ret = true;
+                    break;
+                }
+            }
+        }
+        return ret;
+    }
+
+    private Map<String, ObjectC3Type> referenceResolver(Set<ComplexC3Type> referencedTypes) {
+        Map<String, ObjectC3Type> resolver = new HashMap<>();
+        for (ComplexC3Type type : referencedTypes) {
+            if (type instanceof ObjectC3Type objectType) {
+                ObjectC3Type previous = resolver.putIfAbsent(objectType.getQualifiedName(), objectType);
+                if (previous != null) {
+                    // a reference carries only the qualified name, so two types under one name would make
+                    // every resolution of it arbitrary
+                    throw new IllegalStateException("Duplicate ObjectC3Type qualified name '"
+                            + objectType.getQualifiedName() + "' in the converted namespace");
+                }
+            }
+        }
+        return resolver;
+    }
+
+}

@@ -12,7 +12,7 @@ The foundational TypeScript/JavaScript client for the Kinotic platform. `@kinoti
 - **Remote calls that feel local.** Invoke distributed services the same way you call any function — no REST boilerplate, no manual HTTP wiring, no endpoint management.
 - **Real-time by default.** Built-in reactive streaming lets you subscribe to live data flows as naturally as reading a list.
 - **Uniform resource addressing.** Every resource on the platform — local or clustered — is reachable through a consistent addressing scheme. Move services around without changing calling code.
-- **Built to be extended.** Higher-level packages like `@kinotic-ai/persistence` and `@kinotic-ai/os-api` plug directly into the connection this package provides.
+- **Built to be extended.** Higher-level packages like `@kinotic-ai/persistence` and `@kinotic-ai/management-api` plug directly into the connection this package provides.
 
 ---
 
@@ -43,7 +43,7 @@ The connection model is designed to be consumed by higher-level packages. Persis
 `@kinotic-ai/core` sits at the base of the Kinotic JavaScript/TypeScript stack:
 
 ```
-@kinotic-ai/os-api      ← cloud OS management
+@kinotic-ai/management-api      ← cloud OS management
 @kinotic-ai/persistence ← schema-driven data access
 @kinotic-ai/idl         ← cross-language type schemas
 @kinotic-ai/core        ← connection & transport (this package)

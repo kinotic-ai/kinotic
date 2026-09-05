@@ -5,7 +5,7 @@ package org.kinotic.core.api.exceptions;
  *
  * Created by Navíd Mitchell 🤪 on 5/12/22.
  */
-public class RpcMissingServiceException extends ContinuumException{
+public class RpcMissingServiceException extends KinoticException {
     public RpcMissingServiceException() {
     }
 

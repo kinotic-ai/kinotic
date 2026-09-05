@@ -1,6 +1,11 @@
 server:
   http_listen_port: 3200
 
+# Multi-tenant like Loki: X-Scope-OrgID routes each org's workload traces to its own tenant,
+# and the server reads back only the tenant a caller may see. Every push and query must
+# carry the header — the collector stamps kinotic-system on the server's own traces.
+multitenancy_enabled: true
+
 distributor:
   receivers:
     otlp:
@@ -38,11 +43,36 @@ metrics_generator:
     remote_write:
       - url: http://mimir:9009/api/v1/push
         send_exemplars: true
+  # Required by local-blocks, which writes the spans it keeps for TraceQL metrics here.
+  traces_storage:
+    path: /var/tempo/generator/traces
   processor:
-    service_graphs: {}
+    # Elasticsearch and other backends have no spans of their own, so they show up as virtual
+    # nodes resolved from peer.service/db.system on the client span. The label marks them as
+    # inferred rather than instrumented.
+    service_graphs:
+      enable_virtual_node_label: true
     span_metrics:
+      # Attribute names from the stable HTTP semconv the 2.x agent emits — http.method and
+      # http.status_code were the pre-1.0 names and produce empty labels against it.
       dimensions:
-        - service.name
-        - service.namespace
-        - http.method
-        - http.status_code
+        - http.request.method
+        - http.response.status_code
+        # Resource attributes the vm-manager stamps on every workload span, so the RED metrics
+        # of one application or workload can be selected within its organization's tenant
+        - application_id
+        - workload_id
+      # Adds the job/instance labels, so span metrics join against the OTLP metrics Mimir
+      # stores (where service.name becomes job) instead of living in a separate label space.
+      enable_target_info: true
+    # Records all spans rather than server spans only, so TraceQL metrics cover client and
+    # internal spans too. Note the key is local_blocks here but local-blocks in overrides.
+    local_blocks:
+      filter_server_spans: false
+
+# The generator only runs the processors a tenant is enabled for, and the block above is
+# inert without this — the reason serviceMap, nodeGraph, and span metrics stayed empty.
+overrides:
+  defaults:
+    metrics_generator:
+      processors: [service-graphs, span-metrics, local-blocks]

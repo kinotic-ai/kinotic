@@ -6,7 +6,8 @@ import java.util.Set;
 
 /**
  * The {@link IdlConverterStrategy} is used to determine how to convert a Continuum IDL to a specific language type.
- * The {@link IdlConverterStrategy} should be reusable and thread safe.
+ * A strategy instance may carry per-conversion state via {@link #initialState()}; create a new strategy for each
+ * conversion unless the implementation documents itself as stateless and thread safe.
  *
  * @param <R> The type to convert to
  * @param <S> The state type

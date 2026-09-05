@@ -7,7 +7,7 @@ package org.kinotic.core.api.exceptions;
  *
  * Created by navid on 11/7/19
  */
-public class RpcInvocationException extends ContinuumException {
+public class RpcInvocationException extends KinoticException {
 
     private String originalClassName;
 

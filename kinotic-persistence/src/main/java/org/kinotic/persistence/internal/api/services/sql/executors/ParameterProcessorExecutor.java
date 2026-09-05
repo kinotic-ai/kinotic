@@ -1,5 +1,6 @@
 package org.kinotic.persistence.internal.api.services.sql.executors;
 
+import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
@@ -8,7 +9,7 @@ import org.kinotic.idl.api.schema.ParameterDefinition;
 import org.kinotic.persistence.api.model.ParameterHolder;
 import org.kinotic.persistence.api.model.QueryOptions;
 import org.kinotic.persistence.api.model.QueryParameter;
-import org.kinotic.persistence.api.model.EntityDefinition;
+import org.kinotic.persistence.api.model.EntityDescriptor;
 import org.kinotic.persistence.api.model.idl.PageableC3Type;
 import org.kinotic.persistence.api.model.idl.QueryOptionsC3Type;
 import org.kinotic.persistence.api.model.idl.TenantSelectionC3Type;
@@ -19,7 +20,6 @@ import org.kinotic.persistence.internal.api.services.sql.QueryMetadata;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * A {@link QueryExecutor} that extracts special parameters from the {@link QueryContext} before delegating to another {@link QueryExecutor}
@@ -35,22 +35,22 @@ public class ParameterProcessorExecutor extends AbstractQueryExecutor {
     private final QueryExecutor delegate;
     private final QueryMetadata queryMetadata;
 
-    public ParameterProcessorExecutor(EntityDefinition entityDefinition,
+    public ParameterProcessorExecutor(EntityDescriptor entityDescriptor,
                                       FunctionDefinition namedQueryDefinition,
                                       QueryExecutor delegate) {
-        super(entityDefinition);
+        super(entityDescriptor);
         this.delegate = delegate;
         this.queryMetadata = buildQueryMetadata(namedQueryDefinition);
     }
 
     @Override
-    public <T> CompletableFuture<List<T>> execute(QueryContext context, Class<T> type) {
+    public <T> Future<List<T>> execute(QueryContext context, Class<T> type) {
         processQueryContext(context);
         return delegate.execute(context, type);
     }
 
     @Override
-    public <T> CompletableFuture<Page<T>> executePage(QueryContext context, Pageable pageable, Class<T> type) {
+    public <T> Future<Page<T>> executePage(QueryContext context, Pageable pageable, Class<T> type) {
         processQueryContext(context);
         return delegate.executePage(context, pageable, type);
     }
