@@ -1,0 +1,1 @@
+{"id":"6b1819c4626822ccff17030519e919f6","fullName":"org.kinotic.sql.parsers.MigrationParserSyntaxErrorTest.whenSingleEqualsUsedInComparison_thenErrorNamesExpectedOperators","name":"whenSingleEqualsUsedInComparison_thenErrorNamesExpectedOperators()","status":"passed","testResultsByEnv":{"default":"f042a866c8f8eb1afb19ce4009bab046"}}
