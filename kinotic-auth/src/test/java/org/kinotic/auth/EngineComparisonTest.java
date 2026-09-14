@@ -6,14 +6,16 @@ import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.casbin.CasbinAuthorizationService;
 import org.kinotic.auth.cedar.CedarAuthorizationService;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Side-by-side comparison of the Cedar and jCasbin {@link AuthorizationEngine} implementations:
- * the same ABAC policies and requests are evaluated by both, asserting they reach identical
- * decisions (and the expected ones), and reporting per-engine evaluation throughput.
+ * Side-by-side comparison of the {@link AuthorizationEngine} implementations: the same ABAC policies
+ * and requests are evaluated by every engine, asserting each reaches the expected decision (so all
+ * engines agree), and reporting per-engine evaluation throughput.
  */
 class EngineComparisonTest {
 
@@ -68,10 +70,17 @@ class EngineComparisonTest {
                             new Case("approver absent", "{}", "[{\"title\":\"q3\"}]", List.of("doc"), false)))
     );
 
-    private static void registerAll(AuthorizationEngine engine) {
-        for (Scenario scenario : SCENARIOS) {
-            engine.registerPolicy(scenario.action(), scenario.expression());
+    private static Map<String, AuthorizationEngine> engines() {
+        Map<String, AuthorizationEngine> engines = new LinkedHashMap<>();
+        engines.put("Cedar (JNI)           ", new CedarAuthorizationService());
+        engines.put("Aviator (jCasbin core)", new CasbinAuthorizationService());
+        engines.put("CEL                   ", new CelEngine());
+        for (AuthorizationEngine engine : engines.values()) {
+            for (Scenario scenario : SCENARIOS) {
+                engine.registerPolicy(scenario.action(), scenario.expression());
+            }
         }
+        return engines;
     }
 
     private static AuthorizationRequest requestFor(Scenario scenario, Case c) {
@@ -81,44 +90,32 @@ class EngineComparisonTest {
 
     @Test
     void enginesAgreeAndAreCorrect() {
-        AuthorizationEngine cedar = new CedarAuthorizationService();
-        AuthorizationEngine casbin = new CasbinAuthorizationService();
-        registerAll(cedar);
-        registerAll(casbin);
-
+        Map<String, AuthorizationEngine> engines = engines();
         for (Scenario scenario : SCENARIOS) {
             for (Case c : scenario.cases()) {
                 AuthorizationRequest request = requestFor(scenario, c);
-                boolean cedarDecision = cedar.isAuthorized(request);
-                boolean casbinDecision = casbin.isAuthorized(request);
-
                 String label = scenario.action() + " / " + c.description();
-                assertEquals(c.expected(), cedarDecision, "Cedar reached the wrong decision: " + label);
-                assertEquals(c.expected(), casbinDecision, "jCasbin reached the wrong decision: " + label);
-                assertEquals(cedarDecision, casbinDecision, "Engines disagree: " + label);
+                engines.forEach((name, engine) ->
+                        assertEquals(c.expected(), engine.isAuthorized(request),
+                                name.trim() + " reached the wrong decision: " + label));
             }
         }
     }
 
     @Test
     void throughputComparison() {
-        AuthorizationEngine cedar = new CedarAuthorizationService();
-        AuthorizationEngine casbin = new CasbinAuthorizationService();
-        registerAll(cedar);
-        registerAll(casbin);
-
+        Map<String, AuthorizationEngine> engines = engines();
         List<AuthorizationRequest> requests = SCENARIOS.stream()
                 .flatMap(s -> s.cases().stream().map(c -> requestFor(s, c)))
                 .toList();
 
-        // Both engines run their production path: Cedar via direct JNI, jCasbin via pre-compiled
-        // AviatorScript. Each eval still parses the request JSON, as it arrives at the gateway.
+        // Every engine runs its production path; each eval still parses the request JSON,
+        // as it arrives at the gateway.
         int warmup = 200;
         int iterations = 500;
         long evaluations = (long) iterations * requests.size();
 
-        report("Cedar  ", time(cedar, requests, warmup, iterations), evaluations);
-        report("jCasbin", time(casbin, requests, warmup, iterations), evaluations);
+        engines.forEach((name, engine) -> report(name, time(engine, requests, warmup, iterations), evaluations));
     }
 
     private static long time(AuthorizationEngine engine, List<AuthorizationRequest> requests, int warmup, int iterations) {

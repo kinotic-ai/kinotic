@@ -29,7 +29,7 @@
 | `org.kinotic.auth.api.engine` | `AuthorizationEngine` SPI and `AuthorizationRequest` — the engine-neutral contract both the Cedar and jCasbin services implement |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
-| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), `CelCompiler` (AST → CEL expression), and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
 | `org.kinotic.auth.cedar` | `CedarAuthorizationService` — Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
 | `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM engine evaluating pre-compiled AviatorScript matchers (Casbin's matcher language), no native library |
 
@@ -57,6 +57,7 @@ entity.approvedBy exists
 |---|---|---|---|
 | `CedarCompiler` | `PolicyExpression` AST | Cedar condition string (body of a `when` clause) | Gateway-level allow/deny evaluation via Cedar in-process JNI |
 | `CasbinCompiler` | `PolicyExpression` AST | AviatorScript boolean condition | Gateway-level allow/deny evaluation via pre-compiled AviatorScript (the engine Casbin uses for ABAC) |
+| `CelCompiler` | `PolicyExpression` AST | CEL boolean expression | Candidate in-process evaluator sharing SpiceDB's condition language; measured against AviatorScript in `EngineComparisonTest` |
 | `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
 
 For service method policies, the gateway transforms raw JSON argument arrays into named objects using registered parameter names. The CedarCompiler maps these parameter names to `resource.*` attributes, enabling Cedar expressions like `resource.order.amount < 50000` for a method parameter named `order`.

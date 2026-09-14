@@ -58,4 +58,12 @@ dependencies {
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
+    // CEL runtime for the engine comparison harness (candidate fine-grained evaluator)
+    testImplementation 'dev.cel:cel'
+    // SpiceDB Java client + gRPC transport for the coarse-gate benchmark (skips without a server)
+    testImplementation 'com.authzed.api:authzed'
+    testImplementation 'io.grpc:grpc-api'
+    testImplementation 'io.grpc:grpc-stub'
+    testImplementation 'io.grpc:grpc-protobuf'
+    testImplementation 'io.grpc:grpc-netty-shaded'
 }
