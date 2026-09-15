@@ -1,1 +1,0 @@
-{"id":"b652bf31da5c27d8ed387d89a1828cd2","fullName":"org.kinotic.gateway.internal.endpoints.stomp.StompHeartbeatTests.testSilentClientIsDisconnectedAfterTwoHeartbeats","name":"testSilentClientIsDisconnectedAfterTwoHeartbeats()","status":"passed","testResultsByEnv":{"default":"140defe361e05502414a6f0fff3c1bfd"}}

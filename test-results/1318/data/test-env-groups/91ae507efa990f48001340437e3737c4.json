@@ -1,0 +1,1 @@
+{"id":"91ae507efa990f48001340437e3737c4","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testShutdownSettlesEveryOutstandingRequest","name":"testShutdownSettlesEveryOutstandingRequest()","status":"passed","testResultsByEnv":{"default":"4d07723696feeb4feeb3afdbab3b6483"}}
