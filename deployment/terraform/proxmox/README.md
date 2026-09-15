@@ -1,8 +1,10 @@
 # The development server on Proxmox
 
-One Proxmox host runs the whole platform: a container per service — kinotic-server, the
+One Proxmox host runs the platform's services: a container per service — kinotic-server, the
 one-shot migration, three Elasticsearch nodes on a physical disk each, Loki, Tempo, Mimir,
-Grafana — created from the same images the compose stack pulls. The workload nodes are
+Grafana — created from the same images the compose stack pulls. The portal and the system
+console are served by Front Door from the Azure root's sites account
+(`deployment/terraform/azure/dev-server/deploy-ui.sh`), so the host exposes the API alone. The workload nodes are
 separate machines provisioned with `deployment/vm-node`, configured from this root's
 `vm_manager_env` output. The design and the reasons are on the
 [Development Server](https://kinotic.ai/platform/development-server) page; this is the
@@ -10,10 +12,10 @@ runbook.
 
 Terraform owns what the Proxmox API exposes: the private network the Elasticsearch nodes
 live on, the images, the containers with their mounts, and the files it uploads to the
-host. One thing the API does not take yet for a container created from an OCI image is
-the environment its entrypoint sees ([bpg/terraform-provider-proxmox#2789](https://github.com/bpg/terraform-provider-proxmox/issues/2789)),
-so terraform uploads a manifest per container and `host/kinotic-apply-container.py`
-applies it on the host: the environment, the config files each store reads, and the
+host. The API validates a container's environment as word-keyed, which Elasticsearch's
+dotted settings are not, and writes no resolv.conf into an OCI image, so terraform uploads
+a manifest per container and `host/kinotic-apply-container.py` applies it on the host: the
+environment, the resolvers, the console log, the config files each store reads, and the
 ownership of the directories each container mounts. The applier merges in the secrets the
 operator placed on the host, so nothing secret goes through terraform or its state.
 
@@ -29,19 +31,21 @@ enterprise repository the installer enables answers 401 without a subscription, 
 it and enable `pve-no-subscription` under Node → Repositories.
 
 ```bash
-# Terraform's API token: bind mounts into containers are root's alone
-pveum user token add root@pam terraform --privsep 0     # prints the token once
-
 # The three Elasticsearch drives, whole, by stable id
 ls -l /dev/disk/by-id/ | grep -v part
 ```
 
+Terraform authenticates as `root@pam` with its password: bind mounts into containers are
+allowed for that user alone, and an API token, even one without privilege separation,
+authenticates as `root@pam!name` and fails the check.
+
 Then `host/prepare-host.sh` with the three Elasticsearch disks: the ZFS pools, the
-directories, the sysctl Elasticsearch needs, the datastore content types, and the timer that
-restarts a container whose entrypoint exited (Proxmox does not):
+directories, the sysctl Elasticsearch needs, the datastore content types, the timer that
+restarts a container whose entrypoint exited (Proxmox does not), and the timer that keeps the
+API's DNS record on the router's public address, which the ISP changes:
 
 ```bash
-scp host/prepare-host.sh root@<host>:
+scp host/prepare-host.sh host/kinotic-dyndns.py root@<host>:
 ssh root@<host> ./prepare-host.sh /dev/disk/by-id/nvme-A /dev/disk/by-id/nvme-B /dev/disk/by-id/nvme-C
 ```
 
@@ -50,6 +54,11 @@ in root's `authorized_keys` on the host and loaded in their agent.
 
 The Azure side comes first: `deployment/terraform/azure/dev-server` (its README), applied
 from the same checkout, because this root reads its outputs from that state file.
+
+The `kinotic-server` and `kinotic-migration` images at `kinotic_version` must carry the
+`dev-server` profile (`application-dev-server.yml`), which imports the secrets file: without
+it the server starts with no master key. The nightly `gradle-build.yml` run promotes the
+`-SNAPSHOT` tags from `develop`; `gh workflow run gradle-build.yml --ref develop` does it now.
 
 ## Secrets and the certificate
 
@@ -65,14 +74,16 @@ Placed on the host before the first apply, so the server starts with everything 
 The generated directory is the only copy of the JWT signing key and the master key. Keep it
 somewhere safe and out of the repository; both are carried to the cloud at migration.
 
-The certificate is issued on the host by certbot with the DNS-01 plugin, as the server's
-principal (the `dev-server` root granted it DNS Zone Contributor), and installed into the
-directory the server's container mounts — `cnb`, uid 1000 in the container, is uid 101000
-on the host:
+The certificate for the API's hostname is issued on the host by certbot with the DNS-01
+plugin, as the server's principal (the `dev-server` root granted it DNS Zone Contributor),
+and installed into the directory the server's container mounts — `cnb`, uid 1002 and gid 1001 in the container, is
+101002:101001 on the host:
 
 ```bash
 ssh root@<host>
-python3 -m venv /opt/certbot && /opt/certbot/bin/pip install certbot certbot-dns-azure
+# pyOpenSSL 26 drops X509Req, which the josepy 1.x certbot pins still imports; azure-mgmt-dns 9
+# changes the client constructor certbot-dns-azure calls
+python3 -m venv /opt/certbot && /opt/certbot/bin/pip install certbot certbot-dns-azure "pyOpenSSL>=25,<26" "azure-mgmt-dns<9"
 install -m 0600 /dev/stdin /etc/kinotic/certbot-azure.ini <<EOT
 dns_azure_sp_client_id = <AZURE_CLIENT_ID>
 dns_azure_sp_client_secret = <AZURE_CLIENT_SECRET>
@@ -80,20 +91,23 @@ dns_azure_tenant_id = <AZURE_TENANT_ID>
 dns_azure_environment = AzurePublicCloud
 dns_azure_zone1 = kinotic.ai:/subscriptions/<subscription>/resourceGroups/<global rg>
 EOT
-/opt/certbot/bin/certbot certonly --authenticator dns-azure --dns-azure-config /etc/kinotic/certbot-azure.ini \
-  --deploy-hook 'install -m 0640 -o 101000 -g 101000 "$RENEWED_LINEAGE"/fullchain.pem "$RENEWED_LINEAGE"/privkey.pem /etc/kinotic/secrets/kinotic-server/certs/ && pct reboot 121 2>/dev/null || true' \
-  -d dev.kinotic.ai
+/opt/certbot/bin/certbot certonly --non-interactive --agree-tos --email <you> \
+  --authenticator dns-azure --dns-azure-config /etc/kinotic/certbot-azure.ini \
+  --deploy-hook 'install -m 0640 -o 101002 -g 101001 "$RENEWED_LINEAGE"/fullchain.pem "$RENEWED_LINEAGE"/privkey.pem /etc/kinotic/secrets/kinotic-server/certs/ && pct reboot 121 2>/dev/null || true' \
+  -d dev-api.kinotic.ai
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
 
 The deploy hook runs on every renewal too, which is all the certificate rotation there is.
+`kinotic-dyndns.timer` reads the names to keep current from this certificate and its Azure
+credentials from the same ini, so it starts working with the first issuance.
 
 ## Applying
 
 ```hcl
 # local.auto.tfvars (gitignored)
 proxmox_host      = "192.168.1.10"
-proxmox_api_token = "root@pam!terraform=00000000-0000-0000-0000-000000000000"
+proxmox_password  = "..."                # or PROXMOX_VE_PASSWORD in the environment
 server_ip         = "192.168.1.20/24"
 loki_ip           = "192.168.1.21/24"
 tempo_ip          = "192.168.1.22/24"
@@ -115,12 +129,13 @@ Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, wh
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the server.
 
-The portal is on `https://dev.kinotic.ai` once the router forwards 443 to `server_ip:9090`
-and 58503 to `server_ip:58503`.
+The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip:58503`;
+the portal and the system console are on Front Door as soon as `deploy-ui.sh` in the Azure
+root has uploaded them.
 
 ## After the first apply
 
-1. **The GitHub App's webhook** → `https://dev.kinotic.ai:58503/api/github/webhook`.
+1. **The GitHub App's webhook** → `https://dev-api.kinotic.ai/api/github/webhook`.
 
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,

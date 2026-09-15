@@ -34,10 +34,14 @@ public class ApiGatewayEndpointInitializer {
         int numToDeploy = kinoticProperties.getMaxNumberOfCoresToUse();
         DeploymentOptions options = new DeploymentOptions().setInstances(numToDeploy);
 
-        vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options);
+        // A deploy failure, such as a CORS origin pattern that does not compile, otherwise
+        // leaves the port silently unbound
+        vertx.deployVerticle(apiGatewayVertcleFactory::createApiGatewayVerticle, options)
+             .onFailure(t -> log.error("Failed to deploy the API Gateway Endpoint(s)", t));
 
         if (apiGatewayProperties.getWebServer().isEnabled()) {
-            vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions());
+            vertx.deployVerticle(apiGatewayVertcleFactory::createWebServerVerticle, new DeploymentOptions())
+                 .onFailure(t -> log.error("Failed to deploy the static web server", t));
         }
     }
 

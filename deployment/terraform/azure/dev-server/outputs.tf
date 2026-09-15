@@ -1,6 +1,16 @@
-output "hostname" {
-  description = "The hostname peers use, and the one certbot issues for"
-  value       = local.hostname
+output "api_hostname" {
+  description = "The API's hostname: what the router's public address answers to, and the one certbot issues for"
+  value       = local.api_hostname
+}
+
+output "portal_hostname" {
+  description = "The portal's hostname, served by Front Door from sites/<hostname>/ in the sites account"
+  value       = module.environment.ui_hostnames.portal
+}
+
+output "console_hostname" {
+  description = "The system console's hostname, served by Front Door from sites/<hostname>/ in the sites account"
+  value       = module.environment.ui_hostnames.console
 }
 
 output "sites_domain" {
@@ -59,7 +69,9 @@ output "tenant_id" {
 output "dev_server_env" {
   description = "The non-secret half of the server's environment"
   value = {
-    DEV_SERVER_HOSTNAME                                 = local.hostname
+    DEV_SERVER_API_HOSTNAME                             = local.api_hostname
+    DEV_SERVER_PORTAL_HOSTNAME                          = module.environment.ui_hostnames.portal
+    DEV_SERVER_CONSOLE_HOSTNAME                         = module.environment.ui_hostnames.console
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN          = module.environment.sites_domain
     KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT = module.environment.sites_storage_blob_endpoint
     KINOTIC_DOMAIN_SECRETSTORAGE_AZURE_VAULTURL         = azurerm_key_vault.server.vault_uri
@@ -76,4 +88,19 @@ output "secrets_env" {
   description = "The Azure half of the server's secrets, as an env-file line"
   value       = "AZURE_CLIENT_SECRET=${module.environment.server_client_secret}\n"
   sensitive   = true
+}
+
+output "resource_group_name" {
+  description = "The resource group, for deploy-ui.sh"
+  value       = module.environment.resource_group_name
+}
+
+output "sites_frontdoor_profile" {
+  description = "The Front Door profile serving the sites account, for deploy-ui.sh's purge"
+  value       = module.environment.sites_frontdoor_profile_name
+}
+
+output "sites_frontdoor_endpoint" {
+  description = "Its endpoint, for deploy-ui.sh's purge"
+  value       = module.environment.sites_frontdoor_endpoint_name
 }

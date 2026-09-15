@@ -4,7 +4,8 @@
 # under apps-<environment>.<zone>, the sites storage account and key vault, a service
 # principal with the roles the server needs — plus three things a developer's machine does
 # without: a key vault the server stores secrets in, a storage account Elasticsearch snapshots
-# go to, and the DNS record and rights that put the server on a hostname with a certificate.
+# go to, the portal and the system console served by the same Front Door as the published
+# sites, and the DNS record and rights that put the API on a hostname with a certificate.
 #
 # State is local, like dev/: one server, applied from one machine. The proxmox root reads
 # this root's outputs from that state file.
@@ -71,9 +72,9 @@ data "terraform_remote_state" "global" {
 data "azurerm_client_config" "current" {}
 
 locals {
-  name_prefix = "${var.project}-${var.environment}"
-  global      = data.terraform_remote_state.global.outputs
-  hostname    = "${var.hostname_label}.${local.global.dns_zone_name}"
+  name_prefix  = "${var.project}-${var.environment}"
+  global       = data.terraform_remote_state.global.outputs
+  api_hostname = "${var.api_label}.${local.global.dns_zone_name}"
 
   common_tags = {
     environment = var.environment
@@ -98,6 +99,15 @@ module "environment" {
   dns_zone_resource_group_name   = local.global.resource_group_name
   dns_zone_subscription_id       = local.global.subscription_id
   email_communication_service_id = local.global.email_communication_service_id
+
+  ui_hostnames = { portal = var.portal_label, console = var.console_label }
+}
+
+# The operator uploads the two UIs into the sites account (deploy-ui.sh)
+resource "azurerm_role_assignment" "operator_writes_sites" {
+  scope                = module.environment.sites_storage_account_id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = data.azurerm_client_config.current.object_id
 }
 
 # ── Key Vault for the server's secret storage ─────────────────────────────────
@@ -143,17 +153,23 @@ resource "azurerm_storage_container" "snapshots" {
   container_access_type = "private"
 }
 
-# ── The server's hostname ─────────────────────────────────────────────────────
+# ── The API's hostname ────────────────────────────────────────────────────────
 # One A record for the address the router forwards to kinotic-server, and DNS Zone
-# Contributor so certbot on the VM answers the DNS-01 challenge as the server's principal.
+# Contributor so certbot on the host answers the DNS-01 challenge, and kinotic-dyndns keeps
+# the record on the router's current address, as the server's principal.
 
-resource "azurerm_dns_a_record" "server" {
-  name                = var.hostname_label
+resource "azurerm_dns_a_record" "api" {
+  name                = var.api_label
   zone_name           = local.global.dns_zone_name
   resource_group_name = local.global.resource_group_name
   ttl                 = 300
   records             = [var.public_ip]
   tags                = local.common_tags
+
+  # The host's updater owns the value once the record exists
+  lifecycle {
+    ignore_changes = [records]
+  }
 }
 
 resource "azurerm_role_assignment" "server_dns" {

@@ -3,13 +3,23 @@ output "proxmox_host" {
   value       = var.proxmox_host
 }
 
-output "hostname" {
-  description = "The hostname peers use; the router forwards its 443 and 58503 to server_ip"
-  value       = local.azure.hostname
+output "api_hostname" {
+  description = "The API's hostname; the router forwards its 443 to server_ip:58503"
+  value       = local.azure.api_hostname
+}
+
+output "portal_hostname" {
+  description = "The portal, served by Front Door"
+  value       = local.azure.portal_hostname
+}
+
+output "console_hostname" {
+  description = "The system console, served by Front Door"
+  value       = local.azure.console_hostname
 }
 
 output "server_ip" {
-  description = "kinotic-server's LAN address: 443 → 9090 and 58503 → 58503 at the router"
+  description = "kinotic-server's LAN address: 443 → 58503 at the router"
   value       = local.server_ip
 }
 

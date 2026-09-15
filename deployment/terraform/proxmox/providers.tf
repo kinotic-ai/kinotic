@@ -1,6 +1,7 @@
 provider "proxmox" {
-  endpoint  = "https://${var.proxmox_host}:8006/"
-  api_token = var.proxmox_api_token
+  endpoint = "https://${var.proxmox_host}:8006/"
+  username = "root@pam"
+  password = var.proxmox_password
   # The installer's certificate is self-signed
   insecure = var.proxmox_insecure
 

@@ -7,11 +7,12 @@
 # the stores on the LAN, and the vm_manager_env output is their configuration.
 #
 # Terraform owns what the Proxmox API exposes: the private network, the images, the
-# containers with their mounts, and the files it uploads to the host. What the API
-# does not take for a container created from an OCI image yet — the environment its
-# entrypoint sees (bpg/terraform-provider-proxmox#2789) — host/kinotic-apply-container.py
-# applies on the host from a manifest per container, merging in the secrets the operator
-# placed there, so nothing secret passes through this root or its state (README.md).
+# containers with their mounts, and the files it uploads to the host. The rest —
+# the environment each entrypoint sees, which the API validates as word-keyed and
+# Elasticsearch's dotted settings are not, the console log, the resolvers, and the
+# ownership of the mounted directories — host/kinotic-apply-container.py applies on the
+# host from a manifest per container, merging in the secrets the operator placed there,
+# so nothing secret passes through this root or its state (README.md).
 
 data "terraform_remote_state" "azure" {
   backend = "local"
@@ -39,6 +40,62 @@ locals {
   compose_dir = "${path.module}/../../docker-compose"
   config_root = "${var.data_dir}/config"
   data_root   = "${var.data_dir}/data"
+
+  # Each image's entrypoint and environment, as its OCI config declares them. Proxmox takes
+  # both from the image when it creates the container, and the provider deletes whichever
+  # the configuration leaves unset on the next update, so they are stated here.
+  images = {
+    elasticsearch = {
+      entrypoint = "/bin/tini -- /usr/local/bin/docker-entrypoint.sh eswrapper"
+      env = {
+        PATH              = "/usr/share/elasticsearch/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        container         = "oci"
+        ELASTIC_CONTAINER = "true"
+        SHELL             = "/bin/bash"
+      }
+    }
+    loki = {
+      entrypoint = "/usr/bin/loki -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true"
+      env = {
+        PATH          = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/busybox"
+        SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
+      }
+    }
+    tempo = {
+      entrypoint = "/tempo -config.file=/etc/tempo/tempo.yml"
+      env        = { PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" }
+    }
+    mimir = {
+      entrypoint = "/bin/mimir -target=all -config.file=/etc/mimir/mimir.yml"
+      env = {
+        PATH          = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        SSL_CERT_FILE = "/etc/ssl/certs/ca-certificates.crt"
+      }
+    }
+    grafana = {
+      entrypoint = "/run.sh"
+      env = {
+        PATH                  = "/usr/share/grafana/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        GF_PATHS_CONFIG       = "/etc/grafana/grafana.ini"
+        GF_PATHS_DATA         = "/var/lib/grafana"
+        GF_PATHS_HOME         = "/usr/share/grafana"
+        GF_PATHS_LOGS         = "/var/log/grafana"
+        GF_PATHS_PLUGINS      = "/var/lib/grafana/plugins"
+        GF_PATHS_PROVISIONING = "/etc/grafana/provisioning"
+      }
+    }
+    # The buildpack images: kinotic-server and kinotic-migration
+    cnb = {
+      entrypoint = "/cnb/process/web"
+      env = {
+        PATH                 = "/cnb/process:/cnb/lifecycle:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        CNB_LAYERS_DIR       = "/layers"
+        CNB_APP_DIR          = "/workspace"
+        CNB_PLATFORM_API     = "0.14"
+        CNB_DEPRECATION_MODE = "quiet"
+      }
+    }
+  }
 
   # The cluster is healthy once all three nodes have joined; the migration and the server
   # wait for it, and the host reaches the private network directly
@@ -86,13 +143,13 @@ locals {
     run_once      = false
     interfaces    = [{ bridge = var.private_network, address = "${node.ip}/${local.private_prefix}", gateway = local.private_gateway }]
     mounts        = [{ volume = node.data_dir, path = "/usr/share/elasticsearch/data", read_only = false }]
-    entrypoint    = null
+    entrypoint    = local.images.elasticsearch.entrypoint
+    image_env     = local.images.elasticsearch.env
     env           = merge(local.es_env, { "node.name" = name })
     secrets_env   = null
     files         = {}
     uid           = 1000
     gid           = 0
-    dirs          = [node.data_dir]
     wait_for      = null
     verify        = null
     timeout       = 300
@@ -110,8 +167,10 @@ locals {
     JAVA_TOOL_OPTIONS           = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
     KINOTIC_MAX_OFF_HEAP_MEMORY = "419430400"
 
-    KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.hostname}"
-    KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.hostname}:58503"
+    # The portal is on Front Door; the router forwards 443 to the API port, so the public
+    # API URL has no port
+    KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.portal_hostname}"
+    KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.api_hostname}"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
     # What a workload on the node VM dials, and the one destination every egress policy permits
     KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.server_ip
@@ -149,13 +208,13 @@ locals {
       run_once      = false
       interfaces    = [{ bridge = var.bridge, address = var.loki_ip, gateway = var.gateway }]
       mounts        = [{ volume = "${local.data_root}/loki", path = "/loki", read_only = false }]
-      entrypoint    = "/usr/bin/loki -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true"
+      entrypoint    = local.images.loki.entrypoint
+      image_env     = local.images.loki.env
       env           = {}
       secrets_env   = null
       files         = {}
       uid           = 10001
       gid           = 10001
-      dirs          = ["${local.data_root}/loki"]
       wait_for      = null
       verify        = null
       timeout       = 300
@@ -174,13 +233,13 @@ locals {
         { volume = "${local.config_root}/tempo", path = "/etc/tempo", read_only = true },
         { volume = "${local.data_root}/tempo", path = "/var/tempo", read_only = false },
       ]
-      entrypoint  = "/tempo -config.file=/etc/tempo/tempo.yml"
+      entrypoint  = local.images.tempo.entrypoint
+      image_env   = local.images.tempo.env
       env         = {}
       secrets_env = null
       files       = { "tempo.yml" = local.tempo_config }
       uid         = 10001
       gid         = 10001
-      dirs        = ["${local.data_root}/tempo"]
       wait_for    = null
       verify      = null
       timeout     = 300
@@ -199,13 +258,13 @@ locals {
         { volume = "${local.config_root}/mimir", path = "/etc/mimir", read_only = true },
         { volume = "${local.data_root}/mimir", path = "/var/mimir", read_only = false },
       ]
-      entrypoint  = "/bin/mimir -target=all -config.file=/etc/mimir/mimir.yml"
+      entrypoint  = local.images.mimir.entrypoint
+      image_env   = local.images.mimir.env
       env         = {}
       secrets_env = null
       files       = { "mimir.yml" = file("${local.compose_dir}/mimir.yml") }
       uid         = 10001
       gid         = 10001
-      dirs        = ["${local.data_root}/mimir"]
       wait_for    = null
       verify      = null
       timeout     = 300
@@ -227,7 +286,8 @@ locals {
         { volume = "${local.config_root}/grafana/provisioning/datasources", path = "/etc/grafana/provisioning/datasources", read_only = true },
         { volume = "${local.config_root}/grafana/provisioning/dashboards", path = "/etc/grafana/provisioning/dashboards", read_only = true },
       ]
-      entrypoint = null
+      entrypoint = local.images.grafana.entrypoint
+      image_env  = local.images.grafana.env
       env = {
         GF_AUTH_ANONYMOUS_ENABLED                 = "false"
         GF_SECURITY_ADMIN_USER                    = "admin"
@@ -241,7 +301,6 @@ locals {
       }
       uid      = 472
       gid      = 0
-      dirs     = ["${local.data_root}/grafana"]
       wait_for = null
       verify   = null
       timeout  = 300
@@ -257,7 +316,8 @@ locals {
       run_once      = true
       interfaces    = [{ bridge = var.private_network, address = "${local.migration_private_ip}/${local.private_prefix}", gateway = local.private_gateway }]
       mounts        = []
-      entrypoint    = null
+      entrypoint    = local.images.cnb.entrypoint
+      image_env     = local.images.cnb.env
       # The production profile applies no fixture migration: no test users, no console samples
       env = {
         SPRING_PROFILES_ACTIVE           = "production"
@@ -267,16 +327,15 @@ locals {
       }
       secrets_env = null
       files       = {}
-      uid         = 1000
-      gid         = 1000
-      dirs        = []
+      uid         = 1002
+      gid         = 1001
       wait_for    = local.es_healthy
       verify      = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
       timeout     = 900
     }
     kinotic-server = {
       vm_id         = 121
-      description   = "kinotic-server: the portal on :9090, REST, STOMP and MCP on :58503, both TLS; the router forwards here"
+      description   = "kinotic-server: REST, STOMP and MCP on :58503 with TLS; the router forwards 443 here"
       image         = proxmox_oci_image.kinotic_server.id
       cores         = var.server_cores
       memory        = var.server_memory_mb
@@ -290,13 +349,13 @@ locals {
       ]
       # secrets.yml, the JWT key set and the certificate, placed by sync-secrets.sh and certbot
       mounts      = [{ volume = "${var.secrets_dir}/kinotic-server", path = "/etc/kinotic", read_only = true }]
-      entrypoint  = null
+      entrypoint  = local.images.cnb.entrypoint
+      image_env   = local.images.cnb.env
       env         = local.server_env
       secrets_env = "${var.secrets_dir}/kinotic-server.env"
       files       = {}
-      uid         = 1000
-      gid         = 1000
-      dirs        = []
+      uid         = 1002
+      gid         = 1001
       wait_for    = local.es_healthy
       verify      = null
       timeout     = 300
@@ -321,6 +380,7 @@ locals {
     vmid        = c.vm_id
     name        = name
     image       = c.image
+    entrypoint  = c.entrypoint
     env         = c.env
     secrets_env = c.secrets_env
     files = [for key, upload in local.config_uploads : {
@@ -330,8 +390,12 @@ locals {
       uid  = c.uid
       gid  = c.gid
     } if upload.container == name]
-    dirs        = [for dir in c.dirs : { path = dir, uid = c.uid, gid = c.gid }]
+    # Every mounted host directory, owned by the container's user before the container exists:
+    # Proxmox unpacks the image over the mounts inside the container's user namespace, which
+    # cannot take ownership of a directory real root owns
+    dirs        = [for m in c.mounts : { path = m.volume, uid = c.uid, gid = c.gid }]
     console_log = "/var/log/kinotic/${name}.log"
+    dns         = var.dns_servers
     run_once    = c.run_once
     wait_for    = c.wait_for
     verify      = c.verify
@@ -489,13 +553,19 @@ resource "proxmox_virtual_environment_container" "fleet" {
     size         = 8
   }
 
+  # An OCI image has no network stack for Proxmox to hand the address to: the host sets it
   dynamic "network_interface" {
     for_each = each.value.interfaces
     content {
-      name   = "eth${network_interface.key}"
-      bridge = network_interface.value.bridge
+      name         = "eth${network_interface.key}"
+      bridge       = network_interface.value.bridge
+      host_managed = true
     }
   }
+
+  # The image's own environment; the manifest's is applied on the host, since the API
+  # validates each key as a word and Elasticsearch's dotted settings are not
+  environment_variables = each.value.image_env
 
   initialization {
     hostname   = each.key
@@ -534,27 +604,45 @@ resource "proxmox_virtual_environment_container" "fleet" {
     ignore_changes = [started]
   }
 
-  depends_on = [proxmox_sdn_applier.private]
+  depends_on = [proxmox_sdn_applier.private, terraform_data.prepare]
+}
+
+locals {
+  applier_triggers = {
+    applier   = sha256(file("${path.module}/host/kinotic-apply-container.py"))
+    manifests = { for name, m in local.manifests : name => sha256(jsonencode(m)) }
+    configs   = { for key, upload in local.config_uploads : key => sha256(upload.content) }
+  }
+  applier_command = "ssh -o BatchMode=yes root@${var.proxmox_host} python3 ${var.snippets_dir}/kinotic-apply-container.py"
+  manifest_paths  = join(" ", [for name in local.apply_order : "${var.snippets_dir}/kinotic-${name}.manifest.json"])
+}
+
+# Places every container's directories and config files before the containers exist:
+# Proxmox mounts the bind mounts and unpacks the image over them inside the container's
+# user namespace, which cannot take ownership of a host directory real root owns
+resource "terraform_data" "prepare" {
+  triggers_replace = local.applier_triggers
+
+  provisioner "local-exec" {
+    command = "${local.applier_command} --prepare ${local.manifest_paths}"
+  }
+
+  depends_on = [
+    proxmox_virtual_environment_file.applier,
+    proxmox_virtual_environment_file.config,
+    proxmox_virtual_environment_file.manifest,
+  ]
 }
 
 # Runs the applier over every manifest in startup order, after any of them, their config
 # files, or the applier itself changed. A container replaced by hand keeps its vmid, so
 # nothing here notices: run the same command yourself (README.md).
 resource "terraform_data" "apply" {
-  triggers_replace = {
-    applier   = sha256(file("${path.module}/host/kinotic-apply-container.py"))
-    manifests = { for name, m in local.manifests : name => sha256(jsonencode(m)) }
-    configs   = { for key, upload in local.config_uploads : key => sha256(upload.content) }
-  }
+  triggers_replace = local.applier_triggers
 
   provisioner "local-exec" {
-    command = "ssh -o BatchMode=yes root@${var.proxmox_host} python3 ${var.snippets_dir}/kinotic-apply-container.py ${join(" ", [for name in local.apply_order : "${var.snippets_dir}/kinotic-${name}.manifest.json"])}"
+    command = "${local.applier_command} ${local.manifest_paths}"
   }
 
-  depends_on = [
-    proxmox_virtual_environment_container.fleet,
-    proxmox_virtual_environment_file.applier,
-    proxmox_virtual_environment_file.config,
-    proxmox_virtual_environment_file.manifest,
-  ]
+  depends_on = [proxmox_virtual_environment_container.fleet, terraform_data.prepare]
 }

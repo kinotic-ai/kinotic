@@ -5,8 +5,8 @@ variable "proxmox_host" {
   type        = string
 }
 
-variable "proxmox_api_token" {
-  description = "A root@pam API token, as root@pam!name=uuid: bind mounts into containers are root's alone. Set it in local.auto.tfvars or PROXMOX_VE_API_TOKEN"
+variable "proxmox_password" {
+  description = "root@pam's password: bind mounts into containers are allowed for that user alone, and an API token authenticates as root@pam!name, which fails the check. Set it in local.auto.tfvars or PROXMOX_VE_PASSWORD"
   type        = string
   sensitive   = true
 }

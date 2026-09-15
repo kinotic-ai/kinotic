@@ -3,7 +3,8 @@
 Everything the shared development server needs from Azure, applied once from an operator's
 machine. It reuses `modules/dev-environment`, the same module a developer's `dev/` root uses,
 and adds what a server peers depend on needs: a key vault for the server's secret storage, a
-storage account for Elasticsearch snapshots, and a hostname with the rights to issue its
+storage account for Elasticsearch snapshots, the portal and the system console on the same
+Front Door as the published sites, and a hostname for the API with the rights to issue its
 certificate.
 
 | Resource | Name | Purpose |
@@ -14,8 +15,10 @@ certificate.
 | Key vault | `kv-kinotic-dev-sites` | The Let's Encrypt wildcard certificate Front Door reads |
 | Key vault | `kv-kinotic-dev` | The server's secret storage (`kinotic.domain.secretStorage.backend: AZURE`) |
 | Storage account + container | `stkinoticdevsnapshots` / `elasticsearch-snapshots` | The nightly Elasticsearch snapshot repository, and the migration vehicle |
-| DNS A record | `dev.kinotic.ai` | The router's public address |
-| Service principal | `kinotic-dev-server` | The identity the server runs as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot |
+| Front Door domains + CNAMEs | `dev-portal.kinotic.ai`, `dev-console.kinotic.ai` | The portal and the system console, served from `sites/<hostname>/` in the sites account on managed certificates |
+| DNS A record | `dev-api.kinotic.ai` | The router's public address; `kinotic-dyndns.timer` on the host keeps it current |
+| Service principal | `kinotic-dev-server` | The identity the server runs as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot and the address updater |
+| Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh` |
 
 ## Applying
 
@@ -27,7 +30,7 @@ cd deployment/terraform/azure/dev-server
 
 ```hcl
 # local.auto.tfvars (gitignored)
-public_ip          = "203.0.113.10"     # the address the router forwards 443 and 58503 from
+public_ip          = "203.0.113.10"     # the router's public address today; the host keeps the record current
 lets_encrypt_email = "you@example.com"
 ```
 
@@ -35,6 +38,14 @@ lets_encrypt_email = "you@example.com"
 terraform init
 terraform apply -target=module.environment.module.sites.azurerm_cdn_frontdoor_profile.sites   # the profile first: its identity's principal id is unknown until it exists
 terraform apply
+```
+
+Then the two UIs, built for this server and uploaded into the sites account, where Front
+Door serves each from `sites/<hostname>/` exactly as it serves a published site. Again
+whenever `kinotic-frontend` changes:
+
+```bash
+./deploy-ui.sh                # pnpm build --mode dev-server for apps/portal and apps/system, then upload
 ```
 
 The proxmox root reads this root's state file directly (`../azure/dev-server/terraform.tfstate`),

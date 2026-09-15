@@ -43,3 +43,23 @@ output "server_client_secret_key_id" {
   description = "Key id of the principal's secret; changes when the secret is rotated"
   value       = azuread_application_password.server.key_id
 }
+
+output "ui_hostnames" {
+  description = "The platform UIs' hostnames served from the sites account, by key"
+  value       = module.sites.hostnames
+}
+
+output "sites_storage_account_id" {
+  description = "The sites storage account, for roles a root adds"
+  value       = module.sites.storage_account_id
+}
+
+output "sites_frontdoor_profile_name" {
+  description = "The Front Door profile serving the sites account"
+  value       = module.sites.frontdoor_profile_name
+}
+
+output "sites_frontdoor_endpoint_name" {
+  description = "Its endpoint"
+  value       = module.sites.frontdoor_endpoint_name
+}
