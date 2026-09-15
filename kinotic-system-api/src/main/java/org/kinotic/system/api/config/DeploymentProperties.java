@@ -71,8 +71,21 @@ public class DeploymentProperties {
     private int syncMountLimitMb = 4096;
 
     /**
+     * Size of the sync workload's root filesystem in megabytes, enforced by the node's
+     * filesystem quota. The package manager's cache lives there, outside the checkout mount.
+     */
+    private int syncDiskSizeMb = 4096;
+
+    /**
      * Memory of the runtime workload's VM in megabytes.
      */
     private int runtimeMemoryMb = 1024;
+
+    /**
+     * Size of the runtime workload's root filesystem in megabytes, enforced by the node's
+     * filesystem quota. The checkout is a read-only mount, so the root holds only what the
+     * microservice writes.
+     */
+    private int runtimeDiskSizeMb = 1024;
 
 }

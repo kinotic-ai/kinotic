@@ -580,6 +580,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
         workload.setMemoryMb(deployment.getSyncMemoryMb());
+        workload.setDiskSizeMb(deployment.getSyncDiskSizeMb());
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
@@ -609,6 +610,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
         // The project's microservices export their traces and metrics through the node, grouped
         // under the project's name; the sync and publish workloads are steps of the run and
