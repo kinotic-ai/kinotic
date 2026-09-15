@@ -426,10 +426,10 @@ Built after the direction change, against the whole series:
 
 Still open, and outside this repository's harness:
 
-- Publish `@kinotic-ai/core` 5.0.0-beta.11 and `@kinotic-ai/system-api` 5.0.0-beta.12. The console's
-  catalog ranges admit both; `kinotic-cli` pins core at 5.0.0-beta.10 exactly and needs a bump to
-  fail its calls on a lost connection. Until core is published, a browser or CLI on 5.0.0-beta.10
-  still waits on a dropped connection.
+- `@kinotic-ai/core` 5.0.0-beta.11 and `@kinotic-ai/system-api` 5.0.0-beta.12 are published. The
+  console's catalog ranges admit both. `kinotic-cli` 5.2.0-beta.15 pins core at 5.0.0-beta.11 and
+  `@kinotic-ai/vm-manager` 5.0.0-beta.19 carries the bounded shutdown; both wait on their publish,
+  the CLI first, and `workload-runner` then takes the new CLI pin and a rebuilt image.
 - A TS service could not stream at all: `BasicReturnValueConverter` serialised whatever a method
   returned, an `Observable` included, and `processControlPlaneRequest` dropped every control, while
   the streaming page documented the feature. Built as the follow-up to the wrap-up: the TS supervisor
