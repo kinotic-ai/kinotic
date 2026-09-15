@@ -425,12 +425,16 @@ allocation watermark, and the Proxmox drive's largest tenant is the stores' rete
 </tbody>
 </table>
 
-The LAN guests have static addresses on `vmbr0`; the private network is `10.10.0.0/24` with
-the host at `.1`. Only `kinotic-server` is reachable from the internet, on two forwarded
+The stores have static addresses on `vmbr0`; the server's LAN interface takes its address by
+DHCP under a fixed MAC, because the ISP's router forwards by device and reserves the
+device's address when the forward is saved. The private network is `10.10.0.0/24` with the
+host at `.1`. Only `kinotic-server` is reachable from the internet, on two forwarded
 ports.
 
 Proxmox itself is installed by hand, and `host/prepare-host.sh` runs once on it: the three ZFS
-pools, the directories, `vm.max_map_count`, and the keepalive timer. From there the host is a
+pools, the directories, `vm.max_map_count`, the keepalive and address-updater timers, and the
+host's exposure, SSH by key alone and a firewall that admits SSH and the web UI from the LAN
+only. From there the host is a
 terraform root, `deployment/terraform/proxmox`, using `bpg/proxmox`: the private network, the
 seven images, the containers with their mounts, and the manifests and config files it uploads
 to the host. Everything it uploads comes from this
@@ -754,11 +758,29 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      REST, STOMP, MCP, and the OIDC redirect URIs; the router's 443 is the api-gateway port, and <code>
+      REST, STOMP, MCP, and the OIDC redirect URIs; <code>
         issuerBaseUrl
       </code>
       
        falls back to it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.apiGateway.stompPort
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        443
+      </code>
+    </td>
+    
+    <td>
+      The api-gateway port is the public one: a consumer router forwards a port to the same port only, and an LXC autodev hook lowers the container's unprivileged port floor so the server's user binds it
     </td>
   </tr>
   
@@ -971,7 +993,7 @@ snapshot of every index with 30 days' retention.
     
     <td>
       the server's LAN IPv4, <code>
-        58503
+        443
       </code>
       
       , <code>
@@ -1235,7 +1257,7 @@ which the service waits for:
     
     <td>
       the server's LAN IPv4, <code>
-        58503
+        443
       </code>
       
       , <code>
@@ -1475,8 +1497,10 @@ secret, which the operator places on the host in `kinotic-server.env` by hand.
 
 ## Network and access
 
-The router forwards one port to the server container: 443 to 58503 (REST, STOMP, MCP, the
-GitHub webhook), so `https://dev-api.kinotic.ai` is the API with no port in the URL. The
+The router forwards one port to the server container, 443, on which the server itself
+listens (REST, STOMP, MCP, the GitHub webhook), so `https://dev-api.kinotic.ai` is the API
+with no port in the URL. The ISP's router forwards a port to the same port only and names
+its targets by device, so the server's MAC carries a name in the router's device list. The
 portal at `https://dev-portal.kinotic.ai` and the system console at
 `https://dev-console.kinotic.ai` are static files in the sites account that Front Door serves
 the way it serves every published site, so the host runs nothing for them and the router
