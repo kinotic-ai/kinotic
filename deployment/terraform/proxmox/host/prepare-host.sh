@@ -11,6 +11,8 @@
 #   - kinotic-keepalive.timer, which restarts a container whose entrypoint exited
 #   - kinotic-dyndns.timer, which keeps the certificate's hostnames on the router's current
 #     public address (host/kinotic-dyndns.py, beside this script)
+#   - the host's own exposure: SSH by key only, rpcbind off, and the Proxmox firewall admitting
+#     SSH and the web UI from the LAN alone
 #
 #   prepare-host.sh /dev/disk/by-id/<es disk 1> /dev/disk/by-id/<es disk 2> /dev/disk/by-id/<es disk 3>
 set -euo pipefail
@@ -125,5 +127,28 @@ WantedBy=timers.target
 UNIT
 systemctl daemon-reload
 systemctl enable --now kinotic-keepalive.timer kinotic-dyndns.timer >/dev/null 2>&1
+
+# The host holds every secret: root logs in by key alone, nothing here uses NFS, and the
+# firewall admits only SSH and the web UI, from the LAN the host sits on
+cat > /etc/ssh/sshd_config.d/kinotic.conf <<'CONF'
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin prohibit-password
+CONF
+sshd -t && systemctl reload ssh
+systemctl disable --now rpcbind.socket rpcbind.service >/dev/null 2>&1 || true
+lan=$(ip -4 route show dev vmbr0 proto kernel scope link | awk '{print $1}' | head -1)
+cat > /etc/pve/firewall/cluster.fw <<CONF
+[OPTIONS]
+enable: 1
+policy_in: DROP
+policy_out: ACCEPT
+
+[RULES]
+IN ACCEPT -source $lan -p tcp -dport 22 -log nolog
+IN ACCEPT -source $lan -p tcp -dport 8006 -log nolog
+IN ACCEPT -p icmp -log nolog
+CONF
+pve-firewall restart >/dev/null 2>&1 || true
 
 echo "host prepared: es1..es3 mounted, $DATA_DIR and $SECRETS_DIR present, $FILES_DATASTORE holds $wanted"

@@ -41,8 +41,10 @@ authenticates as `root@pam!name` and fails the check.
 
 Then `host/prepare-host.sh` with the three Elasticsearch disks: the ZFS pools, the
 directories, the sysctl Elasticsearch needs, the datastore content types, the timer that
-restarts a container whose entrypoint exited (Proxmox does not), and the timer that keeps the
-API's DNS record on the router's public address, which the ISP changes:
+restarts a container whose entrypoint exited (Proxmox does not), the timer that keeps the
+API's DNS record on the router's public address, which the ISP changes, and the host's own
+exposure: SSH by key only, rpcbind off, and the Proxmox firewall admitting SSH and the web UI
+from the LAN alone. The key of whoever runs it must already be in root's `authorized_keys`:
 
 ```bash
 scp host/prepare-host.sh host/kinotic-dyndns.py root@<host>:
@@ -72,7 +74,8 @@ Placed on the host before the first apply, so the server starts with everything 
 ```
 
 The generated directory is the only copy of the JWT signing key and the master key. Keep it
-somewhere safe and out of the repository; both are carried to the cloud at migration.
+somewhere safe and out of the repository; both are carried to the cloud at migration. The two
+roots' state files hold the principal's secret and the storage keys, so keep them at mode 0600.
 
 The certificate for the API's hostname is issued on the host by certbot with the DNS-01
 plugin, as the server's principal (the `dev-server` root granted it DNS Zone Contributor),
