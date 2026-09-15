@@ -1,0 +1,1 @@
+{"id":"4e15e3aecb924d2d3bbd3f47f2201697","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle connects again while the previous activation is still closing after a fatal error","name":"connects again while the previous activation is still closing after a fatal error","status":"passed","testResultsByEnv":{"default":"10b038272e43f363e0ae036b36130c34"}}

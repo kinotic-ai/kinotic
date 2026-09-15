@@ -1,0 +1,1 @@
+{"id":"2077ee24648e46a0aa8d73b120c9ed66","fullName":"@kinotic-ai/core:test/RpcError.test.ts#Kinotic JS packages/core RpcError falls back to the error header when the body is not the description","name":"falls back to the error header when the body is not the description","status":"passed","testResultsByEnv":{"default":"0bf43ced1d39f88893a05476b4f246e0"}}
