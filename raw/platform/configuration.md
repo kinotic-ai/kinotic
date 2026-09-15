@@ -822,6 +822,24 @@ per deployment and one long-lived runtime VM per microservice, configured under
   <tr>
     <td>
       <code>
+        syncDiskSizeMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        4096
+      </code>
+    </td>
+    
+    <td>
+      Size cap on the sync VM's root filesystem, where the package manager keeps its cache, enforced the same way
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         runtimeMemoryMb
       </code>
     </td>
@@ -834,6 +852,24 @@ per deployment and one long-lived runtime VM per microservice, configured under
     
     <td>
       Memory of each microservice's runtime VM
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        runtimeDiskSizeMb
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        1024
+      </code>
+    </td>
+    
+    <td>
+      Size cap on each runtime VM's root filesystem; the checkout is a read-only mount, so the root holds only what the microservice writes
     </td>
   </tr>
 </tbody>
