@@ -351,9 +351,10 @@ locals {
       start_on_boot = true
       run_once      = false
       # The LAN for peers, the node VM and Azure; the private network for Elasticsearch
+      # The LAN address comes from the router's reservation for the fixed MAC
       interfaces = [
-        { bridge = var.bridge, address = var.server_ip, gateway = var.gateway },
-        { bridge = var.private_network, address = "${local.server_private_ip}/${local.private_prefix}", gateway = null },
+        { bridge = var.bridge, address = "dhcp", gateway = null, mac = var.server_mac },
+        { bridge = var.private_network, address = "${local.server_private_ip}/${local.private_prefix}", gateway = null, mac = null },
       ]
       # secrets.yml, the JWT key set and the certificate, placed by sync-secrets.sh and certbot
       mounts           = [{ volume = "${var.secrets_dir}/kinotic-server", path = "/etc/kinotic", read_only = true }]
@@ -581,6 +582,7 @@ resource "proxmox_virtual_environment_container" "fleet" {
     content {
       name         = "eth${network_interface.key}"
       bridge       = network_interface.value.bridge
+      mac_address  = lookup(network_interface.value, "mac", null)
       host_managed = true
     }
   }

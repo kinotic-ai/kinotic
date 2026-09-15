@@ -108,7 +108,8 @@ credentials from the same ini, so it starts working with the first issuance.
 # local.auto.tfvars (gitignored)
 proxmox_host      = "192.168.1.10"
 proxmox_password  = "..."                # or PROXMOX_VE_PASSWORD in the environment
-server_ip         = "192.168.1.20/24"
+server_ip         = "192.168.1.20/24"    # the address the router reserves for server_mac; the interface takes it by DHCP
+server_mac        = "BC:24:11:00:00:01"
 loki_ip           = "192.168.1.21/24"
 tempo_ip          = "192.168.1.22/24"
 mimir_ip          = "192.168.1.23/24"
@@ -129,11 +130,13 @@ Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, wh
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the server.
 
-The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip`. The
+The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to the server. The
 server listens on 443 itself (`api_port`), because a consumer router forwards a port only to
 the same port: an autodev hook the applier installs lowers the container's unprivileged port
-floor, so the server's own user binds it. The router picks the target by device, so give the
-server's LAN MAC (`pct config 121`, `net0`) a name in the router's device list first;
+floor, so the server's own user binds it. The router picks the target by device and reserves
+an address for it when the forward is saved, so the server's LAN interface takes its address
+by DHCP under a fixed MAC (`server_mac`), and `server_ip` is the address the router reserved,
+which the nodes dial;
 the portal and the system console are on Front Door as soon as `deploy-ui.sh` in the Azure
 root has uploaded them.
 

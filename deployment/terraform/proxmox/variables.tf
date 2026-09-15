@@ -66,7 +66,12 @@ variable "private_cidr" {
 }
 
 variable "server_ip" {
-  description = "kinotic-server's LAN address in CIDR notation; the router forwards 443 and 58503 here, and workloads on the node VM dial it"
+  description = "The LAN address the router reserves for kinotic-server's MAC, in CIDR notation; the interface takes it by DHCP, since the router forwards by device and reserves the address when it does, and workloads on the nodes dial it"
+  type        = string
+}
+
+variable "server_mac" {
+  description = "kinotic-server's LAN MAC address, fixed so the router's reservation and forward survive a container replacement"
   type        = string
 }
 
