@@ -133,26 +133,27 @@ locals {
   }
 
   es_containers = { for name, node in local.es_nodes : name => {
-    vm_id         = node.vm_id
-    description   = "Elasticsearch ${name}: master-eligible, data on ${node.data_dir}"
-    image         = proxmox_oci_image.elasticsearch.id
-    cores         = var.es_cores
-    memory        = var.es_memory_mb
-    order         = 10
-    start_on_boot = true
-    run_once      = false
-    interfaces    = [{ bridge = var.private_network, address = "${node.ip}/${local.private_prefix}", gateway = local.private_gateway }]
-    mounts        = [{ volume = node.data_dir, path = "/usr/share/elasticsearch/data", read_only = false }]
-    entrypoint    = local.images.elasticsearch.entrypoint
-    image_env     = local.images.elasticsearch.env
-    env           = merge(local.es_env, { "node.name" = name })
-    secrets_env   = null
-    files         = {}
-    uid           = 1000
-    gid           = 0
-    wait_for      = null
-    verify        = null
-    timeout       = 300
+    vm_id            = node.vm_id
+    description      = "Elasticsearch ${name}: master-eligible, data on ${node.data_dir}"
+    image            = proxmox_oci_image.elasticsearch.id
+    cores            = var.es_cores
+    memory           = var.es_memory_mb
+    order            = 10
+    start_on_boot    = true
+    run_once         = false
+    interfaces       = [{ bridge = var.private_network, address = "${node.ip}/${local.private_prefix}", gateway = local.private_gateway }]
+    mounts           = [{ volume = node.data_dir, path = "/usr/share/elasticsearch/data", read_only = false }]
+    entrypoint       = local.images.elasticsearch.entrypoint
+    image_env        = local.images.elasticsearch.env
+    env              = merge(local.es_env, { "node.name" = name })
+    privileged_ports = false
+    secrets_env      = null
+    files            = {}
+    uid              = 1000
+    gid              = 0
+    wait_for         = null
+    verify           = null
+    timeout          = 300
   } }
 
   # The non-secret half of the server's environment: the compose service's, the Azure root's
@@ -167,13 +168,15 @@ locals {
     JAVA_TOOL_OPTIONS           = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
     KINOTIC_MAX_OFF_HEAP_MEMORY = "419430400"
 
-    # The portal is on Front Door; the router forwards 443 to the API port, so the public
-    # API URL has no port
+    # The portal is on Front Door; the router forwards 443 to the same port here, so the
+    # public API URL has no port
     KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.portal_hostname}"
     KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.api_hostname}"
+    KINOTIC_APIGATEWAY_STOMPPORT = tostring(var.api_port)
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
     # What a workload on the node VM dials, and the one destination every egress policy permits
     KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.server_ip
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERPORT = tostring(var.api_port)
     KINOTIC_MANAGEMENTAPI_LOKIURL           = local.service_urls["http://loki:3100"]
     KINOTIC_MANAGEMENTAPI_TEMPOURL          = local.service_urls["http://tempo:3200"]
     KINOTIC_MANAGEMENTAPI_MIMIRURL          = local.service_urls["http://mimir:9009"]
@@ -198,26 +201,27 @@ locals {
 
   containers = merge(local.es_containers, {
     loki = {
-      vm_id         = 110
-      description   = "Loki: logs, multi-tenant; the node's Alloy and the server push here"
-      image         = proxmox_oci_image.loki.id
-      cores         = 2
-      memory        = 1024
-      order         = 20
-      start_on_boot = true
-      run_once      = false
-      interfaces    = [{ bridge = var.bridge, address = var.loki_ip, gateway = var.gateway }]
-      mounts        = [{ volume = "${local.data_root}/loki", path = "/loki", read_only = false }]
-      entrypoint    = local.images.loki.entrypoint
-      image_env     = local.images.loki.env
-      env           = {}
-      secrets_env   = null
-      files         = {}
-      uid           = 10001
-      gid           = 10001
-      wait_for      = null
-      verify        = null
-      timeout       = 300
+      vm_id            = 110
+      description      = "Loki: logs, multi-tenant; the node's Alloy and the server push here"
+      image            = proxmox_oci_image.loki.id
+      cores            = 2
+      memory           = 1024
+      order            = 20
+      start_on_boot    = true
+      run_once         = false
+      interfaces       = [{ bridge = var.bridge, address = var.loki_ip, gateway = var.gateway }]
+      mounts           = [{ volume = "${local.data_root}/loki", path = "/loki", read_only = false }]
+      entrypoint       = local.images.loki.entrypoint
+      image_env        = local.images.loki.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 10001
+      gid              = 10001
+      wait_for         = null
+      verify           = null
+      timeout          = 300
     }
     tempo = {
       vm_id         = 111
@@ -233,16 +237,17 @@ locals {
         { volume = "${local.config_root}/tempo", path = "/etc/tempo", read_only = true },
         { volume = "${local.data_root}/tempo", path = "/var/tempo", read_only = false },
       ]
-      entrypoint  = local.images.tempo.entrypoint
-      image_env   = local.images.tempo.env
-      env         = {}
-      secrets_env = null
-      files       = { "tempo.yml" = local.tempo_config }
-      uid         = 10001
-      gid         = 10001
-      wait_for    = null
-      verify      = null
-      timeout     = 300
+      entrypoint       = local.images.tempo.entrypoint
+      image_env        = local.images.tempo.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = null
+      files            = { "tempo.yml" = local.tempo_config }
+      uid              = 10001
+      gid              = 10001
+      wait_for         = null
+      verify           = null
+      timeout          = 300
     }
     mimir = {
       vm_id         = 112
@@ -258,16 +263,17 @@ locals {
         { volume = "${local.config_root}/mimir", path = "/etc/mimir", read_only = true },
         { volume = "${local.data_root}/mimir", path = "/var/mimir", read_only = false },
       ]
-      entrypoint  = local.images.mimir.entrypoint
-      image_env   = local.images.mimir.env
-      env         = {}
-      secrets_env = null
-      files       = { "mimir.yml" = file("${local.compose_dir}/mimir.yml") }
-      uid         = 10001
-      gid         = 10001
-      wait_for    = null
-      verify      = null
-      timeout     = 300
+      entrypoint       = local.images.mimir.entrypoint
+      image_env        = local.images.mimir.env
+      env              = {}
+      privileged_ports = false
+      secrets_env      = null
+      files            = { "mimir.yml" = file("${local.compose_dir}/mimir.yml") }
+      uid              = 10001
+      gid              = 10001
+      wait_for         = null
+      verify           = null
+      timeout          = 300
     }
     grafana = {
       vm_id         = 113
@@ -293,7 +299,8 @@ locals {
         GF_SECURITY_ADMIN_USER                    = "admin"
         GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH = "/var/lib/grafana/dashboards/kinotic-server.json"
       }
-      secrets_env = "${var.secrets_dir}/grafana.env"
+      privileged_ports = false
+      secrets_env      = "${var.secrets_dir}/grafana.env"
       files = {
         "provisioning/datasources/datasource.yaml" = local.grafana_datasources
         "provisioning/dashboards/dashboards.yaml"  = file("${local.compose_dir}/grafana-dashboards.yaml")
@@ -325,17 +332,18 @@ locals {
         KINOTIC_MIGRATION_ELASTIC_HOST   = local.es_ips[0]
         KINOTIC_MIGRATION_ELASTIC_PORT   = "9200"
       }
-      secrets_env = null
-      files       = {}
-      uid         = 1002
-      gid         = 1001
-      wait_for    = local.es_healthy
-      verify      = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
-      timeout     = 900
+      privileged_ports = false
+      secrets_env      = null
+      files            = {}
+      uid              = 1002
+      gid              = 1001
+      wait_for         = local.es_healthy
+      verify           = "curl -sf http://${local.es_ips[0]}:9200/migration_history >/dev/null"
+      timeout          = 900
     }
     kinotic-server = {
       vm_id         = 121
-      description   = "kinotic-server: REST, STOMP and MCP on :58503 with TLS; the router forwards 443 here"
+      description   = "kinotic-server: REST, STOMP and MCP on :${var.api_port} with TLS; the router forwards 443 here"
       image         = proxmox_oci_image.kinotic_server.id
       cores         = var.server_cores
       memory        = var.server_memory_mb
@@ -348,17 +356,18 @@ locals {
         { bridge = var.private_network, address = "${local.server_private_ip}/${local.private_prefix}", gateway = null },
       ]
       # secrets.yml, the JWT key set and the certificate, placed by sync-secrets.sh and certbot
-      mounts      = [{ volume = "${var.secrets_dir}/kinotic-server", path = "/etc/kinotic", read_only = true }]
-      entrypoint  = local.images.cnb.entrypoint
-      image_env   = local.images.cnb.env
-      env         = local.server_env
-      secrets_env = "${var.secrets_dir}/kinotic-server.env"
-      files       = {}
-      uid         = 1002
-      gid         = 1001
-      wait_for    = local.es_healthy
-      verify      = null
-      timeout     = 300
+      mounts           = [{ volume = "${var.secrets_dir}/kinotic-server", path = "/etc/kinotic", read_only = true }]
+      entrypoint       = local.images.cnb.entrypoint
+      image_env        = local.images.cnb.env
+      env              = local.server_env
+      secrets_env      = "${var.secrets_dir}/kinotic-server.env"
+      files            = {}
+      uid              = 1002
+      gid              = 1001
+      privileged_ports = var.api_port < 1024
+      wait_for         = local.es_healthy
+      verify           = null
+      timeout          = 300
     }
   })
 
@@ -396,10 +405,12 @@ locals {
     dirs        = [for m in c.mounts : { path = m.volume, uid = c.uid, gid = c.gid }]
     console_log = "/var/log/kinotic/${name}.log"
     dns         = var.dns_servers
-    run_once    = c.run_once
-    wait_for    = c.wait_for
-    verify      = c.verify
-    timeout     = c.timeout
+    # The hook script's path on the host, for the containers that bind a port below 1024
+    privileged_ports = c.privileged_ports ? "${var.snippets_dir}/kinotic-unprivileged-ports.sh" : null
+    run_once         = c.run_once
+    wait_for         = c.wait_for
+    verify           = c.verify
+    timeout          = c.timeout
   } }
 }
 
@@ -481,6 +492,17 @@ resource "proxmox_oci_image" "grafana" {
 }
 
 # ── Files on the host ─────────────────────────────────────────────────────────
+
+resource "proxmox_virtual_environment_file" "unprivileged_ports_hook" {
+  content_type = "snippets"
+  datastore_id = var.files_datastore_id
+  node_name    = var.proxmox_node
+
+  source_raw {
+    file_name = "kinotic-unprivileged-ports.sh"
+    data      = file("${path.module}/host/kinotic-unprivileged-ports.sh")
+  }
+}
 
 resource "proxmox_virtual_environment_file" "applier" {
   content_type = "snippets"
@@ -629,6 +651,7 @@ resource "terraform_data" "prepare" {
 
   depends_on = [
     proxmox_virtual_environment_file.applier,
+    proxmox_virtual_environment_file.unprivileged_ports_hook,
     proxmox_virtual_environment_file.config,
     proxmox_virtual_environment_file.manifest,
   ]

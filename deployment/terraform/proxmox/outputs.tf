@@ -4,7 +4,7 @@ output "proxmox_host" {
 }
 
 output "api_hostname" {
-  description = "The API's hostname; the router forwards its 443 to server_ip:58503"
+  description = "The API's hostname; the router forwards its 443 to server_ip's"
   value       = local.azure.api_hostname
 }
 
@@ -19,7 +19,7 @@ output "console_hostname" {
 }
 
 output "server_ip" {
-  description = "kinotic-server's LAN address: 443 → 58503 at the router"
+  description = "kinotic-server's LAN address, which the router forwards 443 to"
   value       = local.server_ip
 }
 
@@ -35,7 +35,7 @@ output "vm_manager_env" {
   value       = <<-EOT
     KINOTIC_VM_PROVIDER=CLOUD_HYPERVISOR
     KINOTIC_SERVER_HOST=${local.server_ip}
-    KINOTIC_SERVER_PORT=58503
+    KINOTIC_SERVER_PORT=${var.api_port}
     KINOTIC_SERVER_USE_SSL=true
     KINOTIC_WORKLOAD_DATA_DIR=/var/lib/kinotic/workloads
     KINOTIC_WORKLOAD_DNS=${var.dns_servers[0]}

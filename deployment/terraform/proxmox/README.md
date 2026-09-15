@@ -129,7 +129,11 @@ Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, wh
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the server.
 
-The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip:58503`;
+The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip`. The
+server listens on 443 itself (`api_port`), because a consumer router forwards a port only to
+the same port: an autodev hook the applier installs lowers the container's unprivileged port
+floor, so the server's own user binds it. The router picks the target by device, so give the
+server's LAN MAC (`pct config 121`, `net0`) a name in the router's device list first;
 the portal and the system console are on Front Door as soon as `deploy-ui.sh` in the Azure
 root has uploaded them.
 

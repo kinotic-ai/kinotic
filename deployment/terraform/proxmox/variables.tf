@@ -90,6 +90,12 @@ variable "grafana_ip" {
   type        = string
 }
 
+variable "api_port" {
+  description = "The port kinotic-server's API listens on; the router forwards its public 443 to the same port, since it does not translate ports"
+  type        = number
+  default     = 443
+}
+
 variable "gateway" {
   description = "The LAN's default gateway"
   type        = string
