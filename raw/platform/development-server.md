@@ -9,9 +9,10 @@ environment on one physical host — a Ryzen 9 with 96 GB of RAM and four SSDs �
 NUCs that run the peers' workloads, where a few peers build Kinotic applications against the
 real platform: organization sign-up,
 push-to-deploy into micro VMs, published UIs served through Front Door, email, logs and traces
-in the portal. Everything that can run on the host runs on the host. Azure keeps only what a
-single host cannot provide (Front Door, the sites storage account, Communication Services
-email, the DNS zone) and what the migration path needs (a Key Vault, a snapshot container).
+in the portal. Every service runs on the host. Azure keeps what a single host cannot provide
+(Front Door, the sites storage account, Communication Services email, the DNS zone), what the
+migration path needs (a Key Vault, a snapshot container), and the portal and the system
+console, static files served by the same Front Door as the published sites.
 
 When Kinotic Cloud opens, the peers' organizations, applications, and data move there and keep
 working. The migration is a designed step of this environment rather than an afterthought, and
@@ -19,8 +20,10 @@ two of the decisions below exist only because of it.
 
 <callout type="info">
 
-**Status.** Nothing here is built yet. This page records the decisions, the target topology,
-and the steps that build it, in the order they have to happen.
+**Status.** The host, the Azure root and the nine containers are built and the portal is up;
+the nodes, the first system user and the end-to-end deployment are still to come. This page
+records the decisions, the target topology, and the steps that build it, in the order they
+have to happen.
 
 </callout>
 
@@ -57,11 +60,13 @@ running docker-compose. Each service is then a first-class guest: its own addres
 CPU and memory limits, its own mounts and startup order, visible and restartable in the
 Proxmox UI, sharing the host's kernel with no VM in between. There is no compose, no
 Kubernetes, and no second layer of orchestration inside a guest. What the Proxmox API does
-not take yet for such a container — the environment its entrypoint sees,
-[bpg/terraform-provider-proxmox#2789](https://github.com/bpg/terraform-provider-proxmox/issues/2789)
-— a script terraform uploads applies on the host from a manifest per container, and the same
-script is where the operator's secrets are merged in, so no secret passes through terraform.
-Proxmox also does not restart a container whose entrypoint exits, so a host timer does.
+not take for such a container — an environment with Elasticsearch's dotted setting names,
+which it validates as words, a resolv.conf, which it writes into no OCI image, the console
+log, and the ownership of the mounted directories, which must be the container's user's
+before the image is unpacked over them — a script terraform uploads applies on the host from
+a manifest per container, and the same script is where the operator's secrets are merged in,
+so no secret passes through terraform. Proxmox also does not restart a container whose
+entrypoint exits, so a host timer does.
 
 A node is never a container on the host: it needs its own kernel modules, sysctls, and iptables.
 
@@ -116,9 +121,10 @@ node is.
 The developer root `deployment/terraform/azure/dev` already builds everything a server off Azure
 needs to publish UIs and send email: a resource group, the sites module under
 `apps-<environment>.<zone>`, a Key Vault holding the wildcard certificate Front Door reads, and
-a service principal whose `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID``DefaultAzureCredential` takes before anything else. A `dev-server` root is that root plus three
-things: a Key Vault for the server, DNS rights for certificate issuance, and a container for
-Elasticsearch snapshots.
+a service principal whose `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `AZURE_TENANT_ID``DefaultAzureCredential` takes before anything else. A `dev-server` root is that root plus
+four things: a Key Vault for the server, the portal and the system console on the sites
+module's Front Door, DNS rights for certificate issuance, and a container for Elasticsearch
+snapshots.
 
 The server's Key Vault is kept deliberately. Without it the secret storage backend is in-memory
 (`SecretStorageConfiguration`): nothing stored survives a restart and nothing can be carried to
@@ -725,12 +731,12 @@ snapshot of every index with 30 days' retention.
     
     <td>
       <code>
-        https://dev.kinotic.ai
+        https://dev-portal.kinotic.ai
       </code>
     </td>
     
     <td>
-      The SPA, served by the server's own web server on 9090
+      The portal, served by Front Door from the sites account
     </td>
   </tr>
   
@@ -743,16 +749,34 @@ snapshot of every index with 30 days' retention.
     
     <td>
       <code>
-        https://dev.kinotic.ai:58503
+        https://dev-api.kinotic.ai
       </code>
     </td>
     
     <td>
-      REST, STOMP, MCP, and the OIDC redirect URIs are on the api-gateway port; <code>
+      REST, STOMP, MCP, and the OIDC redirect URIs; the router's 443 is the api-gateway port, and <code>
         issuerBaseUrl
       </code>
       
        falls back to it
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
+        kinotic.apiGateway.webServer.enabled
+      </code>
+    </td>
+    
+    <td>
+      <code>
+        false
+      </code>
+    </td>
+    
+    <td>
+      Nothing is served from the jar's webroot; the API port is the only one exposed, as in the cluster
     </td>
   </tr>
   
@@ -780,7 +804,7 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      Vert.x terminates TLS on both ports, no reverse proxy, matching KinD and Azure
+      Vert.x terminates TLS, no reverse proxy, matching KinD and Azure
     </td>
   </tr>
   
@@ -994,11 +1018,11 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      <code>
-        https://dev\.kinotic\.ai(:\d+)?|https://[a-z0-9-]+\.apps-dev\.kinotic\.ai
+      the portal, the console, and <code>
+        https://[a-z0-9-]+\.apps-dev\.kinotic\.ai
       </code>
       
-      , <code>
+      ; <code>
         true
       </code>
     </td>
@@ -1035,7 +1059,7 @@ snapshot of every index with 30 days' retention.
     
     <td>
       The cloud's App; its webhook URL points at <code>
-        https://dev.kinotic.ai:58503/api/github/webhook
+        https://dev-api.kinotic.ai/api/github/webhook
       </code>
     </td>
   </tr>
@@ -1119,9 +1143,9 @@ newer image keeps it.
 
 certbot on the host with the `dns-azure` plugin, authenticating as the same service principal,
 which the `dev-server` root grants DNS Zone Contributor on `kinotic.ai`. One certificate for
-`dev.kinotic.ai` serves both ports. The deploy hook installs the PEMs into the secrets
-directory the server's container mounts and reboots the container, which is the whole of what
-Reloader does in the cluster.
+`dev-api.kinotic.ai`. The deploy hook installs the PEMs into the secrets directory the
+server's container mounts and reboots the container, which is the whole of what Reloader does
+in the cluster. The portal's and the console's certificates are Front Door's own, managed.
 
 ## Nodes
 
@@ -1387,15 +1411,47 @@ vault, and the service principal — and adds what a server peers depend on need
   
   <tr>
     <td>
+      Front Door domains <code>
+        dev-portal.<zone>
+      </code>
+      
+      , <code>
+        dev-console.<zone>
+      </code>
+    </td>
+    
+    <td>
+      The portal and the system console, served from <code>
+        sites/<hostname>/
+      </code>
+      
+       in the sites account by the route and rule set every published site uses, on managed certificates; <code>
+        deploy-ui.sh
+      </code>
+      
+       builds both with <code>
+        --mode dev-server
+      </code>
+      
+       and uploads them
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
       DNS <code>
-        dev.<zone>
+        dev-api.<zone>
       </code>
       
        A record
     </td>
     
     <td>
-      The host's public address; a dynamic-DNS updater if the ISP changes it
+      The host's public address; <code>
+        kinotic-dyndns.timer
+      </code>
+      
+       on the host rewrites it when the ISP changes the address
     </td>
   </tr>
   
@@ -1407,7 +1463,7 @@ vault, and the service principal — and adds what a server peers depend on need
     </td>
     
     <td>
-      Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on the server vault, DNS Zone Contributor on the zone for certbot
+      Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on the server vault, DNS Zone Contributor on the zone for certbot and the address updater
     </td>
   </tr>
 </tbody>
@@ -1419,17 +1475,20 @@ secret, which the operator places on the host in `kinotic-server.env` by hand.
 
 ## Network and access
 
-The router forwards two ports to the server container: 443 to 9090 (the SPA) and 58503 to
-58503 (REST, STOMP, MCP, the GitHub webhook). This is the KinD layout with a public address;
-there is no reverse proxy. A Cloudflare Tunnel routing `/api`, `/v1`, `/.well-known`, and
-`/mcp` to 58503 and everything else to 9090 would collapse the two ports into one origin, the
-way the development tunnel does, and hide the host's address; it is the alternative if exposing
-the address is unwelcome.
+The router forwards one port to the server container: 443 to 58503 (REST, STOMP, MCP, the
+GitHub webhook), so `https://dev-api.kinotic.ai` is the API with no port in the URL. The
+portal at `https://dev-portal.kinotic.ai` and the system console at
+`https://dev-console.kinotic.ai` are static files in the sites account that Front Door serves
+the way it serves every published site, so the host runs nothing for them and the router
+forwards nothing to them. This is the cloud's layout, a hosted SPA against an API host, with
+no reverse proxy on the host. The router's address is dynamic: a timer on the host rewrites
+the API's A record whenever it changes, as the server's principal.
 
-Peers use `https://dev.kinotic.ai`: organization sign-up with email verification through ACS,
-social login through the platform OIDC providers registered with `https://dev.kinotic.ai:58503`
-redirect URIs, the CLI's device grant, and MCP hosts through the authorization-code grant.
-Nothing on the LAN besides the two forwarded ports is reachable from outside.
+Peers use `https://dev-portal.kinotic.ai`: organization sign-up with email verification
+through ACS, social login through the platform OIDC providers registered with
+`https://dev-api.kinotic.ai` redirect URIs, the CLI's device grant, and MCP hosts through the
+authorization-code grant. Nothing on the LAN besides the forwarded port is reachable from
+outside.
 
 ## Backups
 
@@ -1724,9 +1783,10 @@ it a day later.
 5. Point the GitHub App's webhook URL at the cloud gateway.
 6. Re-run the deployment of every project, which places it on a cloud node and republishes its
 UIs under `apps.kinotic.ai`.
-7. Change `dev.kinotic.ai` to a CNAME of the cloud gateway so the peers' CLI logins and project
-configuration keep resolving; they sign in again on `portal.kinotic.ai`, since sessions are
-`__Host-` cookies and the social-login redirect URIs are registered per host.
+7. Change `dev-api.kinotic.ai` to a CNAME of the cloud gateway so the peers' CLI logins and
+project configuration keep resolving, and stop the address updater; they sign in again on
+`portal.kinotic.ai`, since sessions are `__Host-` cookies and the social-login redirect
+URIs are registered per host.
 8. Disable the development node's machine identity; keep the development server running
 read-only for a week, then tear it down.
 
@@ -1749,8 +1809,8 @@ Elasticsearch disks.
 App's key filled in, `sync-secrets.sh`; certbot on the host.
 4. **The fleet.** `deployment/terraform/proxmox`; apply. The applier brings up the cluster,
 the stores, runs the migration to completion and verifies it, and starts the server.
-Register the snapshot repository and SLM policy; confirm sign-up mail arrives and the
-portal loads on `https://dev.kinotic.ai`.
+Register the snapshot repository and SLM policy; `deploy-ui.sh` for the two UIs; confirm
+sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
 5. **Nodes.** Ubuntu 22.04 and the kit on each NUC, `vm-manager.env` from the terraform
 output plus the node's id, the SYSTEM machine's credentials from the system console in
 `vm-manager.secrets.env`; confirm each node is `ONLINE` with no health message.
@@ -1767,9 +1827,10 @@ portal against it. Repeat before cutover.
 exists, and system users otherwise arrive through Entra SSO, which the development server
 does not run. The system console, and with it the SYSTEM machine the vm-manager connects as
 in step 5, needs a bootstrap for a first system user.
-- Containers from OCI images are a technology preview in Proxmox VE 9.1. The environment is
-applied on the host until the API takes it (#2789), and a container whose entrypoint exits
-is restarted by a host timer; both fold into the terraform root as Proxmox catches up.
+- Containers from OCI images are a technology preview in Proxmox VE 9.1. The environment,
+the resolvers and the console log are applied on the host until the API takes them, and a
+container whose entrypoint exits is restarted by a host timer; both fold into the terraform
+root as Proxmox catches up.
 - Loki, Tempo, and Mimir are on the LAN without authentication, because the nodes' Alloy ships
 to them from the LAN. A VLAN holding the host and the nodes is the change to make if the LAN
 is not trusted.
@@ -1778,7 +1839,7 @@ must be at or above the development server's version on restore day.
 - Tempo and Mimir are in compose and not in Helm. When the charts gain them nothing changes on
 the development server; until then the cloud has no trace or metric history to migrate into,
 which is accepted.
-- Whether `dev.kinotic.ai` stays as a CNAME indefinitely or is retired after the peers have
+- Whether `dev-api.kinotic.ai` stays as a CNAME indefinitely or is retired after the peers have
 moved their configuration.
 - The one-time scrub in cutover step 3 versus building the re-home operation before cutover.
 - Whether the node's IPv4-only egress allowlist for GitHub and npm is maintained by hand from
