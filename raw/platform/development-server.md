@@ -1171,8 +1171,8 @@ in the cluster. The portal's and the console's certificates are Front Door's own
 
 ## Nodes
 
-Two Intel NUCs, 32 GB and 250 GB each, Ubuntu 22.04 (what the kit is verified on) installed
-with two XFS partitions mounted with `prjquota`: `/var/lib/docker`, which `setup-node.sh` keeps
+Two Intel NUCs, 32 GB and 250 GB each, Ubuntu 26.04 LTS (what the kit is verified on, kernel
+7 included) installed with two XFS partitions mounted with `prjquota`: `/var/lib/docker`, which `setup-node.sh` keeps
 instead of creating its 40 GB loop image, and `/var/lib/kinotic/workloads`. Then the kit from
 `deployment/vm-node`:
 
