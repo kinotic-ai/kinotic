@@ -159,8 +159,10 @@ root has uploaded them.
    are registered once, from the host, which reaches the private network directly:
 
    ```bash
+   # As the elasticsearch user, which owns the keystore and the tool refuses to change; pct exec
+   # runs as root and starts in /root, and the image has no su or runuser
    for id in 101 102 103; do
-     pct exec $id -- bash -c 'bin/elasticsearch-keystore add -x azure.client.default.account <<<"stkinoticdevsnapshots" && bin/elasticsearch-keystore add -x azure.client.default.key <<<"<key>" && chown 1000:0 config/elasticsearch.keystore'
+     lxc-attach -n $id --uid 1000 --gid 0 -- bash -c 'cd /usr/share/elasticsearch && bin/elasticsearch-keystore add -x azure.client.default.account <<<"stkinoticdevsnapshots" && bin/elasticsearch-keystore add -x azure.client.default.key <<<"<key>"'
    done
    curl -X POST http://10.10.0.11:9200/_nodes/reload_secure_settings
    curl -X PUT http://10.10.0.11:9200/_snapshot/azure -H 'Content-Type: application/json' -d '{"type":"azure","settings":{"container":"elasticsearch-snapshots"}}'
