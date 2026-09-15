@@ -15,7 +15,6 @@ export class RoleDecorator extends EntityServiceDecorator {
  * Provides a mechanism to apply the @Role decorator to an {@link EntityService}
  * @param roles to be supplied
  */
-// @ts-ignore
 export function $Role(roles: string[]): RoleDecorator {
     return new RoleDecorator(roles)
 }

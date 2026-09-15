@@ -93,6 +93,8 @@ dependencyManagement {
         dependency "co.elastic.clients:elasticsearch-java:${elasticClientVersion}"
         dependency "co.elastic.clients:elasticsearch-rest5-client:${elasticClientVersion}"
 
+        dependency "com.authzed.api:authzed:${authzedApiVersion}"
+
         dependency "com.azure:azure-communication-email:${azureCommunicationEmailVersion}"
         dependency "com.azure:azure-identity:${azureIdentityVersion}"
         dependency "com.azure:azure-security-keyvault-secrets:${azureKeyvaultSecretsVersion}"
@@ -102,7 +104,23 @@ dependencyManagement {
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
+        // Overrides the Spring Boot BOM: CEL and the SpiceDB client are generated against protobuf 4.35,
+        // and the protobuf runtime refuses to load gencode newer than itself.
+        dependency "com.google.protobuf:protobuf-java:${protobufVersion}"
+        dependency "com.google.protobuf:protobuf-java-util:${protobufVersion}"
+
         dependency "commons-io:commons-io:${commonsIoVersion}"
+
+        dependency "dev.cel:cel:${celVersion}"
+
+        dependency "io.grpc:grpc-api:${grpcVersion}"
+        dependency "io.grpc:grpc-context:${grpcVersion}"
+        dependency "io.grpc:grpc-core:${grpcVersion}"
+        dependency "io.grpc:grpc-netty-shaded:${grpcVersion}"
+        dependency "io.grpc:grpc-protobuf:${grpcVersion}"
+        dependency "io.grpc:grpc-protobuf-lite:${grpcVersion}"
+        dependency "io.grpc:grpc-stub:${grpcVersion}"
+        dependency "io.grpc:grpc-util:${grpcVersion}"
 
         // JWT and OIDC dependencies
         dependency "io.jsonwebtoken:jjwt-api:${jsonwebtokenVersion}"
