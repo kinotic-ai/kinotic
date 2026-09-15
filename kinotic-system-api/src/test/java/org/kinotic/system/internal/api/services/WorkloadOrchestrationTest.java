@@ -175,7 +175,7 @@ public class WorkloadOrchestrationTest {
         nodeOrchestration.init();
         try {
             assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
-            assertEquals(WorkloadStatus.FAILED, workloads.saved.get(deployed.getId()).getStatus());
+            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
         } finally {
             nodeOrchestration.destroy();
         }
@@ -212,7 +212,7 @@ public class WorkloadOrchestrationTest {
         nodeOrchestration.init();
         try {
             assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
-            assertEquals(WorkloadStatus.FAILED, workloads.saved.get(deployed.getId()).getStatus());
+            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
         } finally {
             nodeOrchestration.destroy();
         }
@@ -422,6 +422,19 @@ public class WorkloadOrchestrationTest {
             Thread.sleep(50);
         }
         return nodes.saved.get(NODE_ID).getStatus().getType();
+    }
+
+    /**
+     * Returns the stored status of a workload once it is {@code expected}, or whatever it is when the wait
+     * runs out. The reaper writes a node's workloads FAILED after its OFFLINE write completes, on its
+     * scheduler thread, so the workload lags the node status a test already waited for.
+     */
+    private WorkloadStatus awaitWorkloadStatus(String workloadId, WorkloadStatus expected) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (workloads.saved.get(workloadId).getStatus() != expected && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        return workloads.saved.get(workloadId).getStatus();
     }
 
     private static Workload newWorkload() {
