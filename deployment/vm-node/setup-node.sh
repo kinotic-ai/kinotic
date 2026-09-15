@@ -205,11 +205,10 @@ bind-dynamic
 # from the file systemd-resolved keeps current rather than the stub in /etc/resolv.conf.
 resolv-file=/run/systemd/resolve/resolv.conf
 # dnsmasq writes an answer into an ipset only while processing an upstream reply, never when
-# answering from its own cache, so every answer has to come from upstream.
+# answering from its own cache, so every answer has to come from upstream. /etc/hosts is
+# consulted: a name the node pins resolves for a guest too, and the vm-manager writes the
+# pinned address into the name's set itself, so the guest stays on the pinned path.
 cache-size=0
-# For the same reason /etc/hosts is not consulted: a name answered from it would resolve for
-# a guest and never be written into a set, so the guest could never connect to it.
-no-hosts
 EOF
 if ! command -v dnsmasq >/dev/null 2>&1; then
     # The package starts the service on install with its stock configuration, which binds

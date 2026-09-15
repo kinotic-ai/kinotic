@@ -174,8 +174,9 @@ locals {
     KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.api_hostname}"
     KINOTIC_APIGATEWAY_STOMPPORT = tostring(var.api_port)
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
-    # What a workload on the node VM dials, and the one destination every egress policy permits
-    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.server_ip
+    # What a workload dials, by the name its certificate carries, and the one destination every
+    # egress policy permits; the node pins the name to the LAN address for its guests (hosts_entry)
+    KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.azure.api_hostname
     KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERPORT = tostring(var.api_port)
     KINOTIC_MANAGEMENTAPI_LOKIURL           = local.service_urls["http://loki:3100"]
     KINOTIC_MANAGEMENTAPI_TEMPOURL          = local.service_urls["http://tempo:3200"]

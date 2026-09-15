@@ -109,11 +109,12 @@ per name telling dnsmasq which sets its answers go into; a per-workload `iptable
 then matches the set. dnsmasq only reads directives at startup, so the vm-manager restarts it
 when a workload is allowed a name the file lacks — and only then: a name stays configured after
 its last workload is released, until the next `reconcile` on vm-manager start, which is what keeps
-a deployment's sync workload from restarting the resolver on every run. Two settings in
-`kinotic-node.conf` are load-bearing: `cache-size=0`, because dnsmasq writes into a set only while
-processing an upstream reply, never when answering from its cache; and `no-hosts`, for the same
-reason — a name the node pins in its own `/etc/hosts` would resolve for a guest and never be
-permitted.
+a deployment's sync workload from restarting the resolver on every run. One setting in
+`kinotic-node.conf` is load-bearing: `cache-size=0`, because dnsmasq writes into a set only while
+processing an upstream reply, never when answering from its cache. A name the node pins in its
+own `/etc/hosts` is answered from there for guests as well, and the vm-manager writes the pinned
+address into that name's set without a timeout, since dnsmasq would not; that is how a guest
+reaches the api-gateway by the name its certificate carries without leaving the LAN.
 
 Set entries carry a 300s timeout that every answer refreshes, and each workload allowed a name
 also gets a conntrack `ESTABLISHED,RELATED` accept, so a connection opened while the entry held

@@ -64,6 +64,13 @@ const RESOLVER_DIRECTIVES = '/etc/dnsmasq.d/kinotic-egress.conf'
 const RESOLVER_SERVICE = 'dnsmasq'
 
 /**
+ * The node's own name pins, which dnsmasq answers guests from as well. dnsmasq writes into a
+ * set only while processing an upstream reply, so a pinned address is written here instead,
+ * without a timeout: a pin does not move.
+ */
+const HOSTS_FILE = '/etc/hosts'
+
+/**
  * How long an address stays permitted after dnsmasq last answered a workload's lookup with it.
  * Every answer refreshes the entry, and a connection opened while it holds is carried by
  * conntrack afterwards, so this only has to outlast the gap between a guest resolving a name
@@ -95,7 +102,9 @@ function hasCommand(command: string): boolean {
  * the node's dnsmasq fills with every address it answers for that name — the guest is given
  * dnsmasq as its only resolver, so an address it connects to by name is one dnsmasq just
  * answered, however the name's records move. A name covers its subdomains, as dnsmasq matches
- * them. The set is shared by every workload allowed the name and lives until {@link reconcile}
+ * them. A name the node pins in its own hosts file is answered from there for guests too, and
+ * its pinned address is written into the set here, since dnsmasq writes only upstream replies.
+ * The set is shared by every workload allowed the name and lives until {@link reconcile}
  * finds no rule matching it, so a name that keeps being allowed never has dnsmasq restarted.
  *
  * Rules are matched back to their workload by an iptables comment, so nothing is persisted
@@ -287,6 +296,13 @@ export class EgressPolicyManager {
             this.ipset(['create', this.setOf(domain), 'hash:ip', 'family', 'inet',
                         'timeout', String(SET_ENTRY_TIMEOUT_SECONDS), '-exist'])
         }
+        for (const [name, address] of this.pinnedNames()) {
+            for (const domain of domains) {
+                if (name === domain || name.endsWith(`.${domain}`)) {
+                    this.ipset(['add', this.setOf(domain), address, 'timeout', '0', '-exist'])
+                }
+            }
+        }
 
         const directives = this.directivesFor(domains)
         if (directives !== this.currentDirectives()) {
@@ -318,6 +334,23 @@ export class EgressPolicyManager {
               + '# Regenerated whenever a workload is allowed a name missing here; edits do not survive.\n'
               + `${lines.join('\n')}\n`
             : ''
+    }
+
+    // Every IPv4 pin in the node's hosts file as [name, address], names lowercased like the
+    // allowed domains
+    private pinnedNames(): [string, string][] {
+        const pins: [string, string][] = []
+        if (existsSync(HOSTS_FILE)) {
+            for (const line of readFileSync(HOSTS_FILE, 'utf-8').split('\n')) {
+                const [address, ...names] = line.replace(/#.*/, '').trim().split(/\s+/)
+                if (address !== undefined && ADDRESS_OR_CIDR.test(address) && !address.includes('/')) {
+                    for (const name of names) {
+                        pins.push([name.toLowerCase(), address])
+                    }
+                }
+            }
+        }
+        return pins
     }
 
     private configuredDomains(): string[] {
