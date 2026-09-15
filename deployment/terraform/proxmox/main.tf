@@ -167,8 +167,10 @@ locals {
     JAVA_TOOL_OPTIONS           = "-XX:MaxDirectMemorySize=512m -javaagent:/workspace/BOOT-INF/classes/opentelemetry-javaagent.jar --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED"
     KINOTIC_MAX_OFF_HEAP_MEMORY = "419430400"
 
-    KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.hostname}"
-    KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.hostname}:58503"
+    # The portal is on Front Door; the router forwards 443 to the API port, so the public
+    # API URL has no port
+    KINOTIC_DOMAIN_APPBASEURL    = "https://${local.azure.portal_hostname}"
+    KINOTIC_DOMAIN_APIBASEURL    = "https://${local.azure.api_hostname}"
     KINOTIC_DOMAIN_EMAIL_ENABLED = "true"
     # What a workload on the node VM dials, and the one destination every egress policy permits
     KINOTIC_SYSTEMAPI_DEPLOYMENT_SERVERHOST = local.server_ip
@@ -333,7 +335,7 @@ locals {
     }
     kinotic-server = {
       vm_id         = 121
-      description   = "kinotic-server: the portal on :9090, REST, STOMP and MCP on :58503, both TLS; the router forwards here"
+      description   = "kinotic-server: REST, STOMP and MCP on :58503 with TLS; the router forwards 443 here"
       image         = proxmox_oci_image.kinotic_server.id
       cores         = var.server_cores
       memory        = var.server_memory_mb

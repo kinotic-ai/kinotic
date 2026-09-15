@@ -1,8 +1,10 @@
 # The development server on Proxmox
 
-One Proxmox host runs the whole platform: a container per service — kinotic-server, the
+One Proxmox host runs the platform's services: a container per service — kinotic-server, the
 one-shot migration, three Elasticsearch nodes on a physical disk each, Loki, Tempo, Mimir,
-Grafana — created from the same images the compose stack pulls. The workload nodes are
+Grafana — created from the same images the compose stack pulls. The portal and the system
+console are served by Front Door from the Azure root's sites account
+(`deployment/terraform/azure/dev-server/deploy-ui.sh`), so the host exposes the API alone. The workload nodes are
 separate machines provisioned with `deployment/vm-node`, configured from this root's
 `vm_manager_env` output. The design and the reasons are on the
 [Development Server](https://kinotic.ai/platform/development-server) page; this is the
@@ -38,11 +40,12 @@ allowed for that user alone, and an API token, even one without privilege separa
 authenticates as `root@pam!name` and fails the check.
 
 Then `host/prepare-host.sh` with the three Elasticsearch disks: the ZFS pools, the
-directories, the sysctl Elasticsearch needs, the datastore content types, and the timer that
-restarts a container whose entrypoint exited (Proxmox does not):
+directories, the sysctl Elasticsearch needs, the datastore content types, the timer that
+restarts a container whose entrypoint exited (Proxmox does not), and the timer that keeps the
+API's DNS record on the router's public address, which the ISP changes:
 
 ```bash
-scp host/prepare-host.sh root@<host>:
+scp host/prepare-host.sh host/kinotic-dyndns.py root@<host>:
 ssh root@<host> ./prepare-host.sh /dev/disk/by-id/nvme-A /dev/disk/by-id/nvme-B /dev/disk/by-id/nvme-C
 ```
 
@@ -71,9 +74,9 @@ Placed on the host before the first apply, so the server starts with everything 
 The generated directory is the only copy of the JWT signing key and the master key. Keep it
 somewhere safe and out of the repository; both are carried to the cloud at migration.
 
-The certificate is issued on the host by certbot with the DNS-01 plugin, as the server's
-principal (the `dev-server` root granted it DNS Zone Contributor), and installed into the
-directory the server's container mounts — `cnb`, uid 1002 and gid 1001 in the container, is
+The certificate for the API's hostname is issued on the host by certbot with the DNS-01
+plugin, as the server's principal (the `dev-server` root granted it DNS Zone Contributor),
+and installed into the directory the server's container mounts — `cnb`, uid 1002 and gid 1001 in the container, is
 101002:101001 on the host:
 
 ```bash
@@ -91,11 +94,13 @@ EOT
 /opt/certbot/bin/certbot certonly --non-interactive --agree-tos --email <you> \
   --authenticator dns-azure --dns-azure-config /etc/kinotic/certbot-azure.ini \
   --deploy-hook 'install -m 0640 -o 101002 -g 101001 "$RENEWED_LINEAGE"/fullchain.pem "$RENEWED_LINEAGE"/privkey.pem /etc/kinotic/secrets/kinotic-server/certs/ && pct reboot 121 2>/dev/null || true' \
-  -d dev.kinotic.ai
+  -d dev-api.kinotic.ai
 echo '0 3 * * * root /opt/certbot/bin/certbot renew -q' > /etc/cron.d/certbot
 ```
 
 The deploy hook runs on every renewal too, which is all the certificate rotation there is.
+`kinotic-dyndns.timer` reads the names to keep current from this certificate and its Azure
+credentials from the same ini, so it starts working with the first issuance.
 
 ## Applying
 
@@ -124,12 +129,13 @@ Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, wh
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the server.
 
-The portal is on `https://dev.kinotic.ai` once the router forwards 443 to `server_ip:9090`
-and 58503 to `server_ip:58503`.
+The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip:58503`;
+the portal and the system console are on Front Door as soon as `deploy-ui.sh` in the Azure
+root has uploaded them.
 
 ## After the first apply
 
-1. **The GitHub App's webhook** → `https://dev.kinotic.ai:58503/api/github/webhook`.
+1. **The GitHub App's webhook** → `https://dev-api.kinotic.ai/api/github/webhook`.
 
 2. **The nodes.** Each is Ubuntu 22.04 on its own machine with the kit from
    `deployment/vm-node` (its README: the two XFS `prjquota` partitions, then `setup-node.sh`,

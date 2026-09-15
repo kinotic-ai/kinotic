@@ -65,3 +65,9 @@ variable "server_principal_skip_aad_check" {
   type        = bool
   default     = false
 }
+
+variable "hostnames" {
+  description = "Hostnames in the zone served from the account the way a published site is, sites/<hostname>/, on Front Door managed certificates: the label within the zone by a key of the caller's choosing, e.g. { portal = \"dev-portal\" }"
+  type        = map(string)
+  default     = {}
+}

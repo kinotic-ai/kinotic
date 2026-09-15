@@ -212,6 +212,49 @@ resource "azurerm_dns_cname_record" "sites_wildcard" {
   record              = azurerm_cdn_frontdoor_endpoint.sites.host_name
 }
 
+# ── Named hostnames ───────────────────────────────────────────────────────────
+# A hostname of the zone served by the same route, so from sites/<hostname>/ in the account:
+# the platform's own UIs where they are not hosted elsewhere. Front Door issues each its
+# certificate once the _dnsauth record proves the name.
+
+resource "azurerm_cdn_frontdoor_custom_domain" "named" {
+  for_each = var.hostnames
+
+  name                     = each.key
+  cdn_frontdoor_profile_id = azurerm_cdn_frontdoor_profile.sites.id
+  dns_zone_id              = var.dns_zone_id
+  host_name                = "${each.value}.${var.dns_zone_name}"
+
+  tls {
+    certificate_type = "ManagedCertificate"
+  }
+}
+
+resource "azurerm_dns_txt_record" "named_validation" {
+  for_each = var.hostnames
+
+  name                = "_dnsauth.${each.value}"
+  zone_name           = var.dns_zone_name
+  resource_group_name = var.dns_zone_resource_group_name
+  ttl                 = 300
+
+  record {
+    value = azurerm_cdn_frontdoor_custom_domain.named[each.key].validation_token
+  }
+}
+
+resource "azurerm_dns_cname_record" "named" {
+  for_each = var.hostnames
+
+  name                = each.value
+  zone_name           = var.dns_zone_name
+  resource_group_name = var.dns_zone_resource_group_name
+  ttl                 = 300
+  record              = azurerm_cdn_frontdoor_endpoint.sites.host_name
+
+  depends_on = [azurerm_cdn_frontdoor_route.sites]
+}
+
 # ── Origin, rules and route ───────────────────────────────────────────────────
 # Origin authentication (the profile's identity presenting a bearer token to the account)
 # exists from API version 2025-06-01, which the azurerm provider does not expose yet, so the
@@ -320,7 +363,7 @@ resource "azurerm_cdn_frontdoor_route" "sites" {
   cdn_frontdoor_endpoint_id       = azurerm_cdn_frontdoor_endpoint.sites.id
   cdn_frontdoor_origin_group_id   = azapi_resource.sites_origin_group.id
   cdn_frontdoor_origin_ids        = [azurerm_cdn_frontdoor_origin.sites.id]
-  cdn_frontdoor_custom_domain_ids = [azurerm_cdn_frontdoor_custom_domain.sites.id]
+  cdn_frontdoor_custom_domain_ids = concat([azurerm_cdn_frontdoor_custom_domain.sites.id], [for d in azurerm_cdn_frontdoor_custom_domain.named : d.id])
   cdn_frontdoor_rule_set_ids      = [azurerm_cdn_frontdoor_rule_set.sites.id]
   supported_protocols             = ["Http", "Https"]
   patterns_to_match               = ["/*"]

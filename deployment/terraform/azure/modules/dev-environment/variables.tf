@@ -48,3 +48,9 @@ variable "email_communication_service_id" {
   description = "Resource id of the shared email communication service the server sends through (global/ output email_communication_service_id)"
   type        = string
 }
+
+variable "ui_hostnames" {
+  description = "Hostnames in the zone served from the sites account on Front Door, for the platform's own UIs: the label within the zone by key, e.g. { portal = \"dev-portal\" }"
+  type        = map(string)
+  default     = {}
+}

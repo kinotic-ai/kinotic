@@ -18,16 +18,19 @@ kinotic:
     numberOfShards: 1
     numberOfReplicas: 1
   apiGateway:
+    # The portal and the system console are served by Front Door from the sites account, so
+    # the server exposes the API port alone
+    webServer:
+      enabled: false
     ssl:
-      # certbot's certificate for the server's hostname, mounted from the host; Vert.x
-      # terminates TLS on both ports and there is no reverse proxy
+      # certbot's certificate for the API's hostname, mounted from the host; Vert.x terminates
+      # TLS and there is no reverse proxy
       enabled: true
       certPath: /etc/kinotic/certs/fullchain.pem
       keyPath: /etc/kinotic/certs/privkey.pem
     cors:
-      # The portal on the server's own hostname (on either port) and the UIs published under
-      # the sites domain
-      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_HOSTNAME}(:\\d+)?|https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
+      # The portal, the system console, and the UIs published under the sites domain
+      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_PORTAL_HOSTNAME}|https:\\/\\/${DEV_SERVER_CONSOLE_HOSTNAME}|https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
       allowCredentials: true
   platformSecrets:
     # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox),

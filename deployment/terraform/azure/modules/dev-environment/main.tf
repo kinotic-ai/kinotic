@@ -79,6 +79,7 @@ module "sites" {
   lets_encrypt_email              = var.lets_encrypt_email
   server_principal_id             = azuread_service_principal.server.object_id
   server_principal_skip_aad_check = true
+  hostnames                       = var.ui_hostnames
 }
 
 # ── Service principal for kinotic-server ──────────────────────────────────────

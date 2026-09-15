@@ -86,18 +86,19 @@ def raw_lines(manifest, env):
     return sorted(lines)
 
 
-def owned(line, env):
+def owned(line):
+    """Every lxc.environment line is this script's: Proxmox writes the image's own variables as
+    lxc.environment.runtime, so a variable dropped from the manifest is removed too."""
     key, _, value = line.partition(":")
     key, value = key.strip(), value.strip()
-    if key == "lxc.environment":
-        return value.split("=", 1)[0] in env
-    return key.startswith("lxc.console.") or (key == "lxc.mount.entry" and " etc/resolv.conf " in value)
+    return (key == "lxc.environment" or key.startswith("lxc.console.")
+            or (key == "lxc.mount.entry" and " etc/resolv.conf " in value))
 
 
 def config_in_sync(manifest, env):
     with open(conf_path(manifest["vmid"])) as f:
         lines = f.read().splitlines()
-    return sorted(l for l in lines if owned(l, env)) == raw_lines(manifest, env)
+    return sorted(l for l in lines if owned(l)) == raw_lines(manifest, env)
 
 
 def write_config(manifest, env):
@@ -105,7 +106,7 @@ def write_config(manifest, env):
     path = conf_path(manifest["vmid"])
     with open(path) as f:
         lines = f.read().splitlines()
-    kept = [l for l in lines if not owned(l, env)]
+    kept = [l for l in lines if not owned(l)]
     with open(path, "w") as f:
         f.write("\n".join(kept + raw_lines(manifest, env)) + "\n")
 

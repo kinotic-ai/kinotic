@@ -9,6 +9,8 @@
 #   - vm.max_map_count for Elasticsearch, which shares the host's kernel
 #   - OCI images and uploaded files on the local datastore
 #   - kinotic-keepalive.timer, which restarts a container whose entrypoint exited
+#   - kinotic-dyndns.timer, which keeps the certificate's hostnames on the router's current
+#     public address (host/kinotic-dyndns.py, beside this script)
 #
 #   prepare-host.sh /dev/disk/by-id/<es disk 1> /dev/disk/by-id/<es disk 2> /dev/disk/by-id/<es disk 3>
 set -euo pipefail
@@ -98,7 +100,30 @@ OnUnitActiveSec=1min
 [Install]
 WantedBy=timers.target
 UNIT
+
+# The ISP's address changes; the updater runs on certbot's python, with certbot's credentials
+install -m 0755 "$(dirname "$0")/kinotic-dyndns.py" /usr/local/sbin/kinotic-dyndns
+cat > /etc/systemd/system/kinotic-dyndns.service <<'UNIT'
+[Unit]
+Description=Point the certificate's hostnames at the current public address
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/kinotic-dyndns
+UNIT
+cat > /etc/systemd/system/kinotic-dyndns.timer <<'UNIT'
+[Unit]
+Description=Point the certificate's hostnames at the current public address, every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl daemon-reload
-systemctl enable --now kinotic-keepalive.timer >/dev/null 2>&1
+systemctl enable --now kinotic-keepalive.timer kinotic-dyndns.timer >/dev/null 2>&1
 
 echo "host prepared: es1..es3 mounted, $DATA_DIR and $SECRETS_DIR present, $FILES_DATASTORE holds $wanted"

@@ -16,14 +16,26 @@ variable "location" {
   default     = "centralus"
 }
 
-variable "hostname_label" {
-  description = "The server's label in the platform zone: dev for dev.kinotic.ai"
+variable "api_label" {
+  description = "The API's label in the platform zone: dev-api for dev-api.kinotic.ai, the name the router's public address answers to"
   type        = string
-  default     = "dev"
+  default     = "dev-api"
+}
+
+variable "portal_label" {
+  description = "The portal's label in the platform zone, served by Front Door from the sites account"
+  type        = string
+  default     = "dev-portal"
+}
+
+variable "console_label" {
+  description = "The system console's label in the platform zone, served by Front Door from the sites account"
+  type        = string
+  default     = "dev-console"
 }
 
 variable "public_ip" {
-  description = "The public IPv4 address the router forwards 443 and 58503 from; set it in local.auto.tfvars and re-apply when it changes"
+  description = "The public IPv4 address the router forwards 443 from, as the API record's first value; kinotic-dyndns.timer on the host keeps the record current afterwards"
   type        = string
 }
 
