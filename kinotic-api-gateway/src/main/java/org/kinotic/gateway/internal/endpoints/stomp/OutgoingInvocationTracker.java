@@ -25,7 +25,7 @@ import java.util.Map;
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
 @Slf4j
-public class OutgoingInvocations {
+public class OutgoingInvocationTracker {
 
     private final Services services;
     // by correlation id, until the client's terminal reply; touched only on the connection's event loop
@@ -33,7 +33,7 @@ public class OutgoingInvocations {
     // one watch per streaming invocation, on its requester's reply destination
     private final Map<String, Disposable> requesterWatches = new HashMap<>();
 
-    public OutgoingInvocations(Services services) {
+    public OutgoingInvocationTracker(Services services) {
         this.services = services;
     }
 
@@ -98,7 +98,7 @@ public class OutgoingInvocations {
      * The connection closed: stops every requester watch and answers every invocation still awaiting a
      * reply with an {@link RpcServiceUnavailableException}.
      */
-    public void close() {
+    public void dispose() {
         requesterWatches.values().forEach(Disposable::dispose);
         requesterWatches.clear();
         awaitingReply.forEach((correlationId, invocation) -> {

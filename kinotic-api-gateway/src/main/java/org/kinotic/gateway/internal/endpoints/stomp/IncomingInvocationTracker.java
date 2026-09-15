@@ -24,7 +24,7 @@ import java.util.UUID;
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
 @Slf4j
-public class IncomingInvocations {
+public class IncomingInvocationTracker {
 
     private final Services services;
     // RequestLivenessWatcher is shared by every connection on this node and correlation ids are chosen by
@@ -34,7 +34,7 @@ public class IncomingInvocations {
     // by correlation id: the reply-to headers an answer to the request needs; touched only on the connection's event loop
     private final Map<String, Metadata> awaitingReply = new HashMap<>();
 
-    public IncomingInvocations(Services services) {
+    public IncomingInvocationTracker(Services services) {
         this.services = services;
     }
 
@@ -106,7 +106,7 @@ public class IncomingInvocations {
     /**
      * The connection closed: stops watching every request and drops every reply subscription.
      */
-    public void close() {
+    public void dispose() {
         awaitingReply.keySet().forEach(correlationId -> services.requestLivenessWatcher.unwatch(watchKeyPrefix + correlationId));
         awaitingReply.clear();
         replySubscriptions.values().forEach(EventConsumer::unregister);

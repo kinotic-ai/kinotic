@@ -41,8 +41,8 @@ public class EndpointConnectionHandler {
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
-    private final IncomingInvocations incomingInvocations;
-    private final OutgoingInvocations outgoingInvocations;
+    private final IncomingInvocationTracker incomingInvocationTracker;
+    private final OutgoingInvocationTracker outgoingInvocationTracker;
     private Session session;
     private long lastSessionFlush = 0;
     private ConnectedInfo connectedInfo;
@@ -54,8 +54,8 @@ public class EndpointConnectionHandler {
     public EndpointConnectionHandler(Services services) {
         this.services = services;
         this.securityService = services.securityService;
-        this.incomingInvocations = new IncomingInvocations(services);
-        this.outgoingInvocations = new OutgoingInvocations(services);
+        this.incomingInvocationTracker = new IncomingInvocationTracker(services);
+        this.outgoingInvocationTracker = new OutgoingInvocationTracker(services);
     }
 
     public Future<MultiMap> handshake(RoutingContext routingContext) {
@@ -159,8 +159,8 @@ public class EndpointConnectionHandler {
             // client is serving is allowed for as long as the invocation is pending; one for an invocation
             // this connection no longer holds, such as a value crossing a cancel or a reply finished after a
             // reconnect, is dropped rather than ending the connection.
-            if (outgoingInvocations.replyOwed(incomingEvent)) {
-                outgoingInvocations.replySent(incomingEvent);
+            if (outgoingInvocationTracker.replyOwed(incomingEvent)) {
+                outgoingInvocationTracker.replySent(incomingEvent);
                 services.eventBusService.send(incomingEvent);
             } else if (stompAuthorizer.sendAllowed(incomingEvent.cri())) {
                 services.eventBusService.send(incomingEvent);
@@ -189,19 +189,19 @@ public class EndpointConnectionHandler {
                 // the stream is whichever one took the request, and the others ignore an id they do not hold
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
                     if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
-                        incomingInvocations.requestFinished(correlationId);
+                        incomingInvocationTracker.requestFinished(correlationId);
                     }
                     services.eventBusService.publish(incomingEvent);
                     return Future.succeededFuture();
                 }
 
-                incomingInvocations.requestSent(incomingEvent);
+                incomingInvocationTracker.requestSent(incomingEvent);
                 return services.eventBusService
                         .sendWithAck(incomingEvent)
-                        .onSuccess(nodeId -> incomingInvocations.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
+                        .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left
-                            incomingInvocations.requestFinished(correlationId);
+                            incomingInvocationTracker.requestFinished(correlationId);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());
@@ -241,8 +241,8 @@ public class EndpointConnectionHandler {
         }
         subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
         subscriptions.clear();
-        incomingInvocations.close();
-        outgoingInvocations.close();
+        incomingInvocationTracker.dispose();
+        outgoingInvocationTracker.dispose();
         // a NONE session ends with its connection however the connection ended
         removeSession();
         session = null;
@@ -271,7 +271,7 @@ public class EndpointConnectionHandler {
                         // replies are allowed for that long. Any other event carrying a reply-to gets one
                         // send to it: the reply-to was verified against the sender's replyToId when the
                         // event entered through send(), so it can only name the sender's own destination.
-                        boolean awaitingReply = outgoingInvocations.invocationDelivered(event, subscriptionHandler);
+                        boolean awaitingReply = outgoingInvocationTracker.invocationDelivered(event, subscriptionHandler);
                         String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
                         // a control event is never answered, so its reply-to earns no grant
                         if (!awaitingReply && replyTo != null && !event.metadata().contains(EventConstants.CONTROL_HEADER)) {
@@ -310,7 +310,7 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            incomingInvocations.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
+            incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
 
             log.debug("New Reply Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -327,7 +327,7 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        if (!incomingInvocations.unsubscribeReplies(subscriptionIdentifier)) {
+        if (!incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier)) {
             EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
             if (consumer != null) {
                 consumer.unregister();
