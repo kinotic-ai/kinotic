@@ -66,7 +66,12 @@ variable "private_cidr" {
 }
 
 variable "server_ip" {
-  description = "kinotic-server's LAN address in CIDR notation; the router forwards 443 and 58503 here, and workloads on the node VM dial it"
+  description = "The LAN address the router reserves for kinotic-server's MAC, in CIDR notation; the interface takes it by DHCP, since the router forwards by device and reserves the address when it does, and workloads on the nodes dial it"
+  type        = string
+}
+
+variable "server_mac" {
+  description = "kinotic-server's LAN MAC address, fixed so the router's reservation and forward survive a container replacement"
   type        = string
 }
 
@@ -88,6 +93,12 @@ variable "mimir_ip" {
 variable "grafana_ip" {
   description = "Grafana's LAN address in CIDR notation"
   type        = string
+}
+
+variable "api_port" {
+  description = "The port kinotic-server's API listens on; the router forwards its public 443 to the same port, since it does not translate ports"
+  type        = number
+  default     = 443
 }
 
 variable "gateway" {

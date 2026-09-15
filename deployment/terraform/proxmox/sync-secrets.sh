@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Copies a secrets directory (generate-secrets.sh) to the host's secrets directory, owned by
-# the user the server's container runs as, and re-applies the containers that read it. The
-# certificates certbot placed on the host are left alone.
+# the user the server's container runs as, and restarts the containers that read it: the
+# applier for Grafana, whose env file it merges, and a reboot for the server, which reads the
+# mounted directory itself. The certificates certbot placed on the host are left alone.
 #
 #   sync-secrets.sh <secrets dir> [host]      host defaults to the root's proxmox_host output
 set -euo pipefail
@@ -23,5 +24,8 @@ ssh "root@$HOST" "
   for manifest in '$SNIPPETS/kinotic-kinotic-server.manifest.json' '$SNIPPETS/kinotic-grafana.manifest.json'; do
     [ -e \"\$manifest\" ] && python3 '$SNIPPETS/kinotic-apply-container.py' \"\$manifest\"
   done
+  # The server reads secrets.yml and the key set from the mount, which the applier does not watch
+  server=\$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))[\"vmid\"])' '$SNIPPETS/kinotic-kinotic-server.manifest.json' 2>/dev/null)
+  [ -n \"\$server\" ] && pct status \"\$server\" | grep -q running && pct reboot \"\$server\"
   true
 "

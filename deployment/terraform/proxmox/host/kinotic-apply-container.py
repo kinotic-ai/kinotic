@@ -14,6 +14,8 @@ For each manifest:
   console_log  where LXC writes the entrypoint's stdout and stderr on the host
   dns          the resolvers, written to a host file that is bind-mounted over the
                container's /etc/resolv.conf: Proxmox writes none into an OCI image
+  privileged_ports  when true, an autodev hook lowers the container's unprivileged port floor
+               to 0, so its user can bind 443
   files        config files terraform uploaded, copied into the host directories the
                container bind-mounts, so a container recreated from a newer image finds them
   dirs         the bind-mounted directories, owned by the container's user
@@ -83,6 +85,8 @@ def raw_lines(manifest, env):
         lines.append(f"lxc.console.logfile: {manifest['console_log']}")
     if manifest.get("dns"):
         lines.append(f"lxc.mount.entry: {resolv_conf_path(manifest['vmid'])} etc/resolv.conf none bind,ro,create=file 0 0")
+    if manifest.get("privileged_ports"):
+        lines.append(f"lxc.hook.autodev: {manifest['privileged_ports']}")
     return sorted(lines)
 
 
@@ -91,7 +95,7 @@ def owned(line):
     lxc.environment.runtime, so a variable dropped from the manifest is removed too."""
     key, _, value = line.partition(":")
     key, value = key.strip(), value.strip()
-    return (key == "lxc.environment" or key.startswith("lxc.console.")
+    return (key == "lxc.environment" or key.startswith("lxc.console.") or key == "lxc.hook.autodev"
             or (key == "lxc.mount.entry" and " etc/resolv.conf " in value))
 
 

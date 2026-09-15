@@ -47,7 +47,8 @@ kinotic:
     uiDeployment:
       disableProvisioner: false
     deployment:
-      serverPort: 58503
+      # serverHost and serverPort arrive through the environment: the address is the
+      # server's own, and the port is whatever the router forwards
       serverUseSsl: true
       # Destinations beyond the gateway a sync workload may reach, as CIDRs: a CLOUD_HYPERVISOR
       # node's egress rules match addresses, so the hostnames the BOXLITE development profile

@@ -41,8 +41,10 @@ authenticates as `root@pam!name` and fails the check.
 
 Then `host/prepare-host.sh` with the three Elasticsearch disks: the ZFS pools, the
 directories, the sysctl Elasticsearch needs, the datastore content types, the timer that
-restarts a container whose entrypoint exited (Proxmox does not), and the timer that keeps the
-API's DNS record on the router's public address, which the ISP changes:
+restarts a container whose entrypoint exited (Proxmox does not), the timer that keeps the
+API's DNS record on the router's public address, which the ISP changes, and the host's own
+exposure: SSH by key only, rpcbind off, and the Proxmox firewall admitting SSH and the web UI
+from the LAN alone. The key of whoever runs it must already be in root's `authorized_keys`:
 
 ```bash
 scp host/prepare-host.sh host/kinotic-dyndns.py root@<host>:
@@ -72,7 +74,8 @@ Placed on the host before the first apply, so the server starts with everything 
 ```
 
 The generated directory is the only copy of the JWT signing key and the master key. Keep it
-somewhere safe and out of the repository; both are carried to the cloud at migration.
+somewhere safe and out of the repository; both are carried to the cloud at migration. The two
+roots' state files hold the principal's secret and the storage keys, so keep them at mode 0600.
 
 The certificate for the API's hostname is issued on the host by certbot with the DNS-01
 plugin, as the server's principal (the `dev-server` root granted it DNS Zone Contributor),
@@ -108,7 +111,8 @@ credentials from the same ini, so it starts working with the first issuance.
 # local.auto.tfvars (gitignored)
 proxmox_host      = "192.168.1.10"
 proxmox_password  = "..."                # or PROXMOX_VE_PASSWORD in the environment
-server_ip         = "192.168.1.20/24"
+server_ip         = "192.168.1.20/24"    # the address the router reserves for server_mac; the interface takes it by DHCP
+server_mac        = "BC:24:11:00:00:01"
 loki_ip           = "192.168.1.21/24"
 tempo_ip          = "192.168.1.22/24"
 mimir_ip          = "192.168.1.23/24"
@@ -129,7 +133,13 @@ Elasticsearch nodes, then Loki, Tempo, Mimir and Grafana, then the migration, wh
 the cluster to be healthy, runs to completion, and is verified against the
 `migration_history` index, then the server.
 
-The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to `server_ip:58503`;
+The API is on `https://dev-api.kinotic.ai` once the router forwards 443 to the server. The
+server listens on 443 itself (`api_port`), because a consumer router forwards a port only to
+the same port: an autodev hook the applier installs lowers the container's unprivileged port
+floor, so the server's own user binds it. The router picks the target by device and reserves
+an address for it when the forward is saved, so the server's LAN interface takes its address
+by DHCP under a fixed MAC (`server_mac`), and `server_ip` is the address the router reserved,
+which the nodes dial;
 the portal and the system console are on Front Door as soon as `deploy-ui.sh` in the Azure
 root has uploaded them.
 
@@ -159,8 +169,10 @@ root has uploaded them.
    are registered once, from the host, which reaches the private network directly:
 
    ```bash
+   # As the elasticsearch user, which owns the keystore and the tool refuses to change; pct exec
+   # runs as root and starts in /root, and the image has no su or runuser
    for id in 101 102 103; do
-     pct exec $id -- bash -c 'bin/elasticsearch-keystore add -x azure.client.default.account <<<"stkinoticdevsnapshots" && bin/elasticsearch-keystore add -x azure.client.default.key <<<"<key>" && chown 1000:0 config/elasticsearch.keystore'
+     lxc-attach -n $id --uid 1000 --gid 0 -- bash -c 'cd /usr/share/elasticsearch && bin/elasticsearch-keystore add -x azure.client.default.account <<<"stkinoticdevsnapshots" && bin/elasticsearch-keystore add -x azure.client.default.key <<<"<key>"'
    done
    curl -X POST http://10.10.0.11:9200/_nodes/reload_secure_settings
    curl -X PUT http://10.10.0.11:9200/_snapshot/azure -H 'Content-Type: application/json' -d '{"type":"azure","settings":{"container":"elasticsearch-snapshots"}}'

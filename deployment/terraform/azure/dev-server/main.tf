@@ -133,6 +133,14 @@ resource "azurerm_role_assignment" "server_key_vault_secrets" {
   skip_service_principal_aad_check = true
 }
 
+# The operator places the social sign-in providers' client secrets, which the seeded
+# kinotic_org_signup_oidc_configuration rows name by secretNameRef
+resource "azurerm_role_assignment" "operator_key_vault_secrets" {
+  scope                = azurerm_key_vault.server.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+}
+
 # ── Storage for Elasticsearch snapshots ───────────────────────────────────────
 # The nightly snapshot repository, and the vehicle the data moves to the cloud in. The
 # cluster authenticates with the account key from its keystore, so no role is needed.
