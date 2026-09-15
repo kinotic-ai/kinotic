@@ -15,10 +15,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Invocations delivered to the services the client on this connection publishes, until the client sends
- * the terminal reply. When the connection closes, every invocation still pending is answered with an
- * {@link RpcServiceUnavailableException} on the requester's behalf. A streaming invocation is cancelled
- * on the client when its requester's reply destination is gone.
+ * The invocations delivered to the services the client on this connection publishes, until the client
+ * sends the terminal reply. An invocation is remembered when it is delivered and forgotten when the
+ * client's terminal reply passes through, when the requester cancels it, or when the requester of a
+ * stream stops listening, in which case the client is told to stop. When the connection closes, every
+ * invocation still awaiting a reply is answered with an {@link RpcServiceUnavailableException} on the
+ * client's behalf.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -26,23 +28,24 @@ import java.util.Map;
 public class OutgoingInvocations {
 
     private final Services services;
-    // pending invocations by correlation id; only ever touched on the connection's event loop
-    private final Map<String, OutgoingInvocation> invocations = new HashMap<>();
+    // by correlation id, until the client's terminal reply; touched only on the connection's event loop
+    private final Map<String, OutgoingInvocation> awaitingReply = new HashMap<>();
     // one watch per streaming invocation, on its requester's reply destination
-    private final Map<String, Disposable> requesterMonitors = new HashMap<>();
+    private final Map<String, Disposable> requesterWatches = new HashMap<>();
 
     public OutgoingInvocations(Services services) {
         this.services = services;
     }
 
     /**
-     * Records an invocation being delivered to the client. A cancel control forgets the invocation it
-     * names. An invocation without a correlation id or reply-to expects no reply and is not recorded.
+     * An invocation is being delivered to the client: remembers it until the client's terminal reply. A
+     * cancel control forgets the invocation it names. An invocation without a correlation id or reply-to
+     * expects no reply and is not remembered.
      * @param event the invocation
      * @param subscriptionHandler the subscription it is delivered through; a cancel goes back through the same one
-     * @return true when the invocation is now pending, so its replies are allowed until the terminal one
+     * @return true when the invocation now awaits the client's reply, so its replies are allowed until the terminal one
      */
-    public boolean deliver(Event<byte[]> event, StompSubscriptionHandler subscriptionHandler) {
+    public boolean invocationDelivered(Event<byte[]> event, StompSubscriptionHandler subscriptionHandler) {
         boolean ret = false;
         Metadata metadata = event.metadata();
         String correlationId = metadata.get(EventConstants.CORRELATION_ID_HEADER);
@@ -50,7 +53,7 @@ public class OutgoingInvocations {
             String control = metadata.get(EventConstants.CONTROL_HEADER);
             if (control == null) {
                 if (metadata.contains(EventConstants.REPLY_TO_HEADER)) {
-                    invocations.put(correlationId, new OutgoingInvocation(event.cri(),
+                    awaitingReply.put(correlationId, new OutgoingInvocation(event.cri(),
                                                                           EventUtil.replyMetadataOf(metadata),
                                                                           subscriptionHandler,
                                                                           services.vertx.getOrCreateContext()));
@@ -64,40 +67,41 @@ public class OutgoingInvocations {
     }
 
     /**
-     * @return true when the reply answers a pending invocation and is addressed to that invocation's
-     * reply destination
+     * @return true when the reply answers an invocation still awaiting one and is addressed to that
+     * invocation's reply destination
      */
-    public boolean owesReply(Event<byte[]> reply) {
-        OutgoingInvocation invocation = invocations.get(reply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
+    public boolean replyOwed(Event<byte[]> reply) {
+        OutgoingInvocation invocation = awaitingReply.get(reply.metadata().get(EventConstants.CORRELATION_ID_HEADER));
         return invocation != null
                 && reply.cri().raw().equals(CRI.create(invocation.replyMetadata().get(EventConstants.REPLY_TO_HEADER)).raw());
     }
 
     /**
-     * Handles a reply the client sent. A terminal reply forgets its invocation. A stream value starts a
-     * watch on the requester's reply destination, so the stream can be cancelled once nothing listens there.
+     * The client sent a reply. A terminal reply finishes its invocation. A stream value starts a watch on
+     * the requester's reply destination, so the stream can be stopped once nothing listens there.
      */
-    public void observeReply(Event<byte[]> reply) {
+    public void replySent(Event<byte[]> reply) {
         String correlationId = reply.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         if (correlationId != null) {
             if (EventUtil.isTerminalReply(reply.metadata())) {
                 forget(correlationId);
             } else {
-                OutgoingInvocation invocation = invocations.get(correlationId);
+                OutgoingInvocation invocation = awaitingReply.get(correlationId);
                 if (invocation != null) {
-                    requesterMonitors.computeIfAbsent(correlationId, _ -> watchRequester(correlationId, invocation));
+                    requesterWatches.computeIfAbsent(correlationId, _ -> watchRequester(correlationId, invocation));
                 }
             }
         }
     }
 
     /**
-     * Stops every watch and answers every pending invocation with an {@link RpcServiceUnavailableException}.
+     * The connection closed: stops every requester watch and answers every invocation still awaiting a
+     * reply with an {@link RpcServiceUnavailableException}.
      */
-    public void dispose() {
-        requesterMonitors.values().forEach(Disposable::dispose);
-        requesterMonitors.clear();
-        invocations.forEach((correlationId, invocation) -> {
+    public void close() {
+        requesterWatches.values().forEach(Disposable::dispose);
+        requesterWatches.clear();
+        awaitingReply.forEach((correlationId, invocation) -> {
             RpcServiceUnavailableException cause = new RpcServiceUnavailableException(
                     "The connection serving the request disconnected before replying");
             try {
@@ -106,7 +110,7 @@ public class OutgoingInvocations {
                 log.error("Could not answer invocation {} after its connection closed", correlationId, e);
             }
         });
-        invocations.clear();
+        awaitingReply.clear();
     }
 
     private Disposable watchRequester(String correlationId, OutgoingInvocation invocation) {
@@ -117,7 +121,7 @@ public class OutgoingInvocations {
                                       // arrives on the cluster manager's thread; the cancel frame must be
                                       // written on the connection's event loop
                                       if (status == ListenerStatus.INACTIVE) {
-                                          invocation.context().runOnContext(_ -> cancel(correlationId));
+                                          invocation.context().runOnContext(_ -> requesterGone(correlationId));
                                       }
                                   },
                                   throwable -> log.warn("Requester watch for invocation {} failed", correlationId, throwable));
@@ -126,8 +130,8 @@ public class OutgoingInvocations {
     // Nothing listens on the requester's reply destination: forget the invocation and tell the client to stop
     // the stream. The requester is answered too, so one whose registration this node had not seen yet gets
     // the error instead of silence; a requester that is gone drops it with the rest.
-    private void cancel(String correlationId) {
-        OutgoingInvocation invocation = invocations.get(correlationId);
+    private void requesterGone(String correlationId) {
+        OutgoingInvocation invocation = awaitingReply.get(correlationId);
         if (invocation != null) {
             forget(correlationId);
             Metadata metadata = Metadata.create(Map.of(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL,
@@ -144,8 +148,8 @@ public class OutgoingInvocations {
     }
 
     private void forget(String correlationId) {
-        invocations.remove(correlationId);
-        Disposable monitor = requesterMonitors.remove(correlationId);
+        awaitingReply.remove(correlationId);
+        Disposable monitor = requesterWatches.remove(correlationId);
         if (monitor != null) {
             monitor.dispose();
         }

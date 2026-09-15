@@ -1,31 +1,32 @@
 package org.kinotic.core.api.service;
 
 /**
- * Fails a pending RPC request when the node that acknowledged it leaves the cluster. A caller pins each
- * request to the node id its acknowledgement named and settles it once the reply arrives; a request
- * still pending when that node leaves has its {@code onLost} callback run once, on the Vert.x context
- * the request was pinned from.
+ * Runs a callback when the node serving a request leaves the cluster before the request finished. A
+ * caller starts watching a request once a node's acknowledgement names that node, and stops watching it
+ * once the reply arrives; a request still watched when its node leaves has its callback run once, on the
+ * Vert.x context the watch was started from.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
 public interface RequestLivenessWatcher {
 
     /**
-     * Pins a pending request to the node that acknowledged it.
-     * @param correlationId the request's correlation id, unique per request
-     * @param nodeId the id the acknowledgement named
-     * @param onLost run once if the node leaves the cluster before the request is settled
+     * Starts watching a request's node.
+     * @param requestKey identifies the request, unique across every caller of this watcher
+     * @param nodeId the node the request's acknowledgement named
+     * @param onNodeLeft run once if the node leaves the cluster before the request is unwatched
      */
-    void watch(String correlationId, String nodeId, Runnable onLost);
+    void watch(String requestKey, String nodeId, Runnable onNodeLeft);
 
     /**
-     * Releases a pinned request. Settling an unknown or already lost request has no effect.
-     * @param correlationId the request's correlation id
+     * Stops watching a request. Unwatching a request that is not watched, or whose node already left, has no
+     * effect.
+     * @param requestKey the key the request was watched under
      */
-    void settle(String correlationId);
+    void unwatch(String requestKey);
 
     /**
-     * @return the number of requests currently pinned and not yet settled or lost
+     * @return the number of requests currently watched
      */
-    int pendingCount();
+    int watchedCount();
 }

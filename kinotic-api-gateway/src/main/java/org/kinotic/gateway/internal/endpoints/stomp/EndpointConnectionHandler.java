@@ -159,8 +159,8 @@ public class EndpointConnectionHandler {
             // client is serving is allowed for as long as the invocation is pending; one for an invocation
             // this connection no longer holds, such as a value crossing a cancel or a reply finished after a
             // reconnect, is dropped rather than ending the connection.
-            if (outgoingInvocations.owesReply(incomingEvent)) {
-                outgoingInvocations.observeReply(incomingEvent);
+            if (outgoingInvocations.replyOwed(incomingEvent)) {
+                outgoingInvocations.replySent(incomingEvent);
                 services.eventBusService.send(incomingEvent);
             } else if (stompAuthorizer.sendAllowed(incomingEvent.cri())) {
                 services.eventBusService.send(incomingEvent);
@@ -184,21 +184,24 @@ public class EndpointConnectionHandler {
                 validateReplyToForServiceRequest(incomingEvent);
 
                 String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
-                incomingInvocations.track(incomingEvent);
 
                 // A control event names a stream by correlation id and is published: the instance producing
                 // the stream is whichever one took the request, and the others ignore an id they do not hold
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
+                    if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
+                        incomingInvocations.requestFinished(correlationId);
+                    }
                     services.eventBusService.publish(incomingEvent);
                     return Future.succeededFuture();
                 }
 
+                incomingInvocations.requestSent(incomingEvent);
                 return services.eventBusService
                         .sendWithAck(incomingEvent)
-                        .onSuccess(nodeId -> incomingInvocations.pin(correlationId, nodeId, incomingEvent.cri()))
+                        .onSuccess(nodeId -> incomingInvocations.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left
-                            incomingInvocations.settle(correlationId);
+                            incomingInvocations.requestFinished(correlationId);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());
@@ -238,8 +241,8 @@ public class EndpointConnectionHandler {
         }
         subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
         subscriptions.clear();
-        incomingInvocations.dispose();
-        outgoingInvocations.dispose();
+        incomingInvocations.close();
+        outgoingInvocations.close();
         // a NONE session ends with its connection however the connection ended
         removeSession();
         session = null;
@@ -264,14 +267,14 @@ public class EndpointConnectionHandler {
 
             EventConsumer eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(event -> {
-                        // An invocation with a correlation id is pending until its terminal reply, and its
+                        // An invocation with a correlation id awaits a reply until its terminal one, and its
                         // replies are allowed for that long. Any other event carrying a reply-to gets one
                         // send to it: the reply-to was verified against the sender's replyToId when the
                         // event entered through send(), so it can only name the sender's own destination.
-                        boolean pending = outgoingInvocations.deliver(event, subscriptionHandler);
+                        boolean awaitingReply = outgoingInvocations.invocationDelivered(event, subscriptionHandler);
                         String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
                         // a control event is never answered, so its reply-to earns no grant
-                        if (!pending && replyTo != null && !event.metadata().contains(EventConstants.CONTROL_HEADER)) {
+                        if (!awaitingReply && replyTo != null && !event.metadata().contains(EventConstants.CONTROL_HEADER)) {
                             // a wildcard could match destinations beyond the sender's own
                             if (!replyTo.contains("*")) {
                                 stompAuthorizer.addTemporarySendAllowed(replyTo);
@@ -307,7 +310,7 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            incomingInvocations.subscribe(cri, subscriptionIdentifier, subscriptionHandler);
+            incomingInvocations.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
 
             log.debug("New Reply Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -324,7 +327,7 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        if (!incomingInvocations.unsubscribe(subscriptionIdentifier)) {
+        if (!incomingInvocations.unsubscribeReplies(subscriptionIdentifier)) {
             EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
             if (consumer != null) {
                 consumer.unregister();

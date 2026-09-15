@@ -109,13 +109,13 @@ public class RpcLivenessTests {
             return null;
         });
         Assertions.assertTrue(received.await(10, TimeUnit.SECONDS), "the second node never received the request");
-        awaitPendingCount(1);
+        awaitWatchedCount(1);
 
         stopSecondNode();
 
         Exception failure = Assertions.assertThrows(Exception.class, () -> outcome.get(1, TimeUnit.MINUTES));
         Assertions.assertInstanceOf(RpcServiceUnavailableException.class, failure.getCause());
-        awaitPendingCount(0);
+        awaitWatchedCount(0);
     }
 
     @Test
@@ -128,15 +128,15 @@ public class RpcLivenessTests {
             requestLivenessWatcher.watch("second", nodeId, () -> lost.complete(null));
             return null;
         });
-        awaitPendingCount(2);
+        awaitWatchedCount(2);
 
         // settling the first must not take the node's index entry away from the second
-        requestLivenessWatcher.settle("first");
-        awaitPendingCount(1);
+        requestLivenessWatcher.unwatch("first");
+        awaitWatchedCount(1);
         stopSecondNode();
 
         lost.get(1, TimeUnit.MINUTES);
-        awaitPendingCount(0);
+        awaitWatchedCount(0);
     }
 
     @Test
@@ -217,16 +217,16 @@ public class RpcLivenessTests {
         try {
             CompletableFuture<String> reply = withParticipant(() -> handle.getService().awaitGate().toFuture());
             Assertions.assertTrue(service.gateReached.await(10, TimeUnit.SECONDS), "the call never reached the service");
-            awaitPendingCount(1);
+            awaitWatchedCount(1);
 
             // a membership change that does not involve the node the call is pinned to leaves it pending
             stopSecondNode();
             Assertions.assertFalse(reply.isDone());
-            Assertions.assertEquals(1, requestLivenessWatcher.pendingCount());
+            Assertions.assertEquals(1, requestLivenessWatcher.watchedCount());
 
             service.gate.complete("survived");
             Assertions.assertEquals("survived", reply.get(10, TimeUnit.SECONDS));
-            awaitPendingCount(0);
+            awaitWatchedCount(0);
         } finally {
             handle.release();
             serviceRegistry.unregister(serviceIdentifier).toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
@@ -265,12 +265,12 @@ public class RpcLivenessTests {
         return clusterManager;
     }
 
-    private void awaitPendingCount(int expected) throws Exception {
+    private void awaitWatchedCount(int expected) throws Exception {
         long deadline = System.currentTimeMillis() + 10_000;
-        while(requestLivenessWatcher.pendingCount() != expected && System.currentTimeMillis() < deadline){
+        while(requestLivenessWatcher.watchedCount() != expected && System.currentTimeMillis() < deadline){
             Thread.sleep(20);
         }
-        Assertions.assertEquals(expected, requestLivenessWatcher.pendingCount());
+        Assertions.assertEquals(expected, requestLivenessWatcher.watchedCount());
     }
 
     // The proxy captures the sender from the current context, so the call is made on a context with a participant
