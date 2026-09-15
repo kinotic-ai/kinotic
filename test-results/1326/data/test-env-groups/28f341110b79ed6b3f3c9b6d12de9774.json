@@ -1,0 +1,1 @@
+{"id":"28f341110b79ed6b3f3c9b6d12de9774","fullName":"@kinotic-ai/e2e-tests:test/node-failure/NodeFailure.test.ts#Node failure handling for service proxies cancels the producer when the caller of a stream disconnects","name":"cancels the producer when the caller of a stream disconnects","status":"passed","testResultsByEnv":{"default":"7e27f1141b665656166dba25919273aa"}}
