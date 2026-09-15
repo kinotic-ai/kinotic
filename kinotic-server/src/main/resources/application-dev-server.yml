@@ -50,13 +50,10 @@ kinotic:
       # serverHost and serverPort arrive through the environment: the address is the
       # server's own, and the port is whatever the router forwards
       serverUseSsl: true
-      # Destinations beyond the gateway a sync workload may reach, as CIDRs: a CLOUD_HYPERVISOR
-      # node's egress rules match addresses, so the hostnames the BOXLITE development profile
-      # uses are rejected here. GitHub's ranges from https://api.github.com/meta (git and web);
-      # the npm registry sits behind Cloudflare. Widen when a fetch is refused, never to 0.0.0.0/0.
+      # Destinations beyond the gateway a sync workload may reach, by name: the node's resolver
+      # admits exactly the addresses it answers for each, so the npm registry's anycast and
+      # GitHub's moving ranges need no CIDRs. The sync workload fetches from GitHub and runs
+      # bun install.
       syncAllowedHosts:
-        - 140.82.112.0/20
-        - 143.55.64.0/20
-        - 185.199.108.0/22
-        - 192.30.252.0/22
-        - 104.16.0.0/12
+        - github.com
+        - registry.npmjs.org

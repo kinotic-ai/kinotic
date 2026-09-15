@@ -114,7 +114,10 @@ a deployment's sync workload from restarting the resolver on every run. One sett
 processing an upstream reply, never when answering from its cache. A name the node pins in its
 own `/etc/hosts` is answered from there for guests as well, and the vm-manager writes the pinned
 address into that name's set without a timeout, since dnsmasq would not; that is how a guest
-reaches the api-gateway by the name its certificate carries without leaving the LAN.
+reaches the api-gateway by the name its certificate carries without leaving the LAN. dnsmasq
+reads `/etc/hosts` when it starts and on `systemctl reload dnsmasq`, so a pin added after
+provisioning is answered from the next of either; the first new name a workload is allowed
+restarts it anyway.
 
 Set entries carry a 300s timeout that every answer refreshes, and each workload allowed a name
 also gets a conntrack `ESTABLISHED,RELATED` accept, so a connection opened while the entry held
