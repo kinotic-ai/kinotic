@@ -427,7 +427,8 @@ Built after the direction change, against the whole series:
 Still open, and outside this repository's harness:
 
 - `@kinotic-ai/core` 5.0.0-beta.11 and `@kinotic-ai/system-api` 5.0.0-beta.12 are published. The
-  console's catalog ranges admit both. `kinotic-cli` 5.2.0-beta.15 pins core at 5.0.0-beta.11 and
+  console's catalog resolves both, with management-api 5.0.0-beta.30, and its lock records them.
+  `kinotic-cli` 5.2.0-beta.15 pins core at 5.0.0-beta.11 and
   `@kinotic-ai/vm-manager` 5.0.0-beta.19 carries the bounded shutdown; both wait on their publish,
   the CLI first. `kinotic-cli` 5.2.0-beta.15 is published; `workload-runner` pins it and core
   5.0.0-beta.11 with its lock recorded, so the next image build carries the fixed client.
