@@ -29,12 +29,13 @@ output "grafana_url" {
 }
 
 # Each node adds its own KINOTIC_NODE_ID line; the machine credentials go in
-# vm-manager.secrets.env beside it (deployment/vm-node/README.md)
+# vm-manager.secrets.env beside it (deployment/vm-node/README.md). The server is named as
+# its certificate names it, and the node resolves that name to the LAN address (hosts_entry)
 output "vm_manager_env" {
   description = "The nodes' /etc/kinotic/vm-manager.env: the server and the stores as the nodes reach them"
   value       = <<-EOT
     KINOTIC_VM_PROVIDER=CLOUD_HYPERVISOR
-    KINOTIC_SERVER_HOST=${local.server_ip}
+    KINOTIC_SERVER_HOST=${local.azure.api_hostname}
     KINOTIC_SERVER_PORT=${var.api_port}
     KINOTIC_SERVER_USE_SSL=true
     KINOTIC_WORKLOAD_DATA_DIR=/var/lib/kinotic/workloads
@@ -48,4 +49,9 @@ output "vm_manager_env" {
 output "containers" {
   description = "Each container's vmid, for pct"
   value       = { for name, c in local.containers : name => c.vm_id }
+}
+
+output "hosts_entry" {
+  description = "The /etc/hosts line each node carries, so the server's name verifies against its certificate and resolves on the LAN"
+  value       = "${local.server_ip} ${local.azure.api_hostname}"
 }
