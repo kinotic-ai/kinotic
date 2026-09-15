@@ -55,7 +55,7 @@ public class McpToolInvoker {
             String correlationId = replyEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
             Promise<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
             if (correlationId != null) {
-                requestLivenessWatcher.settle(correlationId);
+                requestLivenessWatcher.unwatch(correlationId);
             }
             if (pending == null) {
                 // a reply whose pending entry is gone (its send already failed) has no caller to complete
@@ -147,7 +147,7 @@ public class McpToolInvoker {
                                }
                            } else {
                                // computeIfPresent serializes with the reply handler's remove, so a reply that
-                               // lands before the acknowledgement is processed leaves nothing pinned
+                               // lands before the acknowledgement is processed leaves nothing watched
                                pendingCalls.computeIfPresent(correlationId, (_, pending) -> {
                                    requestLivenessWatcher.watch(correlationId, ar.result(), () -> {
                                        // only the party that removes the entry completes it

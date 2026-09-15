@@ -19,9 +19,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Pins requests to node ids and fails them from the cluster membership {@link EventBusService#monitorClusterNodes()}
+ * Watches requests by node id against the cluster membership {@link EventBusService#monitorClusterNodes()}
  * reports. One membership subscription serves every request on the node; a membership change costs one
- * lookup per node that has requests pinned to it.
+ * lookup per node that has requests watched on it.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -33,22 +33,22 @@ public class DefaultRequestLivenessWatcher implements RequestLivenessWatcher {
     private final EventBusService eventBusService;
     private final Vertx vertx;
     private final OpenTelemetry openTelemetry;
-    private final ConcurrentHashMap<String, Lease> leases = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Set<String>> correlationIdsByNode = new ConcurrentHashMap<>();
-    // null until the first membership snapshot arrives: a request pinned before that is judged by the snapshot
+    private final ConcurrentHashMap<String, Watch> watches = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, Set<String>> requestKeysByNode = new ConcurrentHashMap<>();
+    // null until the first membership snapshot arrives: a request watched before that is judged by the snapshot
     private volatile Set<String> members;
     private Disposable membership;
-    private ObservableLongGauge pendingGauge;
+    private ObservableLongGauge watchedGauge;
 
     @PostConstruct
     void start() {
         // A count that climbs on a healthy node is the only visible sign of a callee that is up but wedged
-        pendingGauge = openTelemetry.getMeter("kinotic.rpc.liveness")
+        watchedGauge = openTelemetry.getMeter("kinotic.rpc.liveness")
                                     .gaugeBuilder("rpc.pending.requests")
                                     .setDescription("The number of requests in flight")
                                     .setUnit("requests")
                                     .ofLongs()
-                                    .buildWithCallback(measurement -> measurement.record(leases.size()));
+                                    .buildWithCallback(measurement -> measurement.record(watches.size()));
         membership = eventBusService.monitorClusterNodes()
                                     .subscribe(this::membershipChanged,
                                                throwable -> log.error("Cluster membership monitoring failed, pending requests can no longer be failed on node departure", throwable));
@@ -56,74 +56,74 @@ public class DefaultRequestLivenessWatcher implements RequestLivenessWatcher {
 
     @PreDestroy
     void stop() {
-        pendingGauge.close();
+        watchedGauge.close();
         membership.dispose();
     }
 
     @Override
-    public void watch(String correlationId, String nodeId, Runnable onLost) {
-        leases.put(correlationId, new Lease(nodeId, onLost, vertx.getOrCreateContext()));
-        // the add runs under the key's lock, so a concurrent settle() emptying and dropping this node's set
-        // cannot leave the id in a set that is no longer in the map
-        correlationIdsByNode.compute(nodeId, (_, correlationIds) -> {
-            Set<String> ret = correlationIds != null ? correlationIds : ConcurrentHashMap.newKeySet();
-            ret.add(correlationId);
+    public void watch(String requestKey, String nodeId, Runnable onNodeLeft) {
+        watches.put(requestKey, new Watch(nodeId, onNodeLeft, vertx.getOrCreateContext()));
+        // the add runs under the key's lock, so a concurrent unwatch() emptying and dropping this node's set
+        // cannot leave the key in a set that is no longer in the map
+        requestKeysByNode.compute(nodeId, (_, requestKeys) -> {
+            Set<String> ret = requestKeys != null ? requestKeys : ConcurrentHashMap.newKeySet();
+            ret.add(requestKey);
             return ret;
         });
         // The node may have left between the acknowledgement and this call; the latest snapshot decides,
         // and membershipChanged catches a departure that lands while this method runs
         Set<String> current = members;
         if(current != null && !current.contains(nodeId)){
-            lose(correlationId);
+            nodeLeft(requestKey);
         }
     }
 
     @Override
-    public void settle(String correlationId) {
-        Lease lease = leases.remove(correlationId);
-        if(lease != null){
-            unindex(lease.nodeId(), correlationId);
+    public void unwatch(String requestKey) {
+        Watch watch = watches.remove(requestKey);
+        if(watch != null){
+            unindex(watch.nodeId(), requestKey);
         }
     }
 
     @Override
-    public int pendingCount() {
-        return leases.size();
+    public int watchedCount() {
+        return watches.size();
     }
 
     private void membershipChanged(Set<String> nodes) {
         members = nodes;
         List<String> departed = new ArrayList<>();
-        for(String nodeId : correlationIdsByNode.keySet()){
+        for(String nodeId : requestKeysByNode.keySet()){
             if(!nodes.contains(nodeId)){
                 departed.add(nodeId);
             }
         }
         for(String nodeId : departed){
-            Set<String> correlationIds = correlationIdsByNode.remove(nodeId);
-            if(correlationIds != null){
-                correlationIds.forEach(this::lose);
+            Set<String> requestKeys = requestKeysByNode.remove(nodeId);
+            if(requestKeys != null){
+                requestKeys.forEach(this::nodeLeft);
             }
         }
     }
 
-    // onLost is dispatched to the request's own context and never run on the membership delivery
+    // onNodeLeft is dispatched to the request's own context and never run on the membership delivery
     // context, so a death burst drains here as queue submissions rather than as caller code
-    private void lose(String correlationId) {
-        Lease lease = leases.remove(correlationId);
-        if(lease != null){
-            unindex(lease.nodeId(), correlationId);
-            lease.context().runOnContext(_ -> lease.onLost().run());
+    private void nodeLeft(String requestKey) {
+        Watch watch = watches.remove(requestKey);
+        if(watch != null){
+            unindex(watch.nodeId(), requestKey);
+            watch.context().runOnContext(_ -> watch.onNodeLeft().run());
         }
     }
 
-    private void unindex(String nodeId, String correlationId) {
-        correlationIdsByNode.computeIfPresent(nodeId, (_, correlationIds) -> {
-            correlationIds.remove(correlationId);
-            return correlationIds.isEmpty() ? null : correlationIds;
+    private void unindex(String nodeId, String requestKey) {
+        requestKeysByNode.computeIfPresent(nodeId, (_, requestKeys) -> {
+            requestKeys.remove(requestKey);
+            return requestKeys.isEmpty() ? null : requestKeys;
         });
     }
 
-    private record Lease(String nodeId, Runnable onLost, Context context) {}
+    private record Watch(String nodeId, Runnable onNodeLeft, Context context) {}
 
 }

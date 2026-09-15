@@ -153,7 +153,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                         if(handler != null){
                             try {
                                 if(handler.processResponse(event)){
-                                    settle(correlationId);
+                                    requestFinished(correlationId);
                                 }
                             } catch (Exception e) {
                                 log.error("URGENT: Unhandled exception in RpcReturnValueHandler.processResponse, Proxy Will be Released!!", e);
@@ -185,7 +185,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     }
 
     /**
-     * Starts the span covering one outbound service invocation. It ends when the invocation settles,
+     * Starts the span covering one outbound service invocation. It ends when the invocation finishes,
      * which {@link TracingRpcReturnValueHandler} decides.
      * @param method being invoked on the remote service
      * @param scope the scope the invocation is routed to, or null when the service is not scoped
@@ -213,7 +213,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
             for(String correlationId : responseMap.keySet()){
                 RpcReturnValueHandler returnValueHandler = responseMap.remove(correlationId);
                 if(returnValueHandler != null){
-                    requestLivenessWatcher.settle(correlationId);
+                    requestLivenessWatcher.unwatch(correlationId);
                     returnValueHandler.cancel(serviceClass.getSimpleName() + " released. No further responses will be processed");
                 }
             }
@@ -251,14 +251,13 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     }
 
     /**
-     * Ends the tracking of a request whose response handler is done: it is no longer pinned to the node
-     * that acknowledged it and no longer receives replies.
+     * The request is over: its handler no longer receives replies and its node is no longer watched.
      */
-    private void settle(String correlationId){
-        // the entry goes first: once it is gone the ack's computeIfPresent can no longer pin, so the lease
-        // released next is the last one this request can have
+    private void requestFinished(String correlationId){
+        // the entry goes first: once it is gone the ack's computeIfPresent can no longer start a watch, so
+        // the unwatch that follows is the last one this request can need
         responseMap.remove(correlationId);
-        requestLivenessWatcher.settle(correlationId);
+        requestLivenessWatcher.unwatch(correlationId);
     }
 
     @Override
@@ -353,8 +352,8 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                                                release();
                                            }
                                        } else {
-                                           // computeIfPresent serializes with settle() on this key, so a reply that
-                                           // lands before the acknowledgement is processed leaves nothing pinned
+                                           // computeIfPresent serializes with requestFinished() on this key, so a reply
+                                           // that lands before the acknowledgement is processed leaves nothing watched
                                            responseMap.computeIfPresent(correlationId, (_, pending) -> {
                                                requestLivenessWatcher.watch(correlationId, ar.result(), () -> failLost(correlationId, requestCri, ar.result()));
                                                return pending;
@@ -367,7 +366,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
                 public void cancelRequest() {
                     if(handler.isMultiValue()) {
                         sendCancel(requestCri, correlationId);
-                        settle(correlationId);
+                        requestFinished(correlationId);
                     } else {
                         throw new IllegalStateException("Cancel is not supported if RpcReturnValueHandler.isMultiValue returns false");
                     }
@@ -381,7 +380,7 @@ public class DefaultRpcServiceProxyHandle<T> implements RpcServiceProxyHandle<T>
     }
 
     // Runs on the request's context when the node that took it leaves the cluster. Only the party that
-    // removes the handler signals it, so a reply that settled the request first leaves nothing to fail.
+    // removes the handler signals it, so a reply that finished the request first leaves nothing to fail.
     private void failLost(String correlationId, CRI requestCri, String nodeId){
         RpcReturnValueHandler lost = responseMap.remove(correlationId);
         if(lost != null){

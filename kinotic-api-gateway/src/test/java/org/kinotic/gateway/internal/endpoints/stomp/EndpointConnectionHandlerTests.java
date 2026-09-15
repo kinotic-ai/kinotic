@@ -170,7 +170,7 @@ public class EndpointConnectionHandlerTests {
                                                         EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE));
         replyDelivery.get().handle(Event.create(CRI.create(replyTo), replyMetadata, new byte[0]));
 
-        verify(requestLivenessWatcher).settle(endsWith(":corr-2"));
+        verify(requestLivenessWatcher).unwatch(endsWith(":corr-2"));
         // a node loss reported after the reply has nothing left to answer
         onLost.getValue().run();
         verify(eventBusService, never()).send(any());
@@ -184,7 +184,7 @@ public class EndpointConnectionHandlerTests {
 
         handler.shutdown();
 
-        verify(requestLivenessWatcher).settle(endsWith(":corr-3"));
+        verify(requestLivenessWatcher).unwatch(endsWith(":corr-3"));
         verify(replyConsumer).unregister();
     }
 
@@ -341,7 +341,7 @@ public class EndpointConnectionHandlerTests {
         ArgumentCaptor<Event<byte[]>> published = ArgumentCaptor.forClass(Event.class);
         verify(eventBusService).publish(published.capture());
         Assertions.assertEquals(EventConstants.CONTROL_VALUE_CANCEL, published.getValue().metadata().get(EventConstants.CONTROL_HEADER));
-        verify(requestLivenessWatcher).settle(endsWith(":inv-6"));
+        verify(requestLivenessWatcher).unwatch(endsWith(":inv-6"));
     }
 
     @Test
@@ -362,8 +362,8 @@ public class EndpointConnectionHandlerTests {
         Metadata completion = Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, "dup",
                                                      EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE));
         replyDelivery.get().handle(Event.create(CRI.create(secondReplyTo), completion, new byte[0]));
-        verify(requestLivenessWatcher, times(1)).settle(any());
-        verify(requestLivenessWatcher).settle(leases.getAllValues().get(1));
+        verify(requestLivenessWatcher, times(1)).unwatch(any());
+        verify(requestLivenessWatcher).unwatch(leases.getAllValues().get(1));
     }
 
     @Test
