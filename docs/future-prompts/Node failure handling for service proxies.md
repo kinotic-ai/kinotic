@@ -443,7 +443,11 @@ Still open, and outside this repository's harness:
   control over the socket on INACTIVE, which is the Java supervisor's reply-listener cancel carried
   one hop further.
 - An end-to-end run against a cluster: a Java caller and a UI caller each mid-call while the serving
-  node is killed, and a UI mid-call while its gateway node is killed.
+  node is killed, and a UI mid-call while its gateway node is killed. The client half is the
+  `test/node-failure` suite in `kinotic-js/e2e-tests`: a TS host and TS callers on a two-node compose
+  cluster, killing `kinotic-server-2` with the serving side on it and then with the caller's gateway on
+  it, plus the three cancel paths (unsubscribe, caller disconnect, caller's node lost). A Java caller
+  mid-call while its serving node dies stays covered in-JVM by `RpcLivenessTests`.
 
 ## Review fixes (after the merges)
 

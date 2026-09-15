@@ -317,6 +317,12 @@ jobs:
           gradle pnpmInstall
           gradle pnpmTest
 
+      # Its own two-node stack, brought up once the suites above have taken theirs down.
+      - name: Run node-failure E2E tests
+        run: |
+          cd kinotic-js/e2e-tests
+          gradle pnpmTestNodeFailure
+
       - name: Collect Allure results
         if: ${{ !cancelled() }}
         uses: ./.github/actions/collect-allure

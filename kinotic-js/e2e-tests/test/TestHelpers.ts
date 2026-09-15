@@ -71,6 +71,12 @@ export function kinoticPort(): number {
     return inject('KINOTIC_PORT') as number
 }
 
+/** STOMP port of the second cluster node; only provided by the node-failure suite's setup. */
+export function kinoticPort2(): number {
+    // @ts-ignore
+    return inject('KINOTIC_PORT_2') as number
+}
+
 /** The gateway under test as a {@link ServerInfo} — the suite always runs without TLS. */
 export function serverUnderTest(): ServerInfo {
     return {host: kinoticHost(), port: kinoticPort(), useSSL: false}
@@ -95,9 +101,9 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(credentials: CredentialsResolver): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = serverUnderTest()): ConnectOptions {
     return {
-        server: serverUnderTest(),
+        server,
         sessionKeepAlive: SessionKeepAliveMode.NONE,
         credentials
     }

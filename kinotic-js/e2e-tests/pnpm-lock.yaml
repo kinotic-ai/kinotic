@@ -69,6 +69,9 @@ importers:
       axios:
         specifier: 1.18.0
         version: 1.18.0
+      rxjs:
+        specifier: ^7.8.2
+        version: 7.8.2
       testcontainers:
         specifier: ^11.14.0
         version: 11.14.0

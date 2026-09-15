@@ -1,19 +1,22 @@
 import {resolve} from 'path'
-import { defineConfig } from 'vitest/config'
+import {defineConfig, type ViteUserConfig} from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 
-// https://vite.dev/config/
-export default defineConfig(
-    {
+/**
+ * The config every e2e suite shares: the Allure reporter and the vitest globals, with the suite's own
+ * settings (its globalSetup, which files it runs) layered on top.
+ * @param test the suite's own vitest settings
+ */
+export function e2eConfig(test: NonNullable<ViteUserConfig['test']>): ViteUserConfig {
+    return {
         plugins: [vue()],
-        resolve:{
-            alias:{
-                '@' : resolve(__dirname, 'src')
+        resolve: {
+            alias: {
+                '@': resolve(__dirname, 'src')
             },
         },
         test: {
             globals: true,
-            globalSetup: './test/setup.ts',
             setupFiles: ["allure-vitest/setup"],
             reporters: [
                 "verbose",
@@ -24,6 +27,13 @@ export default defineConfig(
                     },
                 ],
             ],
+            ...test
         }
     }
-)
+}
+
+// https://vite.dev/config/
+export default defineConfig(e2eConfig({
+    globalSetup: './test/setup.ts',
+    include: ['test/native/**/*.test.ts'],
+}))
