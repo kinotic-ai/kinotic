@@ -1,1 +1,0 @@
-{"id":"d161b454e9e646e7584e772e2efd3ab8","fullName":"@kinotic-ai/e2e-tests:test/native/Application.test.ts#Kinotic JS returns the existing application when the slugified name matches","name":"returns the existing application when the slugified name matches","status":"broken","testResultsByEnv":{"default":"f50867bd2f67cc73be56e13f2b00c97e"}}
