@@ -5,7 +5,6 @@ import { showErrorToast } from '@kinotic-ai/frontend-common'
 import { useToast } from 'primevue/usetoast'
 import { CrudTable } from '@kinotic-ai/frontend-common'
 import NewProjectSidebar from '@/components/NewProjectSidebar.vue'
-import ProjectEntityDefinitionsTable from '@/components/ProjectEntityDefinitionsTable.vue'
 import type { IDataSource, Identifiable, IterablePage, Pageable } from '@kinotic-ai/core'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { Kinotic } from '@kinotic-ai/core'
@@ -13,7 +12,6 @@ import { Project, RepositoryConnectionStatus } from '@kinotic-ai/management-api'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
 import { DatetimeUtil } from "@kinotic-ai/frontend-common"
 import { createDebug } from '@kinotic-ai/frontend-common'
-import { isDark as darkMode } from '@kinotic-ai/frontend-common'
 
 const debug = createDebug('project-list');
 
@@ -29,16 +27,15 @@ const crudTable = ref<InstanceType<typeof CrudTable>>()
 
 const searchText = ref<string>('')
 const showProjectSidebar = ref(false)
-const selectedProjectId = ref<string | null>(null)
 const isInitialized = ref(false)
 
 const projectTableHeaders: CrudHeader[] = [
   { field: 'name', header: 'Project Name', sortable: true, width: '19%' },
-  { field: 'repoConnectionStatus', header: 'Repository', sortable: false, width: '17%' },
-  { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true, width: '15%' },
-  { field: 'description', header: 'Description', sortable: false, width: '21%' },
-  { field: 'created', header: 'Created', sortable: false, width: '14%' },
-  { field: 'updated', header: 'Updated', sortable: false, width: '14%' }
+  { field: 'repoConnectionStatus', header: 'Repository', sortable: false, width: '17%', optional: true },
+  { field: 'sourceOfTruth', header: 'Source of Truth', sortable: true, width: '15%', optional: true },
+  { field: 'description', header: 'Description', sortable: false, width: '21%', optional: true },
+  { field: 'created', header: 'Created', sortable: false, width: '14%', optional: true },
+  { field: 'updated', header: 'Updated', sortable: false, width: '14%', optional: true }
 ]
 
 // Ids of projects whose repository initialization is currently being retried,
@@ -89,8 +86,6 @@ const dataSource = computed<IDataSource<Project>>(() => ({
     return Kinotic.projects.search(search, pageable)
   }
 }))
-
-const isDark = darkMode
 
 function refreshTable(): void {
   crudTable.value?.find?.()
@@ -148,14 +143,10 @@ async function toProjectPage(item: Identifiable<string>): Promise<void> {
 
     debug('Navigating to project: %s, ID: %s, App ID: %s', (item as any).name, projectId, appId)
 
-    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}/entity-definitions`)
+    await router.push(`/application/${encodeURIComponent(appId)}/project/${encodeURIComponent(projectId)}`)
   } catch (error) {
     debug('Failed to navigate to project page: %O', error)
   }
-}
-
-function clearSelectedProject() {
-  selectedProjectId.value = null
 }
 
 function isRetrying(id: string | null): boolean {
@@ -190,7 +181,6 @@ async function retryRepoInit(project: Project): Promise<void> {
 <template>
   <div class="flex flex-1 flex-col">
     <CrudTable
-      v-if="!selectedProjectId"
       ref="crudTable"
       rowHoverColor=""
       :data-source="dataSource"
@@ -240,16 +230,6 @@ async function retryRepoInit(project: Project): Promise<void> {
         </span>
       </template>
     </CrudTable>
-
-    <div v-if="selectedProjectId" class="mt-6">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-semibold" :class="isDark ? 'text-surface-0' : 'text-surface-950'">
-          Entities for Project: {{ selectedProjectId }}
-        </h2>
-        <Button label="Back to Projects" icon="pi pi-arrow-left" @click="clearSelectedProject" />
-      </div>
-      <ProjectEntityDefinitionsTable :projectId="selectedProjectId" />
-    </div>
 
     <NewProjectSidebar
       :visible="showProjectSidebar"

@@ -2,7 +2,7 @@ package org.kinotic.persistence.internal.api.services.insights;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.security.participant.ApplicationParticipant;
+import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.persistence.internal.api.services.EntitiesService;
@@ -25,10 +25,10 @@ import java.util.stream.Collectors;
 public class DataAnalysisTools {
 
     private final EntitiesService entitiesService;
-    private final ApplicationParticipant participant;
+    private final ScopedParticipant participant;
     private final FluxSink<InsightProgress> progressSink;
     
-    public DataAnalysisTools(EntitiesService entitiesService, ApplicationParticipant participant, FluxSink<InsightProgress> progressSink) {
+    public DataAnalysisTools(EntitiesService entitiesService, ScopedParticipant participant, FluxSink<InsightProgress> progressSink) {
         this.entitiesService = entitiesService;
         this.participant = participant;
         this.progressSink = progressSink;

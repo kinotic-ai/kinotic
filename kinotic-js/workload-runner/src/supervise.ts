@@ -1,10 +1,13 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { watchFile } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { sentinelPath } from './sentinel.ts'
+import { forwardOutput, log, logError } from './log.ts'
 
 /**
  * Long-lived entrypoint of the runtime workload: runs the project's microservice process
- * and restarts it whenever the reload sentinel changes or the process dies.
+ * with the telemetry preload of instrumentation.ts and restarts it whenever the reload
+ * sentinel changes or the process dies.
  *
  * The sentinel is polled with fs.watchFile rather than watched: the sync workload writes
  * it from another VM sharing the checkout mount, and inotify events do not cross the VM
@@ -16,11 +19,15 @@ import { sentinelPath } from './sentinel.ts'
  * - KINOTIC_APP_ENTRY       entry file relative to the checkout
  *                           (default packages/microservices/main/src/main.ts)
  * - KINOTIC_RELOAD_POLL_MS  sentinel poll interval (default 1000)
+ * - KINOTIC_LOG_*           see log.ts
  */
 
 const appDir = process.env.KINOTIC_APP_DIR ?? '/app'
 const entry = process.env.KINOTIC_APP_ENTRY ?? 'packages/microservices/main/src/main.ts'
 const pollMs = Number(process.env.KINOTIC_RELOAD_POLL_MS ?? '1000')
+
+// Absolute so bun resolves it, and its SDK imports, from this install rather than the checkout
+const instrumentation = fileURLToPath(new URL('./instrumentation.ts', import.meta.url))
 
 // Crash respawns back off doubling from 1s to 30s; a run that survives 30s resets it
 const INITIAL_BACKOFF_MS = 1_000
@@ -38,8 +45,9 @@ function startChild(): void {
     pendingRespawn = null
     reloading = false
     startedAt = Date.now()
-    console.log(`[workload-runner] starting ${entry}`)
-    child = spawn('bun', [entry], { cwd: appDir, stdio: 'inherit' })
+    log(`[workload-runner] starting ${entry}`)
+    child = spawn('bun', ['--preload', instrumentation, entry], { cwd: appDir, stdio: ['inherit', 'pipe', 'pipe'] })
+    forwardOutput(child)
     child.on('exit', (code, signal) => {
         child = null
         if (shuttingDown) {
@@ -50,8 +58,8 @@ function startChild(): void {
             if (Date.now() - startedAt >= STABLE_RUN_MS) {
                 backoffMs = INITIAL_BACKOFF_MS
             }
-            console.error(`[workload-runner] microservice exited (code ${code}, signal ${signal}); `
-                          + `restarting in ${backoffMs / 1000}s`)
+            logError(`[workload-runner] microservice exited (code ${code}, signal ${signal}); `
+                     + `restarting in ${backoffMs / 1000}s`)
             pendingRespawn = setTimeout(startChild, backoffMs)
             backoffMs = Math.min(backoffMs * 2, MAX_BACKOFF_MS)
         }
@@ -88,7 +96,7 @@ process.on('SIGINT', shutdown)
 watchFile(sentinelPath(appDir), { interval: pollMs }, (curr, prev) => {
     // Creation and every rewrite change the mtime; deletion (curr gone) is not a reload
     if (curr.mtimeMs !== prev.mtimeMs && curr.mtimeMs !== 0) {
-        console.log('[workload-runner] reload sentinel changed; restarting microservice')
+        log('[workload-runner] reload sentinel changed; restarting microservice')
         reload()
     }
 })

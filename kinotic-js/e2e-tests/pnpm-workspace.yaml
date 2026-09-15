@@ -17,6 +17,7 @@ minimumReleaseAgeExclude:
   - '@kinotic-ai/core'
   - '@kinotic-ai/idl'
   - '@kinotic-ai/kinotic-cli'
+  - '@kinotic-ai/management-api'
   - '@kinotic-ai/os-api'
   - '@kinotic-ai/persistence'
   - '@kinotic-ai/spawn'

@@ -92,12 +92,16 @@ public class JsonSchemaConverterStrategy implements IdlConverterStrategy<ObjectN
                  .addConverter(EnumC3Type.class, (c3Type, context) -> {
                      ObjectNode node = FACTORY.objectNode().put("type", "string");
                      ArrayNode values = FACTORY.arrayNode();
+
                      for (String value : c3Type.getValues()) {
                          values.add(value);
                      }
+
                      node.set("enum", values);
+
                      return node;
                  });
+
         return container;
     }
 

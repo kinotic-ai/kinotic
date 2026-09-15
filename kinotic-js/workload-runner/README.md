@@ -1,7 +1,7 @@
 # @kinotic-ai/workload-runner
 
-Entrypoints for the two workloads that deploy and run a customer project on a node. Baked
-into the `workload-runner` OCI image (see the `Dockerfile`), never published to npm.
+Entrypoints for the workloads that deploy, publish and run a customer project on a node.
+Baked into the `workload-runner` OCI image (see the `Dockerfile`), never published to npm.
 
 ## How a project runs on a node
 
@@ -15,12 +15,16 @@ bun src/sync.ts                               bun src/supervise.ts   (image defa
 mounts <checkout> read-write                  mounts <checkout> read-only
 fetch + checkout GIT_REF                      runs the project's microservice entry
 bun install                                   polls .kinotic/reload for changes
-entity sync + publish                         restarts the process when it changes
+find artifacts                                restarts the process when it changes
+entity sync + publish
+build the UIs
+report artifacts to the server
 write .kinotic/reload  ←──────────────────────┘
 ```
 
-The sentinel is written **last**, only after the checkout, install, and entity sync all
-succeeded, so the supervisor never restarts the microservices into a half-updated tree.
+The sentinel is written **last**, only after the checkout, install, entity sync, UI builds
+and artifact report all succeeded, so the supervisor never restarts the microservices into
+a half-updated tree.
 It is polled (`fs.watchFile`) rather than watched because the two workloads are separate
 micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 
@@ -34,7 +38,9 @@ micro VMs sharing a host mount, and inotify events do not cross the VM boundary.
 | `GIT_REF` | commit sha or branch to deploy | required |
 | `GIT_TOKEN` | token authorizing the fetch; omit for a public repository | — |
 | `KINOTIC_WORKSPACE_DIR` | the shared checkout directory | `/workspace` |
-| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI connects with; sync is skipped when no credentials are present | — |
+| `KINOTIC_PROJECT_ID` | the project the checkout belongs to, named in the artifact report | required with credentials |
+| `KINOTIC_UI_SERVER_URL` | the address a browser reaches the platform on, handed to every UI build as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL` | — |
+| `KINOTIC_SERVER_HOST/PORT/USE_SSL`, `KINOTIC_CLIENT_ID`, `KINOTIC_CLIENT_SECRET`, `KINOTIC_ORGANIZATION_ID` | machine identity and server the CLI and the artifact report connect with; both are skipped when no credentials are present | — |
 | `KINOTIC_CLI_BIN` | overrides the kinotic CLI entry script (development/tests) | resolved from the image install |
 
 Entity sync runs `kinotic sync --publish` over the checkout. The projects have no CI of
@@ -45,9 +51,47 @@ definitions and migrations, authenticated by the machine identity in the environ
 entity is usable for data operations without anyone publishing it by hand; entities already
 published are left alone.
 
+Artifact discovery (`src/artifacts.ts`) runs over the checkout before the entity sync: a
+directory directly under `packages/microservices` holding a `package.json` is a microservice,
+one directly under `packages/ui` whose `package.json` declares a `build` script is a UI, and
+each is identified by the unscoped `name` in its `package.json`, which must be lowercase
+letters, digits, and interior dashes. A missing or invalid name, or two packages of one kind
+sharing a name, fails the run naming the package. The result is reported to the server
+through `ProjectArtifactService.recordArtifacts`, authenticated as the sync machine, so
+the deployment run can bind it once this workload exits.
+
+Every UI artifact is then built in place with `bun run build`, handed the platform's
+address as `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL`, the
+variables the platform's own consoles connect with. A build that leaves no `dist/index.html`
+fails the run naming the UI. `publish-ui.ts` later uploads `dist` as it is: files under `assets/` carry a content
+hash in their name and are cached for a year, everything else is never cached, and every
+blob is stamped with the commit so the deploy can delete what older publishes left.
+
 The git token travels as a per-invocation `http.extraheader`, never written to
 `.git/config` or embedded in the remote URL — the checkout is a shared host directory and
 must not hold a credential.
+
+`publish-ui.ts` — one-shot, exits 0 on success. Runs after the sync on the same checkout,
+mounted read-only, with no Kinotic credentials: it uploads every built UI into its site's
+directory of the platform's sites account through a URL that carries a short-lived SAS for
+that directory alone, the one destination its egress policy permits. Per UI the files under
+`assets/` go up marked immutable, the rest uncached, then `version.json`, then `index.html`
+last, so the index switch is the atomic publish; then the files other commits left in the
+directory are deleted. The server never touches a site's files itself: it issues the URL and
+runs this workload.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_UI_UPLOAD_URLS` | a JSON object of UI name to upload URL: the site's directory in the sites account, with a SAS for that directory as its query | required |
+| `KINOTIC_UI_COMMIT` | the commit the UIs were built from | required |
+| `KINOTIC_WORKSPACE_DIR` | the checkout | `/workspace` |
+
+`remove-ui.ts` — one-shot, exits 0 on success. Deletes one site's directory and everything
+under it, through the removal URL issued for the site.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_UI_REMOVAL_URL` | the site's directory in the sites account, with a SAS for that directory as its query | required |
 
 `supervise.ts` — long-lived:
 
@@ -59,3 +103,25 @@ must not hold a credential.
 
 A microservice process that dies is respawned with a backoff doubling from 1s to 30s; a
 sentinel change restarts it immediately.
+
+The process runs with `src/instrumentation.ts` preloaded (`bun --preload`), which starts the
+OpenTelemetry Node SDK when `OTEL_EXPORTER_OTLP_ENDPOINT` is set — the node sets it, with the
+rest of the standard `OTEL_*` variables, for a workload that elected telemetry — so the spans
+the Kinotic runtime records through `@opentelemetry/api` are exported to the node. The SDK
+registers against the global API, which the project's own copy of `@opentelemetry/api` resolves
+as long as it is the same major and no newer than the one installed here. Pending spans are
+flushed when the process receives `SIGTERM`; a project that installs its own `SIGTERM` handler
+owns the exit after that flush. Without the endpoint variable the process runs uninstrumented.
+
+## Logs
+
+Both entrypoints write everything — their own messages and the output of the processes they
+run — to stdout and stderr. A node whose VM runtime captures no stdout (`BOXLITE`) mounts a
+log directory into the guest and names it in the environment; the runner then also writes
+into a size-rotated file there, which is what that node ships.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `KINOTIC_LOG_DIR` | directory to write `workload.log` into | unset: stdout only |
+| `KINOTIC_LOG_MAX_SIZE_MB` | size at which `workload.log` rotates | required with the directory |
+| `KINOTIC_LOG_MAX_FILES` | rotated files (`workload.log.1` …) kept beside it | required with the directory |

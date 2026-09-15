@@ -55,7 +55,7 @@ public class DefaultJobMonitoringService implements JobMonitoringService {
             // operators troubleshoot every run, not only the platform-owned ones findAllForOwner would give
             ret = jobRunRepository.findAll(pageable);
         }else if(scope.applicationId() != null){
-            ret = jobRunRepository.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId()),
+            ret = jobRunRepository.findAllForOwner(JobOwner.ofApplication(scope.organizationId(), scope.applicationId(), null),
                                                    pageable);
         }else{
             ret = jobRunRepository.findAllForOwner(JobOwner.ofOrganization(scope.organizationId(), null), pageable);

@@ -29,6 +29,8 @@ datasources:
     jsonData:
       httpMethod: POST
       prometheusType: Mimir
+      # Mimir runs multi-tenant; browse the platform tenant by default, like Loki
+      httpHeaderName1: X-Scope-OrgID
       # Matches OTEL_METRIC_EXPORT_INTERVAL on the server, so $__rate_interval resolves to a
       # window that actually contains samples.
       timeInterval: "15s"
@@ -36,6 +38,8 @@ datasources:
         - name: trace_id
           datasourceUid: Tempo
           urlDisplayLabel: "View Trace"
+    secureJsonData:
+      httpHeaderValue1: kinotic-system
   - name: Tempo
     type: tempo
     uid: Tempo
@@ -65,3 +69,7 @@ datasources:
             query: "sum(rate(traces_spanmetrics_calls_total{$$__tags}[$$__rate_interval]))"
           - name: "p95 latency"
             query: "histogram_quantile(0.95, sum by (le) (rate(traces_spanmetrics_latency_bucket{$$__tags}[$$__rate_interval])))"
+      # Tempo runs multi-tenant; browse the platform tenant by default, like Loki
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: kinotic-system

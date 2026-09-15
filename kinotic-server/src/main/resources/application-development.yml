@@ -4,6 +4,7 @@ kinotic:
   traceLog:
     excludes:
       - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/heartbeat"
+      - "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/reportWorkloadStatus"
   persistence:
     # A single-node dev cluster cannot assign replicas, and every published EntityDefinition costs
     # numberOfShards * (1 + numberOfReplicas) against the 1000-shard default. 1/0 keeps the cluster
@@ -15,6 +16,15 @@ kinotic:
       webhookSecret: "-"
       appPrivateKey: "-"
   systemApi:
+    # No sites account in development: a published UI is marked ready without being uploaded
+    # or served. To publish to a real subscription instead, run with the `local` profile as well
+    # and set the real values in the git-ignored application-local.yml (see the contributing
+    # guide, "Publishing UIs against Azure")
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      # validated at boot; nothing reads it while the provisioner is disabled
+      sitesStorageEndpoint: "-"
     deployment:
       # A workload runs inside a micro VM, so "localhost" there is the guest, not this machine.
       # Local development runs the BOXLITE provider, whose guests reach the host on the
@@ -29,7 +39,8 @@ kinotic:
         - github.com
         - registry.npmjs.org
   domain:
-    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel),
+    # One-origin tunnel dev: the ngrok tunnel fronts the vite dev server (pnpm dev:tunnel, or
+    # pnpm dev:tunnel:build for a production build over a slow upstream),
     # whose proxy forwards /api, /v1 (WebSocket), /.well-known, and /mcp to 58503. With
     # appBaseUrl on the tunnel origin, apiBaseUrl and oauth.issuerBaseUrl fall back to it,
     # so SPA links, OIDC/OAuth redirect_uris, GitHub callbacks, and the MCP surface all
@@ -54,10 +65,11 @@ kinotic:
       masterKey: 0qWH2oHEp27LLD7iBHEiABqJFf1q5GRYK6OdMc5Wdv4=
   apiGateway:
     cors:
-      # Covers both ways dev runs: localhost (pnpm dev) and an ngrok tunnel (pnpm dev:tunnel).
-      # The tunnel is same-origin but still CORS-checked, because the social login forms POST
-      # and browsers send Origin on a POST navigation.
-      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)"
+      # Covers both ways dev runs: localhost (pnpm dev) and an ngrok tunnel (pnpm dev:tunnel),
+      # and the sites a developer publishes under apps-<environment>.kinotic.ai, which reach
+      # the server through the tunnel. The tunnel is same-origin but still CORS-checked,
+      # because the social login forms POST and browsers send Origin on a POST navigation.
+      allowedOriginPattern: "http:\\/\\/localhost:\\d+|https:\\/\\/[a-zA-Z0-9-]+\\.ngrok(-free)?\\.(app|dev|io)|https:\\/\\/[a-z0-9-]+\\.apps-[a-z0-9-]+\\.kinotic\\.ai"
       allowCredentials: true
   maxNumberOfCoresToUse: 4
   ignite:
@@ -77,6 +89,8 @@ logging:
   level:
     org:
       kinotic: TRACE
+      # Logs every classpath resource it scans at TRACE, which drowns the rest of the log
+      kinotic.core.internal.utils.ClassPathScanningMetadataReaderProvider: DEBUG
 
 spring:
   ai:

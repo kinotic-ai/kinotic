@@ -33,7 +33,7 @@ public class DefaultEventService implements EventService {
     public Future<Void> send(Event<byte[]> event) {
         Future<Void> ret;
         if(event.cri().scheme().equals(EventConstants.SERVICE_DESTINATION_SCHEME)){
-            ret = eventBusService.sendWithAck(event);
+            ret = eventBusService.sendWithAck(event).mapEmpty();
         }else if(event.cri().scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)){
             ret = eventStreamService.send(event);
         }else{

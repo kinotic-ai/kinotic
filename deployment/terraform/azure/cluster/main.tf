@@ -26,6 +26,16 @@ terraform {
       source  = "hashicorp/local"
       version = "~> 2.0"
     }
+    # The sites module: origin authentication at an API version azurerm lacks, and the
+    # wildcard certificate's issuance
+    azapi = {
+      source  = "Azure/azapi"
+      version = "~> 2.0"
+    }
+    acme = {
+      source  = "vancluever/acme"
+      version = "~> 2.0"
+    }
   }
 
   backend "azurerm" {
@@ -34,6 +44,12 @@ terraform {
     container_name       = "tfstate"
     key                  = "cluster/terraform.tfstate"
   }
+}
+
+provider "azapi" {}
+
+provider "acme" {
+  server_url = "https://acme-v02.api.letsencrypt.org/directory"
 }
 
 provider "azurerm" {
@@ -115,16 +131,16 @@ module "networking" {
 module "aks" {
   source = "../modules/aks"
 
-  name_prefix            = local.name_prefix
-  location               = var.location
-  resource_group_name    = azurerm_resource_group.main.name
-  kubernetes_version     = var.kubernetes_version
-  dns_prefix             = "${local.name_prefix}-aks"
+  name_prefix         = local.name_prefix
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  kubernetes_version  = var.kubernetes_version
+  dns_prefix          = "${local.name_prefix}-aks"
 
-  control_plane_identity_id   = module.identity.control_plane_identity_id
-  kubelet_identity_id         = module.identity.kubelet_identity_id
-  kubelet_identity_client_id  = module.identity.kubelet_identity_client_id
-  kubelet_identity_object_id  = module.identity.kubelet_identity_object_id
+  control_plane_identity_id  = module.identity.control_plane_identity_id
+  kubelet_identity_id        = module.identity.kubelet_identity_id
+  kubelet_identity_client_id = module.identity.kubelet_identity_client_id
+  kubelet_identity_object_id = module.identity.kubelet_identity_object_id
 
   aks_subnet_id  = module.networking.aks_subnet_id
   pod_cidr       = var.pod_cidr

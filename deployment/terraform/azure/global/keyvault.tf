@@ -17,14 +17,23 @@ resource "azurerm_key_vault" "platform" {
   tags = local.common_tags
 }
 
-# ── Terraform principal access ────────────────────────────────────────────────
-# Vault uses RBAC, so the terraform caller needs an explicit data-plane role to
+# ── Terraform operator access ─────────────────────────────────────────────────
+# Vault uses RBAC, so whoever runs terraform needs an explicit data-plane role to
 # manage secrets. Without this the apply 403s on the very first secret check.
+# The role is granted to the kinotic-terraform-operators Entra group rather than the
+# calling principal, so applies by different operators do not replace each other's
+# assignment. Membership is managed out-of-band (`az ad group member add ...`).
+
+data "azuread_group" "terraform_operators" {
+  display_name     = "kinotic-terraform-operators"
+  security_enabled = true
+}
 
 resource "azurerm_role_assignment" "platform_kv_tf_secrets_officer" {
   scope                = azurerm_key_vault.platform.id
   role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
+  principal_id         = data.azuread_group.terraform_operators.object_id
+  principal_type       = "Group"
 }
 
 # Wait for RBAC propagation before the provider hits the data plane.

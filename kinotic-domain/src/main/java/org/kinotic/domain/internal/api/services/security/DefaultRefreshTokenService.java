@@ -82,28 +82,34 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
         if (current == null) {
             return Future.failedFuture(new IllegalArgumentException("Unknown refresh token"));
         }
+
         if (current.isRevoked()) {
             // Reuse of an already-rotated token — the lineage is compromised; revoke it entirely.
             log.warn("Refresh token reuse detected for family {}; revoking the whole family", current.getFamilyId());
+
             return revokeFamily(current.getFamilyId())
                     .compose(v -> Future.failedFuture(
                             new IllegalArgumentException("Refresh token reuse detected")));
         }
+
         if (current.getExpiresAt().before(new Date())) {
             return Future.failedFuture(new IllegalArgumentException("Refresh token has expired"));
         }
+
         if (current.getAudience() == null) {
             // mint() stamps every lineage, so this is a corrupted record; failing beats guessing an
             // audience, which would hand the replacement a surface the lineage never covered
             log.error("Refresh token {} in family {} has no audience", current.getId(), current.getFamilyId());
             return Future.failedFuture(new IllegalStateException("Refresh token has no audience"));
         }
+
         return identityRepository.findById(current.getIdentityId())
                 .compose(identity -> {
                     if (identity == null || !identity.isEnabled()) {
                         return Future.failedFuture(
                                 new IllegalArgumentException("Refresh token identity is missing or disabled"));
                     }
+
                     // Mint the replacement before revoking the current token so a failure mid-rotation
                     // never leaves the client without a usable token.
                     return mint(current.getIdentityId(), current.getFamilyId(), current.getAudience(),
@@ -112,6 +118,7 @@ public class DefaultRefreshTokenService implements RefreshTokenService {
                                 current.setRevoked(true)
                                        .setLastUsedAt(new Date())
                                        .setReplacedById(minted.record().getId());
+
                                 return refreshTokenRepository.saveSync(current)
                                         .map(new RefreshTokenRotation(identity, minted.plaintext(),
                                                                       current.getAudience()));

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { basename, dirname, join } from 'node:path'
+import type { HostPort } from '@/internal/api/model/HostPort'
 
 /**
  * Marker carried on every rule this manager writes, so the rules belonging to a workload can
@@ -37,6 +38,16 @@ const PROTECTED_ADDRESSES = [CLOUD_METADATA_ADDRESS, AZURE_WIRESERVER_ADDRESS]
 const CHAIN = 'DOCKER-USER'
 
 /**
+ * Where traffic addressed to the host itself is filtered, which FORWARD never sees. The
+ * node's floor shields its own services from every guest here, so a host port a workload is
+ * granted has to be opened here too.
+ */
+const HOST_CHAIN = 'INPUT'
+
+/** The chains this manager writes to, and reads back its rules from. */
+const CHAINS = [CHAIN, HOST_CHAIN]
+
+/**
  * Prefix of the ipsets the node's resolver fills, one per allowed hostname and shared by every
  * workload allowed that name. The rest of a set's name is a digest of the hostname, since a
  * set name is capped at 31 characters and many hostnames are longer.
@@ -67,6 +78,11 @@ const ADDRESS_OR_CIDR = /^(\d{1,3}\.){3}\d{1,3}(\/([0-9]|[12][0-9]|3[0-2]))?$/
 // holding a letter so that a malformed address is not taken for a name
 const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*(?=[a-z0-9-]*[a-z])[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i
 
+// Resolved once per binary: they do not come or go while the process runs, unlike the marker
+function hasCommand(command: string): boolean {
+    return spawnSync('sh', ['-c', `command -v ${command}`], { encoding: 'utf-8' }).status === 0
+}
+
 /**
  * Grants a workload's micro VM access to the destinations its policy allows, and nothing else.
  *
@@ -85,12 +101,15 @@ const HOSTNAME = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)*(?=[a-z0-
  * Rules are matched back to their workload by an iptables comment, so nothing is persisted
  * here and {@link reconcile} can drop whatever a previous process left behind.
  *
- * Requires iptables and root; hostnames also need ipset and a running dnsmasq reading
- * /etc/dnsmasq.d. {@link enforces} reports whether this node denies by default.
+ * Requires iptables and root; hostnames also need ipset, and dnsmasq listening on the resolver
+ * workloads are given and reading /etc/dnsmasq.d. {@link enforces} reports whether this node
+ * denies by default.
  */
 export class EgressPolicyManager {
 
     private readonly resolver: string | null
+    private readonly hasIptables: boolean = hasCommand('iptables')
+    private readonly hasIpset: boolean = hasCommand('ipset')
 
     /**
      * @param resolver the DNS server workloads are given, permitted on port 53. A property of
@@ -107,7 +126,7 @@ export class EgressPolicyManager {
      * being honoured however carefully it was declared.
      */
     public enforces(): boolean {
-        return existsSync(DEFAULT_DENY_MARKER) && this.hasCommand('iptables')
+        return existsSync(DEFAULT_DENY_MARKER) && this.hasIptables
     }
 
     /**
@@ -126,16 +145,21 @@ export class EgressPolicyManager {
      * recovered workload converges on the policy it should have.
      *
      * Throws for a destination that is neither an address, a CIDR nor a hostname, and for a
-     * hostname on a node without the dnsmasq and ipset that pin one to addresses — a name that
-     * cannot be enforced is refused rather than dropped from the policy.
+     * hostname on a node whose resolver cannot pin one to addresses — a name that cannot be
+     * enforced is refused rather than dropped from the policy.
      *
      * @param workloadId the workload the rules belong to
      * @param address the micro VM's address on the workload bridge
      * @param allowedHosts destinations from the workload's network policy, as IPv4 addresses,
      *        CIDRs, or hostnames. The api-gateway is among them: the server places it there,
      *        because only the server knows where the gateway is.
+     * @param hostPort a port of this host the workload is granted, opened to it alone; null
+     *        when it is granted none
      */
-    public apply(workloadId: string, address: string, allowedHosts: string[]): void {
+    public apply(workloadId: string,
+                 address: string,
+                 allowedHosts: string[],
+                 hostPort: HostPort | null = null): void {
         if (!ADDRESS_OR_CIDR.test(address)) {
             throw new Error(`workload ${workloadId} is at '${address}', which is not an IPv4 address`)
         }
@@ -159,9 +183,10 @@ export class EgressPolicyManager {
             }
         }
         if (names.length > 0 && !this.resolvesNames()) {
-            throw new Error(`Workload ${workloadId} is allowed '${names[0]}' by name, but this node has no `
-                            + 'running dnsmasq and ipset to pin a name to the addresses it resolves to, '
-                            + 'so the name cannot be enforced')
+            throw new Error(`Workload ${workloadId} is allowed '${names[0]}' by name, but this node cannot pin a `
+                            + 'name to what it resolves to: that needs ipset, and dnsmasq listening on the '
+                            + `resolver workloads are given (KINOTIC_WORKLOAD_DNS`
+                            + `${this.resolver !== null ? `=${this.resolver}` : ' is unset'})`)
         }
 
         // Replaced rather than added to, so re-applying cannot accumulate duplicates
@@ -194,6 +219,12 @@ export class EgressPolicyManager {
             const position = this.protectedAddressNamedBy(destination) !== null ? 1 : this.floorPosition()
             this.insert(position, ['-s', address, '-d', destination, ...comment, '-j', 'ACCEPT'])
         }
+        if (hostPort !== null) {
+            // At the top: the floor drops the whole bridge subnet from the host's INPUT, and a
+            // rule below that drop is never reached
+            this.run(['-I', HOST_CHAIN, '1', '-s', address, '-d', hostPort.address,
+                      '-p', 'tcp', '--dport', String(hostPort.port), ...comment, '-j', 'ACCEPT'])
+        }
     }
 
     /**
@@ -201,7 +232,7 @@ export class EgressPolicyManager {
      * the top when the node has no default-deny, since nothing is being overridden there.
      */
     private floorPosition(): number {
-        const rules = this.chain()
+        const rules = this.rules().filter(rule => rule[1] === CHAIN)
         // The default-deny is the node's only rule with a source and no destination that drops;
         // its own metadata drops name a destination, and every per-workload rule accepts
         const index = rules.findIndex(rule => rule.includes('-s') && !rule.includes('-d') && rule.includes('DROP'))
@@ -215,9 +246,8 @@ export class EgressPolicyManager {
     public release(workloadId: string): void {
         // Compared as a whole id rather than a prefix: 'wl-1' is a prefix of 'wl-10', and
         // releasing one workload must not take a sibling's rules with it
-        for (const rule of this.chain().filter(rule => this.workloadIdOf(rule) === workloadId)) {
-            // -S prints rules as the -A that would create them; the same words delete it
-            this.run(['-D', ...rule.slice(1)])
+        for (const rule of this.rules().filter(rule => this.workloadIdOf(rule) === workloadId)) {
+            this.remove(rule)
         }
     }
 
@@ -228,17 +258,14 @@ export class EgressPolicyManager {
      * new workload can inherit a dead one's access.
      */
     public reconcile(activeWorkloadIds: Set<string>): void {
-        const stale = new Set<string>()
-        for (const rule of this.chain()) {
+        const stale = this.rules().filter(rule => {
             const workloadId = this.workloadIdOf(rule)
-            if (workloadId !== null && !activeWorkloadIds.has(workloadId)) {
-                stale.add(workloadId)
-            }
-        }
-        for (const workloadId of stale) {
+            return workloadId !== null && !activeWorkloadIds.has(workloadId)
+        })
+        for (const workloadId of new Set(stale.map(rule => this.workloadIdOf(rule)))) {
             console.log(`Dropping egress rules left by workload ${workloadId}`)
-            this.release(workloadId)
         }
+        stale.forEach(rule => this.remove(rule))
         this.syncResolver([])
     }
 
@@ -251,7 +278,7 @@ export class EgressPolicyManager {
      * same names on every run, restarts dnsmasq once rather than twice per run.
      */
     private syncResolver(names: string[]): void {
-        const matched = new Set(this.chain().flatMap(rule => this.setsMatchedBy(rule)))
+        const matched = new Set(this.rules().flatMap(rule => this.setsMatchedBy(rule)))
         const domains = new Set([
             ...this.configuredDomains().filter(domain => matched.has(this.setOf(domain))),
             ...names,
@@ -323,11 +350,17 @@ export class EgressPolicyManager {
         }
     }
 
-    // Whether hostnames can be pinned to addresses on this node: dnsmasq must be the running
-    // resolver for its answers to be what a guest connects to, and ipset must exist to hold them
+    // Whether hostnames can be pinned to addresses on this node: the sets are filled by the
+    // dnsmasq answering the guests, so it has to be the one listening where they are sent
     private resolvesNames(): boolean {
-        return this.hasCommand('ipset')
-            && spawnSync('systemctl', ['is-active', '--quiet', RESOLVER_SERVICE], { encoding: 'utf-8' }).status === 0
+        return this.resolver !== null && this.hasIpset && this.dnsmasqListensOn(this.resolver)
+    }
+
+    private dnsmasqListensOn(address: string): boolean {
+        // One line per UDP socket bound to port 53, ending in the process holding it
+        const result = spawnSync('ss', ['-Hlnup', 'sport = :53'], { encoding: 'utf-8' })
+        return result.status === 0 && (result.stdout ?? '').split('\n')
+            .some(line => line.includes(`${address}:53 `) && line.includes(`"${RESOLVER_SERVICE}"`))
     }
 
     private setOf(domain: string): string {
@@ -349,13 +382,14 @@ export class EgressPolicyManager {
         return index >= 0 && rule[index + 1] !== undefined ? [rule[index + 1]!] : []
     }
 
-    // Every rule in the chain, in order, as argument arrays
-    private chain(): string[][] {
-        const result = spawnSync('iptables', ['-S', CHAIN], { encoding: 'utf-8' })
+    // Every rule in the chains this manager writes to, in order, as argument arrays; one
+    // listing of the whole table costs one process where one per chain would cost two
+    private rules(): string[][] {
+        const result = spawnSync('iptables', ['-S'], { encoding: 'utf-8' })
         let ret: string[][] = []
         if (result.status === 0) {
             ret = (result.stdout ?? '').split('\n')
-                .filter(line => line.startsWith(`-A ${CHAIN}`))
+                .filter(line => CHAINS.some(chain => line.startsWith(`-A ${chain} `)))
                 .map(line => this.tokenize(line))
         }
         return ret
@@ -363,6 +397,11 @@ export class EgressPolicyManager {
 
     private insert(position: number, rule: string[]): void {
         this.run(['-I', CHAIN, String(position), ...rule])
+    }
+
+    // -S prints rules as the -A that would create them; the same words delete it
+    private remove(rule: string[]): void {
+        this.run(['-D', ...rule.slice(1)])
     }
 
     private workloadIdOf(rule: string[]): string | null {
@@ -382,10 +421,6 @@ export class EgressPolicyManager {
     private protectedAddressNamedBy(destination: string): string | null {
         const named = destination.endsWith('/32') ? destination.slice(0, -3) : destination
         return PROTECTED_ADDRESSES.find(address => address === named) ?? null
-    }
-
-    private hasCommand(command: string): boolean {
-        return spawnSync('sh', ['-c', `command -v ${command}`], { encoding: 'utf-8' }).status === 0
     }
 
     private run(args: string[]): void {

@@ -1,17 +1,24 @@
 package org.kinotic.core.internal.api;
 
+import io.vertx.core.spi.cluster.NodeListener;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.internal.KinoticIgniteClusterManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.test.StepVerifier;
 
 import java.time.Duration;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,6 +32,10 @@ public class EventBusServiceTests {
 
     @Autowired
     private EventBusService eventBusService;
+    @Autowired
+    private Kinotic kinotic;
+    @Autowired
+    private KinoticIgniteClusterManager clusterManager;
 
     /**
      * Pins the monitorListenerStatus contract: the initial status reflects existing listeners, removing
@@ -63,4 +74,51 @@ public class EventBusServiceTests {
             }
         }
     }
+
+    /**
+     * Pins the monitorClusterNodes contract: the set names every cluster member by the id an acknowledgement
+     * carries, so a sender can tell whether the node that acknowledged its event is still among them.
+     */
+    @Test
+    public void testMonitorClusterNodesNamesThisNode() {
+        // the test cluster is a single node, so the membership is exactly this node
+        StepVerifier.create(eventBusService.monitorClusterNodes())
+                    .expectNext(Set.of(kinotic.serverInfo().getNodeId()))
+                    .thenCancel()
+                    .verify(Duration.ofSeconds(15));
+    }
+
+    @Test
+    public void testSendWithAckNamesTheReceivingNode() throws Exception {
+        CRI cri = CRI.create(EventConstants.SERVICE_DESTINATION_SCHEME, "org.kinotic.tests.AckProbe");
+
+        EventConsumer consumer = eventBusService.listen(cri);
+        consumer.handler(event -> {});
+        consumer.completion().toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+        try {
+            String ackingNode = eventBusService.sendWithAck(Event.create(cri, Metadata.create(), new byte[0]))
+                                               .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+            Assertions.assertEquals(kinotic.serverInfo().getNodeId(), ackingNode);
+        } finally {
+            consumer.unregister();
+        }
+    }
+
+    /**
+     * Pins that the cluster manager's single NodeListener slot belongs to the membership flux: installing
+     * another listener, which is what Vert.x HA does, fails instead of silently ending membership updates.
+     */
+    @Test
+    public void testSecondNodeListenerIsRejected() {
+        Assertions.assertThrows(UnsupportedOperationException.class,
+                                () -> clusterManager.nodeListener(new NodeListener() {
+                                    @Override
+                                    public void nodeAdded(String nodeId) {}
+
+                                    @Override
+                                    public void nodeLeft(String nodeId) {}
+                                }));
+    }
+
 }

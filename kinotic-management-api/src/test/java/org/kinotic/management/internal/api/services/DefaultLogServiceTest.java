@@ -1,29 +1,18 @@
 package org.kinotic.management.internal.api.services;
 
-import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.security.Participant;
-import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.management.api.model.LogQuery;
 import org.kinotic.management.api.model.workload.Workload;
-import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
-import org.kinotic.domain.api.model.security.participant.DefaultSystemParticipant;
-import org.kinotic.management.api.services.LokiClient;
 import org.kinotic.management.api.repositories.WorkloadRepository;
+import org.kinotic.management.api.services.LokiClient;
 import reactor.core.publisher.Flux;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -31,37 +20,16 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 /**
  * Covers {@link DefaultLogService} authorization and tenant resolution: organization
  * participants may only read their own organization's workloads, system participants may
- * read any, and platform workloads (no organization) resolve to the system log tenant.
+ * read any, and platform workloads (no organization) resolve to the system tenant.
  */
-class DefaultLogServiceTest {
-
-    private static final Participant ACME_USER =
-            new DefaultOrganizationParticipant("user-1", "acme", Map.of(), List.of("USER"));
-    private static final Participant PLATFORM_OPERATOR =
-            new DefaultSystemParticipant("operator-1", Map.of(), List.of("ADMIN"));
-
-    private static SecurityContext securityContext;
-    private static Vertx vertx;
+class DefaultLogServiceTest extends ParticipantCallTest {
 
     private final RecordingLokiClient lokiClient = new RecordingLokiClient();
     private final DefaultLogService service = new DefaultLogService(
-            lokiClient, securityContext, new FakeWorkloadRepository(
+            lokiClient, tenantAccess, new FakeWorkloadRepository(
                     workload("wl-acme", "acme"),
                     workload("wl-globex", "globex"),
                     workload("wl-platform", null)));
-
-    @BeforeAll
-    static void setup() {
-        // SecurityContext registers its ContextLocal at class load, which must happen
-        // before any Vertx instance is created
-        securityContext = new SecurityContext();
-        vertx = Vertx.vertx();
-    }
-
-    @AfterAll
-    static void tearDown() {
-        vertx.close();
-    }
 
     @Test
     void organizationParticipantReadsItsOwnWorkload() throws Throwable {
@@ -97,7 +65,7 @@ class DefaultLogServiceTest {
     void platformWorkloadsResolveToTheSystemTenant() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.history(query("wl-platform")));
 
-        assertEquals(DefaultLogService.SYSTEM_LOG_TENANT, lokiClient.tenant);
+        assertEquals(TenantAccess.SYSTEM_TENANT, lokiClient.tenant);
     }
 
     @Test
@@ -121,34 +89,6 @@ class DefaultLogServiceTest {
 
     private static Workload workload(String id, String organizationId) {
         return new Workload("test", "alpine:latest").setId(id).setOrganizationId(organizationId);
-    }
-
-    /**
-     * Runs the call on a Vert.x context with the given participant bound, mirroring how the
-     * gateway invokes published services.
-     */
-    private <T> T callAs(Participant participant, Supplier<Future<T>> call) throws Throwable {
-        Promise<T> result = Promise.promise();
-        Context context = vertx.getOrCreateContext();
-        context.runOnContext(unused -> {
-            securityContext.setParticipant(context, participant);
-            try {
-                call.get().onComplete(result);
-            } catch (Throwable error) {
-                result.fail(error);
-            }
-        });
-        // await rethrows a failed future's raw cause, so failureOf sees the unwrapped exception
-        return result.future().await(10, TimeUnit.SECONDS);
-    }
-
-    private <T> Throwable failureOf(Participant participant, Supplier<Future<T>> call) {
-        try {
-            callAs(participant, call);
-            return null;
-        } catch (Throwable error) {
-            return error;
-        }
     }
 
     private static class RecordingLokiClient implements LokiClient {

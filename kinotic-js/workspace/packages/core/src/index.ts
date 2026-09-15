@@ -27,6 +27,7 @@ export * from './api/event/CRI'
 export * from './api/event/DefaultCRI'
 export * from './api/event/EventBus'
 export * from './api/event/IEventBus'
+export * from './api/event/RpcError'
 
 export * from './api/security/BasicCredentialsResolver'
 export * from './api/security/BearerCredentialsResolver'

@@ -1,6 +1,8 @@
 package org.kinotic.grind;
 
+import io.vertx.core.Context;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
@@ -9,11 +11,13 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * In-memory stand-in for the persistent {@link JobRunRepository}, capturing what the engine
  * writes so tests can assert on the ledger. Overrides every method the engine calls, so the
- * Elasticsearch template the superclass would use is never touched.
+ * Elasticsearch template the superclass would use is never touched. Its futures behave like
+ * the template's: completed from a foreign thread and bound to the calling Vert.x context.
  */
 public class InMemoryJobRunRepository extends JobRunRepository {
 
@@ -27,23 +31,23 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     @Override
     public synchronized Future<JobRun> saveRun(JobRun jobRun) {
         savedRuns.put(jobRun.getId(), jobRun);
-        return Future.succeededFuture(jobRun);
+        return completedOffThread(jobRun);
     }
 
     @Override
     public synchronized Future<TaskRecord> saveTask(TaskRecord taskRecord) {
         savedTasks.put(taskRecord.getId(), taskRecord);
-        return Future.succeededFuture(taskRecord);
+        return completedOffThread(taskRecord);
     }
 
     @Override
     public synchronized Future<JobRun> findRun(String jobRunId) {
-        return Future.succeededFuture(savedRuns.get(jobRunId));
+        return completedOffThread(savedRuns.get(jobRunId));
     }
 
     @Override
     public synchronized Future<List<TaskRecord>> findTasks(String jobRunId) {
-        return Future.succeededFuture(tasksOf(jobRunId));
+        return completedOffThread(tasksOf(jobRunId));
     }
 
     /**
@@ -61,6 +65,24 @@ public class InMemoryJobRunRepository extends JobRunRepository {
      */
     public synchronized TaskRecord taskAt(String jobRunId, String taskPath) {
         return savedTasks.get(jobRunId + ":" + taskPath);
+    }
+
+    /**
+     * What the Elasticsearch-backed repository hands back: the client completes on a thread
+     * of its own, and the future is bound to the context current at the call - so its
+     * handlers are dispatched onto that context's task queue, which is the shape the
+     * engine's recording has to work under.
+     */
+    private <T> Future<T> completedOffThread(T value) {
+        CompletableFuture<T> completed = CompletableFuture.supplyAsync(() -> value);
+        Context context = Vertx.currentContext();
+        Future<T> ret;
+        if (context != null) {
+            ret = Future.fromCompletionStage(completed, context);
+        } else {
+            ret = Future.fromCompletionStage(completed);
+        }
+        return ret;
     }
 
 }

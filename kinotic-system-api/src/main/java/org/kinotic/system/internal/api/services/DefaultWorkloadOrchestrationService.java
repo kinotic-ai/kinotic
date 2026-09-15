@@ -1,6 +1,8 @@
 package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
+import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -27,11 +29,25 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     // ever receives the real values
     private static final String REDACTED_SECRET_VALUE = "<redacted>";
 
+    // Placements a deploy may make before it gives up on the room concurrent deploys keep taking
+    private static final int PLACEMENT_ATTEMPTS = 3;
+
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
+
+    // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;
+    // the orchestrator checks the node at once instead of waiting for the heartbeat timeout
+    private <T> Future<T> verifyingNodeOnFailure(String nodeId, Future<T> call) {
+        return call.onFailure(error -> {
+            if (error instanceof RpcMissingServiceException || error instanceof RpcServiceUnavailableException) {
+                nodeOrchestrationService.verifyNode(nodeId)
+                                        .onFailure(verifyError -> log.warn("Could not verify node {} after an unreachable vm-manager", nodeId, verifyError));
+            }
+        });
+    }
 
     @Override
     public Future<Workload> deployWorkload(Workload workload) {
@@ -40,34 +56,23 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
         Validate.notNull(workload.getImage(), "Workload image cannot be null");
 
         Future<VmNode> nodeFuture = workload.getNodeId() == null
-                ? nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
-                : requirePinnedNode(workload);
+                ? placeWorkload(workload, 1)
+                : reserveOnPinnedNode(workload);
         return nodeFuture
                 .compose(node -> {
-                    if (node == null) {
-                        return Future.failedFuture(
-                                new IllegalStateException("No available node with sufficient resources to deploy workload"));
-                    }
-
                     log.info("Selected node {} for workload {}", node.getId(), workload.getName());
 
                     // Assign the workload to the selected node
                     workload.setNodeId(node.getId());
                     workload.setStatus(WorkloadStatus.STARTING);
 
-                    // Persist the workload and update node resource allocation
                     return persistRedacted(workload)
-                            .compose(savedWorkload -> {
-                                node.setAvailableCpus(node.getAvailableCpus() - savedWorkload.getVcpus());
-                                node.setAvailableMemoryMb(node.getAvailableMemoryMb() - savedWorkload.getMemoryMb());
-                                node.setAvailableDiskMb(node.getAvailableDiskMb() - savedWorkload.getDiskSizeMb());
-                                return vmNodeService.saveSync(node)
-                                        .map(savedWorkload);
-                            })
+                            // the reservation is the workload's; a record that cannot be written hands it back
+                            .recover(error -> release(node.getId(), workload).transform(_ -> Future.failedFuture(error)))
                             .compose(savedWorkload ->
                                 // Dispatch to the VmManager on the selected node. For a
                                 // non-detached workload the reply arrives once the run ends.
-                                vmManagerProxy.startWorkload(node.getId(), savedWorkload)
+                                verifyingNodeOnFailure(node.getId(), vmManagerProxy.startWorkload(node.getId(), savedWorkload))
                                         .compose(this::applyStartReply)
                                         .recover(error -> {
                                             log.error("Failed to start workload {} on node {}",
@@ -99,7 +104,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     return workloadService.saveSync(workload);
                 })
                 .compose(workload ->
-                    vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId)
+                    verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId))
                             .compose(this::applyStartReply)
                             .recover(error -> {
                                 log.error("Failed to restart workload {} on node {}",
@@ -126,7 +131,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     return workloadService.saveSync(workload);
                 })
                 .compose(workload ->
-                    vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId)
+                    verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId))
                             .compose(v -> {
                                 workload.setStatus(WorkloadStatus.STOPPED);
                                 return workloadService.saveSync(workload);
@@ -147,24 +152,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     // Dispatch destroy to the VmManager on the workload's node
-                    return vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId)
-                            .compose(v ->
-                                // Free allocated resources on the node
-                                vmNodeService.findById(workload.getNodeId())
-                                        .compose(node -> {
-                                            Future<VmNode> ret;
-                                            if (node != null) {
-                                                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + workload.getVcpus()));
-                                                node.setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + workload.getMemoryMb()));
-                                                node.setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + workload.getDiskSizeMb()));
-                                                ret = vmNodeService.saveSync(node);
-                                            } else {
-                                                ret = Future.succeededFuture(node);
-                                            }
-                                            return ret;
-                                        })
-                            )
-                            .compose(node -> workloadService.deleteById(workloadId));
+                    return verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId))
+                            .compose(v -> release(workload.getNodeId(), workload))
+                            .compose(v -> workloadService.deleteById(workloadId));
                 });
     }
 
@@ -195,11 +185,44 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     /**
-     * Resolves a workload's pre-assigned node, failing unless it is registered, ONLINE, and
-     * has the capacity the workload requires — the same gates placement applies when it
-     * selects a node.
+     * Picks a node with room for the workload and reserves that room on it. The pick reads the index and the
+     * reservation is atomic on the node, so a concurrent deploy that took the same room in between is answered
+     * by a declined reservation, and the pick runs again on the capacity that is left.
      */
-    private Future<VmNode> requirePinnedNode(Workload workload) {
+    private Future<VmNode> placeWorkload(Workload workload, int attempt) {
+        return nodeOrchestrationService.findAvailableNode(workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb())
+                .compose(node -> {
+                    Future<VmNode> ret;
+                    if (node == null) {
+                        ret = Future.failedFuture(
+                                new IllegalStateException("No available node with sufficient resources to deploy workload"));
+                    } else {
+                        ret = reserve(node, workload)
+                                .compose(reserved -> {
+                                    Future<VmNode> placed;
+                                    if (reserved) {
+                                        placed = Future.succeededFuture(node);
+                                    } else if (attempt < PLACEMENT_ATTEMPTS) {
+                                        log.info("Node {} was allocated to another workload while placing {}, picking again",
+                                                 node.getId(), workload.getName());
+                                        placed = placeWorkload(workload, attempt + 1);
+                                    } else {
+                                        placed = Future.failedFuture(new IllegalStateException(
+                                                "No available node with sufficient resources to deploy workload after "
+                                                        + PLACEMENT_ATTEMPTS + " placements"));
+                                    }
+                                    return placed;
+                                });
+                    }
+                    return ret;
+                });
+    }
+
+    /**
+     * Reserves the workload's room on its pre-assigned node, failing unless the node is registered, ONLINE,
+     * and has that room, the same gates placement applies when it picks a node.
+     */
+    private Future<VmNode> reserveOnPinnedNode(Workload workload) {
         String nodeId = workload.getNodeId();
         return vmNodeService.findById(nodeId)
                 .compose(node -> {
@@ -211,16 +234,23 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         ret = Future.failedFuture(new IllegalStateException(
                                 "Node " + nodeId + " is not taking workloads (status: "
                                         + node.getStatus().getType() + ")"));
-                    } else if (node.getAvailableCpus() < workload.getVcpus()
-                            || node.getAvailableMemoryMb() < workload.getMemoryMb()
-                            || node.getAvailableDiskMb() < workload.getDiskSizeMb()) {
-                        ret = Future.failedFuture(new IllegalStateException(
-                                "Node " + nodeId + " lacks capacity for workload " + workload.getName()));
                     } else {
-                        ret = Future.succeededFuture(node);
+                        ret = reserve(node, workload)
+                                .compose(reserved -> reserved
+                                        ? Future.succeededFuture(node)
+                                        : Future.failedFuture(new IllegalStateException(
+                                                "Node " + nodeId + " lacks capacity for workload " + workload.getName())));
                     }
                     return ret;
                 });
+    }
+
+    private Future<Boolean> reserve(VmNode node, Workload workload) {
+        return vmNodeService.reserveSync(node.getId(), workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb());
+    }
+
+    private Future<Void> release(String nodeId, Workload workload) {
+        return vmNodeService.releaseSync(nodeId, workload.getVcpus(), workload.getMemoryMb(), workload.getDiskSizeMb());
     }
 
     /**

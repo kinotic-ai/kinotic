@@ -6,13 +6,14 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.model.security.identity.MachineParticipantIdentity;
 import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 /**
@@ -33,6 +34,7 @@ public class ProjectDeployIdentityService {
 
     private final ParticipantIdentityService identityService;
     private final ProjectDeploymentRepository projectDeploymentRepository;
+    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
 
     /**
      * Issues credentials for the project's sync workload. The returned secret is disclosed only
@@ -42,27 +44,6 @@ public class ProjectDeployIdentityService {
      * @return a future emitting the machine together with its new secret
      */
     public Future<MachineProvisionResult> issueSyncCredentials(Project project) {
-        return issue(project, "deploy sync",
-                     ProjectDeployment::getSyncMachineIdentityId, ProjectDeployment::setSyncMachineIdentityId);
-    }
-
-    /**
-     * Issues credentials for the project's runtime workload, which are only ever issued
-     * alongside the workload itself: a later deployment restarts the microservice process
-     * inside the running VM, and it reconnects with the secret already in its environment.
-     *
-     * @param project the project being deployed
-     * @return a future emitting the machine together with its new secret
-     */
-    public Future<MachineProvisionResult> issueRuntimeCredentials(Project project) {
-        return issue(project, "runtime",
-                     ProjectDeployment::getRuntimeMachineIdentityId, ProjectDeployment::setRuntimeMachineIdentityId);
-    }
-
-    private Future<MachineProvisionResult> issue(Project project,
-                                                 String role,
-                                                 Function<ProjectDeployment, String> readIdentityId,
-                                                 BiConsumer<ProjectDeployment, String> writeIdentityId) {
         Validate.notNull(project, "project is required");
         return projectDeploymentRepository.findById(project.getId(), project.getOrganizationId())
                 .compose(deployment -> {
@@ -71,21 +52,41 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issueFor(project, role, deployment, readIdentityId, writeIdentityId);
+                        ret = issue(project, "deploy sync", deployment.getSyncMachineIdentityId(), identityId -> {
+                            deployment.setSyncMachineIdentityId(identityId).setUpdated(new Date());
+                            return projectDeploymentRepository.save(deployment, deployment.getOrganizationId()).mapEmpty();
+                        });
                     }
                     return ret;
                 });
     }
 
-    private Future<MachineProvisionResult> issueFor(Project project,
-                                                    String role,
-                                                    ProjectDeployment deployment,
-                                                    Function<ProjectDeployment, String> readIdentityId,
-                                                    BiConsumer<ProjectDeployment, String> writeIdentityId) {
-        String identityId = readIdentityId.apply(deployment);
+    /**
+     * Issues credentials for the runtime workload of one of the project's microservices, which
+     * are only ever issued alongside the workload itself: a later deployment restarts the
+     * microservice process inside the running VM, and it reconnects with the secret already in
+     * its environment. Records the machine's id on the given deployment.
+     *
+     * @param project    the project being deployed
+     * @param deployment the microservice's deployment, already persisted
+     * @return a future emitting the machine together with its new secret
+     */
+    public Future<MachineProvisionResult> issueRuntimeCredentials(Project project, MicroserviceDeployment deployment) {
+        Validate.notNull(project, "project is required");
+        Validate.notNull(deployment, "deployment is required");
+        return issue(project, "runtime " + deployment.getName(), deployment.getMachineIdentityId(), identityId -> {
+            deployment.setMachineIdentityId(identityId).setUpdated(new Date());
+            return microserviceDeploymentRepository.save(deployment).mapEmpty();
+        });
+    }
+
+    private Future<MachineProvisionResult> issue(Project project,
+                                                 String role,
+                                                 String identityId,
+                                                 Function<String, Future<Void>> recordIdentity) {
         Future<MachineProvisionResult> ret;
         if (identityId == null) {
-            ret = createAndRecord(project, role, deployment, writeIdentityId);
+            ret = createAndRecord(project, role, recordIdentity);
         } else {
             ret = identityService.findById(identityId)
                     .compose(identity -> {
@@ -97,7 +98,7 @@ public class ProjectDeployIdentityService {
                             // an org member may remove a project's machine from the console; the
                             // recorded id then points at nothing and the deployment provisions
                             // a replacement rather than failing
-                            issued = createAndRecord(project, role, deployment, writeIdentityId);
+                            issued = createAndRecord(project, role, recordIdentity);
                         }
                         return issued;
                     });
@@ -106,23 +107,18 @@ public class ProjectDeployIdentityService {
     }
 
     /**
-     * Records the new machine's id on the deployment before returning it, so a run that fails
-     * after this point leaves an identity the next deployment reuses instead of orphaning it.
+     * Records the new machine's id before returning it, so a run that fails after this point
+     * leaves an identity the next deployment reuses instead of orphaning it.
      */
     private Future<MachineProvisionResult> createAndRecord(Project project,
                                                            String role,
-                                                           ProjectDeployment deployment,
-                                                           BiConsumer<ProjectDeployment, String> writeIdentityId) {
+                                                           Function<String, Future<Void>> recordIdentity) {
         MachineParticipantIdentity machine = new MachineParticipantIdentity();
         machine.setDisplayName(displayName(project, role))
                .setOrganizationId(project.getOrganizationId());
         return identityService.createMachine(machine)
-                .compose(provisioned -> {
-                    writeIdentityId.accept(deployment, provisioned.machine().getId());
-                    deployment.setUpdated(new Date());
-                    return projectDeploymentRepository.save(deployment, deployment.getOrganizationId())
-                                                      .map(provisioned);
-                });
+                .compose(provisioned -> recordIdentity.apply(provisioned.machine().getId())
+                                                      .map(provisioned));
     }
 
     /** Names the machine for the console listing and for the participant metadata in the logs. */

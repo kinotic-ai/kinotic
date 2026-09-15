@@ -55,7 +55,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public <T> Future<Void> bulkSave(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                      T entities,
                                      EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.bulkSave(entities, context));
     }
 
@@ -64,7 +64,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public <T> Future<Void> bulkUpdate(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                        T entities,
                                        EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.bulkUpdate(entities, context));
     }
 
@@ -72,7 +72,7 @@ public class DefaultEntitiesService implements EntitiesService {
     @Override
     public Future<Long> count(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                               EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.count(context));
     }
 
@@ -81,7 +81,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public Future<Long> countByQuery(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                      String query,
                                      EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.countByQuery(query, context));
     }
 
@@ -90,13 +90,13 @@ public class DefaultEntitiesService implements EntitiesService {
     public Future<Void> deleteById(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                    String id,
                                    EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.deleteById(id, context));
     }
 
     @Override
     public Future<Void> deleteById(String entityDefinitionId, TenantSpecificId id, EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.deleteById(id, context));
     }
 
@@ -105,7 +105,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public Future<Void> deleteByQuery(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                       String query,
                                       EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.deleteByQuery(query, context));
     }
 
@@ -115,7 +115,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                        Pageable pageable,
                                        Class<T> type,
                                        EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.findAll(pageable, type, context));
     }
 
@@ -125,13 +125,13 @@ public class DefaultEntitiesService implements EntitiesService {
                                   String id,
                                   Class<T> type,
                                   EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.findById(id, type, context));
     }
 
     @Override
     public <T> Future<T> findById(String entityDefinitionId, TenantSpecificId id, Class<T> type, EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.findById(id, type, context));
     }
 
@@ -141,7 +141,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                          List<String> ids,
                                          Class<T> type,
                                          EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.findByIds(ids, type, context));
     }
 
@@ -150,7 +150,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                                    List<TenantSpecificId> ids,
                                                    Class<T> type,
                                                    EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.findByIdsWithTenant(ids, type, context));
     }
 
@@ -161,7 +161,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                           ParameterHolder parameterHolder,
                                           Class<T> type,
                                           EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.namedQuery(queryName, parameterHolder, type, context));
     }
 
@@ -173,7 +173,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                               Pageable pageable,
                                               Class<T> type,
                                               EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.namedQueryPage(queryName,
                                                                        parameterHolder,
                                                                        pageable,
@@ -184,7 +184,7 @@ public class DefaultEntitiesService implements EntitiesService {
     @Override
     public Future<Void> syncIndex(String entityDefinitionId,
                                   EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.syncIndex(context));
     }
 
@@ -193,7 +193,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public <T> Future<T> save(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                               T entity,
                               EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.save(entity, context));
     }
 
@@ -204,7 +204,7 @@ public class DefaultEntitiesService implements EntitiesService {
                                       Pageable pageable,
                                       Class<T> type,
                                       EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.search(searchText, pageable, type, context));
     }
 
@@ -213,7 +213,7 @@ public class DefaultEntitiesService implements EntitiesService {
     public <T> Future<T> update(@SpanAttribute("entityDefinitionId") String entityDefinitionId,
                                 T entity,
                                 EntityContext context) {
-        return entityServiceCache.get(context.getParticipant().getOrganizationId(), entityDefinitionId)
+        return entityServiceCache.get(context.getOrganizationId(), entityDefinitionId)
                 .compose(entityService -> entityService.update(entity, context));
     }
 

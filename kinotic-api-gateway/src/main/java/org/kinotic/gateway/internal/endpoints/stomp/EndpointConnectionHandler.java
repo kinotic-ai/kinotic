@@ -5,23 +5,20 @@ package org.kinotic.gateway.internal.endpoints.stomp;
 
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.Session;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.exceptions.AuthenticationException;
 import org.kinotic.core.api.exceptions.AuthorizationException;
-import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.SessionKeepAliveMode;
 import org.kinotic.core.api.security.ConnectedInfo;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
 import org.slf4j.Logger;
@@ -44,20 +41,28 @@ public class EndpointConnectionHandler {
     private final SecurityService securityService;
     private final Services services;
     private final Map<String, EventConsumer> subscriptions = new HashMap<>();
+    private final IncomingInvocationTracker incomingInvocationTracker;
+    private final OutgoingInvocationTracker outgoingInvocationTracker;
     private Session session;
+    private long lastSessionFlush = 0;
     private ConnectedInfo connectedInfo;
     private StompAuthorizer stompAuthorizer;
     private SessionKeepAliveMode sessionKeepAliveMode = SessionKeepAliveMode.ACTIVITY;
+    private boolean sessionCreatedHere;
     private long sessionTimer = -1;
 
     public EndpointConnectionHandler(Services services) {
         this.services = services;
         this.securityService = services.securityService;
+        this.incomingInvocationTracker = new IncomingInvocationTracker(services);
+        this.outgoingInvocationTracker = new OutgoingInvocationTracker(services);
     }
 
     public Future<MultiMap> handshake(RoutingContext routingContext) {
         session = routingContext.session();
         this.connectedInfo = connectedInfoFromSession();
+        // a session with no login behind it was created for this upgrade
+        sessionCreatedHere = connectedInfo == null;
 
         // vertx-stomp-lite upgrades the request only after this future completes, and the
         // ServerWebSocket it creates keeps the request's header MultiMap for the life of the
@@ -107,8 +112,7 @@ public class EndpointConnectionHandler {
                         new AuthenticationException("A Vert.x session is required unless session keep alive mode is NONE"));
             } else {
                 // The replyToId is generated server side so the client cannot pick a guessable
-                // or colliding value. It is reused for the life of the session so the client's
-                // reply destination stays stable across reconnects.
+                // or colliding value
                 if (connectedInfo.getReplyToId() == null) {
                     connectedInfo.setReplyToId(UUID.randomUUID().toString());
                 }
@@ -119,6 +123,8 @@ public class EndpointConnectionHandler {
 
                 signalActivity();
                 if (sessionKeepAliveMode == SessionKeepAliveMode.CONNECTION) {
+                    // the upgrade response never reaches the store, so the connection's first write is this one
+                    touchSession();
                     startSessionTouchTimer();
                 }
                 ret = Future.succeededFuture(Map.of(EventConstants.CONNECTED_INFO_HEADER,
@@ -133,13 +139,36 @@ public class EndpointConnectionHandler {
     }
 
     public void removeSession() {
-        if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null) {
+        // a login session the client presented belongs to the browser, not to this connection
+        if (sessionKeepAliveMode == SessionKeepAliveMode.NONE && session != null && sessionCreatedHere) {
+            // The Vert.x SessionHandler deletes a destroyed session from the store when the response
+            // ends. A WebSocket's response ended at the upgrade, so the store entry is removed here,
+            // which keeps a reconnect within the timeout from resuming the session and its replyToId.
+            services.sessionStore.delete(session.id())
+                                 .onFailure(throwable -> log.warn("Session {} could not be removed from the store", session.id(), throwable));
             session.destroy();
         }
     }
 
     public Future<Void> send(Event<byte[]> incomingEvent) {
         signalActivity();
+
+        if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
+            // A reply is a one-way delivery to the requester's reply destination. It is never invoked and
+            // never itself replies, so no ack and no reply-to validation apply. A reply to an invocation this
+            // client is serving is allowed for as long as the invocation is pending; one for an invocation
+            // this connection no longer holds, such as a value crossing a cancel or a reply finished after a
+            // reconnect, is dropped rather than ending the connection.
+            if (outgoingInvocationTracker.replyOwed(incomingEvent)) {
+                outgoingInvocationTracker.replySent(incomingEvent);
+                services.eventBusService.send(incomingEvent);
+            } else if (stompAuthorizer.sendAllowed(incomingEvent.cri())) {
+                services.eventBusService.send(incomingEvent);
+            } else {
+                log.debug("Dropping reply to {} for an invocation this connection does not owe", incomingEvent.cri());
+            }
+            return Future.succeededFuture();
+        }
 
         if (!stompAuthorizer.sendAllowed(incomingEvent.cri())) {
             return Future.failedFuture(new AuthorizationException("Not Authorized to send to " + incomingEvent.cri()));
@@ -154,21 +183,28 @@ public class EndpointConnectionHandler {
                 // make sure reply-to if present is scoped to sender
                 validateReplyToForServiceRequest(incomingEvent);
 
+                String correlationId = incomingEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
+
+                // A control event names a stream by correlation id and is published: the instance producing
+                // the stream is whichever one took the request, and the others ignore an id they do not hold
+                if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
+                    if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
+                        incomingInvocationTracker.requestFinished(correlationId);
+                    }
+                    services.eventBusService.publish(incomingEvent);
+                    return Future.succeededFuture();
+                }
+
+                incomingInvocationTracker.requestSent(incomingEvent);
                 return services.eventBusService
                         .sendWithAck(incomingEvent)
+                        .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
-                            // map errors that occurred because no Service invoker was listening
-                            if (throwable instanceof ReplyException replyException) {
-                                if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                                    // every gateway RPC doubles as a liveness probe, so the directory
-                                    // self-heals from ordinary traffic; with no directory bean nothing happens
-                                    ServiceDirectory serviceDirectory = services.serviceDirectoryProvider.getIfAvailable();
-                                    if (serviceDirectory != null) {
-                                        serviceDirectory.reportUnreachable(incomingEvent.cri().raw());
-                                    }
-                                    throwable = new RpcMissingServiceException(throwable);
-                                }
-                            }
+                            // no reply will come for a request that never left
+                            incomingInvocationTracker.requestFinished(correlationId);
+                            throwable = KinoticUtil.mapSendFailure(throwable,
+                                                                   incomingEvent.cri(),
+                                                                   services.serviceDirectoryProvider.getIfAvailable());
                             try {
                                 Event<byte[]> convertedEvent = services.exceptionConverter.convert(incomingEvent.metadata(), throwable);
                                 // since we don't know the subscription id used by the stomp client for this request we send through the eventbus
@@ -182,7 +218,8 @@ public class EndpointConnectionHandler {
                                 }
                                 return Future.failedFuture(ex);
                             }
-                        });
+                        })
+                        .mapEmpty();
 
             } catch (Exception e) {
                 return Future.failedFuture(e);
@@ -191,13 +228,6 @@ public class EndpointConnectionHandler {
         } else if (incomingEvent.cri().scheme().equals(EventConstants.STREAM_DESTINATION_SCHEME)) {
 
             return services.eventStreamService.send(incomingEvent);
-
-        } else if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
-
-            // A reply is a one-way delivery to the requester's reply destination. It is never
-            // invoked and never itself replies, so no ack and no reply-to validation apply.
-            services.eventBusService.send(incomingEvent);
-            return Future.succeededFuture();
 
         } else {
             return Future.failedFuture(new IllegalArgumentException("CRI scheme not supported"));
@@ -211,6 +241,10 @@ public class EndpointConnectionHandler {
         }
         subscriptions.forEach((s, eventConsumer) -> eventConsumer.unregister());
         subscriptions.clear();
+        incomingInvocationTracker.dispose();
+        outgoingInvocationTracker.dispose();
+        // a NONE session ends with its connection however the connection ended
+        removeSession();
         session = null;
         connectedInfo = null;
         stompAuthorizer = null;
@@ -233,18 +267,15 @@ public class EndpointConnectionHandler {
 
             EventConsumer eventConsumer = services.eventBusService.listen(cri);
             eventConsumer.handler(event -> {
-                        // If reply-to is set we implicitly allow the subscriber to send a single message to the given destination
-                        // Reply-To is known to be scoped to the sender because there is a check when the system receives the event above
-                        // Ex:
-                        // Device -> subscribes to srv://MAC@device.rpc.channel
-                        // JS Client sends message to Device with a reply to of reply://REPLY_TO_ID@continuum.js.EventBus/replyHandler
-                        //
-                        // When the system receives the message in the send() handler above it verifies the reply-to matches the sender reply to id
-                        // Then we temporarily allow the device to send to the clients reply-to.
-                        // Which will allow the message to be routed back to the client.
+                        // An invocation with a correlation id awaits a reply until its terminal one, and its
+                        // replies are allowed for that long. Any other event carrying a reply-to gets one
+                        // send to it: the reply-to was verified against the sender's replyToId when the
+                        // event entered through send(), so it can only name the sender's own destination.
+                        boolean awaitingReply = outgoingInvocationTracker.invocationDelivered(event, subscriptionHandler);
                         String replyTo = event.metadata().get(EventConstants.REPLY_TO_HEADER);
-                        if (replyTo != null) {
-                            // wildcard in the reply to are not allowed since they could bypass security constraints
+                        // a control event is never answered, so its reply-to earns no grant
+                        if (!awaitingReply && replyTo != null && !event.metadata().contains(EventConstants.CONTROL_HEADER)) {
+                            // a wildcard could match destinations beyond the sender's own
                             if (!replyTo.contains("*")) {
                                 stompAuthorizer.addTemporarySendAllowed(replyTo);
                             } else {
@@ -256,7 +287,7 @@ public class EndpointConnectionHandler {
                     })
                     .exceptionHandler(subscriptionHandler::handleError);
 
-            subscriptions.put(subscriptionIdentifier, eventConsumer);
+            replaceSubscription(subscriptionIdentifier, eventConsumer);
 
             log.debug("New Service Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -270,7 +301,7 @@ public class EndpointConnectionHandler {
             eventConsumer.handler(subscriptionHandler::handleEvent)
                          .exceptionHandler(subscriptionHandler::handleError);
 
-            subscriptions.put(subscriptionIdentifier, eventConsumer);
+            replaceSubscription(subscriptionIdentifier, eventConsumer);
 
             log.debug("New Event Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -279,11 +310,7 @@ public class EndpointConnectionHandler {
 
         } else if (cri.scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
 
-            EventConsumer eventConsumer = services.eventBusService.listen(cri);
-            eventConsumer.handler(subscriptionHandler::handleEvent)
-                         .exceptionHandler(subscriptionHandler::handleError);
-
-            subscriptions.put(subscriptionIdentifier, eventConsumer);
+            incomingInvocationTracker.subscribeReplies(cri, subscriptionIdentifier, subscriptionHandler);
 
             log.debug("New Reply Subscription cri: {} id: {} for login: {}",
                       cri.raw(),
@@ -300,11 +327,21 @@ public class EndpointConnectionHandler {
 
         signalActivity();
 
-        EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
-        if (consumer != null) {
-            consumer.unregister();
-        } else {
-            log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
+        if (!incomingInvocationTracker.unsubscribeReplies(subscriptionIdentifier)) {
+            EventConsumer consumer = subscriptions.remove(subscriptionIdentifier);
+            if (consumer != null) {
+                consumer.unregister();
+            } else {
+                log.debug("No subscription exists for subscriptionIdentifier: {}", subscriptionIdentifier);
+            }
+        }
+    }
+
+    // a subscription id the client reuses ends the consumer it named before
+    private void replaceSubscription(String subscriptionIdentifier, EventConsumer eventConsumer) {
+        EventConsumer previous = subscriptions.put(subscriptionIdentifier, eventConsumer);
+        if (previous != null) {
+            previous.unregister();
         }
     }
 
@@ -333,8 +370,43 @@ public class EndpointConnectionHandler {
                 log.error("Session is null while sessionKeepAliveMode is ACTIVITY");
                 throw new IllegalStateException("Internal server error");
             }
-            session.setAccessed();
+            touchSession();
         }
+    }
+
+    // SessionHandler flushes a session to the store when a response ends, which on a WebSocket happened
+    // once, at the upgrade. Every touch after that has to reach the store itself or the clustered entry
+    // expires under the open connection. The write is rate limited to a fraction of the timeout, which
+    // bounds how far the stored expiry lags a busy connection.
+    private void touchSession() {
+        session.setAccessed();
+        long now = System.currentTimeMillis();
+        if (now - lastSessionFlush >= services.apiGatewayProperties.getSessionTimeout() / 4) {
+            lastSessionFlush = now;
+            flushSession(session);
+        }
+    }
+
+    // The stored copy is refreshed rather than the local one: it carries the version the store expects and
+    // whatever a request on the same cookie has put since. A session the store no longer has, deleted by a
+    // logout or expired, is never written back, because a put with no stored entry would re-create it.
+    private void flushSession(Session flushed) {
+        services.sessionStore.get(flushed.id()).onComplete(ar -> {
+            if (session != flushed) {
+                return;
+            }
+            if (ar.failed()) {
+                log.warn("Session {} could not be read from the store", flushed.id(), ar.cause());
+            } else if (ar.result() == null) {
+                log.debug("Session {} is no longer in the store and is not refreshed", flushed.id());
+            } else {
+                Session stored = ar.result();
+                session = stored;
+                stored.setAccessed();
+                services.sessionStore.put(stored)
+                                     .onFailure(throwable -> log.warn("Session {} could not be refreshed in the store", stored.id(), throwable));
+            }
+        });
     }
 
     private void startSessionTouchTimer() {
@@ -342,13 +414,14 @@ public class EndpointConnectionHandler {
             log.error("Session-touch timer already started");
             throw new IllegalStateException("Internal server error");
         }
-        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 2;
+        // a quarter of the timeout, so a flush that fails is retried before the stored copy expires
+        long sessionUpdateInterval = services.apiGatewayProperties.getSessionTimeout() / 4;
         sessionTimer = services.vertx.setPeriodic(sessionUpdateInterval, event -> {
             if (session == null) {
                 log.error("Session is null while session-touch timer is active");
                 throw new IllegalStateException("Internal server error");
             }
-            session.setAccessed();
+            touchSession();
         });
     }
 

@@ -2,7 +2,9 @@ import {EventConstants, type IEvent} from '@/api/event/IEventBus'
 import {Util} from './Util'
 
 /**
- * Return value conversion utilities for service responses.
+ * Converts one value a service method produced into the reply that carries it: the single result of a
+ * method, or one value of the stream it returned. The reply is unmarked; the supervisor marks a single
+ * result complete and routes a stream value.
  *
  * @author Navid Mitchell 🤝Grok
  * @since 3/25/2025

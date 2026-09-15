@@ -28,19 +28,9 @@ import { computed } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import Tag from 'primevue/tag'
 
-import { isDark } from '@kinotic-ai/frontend-common'
+import { accentColor, isDark, type ChartAccent } from '@kinotic-ai/frontend-common'
 
-/** The tile accents: theme ramp steps for the icon, the same hue at low alpha for the chip. */
-const ACCENTS = {
-  sky: { light: '#0EA5E9', dark: '#38BDF8' },
-  green: { light: '#16A34A', dark: '#4ADE80' },
-  red: { light: '#DC2626', dark: '#F87171' },
-  violet: { light: '#7C3AED', dark: '#A78BFA' },
-  amber: { light: '#D97706', dark: '#FBBF24' },
-  teal: { light: '#0D9488', dark: '#2DD4BF' }
-} as const
-
-export type StatTileAccent = keyof typeof ACCENTS
+export type StatTileAccent = ChartAccent
 
 /**
  * One dashboard statistic: a labeled value with a caption explaining what it measures.
@@ -65,9 +55,9 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+// The accent for the icon, and the same hue at low alpha for the chip behind it
 const accentStyle = computed(() => {
-  const accent = ACCENTS[props.accent ?? 'sky']
-  const color = isDark.value ? accent.dark : accent.light
+  const color = accentColor(props.accent ?? 'sky', isDark.value)
   return { icon: color, tint: withAlpha(color, isDark.value ? 0.16 : 0.12) }
 })
 </script>

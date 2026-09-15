@@ -117,9 +117,9 @@ const props = defineProps<{
 
 const headers: CrudHeader[] = [
   { field: 'displayName', header: 'Name', sortable: false, width: '26%' },
-  { field: 'clientId', header: 'Client ID', sortable: false, width: '34%' },
+  { field: 'clientId', header: 'Client ID', sortable: false, width: '34%', optional: true },
   { field: 'status', header: 'Status', sortable: false, width: '16%' },
-  { field: 'created', header: 'Created', sortable: false, width: '24%' }
+  { field: 'created', header: 'Created', sortable: false, width: '24%', optional: true }
 ]
 
 const createDialogVisible = ref(false)
@@ -134,7 +134,7 @@ const toast = useToast()
 const confirm = useConfirm()
 
 // no server-side machine search; an org has few machines, so filtering the page suffices
-const { crudTable, tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+const {tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
   filteredPageLoader(
     pageable => Kinotic.machines.findMachines(props.applicationId, pageable),
     toRow,

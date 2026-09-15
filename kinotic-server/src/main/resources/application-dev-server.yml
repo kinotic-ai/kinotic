@@ -1,0 +1,62 @@
+# The development server: kinotic-server as a container on one Proxmox host beside three
+# Elasticsearch nodes and the observability stack (deployment/terraform/proxmox), with Front
+# Door, the sites storage account, email, and a Key Vault in Azure
+# (deployment/terraform/azure/dev-server). Activated as `production,dev-server`. Holds what is
+# fixed for this shape of deployment; everything that differs per server — hostnames,
+# endpoints, addresses — arrives through the environment the terraform root composes, and
+# the credentials through the file imported below.
+spring:
+  config:
+    # The secret-storage master key and the GitHub App's key and webhook secret, placed on
+    # the host by sync-secrets.sh and mounted read-only
+    import: optional:file:/etc/kinotic/secrets.yml
+kinotic:
+  persistence:
+    # Three master-eligible data nodes, one physical disk each: one replica survives a disk,
+    # and one shard per index keeps a published EntityDefinition cheap against the
+    # 1000-shard-per-node ceiling. The production defaults (3 and 2) assume a larger cluster.
+    numberOfShards: 1
+    numberOfReplicas: 1
+  apiGateway:
+    # The portal and the system console are served by Front Door from the sites account, so
+    # the server exposes the API port alone
+    webServer:
+      enabled: false
+    ssl:
+      # certbot's certificate for the API's hostname, mounted from the host; Vert.x terminates
+      # TLS and there is no reverse proxy
+      enabled: true
+      certPath: /etc/kinotic/certs/fullchain.pem
+      keyPath: /etc/kinotic/certs/privkey.pem
+    cors:
+      # The portal, the system console, and the UIs published under the sites domain
+      allowedOriginPattern: "https:\\/\\/${DEV_SERVER_PORTAL_HOSTNAME}|https:\\/\\/${DEV_SERVER_CONSOLE_HOSTNAME}|https:\\/\\/[a-z0-9-]+\\.${KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN}"
+      allowCredentials: true
+  platformSecrets:
+    # Generated once when the server is built (generate-secrets.sh in deployment/terraform/proxmox),
+    # in the shape deployment/kind/terraform/platform-secrets.tf produces: an activeKeyId and a
+    # keys list, so a key can be added to the set at migration time
+    jwtSigningKeysPath: /etc/kinotic/platform-secrets/jwt-signing-keys
+  domain:
+    secretStorage:
+      # The in-memory default loses every stored secret on restart; the Key Vault the
+      # dev-server terraform root creates keeps them, and keeps them in Azure for migration.
+      # The master key SecretNameDeriver derives storage names with comes from secrets.yml.
+      backend: AZURE
+  systemApi:
+    uiDeployment:
+      disableProvisioner: false
+    deployment:
+      # serverHost and serverPort arrive through the environment: the address is the
+      # server's own, and the port is whatever the router forwards
+      serverUseSsl: true
+      # Destinations beyond the gateway a sync workload may reach, as CIDRs: a CLOUD_HYPERVISOR
+      # node's egress rules match addresses, so the hostnames the BOXLITE development profile
+      # uses are rejected here. GitHub's ranges from https://api.github.com/meta (git and web);
+      # the npm registry sits behind Cloudflare. Widen when a fetch is refused, never to 0.0.0.0/0.
+      syncAllowedHosts:
+        - 140.82.112.0/20
+        - 143.55.64.0/20
+        - 185.199.108.0/22
+        - 192.30.252.0/22
+        - 104.16.0.0/12

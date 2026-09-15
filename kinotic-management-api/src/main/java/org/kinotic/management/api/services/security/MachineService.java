@@ -40,7 +40,7 @@ public interface MachineService {
     /**
      * Lists the machines the deployment of one of the caller's organization's projects has
      * provisioned for its workloads, in the order {@link ProjectDeployment} records them —
-     * the sync workload's, then the runtime workload's. They are created and their secrets
+     * the sync workload's, then one per microservice in name order. They are created and their secrets
      * reissued by the deployment itself; this listing is how the organization's members see
      * that they exist. A project that has never deployed has none.
      *

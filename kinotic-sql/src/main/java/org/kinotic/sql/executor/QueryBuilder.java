@@ -67,28 +67,34 @@ public class QueryBuilder {
                 if (value._kind() == FieldValue.Kind.Boolean) {
                     throw new IllegalArgumentException("Boolean values can only be compared with == and != operators");
                 }
+
                 if (value._kind() == FieldValue.Kind.Double || value._kind() == FieldValue.Kind.Long) {
                     double numericValue = value._kind() == FieldValue.Kind.Double ? 
                         value.doubleValue() : value.longValue();
+
                     return Query.of(q -> q.range(r -> r.number(n -> {
                         n.field(field);
+
                         switch (operator) {
                             case "<": n.lt(numericValue); break;
                             case ">": n.gt(numericValue); break;
                             case "<=": n.lte(numericValue); break;
                             case ">=": n.gte(numericValue); break;
                         }
+
                         return n;
                     })));
                 } else {
                     return Query.of(q -> q.range(r -> r.term(t -> {
                         t.field(field);
+
                         switch (operator) {
                             case "<": t.lt(value.stringValue()); break;
                             case ">": t.gt(value.stringValue()); break;
                             case "<=": t.lte(value.stringValue()); break;
                             case ">=": t.gte(value.stringValue()); break;
                         }
+
                         return t;
                     })));
                 }

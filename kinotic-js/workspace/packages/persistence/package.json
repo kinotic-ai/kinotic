@@ -37,7 +37,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "peerDependencies": {
-    "@kinotic-ai/core": ">=5.0.0-beta.9"
+    "@kinotic-ai/core": "workspace:^"
   },
   "dependencies": {
     "@kinotic-ai/idl": "workspace:*",

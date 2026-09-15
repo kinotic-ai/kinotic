@@ -35,6 +35,7 @@ public class DataInsightsServiceImpl implements DataInsightsService {
     @Override
     public Flux<InsightProgress> processRequest(InsightRequest request, Participant participant) {
         log.info("Processing data insights request: '{}'", request.getQuery());
+
         // FIXME: Needs spring ai 2 with spring boot 4 support
         return Flux.just(InsightProgress.builder()
                                          .type(InsightProgress.ProgressType.ERROR)

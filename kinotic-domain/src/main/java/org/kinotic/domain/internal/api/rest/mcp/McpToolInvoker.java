@@ -2,8 +2,6 @@ package org.kinotic.domain.internal.api.rest.mcp;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
-import io.vertx.core.eventbus.ReplyException;
-import io.vertx.core.eventbus.ReplyFailure;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -11,7 +9,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.directory.McpToolDefinition;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.*;
+import org.kinotic.core.api.exceptions.RpcMissingServiceException;
+import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.security.Participant;
+import org.kinotic.core.api.service.RequestLivenessWatcher;
+import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.domain.api.model.security.participant.ParticipantScope;
 import org.kinotic.domain.api.model.security.participant.ScopedParticipant;
 import org.kinotic.domain.api.model.security.ZoneRules;
@@ -41,6 +43,7 @@ public class McpToolInvoker {
                                             UUID.randomUUID().toString(),
                                             "org.kinotic.gateway.McpToolInvoker");
     private final ServiceDirectory serviceDirectory;
+    private final RequestLivenessWatcher requestLivenessWatcher;
     private volatile boolean ready = false;
     private EventConsumer replyConsumer;
 
@@ -51,6 +54,9 @@ public class McpToolInvoker {
 
             String correlationId = replyEvent.metadata().get(EventConstants.CORRELATION_ID_HEADER);
             Promise<McpCallToolResult> pending = correlationId != null ? pendingCalls.remove(correlationId) : null;
+            if (correlationId != null) {
+                requestLivenessWatcher.unwatch(correlationId);
+            }
             if (pending == null) {
                 // a reply whose pending entry is gone (its send already failed) has no caller to complete
                 log.debug("Discarding MCP reply with correlation id {}", correlationId);
@@ -122,18 +128,36 @@ public class McpToolInvoker {
                                            jsonMapper.writeValueAsBytes(arguments),
                                            participant);
         eventBusService.sendWithAck(event)
-                       .onFailure(throwable -> {
-                           // a failed send never gets a reply, so its pending entry is removed here
-                           pendingCalls.remove(correlationId);
-                           if (throwable instanceof ReplyException replyException
-                                   && replyException.failureType() == ReplyFailure.NO_HANDLERS) {
-                               // fire-and-forget: reportUnreachable debounces and only writes verified state
-                               serviceDirectory.reportUnreachable(tool.getCri())
-                                               .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}", tool.getCri(), reportFailure));
-                               ret.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
+                       .onComplete(ar -> {
+                           if (ar.failed()) {
+                               // only the party that removes the entry completes it: a reply can land before an
+                               // acknowledgement times out
+                               Promise<McpCallToolResult> unsent = pendingCalls.remove(correlationId);
+                               if (unsent != null) {
+                                   // mapSendFailure also reports unreachability to the directory on NO_HANDLERS
+                                   Throwable mapped = KinoticUtil.mapSendFailure(ar.cause(), requestCri, serviceDirectory);
+                                   if (mapped instanceof RpcMissingServiceException) {
+                                       unsent.complete(McpCallToolResult.error("Service is offline: " + tool.getCri()));
+                                   } else if (mapped instanceof RpcServiceUnavailableException) {
+                                       unsent.complete(McpCallToolResult.error("Service became unavailable: " + tool.getCri()));
+                                   } else {
+                                       log.warn("MCP tool '{}' dispatch to {} failed", tool.getName(), tool.getCri(), ar.cause());
+                                       unsent.complete(McpCallToolResult.error(ar.cause().getMessage()));
+                                   }
+                               }
                            } else {
-                               log.warn("MCP tool '{}' dispatch to {} failed", tool.getName(), tool.getCri(), throwable);
-                               ret.complete(McpCallToolResult.error(throwable.getMessage()));
+                               // computeIfPresent serializes with the reply handler's remove, so a reply that
+                               // lands before the acknowledgement is processed leaves nothing watched
+                               pendingCalls.computeIfPresent(correlationId, (_, pending) -> {
+                                   requestLivenessWatcher.watch(correlationId, ar.result(), () -> {
+                                       // only the party that removes the entry completes it
+                                       Promise<McpCallToolResult> lost = pendingCalls.remove(correlationId);
+                                       if (lost != null) {
+                                           lost.complete(McpCallToolResult.error("Service became unavailable: " + tool.getCri()));
+                                       }
+                                   });
+                                   return pending;
+                               });
                            }
                        });
 

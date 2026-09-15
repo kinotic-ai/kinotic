@@ -43,6 +43,7 @@ export class Initialize extends Command {
 
     static flags = {
         application:  Flags.string({char: 'a', description: 'The name of the application you want to use', required: false}),
+        project:      Flags.string({char: 'p', description: 'The id of the project in Kinotic OS, defaults to <application>-main', required: false}),
         entities:   Flags.string({char: 'e', description: 'Path to the directory containing the Entity definitions', required: false}),
         repository: Flags.string({char: 'r', description: 'Path to the directory to write generated Repository classes', required: false}),
         mirror:     Flags.boolean({char: 'm', description: 'Mirror the entity folder structure under the repository path', default: true}),
@@ -74,6 +75,15 @@ export class Initialize extends Command {
             if (validation !== true) {
                 this.error(validation)
             }
+        }
+
+        let project = flags.project
+        if (!project) {
+            project = await input({
+                message: 'What is the id of the project in Kinotic OS?',
+                default: `${application}-main`,
+                validate: (input: string) => input.trim() !== '' || 'Project id is required'
+            })
         }
 
         let entitiesPath = flags.entities
@@ -109,6 +119,7 @@ export class Initialize extends Command {
         const configObj = new KinoticProjectConfig()
         // Don't set name - it will be loaded from package.json
         configObj.applicationId = application
+        configObj.projectId = project
         configObj.entitiesPaths = [{
             path: entitiesPath,
             repositoryPath: repositoryPath,

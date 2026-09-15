@@ -3,7 +3,7 @@
     v-model:visible="visible"
     modal
     :header="`Logging — ${nodeId}`"
-    :style="{ width: '34rem', maxWidth: '95vw' }"
+    :style="{ width: '52rem', maxWidth: '95vw' }"
     @show="opened"
   >
     <p class="mb-4 text-sm text-muted-color">
@@ -30,8 +30,7 @@
 
     <h3 class="mb-2 text-sm font-semibold">Trace log filters</h3>
     <p class="mb-3 text-xs text-muted-color">
-      CRI patterns deciding what TRACE prints, so a chatty service does not bury the log. One
-      pattern per line, matched against the whole CRI — <code>*</code> within a segment,
+      CRI patterns deciding what TRACE prints. One pattern per line, matched against the whole CRI — <code>*</code> within a segment,
       <code>**</code> across segments. An include wins over an exclude, so excluding
       <code>**</code> and listing a few includes narrows TRACE to those services alone.
     </p>

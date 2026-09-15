@@ -26,9 +26,10 @@ public interface EventBusService {
      * This is a special form of send that requires the receiver to acknowledge receipt of the message.
      * An exception will be signaled if no acknowledgement is sent.
      * @param event to send
-     * @return a {@link Future} that completes when the acknowledgement is received or fails on error
+     * @return a {@link Future} that completes with the id of the node whose consumer received the event,
+     *         or fails on error
      */
-    Future<Void> sendWithAck(Event<byte[]> event);
+    Future<String> sendWithAck(Event<byte[]> event);
 
     /**
      * Publishes an {@link Event} to every consumer registered on the {@link CRI#baseResource()} of the
@@ -62,6 +63,14 @@ public interface EventBusService {
      * @return a {@link Flux} that emits the current status on subscribe and every status transition after that
      */
     Flux<ListenerStatus> monitorListenerStatus(CRI cri);
+
+    /**
+     * Monitors the membership of the cluster. Node ids are the ones {@link #sendWithAck(Event)} completes
+     * with, so a sender can tell whether the node that took its event is still part of the cluster.
+     * @return a {@link Flux} that emits the current set of node ids on subscribe and the resulting set
+     *         every time a node joins or leaves
+     */
+    Flux<Set<String>> monitorClusterNodes();
 
     /**
      * Monitors listener registration events across all service ({@code srv://}) addresses. A

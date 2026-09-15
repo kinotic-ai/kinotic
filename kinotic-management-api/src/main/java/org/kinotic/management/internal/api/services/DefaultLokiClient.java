@@ -5,11 +5,10 @@ import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketConnectOptions;
-import io.vertx.ext.web.client.WebClient;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.management.api.config.LokiProperties;
+import org.kinotic.management.api.config.ManagementApiProperties;
 import org.kinotic.management.api.services.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -17,40 +16,36 @@ import reactor.core.publisher.Flux;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 
 /**
- * Vert.x-backed {@link LokiClient}: a {@link WebClient} for {@code query_range} and a {@link WebSocketClient}
- * for the {@code tail} stream.
+ * Vert.x-backed {@link LokiClient}: the tenant-scoped {@code WebClient} for {@code query_range} and a
+ * {@link WebSocketClient} for the {@code tail} stream.
  */
 @Slf4j
 @Component
-public class DefaultLokiClient implements LokiClient {
+public class DefaultLokiClient extends AbstractTenantScopedClient implements LokiClient {
 
-    private static final String ORG_ID_HEADER = "X-Scope-OrgID";
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
 
-    private final Vertx vertx;
-    private final LokiProperties lokiProperties;
-    private WebClient webClient;
+    private final String lokiUrl;
     private WebSocketClient webSocketClient;
 
-    public DefaultLokiClient(Vertx vertx, LokiProperties lokiProperties) {
-        this.vertx = vertx;
-        this.lokiProperties = lokiProperties;
+    public DefaultLokiClient(Vertx vertx, ManagementApiProperties properties) {
+        super(vertx);
+        this.lokiUrl = properties.getLokiUrl();
     }
 
     @PostConstruct
     public void start() {
-        this.webClient = WebClient.create(vertx);
         this.webSocketClient = vertx.createWebSocketClient();
     }
 
+    @Override
     @PreDestroy
     public void stop() {
-        if (webClient != null) {
-            webClient.close();
-        }
+        super.stop();
         if (webSocketClient != null) {
             webSocketClient.close();
         }
@@ -58,17 +53,13 @@ public class DefaultLokiClient implements LokiClient {
 
     @Override
     public Future<Buffer> queryRange(String tenant, String query, long start, long end, int limit) {
-        return webClient.getAbs(lokiProperties.getUrl() + QUERY_RANGE_PATH)
-                        .addQueryParam("query", query)
-                        .addQueryParam("start", Long.toString(msToNs(start)))
-                        .addQueryParam("end", Long.toString(msToNs(end)))
-                        .addQueryParam("limit", Integer.toString(limit))
-                        .putHeader(ORG_ID_HEADER, tenant)
-                        .send()
-                        .compose(resp -> resp.statusCode() == 200
-                                ? Future.succeededFuture(resp.body())
-                                : Future.failedFuture("Loki query_range failed: HTTP " + resp.statusCode()
-                                        + (resp.bodyAsString() != null ? " — " + resp.bodyAsString() : "")));
+        return get(lokiUrl + QUERY_RANGE_PATH,
+                   Map.of("query", query,
+                          "start", Long.toString(msToNs(start)),
+                          "end", Long.toString(msToNs(end)),
+                          "limit", Integer.toString(limit)),
+                   tenant,
+                   "Loki query_range");
     }
 
     @Override
@@ -89,7 +80,7 @@ public class DefaultLokiClient implements LokiClient {
     }
 
     private WebSocketConnectOptions tailOptions(String tenant, String query) {
-        URI base = URI.create(lokiProperties.getUrl());
+        URI base = URI.create(lokiUrl);
         boolean ssl = "https".equalsIgnoreCase(base.getScheme());
         int port = base.getPort() != -1 ? base.getPort() : (ssl ? 443 : 80);
         return new WebSocketConnectOptions()

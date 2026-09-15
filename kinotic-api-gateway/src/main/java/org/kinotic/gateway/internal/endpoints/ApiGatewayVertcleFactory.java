@@ -1,7 +1,6 @@
 package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.stomp.lite.StompServerHandlerFactory;
@@ -14,6 +13,7 @@ import io.vertx.ext.web.handler.SessionHandler;
 import io.vertx.ext.web.healthchecks.HealthCheckHandler;
 import io.vertx.ext.web.sstore.SessionStore;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.gateway.api.utils.ApiGatewayUtil;
 import org.kinotic.domain.api.rest.SuppliesGatewayRoutes;
 import org.kinotic.gateway.api.config.KinoticApiGatewayProperties;
@@ -58,11 +58,14 @@ public class ApiGatewayVertcleFactory {
         // request, which the container image's /workspace does not grant the runtime user.
         router.route("/api/*").handler(BodyHandler.create(false).setBodyLimit(16384));
 
-        // Add session handler to all api paths
+        // Add session handler to all api paths. The __Host- cookie name needs Secure, the default
+        // path / and no Domain, all of which hold here, and keeps a published UI on a sibling host
+        // of the sites domain from planting a session cookie the api host would read.
         SessionHandler sessionHandler = SessionHandler.create(sessionStore)
+                      .setSessionCookieName(EventConstants.SESSION_COOKIE_NAME)
                       .setCookieHttpOnlyFlag(true)
                       .setCookieSecureFlag(true)
-                      .setCookieSameSite(CookieSameSite.LAX)
+                      .setCookieSameSite(properties.getApiGateway().getSessionCookieSameSite())
                       .setSessionTimeout(properties.getApiGateway().getSessionTimeout())
                       .setLazySession(true);
 
@@ -76,6 +79,8 @@ public class ApiGatewayVertcleFactory {
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
         router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
 
+        // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
+        // too, so the negotiated interval is 30 s and a silent connection closes after two of them
         StompServerOptions stompServerOptions = new StompServerOptions()
                 .setWebsocketPath(STOMP_WEBSOCKET_PATH)
                 .setDebugEnabled(properties.isDebug())

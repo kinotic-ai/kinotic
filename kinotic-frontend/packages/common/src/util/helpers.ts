@@ -48,9 +48,19 @@ export function showErrorToast(toast: ToastServiceMethods,
     toast.add({
         severity: 'error',
         summary,
-        detail: err instanceof Error && err.message ? err.message : (opts.fallback ?? 'An unexpected error occurred'),
+        detail: errorMessage(err, opts.fallback ?? 'An unexpected error occurred'),
         life: opts.life ?? 5000
     })
+}
+
+/** The message of a caught error, or the fallback when it carries none. */
+export function errorMessage(err: unknown, fallback: string): string {
+    return err instanceof Error && err.message ? err.message : fallback
+}
+
+/** Parses a service reply that carries a backend's raw JSON bytes. */
+export function parseJsonBytes(bytes: Uint8Array): any {
+    return JSON.parse(new TextDecoder().decode(bytes))
 }
 
 /**
@@ -65,6 +75,11 @@ export function avatarInitials(displayName?: string | null, email?: string | nul
                  .slice(0, 2)
                  .map(part => part.charAt(0).toUpperCase())
                  .join('')
+}
+
+/** A commit sha abbreviated to the 12 characters the console shows for one. */
+export function shortSha(sha: string): string {
+    return sha.slice(0, 12)
 }
 
 /** Renders a megabyte quantity as GB once it reaches one, e.g. 512 MB, 1.5 GB. */

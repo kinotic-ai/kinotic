@@ -74,7 +74,7 @@ Both Java and TypeScript modules follow the same layout convention. The rule is:
 - `api/` — Public interfaces, types, and DTOs used by other modules or nodes (shared/exported)
 - `internal/` — Everything private to this module (not shared/exported)
   - `internal/api/` — Implementations of public `api/` interfaces (`@Publish`, `@Component`, etc.)
-  - `internal/model/` — DTOs and value objects only used within this module
+  - `internal/api/model/` — DTOs and value objects only used within this module
 
 The `internal/api/` structure mirrors `api/` for implementations. Example: `api/services/ITodoService` -> `internal/api/services/DefaultTodoService`. 
 
@@ -92,7 +92,7 @@ Don't create a new package or folder to hold a single file. Single-file folders 
 
 Javadoc — block comments on classes, methods, fields, anything else — describes the contract from the caller's perspective: what something is for, what guarantees it makes, what the inputs and outputs mean. It should not document implementation details — how the class persists, which helper it delegates to, what bypass mechanism it uses internally — that's noise for someone using the API and rots when the implementation changes. Also they should not document what something does not do. Only what it does do. (Unless it is a security concern, Does not validate user) 
 
-Inline comments inside method bodies are different: they're for implementation details that aren't obvious from reading the code, and only when they aren't. A subtle invariant, the reason for an unusual ordering, a workaround for a specific bug, a non-obvious choice between two valid approaches — those earn an inline comment. Self-evident code does not. If you find yourself writing a comment that restates what the next line does, delete it.
+Inline comments inside method bodies are different: they're for implementation details that aren't obvious from reading the code, and only when they aren't. A subtle invariant, the reason for an unusual ordering, a workaround for a specific bug, a non-obvious choice between two valid approaches — those earn an inline comment. Self-evident code does not. If you find yourself writing a comment that restates what the next line does, delete it. Like Javadoc, an inline comment says what the code does, never what it does not do.
 
 The split is about audience, not formatting. Javadoc is for **consumers** of the API; inline is for **maintainers** of the body. Before writing a comment, ask which one needs it. The rationale for a defensive check, a workaround, or a tricky ordering belongs inline next to the code that does it — never in the Javadoc, even if it explains why the method behaves the way it does. The caller doesn't care that an org-mismatch returns null because of an ES shard-hashing edge case; they care that it returns null when there's no doc for that org. The "because" stays in the body.
 
@@ -125,6 +125,16 @@ declare the real dependency and ask the maintainer to publish. Never dodge the p
 with an image-level install, a `file:`/`link:` reference, a vendored tarball, or a
 downgrade to an older published version that lacks what the change needs. The publish is
 part of the change, and asking for it is always cheaper than the workaround.
+
+## kinotic-server never touches files
+
+kinotic-server never reads, writes, lists, clones or deletes files, whether in storage or on
+disk. It issues credentials scoped to exactly what a workload may touch (an upload URL for one
+site's directory, a removal URL for the same) and orchestrates the workloads that do the
+work; every file operation runs in a workload-runner entrypoint inside a VM. A server-side
+storage client that lists or deletes blobs, a server-side clone, or a server-side read of a
+build's output is the smell, however convenient: move the operation into the runner and hand
+it a credential.
 
 ## Snapshot versions — nothing is in stone
 

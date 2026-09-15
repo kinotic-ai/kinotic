@@ -22,13 +22,9 @@ describe('Kinotic JS', () => {
                 credentials: testCredentials()
             }
 
-            // The reconnect-exhausted failure carries the underlying WS/DNS error as the Error cause
-            // rather than concatenating its (environment-specific) text into the message.
-            // connect() rejects with the fatal error's message string (StompConnectionManager
-            // rejects with err.message); the underlying WS/DNS error is environment-specific, so
-            // assert only the stable reconnect-exhausted message.
-            const error: unknown = await Kinotic.connect(ci).then(() => null, (e) => e)
-            expect(error).toBe('Max number of reconnection attempts reached')
+            // The reconnect-exhausted Error carries the environment-specific WS/DNS error as its cause,
+            // so only its message is asserted
+            await expect(Kinotic.connect(ci)).rejects.toThrow('Max number of reconnection attempts reached')
 
             await expect(Kinotic.disconnect()).resolves.toBeUndefined()
         }, 1000 * 60 * 10) // 10 minutes

@@ -12,7 +12,7 @@
     },
     "packages/core": {
       "name": "@kinotic-ai/core",
-      "version": "5.0.0-beta.9",
+      "version": "5.0.0-beta.11",
       "dependencies": {
         "@opentelemetry/api": "^1.9.1",
         "@opentelemetry/semantic-conventions": "^1.40.0",
@@ -59,7 +59,7 @@
     },
     "packages/management-api": {
       "name": "@kinotic-ai/management-api",
-      "version": "5.0.0-beta.24",
+      "version": "5.0.0-beta.30",
       "dependencies": {
         "@kinotic-ai/idl": "workspace:*",
         "@kinotic-ai/persistence": "workspace:*",
@@ -72,7 +72,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
       },
     },
     "packages/persistence": {
@@ -89,7 +89,7 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
       },
     },
     "packages/spawn": {
@@ -108,22 +108,21 @@
     },
     "packages/system-api": {
       "name": "@kinotic-ai/system-api",
-      "version": "5.0.0-beta.8",
-      "dependencies": {
-        "@kinotic-ai/management-api": "workspace:*",
-      },
+      "version": "5.0.0-beta.12",
       "devDependencies": {
         "@kinotic-ai/core": "workspace:*",
+        "@kinotic-ai/management-api": "workspace:*",
         "@types/bun": "^1.3.9",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
+        "@kinotic-ai/core": "workspace:^",
+        "@kinotic-ai/management-api": "workspace:^",
       },
     },
     "packages/vm-manager": {
       "name": "@kinotic-ai/vm-manager",
-      "version": "5.0.0-beta.17",
+      "version": "5.0.0-beta.19",
       "dependencies": {
         "@boxlite-ai/boxlite": "^0.10.0",
         "dockerode": "^5.0.1",
@@ -137,9 +136,9 @@
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "@kinotic-ai/core": ">=5.0.0-beta.9",
-        "@kinotic-ai/management-api": ">=5.0.0-beta.24",
-        "@kinotic-ai/system-api": ">=5.0.0-beta.7",
+        "@kinotic-ai/core": "workspace:^",
+        "@kinotic-ai/management-api": "workspace:^",
+        "@kinotic-ai/system-api": "workspace:^",
       },
     },
   },

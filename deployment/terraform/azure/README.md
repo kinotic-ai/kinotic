@@ -1,6 +1,6 @@
 # Azure Deployment
 
-Three separate terraform roots — **global** (persistent), **cluster** (disposable), **frontend** (independent).
+Three separate terraform roots — **global** (persistent), **cluster** (disposable), **frontend** (independent) — plus **dev**, a developer's own UI publishing resources.
 
 ## Directory Structure
 
@@ -32,7 +32,16 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── deploy.sh
 │   └── terraform.tfvars
-├── modules/                   # Shared modules (aks, firecracker, identity, micro-vm-node, networking)
+├── dev/                       # A developer's own environment: the dev-environment module, and .env.local on their machine
+│   ├── README.md              # Getting started on your machine
+│   ├── main.tf
+│   └── terraform.tfvars
+├── dev-server/                # The shared development server's Azure side: the module plus a server key vault, snapshots, and a hostname
+│   ├── README.md
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variables.tf
+├── modules/                   # Shared modules (aks, dev-environment, firecracker, identity, micro-vm-node, networking, sites)
 ├── bootstrap-state.sh         # One-time state storage setup
 ├── OPS.md                     # Day-2 operations
 ├── TROUBLESHOOTING.md         # Common errors and fixes
@@ -57,12 +66,32 @@ cd deployment/terraform/azure
 ./bootstrap-state.sh
 ```
 
-### 3. Deploy global resources (once)
+### 3. Create the terraform operators group (once)
+
+The platform Key Vault uses RBAC, and `global/keyvault.tf` grants the
+`Key Vault Secrets Officer` data-plane role to the `kinotic-terraform-operators`
+Entra group. Anyone who runs `terraform apply` in `global/` must be a member.
+
+```bash
+GROUP_ID=$(az ad group create --display-name kinotic-terraform-operators \
+  --mail-nickname kinotic-terraform-operators --query id -o tsv)
+az ad group member add --group "$GROUP_ID" \
+  --member-id "$(az ad signed-in-user show --query id -o tsv)"
+```
+
+To add another operator later:
+
+```bash
+az ad group member add --group kinotic-terraform-operators \
+  --member-id "$(az ad user show --id <upn> --query id -o tsv)"
+```
+
+### 4. Deploy global resources (once)
 
 ```bash
 cd global
 terraform init
-terraform apply
+TF_VAR_google_client_secret=... TF_VAR_github_client_secret=... terraform apply
 ```
 
 This creates the DNS zone and Entra ID app registrations. Copy the nameservers
@@ -73,7 +102,7 @@ terraform output dns_nameservers
 dig NS kinotic.ai  # verify propagation
 ```
 
-### 4. Deploy cluster
+### 5. Deploy cluster
 
 ```bash
 cd ../cluster
@@ -94,7 +123,7 @@ terraform init
 terraform apply
 ```
 
-### 5. Get kubectl access
+### 6. Get kubectl access
 
 ```bash
 az aks get-credentials --resource-group rg-kinotic-production --name aks-kinotic-production
@@ -124,6 +153,30 @@ terraform init
 terraform apply     # creates Static Web App + DNS CNAME (first time only)
 ./deploy.sh         # build + deploy SPA (run after every frontend change)
 ```
+
+## Developer UI Publishing
+
+A kinotic-server on a developer machine publishes UIs to a real subscription with the `dev`
+root: a resource group the organization storage accounts are created in, a Front Door
+Standard profile and endpoint under `apps-<environment>.<zone>`, and a service principal
+for the server holding Contributor and Storage Blob Data Contributor on the group, DNS Zone
+Contributor on the zone, and Contributor on the email service. State is local, one
+environment per developer.
+
+The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID` are written to
+`.env.local` at the repository root (gitignored) as a commented block after a blank line,
+replacing the block a previous apply wrote and leaving the rest of the file alone; the server
+picks them up through `DefaultAzureCredential`. Its secret is also in this root's local state.
+
+```bash
+cd dev
+terraform init
+terraform apply   # environment = "local" in terraform.tfvars; pick a name of your own
+terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
+```
+
+Then run the server with `SPRING_PROFILES_ACTIVE=development,local`. [dev/README.md](dev/README.md)
+has the full walkthrough, from prerequisites to teardown.
 
 ## Deploy Options
 
@@ -160,6 +213,8 @@ terraform apply -var="beta_mode=false"
 | Firecracker VMs | `cluster/` | Disposable |
 | Static Web App (SPA) | `frontend/` | Independent |
 | portal.kinotic.ai CNAME | `frontend/` | Independent |
+| Developer storage resource group + Front Door (apps-<environment>.kinotic.ai) | `dev/` | Per developer, local state |
+| Development server: Front Door (apps-dev.kinotic.ai), server key vault, snapshot storage, dev.kinotic.ai | `dev-server/` | One per zone, local state |
 
 ## Additional Docs
 

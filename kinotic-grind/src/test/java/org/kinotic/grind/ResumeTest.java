@@ -150,7 +150,7 @@ public class ResumeTest extends AbstractGrindTest {
         AtomicInteger calls = new AtomicInteger();
         AtomicBoolean fail = new AtomicBoolean(true);
 
-        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.ofApplication("org1", "app1"));
+        JobRunHandle original = jobService.run(noneJob(calls, fail), JobOwner.ofApplication("org1", "app1", null));
         await(original);
 
         fail.set(false);

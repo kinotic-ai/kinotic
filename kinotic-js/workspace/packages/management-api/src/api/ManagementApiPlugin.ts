@@ -1,11 +1,15 @@
 import type { IKinotic, KinoticPlugin } from '@kinotic-ai/core'
 import { ApplicationService, type IApplicationService } from '@/api/services/IApplicationService'
 import { ProjectService, type IProjectService } from '@/api/services/IProjectService'
+import { ProjectArtifactService, type IProjectArtifactService } from '@/api/services/IProjectArtifactService'
+import { MicroserviceDeploymentService, type IMicroserviceDeploymentService } from '@/api/services/IMicroserviceDeploymentService'
+import { UiDeploymentService, type IUiDeploymentService } from '@/api/services/IUiDeploymentService'
 import { EntityDefinitionService, type IEntityDefinitionService } from '@/api/services/IEntityDefinitionService'
 import {type INamedQueriesDefinitionService, NamedQueriesDefinitionService} from '@/api/services/INamedQueriesDefinitionService'
 import { MigrationService, type IMigrationService } from '@/api/services/IMigrationService'
 import { DataInsightsService, type IDataInsightsService } from '@/api/services/IDataInsightsService'
 import { LogService, type ILogService } from '@/api/services/ILogService'
+import { TelemetryService, type ITelemetryService } from '@/api/services/ITelemetryService'
 import { MemberService, type IMemberService } from '@/api/services/IMemberService'
 import { InviteEmailTemplateService, type IInviteEmailTemplateService } from '@/api/services/IInviteEmailTemplateService'
 import { OAuthApprovalService, type IOAuthApprovalService } from '@/api/services/IOAuthApprovalService'
@@ -18,12 +22,16 @@ import { JobMonitoringService, type IJobMonitoringService } from '@/api/services
 export interface IManagementApiExtension {
     applications: IApplicationService
     projects: IProjectService
+    projectArtifacts: IProjectArtifactService
+    microserviceDeployments: IMicroserviceDeploymentService
+    uiDeployments: IUiDeploymentService
     entityDefinitions: IEntityDefinitionService
     namedQueriesDefinitions: INamedQueriesDefinitionService
     migrations: IMigrationService
     dataInsights: IDataInsightsService
     jobMonitoring: IJobMonitoringService
     logs: ILogService
+    telemetry: ITelemetryService
     members: IMemberService
     inviteEmailTemplates: IInviteEmailTemplateService
     oauthApproval: IOAuthApprovalService
@@ -38,12 +46,16 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
         return {
             applications: new ApplicationService(kinotic),
             projects: new ProjectService(kinotic),
+            projectArtifacts: new ProjectArtifactService(kinotic),
+            microserviceDeployments: new MicroserviceDeploymentService(kinotic),
+            uiDeployments: new UiDeploymentService(kinotic),
             entityDefinitions: new EntityDefinitionService(kinotic),
             namedQueriesDefinitions: new NamedQueriesDefinitionService(kinotic),
             migrations: new MigrationService(kinotic),
             dataInsights: new DataInsightsService(kinotic),
             jobMonitoring: new JobMonitoringService(kinotic),
             logs: new LogService(kinotic),
+            telemetry: new TelemetryService(kinotic),
             members: new MemberService(kinotic),
             inviteEmailTemplates: new InviteEmailTemplateService(kinotic),
             oauthApproval: new OAuthApprovalService(kinotic),

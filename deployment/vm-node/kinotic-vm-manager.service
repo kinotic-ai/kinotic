@@ -1,0 +1,20 @@
+[Unit]
+Description=Kinotic vm-manager
+Documentation=https://kinotic.ai/platform/configuration#vm-provider
+Wants=network-online.target
+After=network-online.target docker.service kinotic-node-firewall.service
+Requires=docker.service
+# The SYSTEM machine credentials are issued by the system console after the node is built
+ConditionPathExists=/etc/kinotic/vm-manager.secrets.env
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/kinotic/vm-manager.env
+EnvironmentFile=/etc/kinotic/vm-manager.secrets.env
+WorkingDirectory=/opt/kinotic/vm-manager
+ExecStart=/usr/local/bin/bun run node_modules/@kinotic-ai/vm-manager/dist/index.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

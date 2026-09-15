@@ -351,11 +351,18 @@ public class JobInterpreter {
     private void collectRecords(String parentPath, JobNode node, List<TaskRecord> collected) {
         String path = parentPath.isEmpty() ? String.valueOf(node.sequence())
                                            : parentPath + "/" + node.sequence();
-        collected.add(new TaskRecord().setId(runId + ":" + path)
-                                      .setJobRunId(runId)
-                                      .setTaskPath(path)
-                                      .setDescription(node.description())
-                                      .setStatus(ExecutionStatus.PENDING));
+        TaskRecord record = new TaskRecord().setId(runId + ":" + path)
+                                            .setJobRunId(runId)
+                                            .setTaskPath(path)
+                                            .setDescription(node.description())
+                                            .setStatus(ExecutionStatus.PENDING);
+        // A store named in the definition is a fact of the task, not of its completion:
+        // recorded now so a watcher can tell the tasks apart by what they will store
+        if (node instanceof TaskNode taskNode && taskNode.store().getName() != null) {
+            record.setStoreType(taskNode.store().getType())
+                  .setStoredName(taskNode.store().getName());
+        }
+        collected.add(record);
         if (node instanceof DefinitionNode definitionNode) {
             for (JobNode child : definitionNode.definition().getTasks()) {
                 collectRecords(path, child, collected);

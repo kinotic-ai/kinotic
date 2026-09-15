@@ -1,6 +1,8 @@
 target: all
 
-multitenancy_enabled: false
+# Multi-tenant like Loki and Tempo: each org's workload metrics land in its own tenant, and
+# Tempo's metrics-generator writes each tenant's span metrics under the same tenant id
+multitenancy_enabled: true
 
 server:
   http_listen_port: 9009
