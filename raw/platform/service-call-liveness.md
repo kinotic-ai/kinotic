@@ -96,7 +96,7 @@ What the caller receives, in every runtime:
 </tbody>
 </table>
 
-Callers of non-idempotent operations should treat the second as ambiguous and check before retrying. In TypeScript a failed call rejects with an `RpcError`, whose `exceptionName` and `exceptionClass` name the exception the server caught, so a caller branches on `exceptionName === 'RpcServiceUnavailableException'` rather than on the message.
+Callers of non-idempotent operations should treat the second as ambiguous and check before retrying. In TypeScript a failed call rejects with an `RpcError`, whose `exceptionName` and `exceptionClass` name the exception the server caught — for a service hosted in TypeScript, the class of the error it threw, whose name fills both — so a caller branches on `exceptionName === 'RpcServiceUnavailableException'` rather than on the message.
 
 A service that stops, on a rolling update or any other graceful shutdown, stops accepting calls first, then answers every call it already has before its node leaves the cluster, so those calls complete normally and no lease fails. Streams it was producing cannot be finished; each one ends with `RpcServiceUnavailableException` at its subscriber the moment the service stops. The wait for the in-flight calls is bounded, so a call that never finishes cannot hold the shutdown.
 
