@@ -17,7 +17,7 @@
     "coverage": "bun test --coverage --pass-with-no-tests"
   },
   "dependencies": {
-    "@kinotic-ai/core": "^5.0.0-beta.10",
+    "@kinotic-ai/core": "^5.0.0-beta.11",
     "@kinotic-ai/kinotic-cli": "5.2.0-beta.15",
     "@kinotic-ai/management-api": "5.0.0-beta.28",
     "@opentelemetry/api": "^1.9.1",
