@@ -8,7 +8,6 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
-import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.TraceLogFilter;
@@ -26,7 +25,6 @@ import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.core.internal.utils.MetaUtil;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -165,23 +163,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
-        Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
-        Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
-
-        String namespace = proxyAnnotation.namespace().isEmpty() ? KinoticUtil.safeEncodeURI(serviceInterface.getPackageName()) : KinoticUtil.safeEncodeURI(proxyAnnotation.namespace());
-        String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
-        String version = MetaUtil.getVersion(serviceInterface);
-
-        // A proxy targets one address; with no declaration it targets the un-zoned address
-        String zone = MetaUtil.getZone(serviceInterface);
-
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
-                                                                    namespace,
-                                                                    name,
-                                                                    null,
-                                                                    version);
-
-        return serviceProxy(serviceIdentifier, serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
+        return serviceProxy(KinoticUtil.serviceIdentifierOf(serviceInterface), serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
     }
 
     @Override

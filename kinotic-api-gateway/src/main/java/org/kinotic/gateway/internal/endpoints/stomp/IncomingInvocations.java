@@ -12,31 +12,33 @@ import org.kinotic.gateway.internal.endpoints.Services;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 /**
- * The reply side of one STOMP connection: its subscriptions on its reply destinations, and the service
- * requests it forwarded whose replies are still outstanding. An outstanding request is pinned to the node
- * that acknowledged it, and one whose node leaves the cluster is answered on the connection's reply
- * destination with an {@link RpcServiceUnavailableException}, the way a request that fails to send is.
+ * Invocations the client on this connection has sent to the cluster and is waiting on. Each one is pinned
+ * to the node that acknowledged it; if that node leaves the cluster, the client receives an
+ * {@link RpcServiceUnavailableException} reply instead. Also holds the client's reply subscriptions, which
+ * is how replies reach it.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
 @Slf4j
-public class ReplySessionState {
+public class IncomingInvocations {
 
     private final Services services;
+    // correlation ids are the client's own, so the node-wide lease key is qualified per connection
+    private final String leasePrefix = UUID.randomUUID() + ":";
     private final Map<String, EventConsumer> replySubscriptions = new HashMap<>();
-    // the reply metadata of every forwarded request, keyed by correlation id, until its terminal reply
-    private final ConcurrentHashMap<String, Metadata> pendingRequests = new ConcurrentHashMap<>();
+    // pending invocations by correlation id; only ever touched on the connection's event loop
+    private final Map<String, Metadata> invocations = new HashMap<>();
 
-    public ReplySessionState(Services services) {
+    public IncomingInvocations(Services services) {
         this.services = services;
     }
 
     /**
-     * Subscribes the connection to one of its reply destinations. Every reply passing through settles the
-     * request it answers before it is handed to the subscription handler.
+     * Subscribes the client to one of its reply destinations. A terminal reply settles its invocation on
+     * the way to the client.
      */
     public void subscribe(CRI cri, String subscriptionIdentifier, StompSubscriptionHandler subscriptionHandler) {
         EventConsumer eventConsumer = services.eventBusService.listen(cri);
@@ -45,11 +47,15 @@ public class ReplySessionState {
                          subscriptionHandler.handleEvent(event);
                      })
                      .exceptionHandler(subscriptionHandler::handleError);
-        replySubscriptions.put(subscriptionIdentifier, eventConsumer);
+        // a subscription id the client reuses ends the consumer it named before
+        EventConsumer previous = replySubscriptions.put(subscriptionIdentifier, eventConsumer);
+        if (previous != null) {
+            previous.unregister();
+        }
     }
 
     /**
-     * @return true when the identifier named one of this connection's reply subscriptions, which is now gone
+     * @return true when the identifier was one of the client's reply subscriptions
      */
     public boolean unsubscribe(String subscriptionIdentifier) {
         EventConsumer consumer = replySubscriptions.remove(subscriptionIdentifier);
@@ -60,50 +66,50 @@ public class ReplySessionState {
     }
 
     /**
-     * Records a service request the connection is about to forward, or applies the control message it is.
-     * A request without a correlation id has no reply that could be matched to it and is not recorded.
+     * Records an invocation the client is sending. A cancel control settles the invocation it names. An
+     * invocation without a correlation id cannot be matched to a reply and is not recorded.
      */
     public void track(Event<byte[]> request) {
         String correlationId = request.metadata().get(EventConstants.CORRELATION_ID_HEADER);
         if (correlationId != null) {
             String control = request.metadata().get(EventConstants.CONTROL_HEADER);
             if (control == null) {
-                pendingRequests.put(correlationId, EventUtil.replyMetadataOf(request.metadata()));
+                invocations.put(correlationId, EventUtil.replyMetadataOf(request.metadata()));
             } else if (EventConstants.CONTROL_VALUE_CANCEL.equals(control)) {
-                // the caller gave up on the stream, so no reply is owed to it any more
                 settle(correlationId);
             }
         }
     }
 
     /**
-     * Pins a recorded request to the node that acknowledged it. A request already settled, by a reply that
-     * arrived before the acknowledgement was processed, stays settled.
+     * Pins an invocation to the node that acknowledged it. An invocation that was already settled stays
+     * settled.
      */
     public void pin(String correlationId, String nodeId, CRI destination) {
         if (correlationId != null) {
-            // computeIfPresent serializes with settle() on this key
-            pendingRequests.computeIfPresent(correlationId, (_, replyMetadata) -> {
-                services.requestLivenessWatcher.watch(correlationId, nodeId, () -> fail(correlationId, destination, nodeId));
+            // the reply can arrive before the ack; computeIfPresent then does nothing
+            invocations.computeIfPresent(correlationId, (_, replyMetadata) -> {
+                services.requestLivenessWatcher.watch(leasePrefix + correlationId, nodeId, () -> fail(correlationId, destination, nodeId));
                 return replyMetadata;
             });
         }
     }
 
     /**
-     * Forgets a request: its reply arrived, its send failed, or its caller cancelled it.
+     * Forgets an invocation: its reply arrived, its send failed, or the client cancelled it.
      */
     public void settle(String correlationId) {
-        if (correlationId != null && pendingRequests.remove(correlationId) != null) {
-            services.requestLivenessWatcher.settle(correlationId);
+        if (correlationId != null && invocations.remove(correlationId) != null) {
+            services.requestLivenessWatcher.settle(leasePrefix + correlationId);
         }
     }
 
     /**
-     * Ends the reply side of the connection: nothing stays pinned and no reply destination stays subscribed.
+     * Releases every pending invocation and unsubscribes every reply destination.
      */
     public void dispose() {
-        pendingRequests.keySet().forEach(this::settle);
+        invocations.keySet().forEach(correlationId -> services.requestLivenessWatcher.settle(leasePrefix + correlationId));
+        invocations.clear();
         replySubscriptions.values().forEach(EventConsumer::unregister);
         replySubscriptions.clear();
     }
@@ -114,10 +120,9 @@ public class ReplySessionState {
         }
     }
 
-    // Runs on the connection's context when the node that took the request leaves the cluster. Only the
-    // party that removes the record answers, so a reply that settled the request first leaves nothing to fail.
+    // the node that took the invocation left the cluster; if its reply got here first there is nothing to do
     private void fail(String correlationId, CRI destination, String nodeId) {
-        Metadata replyMetadata = pendingRequests.remove(correlationId);
+        Metadata replyMetadata = invocations.remove(correlationId);
         if (replyMetadata != null) {
             RpcServiceUnavailableException cause = new RpcServiceUnavailableException(
                     "Node " + nodeId + " left the cluster while serving the request to " + destination.raw());

@@ -3,8 +3,10 @@ import { EventConstants, type IEvent, type IEventBus } from '@/api/event/IEventB
 import { ServiceIdentifier } from '@/api/ServiceIdentifier'
 import {type ArgumentResolver, JsonArgumentResolver } from './ArgumentResolver'
 import { Util } from './Util'
+import type { ActiveStream } from './ActiveStream'
 import { BasicReturnValueConverter, type ReturnValueConverter } from './ReturnValueConverter'
-import { Subscription } from "rxjs"
+import { isObservable, Subscription, type Observable } from "rxjs"
+import { finalize } from "rxjs/operators"
 import { createDebugLogger, type Logger } from "./Logger"
 import type {ContextInterceptor, ServiceContext} from '@/api/ContextInterceptor'
 import { receivesContext, scopeOptionalMethodNames } from '@/api/KinoticDecorators'
@@ -31,6 +33,11 @@ export class ServiceInvocationSupervisor {
     // Present only for a scoped service with ScopeOptional methods: the shared unscoped
     // address every instance listens on for the methods any instance can answer
     private unscopedSubscription: Subscription | null = null
+    // The streams being produced for callers, keyed by the correlation id their control events name
+    private readonly activeStreams: Map<string, ActiveStream> = new Map()
+    private connectionLostSubscription: Subscription | null = null
+    // Counts the connections lost since start; an invocation remembers the generation it arrived in
+    private connectionGeneration: number = 0
     private readonly methodMap: Record<string, (...args: any[]) => any>
     private readonly scopeOptionalMethods: Set<string>
     private readonly tracer: Tracer
@@ -104,6 +111,16 @@ export class ServiceInvocationSupervisor {
             this.unscopedSubscription = this.subscribeAt(unscopedBase)
             this.log.info(`ServiceInvocationSupervisor also listening for ScopeOptional methods at ${unscopedBase}`)
         }
+
+        // The gateway answers every requester of a connection that ended, so a stream produced for one
+        // has no consumer left and is cancelled without a reply, and a result still being produced for
+        // one is dropped when it arrives
+        this.connectionLostSubscription = this._eventBus.connectionLost.subscribe(() => {
+            this.connectionGeneration++
+            for (const stream of this.activeStreams.values()) {
+                stream.subscription.unsubscribe()
+            }
+        })
     }
 
     private subscribeAt(criBase: string): Subscription {
@@ -125,6 +142,10 @@ export class ServiceInvocationSupervisor {
                               })
     }
 
+    /**
+     * Stops this supervisor: no further invocations are accepted, and every stream in progress ends with an
+     * error reply for its caller.
+     */
     public stop(): void {
         if (!this.active) {
             throw new Error("Service already stopped")
@@ -135,6 +156,15 @@ export class ServiceInvocationSupervisor {
         this.methodSubscription = null
         this.unscopedSubscription?.unsubscribe()
         this.unscopedSubscription = null
+        this.connectionLostSubscription?.unsubscribe()
+        this.connectionLostSubscription = null
+
+        // A stream's caller is still listening, so it gets a terminal error rather than a silent cancel
+        const serviceName = this.serviceIdentifier.qualifiedName()
+        for (const stream of this.activeStreams.values()) {
+            this.handleException(stream.request, new Error(`Service ${serviceName} stopped while producing the stream`))
+            stream.subscription.unsubscribe()
+        }
 
         this.log.info("ServiceInvocationSupervisor stopped")
     }
@@ -181,7 +211,17 @@ export class ServiceInvocationSupervisor {
         if (!correlationId) {
             throw new Error("Streaming control plane messages require a CORRELATION_ID_HEADER")
         }
-        this.log.trace(`Processing control event for correlationId: ${correlationId}`)
+        const control = event.getHeader(EventConstants.CONTROL_HEADER)
+        this.log.trace(`Processing control event ${control} for correlationId: ${correlationId}`)
+        // A control for a stream that already ended names nothing and is dropped
+        const stream = this.activeStreams.get(correlationId)
+        if (stream) {
+            // either way the stream ends: cancelled, or failed to its caller with the error thrown here
+            stream.subscription.unsubscribe()
+            if (control !== EventConstants.CONTROL_VALUE_CANCEL) {
+                throw new Error(`Unknown control header value ${control}`)
+            }
+        }
     }
 
     private async processInvocationRequest(event: IEvent): Promise<void> {
@@ -205,6 +245,7 @@ export class ServiceInvocationSupervisor {
 
         const methodName = path;
         const span = this.startInvocationSpan(event, methodName)
+        const generation = this.connectionGeneration
 
         try {
             const args = this.argumentResolver.resolveArguments(event)
@@ -218,7 +259,10 @@ export class ServiceInvocationSupervisor {
                     serviceContext = await interceptor.intercept(event, serviceContext);
                 } catch (e) {
                     this.log.error(`Interceptor failed to create context for event: ${JSON.stringify(event)}`, e)
-                    this.handleException(event, new Error("Internal server error"))
+                    // the span records the cause; the caller is told only that the service could not answer
+                    if (this.replyOwed(generation)) {
+                        this.handleException(event, new Error("Internal server error"))
+                    }
                     this.failSpan(span, e)
                     return
                 }
@@ -242,22 +286,17 @@ export class ServiceInvocationSupervisor {
                 if (result instanceof Promise) {
                     // The method has not finished yet, so the span ends with the promise
                     result.then(
-                        (resolved) => {
-                            this.processMethodInvocationResult(event, resolved)
-                            span.end()
-                        },
-                        (error) => {
-                            this.handleException(event, error)
-                            this.failSpan(span, error)
-                        }
-                    )
+                        (resolved) => this.processMethodInvocationResult(event, resolved, span, generation),
+                        (error) => this.failInvocation(event, error, span, generation)
+                    ).catch((e) => {
+                        // the result itself could not be sent
+                        this.failInvocation(event, e, span, generation)
+                    })
                 } else {
-                    this.processMethodInvocationResult(event, result)
-                    span.end()
+                    this.processMethodInvocationResult(event, result, span, generation)
                 }
             } catch (e) {
-                this.handleException(event, e)
-                this.failSpan(span, e)
+                this.failInvocation(event, e, span, generation)
             }
         } catch (e) {
             this.failSpan(span, e)
@@ -294,9 +333,108 @@ export class ServiceInvocationSupervisor {
         span.end()
     }
 
-    private processMethodInvocationResult(event: IEvent, result: any): void {
-        const outgoingEvent = this.returnValueConverter.convert(event.headers, result)
-        this.sendReply(outgoingEvent)
+    /**
+     * Whether a reply to an invocation received in the given connection generation is still owed. The gateway
+     * answers every requester of a connection that ended, so a reply for an invocation of an earlier
+     * generation has no caller left and would reach a gateway that does not expect it.
+     */
+    private replyOwed(generation: number): boolean {
+        return generation === this.connectionGeneration
+    }
+
+    /**
+     * Fails the invocation on its span, and to its caller when the reply is still owed.
+     */
+    private failInvocation(event: IEvent, error: any, span: Span, generation: number): void {
+        if (this.replyOwed(generation)) {
+            this.handleException(event, error)
+        }
+        this.failSpan(span, error)
+    }
+
+    /**
+     * Replies with the value a method produced and ends the span once the reply is complete: at once for a
+     * single value, and when the stream ends for an {@link Observable}. A value for an invocation whose reply
+     * is no longer owed is dropped and the span ends.
+     */
+    private processMethodInvocationResult(event: IEvent, result: any, span: Span, generation: number): void {
+        if (!this.replyOwed(generation)) {
+            span.end()
+        } else if (isObservable(result)) {
+            this.streamResult(event, result, span)
+        } else {
+            const reply = this.returnValueConverter.convert(event.headers, result)
+            // A single-value reply is the end of its request, so it carries the completion marker itself,
+            // letting any hop holding per-request state release it on this one event
+            reply.setHeader(EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE)
+            this.sendReply(reply)
+            span.end()
+        }
+    }
+
+    private streamResult(event: IEvent, stream: Observable<unknown>, span: Span): void {
+        const correlationId = event.getHeader(EventConstants.CORRELATION_ID_HEADER)
+        if (!correlationId) {
+            throw new Error("Streaming results require a CORRELATION_ID_HEADER to be set")
+        }
+        // hoisted so next() can end the stream on a value it cannot send
+        let subscription: Subscription | null = null
+        // Set once the caller has its terminal error reply. A synchronous source is still inside subscribe()
+        // when a value fails, with no subscription to close yet, so the values and completion it goes on to
+        // deliver are dropped here instead
+        let failed = false
+        subscription = stream.pipe(finalize(() => {
+                                       // Covers every way the stream can end, cancellation included
+                                       this.activeStreams.delete(correlationId)
+                                       span.end()
+                                   }))
+                             .subscribe({
+                                                  next: (value) => {
+                                                      if (failed) {
+                                                          return
+                                                      }
+                                                      try {
+                                                          const reply = this.returnValueConverter.convert(event.headers, value)
+                                                          // Names this service on every value so a caller that no longer
+                                                          // tracks the stream can route a cancel back to it
+                                                          reply.setHeader(EventConstants.ORIGIN_CRI_HEADER, event.cri)
+                                                          this.sendReply(reply)
+                                                      } catch (e) {
+                                                          // rxjs would report a throw here as an uncaught exception and
+                                                          // leave the stream running
+                                                          failed = true
+                                                          this.handleException(event, e)
+                                                          span.recordException(e as Error)
+                                                          span.setStatus({ code: SpanStatusCode.ERROR })
+                                                          subscription?.unsubscribe()
+                                                      }
+                                                  },
+                                                  error: (error) => {
+                                                      if (failed) {
+                                                          return
+                                                      }
+                                                      this.handleException(event, error)
+                                                      // finalize ends the span; this only marks why it ended
+                                                      span.recordException(error)
+                                                      span.setStatus({ code: SpanStatusCode.ERROR })
+                                                  },
+                                                  complete: () => {
+                                                      if (failed) {
+                                                          return
+                                                      }
+                                                      this.sendReply(Util.createReplyEvent(event.headers,
+                                                                                           new Map([[EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE]])))
+                                                  }
+                                              })
+        // A source that failed while still inside subscribe() had no subscription for next() to close
+        if (failed) {
+            subscription.unsubscribe()
+        }
+        // A stream that ended inside subscribe, as a synchronous source does, has already run finalize and
+        // takes no control events
+        if (!subscription.closed) {
+            this.activeStreams.set(correlationId, { request: event, subscription })
+        }
     }
 
     /**
@@ -312,16 +450,28 @@ export class ServiceInvocationSupervisor {
         }
     }
 
+    /**
+     * Replies with the error an invocation failed with. The body describes the exception the way every runtime's
+     * error reply does, so a caller reads a TS service's failure exactly as it reads a Java one: the class name
+     * serves as both the exception name and its class, since a TS class has no package.
+     */
     private handleException(event: IEvent, error: any): void {
-        const errorEvent = Util.createReplyEvent(
-            event.headers,
-            new Map([
-                        [EventConstants.ERROR_HEADER, error.message || "Unknown error"],
-                        [EventConstants.CONTENT_TYPE_HEADER, "application/json"]
-                    ]),
-            new TextEncoder().encode(JSON.stringify({ message: error.message }))
-        )
-        this.sendReply(errorEvent)
+        try {
+            const errorMessage = error?.message || "Unknown error"
+            const exceptionName = error instanceof Error ? error.constructor.name : "Error"
+            const errorEvent = Util.createReplyEvent(
+                event.headers,
+                new Map([
+                            [EventConstants.ERROR_HEADER, errorMessage],
+                            [EventConstants.CONTENT_TYPE_HEADER, "application/json"]
+                        ]),
+                new TextEncoder().encode(JSON.stringify({ exceptionName, exceptionClass: exceptionName, errorMessage }))
+            )
+            this.sendReply(errorEvent)
+        } catch (e) {
+            // a request with no reply-to has nowhere to receive its error
+            this.log.warn(`Could not build the error reply for ${event.cri}`, e)
+        }
     }
 
     private validateReplyTo(event: IEvent): boolean {

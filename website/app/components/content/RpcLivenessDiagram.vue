@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// One component, three views, so the page's diagrams share one palette and one vocabulary.
-defineProps<{ view?: 'overview' | 'failure' | 'reconnect' }>()
+// One component, two views, so the page's diagrams share one palette and one vocabulary.
+defineProps<{ view?: 'overview' | 'failure' }>()
 </script>
 
 <template>
@@ -42,12 +42,12 @@ defineProps<{ view?: 'overview' | 'failure' | 'reconnect' }>()
       <rect class="gw" x="700" y="206" width="400" height="150" rx="8"/>
       <text class="t-name" x="900" y="228" text-anchor="middle">kinotic-server gateway · in the cluster</text>
       <line class="sep" x1="716" y1="236" x2="1084" y2="236"/>
-      <text class="t-plane-ind" x="716" y="254">CALLER SIDE · ReplySessionState</text>
+      <text class="t-plane-ind" x="716" y="254">CALLER SIDE · IncomingInvocations, the client's calls in</text>
       <text class="t-mono" x="716" y="270">reply consumer + pending records, one lease each</text>
       <text class="t-mono" x="716" y="284">on loss → error reply to the client's reply destination</text>
-      <text class="t-plane-amb" x="716" y="306">CALLEE SIDE · per service socket</text>
-      <text class="t-mono" x="716" y="322">outstanding invocations delivered to that socket</text>
-      <text class="t-mono" x="716" y="336">socket closes → error reply for each outstanding</text>
+      <text class="t-plane-amb" x="716" y="306">CALLEE SIDE · OutgoingInvocations, calls out to its services</text>
+      <text class="t-mono" x="716" y="322">pending invocations delivered to that socket</text>
+      <text class="t-mono" x="716" y="336">socket closes → error reply for each pending</text>
 
       <!-- cluster band -->
       <rect class="bus" x="40" y="378" width="1060" height="30" rx="15"/>
@@ -118,7 +118,7 @@ defineProps<{ view?: 'overview' | 'failure' | 'reconnect' }>()
     </svg>
 
     <!-- ═══════════════════════════ FAILURE: a call in flight when its node dies ═══════════════════════════ -->
-    <svg v-else-if="view === 'failure'" class="rpc-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 780" role="img" aria-label="Sequence: the caller sends a request and takes a lease; the ack names node N2 and the lease pins to it; N2 dies; Ignite detects the failure and N2 leaves the cluster membership; the watcher fails the lease with RpcServiceUnavailableException even though another instance keeps the address active. Below, a TS instance dying behind a live gateway: the gateway synthesizes the error for every invocation outstanding on that socket.">
+    <svg v-else class="rpc-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 780" role="img" aria-label="Sequence: the caller sends a request and takes a lease; the ack names node N2 and the lease pins to it; N2 dies; Ignite detects the failure and N2 leaves the cluster membership; the watcher fails the lease with RpcServiceUnavailableException even though another instance keeps the address active. Below, a TS instance dying behind a live gateway: the gateway synthesizes the error for every invocation outstanding on that socket.">
       <defs>
         <marker id="rf-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ink" points="0,0 10,5 0,10"/></marker>
         <marker id="rf-ind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ind" points="0,0 10,5 0,10"/></marker>
@@ -214,92 +214,6 @@ defineProps<{ view?: 'overview' | 'failure' | 'reconnect' }>()
       <line class="flow-red" x1="540" y1="726" x2="190" y2="726" marker-end="url(#rf-red)"/>
       <text class="t-lbl-red" x="365" y="718" text-anchor="middle">G synthesizes RpcServiceUnavailableException to each reply-to still outstanding on B's socket</text>
       <text class="t-tiny" x="80" y="756">Same synthesis path the gateway already uses for a send that finds no handler; a socket close is the fastest signal in the system, ahead of Ignite's window.</text>
-    </svg>
-
-    <!-- ═══════════════════════════ RECONNECT: parked reply session and cross-node handoff ═══════════════════════════ -->
-    <svg v-else class="rpc-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 720" role="img" aria-label="Sequence: a TS client mid-stream loses its socket; the gateway parks the connection's reply session, keeping the reply registration so the server stream keeps running and replies buffer. On reconnect to the same node the parked session reattaches and flushes. On a node rollover the client lands on gateway B, which publishes a reply-session-release; gateway A flushes its buffer to the reply address and B forwards from then on. The parking window and buffer are bounded; expiry and overflow both rotate the replyToId so the client fails its in-flight calls through its existing reset path, and a client whose socket stays down past the window fails them itself.">
-      <defs>
-        <marker id="rr-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ink" points="0,0 10,5 0,10"/></marker>
-        <marker id="rr-ind" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-ind" points="0,0 10,5 0,10"/></marker>
-        <marker id="rr-amb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-amb" points="0,0 10,5 0,10"/></marker>
-        <marker id="rr-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><polygon class="mk-red" points="0,0 10,5 0,10"/></marker>
-      </defs>
-
-      <text class="t-tag" x="24" y="26">A STREAM SURVIVES A SOCKET BLIP AND A GATEWAY ROLLOVER · STICKY SESSION</text>
-
-      <rect class="node" x="60" y="42" width="180" height="40" rx="8"/>
-      <text class="t-name" x="150" y="67" text-anchor="middle">TS client</text>
-      <rect class="gw" x="315" y="42" width="230" height="40" rx="8"/>
-      <text class="t-name" x="430" y="67" text-anchor="middle">Gateway A · parked session</text>
-      <rect class="gw" x="620" y="42" width="200" height="40" rx="8"/>
-      <text class="t-name" x="720" y="67" text-anchor="middle">Gateway B</text>
-      <rect class="node" x="910" y="42" width="180" height="40" rx="8"/>
-      <text class="t-name" x="1000" y="67" text-anchor="middle">Service · streaming</text>
-
-      <line class="life" x1="150" y1="82" x2="150" y2="700"/>
-      <line class="life" x1="430" y1="82" x2="430" y2="560"/>
-      <line class="life" x1="720" y1="82" x2="720" y2="700"/>
-      <line class="life" x1="1000" y1="82" x2="1000" y2="700"/>
-      <rect class="act" x="994" y="110" width="12" height="560"/>
-      <text class="t-tiny" x="986" y="140" text-anchor="end">stream running; its reply-listener</text>
-      <text class="t-tiny" x="986" y="154" text-anchor="end">monitor stays ACTIVE throughout</text>
-
-      <!-- 1 streaming normally -->
-      <circle class="step" cx="30" cy="118" r="11"/><text class="t-step" x="30" y="122" text-anchor="middle">1</text>
-      <line class="flow" x1="1000" y1="118" x2="430" y2="118" marker-end="url(#rr-ink)"/>
-      <line class="flow" x1="430" y1="118" x2="150" y2="118" marker-end="url(#rr-ink)"/>
-      <text class="t-lbl" x="715" y="110" text-anchor="middle">values → reply://replyToId:… (consumer on A)</text>
-      <text class="t-lbl" x="290" y="110" text-anchor="middle">STOMP frames</text>
-
-      <!-- 2 blip -->
-      <circle class="step" cx="30" cy="176" r="11"/><text class="t-step" x="30" y="180" text-anchor="middle">2</text>
-      <line class="dead" x1="276" y1="164" x2="304" y2="188"/><line class="dead" x1="304" y1="164" x2="276" y2="188"/>
-      <text class="t-red-b" x="312" y="180">socket closes</text>
-      <rect class="note-amb" x="330" y="200" width="290" height="60" rx="6"/>
-      <text class="t-mono-amb" x="475" y="218" text-anchor="middle">closed() → park ReplySessionState</text>
-      <text class="t-mono-amb" x="475" y="233" text-anchor="middle">reply consumer kept · leases armed</text>
-      <text class="t-mono-amb" x="475" y="248" text-anchor="middle">replies buffer · byte budget</text>
-      <line class="flow-amb" x1="1000" y1="280" x2="430" y2="280" marker-end="url(#rr-amb)"/>
-      <text class="t-lbl-amb" x="715" y="272" text-anchor="middle">values keep arriving → buffered, nothing dropped</text>
-
-      <!-- 3a same-node reconnect -->
-      <line class="sep" x1="24" y1="306" x2="1116" y2="306"/>
-      <text class="t-tag" x="24" y="330">3A · SAME NODE COMES BACK</text>
-      <circle class="step" cx="30" cy="358" r="11"/><text class="t-step" x="30" y="362" text-anchor="middle">3</text>
-      <line class="flow-ind" x1="150" y1="358" x2="430" y2="358" marker-end="url(#rr-ind)"/>
-      <text class="t-lbl-ind" x="290" y="350" text-anchor="middle">reconnect · same session → same replyToId</text>
-      <line class="flow-amb" x1="430" y1="390" x2="150" y2="390" marker-end="url(#rr-amb)"/>
-      <text class="t-lbl-amb" x="290" y="382" text-anchor="middle">reattach · flush buffer in order · live again</text>
-      <text class="t-tiny" x="60" y="414">The client saw a reconnect and nothing else: no reset, no failed calls, the stream's Observable never completed.</text>
-
-      <!-- 3b rollover -->
-      <line class="sep" x1="24" y1="434" x2="1116" y2="434"/>
-      <text class="t-tag" x="24" y="458">3B · NODE ROLLOVER — CLIENT LANDS ON GATEWAY B</text>
-      <circle class="step" cx="30" cy="486" r="11"/><text class="t-step" x="30" y="490" text-anchor="middle">3</text>
-      <line class="flow-ind" x1="150" y1="486" x2="720" y2="486" marker-end="url(#rr-ind)"/>
-      <text class="t-lbl-ind" x="435" y="478" text-anchor="middle">reconnect · session found in the clustered store → same replyToId</text>
-      <text class="t-tiny" x="728" y="506">B registers its reply consumer,</text>
-      <text class="t-tiny" x="728" y="520">holds forwarding to the client</text>
-
-      <circle class="step" cx="30" cy="540" r="11"/><text class="t-step" x="30" y="544" text-anchor="middle">4</text>
-      <line class="flow-ind" x1="720" y1="540" x2="430" y2="540" marker-end="url(#rr-ind)"/>
-      <text class="t-lbl-ind" x="575" y="532" text-anchor="middle">publish(control: reply-session-release) — reaches every consumer on the address</text>
-
-      <circle class="step" cx="30" cy="586" r="11"/><text class="t-step" x="30" y="590" text-anchor="middle">5</text>
-      <line class="flow-amb" x1="430" y1="586" x2="720" y2="586" marker-end="url(#rr-amb)"/>
-      <text class="t-lbl-amb" x="575" y="578" text-anchor="middle">A unregisters, re-sends its buffer to the reply address, then flush-complete</text>
-      <text class="t-tiny" x="60" y="606">A's parked session is done; B is now the only consumer for the address.</text>
-
-      <circle class="step" cx="30" cy="640" r="11"/><text class="t-step" x="30" y="644" text-anchor="middle">6</text>
-      <line class="flow" x1="1000" y1="640" x2="720" y2="640" marker-end="url(#rr-ink)"/>
-      <line class="flow" x1="720" y1="640" x2="150" y2="640" marker-end="url(#rr-ink)"/>
-      <text class="t-lbl" x="860" y="632" text-anchor="middle">new values</text>
-      <text class="t-lbl" x="435" y="632" text-anchor="middle">buffered values first, then live — per-correlation order kept</text>
-
-      <!-- exits -->
-      <rect class="note-red" x="60" y="664" width="1030" height="40" rx="6"/>
-      <text class="t-mono-red" x="575" y="681" text-anchor="middle">Exits: window expiry → dispose and rotate replyToId; streams cancel through the reply-listener INACTIVE path already in place.</text>
-      <text class="t-mono-red" x="575" y="696" text-anchor="middle">Overflow → the same. The next CONNECT hands the client a new reply CRI and its reset path fails the in-flight calls; down past the window, the client fails them itself.</text>
     </svg>
   </div>
   </DiagramFrame>

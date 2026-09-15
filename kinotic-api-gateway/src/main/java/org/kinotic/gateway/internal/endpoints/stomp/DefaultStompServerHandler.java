@@ -159,13 +159,13 @@ public class DefaultStompServerHandler extends AbstractStompServerHandler {
 
     @Override
     public void disconnected() {
-        // we remove the session since the client disconnected on purpose
-        endpointConnectionHandler.removeSession();
+        // closed() follows a DISCONNECT frame and ends the session with the connection
     }
 
     @Override
     public void closed() {
-        // We don't remove the session if disconnect was not called because this could be a network issue
+        // An ACTIVITY or CONNECTION session outlives the connection so a reconnect on the same cookie resumes
+        // it; a NONE session ends with the connection. Every request the connection had in flight ends here.
         endpointConnectionHandler.shutdown();
     }
 

@@ -4,7 +4,7 @@ import { TestServiceNoScope } from "./TestServiceNoScope"
 import { TestServiceWithScope } from "./TestServiceWithScope"
 import { TestServiceWithScopeOptional } from "./TestServiceWithScopeOptional"
 import { createConnectOptions, logFailure, validateConnectedInfo } from "./TestHelper"
-import { firstValueFrom, Observable } from "rxjs"
+import { firstValueFrom, Observable, take, toArray } from "rxjs"
 import { v4 as uuidv4 } from "uuid"
 
 // The client hosts these services, so it connects as an organization participant (the app
@@ -67,6 +67,72 @@ describe('Kinotic JS', () => {
             }
             return JSON.parse(result.getDataString())
         }
+
+        // Sends a request and collects every reply for it until the completion control arrives
+        const sendAndCollectStream = async (cri: string, args?: any[] | null): Promise<IEvent[]> => {
+            const correlationId = uuidv4()
+            const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+            const event = createTestEvent(cri, replyTo, args)
+            event.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+            const replies: IEvent[] = []
+            const done = new Promise<IEvent[]>((resolve, reject) => {
+                const subscription = Kinotic.eventBus.observe(replyTo).subscribe({
+                    next: reply => {
+                        replies.push(reply)
+                        if (reply.getHeader(EventConstants.CONTROL_HEADER) === EventConstants.CONTROL_VALUE_COMPLETE
+                            || reply.hasHeader(EventConstants.ERROR_HEADER)) {
+                            subscription.unsubscribe()
+                            resolve(replies)
+                        }
+                    },
+                    error: reject
+                })
+            })
+            Kinotic.eventBus.send(event)
+            return done
+        }
+
+        describe("Streaming methods", () => {
+            it("should stream every value, naming the service on each, then complete", async () => {
+                const replies = await sendAndCollectStream("srv://com.example.TestServiceNoScope/countTo", [3])
+                const values = replies.slice(0, -1)
+                expect(values.map(reply => JSON.parse(reply.getDataString()))).toEqual([1, 2, 3])
+                for (const value of values) {
+                    expect(value.getHeader(EventConstants.ORIGIN_CRI_HEADER)).toBe(`srv://${ZONE}~com.example.TestServiceNoScope/countTo`)
+                    expect(value.hasHeader(EventConstants.CONTROL_HEADER)).toBe(false)
+                }
+                const completion = replies[replies.length - 1]!
+                expect(completion.getHeader(EventConstants.CONTROL_HEADER)).toBe(EventConstants.CONTROL_VALUE_COMPLETE)
+                expect(completion.data.isPresent()).toBe(false)
+            })
+
+            it("should stop producing once the caller cancels", async () => {
+                const correlationId = uuidv4()
+                const replyTo = `${EventConstants.REPLY_DESTINATION_PREFIX}${replyToId}:${uuidv4()}@continuum.js.EventBus/replyHandler`
+                const event = createTestEvent("srv://com.example.TestServiceNoScope/tick", replyTo, [50])
+                event.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
+                const replies = Kinotic.eventBus.observe(replyTo)
+                const firstTwo = firstValueFrom(replies.pipe(take(2), toArray()))
+                Kinotic.eventBus.send(event)
+                const received = await firstTwo
+
+                const cancel = new Event(received[0]!.getHeader(EventConstants.ORIGIN_CRI_HEADER)!, new Map([
+                    [EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL],
+                    [EventConstants.CORRELATION_ID_HEADER, correlationId],
+                    [EventConstants.REPLY_TO_HEADER, replyTo]
+                ]))
+                Kinotic.eventBus.send(cancel)
+
+                // once the cancel has landed, a window several periods long stays silent
+                let after = 0
+                const subscription = replies.subscribe(() => after++)
+                await new Promise(resolve => setTimeout(resolve, 200))
+                after = 0
+                await new Promise(resolve => setTimeout(resolve, 500))
+                subscription.unsubscribe()
+                expect(after).toBe(0)
+            })
+        })
 
         describe("Non-async methods without scope", () => {
             it("should invoke greet synchronously", async () => {

@@ -67,6 +67,14 @@ function unfitNodes(nodes: VmNode[]): AttentionItem[] {
                 detail: node.status.healthMessage ?? 'The orchestrator places nothing new on it',
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
+        } else if (node.status.type === VmNodeStatusType.UNREACHABLE) {
+            ret.push({
+                severity: 'warn',
+                icon: 'pi-server',
+                text: `${node.name} is unreachable`,
+                detail: 'A call to its vm-manager could not be delivered; the orchestrator places nothing new on it',
+                to: `/worker-nodes/${encodeURIComponent(node.id)}`
+            })
         } else if (node.status.type === VmNodeStatusType.OFFLINE) {
             ret.push({
                 severity: 'warn',

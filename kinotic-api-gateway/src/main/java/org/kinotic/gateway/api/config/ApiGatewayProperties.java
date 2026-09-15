@@ -13,20 +13,12 @@ import lombok.Setter;
 @Setter
 public class ApiGatewayProperties {
     public static long DEFAULT_SESSION_TIMEOUT = 1000 * 60 * 30;
-    public static long DEFAULT_STOMP_HEARTBEAT = 30_000;
     public static int DEFAULT_STOMP_PORT = 58503;
 
     /**
      * How long a session should last in milliseconds.
      */
     private long sessionTimeout = DEFAULT_SESSION_TIMEOUT;
-
-    /**
-     * The STOMP heartbeat interval in milliseconds the gateway offers and expects in both directions.
-     * A connection that stays silent for two intervals is closed, which is what makes a vanished
-     * client's disconnect deterministic, with every registration and outstanding invocation it held.
-     */
-    private long stompHeartbeat = DEFAULT_STOMP_HEARTBEAT;
 
     /**
      * The {@code SameSite} attribute of the session cookie. {@code LAX} sends it on requests

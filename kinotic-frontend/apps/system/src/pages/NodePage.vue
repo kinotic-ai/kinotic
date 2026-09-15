@@ -20,6 +20,12 @@
         The orchestrator places nothing new here until the node reports no problems; its
         {{ workloads.length }} workloads keep running.
       </Message>
+      <Message v-else-if="node.status.type === VmNodeStatusType.UNREACHABLE" severity="error" :closable="false" class="mb-4">
+        <b>Unreachable.</b> A call to its vm-manager could not be delivered, and the node holds no
+        registration on the server. The orchestrator places nothing new here; its
+        {{ workloads.length }} workloads keep running until the node either heartbeats, which makes it
+        online again, or stays silent past the heartbeat timeout, which takes it offline.
+      </Message>
       <Message v-else-if="node.status.type === VmNodeStatusType.OFFLINE" severity="error" :closable="false" class="mb-4">
         <b>Offline.</b> No heartbeat since {{ formatEpochDateTime(node.lastSeen) }}. A node that
         reconnects is online again with its next heartbeat.

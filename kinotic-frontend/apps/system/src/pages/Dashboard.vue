@@ -94,6 +94,7 @@ const nodeStates = computed(() => {
   return [
     { label: 'Online', count: count(VmNodeStatusType.ONLINE), color: accentColor('green', isDark.value) },
     { label: 'Draining', count: count(VmNodeStatusType.DRAINING), color: accentColor('amber', isDark.value) },
+    { label: 'Unreachable', count: count(VmNodeStatusType.UNREACHABLE), color: accentColor('violet', isDark.value) },
     { label: 'Offline', count: count(VmNodeStatusType.OFFLINE), color: accentColor('red', isDark.value) }
   ]
 })

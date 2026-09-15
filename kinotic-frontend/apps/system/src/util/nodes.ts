@@ -4,11 +4,17 @@ import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
 /** How many worker nodes the console reads; a platform with more shows the first page of them. */
 const NODE_PAGE_SIZE = 100
 
-// Nodes that can actually take a workload belong at the top. status.type is a keyword, and its
-// three values sort ONLINE, OFFLINE, DRAINING descending, so descending is the order the pages
-// want; name breaks ties so cards hold a stable position across refreshes.
+// Nodes that can actually take a workload belong at the top, then the ones the orchestrator is
+// holding off, then the ones it has given up on; name breaks ties so cards hold a stable position
+// across refreshes.
+const NODE_RANK: Record<VmNodeStatusType, number> = {
+    [VmNodeStatusType.ONLINE]: 0,
+    [VmNodeStatusType.DRAINING]: 1,
+    [VmNodeStatusType.UNREACHABLE]: 2,
+    [VmNodeStatusType.OFFLINE]: 3
+}
 const NODE_SORT = new Sort()
-NODE_SORT.orders = [new Order('status.type', Direction.DESC), new Order('name', Direction.ASC)]
+NODE_SORT.orders = [new Order('name', Direction.ASC)]
 
 /** What a node, or a set of nodes, promised and what is placed on it. */
 export interface Capacity {
@@ -23,7 +29,7 @@ export interface Capacity {
 /** Every registered worker node, the ones fit for placement first. */
 export async function loadNodes(): Promise<VmNode[]> {
     const page = await Kinotic.vmNodes.findAll(Pageable.create(0, NODE_PAGE_SIZE, NODE_SORT))
-    return page.content ?? []
+    return (page.content ?? []).sort((a, b) => NODE_RANK[a.status.type] - NODE_RANK[b.status.type])
 }
 
 /** Maps a node status to the PrimeVue Tag severity it renders with. */

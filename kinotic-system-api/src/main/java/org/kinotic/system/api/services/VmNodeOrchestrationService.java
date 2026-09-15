@@ -66,6 +66,15 @@ public interface VmNodeOrchestrationService {
     Future<Void> deregisterNode(String nodeId);
 
     /**
+     * Checks a node a call to its vm-manager could not reach. A node whose vm-manager holds no service
+     * registration is marked {@code UNREACHABLE} at once, so no workload is placed on it before the
+     * heartbeat timeout would have noticed; a registered one is left as it is.
+     * @param nodeId the id of the node to check
+     * @return a future that completes when the check has been applied
+     */
+    Future<Void> verifyNode(String nodeId);
+
+    /**
      * Finds a node with sufficient resources to host a workload with the given requirements.
      *
      * @param requiredCpus the number of vCPUs required

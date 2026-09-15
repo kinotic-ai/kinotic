@@ -1,7 +1,7 @@
 # Node failure handling for service proxies — phase plan
 
 Plan of record for making a proxy call fail when the node serving it dies, instead of hanging
-forever. Phase 1 landed in PR #476; Phase 2 in #540; Phase 3 in #544; Phase 4 is PR #545; Phase 5 is PR #546, based on #545; Phase 6 is PR #547, based on #546. Everything below was re-validated against `develop` at `3adf17d`
+forever. Phase 1 landed in PR #476; Phase 2 in #540; Phase 3 in #544; Phase 4 is PR #545; Phase 5 is PR #546, based on #545; Phase 6 in #547; Phases 7 and 8 were built as #548 and #549 and dropped, see their section; the fail-on-disconnect rule that replaces them is PR #551; Phase 9 is PR #552, based on #551 (#550 was closed with the dropped Phase 8 base); the wrap-up is PR #553, based on #552; TS service streaming with cancel is PR #554, based on #553; the review fixes are PR #558. Everything below was re-validated against `develop` at `3adf17d`
 (2026-09-08); the adjustments that pass produced are folded in, and the phase numbering below
 supersedes the earlier chat numbering (mapping at the end).
 
@@ -209,14 +209,12 @@ Spring destroys it, and drains it, before the registry and the Vert.x behind it.
 
 ## Phase 4 — gateway, caller side: session state, leases, session touch (~10 files)
 
-**The boundary-critical phase.** Introduce the object Phase 7 later parks: a
-per-connection `ReplySessionState` owning what is spread through `EndpointConnectionHandler`
+**The boundary-critical phase.** Introduce a per-connection `ReplySessionState` owning what is spread through `EndpointConnectionHandler`
 today — the `reply://` consumer and, new, the pending-request records
 `(correlationId, metadata, destination)` with a Phase 3 lease each. On lease loss, synthesize the
 error reply through the *existing* recover path (`exceptionConverter.convert` → `send`); release
 leases on terminal-marked replies observed in `StompSubscriptionEventSubscriber`. Lifecycle is
-still socket-bound here (`shutdown()` disposes it) — disposal is one call on a self-contained
-object, which is exactly the seam Phase 7 repoints.
+socket-bound (`shutdown()` disposes it), and disposal is one call on a self-contained object.
 
 Also here, because parking cannot be built on it otherwise: the session touch on the
 WebSocket path never reaches the store.
@@ -247,8 +245,7 @@ void dispose();                                 // shutdown(): settle everything
 ```
 
 Terminal replies settle inside the reply consumer's handler rather than in
-`StompSubscriptionEventSubscriber`, so that class is untouched and the state stays self-contained
-for Phase 7 to park. A lost node answers through `exceptionConverter.convert` → `eventBusService.send`
+`StompSubscriptionEventSubscriber`, so that class is untouched and the state stays self-contained. A lost node answers through `exceptionConverter.convert` → `eventBusService.send`
 on the recorded reply metadata, the same path a failed send takes.
 
 The session touch writes through `SessionStore.put` at most once per quarter of the session
@@ -294,14 +291,16 @@ failure-detection window.
 
 As built. The premise on heartbeats was stale: vertx-stomp-lite already negotiates them, with a
 server default of 30 s both ways, and closes a connection silent for two intervals through
-`handler.closed()`. What the phase adds is the interval as `ApiGatewayProperties.stompHeartbeat`
-(30 s), set explicitly on `StompServerOptions`, so the detection window is a deployment setting
-rather than a library default nobody reads.
+`handler.closed()`. The phase set the same 30 s explicitly as `ApiGatewayProperties.stompHeartbeat`;
+the property was removed again in PR #554: the interval is a protocol agreement with the TS client,
+which offers 30 s both ways, and STOMP negotiates each direction to the larger offer, so a
+deployment could only widen it. The library default stands. `StompHeartbeatTests`, which pinned
+the library's own close on silence, went with it: that is vertx-stomp-lite's behaviour to test.
 
 ```java
 // ServiceSessionState — the callee side of one connection, sibling of ReplySessionState
-void deliver(Event<byte[]> event);           // in the srv:// subscription handler; a cancel forgets its invocation
-void settleIfTerminal(Event<byte[]> reply);  // in send() on the reply scheme, the way back through the connection
+void deliver(Event<byte[]> event, StompSubscriptionHandler handler);  // in the srv:// subscription handler; a cancel forgets its invocation
+void observeReply(Event<byte[]> reply);      // in send() on the reply scheme: a terminal reply settles, a stream value starts the requester watch
 void dispose();                              // shutdown(): RpcServiceUnavailableException to every reply-to still outstanding
 ```
 
@@ -311,9 +310,7 @@ states share.
 Files: `ApiGatewayProperties`, `ApiGatewayVertcleFactory`, `ServiceSessionState`,
 `EndpointConnectionHandler`, `EventUtil`, `ReplySessionState` (uses the shared helpers),
 `EndpointConnectionHandlerTests` (a closed connection answers the invocations it still owes; a
-terminal reply back through the connection settles one), `StompHeartbeatTests` (a real
-stomp-lite server on a free port: a client that offers a heartbeat and goes silent is disconnected
-after two intervals).
+terminal reply back through the connection settles one).
 
 ## Phase 6 — TS client edges (~4 files)
 
@@ -324,8 +321,8 @@ crosses to TS as more than a message string (the `EventBus.ts` TODO); the `NONE`
 where a network drop keeps the session and resurrects the old `replyToId` until expiry; and the
 vm-manager's overlapping heartbeat `setInterval`.
 
-Not in scope: failing in-flight calls on a sticky reconnect. That is what parking exists to
-avoid.
+Failing in-flight calls on a reconnect is the rule the dropped Phases 7 and 8 settled on; see
+their section.
 
 As built: `RpcError` (`api/event`, exported) carries `exceptionName` and `exceptionClass` parsed
 from the `ServiceExceptionWrapper` body of an error reply, falling back to the error header;
@@ -339,82 +336,42 @@ connection however the connection ended. The vm-manager heartbeat is a self-resc
 `EndpointConnectionHandlerTests` (a NONE session is gone from the store once the connection
 closes). `@kinotic-ai/core` moves to 5.0.0-beta.11 for the new export.
 
-## Phase 7 — parked reply sessions, same node (~13 files, split 7a gateway / 7b client)
+## Phases 7 and 8 — dropped: a call does not outlive its connection
 
-On `closed()` with a sticky session, `shutdown()` *parks* the `ReplySessionState` in a node-local
-`ParkedReplySessions` instead of disposing: the reply consumer keeps consuming into a bounded
-buffer, leases stay armed (a callee dying during the gap synthesizes a buffered error), and —
-because the registration stays — `ServiceInvocationSupervisor`'s reply-listener monitor stays
-ACTIVE, so long-running server streams survive the reconnect instead of being cancelled. Reattach
-and flush on same-node reconnect.
+Phase 7 parked a closed connection's reply state on its node for a window, buffering replies and
+keeping leases armed so the same client reconnecting resumed every call; Phase 8 handed that state
+across nodes with a release published to the reply destination. Both were built (PRs #548 and #549)
+and closed unmerged, for a finding about the deployment rather than the code: the STOMP port sits
+behind the cluster load balancer with no session affinity, so a reconnect lands on any node and the
+cross-node case is the normal one, not the rollover exception. Parking then pays off only with the
+handoff on top, and the handoff still loses the buffer, and the pending records with it, when the
+node holding them dies during the window, the one case a rollover produces. Each fix for that was
+another piece of held state that could be on the wrong node.
 
-Adjustments from the re-validation:
+What replaces them is one rule on both ends: a call is bound to its connection.
 
-- **The window is a gateway property**, beside `sessionTimeout`; parking never derives its
-  lifetime from the clustered session's expiry (the Phase 4 fix makes that expiry correct, but the
-  window is gateway policy either way).
-- **Replies only.** The client no longer queues requests during a gap, so a parked session holds
-  inbound replies and nothing else.
-- **A byte budget per parked session**, and a new heap term for the sizing doc: parked replies are
-  heap-resident bodies up to `maxEventPayloadSize`, and the direct-memory-exhaustion scenario in
-  NavidNotes parks many sessions on one node at once.
-
-Two exits, one outcome. Window expiry: dispose, drop the buffer, close leases (streams then cancel
-through the existing INACTIVE path). Overflow: dispose. Both **rotate the `replyToId`** in the
-session's `ConnectedInfo`, so the next CONNECT mints a new reply CRI and the client's existing
-`replyToCriChangedHandler` → `resetRequestReplies` path fails its in-flight calls — continuity
-loss signals through a mechanism that already ships, and login is untouched. Expiry has to rotate
-too: a single-value reply produced during the gap is gone with the buffer, and a client that
-reconnects within the session but after the window would otherwise find its `replyToId` intact
-and wait forever for that reply.
-
-**The client half (7b).** A client whose socket stays down longer than the window has nothing left
-to wait for, so it fails its in-flight calls itself instead of holding them for a reconnect that
-may never come. One timer per connection, armed on `connectionState$` CLOSED and cleared on the
-next CONNECTED, never a per-call timeout; on expiry it runs `resetRequestReplies`. The window comes
-from the server: `ConnectedInfo` gains `replyBufferWindow` beside `replyToId`, mirrored in
-`ConnectedInfo.ts`, so it is configured once, on the gateway. Every ordering is consistent given
-the rotation above: a reconnect inside the window flushes; the client timer first, then a reconnect
-inside the server's window, flushes to correlations already failed, which `cancelIfUnexpected`
-already handles; the server first, then a reconnect, fails through the reply CRI change; no
-reconnect at all fails on the client timer. The client's first reconnect attempt comes
-`INITIAL_RECONNECT_DELAY` (2 s) after the drop, so the window's useful range starts there; five to
-ten seconds absorbs a spotty network, and past that the network is down and failing fast is
-cheaper than holding the calls.
-
-A client that reconnects through a fresh handshake without its session (the vm-manager's
-`reconnectOnFatalError` loop re-authenticates with credentials) gets a new `replyToId`; its old
-parked session is orphaned until the window expires. The window bounds a leak, not only a wait.
-
-Files, 7a: `ParkedReplySessions`, park/reattach in `EndpointConnectionHandler` +
-`ReplySessionState`, `replyToId` rotation on both exits, `ApiGatewayProperties.replyBufferWindow`,
-`ConnectedInfo` (Java) carrying it, tests (blip mid-stream on one gateway → stream continues; a
-single-value reply during the blip → delivered on reattach; expiry and overflow → calls fail with
-the reset error). 7b: `ConnectedInfo.ts`, `StompConnectionManager.ts`, `EventBus.ts`, a TS test
-(blip shorter than the window → the call completes; longer → it fails).
-
-## Phase 8 — cross-node handoff (~9 files)
-
-The rollover case: the client reconnects to a different gateway node. `ClusteredSessionStore` is
-now unconditional on `develop`, so the session (and `replyToId`) is found on any node; the parked
-replies are on the old one. Protocol over the event bus itself:
-
-```java
-// EventBusService.java (develop) — fan-out, every consumer on the address, every node
-void publish(Event<byte[]> event);
+```ts
+// StompConnectionManager — a drop after the initial connect
+this.rxStomp.connectionState$.subscribe(state => {
+    if (state === RxStompState.CLOSED && this.isActive && this.initialConnectionSuccessful) {
+        this.connectionLostHandler?.()          // EventBus: resetRequestReplies('Connection lost')
+    }
+})
 ```
 
-The new node registers its reply consumer, then `publish`es a `control: reply-session-release` to the
-reply address — with `publish` it reaches both the parked session's consumer and the new consumer regardless of
-registration order, which removes the split-brain reasoning the earlier `send`-based sketch
-needed. The parked session stops consuming, re-sends its buffer to the same address (now routing only
-to the new node), transfers its pending records, and ends with `flush-complete`; the new node
-holds client forwarding until then, preserving per-correlation stream order. A parked session that never
-answers is bounded by the same registration monitoring, no timeouts here either.
+```java
+// EndpointConnectionHandler.shutdown — Phase 4 as merged, the server side of the same rule
+replySessionState.dispose();      // leases settled, reply consumers unregistered → server streams cancel on INACTIVE
+serviceSessionState.dispose();    // Phase 5: the invocations this connection owed are failed to their requesters
+```
 
-Files: control values in `EventConstants`, release/flush in `ParkedReplySessions`, the hold in
-`ReplySessionState`, a pending-record codec, a two-gateway test (kill gateway A mid-stream,
-reconnect to B, stream resumes complete and ordered).
+Both sides let go at the moment of the close, streams included, so nothing is held that could be
+on the wrong node or die with one. A blip costs the caller a retry, and a non-idempotent call
+carries the ambiguity `RpcServiceUnavailableException` already documents. A caller that needs a
+message to survive its connection needs a delivery guarantee, which is a queue behind the API with
+acknowledgement and redelivery, a separate layer with its own contract. The Phase 7 and 8
+branches remain on origin (`claude/node-failure-proxy-handling-phase7`, `-phase8`) should a
+sticky load balancer ever change the calculus.
 
 ## Phase 9 — orchestrator fast path (~5 files, optional)
 
@@ -435,6 +392,133 @@ if (node.getStatus().getType() == VmNodeStatusType.ONLINE      // DRAINING never
 This matters more now: the vm-manager reports telemetry-shipping problems as DRAINING, so a node
 that loses Loki/Tempo and then dies keeps its workloads RUNNING forever.
 
+As built. `VmNodeOrchestrationService.verifyNode(nodeId)` is the invalidation trigger:
+`DefaultWorkloadOrchestrationService` calls it when a `VmManagerProxy` call fails with
+`RpcMissingServiceException` or `RpcServiceUnavailableException`. Verification reads the
+vm-manager's registration for the node (`monitorListenerStatus` on the scoped address, first
+emission); absent, the node becomes `UNREACHABLE`, a new `VmNodeStatusType`, so placement stops
+at once. Its workloads are left to the heartbeat reaper: a vm-manager reconnecting after a blip
+is registration-less for a few seconds, and failing workloads on that would be a false positive.
+The reaper now marks any non-OFFLINE node with a stale `lastSeen` OFFLINE and fails its
+workloads, which covers DRAINING and UNREACHABLE alike. The next heartbeat brings an UNREACHABLE
+node back to ONLINE through the existing status comparison. `KinoticUtil.serviceIdentifierOf`
+carries the proxy-to-identifier derivation `DefaultServiceRegistry` had inline, so the orchestrator
+builds the scoped address the same way the proxy does.
+
+Files: `KinoticUtil`, `DefaultServiceRegistry`, `VmNodeStatusType` (Java and TS),
+`VmNodeOrchestrationService`, `DefaultVmNodeOrchestrationService`,
+`DefaultWorkloadOrchestrationService`, `WorkloadOrchestrationTest` (+ `StubVmNodeService.findAll`):
+an unreachable vm-manager with no registration marks its node UNREACHABLE; one still registered
+leaves it ONLINE; a silent DRAINING node goes OFFLINE with its workload FAILED.
+
+## Wrap-up (after Phase 9)
+
+Built after the direction change, against the whole series:
+
+- The TS client's incoming heartbeat matches the gateway's 30 s heartbeat (from 120 s). The
+  client had asked the gateway for a beat every 120 s, so a gateway VM that vanished without closing
+  the socket took stompjs two of those to notice, and every call on the connection hung for that
+  long; the gateway itself has bounded the reverse direction at two 30 s intervals since Phase 5.
+- The system console handles `UNREACHABLE`: the node list ranks nodes by fitness in the client
+  rather than by the keyword order of `status.type`, which would have put `UNREACHABLE` above
+  `ONLINE`; the dashboard counts it, the node pages explain it, and the attention list reports it.
+- `DefaultStompServerHandler.closed()` describes what a close does with the session.
+
+Still open, and outside this repository's harness:
+
+- `@kinotic-ai/core` 5.0.0-beta.11 and `@kinotic-ai/system-api` 5.0.0-beta.12 are published. The
+  console's catalog resolves both, with management-api 5.0.0-beta.30, and its lock records them.
+  `kinotic-cli` 5.2.0-beta.15 pins core at 5.0.0-beta.11 and
+  `@kinotic-ai/vm-manager` 5.0.0-beta.19 carries the bounded shutdown; both wait on their publish,
+  the CLI first. `kinotic-cli` 5.2.0-beta.15 is published; `workload-runner` pins it and core
+  5.0.0-beta.11 with its lock recorded, so the next image build carries the fixed client.
+- A TS service could not stream at all: `BasicReturnValueConverter` serialised whatever a method
+  returned, an `Observable` included, and `processControlPlaneRequest` dropped every control, while
+  the streaming page documented the feature. Built as the follow-up to the wrap-up: the TS supervisor
+  streams an `Observable` result (one reply per value carrying the origin CRI, a bodiless completion
+  control at the end, an error reply on failure), honours a cancel control, ends every stream with an
+  error reply on `stop()`, and cancels them all when `IEventBus.connectionLost` fires, since the
+  gateway has already failed those requesters. The gateway's `ServiceSessionState` watches the
+  requester's reply destination once an invocation answers with a stream value and delivers a cancel
+  control over the socket on INACTIVE, which is the Java supervisor's reply-listener cancel carried
+  one hop further.
+- An end-to-end run against a cluster: a Java caller and a UI caller each mid-call while the serving
+  node is killed, and a UI mid-call while its gateway node is killed.
+
+## Review fixes (after the merges)
+
+A four-way adversarial review of everything the series landed, one reviewer per area, found the
+defects below; each was traced in the code before it was fixed. All are on one branch on top of the
+merged stack.
+
+- Every TS `invokeStream` ended with a trailing `null`: stompjs yields an empty array, never an
+  absent body, so a stream's bodiless completion reached `EventBus` with data present and was emitted
+  as a value. Since Phase 1. An empty body is now no body where frames become events.
+- A TS stream killed its own connection on its second value: the reply grant was one send per
+  delivered invocation, consumed by the first reply, and the zone rules refuse `reply://`. A reply to
+  a pending invocation's own destination is allowed while it is pending.
+- A lease could fall out of the watcher's node index: `watch` added the id to a set fetched with
+  `computeIfAbsent`, outside the lock, and a concurrent `settle` emptying that set dropped it. The add
+  runs inside `compute`.
+- Reply-consumer collision on reconnect: the reply discriminator was per client instance, so a
+  reconnect within the heartbeat window shared its reply address with the previous socket's consumer
+  and `send` round-robined replies into the dead socket. Minted per connection.
+- A request during a pending `connect()` cached the reply subscription on a null or stale address,
+  which the vm-manager's reconnect loop hit through its heartbeat. `requestStream` requires a
+  connection and an address; `connect()` resets the cache when the address changed.
+- The session touch put a session back that a logout had deleted, because the clustered store only
+  checks versions on an existing entry. The touch reads first and never re-creates.
+- `DefaultRpcServiceProxyHandle.settle()` released the lease before the map entry, so a reply that beat
+  the ack leaked a lease; the reply handler's `containsKey` then `get` could NPE and release the proxy.
+- `SingleValueSubscriber.onNext` rethrowing leaked the in-flight count, so `stop()` waited the full
+  drain; an invocation queued for the worker pool was not counted until it ran.
+- `beforeSave` stamped `lastSeen` on every `VmNode` save, so marking a node UNREACHABLE restarted its
+  reaper clock; only a heartbeat or registration stamps it. `verifyNode` bridged a Mono through a
+  context-less Promise.
+- TS supervisor: a value the converter cannot serialise, an unknown control, and an error reply with
+  no reply-to each became an uncaught exception or a running stream; `connectionLost` fired per failed
+  reconnect attempt; `disconnect()` waited behind a `connect()` that could never settle.
+- A NONE keep-alive connection deleted a login session it had not created; `disconnected()` duplicated
+  `closed()`; membership snapshots could emit out of order.
+
+A second pass took the TS connection layer and the Java supervisor on their own, with the bar of no
+known defect.
+
+- `StompConnectionManager` is reworked around a `StompActivation` per `activate()` call, which owns
+  the listeners, the pending reject, a socket produced for stompjs, and the attempt stompjs is
+  awaiting. `deactivate()` ends only the activation it took, waits for that attempt before the next
+  activation may start, and reports an open connection's end once. A fatal raised by an ended
+  activation's attempt or listener is not published; a bad CONNECTED frame rejects the connect with
+  its own reason; a connect queued behind a `disconnect()` never starts; `activate()` rejects with
+  `Error`s; the attempt budget is granted again for each connection's reconnects. A fake STOMP server
+  behind the socket factory drives these in `ConnectionLifecycle.test.ts`.
+- `ServiceInvocationSupervisor`: a stream whose caller's reply listener goes INACTIVE, whose listener
+  monitor ends, or whose service stops after the drain began ends with an error reply instead of a
+  silent cancel; `fail()` sends that reply once whichever path gets there first; a request reusing a
+  live stream's correlation id is answered with an error instead of dropped with its span open; an
+  unknown control cancels the source it answers with an error; a single-value reply that cannot be
+  sent is answered the same way whether it came from `onNext` or an empty completion.
+- `ServiceInvocationSupervisor` no longer dispatches through `vertx.executeBlocking`: an invocation
+  runs on its delivery context, so the synchronous slice of one service's invocations is no longer
+  serialized on one ordered worker and no worker hop or shared pool sits in the request path. A slow
+  handler hands off inside itself, the rule the platform docs now state. The stream registry uses
+  `putIfAbsent` and removes inline, and the in-flight count is a pair of plain methods. The argument
+  tokenizer is a synchronous call with no `block()` on the event loop.
+
+The second review's remaining findings (`Node failure review round two.md`) are fixed on the same
+branch: a cancel is published to every instance of the service, so the one producing the stream gets
+it whichever instance round-robin gave the request; a reply the gateway connection does not owe is
+dropped instead of ending the connection, and a TS service drops results for invocations of a lost
+connection; `VertxFutureRpcReturnValueHandler` completes idempotently; lease keys are qualified per
+connection; a CONNECTION keep-alive touches the session at connect and every quarter of the timeout;
+a control event earns no reply grant; a reused subscription id ends its predecessor; a requester whose
+listener is gone is answered as well as cancelled; VmNode status is a partial update and the allocation an atomic scripted
+reservation and release, so only a heartbeat writes `lastSeen` and two concurrent deploys can never both
+take a node's last room; the reaper takes STOPPING workloads with the rest; the TS
+supervisor stops a synchronous stream on its first unsendable value, answers with the
+`{exceptionName, exceptionClass, errorMessage}` shape every runtime reads, and the vm-manager bounds
+its graceful disconnect on shutdown.
+
 ## Numbering
 
 | Earlier chat numbering | This document |
@@ -443,11 +527,11 @@ that loses Loki/Tempo and then dies keeps its workloads RUNNING forever.
 | 2 watcher (address-level) | 2 ack names the node, 3 watcher (node-level) |
 | 3 gateway leases + heartbeats | 4 caller side + session touch, 5 callee side + heartbeats |
 | 4 TS edges | 6 |
-| 5 mailbox | 7 parked reply sessions |
-| 6 handoff | 8 |
+| 5 mailbox | 7, dropped |
+| 6 handoff | 8, dropped |
 | 7 orchestrator | 9 |
 
-Dependency spine: 1 → 2 → 3 → 4 → 7 → 8, with 5 after 4, 6 after 1, 9 after 3.
+Dependency spine: 1 → 2 → 3 → 4, with 5 after 4, 6 after 1, 9 after 3.
 
 ## Scaling
 

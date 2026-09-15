@@ -5,6 +5,10 @@ import io.vertx.core.eventbus.ReplyFailure;
 import lombok.extern.slf4j.Slf4j;
 import net.openhft.hashing.LongTupleHashFunction;
 import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.internal.utils.MetaUtil;
+import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.annotations.Proxy;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
@@ -56,6 +60,25 @@ public class KinoticUtil {
             }
         }
         return ret;
+    }
+
+    /**
+     * The identity a {@link org.kinotic.core.api.annotations.Proxy} interface addresses: its zone, namespace,
+     * name and version as declared on the interface, with no scope. A scoped call adds the scope per invocation.
+     * @param proxyInterface an interface annotated with {@link org.kinotic.core.api.annotations.Proxy}
+     * @return the identifier the interface's calls are routed by
+     */
+    public static ServiceIdentifier serviceIdentifierOf(Class<?> proxyInterface) {
+        Proxy proxyAnnotation = proxyInterface.getAnnotation(Proxy.class);
+        Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
+        String namespace = proxyAnnotation.namespace().isEmpty() ? safeEncodeURI(proxyInterface.getPackageName()) : safeEncodeURI(proxyAnnotation.namespace());
+        String name = proxyAnnotation.name().isEmpty() ? proxyInterface.getSimpleName() : proxyAnnotation.name();
+        // A proxy targets one address; with no declaration it targets the un-zoned address
+        return new ServiceIdentifier(MetaUtil.getZone(proxyInterface),
+                                     namespace,
+                                     name,
+                                     null,
+                                     MetaUtil.getVersion(proxyInterface));
     }
 
     /**
