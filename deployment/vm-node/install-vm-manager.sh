@@ -15,8 +15,10 @@ VM_MANAGER_VERSION="${VM_MANAGER_VERSION:-latest}"
 
 [ "$(id -u)" -eq 0 ] || fail "run as root (sudo $0)"
 
-# The vm-manager uses Bun's runtime API, so it runs under bun rather than node
+# The vm-manager uses Bun's runtime API, so it runs under bun rather than node. Bun's
+# installer unpacks a zip, and a minimized Ubuntu ships without unzip.
 if ! command -v bun >/dev/null 2>&1; then
+    apt-get install -y -qq unzip >/dev/null
     curl -fsSL https://bun.sh/install | BUN_INSTALL=/usr/local bash >/dev/null
 fi
 command -v bun >/dev/null 2>&1 || fail "bun did not install"

@@ -14,8 +14,8 @@ sudo ./verify-node.sh           # assert every invariant — run after any reboo
 sudo ./install-vm-manager.sh    # the vm-manager under /opt/kinotic/vm-manager, as a systemd service
 ```
 
-Needs Ubuntu 22.04 on x86_64 with `/dev/kvm` (nested virtualization on a VM), root, and
-outbound internet. Kata's release is pinned in `setup-node.sh` and printed, so a run reports
+Needs Ubuntu 26.04 LTS on x86_64, the minimized image included, with `/dev/kvm` (nested
+virtualization on a VM), root, and outbound internet; 22.04 and 24.04 run the same kit. Kata's release is pinned in `setup-node.sh` and printed, so a run reports
 exactly what it installed and two nodes provisioned months apart are running the same thing.
 Bumping it is an edit, made against the release notes and the advisories for the version
 being left behind.
@@ -104,7 +104,9 @@ under `/opt/kinotic/vm-manager`, and registers `kinotic-vm-manager.service`. The
 
 Every variable is documented under [VM provider](https://kinotic.ai/platform/configuration#vm-provider)
 and [Workload egress](https://kinotic.ai/platform/configuration#workload-egress). Set
-`VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades.
+`VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades. The
+default is npm's `latest` tag, which is the last released line; a server on a pre-release
+line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.19` for a 5.0.0 server.
 
 ## Kata 4.1.0 and why this kit is amd64 only
 
