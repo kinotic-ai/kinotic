@@ -1,0 +1,1 @@
+{"id":"404c8bb62f4e4f530dbe4b8bb4149b7e","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testReusedSubscriptionIdEndsThePreviousConsumer","name":"testReusedSubscriptionIdEndsThePreviousConsumer()","status":"passed","testResultsByEnv":{"default":"40d6bd6b64a0eef12f2267332de8e937"}}
