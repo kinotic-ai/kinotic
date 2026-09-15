@@ -18,7 +18,7 @@ certificate.
 | Front Door domains + CNAMEs | `dev-portal.kinotic.ai`, `dev-console.kinotic.ai` | The portal and the system console, served from `sites/<hostname>/` in the sites account on managed certificates |
 | DNS A record | `dev-api.kinotic.ai` | The router's public address; `kinotic-dyndns.timer` on the host keeps it current |
 | Service principal | `kinotic-dev-server` | The identity the server runs as: Storage Blob Data Contributor on the sites account, Contributor on the email service, Key Vault Secrets Officer on `kv-kinotic-dev`, DNS Zone Contributor on the zone for certbot and the address updater |
-| Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh` |
+| Role assignment | the operator | Storage Blob Data Contributor on the sites account, for `deploy-ui.sh`; Key Vault Secrets Officer on `kv-kinotic-dev`, to place the social sign-in client secrets |
 
 ## Applying
 
@@ -54,6 +54,14 @@ so both are applied from the same checkout. Two outputs feed kinotic-server:
 ```bash
 terraform output dev_server_env         # merged into the server's environment by the proxmox root
 terraform output -raw secrets_env       # → kinotic-server.env in the secrets directory, placed by sync-secrets.sh
+```
+
+The social sign-in providers the migration seeds (`kinotic_org_signup_oidc_configuration`)
+resolve their client secrets from `kv-kinotic-dev` by name, so each provider's secret goes
+there once, and its registration lists this server's callback URLs under `dev-api`:
+
+```bash
+az keyvault secret set --vault-name kv-kinotic-dev --name github-platform --value "$(cat)" >/dev/null   # the App's client secret on stdin
 ```
 
 `terraform destroy` removes the resource group with everything in it, the DNS record, the
