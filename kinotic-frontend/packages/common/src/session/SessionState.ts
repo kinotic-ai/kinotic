@@ -28,13 +28,15 @@ export class SessionState implements ISessionState {
 
     public login(): Promise<void> {
         return this.serialize(async () => {
+            // Cleared before the disconnect below so the session-loss handler reads the connection
+            // ending as a teardown this client asked for rather than one that died on it.
+            this.connectedInfo = null
+
             try {
                 await Kinotic.disconnect()
             } catch (error) {
                 debug('No existing connection to disconnect')
             }
-
-            this.connectedInfo = null
 
             // Reject immediately when the backend is unreachable or there is no valid session,
             // rather than letting Kinotic.connect retry the websocket indefinitely — callers
@@ -55,6 +57,10 @@ export class SessionState implements ISessionState {
 
     public logout(): Promise<void> {
         return this.serialize(async () => {
+            // Cleared first, for the same reason as in login(): the disconnect below is this
+            // client's own, not a connection lost out from under it.
+            this.connectedInfo = null
+
             try {
                 await fetch(apiUrl('/api/auth/logout'), { method: 'POST', credentials: 'include' })
             } catch (error) {
@@ -65,7 +71,6 @@ export class SessionState implements ISessionState {
             } catch (error) {
                 debug('Error disconnecting from Kinotic: %O', error)
             }
-            this.connectedInfo = null
         })
     }
 
