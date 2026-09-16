@@ -239,4 +239,6 @@ Admin repository methods accept a tenant selection array as the first argument:
 
 ## Security Considerations
 
-Admin repositories should be restricted to users with appropriate administrative permissions. The standard tenant-isolated repository is the default and should be used for regular application logic.
+A participant that belongs to a tenant is confined to it. Through the admin repository it may select only its own tenant; naming another tenant, or `['*']`, is refused with an authorization error. On save, a blank `@TenantId` is filled with the participant's tenant and any other value is rejected. Selecting other tenants is possible only for a participant without a tenant, which is how a microservice in a project's deployment connects (organization scope), and such a participant must name the tenant of every entity it saves.
+
+The standard tenant-isolated repository is the default and should be used for regular application logic.
