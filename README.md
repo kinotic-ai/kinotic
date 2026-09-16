@@ -9,7 +9,7 @@
 
 **Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
 
-[![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
+[![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json&cacheSeconds=300)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
 [![License Elastic 2.0](https://img.shields.io/badge/license-Elastic%202.0-28FEB4)](LICENSE.txt)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
@@ -28,7 +28,10 @@ The bottleneck is moving that software from a prototype into a secure, observabl
 
 Kinotic is building the application-level operating system that closes that gap.
 
-> **Idea → Specification → AI-generated application → Production**
+> **Idea** →<br>
+> **Specification** →<br>
+> **AI-generated application** →<br>
+> **Production**
 
 Kinotic abstracts the complexity of cloud infrastructure so developers and AI agents can build production applications without having to assemble and operate the underlying infrastructure themselves.
 
@@ -67,7 +70,7 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 ---
 
-# 🧱 A different abstraction layer
+# 📐 A different abstraction layer
 
 Kubernetes made infrastructure orchestration programmable.
 
@@ -121,10 +124,10 @@ Kinotic provides the capabilities required throughout that lifecycle:
 
 | Lifecycle stage | What Kinotic provides |
 |---|---|
-| 🛠️ **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
-| 🔐 **Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🚢 **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
-| 📈 **Operate** | Observability · LLM observability |
+| **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
+| **Secure** | Authentication · Fine-grained authorization · Security controls |
+| **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| **Operate** | Observability · LLM observability |
 
 ---
 
