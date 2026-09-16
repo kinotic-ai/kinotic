@@ -57,25 +57,25 @@ import ToggleButton from 'primevue/togglebutton'
 import VirtualScroller from 'primevue/virtualscroller'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import DatetimeUtil from '../util/DatetimeUtil'
 import { errorMessage, parseJsonBytes } from '../util/helpers'
 import type { TimeRange } from './telemetry/TimeRange'
 import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetry/telemetryApi'
+import type { WorkloadRun } from './WorkloadRun'
 
 const props = defineProps<{
   workloadId: string
   /**
-   * The workload's record, when the caller has it. A workload whose run has ended opens on
-   * the span of that run rather than the last hour, and does not follow, since nothing more
-   * is coming; the run is also offered as a span for a workload still running.
+   * The window the workload ran over, when the caller knows it. A run that has ended opens on
+   * its own span rather than the last hour, and does not follow, since nothing more is coming;
+   * the run is also offered as a span while it is still going.
    */
-  workload?: Workload
+  run?: WorkloadRun
 }>()
 
 /** The span option that reveals the absolute range pickers. */
 const CUSTOM_SPAN = 'custom'
-/** The span option covering the workload's run, from its creation to its end or to now. */
+/** The span option covering the workload's run, from its start to its end or to now. */
 const RUN_SPAN = 'run'
 /** A preset's milliseconds, or one of the named spans. */
 type Span = number | typeof CUSTOM_SPAN | typeof RUN_SPAN
@@ -101,16 +101,16 @@ interface LogLine {
   line: string
 }
 
-function isFinished(workload: Workload | undefined): boolean {
-  return workload?.status === WorkloadStatus.STOPPED || workload?.status === WorkloadStatus.FAILED
+function hasEnded(run: WorkloadRun | undefined): boolean {
+  return run !== undefined && run.finished !== null
 }
 
-const spanOptions = computed(() => props.workload ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])
+const spanOptions = computed(() => props.run ? [...PRESET_OPTIONS, RUN_OPTION, CUSTOM_OPTION] : [...PRESET_OPTIONS, CUSTOM_OPTION])
 
 // shallowRef: lines are immutable once parsed, so per-line reactive proxies buy nothing
 const lines = shallowRef<LogLine[]>([])
-const following = ref(!isFinished(props.workload))
-const span = ref<Span>(isFinished(props.workload) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
+const following = ref(!hasEnded(props.run))
+const span = ref<Span>(hasEnded(props.run) ? RUN_SPAN : TIME_RANGE_PRESETS[1]!.ms)
 const limit = ref(1000)
 const customStart = ref<Date | null>(null)
 const customEnd = ref<Date | null>(null)
@@ -174,13 +174,12 @@ function resolveRange(): TimeRange | null {
   return ret
 }
 
-// From the workload's creation to its last status change once it has ended, or to now while it runs
+// From the run's start to its end once it has ended, or to now while it is still going
 function runRange(): TimeRange {
-  const workload = props.workload
-  const created = DatetimeUtil.toEpochMillis(workload?.created ?? null)
-  const updated = DatetimeUtil.toEpochMillis(workload?.updated ?? null)
-  const start = created ?? Date.now() - TIME_RANGE_PRESETS[1]!.ms
-  const end = isFinished(workload) && updated !== null ? updated + RUN_MARGIN_MS : Date.now()
+  const started = props.run?.started ?? null
+  const finished = props.run?.finished ?? null
+  const start = started ?? Date.now() - TIME_RANGE_PRESETS[1]!.ms
+  const end = finished !== null ? finished + RUN_MARGIN_MS : Date.now()
   return { start: start - RUN_MARGIN_MS, end }
 }
 
@@ -272,9 +271,9 @@ watch(span, selected => {
 
 watch(limit, loadHistory)
 
-// A workload that ends while on screen has nothing more to tail; its run is what is left to read
-watch(() => isFinished(props.workload), finished => {
-  if (finished) {
+// A run that ends while on screen has nothing more to tail; its span is what is left to read
+watch(() => hasEnded(props.run), ended => {
+  if (ended) {
     following.value = false
     span.value = RUN_SPAN
   }

@@ -96,7 +96,7 @@
         </TabPanel>
         <TabPanel value="logs">
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
-          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" :workload="workload ?? undefined" class="pt-2" />
+          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
         </TabPanel>
       </TabPanels>
     </Tabs>
@@ -120,7 +120,8 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast,
+         workloadRun } from '@kinotic-ai/frontend-common'
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
