@@ -64,6 +64,25 @@ Kinotic.defaultZone = pkg.kinotic?.zone ?? null
 
 The gateway rejects any send or subscribe outside the zones the authenticated participant may address, so a wrong or missing zone routes nowhere — it can never reach another application.
 
+## Registering on a specific client
+
+`@Publish` registers every instance with the global `Kinotic` client. A service hosted on a client you created yourself — a second `KinoticSingleton`, connected under its own credentials or to another server — is registered through that client's `serviceRegistry` with a `ServiceIdentifier` naming the namespace, the service name, and the full zone:
+
+```typescript
+import { KinoticSingleton, ServiceIdentifier } from '@kinotic-ai/core'
+
+const host = new KinoticSingleton()
+await host.connect({ server: { host: 'localhost', port: 58503 }, credentials })
+
+const identifier = new ServiceIdentifier('com.example', 'GreetingService', 'app.acme-org.orders-app')
+host.serviceRegistry.register(identifier, new GreetingService())   // → srv://app.acme-org.orders-app~com.example.GreetingService
+
+// later, when the service should no longer be reachable
+host.serviceRegistry.unRegister(identifier)
+```
+
+The zone is the complete zone the service lives in: `zonePrefix` and `defaultZone` apply to `@Publish` classes only. Registering the same identifier twice on one client is a no-op, and `unRegister` ends any stream the service is still producing with an error to its caller.
+
 ## Decorators
 
 ### @Publish(namespace?, name?, advertise?)
