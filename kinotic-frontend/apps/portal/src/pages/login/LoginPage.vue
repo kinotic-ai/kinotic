@@ -90,10 +90,11 @@ const userState: IUserState = KinoticStates.getUserState()
 const route = useRoute()
 const router = useRouter()
 
-onMounted(async () => {
+onMounted(() => {
   consumeUrlError()
-  await loadProviders()
   nextTick(() => focusEmailInput())
+  // the buttons appear when the list arrives, so a server slow to answer does not hold up the form
+  void loadProviders()
 })
 
 /**
