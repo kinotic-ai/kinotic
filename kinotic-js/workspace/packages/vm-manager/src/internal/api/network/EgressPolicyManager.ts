@@ -172,35 +172,12 @@ export class EgressPolicyManager {
         if (!ADDRESS_OR_CIDR.test(address)) {
             throw new Error(`workload ${workloadId} is at '${address}', which is not an IPv4 address`)
         }
-        const names: string[] = []
-        const destinations: string[] = []
-        for (const host of allowedHosts) {
-            if (ADDRESS_OR_CIDR.test(host)) {
-                destinations.push(host)
-                const granted = this.protectedAddressNamedBy(host)
-                if (granted !== null) {
-                    // Only the server can reach the service that carries a workload's policy, so
-                    // an address named outright is a decision it made; it is still worth a record
-                    console.warn(`Workload ${workloadId} is granted ${granted}, where this host hands `
-                                 + 'out its own identity')
-                }
-            } else if (HOSTNAME.test(host)) {
-                names.push(host.toLowerCase())
-            } else {
-                throw new Error(`an allowed destination of workload ${workloadId} is '${host}', which is `
-                                + 'neither an IPv4 address or CIDR nor a hostname')
-            }
-        }
-        if (names.length > 0 && !this.resolvesNames()) {
-            throw new Error(`Workload ${workloadId} is allowed '${names[0]}' by name, but this node cannot pin a `
-                            + 'name to what it resolves to: that needs ipset, and dnsmasq listening on the '
-                            + `resolver workloads are given (KINOTIC_WORKLOAD_DNS`
-                            + `${this.resolver !== null ? `=${this.resolver}` : ' is unset'})`)
-        }
+        const { names, destinations } = this.classify(workloadId, allowedHosts)
 
         // Replaced rather than added to, so re-applying cannot accumulate duplicates
         this.release(workloadId)
-        // Before the rules, so dnsmasq is filling a set by the time a rule matches it
+        // Idempotent after prepare; a caller that skipped it still gets a resolver that fills
+        // the sets by the time a rule matches them
         if (names.length > 0) {
             this.syncResolver(names)
         }
@@ -234,6 +211,54 @@ export class EgressPolicyManager {
             this.run(['-I', HOST_CHAIN, '1', '-s', address, '-d', hostPort.address,
                       '-p', 'tcp', '--dport', String(hostPort.port), ...comment, '-j', 'ACCEPT'])
         }
+    }
+
+    /**
+     * Readies the node's resolver for the names a workload is allowed, before the workload
+     * exists: a name new to the node restarts dnsmasq, and a guest that boots and resolves
+     * before that restart is answered by the old instance, which writes nothing into the
+     * name's set, so its first connection is refused. Throws for the same policies
+     * {@link apply} refuses, so a workload the node cannot restrict is refused before it starts.
+     *
+     * @param workloadId the workload the policy belongs to
+     * @param allowedHosts destinations from the workload's network policy
+     */
+    public prepare(workloadId: string, allowedHosts: string[]): void {
+        const { names } = this.classify(workloadId, allowedHosts)
+        if (names.length > 0) {
+            this.syncResolver(names)
+        }
+    }
+
+    // Splits a policy into the addresses that become rules and the names that become sets,
+    // refusing anything else and any name on a node whose resolver cannot pin one
+    private classify(workloadId: string, allowedHosts: string[]): { names: string[], destinations: string[] } {
+        const names: string[] = []
+        const destinations: string[] = []
+        for (const host of allowedHosts) {
+            if (ADDRESS_OR_CIDR.test(host)) {
+                destinations.push(host)
+                const granted = this.protectedAddressNamedBy(host)
+                if (granted !== null) {
+                    // Only the server can reach the service that carries a workload's policy, so
+                    // an address named outright is a decision it made; it is still worth a record
+                    console.warn(`Workload ${workloadId} is granted ${granted}, where this host hands `
+                                 + 'out its own identity')
+                }
+            } else if (HOSTNAME.test(host)) {
+                names.push(host.toLowerCase())
+            } else {
+                throw new Error(`an allowed destination of workload ${workloadId} is '${host}', which is `
+                                + 'neither an IPv4 address or CIDR nor a hostname')
+            }
+        }
+        if (names.length > 0 && !this.resolvesNames()) {
+            throw new Error(`Workload ${workloadId} is allowed '${names[0]}' by name, but this node cannot pin a `
+                            + 'name to what it resolves to: that needs ipset, and dnsmasq listening on the '
+                            + `resolver workloads are given (KINOTIC_WORKLOAD_DNS`
+                            + `${this.resolver !== null ? `=${this.resolver}` : ' is unset'})`)
+        }
+        return { names, destinations }
     }
 
     /**
