@@ -5,9 +5,9 @@
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.svg" width="340">
 </picture>
 
-### The operating system for software built by humans and AI
+### Prototype to production
 
-**Kinotic turns application intent into production software.**
+**Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
 
 [![Build and Publish](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml/badge.svg?branch=develop)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-EC1F52)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
@@ -19,6 +19,8 @@
 </div>
 
 ---
+
+**Kinotic turns application intent into production software.**
 
 AI has dramatically reduced the cost of writing software.
 
@@ -486,10 +488,6 @@ They need a higher-level operating environment.
 
 **That's what Kinotic is building.**
 
-> **Linux abstracted the hardware.**
->
-> **Kinotic abstracts the cloud.**
-
 ---
 
 <div align="center">
@@ -499,7 +497,7 @@ They need a higher-level operating environment.
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.svg" width="200">
 </picture>
 
-**The operating system for software built by humans and AI.**
+**Prototype to production**
 
 [kinotic.ai](https://kinotic.ai)
 
