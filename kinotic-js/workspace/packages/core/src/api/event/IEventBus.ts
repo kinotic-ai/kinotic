@@ -79,18 +79,14 @@ export interface IEvent {
 export interface IEventBus {
 
     /**
-     * Any errors emitted by this observable will be fatal and the connection will be closed.
-     * You will need to resolve the problem and reconnect.
+     * Emits when the connection ends: an established connection drops before any reconnect, a failure
+     * closes it, or {@link disconnect} is called. It carries the failure that ended the connection, or
+     * null when nothing failed. The server releases everything it held for the connection at that moment:
+     * every request made on it is failed to its caller, and every invocation it was serving is failed to
+     * its requester. An end the client reconnects from leaves {@link IEventBus#isConnectionActive} true;
+     * one that needs a fresh {@link IEventBus#connect} leaves it false.
      */
-    fatalErrors: Observable<Error>
-
-    /**
-     * Emits when the connection ends: an established connection drops before any reconnect, a fatal error
-     * closes it, or {@link disconnect} is called. The server releases everything it held for the connection
-     * at that moment: every request made on it is failed to its caller, and every invocation it was serving
-     * is failed to its requester.
-     */
-    connectionLost: Observable<void>
+    connectionEnded: Observable<Error | null>
 
     /**
      * The {@link ServerInfo} used when connecting, if connected or null

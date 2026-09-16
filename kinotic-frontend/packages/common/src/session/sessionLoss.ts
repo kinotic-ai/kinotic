@@ -24,10 +24,9 @@ function rootCause(error: Error): Error {
 }
 
 /**
- * Installs handling for a realtime connection that dies after login. Every request the app makes
- * rides that connection, so a connection that does not come back ends the session: the handler
- * clears the authenticated state, shows why, and routes to {@code /login?referer=<fullPath>} for
- * the user to sign in again.
+ * Installs handling for a realtime connection that dies after login. A connection that does not come
+ * back ends the session: the handler clears the authenticated state, shows why, and routes to
+ * {@code /login?referer=<fullPath>} for the user to sign in again.
  */
 export function installSessionLossHandler(router: Router,
                                           sessionState: ISessionState,
@@ -58,20 +57,19 @@ export function installSessionLossHandler(router: Router,
         }
     }
 
-    // A fatal event bus error ends the session for good — a STOMP ERROR frame always terminates the
-    // connection per protocol, and the bus makes no further attempt after one.
-    Kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
-        // The outer error is a generic wrapper ('STOMP connection error'); the server's
-        // reason — an ERROR frame's message header, or 'Authentication required' — is the root cause.
-        endSession(rootCause(error))
-    })
-
-    // A connection that ends without a fatal is retried by the event bus, so the session ends only
-    // once the retries have had RECONNECT_GRACE_MS to bring it back. A fatal raised in the meantime,
-    // such as the session check rejecting the cookie on the next attempt, ends it sooner and with
-    // the server's own reason.
-    Kinotic.eventBus.connectionLost.subscribe(() => {
-        if (sessionState.isAuthenticated() && reconnectGrace === null) {
+    // Every request the app makes rides this connection. An end the bus is retrying may come back on its
+    // own, so the session ends only once the retries have had RECONNECT_GRACE_MS; an end it is not retrying
+    // is the end of the session now, with the reason the server gave for it.
+    Kinotic.eventBus.connectionEnded.subscribe((reason: Error | null) => {
+        if (!sessionState.isAuthenticated()) {
+            return
+        }
+        if (!Kinotic.eventBus.isConnectionActive()) {
+            // The outer error is a generic wrapper ('STOMP connection error'); the server's reason — an
+            // ERROR frame's message header, or 'Authentication required' — is the root cause.
+            endSession(reason !== null ? rootCause(reason)
+                                       : new Error('The connection to the server was closed'))
+        } else if (reconnectGrace === null) {
             reconnectGrace = setTimeout(() => {
                 reconnectGrace = null
                 if (!Kinotic.eventBus.isConnected()) {

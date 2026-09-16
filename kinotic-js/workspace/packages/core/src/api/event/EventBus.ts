@@ -84,28 +84,26 @@ export class EventBus implements IEventBus {
     private requestRepliesSubscription: Subscription | null = null
     private readonly activeCorrelationIds: Set<string> = new Set<string>()
     private readonly recentlyReaped: Set<string> = new Set<string>()
-    private readonly connectionLostSubject: Subject<void> = new Subject<void>()
+    private readonly connectionEndedSubject: Subject<Error | null> = new Subject<Error | null>()
     // How long a sent cancel suppresses repeat cancels for the same stream before retrying.
     private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
-        // the manager has already deactivated when it reports a fatal error; in-flight requests fail here
-        this.stompConnectionManager.fatalErrors.subscribe(() => this.serverInfo = null)
         // The server drops every reply consumer and lease of a closed connection, so a call in flight
-        // across a drop is failed here rather than waited on. The manager reports each open connection's
-        // end once, however it ends, so this is the one place connectionLost is emitted.
-        this.stompConnectionManager.connectionLostHandler = () => {
+        // across a drop is failed here rather than waited on. The manager reports each connection's end
+        // once, however it ends, so this is the one place connectionEnded is emitted.
+        this.stompConnectionManager.connectionEndedHandler = (reason: Error | null) => {
             this.resetRequestReplies('Connection lost')
-            this.connectionLostSubject.next()
+            // an end the manager retries keeps serving the same server, so the server it names outlives it
+            if (!this.stompConnectionManager.active) {
+                this.serverInfo = null
+            }
+            this.connectionEndedSubject.next(reason)
         }
     }
 
-    public get fatalErrors(): Observable<Error> {
-        return this.stompConnectionManager.fatalErrors
-    }
-
-    public get connectionLost(): Observable<void> {
-        return this.connectionLostSubject.asObservable()
+    public get connectionEnded(): Observable<Error | null> {
+        return this.connectionEndedSubject.asObservable()
     }
 
     public isConnectionActive(): boolean{
