@@ -1,7 +1,13 @@
 <template>
   <div class="rounded-lg border border-surface p-4">
-    <h3 class="text-sm font-semibold">{{ title }}</h3>
-    <p class="text-xs text-muted-color">{{ description }}</p>
+    <div class="flex items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-semibold">{{ title }}</h3>
+        <p class="text-xs text-muted-color">{{ description }}</p>
+      </div>
+      <!-- A control that acts on what the chart shows, e.g. the way to the traces behind it -->
+      <slot name="action" />
+    </div>
     <Message v-if="error" severity="error" :closable="false" class="mt-3">{{ error }}</Message>
     <div v-else-if="!loading && series.length === 0" class="flex h-56 items-center justify-center text-sm text-muted-color">
       No data in this range
@@ -44,7 +50,8 @@ const option = computed(() => {
     grid: { left: 8, right: 16, top: 12, bottom: 36, containLabel: true },
     xAxis: {
       type: 'time',
-      axisLabel: { color: chartTextColor(dark), formatter: (value: number) => DatetimeUtil.formatTime(value) },
+      // A narrow chart gets fewer time labels rather than overlapping ones
+      axisLabel: { color: chartTextColor(dark), hideOverlap: true, formatter: (value: number) => DatetimeUtil.formatTime(value) },
       axisLine: { lineStyle: { color: chartGridColor(dark) } },
       splitLine: { show: false }
     },

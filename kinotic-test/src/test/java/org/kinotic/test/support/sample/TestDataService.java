@@ -129,7 +129,7 @@ public class TestDataService {
 
         structure.setSchema(carType);
 
-        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
                                .compose(v -> entityDefinitionService.create(structure)
                                                                     .compose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                              .map(saved)));
@@ -217,7 +217,7 @@ public class TestDataService {
 
         structure.setSchema(personType);
 
-        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application")
+        return applicationService.createApplicationIfNotExist(SAMPLE_APP_ID, "Sample application", null)
                                .compose(v -> entityDefinitionService.create(structure)
                                                                     .compose(saved -> entityDefinitionService.publish(saved.getId())
                                                                                                              .map(saved)));

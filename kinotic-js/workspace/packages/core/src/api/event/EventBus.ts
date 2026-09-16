@@ -4,11 +4,12 @@ import {createDebugLogger, type Logger} from '@/internal/api/Logger'
 import {StompConnectionManager} from '@/internal/api/StompConnectionManager'
 import {context, propagation} from '@opentelemetry/api';
 import type {IMessage} from '@stomp/rx-stomp';
-import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, throwError, type Unsubscribable} from 'rxjs'
+import {ConnectableObservable, firstValueFrom, Observable, Subject, Subscription, type Unsubscribable} from 'rxjs'
 import {filter, map, multicast, tap} from 'rxjs/operators'
 import {Optional} from 'typescript-optional'
 import {v4 as uuidv4} from 'uuid'
 import {EventConstants, type IEvent, type IEventBus} from './IEventBus'
+import {RpcError} from './RpcError'
 
 /**
  * Default IEvent implementation
@@ -76,27 +77,35 @@ export class EventBus implements IEventBus {
     private readonly log: Logger = createDebugLogger('kinotic:EventBus')
     private stompConnectionManager: StompConnectionManager = new StompConnectionManager()
     private connectionLifecycle: Promise<unknown> = Promise.resolve()
-    private replyToCri: string  | null = null
+    // counts disconnect() calls, so a connect() queued before one of them never starts
+    private disconnectRequests: number = 0
     private requestRepliesObservable: ConnectableObservable<IEvent> | null = null
     private requestRepliesSubject: Subject<IEvent> | null = null
     private requestRepliesSubscription: Subscription | null = null
     private readonly activeCorrelationIds: Set<string> = new Set<string>()
     private readonly recentlyReaped: Set<string> = new Set<string>()
+    private readonly connectionLostSubject: Subject<void> = new Subject<void>()
     // How long a sent cancel suppresses repeat cancels for the same stream before retrying.
     private static readonly REAP_DEBOUNCE_MS = 5000
 
     constructor() {
-        // We send an error any in-flight requests and clean up our connection state on fatal errors
-        // The StompConnectionManager will automatically deactivate on fatal errors
-        this.stompConnectionManager.fatalErrors.subscribe(() => this.cleanup())
-        this.stompConnectionManager.replyToCriChangedHandler = (replyToCri: string) => {
-            this.replyToCri = replyToCri
-            this.resetRequestReplies('Reply destination changed')
+        // the manager has already deactivated when it reports a fatal error; in-flight requests fail here
+        this.stompConnectionManager.fatalErrors.subscribe(() => this.serverInfo = null)
+        // The server drops every reply consumer and lease of a closed connection, so a call in flight
+        // across a drop is failed here rather than waited on. The manager reports each open connection's
+        // end once, however it ends, so this is the one place connectionLost is emitted.
+        this.stompConnectionManager.connectionLostHandler = () => {
+            this.resetRequestReplies('Connection lost')
+            this.connectionLostSubject.next()
         }
     }
 
     public get fatalErrors(): Observable<Error> {
         return this.stompConnectionManager.fatalErrors
+    }
+
+    public get connectionLost(): Observable<void> {
+        return this.connectionLostSubject.asObservable()
     }
 
     public isConnectionActive(): boolean{
@@ -108,17 +117,16 @@ export class EventBus implements IEventBus {
     }
 
     public connect(options: ConnectOptions): Promise<ConnectedInfo> {
+        const disconnectsWhenQueued = this.disconnectRequests
         return this.serializeLifecycle(async () => {
+            // a disconnect() requested while this connect was queued cancels it
+            if (this.disconnectRequests !== disconnectsWhenQueued) {
+                throw new Error('Disconnected before the connection was started')
+            }
             if(!this.stompConnectionManager.active){
-
-                // reset state in case connection ended due to max connection attempts
-                this.cleanup()
-
                 const connectedInfo = await this.stompConnectionManager.activate(options)
                 // copy so the reported server never aliases the caller's options object
                 this.serverInfo = {...options.server} as ServerInfo
-
-                this.replyToCri = this.stompConnectionManager.replyToCri
 
                 return connectedInfo
             }else{
@@ -128,9 +136,14 @@ export class EventBus implements IEventBus {
     }
 
     public disconnect(force?: boolean): Promise<void> {
+        this.disconnectRequests++
+        // A connect() waiting for its socket holds the lifecycle queue. Deactivating now rejects it, so the
+        // teardown queued below runs at once instead of waiting on a server that may never answer.
+        const deactivated = this.stompConnectionManager.deactivate(force)
         return this.serializeLifecycle(async () => {
+            await deactivated
             await this.stompConnectionManager.deactivate(force)
-            this.cleanup()
+            this.serverInfo = null
         })
     }
 
@@ -166,8 +179,9 @@ export class EventBus implements IEventBus {
             }
 
             // send data over stomp. retryIfDisconnected keeps RxStomp from holding the frame and
-            // flushing it onto the next connection, which the server sees as a stale request: a
-            // reply-to scoped to a replyToId it no longer issues, which it terminates the connection over.
+            // flushing it onto the next connection: a request in flight across a drop is failed at the
+            // drop, so nobody would receive its reply, and under a NONE session its reply-to names a
+            // replyToId the server no longer issues, which it terminates the connection over.
             this.stompConnectionManager.rxStomp.publish({
                                                             destination: event.cri,
                                                             headers,
@@ -184,19 +198,29 @@ export class EventBus implements IEventBus {
     }
 
     public requestStream(event: IEvent, sendControlEvents: boolean = true): Observable<IEvent> {
-        if(this.stompConnectionManager.active){
-            return new Observable<IEvent>((subscriber) => {
+        return new Observable<IEvent>((subscriber) => {
+                // Read at subscribe time, not when the Observable was created: a reconnect in between
+                // mints a new destination. The manager mints it on every CONNECTED frame and clears it on
+                // deactivate, so a connected manager always has one. The shared reply subscription was torn
+                // down at the last drop, so the first request on a connection builds it on that
+                // connection's destination.
+                const replyToCri = this.stompConnectionManager.replyToCri
+                if (!this.stompConnectionManager.connected || replyToCri == null) {
+                    subscriber.error(this.createSendUnavailableError())
+                    return
+                }
 
                 if (this.requestRepliesObservable == null) {
                     this.requestRepliesSubject = new Subject<IEvent>()
                     // Reaper: before multicast, so it runs once per reply to cancel streams we no longer track.
-                    this.requestRepliesObservable = this._observe(this.replyToCri as string)
+                    this.requestRepliesObservable = this._observe(replyToCri)
                                                         .pipe(tap((value: IEvent) => this.cancelIfUnexpected(value)),
                                                               multicast(this.requestRepliesSubject)) as ConnectableObservable<IEvent>
                     this.requestRepliesSubscription = this.requestRepliesObservable.connect()
                 }
 
                 let serverSignaledCompletion = false
+                let replyDestinationReset = false
                 const correlationId = uuidv4()
                 this.activeCorrelationIds.add(correlationId)
                 // registered before the request is sent so a send that throws still untracks it
@@ -212,16 +236,25 @@ export class EventBus implements IEventBus {
 
                                                           if (value.headers.get(EventConstants.CONTROL_HEADER) === EventConstants.CONTROL_VALUE_COMPLETE) {
                                                               serverSignaledCompletion = true
+                                                              // control: complete marks the last event of a request, and two kinds arrive here:
+                                                              //  - a single-value reply (invoke): the result rides on this same event, so it is
+                                                              //    emitted before completing. A void result has no body but is emitted anyway,
+                                                              //    so the caller's promise resolves with null instead of failing on an empty stream.
+                                                              //  - a stream's completion event (invokeStream): it carries nothing and only
+                                                              //    ends the stream, so nothing is emitted.
+                                                              // sendControlEvents is true only for streams, which is what tells the two apart.
+                                                              if (value.data.isPresent() || !sendControlEvents) {
+                                                                  subscriber.next(value)
+                                                              }
                                                               subscriber.complete()
                                                           } else {
-                                                              throw new Error('Control Header ' + value.headers.get(EventConstants.CONTROL_HEADER) + ' is not supported')
+                                                              subscriber.error(new Error('Control Header ' + value.headers.get(EventConstants.CONTROL_HEADER) + ' is not supported'))
                                                           }
 
                                                       } else if (value.hasHeader(EventConstants.ERROR_HEADER)) {
 
-                                                          // TODO: add custom error type that contains error detail as well if provided by server, this would be the event body
                                                           serverSignaledCompletion = true
-                                                          subscriber.error(new Error(value.getHeader(EventConstants.ERROR_HEADER)))
+                                                          subscriber.error(RpcError.fromEvent(value))
 
                                                       } else {
 
@@ -230,6 +263,9 @@ export class EventBus implements IEventBus {
                                                       }
                                                   },
                                                   error(err: any): void {
+                                                      // a reset: the connection the stream ran on is gone, and
+                                                      // the gateway released the stream with it
+                                                      replyDestinationReset = true
                                                       subscriber.error(err)
                                                   },
                                                   complete(): void {
@@ -239,14 +275,14 @@ export class EventBus implements IEventBus {
 
                 subscriber.add(defaultMessagesSubscription)
 
-                event.setHeader(EventConstants.REPLY_TO_HEADER, this.replyToCri as string)
+                event.setHeader(EventConstants.REPLY_TO_HEADER, replyToCri)
                 event.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
 
                 this.send(event)
 
                 // registered after the send so a request that never went out is never cancelled
                 subscriber.add(() => {
-                    if (sendControlEvents && !serverSignaledCompletion) {
+                    if (sendControlEvents && !serverSignaledCompletion && !replyDestinationReset) {
                         try {
                             this.sendCancel(event.cri, correlationId)
                         } catch (e) {
@@ -256,10 +292,7 @@ export class EventBus implements IEventBus {
                         }
                     }
                 })
-            })
-        }else{
-            return throwError(() => this.createSendUnavailableError())
-        }
+        })
     }
 
     public listen(_serverInfo: ServerInfo): Promise<void> {
@@ -268,12 +301,6 @@ export class EventBus implements IEventBus {
 
     public observe(cri: string): Observable<IEvent> {
         return this._observe(cri)
-    }
-
-    private cleanup(): void{
-        this.resetRequestReplies('Connection disconnected')
-
-        this.serverInfo = null
     }
 
     /**
@@ -317,13 +344,13 @@ export class EventBus implements IEventBus {
         cancelEvent.setHeader(EventConstants.CORRELATION_ID_HEADER, correlationId)
         // The service ignores it, but the gateway rejects any service send without a reply-to
         // and terminates the connection over the rejection.
-        cancelEvent.setHeader(EventConstants.REPLY_TO_HEADER, this.replyToCri as string)
+        cancelEvent.setHeader(EventConstants.REPLY_TO_HEADER, this.stompConnectionManager.replyToCri as string)
         this.send(cancelEvent)
     }
 
     /**
      * Tears down the shared request-replies stream so the next request rebuilds it against the
-     * current {@link replyToCri}. Any in-flight requests are failed with the given reason since
+     * connection's reply destination. Any in-flight requests are failed with the given reason since
      * their replies can no longer be delivered.
      */
     private resetRequestReplies(reason: string): void {
@@ -383,7 +410,9 @@ export class EventBus implements IEventBus {
                                }
                            }
 
-                           return new Event(destination, headers, message.binaryBody)
+                           // stompjs hands over an empty array for a frame with no body; a completion control
+                           // must not look like a value
+                           return new Event(destination, headers, message.binaryBody.length > 0 ? message.binaryBody : undefined)
                        }))
     }
 

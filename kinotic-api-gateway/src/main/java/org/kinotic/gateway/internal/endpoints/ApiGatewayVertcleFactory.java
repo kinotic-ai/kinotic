@@ -1,7 +1,6 @@
 package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
-import io.vertx.core.http.CookieSameSite;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.ext.healthchecks.HealthChecks;
 import io.vertx.ext.stomp.lite.StompServerHandlerFactory;
@@ -66,7 +65,7 @@ public class ApiGatewayVertcleFactory {
                       .setSessionCookieName(EventConstants.SESSION_COOKIE_NAME)
                       .setCookieHttpOnlyFlag(true)
                       .setCookieSecureFlag(true)
-                      .setCookieSameSite(CookieSameSite.LAX)
+                      .setCookieSameSite(properties.getApiGateway().getSessionCookieSameSite())
                       .setSessionTimeout(properties.getApiGateway().getSessionTimeout())
                       .setLazySession(true);
 
@@ -80,6 +79,8 @@ public class ApiGatewayVertcleFactory {
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
         router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
 
+        // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
+        // too, so the negotiated interval is 30 s and a silent connection closes after two of them
         StompServerOptions stompServerOptions = new StompServerOptions()
                 .setWebsocketPath(STOMP_WEBSOCKET_PATH)
                 .setDebugEnabled(properties.isDebug())

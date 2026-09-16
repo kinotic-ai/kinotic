@@ -4,18 +4,29 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.system.api.model.workload.VmNode;
+import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.services.VmNodeService;
+import tools.jackson.databind.ObjectMapper;
 
-import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 /**
  * In-memory stand-in for the Elasticsearch backed {@link VmNodeService}.
- * {@link #findAvailableNode} always places on {@link #availableNode}.
+ * {@link #findAvailableNode} always places on {@link #availableNode}. Records are stored and
+ * returned as serialization round-trips the way Elasticsearch documents are, so a caller's
+ * mutation of an entity after a save never alters the stored record, and a full save writes
+ * back exactly what the caller's copy holds. The partial updates change only their fields on
+ * the stored record, atomically per node, and fail when the node has no record, as the real
+ * updates do.
  */
 public class StubVmNodeService implements VmNodeService {
 
-    public final Map<String, VmNode> saved = new LinkedHashMap<>();
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    public final Map<String, VmNode> saved = new ConcurrentHashMap<>();
 
     public VmNode availableNode;
 
@@ -25,8 +36,45 @@ public class StubVmNodeService implements VmNodeService {
     }
 
     @Override
+    public Future<Void> updateStatusSync(String nodeId, VmNodeStatus status) {
+        return update(nodeId, node -> node.setStatus(status));
+    }
+
+    @Override
+    public Future<Boolean> reserveSync(String nodeId, int cpus, int memoryMb, int diskMb) {
+        boolean[] reserved = new boolean[1];
+        // one node's reservations serialize under the map's lock, as the scripted update does on the shard
+        return update(nodeId, node -> {
+            reserved[0] = node.getAvailableCpus() >= cpus && node.getAvailableMemoryMb() >= memoryMb && node.getAvailableDiskMb() >= diskMb;
+            if (reserved[0]) {
+                node.setAvailableCpus(node.getAvailableCpus() - cpus)
+                    .setAvailableMemoryMb(node.getAvailableMemoryMb() - memoryMb)
+                    .setAvailableDiskMb(node.getAvailableDiskMb() - diskMb);
+            }
+        }).map(v -> reserved[0]);
+    }
+
+    @Override
+    public Future<Void> releaseSync(String nodeId, int cpus, int memoryMb, int diskMb) {
+        return update(nodeId, node -> node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + cpus))
+                                          .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + memoryMb))
+                                          .setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + diskMb)));
+    }
+
+    private Future<Void> update(String nodeId, Consumer<VmNode> partial) {
+        // computeIfPresent holds the entry's lock while partial runs, and the re-put publishes the mutation
+        VmNode stored = saved.computeIfPresent(nodeId, (_, node) -> {
+            partial.accept(node);
+            return node;
+        });
+        return stored == null
+                ? Future.failedFuture(new IllegalStateException("No VmNode record for " + nodeId))
+                : Future.succeededFuture();
+    }
+
+    @Override
     public Future<VmNode> save(VmNode entity) {
-        saved.put(entity.getId(), entity);
+        saved.put(entity.getId(), snapshot(entity));
         return Future.succeededFuture(entity);
     }
 
@@ -47,7 +95,12 @@ public class StubVmNodeService implements VmNodeService {
 
     @Override
     public Future<VmNode> findById(String id) {
-        return Future.succeededFuture(saved.get(id));
+        VmNode stored = saved.get(id);
+        return Future.succeededFuture(stored == null ? null : snapshot(stored));
+    }
+
+    private static VmNode snapshot(VmNode entity) {
+        return MAPPER.readValue(MAPPER.writeValueAsBytes(entity), VmNode.class);
     }
 
     @Override
@@ -68,7 +121,8 @@ public class StubVmNodeService implements VmNodeService {
 
     @Override
     public Future<Page<VmNode>> findAll(Pageable pageable) {
-        throw new UnsupportedOperationException();
+        List<VmNode> all = saved.values().stream().map(StubVmNodeService::snapshot).toList();
+        return Future.succeededFuture(new Page<>(all, (long) all.size()));
     }
 
     @Override

@@ -34,18 +34,26 @@ public class DefaultApplicationService extends AbstractOrganizationScopedService
     }
 
     @Override
-    public Future<Application> createApplicationIfNotExist(String name, String description) {
+    public Future<Application> createApplicationIfNotExist(String name, String description, Boolean tenantPerUser) {
         String applicationId = DomainUtil.slugifyId(name);
         String organizationId = requireOrganizationId();
         return findById(applicationId)
                 .compose(application -> {
+                    Future<Application> ret;
                     if(application != null){
-                        return Future.succeededFuture(application);
+                        // an existing application keeps its tenant policy: flipping it here would
+                        // split its users into tenanted and untenanted halves, since only users
+                        // created while it is enabled receive a tenant
+                        ret = Future.succeededFuture(application);
                     }else{
                         Application newApplication = new Application(name, description);
                         newApplication.setOrganizationId(organizationId);
-                        return save(newApplication);
+                        // a caller with no tenancy opinion, such as the CLI ensuring the app row exists,
+                        // omits the argument and gets the shared default
+                        newApplication.setTenantPerUser(Boolean.TRUE.equals(tenantPerUser));
+                        ret = save(newApplication);
                     }
+                    return ret;
                 });
     }
 

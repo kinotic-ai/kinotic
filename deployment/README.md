@@ -4,11 +4,21 @@
 
 | Environment | Directory | Purpose |
 |---|---|---|
-| **KinD** | `kind/` | Local development and testing via Kubernetes in Docker |
-| **Azure** | `terraform/azure/` | Production AKS cluster with optional Firecracker VM hosts |
-| **Docker Compose** | `docker-compose/` | Lightweight local setup (Elasticsearch, PostgreSQL, Keycloak) |
+| **Docker Compose** | `docker-compose/` | Local development (Elasticsearch, the observability stack, Keycloak); the development server runs the same images and config files as containers |
+| **KinD** | `kind/` | Local Kubernetes via Kubernetes in Docker, for rehearsing the Helm charts |
+| **Development server** | `terraform/proxmox/` + `terraform/azure/dev-server/` | One Proxmox host with a container per service, workload nodes on their own machines, Front Door and email kept in Azure ([design](https://kinotic.ai/platform/development-server)) |
+| **Developer's Azure side** | `terraform/azure/dev/` | Front Door, sites account, and email for a kinotic-server on a developer machine |
+| **Azure** | `terraform/azure/` | Production AKS cluster |
 
-Both KinD and Azure are deployed with Terraform and share the same Helm charts.
+KinD and Azure are deployed with Terraform and share the same Helm charts. The development
+server is deployed with Terraform and shares the images and config files with local development.
+
+## Workload nodes
+
+`vm-node/` provisions a node that runs workloads as Cloud Hypervisor micro VMs — Docker with
+the Kata runtime, XFS project quotas, the firewall floor — and installs the vm-manager as a
+service. The development server's nodes and any other node run it by hand; its README says
+what each step establishes.
 
 ## Shared Helm Charts
 
@@ -113,6 +123,17 @@ Azure documentation:
 - [TROUBLESHOOTING.md](terraform/azure/TROUBLESHOOTING.md) — Common errors and fixes
 - [PRODUCTION.md](terraform/azure/PRODUCTION.md) — Production readiness checklist
 - [COST.md](terraform/azure/COST.md) — Cost projections (~$573/mo beta, ~$2,025/mo production)
+
+### Development server
+
+```bash
+cd deployment/terraform/azure/dev-server && terraform init && terraform apply   # the Azure side
+cd ../../proxmox
+./generate-secrets.sh ./dev-server-secrets && ./sync-secrets.sh ./dev-server-secrets <host>   # secrets on the host first
+terraform init && terraform apply                                              # the containers
+```
+
+See [terraform/proxmox/README.md](terraform/proxmox/README.md) for the whole runbook.
 
 ## Firecracker
 

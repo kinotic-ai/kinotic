@@ -61,6 +61,11 @@ public class FluxReturnValueHandler implements RpcReturnValueHandler {
                         String control = incomingEvent.metadata().get(EventConstants.CONTROL_HEADER);
                         if (control.equals(EventConstants.CONTROL_VALUE_COMPLETE)) {
                             finished = true;
+                            // A terminal reply from a single-value producer carries its value on the
+                            // completion event itself, so the value is emitted before completing.
+                            if (incomingEvent.data() != null && incomingEvent.data().length > 0) {
+                                fluxSink.next(rpcResponseConverter.convert(incomingEvent, methodParameter));
+                            }
                             fluxSink.complete();
                         } else {
                             finished = true;

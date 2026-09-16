@@ -68,7 +68,7 @@ public static formatDuration(started: number | string | Date | null, finished: n
 }
 
 /** Epoch millis of a timestamp however it arrived (millis, a date string, a Date), or null when absent or unreadable. */
-private static toEpochMillis(value: number | string | Date | null): number | null {
+public static toEpochMillis(value: number | string | Date | null): number | null {
     let ret: number | null
     if (!value) {
         ret = null

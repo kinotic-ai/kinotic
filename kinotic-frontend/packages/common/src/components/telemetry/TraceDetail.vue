@@ -72,11 +72,20 @@
               <dd class="break-all font-mono">{{ value }}</dd>
             </template>
           </dl>
-          <h4 class="mb-1 mt-3 text-sm font-semibold">Resource</h4>
-          <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
+          <!-- The resource is the emitting process, the same for every span of a service, so it
+               opens on request; a value that runs to paragraphs (the JVM's command line) clamps
+               until clicked -->
+          <button type="button" class="mb-1 mt-3 flex items-center gap-1.5 text-sm font-semibold" @click="resourceOpen = !resourceOpen">
+            <i :class="['pi', resourceOpen ? 'pi-chevron-down' : 'pi-chevron-right']" :style="{ fontSize: '10px' }" />
+            Resource
+            <span class="font-normal text-muted-color">{{ Object.keys(selected.resource).length }}</span>
+          </button>
+          <dl v-if="resourceOpen" class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
             <template v-for="(value, key) in selected.resource" :key="key">
               <dt class="text-muted-color">{{ key }}</dt>
-              <dd class="break-all font-mono">{{ value }}</dd>
+              <dd :class="['break-all font-mono', expandedKeys.has(key) ? '' : 'line-clamp-2 cursor-pointer']"
+                  :title="expandedKeys.has(key) ? undefined : 'Click to show the whole value'"
+                  @click="expandedKeys.add(key)">{{ value }}</dd>
             </template>
           </dl>
         </div>
@@ -107,6 +116,9 @@ const props = defineProps<{
 
 const spans = ref<TraceSpan[]>([])
 const selected = ref<TraceSpan | null>(null)
+const resourceOpen = ref(false)
+/** The resource keys whose whole value the user asked to see; a new selection folds them again. */
+const expandedKeys = ref(new Set<string>())
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -145,4 +157,6 @@ async function load() {
 }
 
 watch(() => [props.organizationId, props.traceId], load, { immediate: true })
+
+watch(selected, () => expandedKeys.value.clear())
 </script>

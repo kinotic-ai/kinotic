@@ -2,13 +2,13 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.utils.ZoneUtil;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
-import org.kinotic.domain.api.model.Organization;
 
 import org.kinotic.management.api.model.MicroserviceArtifact;
 import org.kinotic.management.api.model.MicroserviceDeployment;
@@ -25,13 +25,11 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.services.OrganizationStorageService;
+import org.kinotic.system.api.services.SiteStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.UiDeploymentProvisioner;
-import org.kinotic.system.api.services.UiStoragePaths;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.model.OrganizationStorage;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.DeploymentProperties;
@@ -53,11 +51,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -93,8 +88,9 @@ public class ProjectDeployJobDefinitionFactory {
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
     private final OrganizationService organizationService;
-    private final OrganizationStorageService organizationStorageService;
+    private final SiteStorageService siteStorageService;
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
+    private final SiteWorkloadFactory siteWorkloadFactory;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final KinoticSystemApiProperties properties;
     private final KinoticDomainProperties domainProperties;
@@ -437,13 +433,15 @@ public class ProjectDeployJobDefinitionFactory {
      * through a foreground publish workload holding nothing but a short-lived upload URL,
      * then records the outcome on each UI's {@link UiDeployment}. A UI's first publish mints
      * its site's hostname label and provisions the site; a later publish keeps the site and
-     * records the new commit, retaining the previous commit's assets for tabs still open on
-     * it and deleting older ones. A UI the commit no longer contains is marked orphaned and
+     * records the new commit, deleting the files of older ones. A UI the commit no longer
+     * contains is marked orphaned and
      * keeps serving; one that returns is adopted. A commit without UIs publishes nothing. A
      * site that cannot be provisioned is recorded failed and the others still publish; the
      * task then fails naming the failed ones.
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
+        // nothing serves a site while the provisioner is disabled, so nothing is uploaded either
+        boolean serving = !uiDeployment().isDisableProvisioner();
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {
                     Map<String, UiDeployment> unmatched = new HashMap<>();
@@ -452,9 +450,10 @@ public class ProjectDeployJobDefinitionFactory {
                     if (artifacts.uis().isEmpty()) {
                         published = Future.succeededFuture(new ArrayList<>());
                     } else {
-                        published = requireReadyStorage(project.getOrganizationId())
-                                .compose(organization -> uploadUis(project, target, organization, commitSha)
-                                        .compose(v -> finalizeUis(project, organization, artifacts, unmatched, commitSha)));
+                        // a site's directory is its hostname, so a first publish mints the label first
+                        published = sequentially(artifacts.uis(), ui -> deploymentFor(project, ui, unmatched.remove(ui.name())))
+                                .compose(rows -> (serving ? uploadUis(project, target, rows, commitSha) : Future.<Void>succeededFuture())
+                                        .compose(v -> sequentially(rows, row -> finalizeUi(row, commitSha))));
                     }
                     return published.compose(rows -> orphanUis(new ArrayList<>(unmatched.values()))
                             .map(orphans -> {
@@ -470,71 +469,50 @@ public class ProjectDeployJobDefinitionFactory {
                 .map(UiDeployments::new);
     }
 
-    /**
-     * The organization with the storage its UIs publish to, which was provisioned when the
-     * organization was created. A deployment never provisions it: one that finds it not ready
-     * fails naming the state, so nothing slow happens on Azure while publishing.
-     */
-    private Future<Organization> requireReadyStorage(String organizationId) {
-        return organizationService.findById(organizationId)
-                .map(organization -> {
-                    if (organization == null) {
-                        throw new IllegalStateException("Organization " + organizationId + " no longer exists");
-                    }
-                    OrganizationStorage storage = organization.getStorage();
-                    DeploymentStatusType status = storage != null && storage.getStatus() != null ? storage.getStatus().type() : null;
-                    if (status != DeploymentStatusType.READY) {
-                        throw new IllegalStateException("Storage of organization " + organizationId + " is "
-                                + (status == null ? "not provisioned" : status + (storage.getStatus().message() != null ? ": " + storage.getStatus().message() : ""))
-                                + "; UIs cannot be published until it is ready");
-                    }
-                    return organization;
-                });
+    /** The row a UI publishes to: its existing site, or one minted for its first publish. */
+    private Future<UiDeployment> deploymentFor(Project project, UiArtifact ui, UiDeployment existing) {
+        return existing == null ? mintDeployment(project, ui) : Future.succeededFuture(existing);
     }
 
-    private Future<String> uploadUis(Project project, DeployTarget target, Organization organization, String commitSha) {
-        return organizationStorageService.issueUploadUrl(organization, project.getApplicationId(), UPLOAD_URL_TTL)
-                .map(uploadUrl -> publishWorkload(project, target, uploadUrl, commitSha))
+    /**
+     * Runs the publish workload with one upload URL per site, each scoped to that site's
+     * directory in the sites account.
+     */
+    private Future<Void> uploadUis(Project project, DeployTarget target, List<UiDeployment> rows, String commitSha) {
+        return Future.all(rows.stream()
+                              .map(row -> siteStorageService.issueUploadUrl(hostname(row), UPLOAD_URL_TTL)
+                                                            .map(url -> Map.entry(row.getName(), url)))
+                              .toList())
+                .map(all -> {
+                    JsonObject urls = new JsonObject();
+                    all.<Map.Entry<String, String>>list().forEach(entry -> urls.put(entry.getKey(), entry.getValue()));
+                    return siteWorkloadFactory.publish(project, target, urls, commitSha);
+                })
                 .compose(workloadOrchestrationService::deployWorkload)
-                .compose(finished -> requireSucceeded(finished, "UI publish"));
+                .compose(finished -> requireSucceeded(finished, "UI publish"))
+                .mapEmpty();
     }
 
     /**
-     * Records each published UI once its files are up: the commit it now serves, the site it is
-     * served from, minted and provisioned on first publish, and the cleanup of commits nobody
-     * can still be looking at. Sequential, since minting labels races itself otherwise.
+     * Records a published UI once its files are up: the commit it now serves and the site's
+     * status.
      */
-    private Future<List<UiDeployment>> finalizeUis(Project project,
-                                                  Organization organization,
-                                                  ProjectArtifacts artifacts,
-                                                  Map<String, UiDeployment> unmatched,
-                                                  String commitSha) {
-        return sequentially(artifacts.uis(),
-                            ui -> finalizeUi(project, organization, ui, unmatched.remove(ui.name()), commitSha));
+    private Future<UiDeployment> finalizeUi(UiDeployment row, String commitSha) {
+        row.setCommitSha(commitSha);
+        Future<UiDeployment> deployment;
+        if (row.getStatus().type() == DeploymentStatusType.ORPHANED) {
+            // the site never stopped serving, so the UI's return needs no check
+            deployment = Future.succeededFuture(row.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
+        } else if (row.getStatus().type() == DeploymentStatusType.READY) {
+            deployment = Future.succeededFuture(row);
+        } else {
+            deployment = uiDeploymentProvisioner.provision(row);
+        }
+        return deployment.compose(saved -> uiDeploymentRepository.save(saved.setUpdated(new Date())));
     }
 
-    private Future<UiDeployment> finalizeUi(Project project,
-                                            Organization organization,
-                                            UiArtifact ui,
-                                            UiDeployment existing,
-                                            String commitSha) {
-        Future<UiDeployment> deployment;
-        if (existing == null) {
-            deployment = mintDeployment(project, ui)
-                    .compose(minted -> uiDeploymentProvisioner.provision(minted, organization));
-        } else if (existing.getStatus().type() == DeploymentStatusType.ORPHANED) {
-            // the site never stopped serving, so the UI's return needs no provisioning
-            deployment = Future.succeededFuture(existing.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
-        } else {
-            deployment = Future.succeededFuture(existing);
-        }
-        return deployment.compose(row -> {
-                    if (!commitSha.equals(row.getCommitSha())) {
-                        row.setPreviousCommitSha(row.getCommitSha()).setCommitSha(commitSha);
-                    }
-                    return deleteStaleCommits(organization, project.getApplicationId(), row)
-                            .compose(v -> uiDeploymentRepository.save(row.setUpdated(new Date())));
-                });
+    private String hostname(UiDeployment row) {
+        return uiDeployment().resolveHostname(row.getId());
     }
 
     /**
@@ -573,22 +551,6 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
-    // The current commit serves, the previous one keeps tabs opened on it working; anything
-    // older is unreachable and goes
-    private Future<Void> deleteStaleCommits(Organization organization, String applicationId, UiDeployment row) {
-        Set<String> kept = new HashSet<>();
-        kept.add(row.getCommitSha());
-        if (row.getPreviousCommitSha() != null) {
-            kept.add(row.getPreviousCommitSha());
-        }
-        String uiPrefix = UiStoragePaths.uiPrefix(applicationId, row.getName());
-        return organizationStorageService.listCommitDirs(organization, uiPrefix)
-                .compose(dirs -> sequentially(dirs.stream().filter(dir -> !kept.contains(dir)).toList(),
-                                              dir -> organizationStorageService.deletePrefix(
-                                                      organization, UiStoragePaths.commitPrefix(applicationId, row.getName(), dir))))
-                .mapEmpty();
-    }
-
     /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */
     private Future<List<UiDeployment>> orphanUis(List<UiDeployment> deployments) {
         List<Future<UiDeployment>> saves = new ArrayList<>();
@@ -602,36 +564,6 @@ public class ProjectDeployJobDefinitionFactory {
             }
         }
         return Future.all(saves).map(CompositeFuture::list);
-    }
-
-    /**
-     * The publish workload carries the built UIs to the organization's storage and nothing
-     * else: no Kinotic credentials, no machine identity, a read-only checkout, and an egress
-     * policy naming the storage account's host alone. Kept after its run, like the sync
-     * workload, so its logs stay inspectable until the next run retires it.
-     */
-    private Workload publishWorkload(Project project,
-                                     DeployTarget target,
-                                     String uploadUrl,
-                                     String commitSha) {
-        DeploymentProperties deployment = deployment();
-        Workload workload = new Workload("project-ui-publish-" + project.getId(), deployment.getWorkloadRunnerImage());
-        workload.setId(target.uiPublishWorkloadId());
-        workload.setDescription("UI publish for project " + project.getId());
-        workload.setNodeId(target.nodeId());
-        workload.setOrganizationId(project.getOrganizationId());
-        workload.setApplicationId(project.getApplicationId());
-        workload.setDetached(false);
-        workload.setMemoryMb(deployment.getRuntimeMemoryMb());
-        workload.setEntrypoint(List.of("bun", "src/publish-ui.ts"));
-        workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
-        // the URL is a credential for the run's length, so it travels as a secret
-        workload.getSecrets().put("KINOTIC_UI_UPLOAD_URL", uploadUrl);
-        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
-                                                        .setGuestPath("/workspace")
-                                                        .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(List.of(URI.create(uploadUrl).getHost()));
-        return workload;
     }
 
     private Workload syncWorkload(Project project,
@@ -648,6 +580,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
         workload.setMemoryMb(deployment.getSyncMemoryMb());
+        workload.setDiskSizeMb(deployment.getSyncDiskSizeMb());
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
@@ -677,6 +610,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
         // The project's microservices export their traces and metrics through the node, grouped
         // under the project's name; the sync and publish workloads are steps of the run and

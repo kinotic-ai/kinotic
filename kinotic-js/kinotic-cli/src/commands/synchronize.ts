@@ -6,8 +6,7 @@ import {EntityDefinition,
         INamedQueriesDefinitionService,
         NamedQueriesDefinition,
         ManagementApiPlugin,
-        Project,
-        ProjectType} from '@kinotic-ai/management-api'
+        Project} from '@kinotic-ai/management-api'
 import {Command, Flags} from '@oclif/core'
 import chalk from 'chalk'
 import {EntityCodeGenerationService} from '@/internal/EntityCodeGenerationService'
@@ -62,14 +61,11 @@ export class Synchronize extends Command {
 
             let project: Project | null = null
             if(!flags.dryRun) {
-                await Kinotic.applications.createApplicationIfNotExist(kinoticProjectConfig.applicationId, '')
-                project = new Project(null,
-                                      kinoticProjectConfig.applicationId,
-                                      kinoticProjectConfig.name as string,
-                                      kinoticProjectConfig.description)
-                project.organizationId = kinoticProjectConfig.organizationId
-                project.sourceOfTruth = ProjectType.TYPESCRIPT
-                project = await Kinotic.projects.createProjectIfNotExist(project)
+                project = await Kinotic.projects.findById(kinoticProjectConfig.projectId)
+                if(!project) {
+                    this.error(`Project ${kinoticProjectConfig.projectId} does not exist on ${serverUrl}. `
+                               + 'Create it in Kinotic OS first, then set projectId in .config/kinotic.config.ts to its id.')
+                }
             }
 
             const codeGenerationService = new EntityCodeGenerationService(kinoticProjectConfig.applicationId,

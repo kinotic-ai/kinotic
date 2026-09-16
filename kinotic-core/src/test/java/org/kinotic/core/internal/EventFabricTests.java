@@ -31,6 +31,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Behavioral tests for {@link EventFabric} and {@link EventFabricBeanPostProcessor}: events emitted
@@ -52,7 +54,10 @@ public class EventFabricTests {
         // Same codec wiring KinoticVertxConfig applies, so events cross the bus exactly as in production
         vertx.eventBus().registerCodec(new EventMessageCodec(jsonMapper));
         vertx.eventBus().codecSelector(body -> body instanceof Event ? EventMessageCodec.NAME : null);
-        eventFabric = new EventFabric(new DefaultEventBusService(null, vertx),
+        // A plain Vert.x has no node id; a consumer's acknowledgement names the one the cluster manager reports
+        KinoticIgniteClusterManager clusterManager = mock(KinoticIgniteClusterManager.class);
+        when(clusterManager.getNodeId()).thenReturn("test-node");
+        eventFabric = new EventFabric(new DefaultEventBusService(clusterManager, vertx),
                                       jsonMapper,
                                       ReactiveAdapterRegistry.getSharedInstance());
         postProcessor = new EventFabricBeanPostProcessor(new ObjectProvider<>() {

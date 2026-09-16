@@ -703,10 +703,6 @@ provide(ENTITY_LIST_INJECTION_KEY, entityListContext)
 .p-datatable .p-button {
   margin-top: 1rem;
 }
-.p-toolbar-start {
-  width: 100% !important;
-}
-
 :deep(.truncate-text) {
   white-space: nowrap;
   overflow: hidden;
@@ -771,16 +767,6 @@ provide(ENTITY_LIST_INJECTION_KEY, entityListContext)
   overflow: hidden;
   border-top: none !important;
   border-bottom: none !important;
-}
-
-.entity-list--dark :deep(.p-toolbar) {
-  border-color: var(--p-surface-700) !important;
-  background: var(--p-surface-900) !important;
-  color: var(--p-surface-0) !important;
-}
-
-.entity-list--dark :deep(.p-toolbar-start) {
-  width: 100% !important;
 }
 
 .entity-list--dark :deep(.p-inputtext) {

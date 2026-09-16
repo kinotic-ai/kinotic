@@ -2,13 +2,11 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.domain.api.model.Organization;
 import org.kinotic.management.api.model.UiDeployment;
 
 /**
  * The operations on the platform's infrastructure behind the management plane's deployment
- * services: a microservice's VM, a UI's site and files, and an organization's provisioning
- * job. Published in the system zone, where the management server reaches it through
+ * services: a microservice's VM, and a UI's site and files. Published in the system zone, where the management server reaches it through
  * {@code DeploymentOperationsProxy}. Callers are trusted: the management plane authorizes a
  * request before it reaches this service, which checks nothing about the caller.
  */
@@ -59,15 +57,5 @@ public interface DeploymentOperationsService {
      * @return a future completing when everything is gone
      */
     Future<Void> removeUiSite(String deploymentId);
-
-    /**
-     * Runs the organization's provisioning job, which does whatever an earlier run left
-     * undone, and records the run on the organization.
-     *
-     * @param organizationId the organization to provision
-     * @return a future emitting the organization with its new provisioning run, once the run
-     *         is under way
-     */
-    Future<Organization> provisionOrganization(String organizationId);
 
 }

@@ -56,14 +56,17 @@ const RECONNECT_MAX_DELAY_MS = 120000
 const RECONNECT_MIN_JITTER_MS = 1000
 const RECONNECT_MAX_JITTER_MS = 5000
 
-/**
- * How long the graceful shutdown is given before the node kills itself. Releasing the node
- * cleanly is worth a short wait, but not an unbounded one: installing a signal handler replaces
- * the default terminate-on-signal, so a shutdown step that never settles is a vm-manager that
- * Ctrl+C cannot kill. Shorter than the SIGKILL escalation AlloyManager.stop() runs on its own
- * child, so an Alloy that ignores SIGTERM is left to the pid file terminateStale() reads.
- */
-const SHUTDOWN_TIMEOUT_MS = 5000
+// How long a graceful disconnect may take before the process exits with the socket still open. A
+// half-open socket answers neither the DISCONNECT frame nor the close, so a graceful disconnect on
+// one lasts the heartbeat timeout plus the WebSocket close timeout; the exit closes it instead.
+const DISCONNECT_TIMEOUT_MS = 5000
+
+// How long the whole shutdown may take before the node kills itself. Above DISCONNECT_TIMEOUT_MS
+// so it never pre-empts the disconnect above, and it is a deadline for a shutdown that is stuck
+// rather than slow: AlloyManager.stop() queues behind whatever applyTargets() is doing, which on
+// a node still downloading the Alloy release is minutes. An Alloy left behind by the kill is
+// reaped from the pid file by terminateStale() on the next start.
+const SHUTDOWN_TIMEOUT_MS = 10000
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
@@ -81,7 +84,7 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
             console.warn('This node does not deny workload egress by default — a workload can reach '
-                         + 'anything its address can route to. See docker-kata-ch/README.md')
+                         + 'anything its address can route to. See deployment/vm-node/README.md')
         }
         ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
                                           new Docker(),
@@ -158,7 +161,9 @@ function reconnectOnFatalError() {
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
-    heartbeatTimer = setInterval(async () => {
+    // The next beat is scheduled once this one has finished, so a heartbeat that outlives its
+    // interval while the server is slow or unreachable never overlaps the one after it
+    const beat = async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
             await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
@@ -171,8 +176,13 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
             }
         } catch (error) {
             console.error('Heartbeat failed:', error)
+        } finally {
+            if (!shuttingDown) {
+                heartbeatTimer = setTimeout(beat, config.heartbeatIntervalMs)
+            }
         }
-    }, config.heartbeatIntervalMs)
+    }
+    heartbeatTimer = setTimeout(beat, config.heartbeatIntervalMs)
 }
 
 async function start() {
@@ -244,26 +254,23 @@ async function shutdown() {
     shuttingDown = true
     console.log('Shutting down VM Manager...')
     if (heartbeatTimer) {
-        clearInterval(heartbeatTimer)
+        clearTimeout(heartbeatTimer)
     }
 
-    // SIGKILL rather than process.exit, which is not itself a guarantee: exiting runs the
-    // cleanup hooks the native runtimes registered, and one that blocks holds the process open
-    // with the main thread inside it, where no later timer can ever run. The kernel's kill is
-    // the only termination nothing in the process can hold up.
+    // SIGKILL rather than process.exit, which is not itself a guarantee: exiting runs the cleanup
+    // hooks the native runtimes registered, and one that blocks holds the process open with the
+    // main thread inside it, where no timer armed beforehand can run. The kernel's kill is the
+    // only termination nothing in the process can hold up.
     const forceExit = setTimeout(() => {
         console.warn(`Shutdown did not finish within ${SHUTDOWN_TIMEOUT_MS / 1000}s, killing this node`)
         process.kill(process.pid, 'SIGKILL')
     }, SHUTDOWN_TIMEOUT_MS)
     try {
         await alloyManager?.stop()
-        // The DISCONNECT frame only means something on a live connection, and asking for one
-        // otherwise costs the whole timeout: EventBus serializes disconnect behind the connect
-        // in flight, and a node whose server is unreachable retries that connect forever.
-        if (Kinotic.eventBus.isConnected()) {
-            await Kinotic.disconnect()
-        }
+        await Promise.race([Kinotic.disconnect(), Bun.sleep(DISCONNECT_TIMEOUT_MS)])
     } catch (error) {
+        // A release that failed is still a shutdown; the signal handler has already replaced the
+        // default terminate-on-signal, so a rejection thrown from here leaves the node running
         console.error('Shutdown failed:', error)
     }
     clearTimeout(forceExit)
@@ -274,8 +281,13 @@ process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
 start().catch(error => {
-    console.error('Failed to start VM Manager:', error)
-    process.exit(1)
+    // Shutting down deactivates the connection start() is still awaiting, which rejects it from
+    // here; the node is stopping on request rather than failing to come up, and shutdown() owns
+    // the exit in that case
+    if (!shuttingDown) {
+        console.error('Failed to start VM Manager:', error)
+        process.exit(1)
+    }
 })
 
 export type { IVmManager } from '@/api/IVmManager'

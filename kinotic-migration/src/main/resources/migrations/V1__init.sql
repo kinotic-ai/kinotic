@@ -86,7 +86,6 @@ CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
     name KEYWORD,
     url KEYWORD,
     commitSha KEYWORD,
-    previousCommitSha KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),
     created DATE,
     updated DATE
@@ -242,9 +241,6 @@ CREATE TABLE IF NOT EXISTS kinotic_organization (
     description TEXT,
     ssoConfigId KEYWORD NOT INDEXED,
     createdBy KEYWORD,
-    storage OBJECT (azureSubscriptionId KEYWORD, azureAccountName KEYWORD, azureBlobEndpoint KEYWORD,
-                    status OBJECT (type KEYWORD, message TEXT)),
-    provisioningJobRunId KEYWORD,
     created DATE,
     updated DATE
 );

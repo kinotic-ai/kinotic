@@ -1,6 +1,6 @@
 <template>
   <div class="sticky top-0 left-0 z-50 flex h-16 items-center justify-between border-b border-surface-800 bg-surface-950 px-4 md:px-6">
-    <div class="flex items-center gap-3 text-white">
+    <div class="flex min-w-0 items-center gap-3 text-white">
       <button
         type="button"
         class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-surface-300 transition-colors hover:text-surface-0 md:hidden"
@@ -13,43 +13,32 @@
       <RouterLink to="/dashboard" class="flex items-center gap-2">
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
-      <span class="text-lg text-surface-600">/</span>
-      <span class="text-sm font-medium text-surface-300">System</span>
 
-      <template v-if="isOrgDetailPage">
-        <span class="text-lg text-surface-600">/</span>
+      <!-- On small screens only the deepest segment stays; the sidebar's back row names the rest -->
+      <span :class="['text-lg text-surface-600', organizationId ? 'hidden md:inline' : '']">/</span>
+      <RouterLink to="/dashboard"
+        :class="['items-center gap-1.5 text-sm font-medium text-surface-300 transition-opacity hover:opacity-80', organizationId ? 'hidden md:flex' : 'flex']">
+        System
+        <span class="text-[11px] font-normal text-surface-500">console</span>
+      </RouterLink>
 
-        <div ref="orgDropdownRef" class="relative inline-block">
-          <button @click="toggleOrgDropdown"
-            class="flex w-full items-center justify-between gap-2 text-sm font-medium text-surface-300 transition-opacity hover:opacity-80">
-            {{ currentOrgName }}
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          <div v-if="orgDropdownOpen"
-            :class="[
-              'absolute top-full left-0 z-50 mt-2 max-h-80 w-64 overflow-y-auto rounded-xl border p-2 shadow-lg',
-              isDark ? 'border-surface-800 bg-surface-900' : 'border-surface-200 bg-surface-0'
-            ]">
-            <div class="w-full mb-2">
-              <IconField class="w-full">
-                <InputIcon class="pi pi-search" />
-                <InputText v-model="searchTextOrg" placeholder="Search organizations" class="w-full" />
-              </IconField>
-            </div>
-            <div v-for="org in filteredOrganizations" :key="org.id ?? ''" @click="selectOrg(org)"
-              :class="[
-                'flex cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-sm',
-                currentOrgId === org.id
-                  ? 'bg-primary-50 text-primary-600 font-medium'
-                  : isDark ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-950 hover:bg-surface-100'
-              ]">
-              <span>{{ org.name }}</span>
-              <i v-if="currentOrgId === org.id" class="pi pi-check text-primary-500"></i>
-            </div>
-          </div>
+      <template v-if="organizationId">
+        <span :class="['text-lg text-surface-600', applicationId ? 'hidden md:inline' : '']">/</span>
+        <div :class="applicationId ? 'hidden md:inline-block' : 'inline-block'">
+          <HeaderPicker kind="organization" :items="organizationItems" :current="organizationId" @select="selectOrganization" />
         </div>
+      </template>
+
+      <template v-if="organizationId && applicationId">
+        <span :class="['text-lg text-surface-600', projectId ? 'hidden md:inline' : '']">/</span>
+        <div :class="projectId ? 'hidden md:inline-block' : 'inline-block'">
+          <HeaderPicker kind="application" :items="applicationItems" :current="applicationId" @select="selectApplication" />
+        </div>
+      </template>
+
+      <template v-if="organizationId && applicationId && projectId">
+        <span class="text-lg text-surface-600">/</span>
+        <HeaderPicker kind="project" :items="projectItems" :current="projectId" @select="selectProject" />
       </template>
     </div>
 
@@ -96,19 +85,28 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Avatar from 'primevue/avatar'
-import IconField from 'primevue/iconfield'
-import InputIcon from 'primevue/inputicon'
-import InputText from 'primevue/inputtext'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import type { Organization, UserParticipantIdentity } from '@kinotic-ai/management-api'
-import { avatarInitials, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
+import type { Application, Organization, Project, UserParticipantIdentity } from '@kinotic-ai/management-api'
+import { avatarInitials, createDebug, isDark as darkMode, toggleDark } from '@kinotic-ai/frontend-common'
 
+import HeaderPicker, { type PickerItem } from './HeaderPicker.vue'
 import { SYSTEM_USER_STATE } from '@/states/SystemUserState'
+import { applicationPath, organizationPath, projectPath } from '@/util/scope'
 
+const debug = createDebug('header')
+
+/**
+ * The breadcrumb across the top: System / organization / application / project, as deep as the
+ * current route goes. Each segment past the first is a switcher; switching keeps the section
+ * where the new scope has it and lands on the scope's overview otherwise.
+ */
 const emit = defineEmits<{
   (e: 'toggle-nav'): void
 }>()
+
+/** How many of each the switchers list. */
+const PICKER_PAGE_SIZE = 200
 
 const route = useRoute()
 const router = useRouter()
@@ -117,27 +115,19 @@ const avatarDropdownOpen = ref(false)
 const avatarDropdownRef = ref<HTMLElement>()
 const profile = ref<UserParticipantIdentity | null>(null)
 
-const orgDropdownOpen = ref(false)
-const orgDropdownRef = ref<HTMLElement>()
 const organizations = ref<Organization[]>([])
-const searchTextOrg = ref('')
+const applications = ref<Application[]>([])
+const projects = ref<Project[]>([])
 
 const isDark = darkMode
 
-const isOrgDetailPage = computed(() => typeof route.params.organizationId === 'string')
-const currentOrgId = computed(() => route.params.organizationId as string | undefined)
+const organizationId = computed(() => route.params.organizationId as string | undefined)
+const applicationId = computed(() => route.params.applicationId as string | undefined)
+const projectId = computed(() => route.params.projectId as string | undefined)
 
-const currentOrgName = computed(() => {
-  const current = organizations.value.find(org => org.id === currentOrgId.value)
-  return current?.name ?? currentOrgId.value ?? ''
-})
-
-const filteredOrganizations = computed(() => {
-  const needle = searchTextOrg.value.trim().toLowerCase()
-  return needle
-      ? organizations.value.filter(org => org.name.toLowerCase().includes(needle) || (org.id ?? '').includes(needle))
-      : organizations.value
-})
+const organizationItems = computed<PickerItem[]>(() => organizations.value.map(org => ({ id: org.id ?? '', label: org.name })))
+const applicationItems = computed<PickerItem[]>(() => applications.value.map(app => ({ id: app.id, label: app.id })))
+const projectItems = computed<PickerItem[]>(() => projects.value.map(project => ({ id: project.id ?? '', label: project.name })))
 
 const initials = computed(() => avatarInitials(profile.value?.displayName, profile.value?.email))
 
@@ -149,36 +139,59 @@ const avatarMenuItemClass = computed(() => [
   isDark.value ? 'text-surface-0 hover:bg-surface-800' : 'text-surface-700 hover:bg-surface-100'
 ])
 
-// Load once when the org segment first shows, so the switcher and name resolve without a click
-watch(isOrgDetailPage, onOrgDetail => {
-  if (onOrgDetail && organizations.value.length === 0) {
-    loadOrganizations()
+// Each list loads once its segment first shows, so the switcher resolves names without a click
+watch(organizationId, async id => {
+  if (id && organizations.value.length === 0) {
+    try {
+      const page = await Kinotic.systemOrganizations.findOrganizations(Pageable.create(0, PICKER_PAGE_SIZE))
+      organizations.value = page.content ?? []
+    } catch (error) {
+      debug('Failed to load organizations: %O', error)
+    }
   }
 }, { immediate: true })
 
-async function loadOrganizations() {
+watch(() => [organizationId.value, applicationId.value], async ([orgId, appId]) => {
+  applications.value = []
+  projects.value = []
+  if (!orgId || !appId) {
+    return
+  }
   try {
-    const page = await Kinotic.systemOrganizations.findOrganizations(Pageable.create(0, 100))
-    organizations.value = page.content ?? []
-  } catch {
-    // The segment falls back to showing the route's organization id
+    const [apps, orgProjects] = await Promise.all([
+      Kinotic.systemOrganizations.findApplications(orgId, Pageable.create(0, PICKER_PAGE_SIZE)),
+      Kinotic.systemOrganizations.findProjects(orgId, Pageable.create(0, PICKER_PAGE_SIZE))
+    ])
+    // the route may have moved on while the requests were in flight
+    if (organizationId.value === orgId && applicationId.value === appId) {
+      applications.value = apps.content ?? []
+      projects.value = (orgProjects.content ?? []).filter(project => project.applicationId === appId)
+    }
+  } catch (error) {
+    debug('Failed to load applications of %s: %O', orgId, error)
   }
+}, { immediate: true })
+
+/** The part of the current path below the given scope path, or '' when not inside it. */
+function pathBelow(scopePath: string): string {
+  return route.path.startsWith(scopePath) ? route.path.slice(scopePath.length) : ''
 }
 
-function toggleOrgDropdown() {
-  orgDropdownOpen.value = !orgDropdownOpen.value
-  if (orgDropdownOpen.value && organizations.value.length === 0) {
-    loadOrganizations()
-  }
+function selectOrganization(id: string) {
+  // only the section carries over: an application or an item inside it belongs to this organization alone
+  const section = applicationId.value ? '' : pathBelow(organizationPath(organizationId.value ?? '')).split('/')[1]
+  router.push(`${organizationPath(id)}${section ? `/${section}` : ''}`)
 }
 
-function selectOrg(org: Organization) {
-  orgDropdownOpen.value = false
-  searchTextOrg.value = ''
-  if (org.id && org.id !== currentOrgId.value) {
-    // Stay on the same section (applications/projects/members) for the newly selected org
-    router.push({ name: (route.name as string) ?? 'organization-detail', params: { organizationId: org.id } })
-  }
+function selectApplication(id: string) {
+  // a project page has no counterpart in another application, so those land on the overview
+  const section = projectId.value ? '' : pathBelow(applicationPath(organizationId.value ?? '', applicationId.value ?? '')).split('/')[1]
+  router.push(`${applicationPath(organizationId.value ?? '', id)}${section ? `/${section}` : ''}`)
+}
+
+function selectProject(id: string) {
+  const section = pathBelow(projectPath(organizationId.value ?? '', applicationId.value ?? '', projectId.value ?? '')).split('/')[1]
+  router.push(`${projectPath(organizationId.value ?? '', applicationId.value ?? '', id)}${section ? `/${section}` : ''}`)
 }
 
 onMounted(async () => {
@@ -197,9 +210,6 @@ onBeforeUnmount(() => {
 function handleClickOutside(event: MouseEvent) {
   if (avatarDropdownOpen.value && avatarDropdownRef.value && !avatarDropdownRef.value.contains(event.target as Node)) {
     avatarDropdownOpen.value = false
-  }
-  if (orgDropdownOpen.value && orgDropdownRef.value && !orgDropdownRef.value.contains(event.target as Node)) {
-    orgDropdownOpen.value = false
   }
 }
 

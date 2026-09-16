@@ -3,7 +3,6 @@ package org.kinotic.management.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Zone;
-import org.kinotic.domain.api.model.Organization;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.UiDeployment;
 
@@ -26,7 +25,5 @@ public interface DeploymentOperationsProxy {
     Future<UiDeployment> provisionUiSite(String deploymentId);
 
     Future<Void> removeUiSite(String deploymentId);
-
-    Future<Organization> provisionOrganization(String organizationId);
 
 }

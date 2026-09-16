@@ -85,6 +85,14 @@ export interface IEventBus {
     fatalErrors: Observable<Error>
 
     /**
+     * Emits when the connection ends: an established connection drops before any reconnect, a fatal error
+     * closes it, or {@link disconnect} is called. The server releases everything it held for the connection
+     * at that moment: every request made on it is failed to its caller, and every invocation it was serving
+     * is failed to its requester.
+     */
+    connectionLost: Observable<void>
+
+    /**
      * The {@link ServerInfo} used when connecting, if connected or null
      */
     serverInfo: ServerInfo | null

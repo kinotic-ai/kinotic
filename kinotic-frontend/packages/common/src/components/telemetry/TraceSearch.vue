@@ -18,33 +18,45 @@
         <label for="only-errors" class="text-sm">Errors only</label>
       </div>
       <Button label="Search" icon="pi pi-search" size="small" :loading="loading" @click="search" />
-      <span class="pb-2 font-mono text-xs text-muted-color">{{ query }}</span>
+    </div>
+
+    <!-- The query the filters amount to, as one would paste it into Tempo -->
+    <div class="flex items-center gap-2 text-xs text-muted-color">
+      <span class="font-medium uppercase tracking-wide">TraceQL</span>
+      <code class="font-mono">{{ query }}</code>
     </div>
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
 
+    <!-- Tempo returns the first traces its search finds, up to the limit, in no order of its
+         own; the columns sort within that set, and the caption says so -->
+    <p v-if="traces.length > 0" class="text-xs text-muted-color">
+      {{ traces.length }} traces Tempo found in the range{{ traces.length >= SEARCH_LIMIT ? ', its limit' : '' }}; the columns sort within them.
+    </p>
     <DataTable
       :value="traces"
       dataKey="traceId"
       size="small"
       selectionMode="single"
+      sort-field="startMs"
+      :sort-order="-1"
       :class="['text-sm', { 'datatable-loading': loading }]"
       @row-select="openTrace($event.data)"
     >
       <template #empty>
         <div class="py-6 text-center text-sm text-muted-color">{{ loading ? 'Searching traces…' : 'No traces match in this range' }}</div>
       </template>
-      <Column header="Started" style="width: 12rem">
+      <Column field="startMs" header="Started" sortable style="width: 12rem">
         <template #body="{ data }">
           <span class="font-mono text-xs">{{ formatDateFromEpoch(data.startMs) }}</span>
         </template>
       </Column>
-      <Column field="rootService" header="Service" />
-      <Column field="rootName" header="Root span" />
-      <Column header="Duration" style="width: 8rem">
+      <Column field="rootService" header="Service" sortable />
+      <Column field="rootName" header="Root span" sortable />
+      <Column field="durationMs" header="Duration" sortable style="width: 8rem">
         <template #body="{ data }">{{ formatDuration(data.durationMs) }}</template>
       </Column>
-      <Column field="matchedSpans" header="Spans" style="width: 6rem" />
+      <Column field="matchedSpans" header="Spans" sortable style="width: 6rem" />
       <Column header="Trace" style="width: 10rem">
         <template #body="{ data }">
           <span class="font-mono text-xs text-muted-color">{{ data.traceId.slice(0, 16) }}</span>
@@ -82,7 +94,8 @@ import { formatDuration } from './telemetryDisplay'
 /**
  * Searches the organization's traces — or one application's — over the given range, and opens
  * the one picked from the results: on the page {@code traceRoute} names when given, otherwise
- * in a dialog over the results.
+ * in a dialog over the results. searchErrors() narrows the search to the traces with a failed
+ * span and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
@@ -106,6 +119,8 @@ const filters = reactive<Omit<TraceFilters, 'applicationId'>>({
 
 const traces = ref<TraceSummary[]>([])
 const loading = ref(false)
+// Searches can overlap when the range or the filters change mid-flight; only the latest lands
+let searchSequence = 0
 const error = ref<string | null>(null)
 const selectedTraceId = ref<string | null>(null)
 const detailVisible = ref(false)
@@ -119,16 +134,29 @@ const detailHeader = computed(() => {
 })
 
 async function search() {
+  const sequence = ++searchSequence
   loading.value = true
   error.value = null
   try {
-    traces.value = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
+    const found = await searchTraces(props.organizationId, query.value, props.range, SEARCH_LIMIT)
+    if (sequence === searchSequence) {
+      traces.value = found
+    }
   } catch (err) {
-    traces.value = []
-    error.value = errorMessage(err, 'Failed to search traces')
+    if (sequence === searchSequence) {
+      traces.value = []
+      error.value = errorMessage(err, 'Failed to search traces')
+    }
   } finally {
-    loading.value = false
+    if (sequence === searchSequence) {
+      loading.value = false
+    }
   }
+}
+
+function searchErrors() {
+  filters.onlyErrors = true
+  return search()
 }
 
 function openTrace(trace: TraceSummary) {
@@ -142,4 +170,6 @@ function openTrace(trace: TraceSummary) {
 
 // The panel replaces the range on every refresh and scope change, so it is the one trigger
 watch(() => props.range, search, { immediate: true })
+
+defineExpose({ searchErrors })
 </script>

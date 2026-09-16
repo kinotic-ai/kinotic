@@ -15,20 +15,11 @@ kinotic:
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       serverHost: localhost
-    # placeholder storage and site config, validated at boot; no test deploys a UI
-    organizationStorage:
-      disableProvisioner: true
-      subscriptionIds: ["-"]
-      resourceGroup: "-"
-      location: "-"
-      privateEndpointSubnetId: "-"
-      privateDnsZoneId: "-"
+    # placeholder site config, validated at boot; no test deploys a UI
     uiDeployment:
       disableProvisioner: true
       sitesDomain: apps.localhost
-      dnsZoneId: "-"
-      frontDoorProfileId: "-"
-      frontDoorEndpointHostName: "-"
+      sitesStorageEndpoint: "-"
 
 logging:
   level:

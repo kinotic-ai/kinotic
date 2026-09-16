@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { type ChildProcess, spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -117,4 +117,95 @@ describe('supervise entrypoint', () => {
         // Two starts prove the crash respawn; the first backoff is one second
         await waitForStarts(2, 10_000)
     }, 40_000)
+
+    describe('telemetry preload', () => {
+
+        interface OtlpRequest {
+            path: string
+            authorization: string | null
+            body: Buffer
+        }
+
+        let collector: ReturnType<typeof Bun.serve>
+        let received: OtlpRequest[]
+
+        beforeEach(() => {
+            received = []
+            collector = Bun.serve({
+                hostname: '127.0.0.1',
+                port: 0,
+                async fetch(request) {
+                    received.push({
+                        path: new URL(request.url).pathname,
+                        authorization: request.headers.get('authorization'),
+                        body: Buffer.from(await request.arrayBuffer()),
+                    })
+                    return new Response(new Uint8Array(0))
+                },
+            })
+            // The project resolves @opentelemetry/api from its own install, as a checkout does
+            symlinkSync(join(import.meta.dir, '..', 'node_modules'), join(appDir, 'node_modules'))
+            writeFileSync(join(appDir, 'service.ts'),
+                          `import { appendFileSync } from 'node:fs'
+                           import { trace } from '@opentelemetry/api'
+                           trace.getTracer('service').startSpan('handle-request').end()
+                           appendFileSync('starts.log', 'start\\n')
+                           setInterval(() => {}, 1000)`)
+        })
+
+        afterEach(() => {
+            collector.stop(true)
+        })
+
+        /** The environment the node lays into a guest holding an OTLP endpoint. */
+        function otlpEnvironment(scheduleDelayMs: number): Record<string, string> {
+            return {
+                OTEL_EXPORTER_OTLP_ENDPOINT: `http://127.0.0.1:${collector.port}`,
+                OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+                OTEL_EXPORTER_OTLP_HEADERS: 'authorization=Bearer%20secret-token',
+                OTEL_TRACES_EXPORTER: 'otlp',
+                OTEL_METRICS_EXPORTER: 'none',
+                OTEL_LOGS_EXPORTER: 'none',
+                OTEL_SERVICE_NAME: 'service-under-test',
+                OTEL_BSP_SCHEDULE_DELAY: String(scheduleDelayMs),
+            }
+        }
+
+        async function waitForTraces(timeoutMs: number): Promise<OtlpRequest> {
+            const deadline = Date.now() + timeoutMs
+            let ret = received.find(r => r.path === '/v1/traces')
+            while (ret === undefined) {
+                if (Date.now() > deadline) {
+                    throw new Error(`no trace export arrived; requests: ${JSON.stringify(received.map(r => r.path))}`)
+                }
+                await Bun.sleep(50)
+                ret = received.find(r => r.path === '/v1/traces')
+            }
+            return ret
+        }
+
+        it('exports the spans the microservice records through the OpenTelemetry API', async () => {
+            startSupervisor(otlpEnvironment(100))
+            await waitForStarts(1, 10_000)
+
+            const export_ = await waitForTraces(10_000)
+            expect(export_.authorization).toBe('Bearer secret-token')
+            // Protobuf carries strings verbatim, so the span and service names are visible as bytes
+            expect(export_.body.includes('handle-request')).toBe(true)
+            expect(export_.body.includes('service-under-test')).toBe(true)
+        }, 40_000)
+
+        it('flushes pending spans when the microservice is stopped', async () => {
+            // A schedule delay longer than the test means only the shutdown flush can export the span
+            startSupervisor(otlpEnvironment(60_000))
+            await waitForStarts(1, 10_000)
+
+            const exited = new Promise<void>(resolve => supervisor!.once('exit', () => resolve()))
+            supervisor!.kill('SIGTERM')
+            await Promise.race([exited, Bun.sleep(10_000).then(() => { throw new Error('supervisor did not exit') })])
+            supervisor = null
+
+            expect(received.some(r => r.path === '/v1/traces' && r.body.includes('handle-request'))).toBe(true)
+        }, 40_000)
+    })
 })

@@ -1,22 +1,28 @@
 <template>
-  <div class="flex h-full min-h-0 flex-col">
-    <PageHeader :title="entity?.name ?? entityDefinitionId" :description="entity?.description ?? undefined">
-      <template #eyebrow>
-        <RouterLink :to="entitiesPath" class="hover:underline">Entities</RouterLink>
-        <i class="pi pi-chevron-right" :style="{ fontSize: '10px' }" />
-        <span>{{ entity?.name ?? entityDefinitionId }}</span>
-      </template>
-      <template #actions>
-        <template v-if="entity">
-          <Tag :value="entity.published ? 'Published' : 'Unpublished'"
-               :severity="entity.published ? 'success' : 'secondary'" rounded />
-          <Button v-if="entity.published" label="Unpublish" icon="pi pi-eye-slash" severity="danger" outlined
-                  :loading="busyId === entity.id" @click="unpublish(entity)" />
-          <Button v-else label="Publish" icon="pi pi-eye"
-                  :loading="busyId === entity.id" @click="publish(entity)" />
-        </template>
-      </template>
-    </PageHeader>
+  <Dialog
+    :visible="true"
+    modal
+    :draggable="false"
+    :dismissable-mask="false"
+    class="p-dialog-maximized"
+    :pt="{ header: { class: '!py-3' } }"
+    content-class="flex min-h-0 flex-1 flex-col"
+    @update:visible="close"
+  >
+    <template #header>
+      <div class="flex min-w-0 flex-1 items-center gap-2 text-sm">
+        <RouterLink :to="entitiesPath" class="text-surface-500 hover:underline dark:text-surface-400">Entities</RouterLink>
+        <i class="pi pi-chevron-right text-surface-500 dark:text-surface-400" :style="{ fontSize: '10px' }" />
+        <span class="truncate font-semibold text-surface-950 dark:text-surface-0" :title="entity?.description || undefined">{{ entity?.name ?? entityDefinitionId }}</span>
+        <Tag v-if="entity" :value="entity.published ? 'Published' : 'Unpublished'"
+             :severity="entity.published ? 'success' : 'secondary'" rounded />
+      </div>
+    </template>
+    <!-- Rendered here rather than by the dialog, which would move focus to its own close
+         button on open and draw the button's focus ring around it -->
+    <template #closebutton="{ closeCallback }">
+      <Button icon="pi pi-times" severity="secondary" text rounded aria-label="Close" @click="closeCallback" />
+    </template>
 
     <Message v-if="error" severity="error" :closable="false">{{ error }}</Message>
     <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading entity…</div>
@@ -34,7 +40,7 @@
         <TabPanel value="data" class="flex min-h-0 flex-1 flex-col">
           <EntityList v-if="entity.published" :key="entity.id ?? ''" :entity-definition-id="entity.id ?? undefined" />
           <div v-else class="rounded-2xl border border-dashed border-surface-300 p-8 text-center text-sm text-muted-color dark:border-surface-700">
-            Publish this entity to start storing data. Its schema is ready on the Schema tab.
+            Publish this entity from the Entities list to start storing data. Its schema is ready on the Schema tab.
           </div>
         </TabPanel>
         <TabPanel value="schema" class="flex min-h-0 flex-1 flex-col">
@@ -42,15 +48,14 @@
         </TabPanel>
       </TabPanels>
     </Tabs>
-
-    <ConfirmDialog />
-  </div>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
-import ConfirmDialog from 'primevue/confirmdialog'
+import Dialog from 'primevue/dialog'
 import Message from 'primevue/message'
 import Tab from 'primevue/tab'
 import TabList from 'primevue/tablist'
@@ -60,16 +65,17 @@ import Tabs from 'primevue/tabs'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import type { EntityDefinition } from '@kinotic-ai/management-api'
-import { PageHeader } from '@kinotic-ai/frontend-common'
 import EntityDefinitionDiagram from '@/components/entity-definitions/EntityDefinitionDiagram.vue'
 import EntityList from '@/pages/EntityList.vue'
-import { useEntityPublishing } from '@/composables/entity-definition/useEntityPublishing'
 import { useQueryTab } from '@/composables/useQueryTab'
 
 /**
- * One entity definition: the data stored under it and its schema, with publishing as the
- * action that turns the schema into a store. Opened from a project's Entities list or, without
- * a project, from the application's; the eyebrow leads back to whichever list it came from.
+ * One entity definition: the data stored under it and its schema. It has its own route under
+ * the Entities list it was opened from, and fills the viewport as a dialog over that list,
+ * since both the data table and the schema diagram need the room; the header is one row so
+ * they get as much of it as possible, and closing it returns to the list. Publishing stays on
+ * the list. The dialog wears the theme's own maximized class, the one its maximize button
+ * would apply.
  */
 const props = defineProps<{
   applicationId: string
@@ -79,12 +85,13 @@ const props = defineProps<{
 
 const TABS = ['data', 'schema'] as const
 
+const router = useRouter()
+
 const entity = ref<EntityDefinition | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
 const activeTab = useQueryTab(TABS)
-const { busyId, publish, unpublish } = useEntityPublishing(load)
 
 const entitiesPath = computed(() => {
   const applicationPath = `/application/${encodeURIComponent(props.applicationId)}`
@@ -109,5 +116,9 @@ async function load(): Promise<void> {
 
 function selectTab(value: string | number): void {
   activeTab.value = value === 'schema' ? 'schema' : 'data'
+}
+
+function close(): void {
+  router.push(entitiesPath.value)
 }
 </script>

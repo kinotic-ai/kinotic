@@ -6,9 +6,8 @@ export * from './api/ContextInterceptor'
 export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
 export * from './api/IServiceRegistry'
+export * from './api/ServiceIdentifier'
 export * from './api/ServiceRegistry'
-export * from './api/UiVersionCheck'
-export * from './api/UiVersionUtil'
 export * from './api/ZoneUtil'
 
 
@@ -29,6 +28,7 @@ export * from './api/event/CRI'
 export * from './api/event/DefaultCRI'
 export * from './api/event/EventBus'
 export * from './api/event/IEventBus'
+export * from './api/event/RpcError'
 
 export * from './api/security/BasicCredentialsResolver'
 export * from './api/security/BearerCredentialsResolver'

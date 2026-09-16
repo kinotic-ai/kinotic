@@ -16,6 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.FatalBeanException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.config.DestructionAwareBeanPostProcessor;
 import org.springframework.core.annotation.AnnotationUtils;
@@ -32,7 +35,7 @@ import java.util.function.BiConsumer;
  */
 @Component
 @RequiredArgsConstructor
-public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBeanPostProcessor {
+public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBeanPostProcessor, BeanFactoryAware {
 
     private static final Logger log = LoggerFactory.getLogger(ServiceRegistrationBeanPostProcessor.class);
 
@@ -43,6 +46,12 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
     // during ordinary singleton initialization instead.
     private final ObjectProvider<ServiceRegistry> serviceRegistryProvider;
     private final ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
+    private ConfigurableListableBeanFactory beanFactory;
+
+    @Override
+    public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+        this.beanFactory = (ConfigurableListableBeanFactory) beanFactory;
+    }
 
     @Override
     public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
@@ -63,6 +72,13 @@ public class ServiceRegistrationBeanPostProcessor implements DestructionAwareBea
                 // A service that is not actually serving must not advertise itself in the directory
                 log.error("Error Registering service {}", serviceIdentifier, e);
                 return;
+            }
+
+            // Un-registration drains the invocations in flight, which needs the registry and the event bus
+            // behind it still running. A published bean that injects nothing from kinotic has no dependency
+            // ordering its destruction before theirs, so the dependency is recorded here.
+            for(String registryBeanName : beanFactory.getBeanNamesForType(ServiceRegistry.class)){
+                beanFactory.registerDependentBean(registryBeanName, beanName);
             }
 
             // The directory is a secondary concern; a bad @McpTool annotation must not crash service registration.

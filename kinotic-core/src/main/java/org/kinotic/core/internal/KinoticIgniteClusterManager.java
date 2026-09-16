@@ -3,6 +3,7 @@ package org.kinotic.core.internal;
 import io.vertx.core.Context;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.spi.cluster.NodeListener;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.spi.cluster.RegistrationListener;
 import io.vertx.core.spi.cluster.RegistrationUpdateEvent;
@@ -28,10 +29,14 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * An {@link IgniteClusterManager} that additionally provides a {@link Flux} of {@link ListenerStatus} for
- * any event bus address, fed by the registration updates it already receives for message routing.
+ * any event bus address, fed by the registration updates it already receives for message routing, and a
+ * {@link Flux} of the cluster membership, fed by the discovery events it already receives.
  * Monitoring an address therefore costs a local map entry, no matter how many addresses are monitored or
  * how often monitors come and go. All monitor signals are delivered on a vertx context, never on the
  * cluster threads that observe registration changes.
+ * <p>
+ * Vert.x high availability ({@code VertxOptions.setHAEnabled}) is not supported: {@link IgniteClusterManager}
+ * holds a single {@link NodeListener}, which the membership flux owns, and HA installs its own in that slot.
  *
  * Created by Navid on 7/13/26
  */
@@ -48,6 +53,10 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     private final Map<String, AddressMonitor> monitors = new ConcurrentHashMap<>();
     // Hot sink shared by every serviceListenerEventsFlux subscriber; never terminates
     private final Sinks.Many<ServiceListenerEvent> serviceListenerSink = Sinks.many().multicast().directBestEffort();
+    // Retains the latest membership snapshot for every clusterNodesFlux subscriber; never terminates
+    private final Sinks.Many<Set<String>> clusterNodesSink = Sinks.many().replay().latest();
+    private boolean clusterNodesEmitted; // touched only on the delivery context
+    private boolean nodeListenerInstalled;
     private volatile Vertx vertx;
     private volatile Context deliveryContext;
 
@@ -60,6 +69,28 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
     public void init(Vertx vertx) {
         super.init(vertx);
         this.vertx = vertx;
+        nodeListener(new NodeListener() {
+            @Override
+            public void nodeAdded(String nodeId) {
+                emitClusterNodes(false);
+            }
+
+            @Override
+            public void nodeLeft(String nodeId) {
+                emitClusterNodes(false);
+            }
+        });
+    }
+
+    @Override
+    public void nodeListener(NodeListener nodeListener) {
+        // IgniteClusterManager keeps one listener, so a second installer would silently take the slot
+        // from the membership flux. Vert.x HA is the only other installer, whichever of the two runs first.
+        if(nodeListenerInstalled){
+            throw new UnsupportedOperationException("KinoticIgniteClusterManager does not support Vert.x HA: its single NodeListener slot is owned by the cluster membership flux");
+        }
+        super.nodeListener(nodeListener);
+        nodeListenerInstalled = true;
     }
 
     // One shared context all monitors deliver on, so subscriber chains never run on the cluster
@@ -139,6 +170,36 @@ public class KinoticIgniteClusterManager extends IgniteClusterManager {
             refresh(address, true);
             return monitor.sink.asFlux()
                                .doFinally(signal -> monitors.computeIfPresent(address, (a, m) -> --m.subscribers == 0 ? null : m));
+        });
+    }
+
+    /**
+     * A {@link Flux} of the ids of every node in the cluster, shared between all subscribers. Emits the
+     * current membership on subscribe and the resulting membership every time a node joins or leaves.
+     * Each emission is an immutable snapshot, and the ids are the ones {@link #getNodeId()} reports on
+     * each node.
+     * @return the cluster nodes flux
+     */
+    public Flux<Set<String>> clusterNodesFlux() {
+        return Flux.defer(() -> {
+            emitClusterNodes(true);
+            return clusterNodesSink.asFlux();
+        });
+    }
+
+    // The snapshot is taken on the delivery context, where emissions are serialised, so two membership
+    // events handled on different worker threads cannot emit their snapshots out of order; a seed queued
+    // behind a membership event does not overwrite that event's snapshot
+    private void emitClusterNodes(boolean seed) {
+        deliveryContext().runOnContext(v -> {
+            if(!seed || !clusterNodesEmitted){
+                clusterNodesEmitted = true;
+                Set<String> nodes = Set.copyOf(getNodes());
+                Sinks.EmitResult result = clusterNodesSink.tryEmitNext(nodes);
+                if(result.isFailure()){
+                    log.warn("Failed to emit cluster nodes {}: {}", nodes, result);
+                }
+            }
         });
     }
 

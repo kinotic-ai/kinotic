@@ -23,10 +23,15 @@ public interface ApplicationService extends IdentifiableCrudService<Application,
      * The organization id is derived from the authenticated participant.
      * @param name the name of the application to create
      * @param description the description of the application to create
+     * @param tenantPerUser true to give every APPLICATION-scope user of this application its own
+     *                      tenant, isolating each user's {@code MultiTenancyType.SHARED} entity
+     *                      data; false or null to leave all users sharing one set of data.
+     *                      Applies to users created while it is enabled, so it is chosen before
+     *                      the application has users
      * @return {@link Future} emitting the created application, or the existing
      *         application whose id matches the slugified name
      */
-    Future<Application> createApplicationIfNotExist(String name, String description);
+    Future<Application> createApplicationIfNotExist(String name, String description, Boolean tenantPerUser);
 
     /**
      * Returns the enabled OIDC configurations registered on the given application.

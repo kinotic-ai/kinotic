@@ -74,6 +74,10 @@ export default defineConfig(
             },
             allowedHosts: TUNNEL_HOSTS,
             proxy: BACKEND_PROXY,
+            // Vite answers CORS preflights itself, for localhost origins only, before the proxy
+            // sees them; off, a preflight from a published site reaches kinotic-server, whose
+            // CORS policy decides. The portal is same-origin here and needs none of its own.
+            cors: false,
         },
         // `pnpm dev:tunnel:build` serves the production build behind the tunnel on the dev
         // server's port and origin, so the tunnel carries a few compressed bundles instead
@@ -83,6 +87,7 @@ export default defineConfig(
             host: true,
             allowedHosts: TUNNEL_HOSTS,
             proxy: BACKEND_PROXY,
+            cors: false,
         },
         build: {
             sourcemap: true,

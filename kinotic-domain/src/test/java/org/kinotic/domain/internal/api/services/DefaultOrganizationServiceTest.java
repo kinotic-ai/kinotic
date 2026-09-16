@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
  */
 class DefaultOrganizationServiceTest {
 
-    private final DefaultOrganizationService service = new DefaultOrganizationService(null, null);
+    private final DefaultOrganizationService service = new DefaultOrganizationService(null);
 
     @Test
     void mintsIdFromSlugifiedName() {
