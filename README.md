@@ -1,16 +1,16 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.svg">
-  <img alt="Kinotic" src=".github/assets/kinotic-logo-light.svg" width="340">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
+  <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="340">
 </picture>
 
 ### Prototype to production
 
 **Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
 
-[![Build and Publish](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml/badge.svg?branch=develop)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
-[![Java 25](https://img.shields.io/badge/Java-25-EC1F52)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
+[![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
+[![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
 [![License Elastic 2.0](https://img.shields.io/badge/license-Elastic%202.0-28FEB4)](LICENSE.txt)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
 
@@ -42,7 +42,18 @@ Creating application code is becoming dramatically easier. AI coding agents can 
 
 But the production environment underneath that code is still fragmented:
 
-> `databases` · `APIs` · `authentication` · `authorization` · `service communication` · `CI/CD` · `environments` · `observability` · `security` · `networking` · `scaling` · `cloud infrastructure`
+- databases
+- APIs
+- authentication
+- authorization
+- service communication
+- CI/CD
+- environments
+- observability
+- security
+- networking
+- scaling
+- cloud infrastructure
 
 Developers still have to connect and operate all of these pieces.
 
@@ -66,30 +77,27 @@ AI coding systems are making software creation programmable.
 
 **Kinotic sits between those layers.**
 
-```mermaid
-flowchart TB
-    dev["Developers"]
-    agents["AI agents"]
-    model["<b>Kinotic application model</b>"]
-    runtime["<b>Kinotic OS</b><br/>persistence · identity · service communication<br/>delivery · observability"]
-    infra["Kubernetes · cloud · networking · storage"]
+<div align="center">
 
-    dev --> model
-    agents --> model
-    model --> runtime
-    runtime --> infra
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-dark.png">
+  <img alt="Developers and AI agents work through the Kinotic application model, which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage" width="277" src=".github/assets/diagrams/abstraction-layer-light.png">
+</picture>
 
-    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
-    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
-    classDef dark fill:#2B2A32,stroke:#5D5D66,color:#EDEDEF
-    class model,runtime brand
-    class dev,agents soft
-    class infra dark
-```
+</div>
 
 Kinotic provides an application-level model that understands:
 
-> `applications` · `projects` · `domain models` · `services` · `APIs` · `permissions` · `artifacts` · `environments` · `deployments` · `runtime behavior`
+- applications
+- projects
+- domain models
+- services
+- APIs
+- permissions
+- artifacts
+- environments
+- deployments
+- runtime behavior
 
 This gives both humans and AI agents a constrained, inspectable way to create and operate software.
 
@@ -165,28 +173,14 @@ Kinotic is designed for applications ranging from small internal tools to produc
 
 Kinotic organizes applications around a small number of fundamental concepts.
 
-```mermaid
-flowchart TB
-    app["<b>Application</b><br/>the boundary of a complete software system"]
-    p1["<b>Project</b>"]
-    p2["<b>Project</b>"]
-    p3["<b>Project</b>"]
+<div align="center">
 
-    app --> p1
-    app --> p2
-    app --> p3
-    p1 --> a1["Microservices"]
-    p1 --> a2["Persistence models"]
-    p2 --> a3["Frontends"]
-    p2 --> a4["UI components"]
-    p3 --> a5["Batch jobs"]
-    p3 --> a6["MCP tools"]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-dark.png">
+  <img alt="An application contains projects, and each project provides artifacts: microservices, persistence models, frontends, UI components, batch jobs and MCP tools" width="608" src=".github/assets/diagrams/core-concepts-light.png">
+</picture>
 
-    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
-    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
-    class a1,a2,a3,a4,a5,a6 brand
-    class app,p1,p2,p3 soft
-```
+</div>
 
 ## Applications
 
@@ -261,18 +255,14 @@ Kinotic treats deployment as part of the application lifecycle.
 
 Feature branches can receive isolated development environments, allowing changes to be built and tested before promotion.
 
-```mermaid
-flowchart LR
-    fb["Feature branch"] --> iso["Isolated environment<br/>built and tested"]
-    iso --> dev["Development"]
-    dev -->|promote| stg["Staging"]
-    stg -->|promote| prod["Production"]
+<div align="center">
 
-    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
-    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
-    class dev,stg,prod brand
-    class fb,iso soft
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-dark.png">
+  <img alt="A feature branch gets an isolated environment that is built and tested, then promoted through development, staging and production" width="206" src=".github/assets/diagrams/environments-light.png">
+</picture>
+
+</div>
 
 ## Observability
 
@@ -313,45 +303,14 @@ This gives organizations a path from managed development to customer-controlled 
 
 Kinotic is built as an open platform rather than a single monolithic runtime.
 
-```mermaid
-flowchart TB
-    spa["Consoles and application UIs<br/><i>kinotic-frontend</i>"]
-    sdk["CLI and TypeScript SDKs<br/><i>kinotic-js</i>"]
-    ai["AI agents<br/><i>MCP hosts</i>"]
+<div align="center">
 
-    gw["<b>kinotic-api-gateway</b><br/>STOMP over WebSocket · REST · MCP"]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png">
+  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" width="846" src=".github/assets/diagrams/architecture-light.png">
+</picture>
 
-    subgraph server["kinotic-server"]
-        core["<b>kinotic-core</b><br/>service registry · RPC<br/>clustered event bus"]
-        domain["<b>kinotic-domain</b><br/>organizations · identities<br/>authorization"]
-        data["<b>kinotic-persistence</b> · <b>kinotic-sql</b><br/>entities · named queries"]
-        ops["<b>kinotic-management-api</b><br/><b>kinotic-system-api</b> · <b>kinotic-grind</b><br/>projects · artifacts · workloads · jobs"]
-    end
-
-    es[("Elasticsearch<br/>entities · platform state")]
-    obs[("Loki · Mimir · Tempo<br/>logs · metrics · traces")]
-    nodes["VM nodes<br/>Firecracker · Cloud Hypervisor<br/>builds and microservices"]
-
-    spa --> gw
-    sdk --> gw
-    ai --> gw
-    gw --> core
-    core --> domain
-    core --> data
-    core --> ops
-    domain --> es
-    data --> es
-    ops --> obs
-    ops --> nodes
-
-    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
-    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
-    classDef dark fill:#2B2A32,stroke:#5D5D66,color:#EDEDEF
-    class gw brand
-    class core,domain,data,ops,spa,sdk,ai soft
-    class es,obs,nodes dark
-    style server fill:none,stroke:#8A8A92
-```
+</div>
 
 The repository contains the major components required to build and operate Kinotic OS.
 
@@ -359,7 +318,7 @@ The repository contains the major components required to build and operate Kinot
 
 | Module | What it does |
 |---|---|
-| [`kinotic-core`](kinotic-core) | Runtime kernel: `@Publish`ed service registry, RPC and the clustered event bus, service directory, security context, secrets |
+| [`kinotic-core`](kinotic-core) | Runtime kernel: the registry of `@Publish` services, RPC over the clustered event bus, the service directory, the security context, secrets |
 | [`kinotic-idl`](kinotic-idl) | Schema model behind the application model: type schemas, decorators, converters, and the `@McpTool` contract |
 | [`kinotic-domain`](kinotic-domain) | Platform domain: organizations, participants and identities, security services |
 | [`kinotic-persistence`](kinotic-persistence) | Declarative persistence: entity definitions, CRUD repositories, named queries over Elasticsearch |
@@ -382,9 +341,7 @@ The repository contains the major components required to build and operate Kinot
 | [`deployment`](deployment) | Helm charts, docker-compose stacks, Terraform, KinD, and VM node provisioning |
 | [`website`](website) | The documentation site published at [kinotic.ai/docs](https://kinotic.ai/docs/) |
 
-The platform is primarily built around:
-
-`Java 25` `Spring Boot` `Vert.x` `TypeScript` `Vue` `Bun` `Kubernetes` `Firecracker` `Elasticsearch` `Grafana Loki` `OpenTelemetry`
+The platform is primarily built around Java 25, Spring Boot, Vert.x, TypeScript, Vue, Bun, Kubernetes, Firecracker, Elasticsearch, Grafana Loki, and OpenTelemetry.
 
 The architecture is intentionally designed so that the application abstraction sits above the underlying infrastructure.
 
@@ -458,27 +415,14 @@ Test results and historical trends are published through Allure:
 
 Software development is changing.
 
-```mermaid
-%% the last subgraph declared renders first, so the historical lane is declared second
-flowchart LR
-    subgraph after["Increasingly"]
-        direction LR
-        h2["Human"] --> in2["Intent"] --> ai2["AI agent"] --> s2["Software"] --> p2["Production"]
-    end
+<div align="center">
 
-    subgraph before["For decades"]
-        direction LR
-        h1["Human"] --> c1["Source code"] --> i1["Infrastructure"] --> p1["Production"]
-    end
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-dark.png">
+  <img alt="For decades: human to source code to infrastructure to production. Increasingly: human to intent to AI agent to software to production" width="403" src=".github/assets/diagrams/vision-light.png">
+</picture>
 
-    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
-    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
-    class h1,c1,i1,p1 soft
-    class h2,p2,s2 soft
-    class in2,ai2 brand
-    style before fill:none,stroke:#8A8A92,stroke-dasharray:4 4
-    style after fill:none,stroke:#8A8A92
-```
+</div>
 
 AI is changing the first part of that equation. The infrastructure layer needs to change with it.
 
@@ -493,8 +437,8 @@ They need a higher-level operating environment.
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.svg">
-  <img alt="Kinotic" src=".github/assets/kinotic-logo-light.svg" width="200">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
+  <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="200">
 </picture>
 
 **Prototype to production**
