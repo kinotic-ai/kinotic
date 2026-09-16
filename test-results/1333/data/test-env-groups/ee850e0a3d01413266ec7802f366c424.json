@@ -1,1 +1,0 @@
-{"id":"ee850e0a3d01413266ec7802f366c424","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertNestedLiteral_thenElementsIndependentlyQueryable","name":"whenInsertNestedLiteral_thenElementsIndependentlyQueryable()","status":"passed","testResultsByEnv":{"default":"d47c8ce38eb50a86a1035cce6c71528c"}}
