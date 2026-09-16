@@ -1,0 +1,1 @@
+{"id":"fe9d8c7225990263b9f4987da82a2db4","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testRequesterGoneCancelsTheStreamOnTheConnection","name":"testRequesterGoneCancelsTheStreamOnTheConnection()","status":"passed","testResultsByEnv":{"default":"83a6beb66649968af5a5672b3a61283c"}}
