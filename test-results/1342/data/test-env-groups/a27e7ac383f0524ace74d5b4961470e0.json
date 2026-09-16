@@ -1,0 +1,1 @@
+{"id":"a27e7ac383f0524ace74d5b4961470e0","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenCreateTableWithObjectInsideObject_thenDeepMappingCorrect","name":"whenCreateTableWithObjectInsideObject_thenDeepMappingCorrect()","status":"passed","testResultsByEnv":{"default":"e171bf4850e8442fb1f9fb1b98af974b"}}
