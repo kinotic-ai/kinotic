@@ -136,6 +136,19 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('./pages/OrganizationsPage.vue'),
                 meta: { sidebar: consoleItem('Organizations', 'pi-building', 70, 'Tenants') }
             },
+            // The platform's own members: MembersPage with no scope lists the operators
+            {
+                name: 'platform-users',
+                path: 'members/users',
+                component: () => import('./pages/MembersPage.vue'),
+                meta: { sidebar: consoleItem('Users', 'pi-users', 80, 'Members') }
+            },
+            {
+                name: 'platform-machines',
+                path: 'members/machines',
+                component: () => import('./pages/MachinesPage.vue'),
+                meta: { sidebar: consoleItem('Machines', 'pi-microchip', 90, 'Members') }
+            },
 
             {
                 name: 'org-overview',
