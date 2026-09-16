@@ -1,0 +1,1 @@
+{"id":"57c9ada362b3b58665fb828db1435b66","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenCreateTableWithNestedColumn_thenMappingIsNested","name":"whenCreateTableWithNestedColumn_thenMappingIsNested()","status":"passed","testResultsByEnv":{"default":"b266c0425785dabd1b8e6b7681a20824"}}
