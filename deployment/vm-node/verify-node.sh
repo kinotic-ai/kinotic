@@ -67,6 +67,31 @@ systemctl is-enabled --quiet kinotic-node-firewall 2>/dev/null \
   && ok "firewall floor persisted" "kinotic-node-firewall enabled" \
   || bad "firewall floor persisted" "unit not enabled — rules are lost on reboot"
 
+# --- workload resolver: a hostname in an allowlist is enforced through it ------------------
+BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null)"
+systemctl is-active --quiet dnsmasq \
+  && ok "workload resolver" "dnsmasq active" \
+  || bad "workload resolver" "dnsmasq not active — a name in an allowlist cannot be enforced"
+grep -qs "^listen-address=${BRIDGE_ADDRESS}\$" /etc/dnsmasq.d/kinotic-node.conf \
+  && ok "resolver bound to the bridge" "listen-address=${BRIDGE_ADDRESS}" \
+  || bad "resolver bound to the bridge" "/etc/dnsmasq.d/kinotic-node.conf does not listen on ${BRIDGE_ADDRESS}"
+ss -lnu 2>/dev/null | grep -q "${BRIDGE_ADDRESS}:53 " \
+  && ok "resolver listening" "${BRIDGE_ADDRESS}:53/udp" \
+  || bad "resolver listening" "nothing bound on ${BRIDGE_ADDRESS}:53 — guests have no resolver"
+grep -qs '^IGNORE_RESOLVCONF=yes' /etc/default/dnsmasq \
+  && ok "resolver upstream" "follows /run/systemd/resolve/resolv.conf" \
+  || bad "resolver upstream" "IGNORE_RESOLVCONF unset — resolvconf can redirect dnsmasq's upstream"
+ipset list -n >/dev/null 2>&1 \
+  && ok "ipset" "usable" \
+  || bad "ipset" "missing, or the ip_set module does not load — a name in an allowlist cannot be enforced"
+RESOLVER_RULE="$(iptables -S INPUT 2>/dev/null | grep -n -- "-d ${BRIDGE_ADDRESS}/32 -p udp -m udp --dport 53 -j ACCEPT" | cut -d: -f1 | head -n 1)"
+SHIELD_RULE="$(iptables -S INPUT 2>/dev/null | grep -n -- "-s ${BRIDGE_SUBNET:-172.17.0.0/16} -j DROP" | cut -d: -f1 | head -n 1)"
+if [ -n "$RESOLVER_RULE" ] && [ -n "$SHIELD_RULE" ] && [ "$RESOLVER_RULE" -lt "$SHIELD_RULE" ]; then
+    ok "resolver admitted" "INPUT accepts ${BRIDGE_ADDRESS}:53/udp above the shield"
+else
+    bad "resolver admitted" "no INPUT accept for ${BRIDGE_ADDRESS}:53/udp above the shield — guests cannot resolve"
+fi
+
 if [ -e /etc/kinotic/egress-default-deny ]; then
     SUBNET="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Subnet}}{{end}}' 2>/dev/null)"
     iptables -C DOCKER-USER -s "$SUBNET" -j DROP >/dev/null 2>&1 \

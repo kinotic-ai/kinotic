@@ -33,7 +33,9 @@ bun add "@kinotic-ai/vm-manager@$VM_MANAGER_VERSION" >/dev/null
 echo "  @kinotic-ai/vm-manager $(node -e "console.log(require('$PREFIX/node_modules/@kinotic-ai/vm-manager/package.json').version)" 2>/dev/null || bun -e "console.log(require('$PREFIX/node_modules/@kinotic-ai/vm-manager/package.json').version)")"
 
 install -m 0644 "$HERE/kinotic-vm-manager.service" /etc/systemd/system/kinotic-vm-manager.service
-[ -f /etc/kinotic/vm-manager.env ] || cat > /etc/kinotic/vm-manager.env <<'ENV'
+# The bridge address, where setup-node.sh's dnsmasq answers every workload
+BRIDGE_ADDRESS="$(docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}' 2>/dev/null || true)"
+[ -f /etc/kinotic/vm-manager.env ] || cat > /etc/kinotic/vm-manager.env <<ENV
 # Node configuration read by kinotic-vm-manager.service; see deployment/vm-node/README.md
 KINOTIC_VM_PROVIDER=CLOUD_HYPERVISOR
 KINOTIC_NODE_ID=
@@ -41,7 +43,7 @@ KINOTIC_SERVER_HOST=
 KINOTIC_SERVER_PORT=58503
 KINOTIC_SERVER_USE_SSL=true
 KINOTIC_WORKLOAD_DATA_DIR=/var/lib/kinotic/workloads
-KINOTIC_WORKLOAD_DNS=
+KINOTIC_WORKLOAD_DNS=${BRIDGE_ADDRESS:-172.17.0.1}
 KINOTIC_LOKI_URL=
 KINOTIC_TEMPO_URL=
 KINOTIC_MIMIR_URL=
