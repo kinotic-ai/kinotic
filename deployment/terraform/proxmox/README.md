@@ -154,7 +154,8 @@ root has uploaded them.
    machine created in the system console:
 
    ```bash
-   terraform output -raw hosts_entry | ssh kinotic@<node ip> 'sudo tee -a /etc/hosts >/dev/null'   # the server by its certificate's name, on the LAN
+   # The server by its certificate's name, on the LAN; dnsmasq reads /etc/hosts on start and reload only
+   terraform output -raw hosts_entry | ssh kinotic@<node ip> 'sudo tee -a /etc/hosts >/dev/null && sudo systemctl reload dnsmasq'
    { terraform output -raw vm_manager_env; echo KINOTIC_NODE_ID=dev-node-1; } | ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.env >/dev/null'
    ssh kinotic@<node ip> 'sudo tee /etc/kinotic/vm-manager.secrets.env >/dev/null && sudo chmod 0600 /etc/kinotic/vm-manager.secrets.env && sudo systemctl start kinotic-vm-manager' <<EOT
    KINOTIC_CLIENT_ID=<machine id>

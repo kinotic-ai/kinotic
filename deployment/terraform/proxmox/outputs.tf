@@ -30,7 +30,9 @@ output "grafana_url" {
 
 # Each node adds its own KINOTIC_NODE_ID line; the machine credentials go in
 # vm-manager.secrets.env beside it (deployment/vm-node/README.md). The server is named as
-# its certificate names it, and the node resolves that name to the LAN address (hosts_entry)
+# its certificate names it, and the node resolves that name to the LAN address (hosts_entry).
+# Workloads resolve through the node's own dnsmasq on the docker bridge address, which is what
+# lets a hostname in their egress policy be enforced; setup-node.sh prints the node's address.
 output "vm_manager_env" {
   description = "The nodes' /etc/kinotic/vm-manager.env: the server and the stores as the nodes reach them"
   value       = <<-EOT
@@ -39,7 +41,7 @@ output "vm_manager_env" {
     KINOTIC_SERVER_PORT=${var.api_port}
     KINOTIC_SERVER_USE_SSL=true
     KINOTIC_WORKLOAD_DATA_DIR=/var/lib/kinotic/workloads
-    KINOTIC_WORKLOAD_DNS=${var.dns_servers[0]}
+    KINOTIC_WORKLOAD_DNS=172.17.0.1
     KINOTIC_LOKI_URL=${local.service_urls["http://loki:3100"]}
     KINOTIC_TEMPO_URL=http://${local.tempo_ip}:4318
     KINOTIC_MIMIR_URL=${local.service_urls["http://mimir:9009"]}/otlp

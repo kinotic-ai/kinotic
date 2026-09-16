@@ -19,7 +19,7 @@ that evaluation and runs against the node kit a production node is built with.
 |---|---|
 | R1 Customer code isolated in a microVM | Guest kernel differs from the host's, a `cloud-hypervisor` process backs it, and that process's command line names this container |
 | R2 Logs shipped host-side | stdout and stderr land in the container's json-file with `stream` labels, and `LogPolicy` maps to Docker's rotation options |
-| R3 Reaches as little as possible | IMDS and the WireServer refuse the guest, DNS still resolves, one workload cannot reach another's port, and `--network none` denies everything |
+| R3 Reaches as little as possible | IMDS and the WireServer refuse the guest, the node's resolver still answers, one workload cannot reach another's port, and `--network none` denies everything |
 | R4 Fast edit/redeploy | A host-side edit under the shared mount is visible to the next workload with no image rebuild |
 | R5 Read-only app code + writable logs | Both mounts present in one workload, and `readOnly` refused from inside the guest |
 | R6 `VolumeMount.sizeLimitMb` | A 200MB write into a 64MB project quota lands 67043328 bytes |
@@ -29,7 +29,8 @@ Plus the lifecycle the provider depends on: a terminal exit code, a restart that
 writable layer, and workloads a fresh process can discover.
 
 With egress default-deny on, a container started outside the vm-manager has no network, which
-is the point; the test starts its own containers, so it writes and removes the one resolver
-rule its network probe needs. R1's hypervisor assertion ties the guest to the host side: the
-shim names the Cloud Hypervisor API socket after the container id, so the test walks
-`/proc/*/exe` for a `cloud-hypervisor` whose command line names this container.
+is the point; the test starts its own containers, and its network probe is given the node's
+resolver on the bridge address, which the firewall floor admits, and nothing else. R1's
+hypervisor assertion ties the guest to the host side: the shim names the Cloud Hypervisor API
+socket after the container id, so the test walks `/proc/*/exe` for a `cloud-hypervisor` whose
+command line names this container.

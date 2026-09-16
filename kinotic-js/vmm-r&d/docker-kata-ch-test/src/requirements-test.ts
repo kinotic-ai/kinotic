@@ -97,22 +97,18 @@ heading('R3 — the guest reaches as little as possible')
 
 const netProbe = `net-${RUN}`
 quiet(`docker rm -f ${netProbe}`)
-sh(`docker run -d --name ${netProbe} --runtime kata-clh alpine:latest sleep 200`)
+// Given the node's own dnsmasq on the bridge address, as the vm-manager gives every workload.
+// That is host-bound traffic admitted by the firewall floor, so the probe needs no rule of
+// its own even where the node denies egress by default.
+const resolver = sh(`docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`)
+sh(`docker run -d --name ${netProbe} --runtime kata-clh --dns ${resolver} alpine:latest sleep 200`)
 execSync('sleep 10')
-// On a node that denies egress by default, the vm-manager grants each workload its resolver.
-// This harness starts containers directly, so it writes the same rule for its own probe —
-// otherwise the DNS check below would fail for the absence of a rule, not a broken resolver.
-const denyByDefault = existsSync('/etc/kinotic/egress-default-deny')
-const probeIp = sh(`docker inspect -f '{{.NetworkSettings.Networks.bridge.IPAddress}}' ${netProbe}`)
-if (denyByDefault) {
-    sh(`iptables -I DOCKER-USER -s ${probeIp} -d 168.63.129.16 -p udp --dport 53 -m comment --comment 'kinotic-req-test' -j ACCEPT`)
-}
 const imds = quiet(`docker exec ${netProbe} sh -c ${shq('wget -q -T4 -O- --header=Metadata:true "http://169.254.169.254/metadata/instance/compute/name?api-version=2021-02-01&format=text" 2>/dev/null')}`)
 check('R3', 'Azure IMDS unreachable from the guest', imds === '', imds === '' ? 'refused' : `LEAKED: ${imds}`)
 const wire = quiet(`docker exec ${netProbe} sh -c ${shq('wget -q -T4 -O- --header=x-ms-version:2012-11-30 "http://168.63.129.16/machine/?comp=goalstate" 2>/dev/null | head -c 20')}`)
 check('R3', 'Azure WireServer control port unreachable', wire === '', wire === '' ? 'refused' : `LEAKED: ${wire}`)
 const dns = quiet(`docker exec ${netProbe} sh -c ${shq('nslookup example.com >/dev/null 2>&1 && echo ok')}`)
-check('R3', 'DNS still resolves', dns === 'ok', dns === 'ok' ? 'resolver reachable' : 'DNS broken')
+check('R3', 'DNS still resolves', dns === 'ok', dns === 'ok' ? `resolver ${resolver} reachable` : 'DNS broken')
 
 // Tenant isolation: a second workload must not reach the first's listening port
 const victim = `victim-${RUN}`
@@ -122,9 +118,6 @@ execSync('sleep 10')
 const victimIp = sh(`docker inspect -f '{{.NetworkSettings.Networks.bridge.IPAddress}}' ${victim}`)
 const leak = quiet(`docker exec ${netProbe} sh -c ${shq(`nc -w 4 ${victimIp} 8080 2>/dev/null`)}`)
 check('R3', 'one workload cannot reach another', !leak.includes('TENANT-SECRET'), leak ? `LEAKED: ${leak}` : `refused (${victimIp})`)
-if (denyByDefault) {
-    quiet(`iptables -D DOCKER-USER -s ${probeIp} -d 168.63.129.16 -p udp --dport 53 -m comment --comment 'kinotic-req-test' -j ACCEPT`)
-}
 quiet(`docker rm -f ${netProbe} ${victim}`)
 
 const disabled = runWorkload(`nonet-${RUN}`,

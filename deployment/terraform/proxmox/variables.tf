@@ -107,7 +107,7 @@ variable "gateway" {
 }
 
 variable "dns_servers" {
-  description = "Resolvers for every container, and the resolver the nodes give every workload"
+  description = "Resolvers for every container"
   type        = list(string)
 }
 
