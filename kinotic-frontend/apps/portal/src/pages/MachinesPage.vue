@@ -49,34 +49,7 @@
       </template>
     </Dialog>
 
-    <Dialog v-model:visible="secretDialogVisible" modal :header="secretDialogTitle" :style="{ width: '34rem' }"
-            :closable="false">
-      <div class="flex flex-col gap-4">
-        <p class="text-sm m-0">
-          Store the client secret now — <strong>it is shown only this once</strong> and can only be
-          replaced, not recovered.
-        </p>
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">Client ID</label>
-          <div class="flex items-center gap-2">
-            <code class="text-sm break-all grow">{{ secretClientId }}</code>
-            <Button icon="pi pi-copy" severity="secondary" text aria-label="Copy client ID"
-                    @click="copy(secretClientId, 'Client ID')" />
-          </div>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">Client secret</label>
-          <div class="flex items-center gap-2">
-            <code class="text-sm break-all grow">{{ secretValue }}</code>
-            <Button icon="pi pi-copy" severity="secondary" text aria-label="Copy client secret"
-                    @click="copy(secretValue, 'Client secret')" />
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <Button label="Done" @click="closeSecretDialog" />
-      </template>
-    </Dialog>
+    <MachineSecretDialog v-model="secret" />
   </div>
 </template>
 
@@ -94,6 +67,7 @@ import { Kinotic } from '@kinotic-ai/core'
 import type { MachineParticipantIdentity } from '@kinotic-ai/management-api'
 
 import { CrudTable } from '@kinotic-ai/frontend-common'
+import { MachineSecretDialog, type MachineSecret } from '@kinotic-ai/frontend-common'
 import { PageHeader } from '@kinotic-ai/frontend-common'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
 import type { CrudHeader } from '@kinotic-ai/frontend-common'
@@ -125,10 +99,7 @@ const headers: CrudHeader[] = [
 const createDialogVisible = ref(false)
 const machineName = ref('')
 const creating = ref(false)
-const secretDialogVisible = ref(false)
-const secretDialogTitle = ref('')
-const secretClientId = ref('')
-const secretValue = ref('')
+const secret = ref<MachineSecret | null>(null)
 
 const toast = useToast()
 const confirm = useConfirm()
@@ -169,35 +140,12 @@ async function create() {
   try {
     const result = await Kinotic.machines.createMachine(name, props.applicationId)
     createDialogVisible.value = false
-    showSecret(`Machine created — ${name}`, result.machine.id ?? '', result.clientSecret)
+    secret.value = { title: `Machine created — ${name}`, clientId: result.machine.id ?? '', clientSecret: result.clientSecret }
     refreshTable()
   } catch (err) {
     showErrorToast(toast, 'Failed to create machine', err, { life: 8000 })
   } finally {
     creating.value = false
-  }
-}
-
-function showSecret(title: string, clientId: string, secret: string) {
-  secretDialogTitle.value = title
-  secretClientId.value = clientId
-  secretValue.value = secret
-  secretDialogVisible.value = true
-}
-
-function closeSecretDialog() {
-  secretDialogVisible.value = false
-  // the plaintext must not outlive the dialog that discloses it
-  secretClientId.value = ''
-  secretValue.value = ''
-}
-
-async function copy(value: string, what: string) {
-  try {
-    await navigator.clipboard.writeText(value)
-    toast.add({ severity: 'success', summary: `${what} copied`, life: 3000 })
-  } catch {
-    toast.add({ severity: 'error', summary: `Could not copy ${what.toLowerCase()}`, life: 5000 })
   }
 }
 
@@ -222,8 +170,8 @@ function confirmRotate(item: MachineRow) {
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
       try {
-        const secret = await Kinotic.machines.rotateSecret(item.id)
-        showSecret(`New secret — ${item.displayName || item.id}`, item.id, secret)
+        const clientSecret = await Kinotic.machines.rotateSecret(item.id)
+        secret.value = { title: `New secret — ${item.displayName || item.id}`, clientId: item.id, clientSecret }
       } catch (err) {
         showErrorToast(toast, 'Failed to rotate secret', err, { life: 8000 })
       }

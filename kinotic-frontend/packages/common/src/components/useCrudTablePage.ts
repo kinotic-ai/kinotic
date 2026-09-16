@@ -55,7 +55,7 @@ export function useCrudTablePage(load: PageLoader) {
  * fetched page suffices.
  */
 export function filteredPageLoader<D, Row extends DescriptiveIdentifiable>(
-  fetchPage: (pageable: Pageable) => Promise<IterablePage<D>>,
+  fetchPage: (pageable: Pageable) => Promise<Page<D>>,
   toRow: (dto: D) => Row,
   searchFields: (row: Row) => (string | null)[]
 ): PageLoader {
