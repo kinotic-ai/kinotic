@@ -137,8 +137,8 @@ export async function shutdownKinoticClient(): Promise<void> {
  * the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
- * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
- * {@code AdminEntityRepository} used to act on SHARED entity data.
+ * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
+ * SHARED entity data of its own tenant.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
     const appKinotic = new KinoticSingleton()

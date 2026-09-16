@@ -98,20 +98,24 @@ export interface IAdminEntityRepository<T> {
      * Executes a named query.
      * @param queryName the name of the function that defines the query
      * @param queryParameters to pass to the query
+     * @param tenantSelection the list of tenants to use when executing the query
      * @returns Promise with the result of the query
      */
     namedQuery<U>(queryName: string,
-                  queryParameters: QueryParameter[]): Promise<U>
+                  queryParameters: QueryParameter[],
+                  tenantSelection: TenantSelection): Promise<U>
 
     /**
      * Executes a named query and returns a Page of results.
      * @param queryName the name of the function that defines the query
      * @param queryParameters to pass to the query
+     * @param tenantSelection the list of tenants to use when executing the query
      * @param pageable the page settings to be used
      * @returns Promise with the result of the query
      */
     namedQueryPage<U>(queryName: string,
                       queryParameters: QueryParameter[],
+                      tenantSelection: TenantSelection,
                       pageable: Pageable): Promise<IterablePage<U>>
 
     /**
@@ -179,14 +183,16 @@ export class AdminEntityRepository<T> implements IAdminEntityRepository<T> {
     }
 
     public namedQuery<U>(queryName: string,
-                         queryParameters: QueryParameter[]): Promise<U> {
-        return this.adminEntitiesRepository.namedQuery(this.entityId, queryName, queryParameters)
+                         queryParameters: QueryParameter[],
+                         tenantSelection: TenantSelection): Promise<U> {
+        return this.adminEntitiesRepository.namedQuery(this.entityId, queryName, queryParameters, tenantSelection)
     }
 
     public namedQueryPage<U>(queryName: string,
                              queryParameters: QueryParameter[],
+                             tenantSelection: TenantSelection,
                              pageable: Pageable): Promise<IterablePage<U>> {
-        return this.adminEntitiesRepository.namedQueryPage(this.entityId, queryName, queryParameters, pageable)
+        return this.adminEntitiesRepository.namedQueryPage(this.entityId, queryName, queryParameters, tenantSelection, pageable)
     }
 
     public search(searchText: string, tenantSelection: TenantSelection, pageable: Pageable): Promise<IterablePage<T>> {

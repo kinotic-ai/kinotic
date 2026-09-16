@@ -17,16 +17,16 @@ importers:
         version: 8.5.2(@types/node@25.9.5)
       '@kinotic-ai/core':
         specifier: 5.0.0-beta.13
-        version: 5.0.0-beta.13
+        version: 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl':
         specifier: 5.0.0-beta.1
         version: 5.0.0-beta.1
       '@kinotic-ai/management-api':
-        specifier: 5.0.0-beta.31
-        version: 5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13)
+        specifier: 5.0.0-beta.32
+        version: 5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       '@kinotic-ai/persistence':
-        specifier: 5.0.0-beta.10
-        version: 5.0.0-beta.10(@kinotic-ai/core@5.0.0-beta.13)
+        specifier: 5.0.0-beta.11
+        version: 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       '@kinotic-ai/spawn':
         specifier: 5.0.0-beta.1
         version: 5.0.0-beta.1
@@ -455,13 +455,13 @@ packages:
   '@kinotic-ai/idl@5.0.0-beta.1':
     resolution: {integrity: sha512-zM4NGbHQ5JMKYMh+SU/+Q4GL3UPZsJ5oQWbPAlzRvD9SiLzbnD9mVJpukRVbWnu7zxuk3Z6o3WNQ/7YAokEbDg==}
 
-  '@kinotic-ai/management-api@5.0.0-beta.31':
-    resolution: {integrity: sha512-wfZPtDwgp4rTfcXqsIhT+f5CAf8ietvxLX0JFKCBrrzNgkN2JWy9YzxQq6JLkgvDpZk+OXapnCI0oCBi2KSfqQ==}
+  '@kinotic-ai/management-api@5.0.0-beta.32':
+    resolution: {integrity: sha512-GW+zeOXl1VpXP6bcvaCeebvPQQICLSVshVBqNSWtdRCXXbOThDzxdWvjcEJhy23ie531TlL03myuArY9f+Ot/A==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.13
 
-  '@kinotic-ai/persistence@5.0.0-beta.10':
-    resolution: {integrity: sha512-H0JoytuR4eThfOgIyM9GalKkRUbPope3zewiHgy0a363NuxOwrDGRISYCN7W6GirH7BC6bjmGww3x2ra0IfuhA==}
+  '@kinotic-ai/persistence@5.0.0-beta.11':
+    resolution: {integrity: sha512-hzovpjSNhHWLbqMEl5WQeQUj7XL9C61EBjeqPXBnZk+PoPhRrMlTKWPSpKr05L2Mw+SvspWzmeL20JCOnBp2kg==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.13
 
@@ -1837,7 +1837,7 @@ snapshots:
       wrap-ansi: 8.1.0
       wrap-ansi-cjs: wrap-ansi@7.0.0
 
-  '@kinotic-ai/core@5.0.0-beta.13':
+  '@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.43.0
@@ -1856,16 +1856,16 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/management-api@5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13)':
+  '@kinotic-ai/management-api@5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.13
+      '@kinotic-ai/core': 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.10(@kinotic-ai/core@5.0.0-beta.13)
+      '@kinotic-ai/persistence': 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.10(@kinotic-ai/core@5.0.0-beta.13)':
+  '@kinotic-ai/persistence@5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.13
+      '@kinotic-ai/core': 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
