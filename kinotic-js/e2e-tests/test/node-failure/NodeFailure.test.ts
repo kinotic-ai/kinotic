@@ -81,9 +81,12 @@ describe('Node failure handling for service proxies', () => {
         const pending = caller.serviceProxy(PROBE_SERVICE).invoke('hang')
         await waitFor(() => eventCount('hang-started') > started, 10_000, 'the probe to receive hang()')
 
+        // Expectations attach before the failure is triggered: the rejection can land while the trigger
+        // is still being awaited, and a rejection nothing has handled yet is an unhandled-rejection error
+        const callFailed = expectServiceUnavailable(pending, 'the lost call to fail')
         await Kinotic.disconnect(true)
         try {
-            await expectServiceUnavailable(pending, 'the lost call to fail')
+            await callFailed
         } finally {
             await Kinotic.connect(orgUserConnectOptions(kinoticPort2()))
         }
@@ -127,11 +130,12 @@ describe('Node failure handling for service proxies', () => {
         await waitFor(() => eventCount('hang-started') > hangStarted && eventCount('ticks-started') > ticksStarted,
                       10_000, 'the probe to receive hang() and ticks()')
 
+        const callFailed = expectServiceUnavailable(pendingCall, 'the lost call to fail')
+        const streamFailed = expectServiceUnavailable(pendingStream, 'the lost stream to fail')
         await killNode(NODE_2)
 
         try {
-            await Promise.all([expectServiceUnavailable(pendingCall, 'the lost call to fail'),
-                               expectServiceUnavailable(pendingStream, 'the lost stream to fail')])
+            await Promise.all([callFailed, streamFailed])
         } finally {
             await startNode(NODE_2, kinoticPort2())
         }
@@ -155,15 +159,13 @@ describe('Node failure handling for service proxies', () => {
         await waitFor(() => eventCount('hang-started') > hangStarted && eventCount('ticks-started') > ticksStarted,
                       10_000, 'the probe to receive hang() and ticks()')
 
-        await killNode(NODE_2)
-
         // the caller's client sees its connection drop, so it fails what it had in flight itself
-        await Promise.all([
-            expect(withTimeout(pendingCall, FAILURE_DETECTION_MS, 'the lost call to fail'))
-                .rejects.toThrow('Connection lost'),
-            expect(withTimeout(pendingStream, FAILURE_DETECTION_MS, 'the lost stream to fail'))
-                .rejects.toThrow('Connection lost')
-        ])
+        const callLost = expect(withTimeout(pendingCall, FAILURE_DETECTION_MS, 'the lost call to fail'))
+            .rejects.toThrow('Connection lost')
+        const streamLost = expect(withTimeout(pendingStream, FAILURE_DETECTION_MS, 'the lost stream to fail'))
+            .rejects.toThrow('Connection lost')
+        await killNode(NODE_2)
+        await Promise.all([callLost, streamLost])
 
         // the surviving node learns the requester's node is gone and cancels the stream it was relaying
         await waitFor(() => eventCount('ticks-cancelled') > cancelled, FAILURE_DETECTION_MS,
