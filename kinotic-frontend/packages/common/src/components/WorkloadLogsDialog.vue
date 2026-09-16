@@ -6,7 +6,7 @@
     :style="{ width: '70rem', maxWidth: '95vw' }"
   >
     <!-- Mounted with the dialog, so a reopen starts a fresh history load and tail -->
-    <WorkloadLogView v-if="visible" :workload-id="workloadId" :workload="workload" />
+    <WorkloadLogView v-if="visible" :workload-id="workloadId" :run="workloadRun(workload)" />
   </Dialog>
 </template>
 
@@ -14,6 +14,7 @@
 import Dialog from 'primevue/dialog'
 import type { Workload } from '@kinotic-ai/management-api'
 import WorkloadLogView from './WorkloadLogView.vue'
+import { workloadRun } from './WorkloadRun'
 
 /** The log view in a dialog; given the workload's record, the view opens on its run once it has ended. */
 defineProps<{

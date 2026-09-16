@@ -4,7 +4,7 @@
     <span v-else class="text-xs text-muted-color">Waiting for the sync workload's artifact report</span>
   </template>
   <template v-else>
-    <WorkloadLogView v-if="workloadId" :key="workloadId" :workload-id="workloadId" />
+    <WorkloadLogView v-if="workloadId" :key="workloadId" :workload-id="workloadId" :run="run" />
     <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
   </template>
 </template>
@@ -13,6 +13,7 @@
 import { computed } from 'vue'
 import type { JobTaskNode } from '../grind/JobTaskNode'
 import WorkloadLogView from '../WorkloadLogView.vue'
+import type { WorkloadRun } from '../WorkloadRun'
 import ProjectArtifactsDetail from './ProjectArtifactsDetail.vue'
 import ProjectDeployStores from './ProjectDeployStores'
 
@@ -28,4 +29,6 @@ const props = defineProps<{
 
 const artifacts = computed(() => ProjectDeployStores.artifactsOf(props.node))
 const workloadId = computed(() => ProjectDeployStores.workloadLogOf(props.node, props.root))
+// The workload ran for this task, so the task's own span is the window its log falls in
+const run = computed<WorkloadRun>(() => ({ started: props.node.started, finished: props.node.finished }))
 </script>
