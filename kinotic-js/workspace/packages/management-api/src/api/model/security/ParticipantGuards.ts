@@ -1,5 +1,5 @@
 import {ParticipantType} from './ParticipantType'
-import type {IParticipant} from '@kinotic-ai/core'
+import {AuthorizationException, type IParticipant} from '@kinotic-ai/core'
 import type {IApplicationParticipant} from './IApplicationParticipant'
 import type {IOrganizationParticipant} from './IOrganizationParticipant'
 import type {ISystemParticipant} from './ISystemParticipant'
@@ -35,4 +35,28 @@ export function isOrganizationParticipant(participant: IParticipant): participan
  */
 export function isApplicationParticipant(participant: IParticipant): participant is IApplicationParticipant {
     return scopeType(participant) === ParticipantType.APPLICATION
+}
+
+/**
+ * Returns the participant narrowed by {@code guard}, the way a Java service's
+ * {@code securityContext.requireParticipant(OrganizationParticipant.class)} does: a {@link Context} method
+ * passes the participant its {@code ServiceContext} carries and the guard for the scope it serves.
+ *
+ * @param participant the calling participant, or undefined when the invocation carries none
+ * @param guard the guard for the scope the caller must hold, such as {@link isOrganizationParticipant}
+ * @return the participant narrowed to the guard's type
+ * @throws Error if no participant is bound to the invocation
+ * @throws AuthorizationException if the participant does not hold the scope the guard names
+ */
+export function requireParticipant<T extends IParticipant>(participant: IParticipant | undefined,
+                                                          guard: (participant: IParticipant) => participant is T): T {
+    if (!participant) {
+        throw new Error('No participant is bound to the invocation')
+    }
+    if (!guard(participant)) {
+        // Only the generic message reaches the caller, so a response cannot be probed for the scope the
+        // service serves
+        throw new AuthorizationException('Access denied')
+    }
+    return participant
 }
