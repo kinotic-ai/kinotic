@@ -146,7 +146,7 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'platform-machines',
                 path: 'members/machines',
-                component: () => import('./pages/PlatformMachinesPage.vue'),
+                component: () => import('./pages/MachinesPage.vue'),
                 meta: { sidebar: consoleItem('Machines', 'pi-microchip', 90, 'Members') }
             },
 

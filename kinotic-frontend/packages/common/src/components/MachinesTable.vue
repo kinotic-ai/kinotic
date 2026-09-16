@@ -1,54 +1,50 @@
 <template>
-  <div class="flex flex-col">
-    <PageHeader title="Machines" :description="description" />
+  <CrudTable
+    ref="crudTable"
+    :headers="headers"
+    :data-source="dataSource"
+    :search="tableSearch"
+    create-new-button-text="Create machine"
+    empty-state-text="No machines yet"
+    :row-actions="rowActions"
+    @update:search="tableSearch = $event"
+    @add-item="openCreateDialog"
+  >
+    <template #item.displayName="{ item }">
+      {{ item.displayName || '—' }}
+    </template>
 
-    <CrudTable
-      ref="crudTable"
-      :headers="headers"
-      :data-source="dataSource"
-      :search="tableSearch"
-      create-new-button-text="Create machine"
-      empty-state-text="No machines yet"
-      :row-actions="rowActions"
-      @update:search="tableSearch = $event"
-      @add-item="openCreateDialog"
-    >
-      <template #item.displayName="{ item }">
-        {{ item.displayName || '—' }}
-      </template>
+    <template #item.clientId="{ item }">
+      <span class="font-mono text-sm">{{ item.id }}</span>
+    </template>
 
-      <template #item.clientId="{ item }">
-        <span class="font-mono text-sm">{{ item.id }}</span>
-      </template>
+    <template #item.status="{ item }">
+      <Tag :value="item.status" :severity="statusSeverity(item.status)" />
+    </template>
 
-      <template #item.status="{ item }">
-        <Tag :value="item.status" :severity="statusSeverity(item.status)" />
-      </template>
+    <template #item.created="{ item }">
+      {{ item.created ? formatDate(item.created) : '—' }}
+    </template>
+  </CrudTable>
 
-      <template #item.created="{ item }">
-        {{ item.created ? formatDate(item.created) : '—' }}
-      </template>
-    </CrudTable>
-
-    <Dialog v-model:visible="createDialogVisible" modal header="Create machine" :style="{ width: '28rem' }">
-      <div class="flex flex-col gap-4">
-        <div class="flex flex-col gap-1">
-          <label for="machine-name" class="text-sm font-medium">Name</label>
-          <InputText id="machine-name" v-model="machineName" placeholder="vm-manager, billing-sync, …"
-                     autocomplete="off" autofocus @keyup.enter="create" />
-        </div>
-        <p class="text-sm text-muted-color m-0">
-          <slot name="create-hint" />
-        </p>
+  <Dialog v-model:visible="createDialogVisible" modal header="Create machine" :style="{ width: '28rem' }">
+    <div class="flex flex-col gap-4">
+      <div class="flex flex-col gap-1">
+        <label for="machine-name" class="text-sm font-medium">Name</label>
+        <InputText id="machine-name" v-model="machineName" placeholder="vm-manager, billing-sync, …"
+                   autocomplete="off" autofocus @keyup.enter="create" />
       </div>
-      <template #footer>
-        <Button label="Cancel" severity="secondary" outlined @click="createDialogVisible = false" />
-        <Button label="Create" :loading="creating" @click="create" />
-      </template>
-    </Dialog>
+      <p class="text-sm text-muted-color m-0">
+        <slot name="create-hint" />
+      </p>
+    </div>
+    <template #footer>
+      <Button label="Cancel" severity="secondary" outlined @click="createDialogVisible = false" />
+      <Button label="Create" :loading="creating" @click="create" />
+    </template>
+  </Dialog>
 
-    <MachineSecretDialog v-model="secret" />
-  </div>
+  <MachineSecretDialog v-model="secret" />
 </template>
 
 <script setup lang="ts">
@@ -66,7 +62,6 @@ import type { MachineParticipantIdentity, MachineProvisionResult } from '@kinoti
 
 import CrudTable from './CrudTable.vue'
 import MachineSecretDialog, { type MachineSecret } from './MachineSecretDialog.vue'
-import PageHeader from './PageHeader.vue'
 import { filteredPageLoader, statusSeverity, useCrudTablePage } from './useCrudTablePage'
 import type { CrudHeader } from '../types/CrudHeader'
 import type { DescriptiveIdentifiable } from '../types/DescriptiveIdentifiable'
@@ -101,7 +96,6 @@ interface MachineRow extends DescriptiveIdentifiable {
  * each scope says what its machines connect to.
  */
 const props = defineProps<{
-  description: string
   machines: MachineOperations
 }>()
 
