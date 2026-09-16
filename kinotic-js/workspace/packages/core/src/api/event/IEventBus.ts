@@ -89,6 +89,13 @@ export interface IEventBus {
     connectionEnded: Observable<Error | null>
 
     /**
+     * Emits each time a connection is established: the first {@link connect}, and every reconnect the
+     * client makes after one ends. It carries the {@link ConnectedInfo} the server issued for that
+     * connection, which names the session the requests made on it belong to.
+     */
+    connectionEstablished: Observable<ConnectedInfo>
+
+    /**
      * The {@link ServerInfo} used when connecting, if connected or null
      */
     serverInfo: ServerInfo | null

@@ -5,6 +5,7 @@ import {ConnectedInfo} from '@/api/security/ConnectedInfo'
 import {type IFrame, RxStomp, RxStompConfig, StompHeaders, RxStompState} from '@stomp/rx-stomp'
 import {ReconnectionTimeMode} from '@stomp/stompjs'
 import debug from 'debug'
+import {Observable, Subject} from 'rxjs'
 import {skip} from 'rxjs/operators'
 import {v4 as uuidv4} from 'uuid'
 import {StompActivation} from './StompActivation'
@@ -50,6 +51,7 @@ export class StompConnectionManager {
     private readonly MAX_RECONNECT_DELAY: number = 120000 // 2 mins
     private connectionAttempts: number = 0
     private debugLogger = debug('kinotic:stomp')
+    private readonly connectionEstablishedSubject: Subject<ConnectedInfo> = new Subject<ConnectedInfo>()
     private initialConnectionSuccessful: boolean = false
     private rxStompHasConnected: boolean = false
 
@@ -76,6 +78,15 @@ export class StompConnectionManager {
      */
     public get connected(): boolean {
         return this.activation !== null && this.rxStomp.connected()
+    }
+
+    /**
+     * Emits each time a connection is established, on the first connect and on every reconnect after it,
+     * with the {@link ConnectedInfo} the server issued for it. The reply destination is minted before the
+     * emission, so a subscriber may send on the connection from its handler.
+     */
+    public get connectionEstablished(): Observable<ConnectedInfo> {
+        return this.connectionEstablishedSubject.asObservable()
     }
 
     public async activate(options: ConnectOptions): Promise<ConnectedInfo> {
@@ -250,6 +261,7 @@ export class StompConnectionManager {
                 if (!this.initialConnectionSuccessful) {
                     resolve(connectedInfo)
                 }
+                this.connectionEstablishedSubject.next(connectedInfo)
             }))
 
             // An open socket dropping: the socket and everything the server held behind it are gone. A failed

@@ -106,6 +106,10 @@ export class EventBus implements IEventBus {
         return this.connectionEndedSubject.asObservable()
     }
 
+    public get connectionEstablished(): Observable<ConnectedInfo> {
+        return this.stompConnectionManager.connectionEstablished
+    }
+
     public isConnectionActive(): boolean{
         return this.stompConnectionManager.active
     }

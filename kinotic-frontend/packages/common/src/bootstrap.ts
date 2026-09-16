@@ -5,7 +5,7 @@ import { type App, type Component, createApp } from 'vue'
 import type { Router } from 'vue-router'
 import { KinoticPreset } from './KinoticPreset'
 import { installAuthGuard } from './session/authGuard'
-import { installSessionLossHandler } from './session/sessionLoss'
+import { installConnectionHandler } from './session/connectionHandling'
 import type { ISessionState } from './session/SessionState'
 
 export interface KinoticAppOptions {
@@ -34,6 +34,11 @@ export function createKinoticApp({ root, router, sessionState }: KinoticAppOptio
         }
     })
 
+    app.use(ToastService)
+    // Installed before the probe below opens the first connection, so that connection is reported like
+    // any other. ToastService above supplies $toast, through which the handler surfaces why a session ended.
+    installConnectionHandler(router, sessionState, app.config.globalProperties.$toast)
+
     // Probe for an existing browser session in the background. The auth guard awaits this
     // promise before checking auth state, so protected routes wait for the real result while
     // public routes (login, signup, verify) render immediately instead of blanking until the
@@ -44,10 +49,6 @@ export function createKinoticApp({ root, router, sessionState }: KinoticAppOptio
         sessionProbe,
         isAuthenticated: () => sessionState.isAuthenticated()
     })
-
-    app.use(ToastService)
-    // ToastService above supplies $toast, through which the handler surfaces the fatal error.
-    installSessionLossHandler(router, sessionState, app.config.globalProperties.$toast)
 
     // CrudTable's delete flow uses the confirm service, so every app hosting it needs this
     app.use(ConfirmationService)

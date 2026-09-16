@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { firstValueFrom, toArray } from 'rxjs'
-import { Event, EventConstants, type IEvent, type ConnectOptions, type IWebSocket } from '../src'
+import { ConnectedInfo, Event, EventConstants, type IEvent, type ConnectOptions, type IWebSocket } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
 import { FakeStompServer, type FakeFrame, type FakeSocket } from './FakeStompServer'
 
@@ -78,6 +78,25 @@ describe('connection lifecycle', () => {
         await bus.disconnect()
         expect(ended).toBe(2)
     }, 30_000)
+
+    it('reports each connection established, with the connected-info that connection was issued', async () => {
+        const server = new FakeStompServer()
+        const bus = new EventBus()
+        const established: ConnectedInfo[] = []
+        bus.connectionEstablished.subscribe(connectedInfo => established.push(connectedInfo))
+        await bus.connect(options(server))
+        expect(established.map(info => info.replyToId)).toEqual(['reply-1'])
+
+        server.current.drop()
+        await sleep(10)
+        const deadline = Date.now() + 15_000
+        while (!bus.isConnected() && Date.now() < deadline) {
+            await sleep(50)
+        }
+        // the reconnect is a connection of its own, and the server issues it its own reply destination
+        expect(established.map(info => info.replyToId)).toEqual(['reply-1', 'reply-2'])
+        await bus.disconnect()
+    }, 20_000)
 
     it('rejects a connect still waiting for its socket when disconnect() is called', async () => {
         const server = new FakeStompServer()
