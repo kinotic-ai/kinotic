@@ -63,8 +63,9 @@ import static org.mockito.Mockito.when;
  * Pins what a STOMP connection's caller side owes its client: a request whose serving node leaves the
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
  * request releases it, a session under an open connection outlives its timeout, and a connection that closes
- * answers every invocation still outstanding on the services it published, and a stream whose requester is
- * gone is cancelled on the connection producing it.
+ * answers every invocation still outstanding on the services it published, a stream whose requester is
+ * gone is cancelled on the connection producing it, and a sender header a client wrote never leaves the
+ * connection.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -342,6 +343,22 @@ public class EndpointConnectionHandlerTests {
         verify(eventBusService).publish(published.capture());
         Assertions.assertEquals(EventConstants.CONTROL_VALUE_CANCEL, published.getValue().metadata().get(EventConstants.CONTROL_HEADER));
         verify(requestLivenessWatcher).unwatch(endsWith(":inv-6"));
+    }
+
+    @Test
+    public void testClientSuppliedSenderHeaderIsDropped() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Event<byte[]> request = request(replyTo, "inv-7");
+        request.metadata().put(EventConstants.SENDER_HEADER, "{\"id\":\"forged\"}");
+
+        handler.send(request).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the caller a service sees is the connection's participant, never a header the client wrote
+        ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).sendWithAck(sent.capture());
+        Assertions.assertFalse(sent.getValue().metadata().contains(EventConstants.SENDER_HEADER));
+        Assertions.assertEquals(participant().getId(), sent.getValue().sender().getId());
     }
 
     @Test

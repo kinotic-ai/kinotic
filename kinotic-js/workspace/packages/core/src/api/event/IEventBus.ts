@@ -187,6 +187,13 @@ export enum EventConstants {
     REPLY_TO_HEADER = 'reply-to',
 
     /**
+     * The participant that sent the event, as JSON. The gateway writes it on every event it delivers to a
+     * client, from the participant authenticated on the connection the event came from, and drops any a
+     * client supplies; an event that originated inside the platform with no participant bound carries none.
+     */
+    SENDER_HEADER = 'sender',
+
+    /**
      * Header provided by the server on connection to provide the {@link ConnectedInfo} as a JSON string
      */
     CONNECTED_INFO_HEADER = 'connected-info',

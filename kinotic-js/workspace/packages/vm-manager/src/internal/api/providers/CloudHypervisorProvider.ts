@@ -227,6 +227,7 @@ export class CloudHypervisorProvider implements IVmProvider {
 
             const otlp = await this.issueEndpoint(workload)
             this.requireEnforcement(workload, otlp !== null)
+            this.prepareEgressPolicy(workload)
             // The receiver is bound to the gateway, which is also where the guest reaches it
             const container = await this.docker.createContainer(
                 this.buildCreateOptions(workload, AlloyManager.guestEnvironment(workload, otlp?.listenAddress ?? '', otlp)))
@@ -263,6 +264,7 @@ export class CloudHypervisorProvider implements IVmProvider {
 
         try {
             this.requireEnforcement(workload, this.alloyManager?.endpointOf(workloadId) !== null)
+            this.prepareEgressPolicy(workload)
             // Starting the stopped container again keeps its writable layer, so the workload
             // resumes with the disk state it had
             const container = this.docker.getContainer(workloadId)
@@ -487,6 +489,17 @@ export class CloudHypervisorProvider implements IVmProvider {
         if (grants.length > 0 && !this.egress.enforces()) {
             throw new Error(`Workload ${workload.id} needs ${grants.join(' and ')}, but this node does not `
                             + 'deny workload egress by default, so it cannot grant them')
+        }
+    }
+
+    /**
+     * Readies the resolver for the workload's allowed names before its micro VM boots, so the
+     * guest's first lookup is answered by an instance that fills the sets; the rules themselves
+     * need the guest's address and follow in {@link applyEgressPolicy}.
+     */
+    private prepareEgressPolicy(workload: Workload): void {
+        if (this.egress.enforces()) {
+            this.egress.prepare(workload.id!, workload.network?.allowedHosts ?? [])
         }
     }
 

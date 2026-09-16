@@ -139,7 +139,7 @@ Every variable is documented under [VM provider](https://kinotic.ai/platform/con
 and [Workload egress](https://kinotic.ai/platform/configuration#workload-egress). Set
 `VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades. The
 default is npm's `latest` tag, which is the last released line; a server on a pre-release
-line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.20` for a 5.0.0 server.
+line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.21` for a 5.0.0 server.
 
 ## Kata 4.1.0 and why this kit is amd64 only
 
@@ -175,7 +175,7 @@ The kit refuses to provision anything but x86_64, for three independent reasons:
   answers.** dnsmasq matches `github.com` for `api.github.com` too, and only what it answered
   is permitted: a guest that resolves elsewhere, or connects to an address a CDN handed someone
   else, is denied. Same-network targets are still best expressed as CIDRs, which need no lookup.
-- **Allowing a new name restarts dnsmasq.** Every guest on the node is without a resolver for
+- **Allowing a new name restarts dnsmasq, before the workload's VM boots.** Every guest on the node is without a resolver for
   the restart, and a lookup landing in that gap fails. Names already configured — every run of
   the same deployment — cost nothing.
 - **User-defined Docker networks break DNS under Kata.** Docker injects `127.0.0.11`, whose

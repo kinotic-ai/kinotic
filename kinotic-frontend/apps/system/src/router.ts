@@ -2,10 +2,11 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 /**
- * The console has four scopes, each with its own sidebar group: the platform, one organization,
- * one of its applications, and one of its projects. A page opened from a list (a node, a
- * workload, a job run, a trace) nests under the list's path and declares the group alone, so
- * the sidebar keeps the list highlighted and the page header can point back to it.
+ * The console has five scopes, each with its own sidebar group: the platform, one organization,
+ * one of its applications, one of its projects, and the signed-in operator's own account. A page
+ * opened from a list (a node, a workload, a job run, a trace) nests under the list's path and
+ * declares the group alone, so the sidebar keeps the list highlighted and the page header can
+ * point back to it.
  */
 
 function consoleItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
@@ -22,6 +23,10 @@ function applicationItem(label: string, icon: string, order: number, section?: s
 
 function projectItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
     return { group: 'project', section, label, icon, order }
+}
+
+function accountItem(label: string, icon: string, order: number): SidebarItemMeta {
+    return { group: 'account', section: 'Account', label, icon, order }
 }
 
 const ORGANIZATION = 'organizations/:organizationId'
@@ -199,7 +204,14 @@ const routes: RouteRecordRaw[] = [
                 props: true,
                 meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 20) }
             },
-            ...runtimeRoutes(PROJECT, 'project-', projectItem, 'project', 30, false)
+            ...runtimeRoutes(PROJECT, 'project-', projectItem, 'project', 30, false),
+
+            {
+                name: 'account-connected-apps',
+                path: 'account/connected-apps',
+                component: () => import('@kinotic-ai/frontend-common').then(m => m.ConnectedAppsPage),
+                meta: { sidebar: accountItem('Connected apps', 'pi-link', 10) }
+            }
         ]
     },
     {
