@@ -1,1 +1,0 @@
-{"id":"dd385ffe9d4d1658da8221f8a5414380","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle settles a disconnect() issued right behind a connect() the server never answers","name":"settles a disconnect() issued right behind a connect() the server never answers","status":"passed","testResultsByEnv":{"default":"870985a81854630cb7941efdf89d32a8"}}

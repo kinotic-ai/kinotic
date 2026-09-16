@@ -1,1 +1,0 @@
-{"id":"52a0c0e167d84417dac0198fe2174a54","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testSessionDeletedFromTheStoreIsNotRecreatedByTheTouch","name":"testSessionDeletedFromTheStoreIsNotRecreatedByTheTouch()","status":"passed","testResultsByEnv":{"default":"208a9ad6fd2ebc7da003f43f260fef27"}}

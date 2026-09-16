@@ -1,1 +1,0 @@
-{"id":"1ae237a8f2c3406a50e40a2107a36494","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle grants a connection the full attempt budget again for its reconnects","name":"grants a connection the full attempt budget again for its reconnects","status":"passed","testResultsByEnv":{"default":"e1376a9352160df5c99da42ff484f876"}}
