@@ -70,6 +70,11 @@
               <div class="text-xs text-muted-color break-all">{{ profileDetail }}</div>
             </div>
             <div :class="['my-1 border-t', isDark ? 'border-surface-800' : 'border-surface-200']"></div>
+            <RouterLink to="/account/connected-apps" :class="avatarMenuItemClass" @click="avatarDropdownOpen = false">
+              <i class="pi pi-link mr-2"></i>
+              Connected apps
+            </RouterLink>
+            <div :class="['my-1 border-t', isDark ? 'border-surface-800' : 'border-surface-200']"></div>
             <button :class="avatarMenuItemClass" @click="handleLogout">
               <i class="pi pi-sign-out mr-2"></i>
               Logout
