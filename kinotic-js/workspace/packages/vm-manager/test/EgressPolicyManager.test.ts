@@ -6,6 +6,11 @@ import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 // whether this node enforces egress. Both are reached on any machine.
 describe('EgressPolicyManager', () => {
 
+    it('refuses to prepare a hostname where no resolver pins it to addresses', () => {
+        const egress = new EgressPolicyManager(null)
+        expect(() => egress.prepare('wl-0', ['api.stripe.com'])).toThrow(/cannot pin a name/)
+    })
+
     it('refuses a hostname where no resolver pins it to addresses', () => {
         const egress = new EgressPolicyManager()
 
