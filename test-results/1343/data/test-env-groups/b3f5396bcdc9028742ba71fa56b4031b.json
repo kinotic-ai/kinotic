@@ -1,0 +1,1 @@
+{"id":"b3f5396bcdc9028742ba71fa56b4031b","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testSessionOutlivesItsTimeoutUnderAnOpenConnection","name":"testSessionOutlivesItsTimeoutUnderAnOpenConnection()","status":"passed","testResultsByEnv":{"default":"764459a3d6ebfcf2e74ccc8f6f65c15d"}}
