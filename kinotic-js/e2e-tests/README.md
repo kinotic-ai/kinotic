@@ -39,8 +39,8 @@ docker compose --env-file ../../gradle.properties \
 pnpm test:node-failure
 ```
 
-A run takes several minutes: every lost call waits on Ignite's failure detection, and the killed
-node is started again so the suite can prove the host reconnects and serves.
+A run takes longer than the other suites: every lost call waits on Ignite's failure detection, and
+the killed node is started again so the suite can prove the host reconnects and serves.
 
 `test/k8s/` holds a cluster cache-eviction suite that is currently disabled — see
 [test/k8s/README.md](test/k8s/README.md).
