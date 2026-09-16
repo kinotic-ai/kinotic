@@ -992,7 +992,11 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      the server's LAN IPv4, <code>
+      <code>
+        dev-api.kinotic.ai
+      </code>
+      
+      , <code>
         443
       </code>
       
@@ -1002,11 +1006,11 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      Workloads on the nodes reach the gateway across the LAN; a <code>
-        CLOUD_HYPERVISOR
+      Workloads dial the gateway by the name its certificate carries; each node pins that name to the server's LAN address in its <code>
+        /etc/hosts
       </code>
       
-       node rejects a hostname here. The guest trusts the Let's Encrypt chain
+      , which its resolver answers guests from and the vm-manager admits in the name's egress set, so the traffic stays on the LAN. The guest trusts the Let's Encrypt chain
     </td>
   </tr>
   
@@ -1018,13 +1022,25 @@ snapshot of every index with 30 days' retention.
     </td>
     
     <td>
-      GitHub's and the npm registry's published address ranges, as CIDRs
+      <code>
+        github.com
+      </code>
+      
+      , <code>
+        registry.npmjs.org
+      </code>
     </td>
     
     <td>
-      Egress rules match addresses, not names; the development value uses names because it runs <code>
+      The node's resolver admits what it answers for each name, so the same names serve <code>
         BOXLITE
       </code>
+      
+       development and the <code>
+        CLOUD_HYPERVISOR
+      </code>
+      
+       nodes here
     </td>
   </tr>
   
@@ -1304,7 +1320,11 @@ which the service waits for:
     </td>
     
     <td>
-      the LAN resolver, permitted on port 53 for every workload
+      the node's own dnsmasq on the docker bridge address, <code>
+        172.17.0.1
+      </code>
+      
+      , permitted on port 53 for every workload; it is what lets a hostname in a workload's egress policy be enforced
     </td>
   </tr>
   

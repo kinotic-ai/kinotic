@@ -348,13 +348,21 @@ Every destination comes from the workload's own `network.allowedHosts`, includin
     </td>
     
     <td>
-      Resolver each workload is given, permitted on port 53
+      Resolver each workload is given, permitted on port 53. On a provisioned <code>
+        CLOUD_HYPERVISOR
+      </code>
+      
+       node, the docker bridge address the node's dnsmasq listens on
     </td>
   </tr>
 </tbody>
 </table>
 
-`network.allowedHosts` entries are **IPv4 addresses or CIDRs**, not hostnames. Egress rules match addresses, and a hostname resolved once when the workload starts goes stale as soon as the target moves — so a name is rejected rather than resolved. A destination in the same virtual network is best expressed as the subnet's CIDR, which is fixed when the subnet is created.
+`network.allowedHosts` entries are IPv4 addresses, CIDRs, or hostnames. An address or CIDR becomes a rule naming it. A hostname is enforced through the node's resolver: every workload is given the node's dnsmasq as its only resolver, and dnsmasq writes each address it answers for an allowed name into an ipset the workload's rule matches — so what the workload reaches is what the name resolved to when it looked it up, however the name's records move, and an address it did not resolve through the node stays denied. A name covers its subdomains: `github.com` also admits `api.github.com`. A destination in the same virtual network is best expressed as the subnet's CIDR, which needs no lookup.
+
+A name the node itself pins in `/etc/hosts` is answered from there for its workloads too, and its pinned address is admitted for that name without expiry; that is how workloads reach the api-gateway by its certificate's name on a LAN, without the traffic leaving through the router.
+
+A node that cannot enforce a hostname — no ipset, or no dnsmasq listening on the resolver its workloads are given — refuses a workload declaring one rather than starting it with the name dropped from its policy.
 
 <table>
 <thead>
@@ -418,7 +426,7 @@ Every destination comes from the workload's own `network.allowedHosts`, includin
 </tbody>
 </table>
 
-An empty list means the same on a `BOXLITE` node. Only the accepted form of an entry differs between providers — addresses and CIDRs on `CLOUD_HYPERVISOR`, hostnames on `BOXLITE`.
+An empty list means the same on a `BOXLITE` node, and hostnames are accepted on both providers.
 
 `mode: DISABLED` leaves no interface to publish a port on or to reach the node's OTLP endpoint through, so a node refuses a workload declaring it together with `portMappings` or `telemetry` — on either provider — rather than starting one whose published ports or telemetry cannot work.
 
@@ -471,6 +479,18 @@ A node denies every workload the cloud metadata endpoint (`169.254.169.254`) and
   <tr>
     <td>
       <code>
+        ['registry.npmjs.org']
+      </code>
+    </td>
+    
+    <td>
+      Whatever the node's resolver answers for that name, minus what the node denies
+    </td>
+  </tr>
+  
+  <tr>
+    <td>
+      <code>
         ['0.0.0.0/0']
       </code>
     </td>
@@ -494,7 +514,7 @@ A node denies every workload the cloud metadata endpoint (`169.254.169.254`) and
 </tbody>
 </table>
 
-An entry that names a protected address is placed above the node's own rules so it overrides them; every other entry is placed below, so a range containing one grants everything in it *except* that address. Only a system participant can reach the service that carries a workload's policy, so naming an address outright is a decision the platform made — a range that merely contains one is not, and does not become one by accident.
+An entry that names a protected address is placed above the node's own rules so it overrides them; every other entry is placed below, so a range containing one grants everything in it *except* that address, and a hostname resolving to one grants nothing there. Only a system participant can reach the service that carries a workload's policy, so naming an address outright is a decision the platform made — a range that merely contains one is not, and does not become one by accident.
 
 A provider needs its host prepared for it, so the setting follows the node's provisioning: a developer machine keeps the default, and a node built for Kata is configured for `CLOUD_HYPERVISOR`. An unrecognised value stops the vm-manager at startup rather than falling back, so a node never registers running something other than what it was configured for.
 
@@ -681,11 +701,7 @@ per deployment and one long-lived runtime VM per microservice, configured under
         KINOTIC_SERVER_HOST
       </code>
       
-       in the guest), and the one destination every workload's egress policy always permits. The server has no advertised address of its own, so startup fails without it. Must be an IPv4 address for <code>
-        CLOUD_HYPERVISOR
-      </code>
-      
-       nodes, whose egress rules reject names
+       in the guest), and the one destination every workload's egress policy always permits. The server has no advertised address of its own, so startup fails without it. An IPv4 address or a hostname, on either provider
     </td>
   </tr>
   
@@ -757,11 +773,23 @@ per deployment and one long-lived runtime VM per microservice, configured under
     </td>
     
     <td>
-      Destinations (IPv4 addresses or CIDRs) the sync workload may reach beyond the gateway — the repository host's ranges, so <code>
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond the gateway — typically <code>
+        github.com
+      </code>
+      
+       and <code>
+        registry.npmjs.org
+      </code>
+      
+      , so <code>
         git fetch
       </code>
       
-       works under default-deny egress
+       and <code>
+        bun install
+      </code>
+      
+       work under default-deny egress
     </td>
   </tr>
   
@@ -779,7 +807,7 @@ per deployment and one long-lived runtime VM per microservice, configured under
     </td>
     
     <td>
-      Destinations the runtime workloads may reach beyond the gateway
+      Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workloads may reach beyond the gateway
     </td>
   </tr>
   
