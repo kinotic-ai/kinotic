@@ -9,9 +9,9 @@
 
 **Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
 
-[![Build and Publish](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml/badge.svg?branch=develop)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
+[![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
-[![License Elastic 2.0](https://img.shields.io/badge/license-Elastic%202.0-171717)](LICENSE.txt)
+[![License Elastic 2.0](https://img.shields.io/badge/license-Elastic%202.0-28FEB4)](LICENSE.txt)
 [![Documentation](https://img.shields.io/badge/docs-kinotic.ai-171717)](https://kinotic.ai/docs/)
 
 [Website](https://kinotic.ai) · [Documentation](https://kinotic.ai/docs/) · [Get Started](https://kinotic.ai/get-started/) · [Test Reports](https://kinotic.ai/test-results)
