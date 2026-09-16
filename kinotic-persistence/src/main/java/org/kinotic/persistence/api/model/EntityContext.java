@@ -69,11 +69,25 @@ public interface EntityContext {
     }
 
     /**
+     * The tenant selection entry that selects every tenant of the {@link EntityDefinition}.
+     */
+    String ALL_TENANTS = "*";
+
+    /**
      * Checks if a tenant selection is provided for the current operation
      *
      * @return true if a tenant selection is provided, false otherwise
      */
     boolean hasTenantSelection();
+
+    /**
+     * Checks if the tenant selection names every tenant, see {@link #ALL_TENANTS}
+     *
+     * @return true if the operation spans every tenant, false otherwise
+     */
+    default boolean selectsAllTenants() {
+        return hasTenantSelection() && getTenantSelection().contains(ALL_TENANTS);
+    }
 
     /**
      * Gets the tenant selection for the current operation
