@@ -124,10 +124,10 @@ Kinotic provides the capabilities required throughout that lifecycle:
 
 | Lifecycle stage | What Kinotic provides |
 |---|---|
-| **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
-| **Secure** | Authentication · Fine-grained authorization · Security controls |
-| **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
-| **Operate** | Observability · LLM observability |
+| 🛠️ **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
+| 🔐 **Secure** | Authentication · Fine-grained authorization · Security controls |
+| 🔁 **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 📈 **Operate** | Observability · LLM observability |
 
 ---
 
