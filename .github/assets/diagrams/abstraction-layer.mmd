@@ -1,0 +1,22 @@
+flowchart TB
+    dev["Developers"]
+    agents["AI agents"]
+    model["`**Kinotic application model**`"]
+    runtime["`**Kinotic OS**
+persistence · identity
+service communication
+delivery · observability`"]
+    infra["`Kubernetes · cloud
+networking · storage`"]
+
+    dev --> model
+    agents --> model
+    model --> runtime
+    runtime --> infra
+
+    classDef brand fill:#28FEB4,stroke:#0F9F74,color:#08090A
+    classDef soft fill:#EDEDEF,stroke:#B4B4BB,color:#08090A
+    classDef dark fill:#2B2A32,stroke:#5D5D66,color:#EDEDEF
+    class model,runtime brand
+    class dev,agents soft
+    class infra dark
