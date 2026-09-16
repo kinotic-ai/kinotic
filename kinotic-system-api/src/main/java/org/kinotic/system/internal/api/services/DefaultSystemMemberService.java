@@ -44,17 +44,36 @@ public class DefaultSystemMemberService implements SystemMemberService {
     }
 
     @Override
+    public Future<String> rotateSecret(String machineId) {
+        return loadPlatformMachine(machineId)
+                .compose(machine -> identityService.rotateMachineSecret(machine.getId()));
+    }
+
+    @Override
+    public Future<Void> setMachineEnabled(String machineId, boolean enabled) {
+        return loadPlatformMachine(machineId)
+                // saveSync so the console's immediate re-query sees the change
+                .compose(machine -> identityService.saveSync(machine.setEnabled(enabled)))
+                .mapEmpty();
+    }
+
+    @Override
     public Future<Void> removeMachine(String machineId) {
+        return loadPlatformMachine(machineId)
+                // Cascades the IdentityCredential; sync so the console's immediate re-query no
+                // longer shows the machine.
+                .compose(machine -> identityService.deleteByIdSync(machine.getId()));
+    }
+
+    /** Loads a SYSTEM-scope machine for inspection or mutation. */
+    private Future<MachineParticipantIdentity> loadPlatformMachine(String machineId) {
         Validate.notBlank(machineId, "machineId is required");
         return identityService.findById(machineId)
                 // An organization's machine belongs to its own members, so it is not reachable
                 // from here even though a SYSTEM participant may address this service.
                 .map(identity -> DomainUtil.requireOwned(identity, MachineParticipantIdentity.class,
                                                         machine -> machine.getOrganizationId() == null,
-                                                        "Machine not found."))
-                // Cascades the IdentityCredential; sync so the console's immediate re-query no
-                // longer shows the machine.
-                .compose(machine -> identityService.deleteByIdSync(machine.getId()));
+                                                        "Machine not found."));
     }
 
 }

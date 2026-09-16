@@ -54,6 +54,24 @@ public interface SystemMemberService {
     Future<MachineProvisionResult> createMachine(String displayName);
 
     /**
+     * Replaces the client secret of a platform machine, returning the new secret exactly once.
+     * The old secret stops working immediately; a connection the machine already holds lasts
+     * until it disconnects.
+     *
+     * @param machineId a SYSTEM-scope machine
+     * @return the new secret in plaintext, shown exactly once
+     */
+    Future<String> rotateSecret(String machineId);
+
+    /**
+     * Enables or disables a platform machine. A disabled machine is cut off on its next
+     * connection, and enabling it restores access with the same credential.
+     *
+     * @param machineId a SYSTEM-scope machine
+     */
+    Future<Void> setMachineEnabled(String machineId, boolean enabled);
+
+    /**
      * Permanently removes a platform machine, including its stored credential. A removed
      * machine's id cannot authenticate again.
      *

@@ -182,7 +182,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'application-machines',
         path: 'machines',
         meta: { sidebar: applicationItem('Machines', 'pi-server', 60, 'Access') } as RouteMeta,
-        component: () => import('@/pages/MachinesPage.vue'),
+        component: () => import('@/pages/ApplicationMachinesPage.vue'),
         props: true
       },
       {

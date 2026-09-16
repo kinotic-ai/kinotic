@@ -27,6 +27,19 @@ export interface ISystemMemberService {
     createMachine(displayName: string): Promise<MachineProvisionResult>
 
     /**
+     * Replaces a platform machine's client secret, returning the new secret exactly once. The
+     * old secret stops working immediately; a connection the machine already holds lasts until
+     * it disconnects.
+     */
+    rotateSecret(machineId: string): Promise<string>
+
+    /**
+     * Enables or disables a platform machine. A disabled machine is cut off on its next
+     * connection, and enabling it restores access with the same credential.
+     */
+    setMachineEnabled(machineId: string, enabled: boolean): Promise<void>
+
+    /**
      * Permanently removes a platform machine, including its stored credential. A removed
      * machine's id cannot authenticate again.
      */
@@ -56,6 +69,14 @@ export class SystemMemberService implements ISystemMemberService {
 
     public createMachine(displayName: string): Promise<MachineProvisionResult> {
         return this.serviceProxy.invoke('createMachine', [displayName])
+    }
+
+    public rotateSecret(machineId: string): Promise<string> {
+        return this.serviceProxy.invoke('rotateSecret', [machineId])
+    }
+
+    public setMachineEnabled(machineId: string, enabled: boolean): Promise<void> {
+        return this.serviceProxy.invoke('setMachineEnabled', [machineId, enabled])
     }
 
     public removeMachine(machineId: string): Promise<void> {

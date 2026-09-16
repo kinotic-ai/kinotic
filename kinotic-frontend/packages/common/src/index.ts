@@ -33,6 +33,8 @@ export { default as JobTaskPipeline } from './components/grind/JobTaskPipeline.v
 export { default as JobTaskTree } from './components/grind/JobTaskTree.vue'
 export { default as MachineSecretDialog } from './components/MachineSecretDialog.vue'
 export type { MachineSecret } from './components/MachineSecretDialog.vue'
+export { default as MachinesPage } from './components/MachinesPage.vue'
+export type { MachineOperations } from './components/MachinesPage.vue'
 export { default as PageHeader } from './components/PageHeader.vue'
 export { default as ProjectDeployTaskDetail } from './components/deploy/ProjectDeployTaskDetail.vue'
 export { default as SideBar } from './components/SideBar.vue'

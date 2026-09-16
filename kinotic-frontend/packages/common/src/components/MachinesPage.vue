@@ -1,7 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Machines"
-                description="Non-human callers that connect to this application's API with their own client id and secret." />
+    <PageHeader title="Machines" :description="description" />
 
     <CrudTable
       ref="crudTable"
@@ -27,7 +26,7 @@
       </template>
 
       <template #item.created="{ item }">
-        {{ formatDate(item.created) }}
+        {{ item.created ? formatDate(item.created) : '—' }}
       </template>
     </CrudTable>
 
@@ -39,8 +38,7 @@
                      autocomplete="off" autofocus @keyup.enter="create" />
         </div>
         <p class="text-sm text-muted-color m-0">
-          A machine connects to this application's API with the Kinotic client, using the
-          client id and secret shown after creation.
+          <slot name="create-hint" />
         </p>
       </div>
       <template #footer>
@@ -63,19 +61,31 @@ import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
-import { Kinotic } from '@kinotic-ai/core'
-import type { MachineParticipantIdentity } from '@kinotic-ai/management-api'
+import type { Page, Pageable } from '@kinotic-ai/core'
+import type { MachineParticipantIdentity, MachineProvisionResult } from '@kinotic-ai/management-api'
 
-import { CrudTable } from '@kinotic-ai/frontend-common'
-import { MachineSecretDialog, type MachineSecret } from '@kinotic-ai/frontend-common'
-import { PageHeader } from '@kinotic-ai/frontend-common'
-import { filteredPageLoader, statusSeverity, useCrudTablePage } from '@kinotic-ai/frontend-common'
-import type { CrudHeader } from '@kinotic-ai/frontend-common'
-import type { DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
-import { DatetimeUtil } from '@kinotic-ai/frontend-common'
-import { showErrorToast } from '@kinotic-ai/frontend-common'
+import CrudTable from './CrudTable.vue'
+import MachineSecretDialog, { type MachineSecret } from './MachineSecretDialog.vue'
+import PageHeader from './PageHeader.vue'
+import { filteredPageLoader, statusSeverity, useCrudTablePage } from './useCrudTablePage'
+import type { CrudHeader } from '../types/CrudHeader'
+import type { DescriptiveIdentifiable } from '../types/DescriptiveIdentifiable'
+import DatetimeUtil from '../util/DatetimeUtil'
+import { showErrorToast } from '../util/helpers'
 
-/** One table row — a machine API client of the application. */
+/**
+ * What a machine listing can do, bound to the scope whose machines it manages — the
+ * application for an organization's API clients, the platform for its own daemons.
+ */
+export interface MachineOperations {
+  findMachines(pageable: Pageable): Promise<Page<MachineParticipantIdentity>>
+  createMachine(displayName: string): Promise<MachineProvisionResult>
+  rotateSecret(machineId: string): Promise<string>
+  setMachineEnabled(machineId: string, enabled: boolean): Promise<void>
+  removeMachine(machineId: string): Promise<void>
+}
+
+/** One table row — a machine of the listed scope. */
 interface MachineRow extends DescriptiveIdentifiable {
   id: string
   displayName: string | null
@@ -84,9 +94,15 @@ interface MachineRow extends DescriptiveIdentifiable {
   enabled: boolean
 }
 
-/** Machine API clients of one application, managed by the owning org's members. */
+/**
+ * The machines of one scope, with the whole lifecycle its members may drive: create (disclosing
+ * the generated secret once), rotate that secret, disable and enable, and remove. The
+ * {@code create-hint} slot fills the sentence under the name field in the create dialog, where
+ * each scope says what its machines connect to.
+ */
 const props = defineProps<{
-  applicationId: string
+  description: string
+  machines: MachineOperations
 }>()
 
 const headers: CrudHeader[] = [
@@ -104,10 +120,10 @@ const secret = ref<MachineSecret | null>(null)
 const toast = useToast()
 const confirm = useConfirm()
 
-// no server-side machine search; an org has few machines, so filtering the page suffices
-const {tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
+// no server-side machine search; a scope has few machines, so filtering the page suffices
+const { tableSearch, dataSource, refreshTable, run } = useCrudTablePage(
   filteredPageLoader(
-    pageable => Kinotic.machines.findMachines(props.applicationId, pageable),
+    pageable => props.machines.findMachines(pageable),
     toRow,
     row => [row.displayName, row.id]
   )
@@ -138,9 +154,13 @@ async function create() {
   }
   creating.value = true
   try {
-    const result = await Kinotic.machines.createMachine(name, props.applicationId)
+    const result = await props.machines.createMachine(name)
     createDialogVisible.value = false
-    secret.value = { title: `Machine created — ${name}`, clientId: result.machine.id ?? '', clientSecret: result.clientSecret }
+    secret.value = {
+      title: `Machine created — ${name}`,
+      clientId: result.machine.id ?? '',
+      clientSecret: result.clientSecret
+    }
     refreshTable()
   } catch (err) {
     showErrorToast(toast, 'Failed to create machine', err, { life: 8000 })
@@ -170,7 +190,7 @@ function confirmRotate(item: MachineRow) {
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
       try {
-        const clientSecret = await Kinotic.machines.rotateSecret(item.id)
+        const clientSecret = await props.machines.rotateSecret(item.id)
         secret.value = { title: `New secret — ${item.displayName || item.id}`, clientId: item.id, clientSecret }
       } catch (err) {
         showErrorToast(toast, 'Failed to rotate secret', err, { life: 8000 })
@@ -190,7 +210,7 @@ function confirmToggleEnabled(item: MachineRow) {
     acceptProps: { label: disabling ? 'Disable' : 'Enable', severity: disabling ? 'danger' : 'primary' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: () => run(
-        () => Kinotic.machines.setMachineEnabled(item.id, !item.enabled),
+        () => props.machines.setMachineEnabled(item.id, !item.enabled),
         disabling ? 'Machine disabled' : 'Machine enabled',
         'Failed to update machine')
   })
@@ -203,8 +223,7 @@ function confirmRemove(item: MachineRow) {
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Remove', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-    accept: () => run(() => Kinotic.machines.removeMachine(item.id), 'Machine removed', 'Failed to remove machine')
+    accept: () => run(() => props.machines.removeMachine(item.id), 'Machine removed', 'Failed to remove machine')
   })
 }
-
 </script>
