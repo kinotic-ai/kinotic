@@ -139,7 +139,7 @@ Every variable is documented under [VM provider](https://kinotic.ai/platform/con
 and [Workload egress](https://kinotic.ai/platform/configuration#workload-egress). Set
 `VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades. The
 default is npm's `latest` tag, which is the last released line; a server on a pre-release
-line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.19` for a 5.0.0 server.
+line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.20` for a 5.0.0 server.
 
 ## Kata 4.1.0 and why this kit is amd64 only
 
