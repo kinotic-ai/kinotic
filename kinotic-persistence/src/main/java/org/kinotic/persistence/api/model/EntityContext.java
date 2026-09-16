@@ -11,6 +11,11 @@ import java.util.List;
 public interface EntityContext {
 
     /**
+     * The tenant selection entry that selects every tenant of the {@link EntityDefinition}.
+     */
+    String ALL_TENANTS = "*";
+
+    /**
      * If defined, this will restrict the response to only include the fields listed here.
      *
      * @return a list of included fields, if {@link List} is empty no fields will be included, if null all fields will be included.
@@ -67,11 +72,6 @@ public interface EntityContext {
         }
         return tenantId;
     }
-
-    /**
-     * The tenant selection entry that selects every tenant of the {@link EntityDefinition}.
-     */
-    String ALL_TENANTS = "*";
 
     /**
      * Checks if a tenant selection is provided for the current operation
