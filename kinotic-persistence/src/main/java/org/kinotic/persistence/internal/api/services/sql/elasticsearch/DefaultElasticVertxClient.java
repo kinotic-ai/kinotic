@@ -271,15 +271,17 @@ public class DefaultElasticVertxClient implements ElasticVertxClient {
         for(List<Object> row : response.getRows()){
 
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            JsonGenerator jsonGenerator = objectMapper.createGenerator(outputStream, JsonEncoding.UTF8);
-            jsonGenerator.writeStartObject();
 
-            for(int colIdx = 0; colIdx < row.size(); colIdx++){
-                jsonGenerator.writeName(elasticColumns.get(colIdx).getName());
-                jsonGenerator.writePOJO(row.get(colIdx));
+            // Closed per row: a generator returns its buffers to Jackson's pool only on close
+            try (JsonGenerator jsonGenerator = objectMapper.createGenerator(outputStream, JsonEncoding.UTF8)) {
+                jsonGenerator.writeStartObject();
+
+                for (int colIdx = 0; colIdx < row.size(); colIdx++) {
+                    jsonGenerator.writeName(elasticColumns.get(colIdx).getName());
+                    jsonGenerator.writePOJO(row.get(colIdx));
+                }
+                jsonGenerator.writeEndObject();
             }
-            jsonGenerator.writeEndObject();
-            jsonGenerator.flush();
             ret.add(new RawJson(outputStream.toByteArray()));
         }
 
