@@ -153,6 +153,10 @@ public class EndpointConnectionHandler {
     public Future<Void> send(Event<byte[]> incomingEvent) {
         signalActivity();
 
+        // The sender header names the caller to whoever receives the event, so only the gateway writes it,
+        // from the participant authenticated on the connection the event arrives on
+        incomingEvent.metadata().remove(EventConstants.SENDER_HEADER);
+
         if (incomingEvent.cri().scheme().equals(EventConstants.REPLY_DESTINATION_SCHEME)) {
             // A reply is a one-way delivery to the requester's reply destination. It is never invoked and
             // never itself replies, so no ack and no reply-to validation apply. A reply to an invocation this

@@ -1,4 +1,4 @@
-import { Publish, Context } from "../src"
+import { Publish, Context, type Participant, type ServiceContext } from "../src"
 
 interface CustomServiceContext {
   realm: string;
@@ -15,5 +15,11 @@ export class TestServiceWithContext {
     @Context
     async fetchDataWithContext(id: number, context: CustomServiceContext): Promise<{ id: number; value: string; realm: string; apiKey: string }> {
         return Promise.resolve({ id, value: `Data for ${id}`, realm: context.realm, apiKey: context.apiKey })
+    }
+
+    /** Answers with the participant the platform named as the caller. */
+    @Context
+    whoAmI(context: ServiceContext): Participant | undefined {
+        return context.participant
     }
 }

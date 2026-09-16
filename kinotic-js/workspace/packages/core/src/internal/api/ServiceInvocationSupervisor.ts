@@ -251,8 +251,13 @@ export class ServiceInvocationSupervisor {
             const args = this.argumentResolver.resolveArguments(event)
             const injectContext = receivesContext(this.serviceInstance, methodName);
 
-            // Create context using interceptor
+            // The context starts with the caller the gateway wrote as the event's sender, so the
+            // interceptor can build on it and a @Context method sees it without an interceptor
             let serviceContext: ServiceContext = {};
+            const sender = event.getHeader(EventConstants.SENDER_HEADER);
+            if (sender) {
+                serviceContext.participant = JSON.parse(sender);
+            }
             const interceptor = this.interceptorProvider();
             if (interceptor) {
                 try {

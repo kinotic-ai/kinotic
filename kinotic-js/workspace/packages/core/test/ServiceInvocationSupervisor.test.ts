@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BehaviorSubject, type Observable, of } from 'rxjs'
-import { Event, EventConstants, RpcError, ServiceIdentifier, type ConnectOptions, type IWebSocket } from '../src'
+import { Context, Event, EventConstants, RpcError, ServiceIdentifier, type ConnectOptions, type ContextInterceptor, type IWebSocket, type ServiceContext } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
 import { ServiceInvocationSupervisor } from '../src/internal/api/ServiceInvocationSupervisor'
 import { FakeStompServer, type FakeFrame, type FakeSocket } from './FakeStompServer'
@@ -36,16 +36,23 @@ class SupervisedService {
     greet(): string {
         return 'hi'
     }
+
+    /** Answers with the context it was handed. */
+    @Context
+    whoCalled(context: ServiceContext): ServiceContext {
+        return context
+    }
 }
 
 function options(server: FakeStompServer): ConnectOptions {
     return { server: { host: 'fake', useSSL: false }, webSocketFactory: server.factory as () => IWebSocket }
 }
 
-async function startSupervised(server: FakeStompServer): Promise<{ bus: EventBus, service: SupervisedService, supervisor: ServiceInvocationSupervisor }> {
+async function startSupervised(server: FakeStompServer,
+                               interceptor: ContextInterceptor<ServiceContext> | null = null): Promise<{ bus: EventBus, service: SupervisedService, supervisor: ServiceInvocationSupervisor }> {
     const bus = new EventBus()
     const service = new SupervisedService()
-    const supervisor = new ServiceInvocationSupervisor(SERVICE, service, bus, () => null)
+    const supervisor = new ServiceInvocationSupervisor(SERVICE, service, bus, () => interceptor)
     supervisor.start()
     await bus.connect(options(server))
     return { bus, service, supervisor }
@@ -53,14 +60,19 @@ async function startSupervised(server: FakeStompServer): Promise<{ bus: EventBus
 
 // Delivers an invocation of the method on the service's subscription, addressed the way the gateway
 // addresses one: the method is the path of the destination
-function invoke(socket: FakeSocket, method: string, correlationId: string): void {
+function invoke(socket: FakeSocket, method: string, correlationId: string, headers: Record<string, string> = {}): void {
     socket.message(ADDRESS, {
         destination: `${ADDRESS}/${method}`,
         [EventConstants.REPLY_TO_HEADER]: `reply://${socket.replyToId}:caller@kinotic.js.EventBus/replyHandler`,
         [EventConstants.CORRELATION_ID_HEADER]: correlationId,
-        [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_JSON
+        [EventConstants.CONTENT_TYPE_HEADER]: EventConstants.CONTENT_JSON,
+        ...headers
     })
 }
+
+// The caller as the gateway writes it on the sender header: the participant it authenticated, with the
+// scope discriminator and ids the server serializes
+const CALLER = { type: 'organization', id: 'org-user', organizationId: 'acme-org', metadata: {}, roles: ['ADMIN'] }
 
 function replies(socket: FakeSocket): FakeFrame[] {
     return socket.received.filter(f => f.command === 'SEND')
@@ -120,6 +132,39 @@ describe('service invocation supervisor', () => {
         expect(error.exceptionName).toBe('RangeError')
         expect(error.exceptionClass).toBe('RangeError')
         expect(error.message).toBe('out of range')
+        supervisor.stop()
+        await bus.disconnect()
+    })
+
+    it('hands a @Context method the participant named as the sender, after the interceptor has seen it', async () => {
+        const server = new FakeStompServer()
+        const interceptor: ContextInterceptor<ServiceContext> = {
+            intercept: (_event, context) => ({ ...context, interceptorSaw: context.participant?.id ?? null })
+        }
+        const { bus, supervisor } = await startSupervised(server, interceptor)
+
+        invoke(server.current, 'whoCalled', 'c1', { [EventConstants.SENDER_HEADER]: JSON.stringify(CALLER) })
+        await sleep(50)
+
+        const sent = replies(server.current)
+        expect(sent.length).toBe(1)
+        expect(JSON.parse(sent[0]!.body)).toEqual({ participant: CALLER, interceptorSaw: 'org-user' })
+        supervisor.stop()
+        await bus.disconnect()
+    })
+
+    it('hands a @Context method the participant without an interceptor, and none for an invocation that names no sender', async () => {
+        const server = new FakeStompServer()
+        const { bus, supervisor } = await startSupervised(server)
+
+        invoke(server.current, 'whoCalled', 'c1', { [EventConstants.SENDER_HEADER]: JSON.stringify(CALLER) })
+        invoke(server.current, 'whoCalled', 'c2')
+        await sleep(50)
+
+        const sent = replies(server.current)
+        expect(sent.length).toBe(2)
+        expect(JSON.parse(sent[0]!.body)).toEqual({ participant: CALLER })
+        expect(JSON.parse(sent[1]!.body)).toEqual({})
         supervisor.stop()
         await bus.disconnect()
     })
