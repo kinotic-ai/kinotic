@@ -374,18 +374,20 @@ class NodeManager {
 
 ### `@Context`
 
-Marks a method that receives the request context, which carries metadata about the current request.
+Marks a method that receives the request context: a `ServiceContext` whose `participant` is the calling participant, as the gateway authenticated it, plus whatever the registered `ContextInterceptor` adds. This is the TypeScript counterpart of a Java service's `Participant` parameter.
 
 **The context parameter must be the method's final parameter.** Callers never pass it — the platform appends it after the caller-supplied arguments, so a context parameter anywhere else will receive a caller argument instead.
 
 ```typescript
-import { Publish, Context } from '@kinotic-ai/core'
+import { Publish, Context, type ServiceContext } from '@kinotic-ai/core'
 
 @Publish('com.example')
 class AuditService {
     @Context
-    async logAction(action: string, context: any): Promise<void> {
-        // context contains request metadata
+    async logAction(action: string, context: ServiceContext): Promise<void> {
+        console.log(`${context.participant?.id} performed ${action}`)
     }
 }
 ```
+
+`participant` is absent only for an invocation that originated inside the platform with no participant bound, such as a scheduled job. See [Publishing Services](/apps/services/publishing-services#context) for narrowing it to a scope-typed participant.

@@ -15,6 +15,7 @@ describe('Kinotic JS', () => {
   describe('packages/core', () => {
     describe("Context Injection", () => {
         let contextService: TestServiceWithContext
+        let connectedInfo: ConnectedInfo
         let replyToId: string
         let testInterceptor: { intercept: (event: IEvent, context: any) => Promise<any> }
 
@@ -22,7 +23,7 @@ describe('Kinotic JS', () => {
             // Registers this client's service under ZONE; must be set before it is instantiated
             Kinotic.zonePrefix = ZONE
             const connectionInfo = createConnectOptions()
-            const connectedInfo: ConnectedInfo = await logFailure(
+            connectedInfo = await logFailure(
                 Kinotic.connect(connectionInfo),
                 "Failed to connect to Kinotic Gateway"
             )
@@ -95,6 +96,13 @@ describe('Kinotic JS', () => {
                 const headers = new Map([["x-realm", "tenant2"]])
                 const result = await sendAndReceiveEvent("srv://com.example.TestServiceWithContext/fetchDataWithContext", [42], headers)
                 expect(result).toEqual({ id: 42, value: "Data for 42", realm: "tenant2", apiKey: "key2" })
+            })
+
+            // This client invokes its own service, so the caller the gateway names is the participant it connected as
+            it("should carry the calling participant on the context", async () => {
+                const result = await sendAndReceiveEvent("srv://com.example.TestServiceWithContext/whoAmI", [])
+                expect(result.id).toBe(connectedInfo.participant.id)
+                expect(result.roles).toEqual(connectedInfo.participant.roles)
             })
 
             it("should propagate interceptor error", async () => {

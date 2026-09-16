@@ -30,6 +30,7 @@ export * from './api/event/EventBus'
 export * from './api/event/IEventBus'
 export * from './api/event/RpcError'
 
+export * from './api/security/AuthorizationException'
 export * from './api/security/BasicCredentialsResolver'
 export * from './api/security/BearerCredentialsResolver'
 export * from './api/security/ChainedCredentialsResolver'
