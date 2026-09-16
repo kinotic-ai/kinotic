@@ -1,0 +1,1 @@
+{"id":"13c9b85e856e54f3c133d0172bac7236","fullName":"@kinotic-ai/core:test/RpcError.test.ts#Kinotic JS packages/core RpcError falls back to the error header when the reply carries no description","name":"falls back to the error header when the reply carries no description","status":"passed","testResultsByEnv":{"default":"6e6de2d497ee5dd30c4af21386fa35f5"}}
