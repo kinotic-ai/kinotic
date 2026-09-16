@@ -10,7 +10,7 @@
   >
     <div class="flex items-center gap-3">
       <ProgressSpinner style="width: 2rem; height: 2rem" stroke-width="6" aria-label="Reconnecting" />
-      <p class="text-sm text-muted-color">Reconnecting — you are still signed in.</p>
+      <p class="text-sm text-muted-color">Waiting for it to answer — this clears as soon as it does.</p>
     </div>
   </Dialog>
 </template>

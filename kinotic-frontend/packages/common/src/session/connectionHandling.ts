@@ -68,5 +68,13 @@ export function installConnectionHandler(router: Router,
         // each connection is issued a session view of its own, and the one login() stored ended with its
         // connection, so everything reading the participant follows the live one
         sessionState.connectedInfo = connectedInfo
+        const current = router.currentRoute.value
+        const referer = current.query.referer
+        // The guard parks a navigation it could not answer for on /login, which is where an unreachable
+        // server leaves the user. The session it was waiting for is here, so it goes on to what was asked
+        // for; the login page's own redirect names the same route, and the second navigation is dropped.
+        if (current.meta.authenticationRequired === false && typeof referer === 'string') {
+            void router.push(referer)
+        }
     })
 }
