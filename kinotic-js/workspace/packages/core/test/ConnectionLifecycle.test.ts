@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { firstValueFrom, toArray } from 'rxjs'
-import { Event, EventConstants, type IEvent, type ConnectOptions, type IWebSocket } from '../src'
+import { ConnectedInfo, Event, EventConstants, type IEvent, type ConnectOptions, type IWebSocket } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
 import { FakeStompServer, type FakeFrame, type FakeSocket } from './FakeStompServer'
 
@@ -21,6 +21,17 @@ function echo(frame: FakeFrame, socket: FakeSocket): void {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+/** Collects the reason of every connection end that carried one, so an orderly end is not counted. */
+function failures(bus: EventBus): Error[] {
+    const ret: Error[] = []
+    bus.connectionEnded.subscribe(reason => {
+        if (reason !== null) {
+            ret.push(reason)
+        }
+    })
+    return ret
+}
+
 describe('connection lifecycle', () => {
 
     it('answers a request over a connection and the reply destination names the connection', async () => {
@@ -37,11 +48,11 @@ describe('connection lifecycle', () => {
         await bus.disconnect()
     })
 
-    it('fails the calls in flight when the socket drops, reports the loss once, and reconnects on a fresh destination', async () => {
+    it('fails the calls in flight when the socket drops, reports the end once, and reconnects on a fresh destination', async () => {
         const server = new FakeStompServer()
         const bus = new EventBus()
-        let lost = 0
-        bus.connectionLost.subscribe(() => lost++)
+        let ended = 0
+        bus.connectionEnded.subscribe(() => ended++)
         await bus.connect(options(server))
         const firstSocket = server.current
 
@@ -49,7 +60,7 @@ describe('connection lifecycle', () => {
         await sleep(10)
         firstSocket.drop()
         await expect(pending).rejects.toThrow('Connection lost')
-        expect(lost).toBe(1)
+        expect(ended).toBe(1)
 
         // rx-stomp reconnects after its delay plus the client's jitter; the new socket mints a new destination
         server.onSend = echo
@@ -63,10 +74,29 @@ describe('connection lifecycle', () => {
         const firstReplyTo = firstSocket.received.find(f => f.command === 'SEND')!.headers[EventConstants.REPLY_TO_HEADER]
         const secondReplyTo = server.current.received.find(f => f.command === 'SEND')!.headers[EventConstants.REPLY_TO_HEADER]
         expect(secondReplyTo).not.toBe(firstReplyTo)
-        expect(lost).toBe(1)
+        expect(ended).toBe(1)
         await bus.disconnect()
-        expect(lost).toBe(2)
+        expect(ended).toBe(2)
     }, 30_000)
+
+    it('reports each connection established, with the connected-info that connection was issued', async () => {
+        const server = new FakeStompServer()
+        const bus = new EventBus()
+        const established: ConnectedInfo[] = []
+        bus.connectionEstablished.subscribe(connectedInfo => established.push(connectedInfo))
+        await bus.connect(options(server))
+        expect(established.map(info => info.replyToId)).toEqual(['reply-1'])
+
+        server.current.drop()
+        await sleep(10)
+        const deadline = Date.now() + 15_000
+        while (!bus.isConnected() && Date.now() < deadline) {
+            await sleep(50)
+        }
+        // the reconnect is a connection of its own, and the server issues it its own reply destination
+        expect(established.map(info => info.replyToId)).toEqual(['reply-1', 'reply-2'])
+        await bus.disconnect()
+    }, 20_000)
 
     it('rejects a connect still waiting for its socket when disconnect() is called', async () => {
         const server = new FakeStompServer()
@@ -79,7 +109,7 @@ describe('connection lifecycle', () => {
         expect(bus.isConnectionActive()).toBe(false)
     })
 
-    it('connects again while the previous activation is still closing after a fatal error', async () => {
+    it('connects again while the previous activation is still closing after a failure ended it', async () => {
         const server = new FakeStompServer()
         server.closeDelayMs = 300
         server.onSend = echo
@@ -87,11 +117,11 @@ describe('connection lifecycle', () => {
         await bus.connect(options(server))
 
         // Two ERROR frames before the socket closes: the second lands on the activation the first one ended,
-        // so one fatal is reported, and the reconnect is issued from that notification
-        const fatals: Error[] = []
+        // so one end is reported, and the reconnect is issued from that notification while the socket closes
+        const ends: Error[] = []
         const reconnected = new Promise<void>((resolve, reject) => {
-            bus.fatalErrors.subscribe(error => {
-                fatals.push(error)
+            bus.connectionEnded.subscribe(reason => {
+                ends.push(reason as Error)
                 bus.connect(options(server)).then(() => resolve(), reject)
             })
         })
@@ -100,7 +130,8 @@ describe('connection lifecycle', () => {
         await reconnected
         await sleep(400)
 
-        expect(fatals.length).toBe(1)
+        expect(ends.length).toBe(1)
+        expect(ends[0]!.message).toBe('STOMP connection error')
         expect(bus.isConnected()).toBe(true)
         const reply = await bus.request(new Event(SERVICE))
         expect(JSON.parse(reply.getDataString())).toBe('echoed')
@@ -131,11 +162,10 @@ describe('connection lifecycle', () => {
         expect(bus.isConnectionActive()).toBe(false)
     })
 
-    it('reports no fatal for a socket factory that fails after disconnect() ended its activation', async () => {
+    it('reports no failure for a socket factory that fails after disconnect() ended its activation', async () => {
         const server = new FakeStompServer()
         const bus = new EventBus()
-        const fatals: Error[] = []
-        bus.fatalErrors.subscribe(error => fatals.push(error))
+        const failed = failures(bus)
         const failingFactory = async (): Promise<IWebSocket> => {
             await sleep(100)
             throw new Error('refresh failed')
@@ -145,21 +175,45 @@ describe('connection lifecycle', () => {
         await bus.disconnect()
         await expect(connecting).rejects.toThrow('Deactivated before the connection was established')
         await sleep(200)
-        expect(fatals).toEqual([])
+        expect(failed).toEqual([])
     })
 
-    it('reports no fatal when disconnect() closes a socket that was still connecting on the last attempt of the budget', async () => {
+    it('reports the end with its reason when the failure lands with no socket open', async () => {
+        const server = new FakeStompServer()
+        const bus = new EventBus()
+        const ends: (Error | null)[] = []
+        bus.connectionEnded.subscribe(reason => ends.push(reason))
+        let attempts = 0
+        // the reconnect after the drop never gets a socket, so its failure ends the connection from there
+        const factory = async (): Promise<IWebSocket> => {
+            if (++attempts > 1) {
+                throw new Error('refresh failed')
+            }
+            return server.factory()
+        }
+        await bus.connect(options(server, { webSocketFactory: factory }))
+        server.current.drop()
+
+        const deadline = Date.now() + 15_000
+        while (ends.length < 2 && Date.now() < deadline) {
+            await sleep(50)
+        }
+        expect(ends[0]).toBeNull()
+        expect(ends[1]?.message).toBe('WebSocket factory failed')
+        expect(bus.isConnectionActive()).toBe(false)
+    }, 20_000)
+
+    it('reports no failure when disconnect() closes a socket that was still connecting on the last attempt of the budget', async () => {
         const server = new FakeStompServer()
         server.openDelayMs = 200
         const bus = new EventBus()
-        const fatals: Error[] = []
-        bus.fatalErrors.subscribe(error => fatals.push(error))
+        const failed = failures(bus)
         const connecting = bus.connect(options(server, { maxConnectionAttempts: 1 }))
         await sleep(20)
         await bus.disconnect()
         await expect(connecting).rejects.toThrow('Deactivated before the connection was established')
         await sleep(50)
-        expect(fatals).toEqual([])
+        expect(failed).toEqual([])
         expect(bus.isConnectionActive()).toBe(false)
     })
 
@@ -178,8 +232,7 @@ describe('connection lifecycle', () => {
         const server = new FakeStompServer()
         server.onSend = echo
         const bus = new EventBus()
-        const fatals: Error[] = []
-        bus.fatalErrors.subscribe(error => fatals.push(error))
+        const failed = failures(bus)
         let calls = 0
         let reconnectAttemptInFactory: () => void = () => {}
         const attemptReachedFactory = new Promise<void>(resolve => reconnectAttemptInFactory = resolve)
@@ -202,7 +255,7 @@ describe('connection lifecycle', () => {
         await sleep(300)
 
         expect(bus.isConnected()).toBe(true)
-        expect(fatals).toEqual([])
+        expect(failed).toEqual([])
         expect(server.sockets.length).toBe(2)
         const reply = await bus.request(new Event(SERVICE))
         expect(JSON.parse(reply.getDataString())).toBe('echoed')
@@ -213,16 +266,15 @@ describe('connection lifecycle', () => {
         const server = new FakeStompServer()
         server.onSend = echo
         const bus = new EventBus()
-        const fatals: Error[] = []
-        bus.fatalErrors.subscribe(error => fatals.push(error))
+        const failed = failures(bus)
         await bus.connect(options(server, { maxConnectionAttempts: 1 }))
         server.current.drop()
 
         const deadline = Date.now() + 15_000
-        while (!bus.isConnected() && fatals.length === 0 && Date.now() < deadline) {
+        while (!bus.isConnected() && failed.length === 0 && Date.now() < deadline) {
             await sleep(50)
         }
-        expect(fatals).toEqual([])
+        expect(failed).toEqual([])
         expect(bus.isConnected()).toBe(true)
         await bus.disconnect()
     }, 20_000)

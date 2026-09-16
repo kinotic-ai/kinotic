@@ -35,8 +35,8 @@ export class ServiceInvocationSupervisor {
     private unscopedSubscription: Subscription | null = null
     // The streams being produced for callers, keyed by the correlation id their control events name
     private readonly activeStreams: Map<string, ActiveStream> = new Map()
-    private connectionLostSubscription: Subscription | null = null
-    // Counts the connections lost since start; an invocation remembers the generation it arrived in
+    private connectionEndedSubscription: Subscription | null = null
+    // Counts the connections ended since start; an invocation remembers the generation it arrived in
     private connectionGeneration: number = 0
     private readonly methodMap: Record<string, (...args: any[]) => any>
     private readonly scopeOptionalMethods: Set<string>
@@ -115,7 +115,7 @@ export class ServiceInvocationSupervisor {
         // The gateway answers every requester of a connection that ended, so a stream produced for one
         // has no consumer left and is cancelled without a reply, and a result still being produced for
         // one is dropped when it arrives
-        this.connectionLostSubscription = this._eventBus.connectionLost.subscribe(() => {
+        this.connectionEndedSubscription = this._eventBus.connectionEnded.subscribe(() => {
             this.connectionGeneration++
             for (const stream of this.activeStreams.values()) {
                 stream.subscription.unsubscribe()
@@ -156,8 +156,8 @@ export class ServiceInvocationSupervisor {
         this.methodSubscription = null
         this.unscopedSubscription?.unsubscribe()
         this.unscopedSubscription = null
-        this.connectionLostSubscription?.unsubscribe()
-        this.connectionLostSubscription = null
+        this.connectionEndedSubscription?.unsubscribe()
+        this.connectionEndedSubscription = null
 
         // A stream's caller is still listening, so it gets a terminal error rather than a silent cancel
         const serviceName = this.serviceIdentifier.qualifiedName()

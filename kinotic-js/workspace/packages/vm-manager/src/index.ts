@@ -115,20 +115,20 @@ function shippingProblems(): string[] {
 }
 
 /**
- * Rejoins the server after the event bus fails fatally. An ordinary dropped connection is the
- * STOMP client's own reconnect; a fatal error — a server ERROR frame, credentials that no longer
- * resolve — deactivates the connection for good instead, so without this the node keeps running
- * its workloads while the orchestrator sees it go offline. Retries until it connects: the
- * workloads outlive the server being down.
+ * Rejoins the server after a connection the event bus will not retry. An ordinary dropped connection
+ * is the STOMP client's own reconnect; a failure — a server ERROR frame, credentials that no longer
+ * resolve — ends the connection for good instead, so without this the node keeps running its
+ * workloads while the orchestrator sees it go offline. Retries until it connects: the workloads
+ * outlive the server being down.
  */
-function reconnectOnFatalError() {
-    Kinotic.eventBus.fatalErrors.subscribe(async (error: Error) => {
-        // Each failed reconnect signals another fatal error, which lands back here
-        if (reconnecting || shuttingDown) {
+function reconnectWhenTheBusStopsRetrying() {
+    Kinotic.eventBus.connectionEnded.subscribe(async (reason: Error | null) => {
+        // Each failed reconnect ends another connection, which lands back here
+        if (reconnecting || shuttingDown || Kinotic.eventBus.isConnectionActive()) {
             return
         }
         reconnecting = true
-        console.error('Kinotic connection failed fatally, reconnecting:', error)
+        console.error('Kinotic connection ended, reconnecting:', reason)
         try {
             let delayMs = RECONNECT_INITIAL_DELAY_MS
             while (!shuttingDown && !Kinotic.eventBus.isConnectionActive()) {
@@ -190,8 +190,8 @@ async function start() {
     const server = Kinotic.eventBus.serverInfo
     console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
 
-    // Installed after the first connect so a fatal error there still fails startup
-    reconnectOnFatalError()
+    // Installed after the first connect so a failure there still fails startup
+    reconnectWhenTheBusStopsRetrying()
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(Kinotic)
 

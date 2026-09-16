@@ -32,8 +32,10 @@ describe('Kinotic JS', () => {
             toSend.setDataString('["Bob"]')
 
             let errorEncountered = new Promise<Error>((resolve) => {
-                Kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
-                    resolve(error)
+                Kinotic.eventBus.connectionEnded.subscribe((reason: Error | null) => {
+                    if (reason !== null) {
+                        resolve(reason)
+                    }
                 })
             })
 
