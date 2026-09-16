@@ -15,9 +15,16 @@
           Verified as <strong class="consent-host">{{ clientHost }}</strong>
         </p>
         <p class="login-form__subtitle">
-          {{ pending.clientName }} is requesting access to Kinotic OS as your account.
-          It will be able to call the MCP tools your account can call.
+          {{ pending.clientName }} is requesting access to Kinotic OS as
+          <strong>{{ accountLabel }}</strong>, and will be able to call the MCP tools that
+          account can call.
         </p>
+        <Message v-if="systemAccount" severity="warn" :closable="false" class="consent-warning">
+          This is a platform operator account. It is not scoped to an organization, so
+          {{ pending.clientName }} would reach the MCP tools of every organization on this
+          platform. To authorize it for one organization, sign out and sign in to that
+          organization's portal account first.
+        </Message>
         <Button
           label="Approve"
           class="login-submit"
@@ -42,11 +49,14 @@
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Kinotic } from '@kinotic-ai/core'
+import { isSystemParticipant } from '@kinotic-ai/management-api'
 import type { PendingOAuthAuthorization } from '@kinotic-ai/management-api'
 import Button from 'primevue/button'
+import Message from 'primevue/message'
 
 import loginPageLeft from '@/assets/login-page-left.svg'
 import { AuthPageShell } from '@kinotic-ai/frontend-common'
+import { USER_STATE } from '@/states/IUserState'
 
 const oauthApproval = Kinotic.oauthApproval
 
@@ -64,6 +74,16 @@ const deciding = ref<Decision | null>(null)
 
 const loginBackgroundArt = loginPageLeft
 const route = useRoute()
+
+// the browser session already carries who is signed in, so the account being authorized is
+// named without asking the server again. a system-scoped session reaches this page the same
+// way an organization one does — the console and the portal share the session cookie
+const participant = computed(() => USER_STATE.connectedInfo?.participant ?? null)
+
+const accountLabel = computed<string>(() => participant.value?.metadata?.email ?? 'your account')
+
+const systemAccount = computed<boolean>(() =>
+    participant.value !== null && isSystemParticipant(participant.value))
 
 const requestId = computed<string | null>(() => {
   const id = route.query.request_id
@@ -119,6 +139,11 @@ async function decide(decision: Decision) {
 
 .consent-host {
   font-family: monospace;
+}
+
+.consent-warning {
+  margin: 0.75rem 0 0;
+  text-align: left;
 }
 
 /* Deny is the secondary action, but .login-submit in auth-pages.css paints the primary fill at

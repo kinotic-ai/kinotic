@@ -22,6 +22,7 @@ export { default as ProjectDeployStores } from './components/deploy/ProjectDeplo
 export type { DeployTarget } from './components/deploy/ProjectDeployStores'
 export * from './components/deploy/deploymentDisplay'
 export { default as AuthPageShell } from './components/AuthPageShell.vue'
+export { default as ConnectedAppsPage } from './components/ConnectedAppsPage.vue'
 export { default as CrudTable } from './components/CrudTable.vue'
 export { default as JobRunProgress } from './components/grind/JobRunProgress.vue'
 export { default as JobRunsTable } from './components/grind/JobRunsTable.vue'

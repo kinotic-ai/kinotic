@@ -121,7 +121,7 @@ const pageRoutes: RouteRecordRaw[] = [
         name: 'account-connected-apps',
         path: 'connected-apps',
         meta: { sidebar: accountItem('Connected apps', 'pi-link', 20) } as RouteMeta,
-        component: () => import('@/pages/ConnectedAppsPage.vue')
+        component: () => import('@kinotic-ai/frontend-common').then(m => m.ConnectedAppsPage)
       }
     ]
   },
