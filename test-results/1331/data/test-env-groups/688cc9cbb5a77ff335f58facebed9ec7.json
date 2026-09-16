@@ -1,0 +1,1 @@
+{"id":"688cc9cbb5a77ff335f58facebed9ec7","fullName":"@kinotic-ai/e2e-tests:test/node-failure/NodeFailure.test.ts#Node failure handling for service proxies fails a call whose host disconnects before replying","name":"fails a call whose host disconnects before replying","status":"passed","testResultsByEnv":{"default":"1870ff86876aa593e5b549b054a22dce"}}

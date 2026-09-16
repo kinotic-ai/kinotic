@@ -1,1 +1,0 @@
-{"id":"3f82f08577cd4f565f1ee630481fc438","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle ends a stream on a bodiless completion without emitting it as a value","name":"ends a stream on a bodiless completion without emitting it as a value","status":"passed","testResultsByEnv":{"default":"98cec5a8a3b23cdc23813809b26547fa"}}
