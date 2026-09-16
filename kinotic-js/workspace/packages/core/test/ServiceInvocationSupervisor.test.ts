@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { BehaviorSubject, type Observable, of } from 'rxjs'
-import { Event, EventConstants, RpcError, type ConnectOptions, type IWebSocket } from '../src'
+import { Event, EventConstants, RpcError, ServiceIdentifier, type ConnectOptions, type IWebSocket } from '../src'
 import { EventBus } from '../src/api/event/EventBus'
-import { ServiceIdentifier } from '../src/api/ServiceIdentifier'
 import { ServiceInvocationSupervisor } from '../src/internal/api/ServiceInvocationSupervisor'
 import { FakeStompServer, type FakeFrame, type FakeSocket } from './FakeStompServer'
 

@@ -6,6 +6,7 @@ export * from './api/ContextInterceptor'
 export * from './api/Kinotic'
 export * from './api/KinoticDecorators'
 export * from './api/IServiceRegistry'
+export * from './api/ServiceIdentifier'
 export * from './api/ServiceRegistry'
 export * from './api/ZoneUtil'
 
