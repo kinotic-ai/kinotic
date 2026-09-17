@@ -1,0 +1,1 @@
+{"id":"c4b047ea99f9d68eb8c9899393f68710","fullName":"org.kinotic.test.tests.core.security.graphos.PolicyAuthorizationServiceTest.testAuthorizeWriteFailsDueToOperationPolicy","name":"testAuthorizeWriteFailsDueToOperationPolicy()","status":"passed","testResultsByEnv":{"default":"cfbb3a5ff4552f5fd296f53a0717c7a8"}}
