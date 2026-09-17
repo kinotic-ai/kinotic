@@ -358,7 +358,7 @@ The goal is not to create another opaque application platform where the generate
 
 Applications should remain inspectable, understandable, and deployable.
 
-Kinotic can provide the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
+Kinotic provides the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
 
 See [LICENSE.txt](LICENSE.txt) for the terms governing the project.
 
