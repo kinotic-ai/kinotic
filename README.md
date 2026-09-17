@@ -72,13 +72,13 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 Cloud providers took over the hardware.
 
-Kubernetes took over running containers on top of it.
+Kubernetes took over running containers.
 
 AI took over writing the code.
 
-No one took over the application in between.
+The application in between is still assembled by hand — one service, one schema, one deployment pipeline at a time.
 
-**That is where Kinotic sits.**
+**That is what Kinotic takes over.**
 
 <div align="center">
 
