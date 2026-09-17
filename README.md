@@ -70,9 +70,9 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # 📐 A different abstraction layer
 
-Kubernetes made infrastructure orchestration programmable.
-
 Cloud providers made infrastructure available on demand.
+
+Kubernetes made infrastructure orchestration programmable.
 
 AI coding systems are making software creation nearly free.
 
