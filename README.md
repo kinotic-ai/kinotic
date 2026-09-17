@@ -70,13 +70,15 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # 📐 A different abstraction layer
 
-Kubernetes made infrastructure orchestration programmable.
+Cloud providers took over the hardware.
 
-Cloud providers made infrastructure available on demand.
+Kubernetes took over running containers on top of it.
 
-AI coding systems are making software creation programmable.
+AI took over writing the code.
 
-**Kinotic sits between those layers.**
+No one took over the application in between.
+
+**That is where Kinotic sits.**
 
 <div align="center">
 
