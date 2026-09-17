@@ -292,7 +292,7 @@ The objective is simple:
 
 Kinotic can run as a managed platform or inside infrastructure controlled by the customer.
 
-| ☁️ **Kinotic OS Cloud** | 🛡️ **Customer-managed Kinotic OS** |
+| ☁️&nbsp;**Kinotic OS Cloud** | 🛡️&nbsp;**Customer-managed Kinotic OS** |
 |---|---|
 | Start building without provisioning or operating the underlying platform. | Forward-deploy Kinotic into your own Kubernetes environment: your cloud, your cluster, your network, your data, your security boundaries. |
 
