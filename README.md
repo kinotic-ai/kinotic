@@ -124,10 +124,10 @@ Kinotic provides the capabilities required throughout that lifecycle:
 
 | Lifecycle stage | What Kinotic provides |
 |---|---|
-| 🛠️ **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
-| 🔐 **Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🔁 **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
-| 📈 **Operate** | Observability · LLM observability |
+| 🛠️&nbsp;**Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
+| 🔐&nbsp;**Secure** | Authentication · Fine-grained authorization · Security controls |
+| 🔁&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 📈&nbsp;**Operate** | Observability · LLM observability |
 
 ---
 
@@ -167,8 +167,8 @@ Kinotic is designed for applications ranging from small internal tools to produc
 
 |  |  |
 |---|---|
-| **🧪 Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢 Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
-| **🌱 Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️ Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
+| **🧪&nbsp;Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢&nbsp;Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
+| **🌱&nbsp;Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️&nbsp;Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
 
 ---
 
