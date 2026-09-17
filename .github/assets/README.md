@@ -71,7 +71,10 @@ which keeps them sharp on a high-density screen.
 ### Motion
 
 The cubes carry the home page's float (7s) and tumble (9s) as CSS inside the file, which animates
-inside an `<img>` because it is style rather than script. Each one honours
+inside an `<img>` because it is style rather than script. Travel is expressed as a percentage of the
+cube rather than in pixels, at the proportion the site moves its own — roughly a quarter of the cube
+for a tumble, a fifth for a float — and each viewBox carries headroom above the cube so the top of
+that travel is not clipped. Each one honours
 `prefers-reduced-motion: reduce` and holds still for a reader who asked for that. Nothing else in
 the README moves — the marks are deliberately static.
 

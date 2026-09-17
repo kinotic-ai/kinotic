@@ -8,7 +8,8 @@
 
 ### Prototype to production
 
-**Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
+Linux abstracted the hardware. Kinotic OS abstracts the cloud,<br>
+so humans and AI can build enterprise software at internet scale.
 
 [![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json&cacheSeconds=300)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
