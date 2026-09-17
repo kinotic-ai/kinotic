@@ -186,14 +186,21 @@ root has uploaded them.
 
 ## Day 2
 
+- **A new build** is `./redeploy.sh`, which deploys only what changed: the server and
+  migration containers when the images at `kinotic_version` have a new digest on Docker Hub
+  (the migration runs again), the portal and the console when `kinotic-frontend` differs from
+  what the sites account serves, and the vm-manager on each node in `vm_nodes` when the
+  version `vm_manager_version` resolves to on npm is not the one installed. `--dry-run` prints
+  the decisions. It needs `az` signed in for the sites account and ssh to the host and the
+  nodes; `vm_nodes` is a list of `user@host` in `local.auto.tfvars`.
 - **Logs.** Each container's stdout and stderr go to `/var/log/kinotic/<name>.log` on the
   host (16 MB, one rotation); the server's logs are in Loki too, through Grafana.
 - **A config or environment change** — `tempo.yml` in `deployment/docker-compose`, a value
   in `main.tf` — is a `terraform apply`: the applier restarts only the containers whose
   manifest or files changed.
 - **A newer image** (a republished SNAPSHOT included) is a replacement of the image and the
-  containers built from it; every container's state is in host directories, so it comes back
-  with its data:
+  containers built from it, which is what `redeploy.sh` does; every container's state is in
+  host directories, so it comes back with its data. By hand:
 
   ```bash
   terraform apply -replace=proxmox_oci_image.kinotic_server -replace='proxmox_virtual_environment_container.fleet["kinotic-server"]'
