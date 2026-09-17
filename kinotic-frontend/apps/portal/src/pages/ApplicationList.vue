@@ -27,9 +27,9 @@ const toast = useToast();
 
 const headers: CrudHeader[] = [
   { field: "name", header: "Name", sortable: false, width: "22%" },
-  { field: "id", header: "Id", sortable: false, width: "22%" },
-  { field: "description", header: "Description", sortable: false, width: "32%" },
-  { field: "created", header: "Created", sortable: false, width: "12%" },
+  { field: "id", header: "Id", sortable: false, width: "22%", optional: true },
+  { field: "description", header: "Description", sortable: false, width: "32%", optional: true },
+  { field: "created", header: "Created", sortable: false, width: "12%", optional: true },
   { field: "updated", header: "Updated", sortable: false, width: "12%" },
 ];
 

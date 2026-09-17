@@ -1,6 +1,11 @@
 server:
   http_listen_port: 3200
 
+# Multi-tenant like Loki: X-Scope-OrgID routes each org's workload traces to its own tenant,
+# and the server reads back only the tenant a caller may see. Every push and query must
+# carry the header — the collector stamps kinotic-system on the server's own traces.
+multitenancy_enabled: true
+
 distributor:
   receivers:
     otlp:
@@ -53,6 +58,10 @@ metrics_generator:
       dimensions:
         - http.request.method
         - http.response.status_code
+        # Resource attributes the vm-manager stamps on every workload span, so the RED metrics
+        # of one application or workload can be selected within its organization's tenant
+        - application_id
+        - workload_id
       # Adds the job/instance labels, so span metrics join against the OTLP metrics Mimir
       # stores (where service.name becomes job) instead of living in a separate label space.
       enable_target_info: true

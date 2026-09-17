@@ -87,6 +87,12 @@ public class KinoticProperties {
      */
     private PlatformSecretsProperties platformSecrets = new PlatformSecretsProperties();
 
+    /**
+     * The CRI patterns that decide what trace logging prints.
+     * This is what a node starts with; {@code LogManager} replaces the patterns on a running node.
+     */
+    private TraceLogProperties traceLog = new TraceLogProperties();
+
 
     public void setMaxNumberOfCoresToUse(int maxNumberOfCoresToUse) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();

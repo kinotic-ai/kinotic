@@ -12,11 +12,13 @@ import org.kinotic.grind.api.model.events.TaskFailedEvent;
 import org.kinotic.grind.api.model.events.TaskStartedEvent;
 import org.kinotic.grind.api.model.events.TasksDiscoveredEvent;
 import org.kinotic.grind.api.model.Store;
+import org.kinotic.grind.api.model.TaskRecord;
 import org.kinotic.grind.api.model.StoreType;
 import org.kinotic.grind.api.model.Tasks;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,7 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The event stream and the persisted ledger: emission order, stored values on completions,
- * record lifecycle, failure capture, laziness, and replay to late subscribers.
+ * record lifecycle, write-ahead recording, failure capture, laziness, and replay to late
+ * subscribers.
  */
 public class EventsAndRecordingTest extends AbstractGrindTest {
 
@@ -61,6 +64,24 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
     }
 
     @Test
+    public void discoveryCarriesTheDeclaredStoreName() throws Exception {
+        JobDefinition job = JobDefinition.create("declared")
+                .name("declared").version("1")
+                .task(Tasks.fromValue("produce widget", new Widget("named")), Store.state("widgetOfRecord"))
+                .task(Tasks.fromValue("produce another", new Widget("derived")), Store.result());
+
+        RunResult result = await(jobService.run(job, JobOwner.system()));
+
+        TasksDiscoveredEvent discovered = assertInstanceOf(TasksDiscoveredEvent.class, result.events().get(0));
+        TaskRecord named = discovered.tasks().stream().filter(r -> r.getTaskPath().equals("0/1")).findFirst().orElseThrow();
+        assertEquals("widgetOfRecord", named.getStoredName());
+        assertEquals(StoreType.STATE, named.getStoreType());
+        // A store that derives its name from the value cannot name it before the value exists
+        TaskRecord derived = discovered.tasks().stream().filter(r -> r.getTaskPath().equals("0/2")).findFirst().orElseThrow();
+        assertNull(derived.getStoredName());
+    }
+
+    @Test
     public void completionCarriesStoredValueInProcess() throws Exception {
         JobDefinition job = JobDefinition.create("carrying")
                 .name("carrying").version("1")
@@ -84,7 +105,7 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
                 .name("recorded").version("2.0")
                 .task(Tasks.fromRunnable("only", () -> { }));
 
-        JobRunHandle handle = jobService.run(job, JobOwner.ofApplication("org1", "app1"));
+        JobRunHandle handle = jobService.run(job, JobOwner.ofApplication("org1", "app1", null));
         await(handle);
 
         JobRun run = repository.savedRuns.get(handle.getJobRunId());
@@ -102,6 +123,46 @@ public class EventsAndRecordingTest extends AbstractGrindTest {
         assertEquals(ExecutionStatus.COMPLETED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
         assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getStarted());
         assertNotNull(repository.taskAt(handle.getJobRunId(), "0/1").getFinished());
+    }
+
+    @Test
+    public void ledgerIsWrittenAheadOfExecution() throws Exception {
+        // the run id is known before the run starts, so the tasks can read their own ledger
+        AtomicReference<String> runId = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> runStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> ownStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> firstStatusSeenBySecond = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> ownStatusSeenBySecond = new AtomicReference<>();
+        AtomicReference<ExecutionStatus> thirdStatusSeenByFirst = new AtomicReference<>();
+        AtomicReference<String> thirdStoredNameSeenByFirst = new AtomicReference<>();
+        JobDefinition job = JobDefinition.create("write-ahead")
+                .name("write-ahead").version("1")
+                .task(Tasks.fromRunnable("first", () -> {
+                    runStatusSeenByFirst.set(repository.savedRuns.get(runId.get()).getStatus());
+                    ownStatusSeenByFirst.set(repository.taskAt(runId.get(), "0/1").getStatus());
+                    thirdStatusSeenByFirst.set(repository.taskAt(runId.get(), "0/3").getStatus());
+                    thirdStoredNameSeenByFirst.set(repository.taskAt(runId.get(), "0/3").getStoredName());
+                }))
+                .task(Tasks.fromRunnable("second", () -> {
+                    firstStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/1").getStatus());
+                    ownStatusSeenBySecond.set(repository.taskAt(runId.get(), "0/2").getStatus());
+                }))
+                .task(Tasks.fromValue("third", new Widget("ahead")), Store.state("widgetOfRecord"));
+
+        JobRunHandle handle = jobService.run(job, JobOwner.system());
+        runId.set(handle.getJobRunId());
+        RunResult result = await(handle);
+
+        assertNull(result.error());
+        assertEquals(ExecutionStatus.RUNNING, runStatusSeenByFirst.get());
+        assertEquals(ExecutionStatus.RUNNING, ownStatusSeenByFirst.get());
+        assertEquals(ExecutionStatus.COMPLETED, firstStatusSeenBySecond.get());
+        assertEquals(ExecutionStatus.RUNNING, ownStatusSeenBySecond.get());
+        // A task not yet reached is on the ledger already, named by what it will store
+        assertEquals(ExecutionStatus.PENDING, thirdStatusSeenByFirst.get());
+        assertEquals("widgetOfRecord", thirdStoredNameSeenByFirst.get());
+        // the stream terminates only after the terminal records have landed
+        assertEquals(ExecutionStatus.COMPLETED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
     }
 
     @Test

@@ -9,7 +9,7 @@ import { CloudHypervisorProvider } from '@/internal/api/providers/CloudHyperviso
 import { EgressPolicyManager } from '@/internal/api/network/EgressPolicyManager'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
-import { AlloyManager } from '@/internal/api/logging/AlloyManager'
+import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
 import type { Workload } from '@kinotic-ai/management-api'
 import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
@@ -25,26 +25,41 @@ if (!nodeId) {
     process.exit(1)
 }
 
-const alloyManager = config.lokiUrl
+const alloyManager = config.lokiUrl || config.tempoUrl || config.mimirUrl
     ? new AlloyManager({
-        lokiUrl: config.lokiUrl,
+        lokiUrl: config.lokiUrl || null,
+        tempoUrl: config.tempoUrl || null,
+        mimirUrl: config.mimirUrl || null,
         nodeId,
         dataDir: config.alloyDataDir,
     })
     : null
-if (!alloyManager) {
+if (!config.lokiUrl) {
     console.warn('KINOTIC_LOKI_URL is not set — workload log shipping is disabled')
+}
+if (!config.tempoUrl) {
+    console.warn('KINOTIC_TEMPO_URL is not set — workload trace shipping is disabled')
+}
+if (!config.mimirUrl) {
+    console.warn('KINOTIC_MIMIR_URL is not set — workload metric shipping is disabled')
 }
 
 let heartbeatTimer: Timer | null = null
 let shuttingDown = false
 let reconnecting = false
 
-// Backoff between reconnect attempts after a fatal event bus error, jittered so a fleet of
-// nodes does not retry a restarting server in lockstep
+// The reconnect delay doubles from the initial value up to the maximum. The jitter is added
+// after that clamp, so a fleet of nodes that lost the server together stays spread out even
+// once every one of them has settled at the maximum delay.
 const RECONNECT_INITIAL_DELAY_MS = 2000
-const RECONNECT_MAX_DELAY_MS = 60000
-const RECONNECT_JITTER_MS = 5000
+const RECONNECT_MAX_DELAY_MS = 120000
+const RECONNECT_MIN_JITTER_MS = 1000
+const RECONNECT_MAX_JITTER_MS = 5000
+
+// How long a graceful disconnect may take before the process exits with the socket still open. A
+// half-open socket answers neither the DISCONNECT frame nor the close, so a graceful disconnect on
+// one lasts the heartbeat timeout plus the WebSocket close timeout; the exit closes it instead.
+const DISCONNECT_TIMEOUT_MS = 5000
 
 // The node runs whichever provider it is configured for and nothing else, so a provider it
 // cannot construct is a fatal misconfiguration rather than a capability to omit
@@ -57,19 +72,20 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
         // One-shot, so it must run before anything asks for the runtime.
         getJsBoxlite().initDefault({ homeDir: config.boxliteHome })
         ret = new BoxliteProvider(config.boxliteHome, config.vmLogsDir, config.vmStateDir,
-                                  config.workloadDataDir, reportStatus)
+                                  config.workloadDataDir, reportStatus, alloyManager)
     } else if (config.providerType === VmProviderType.CLOUD_HYPERVISOR) {
         const egress = new EgressPolicyManager(config.workloadDns ?? null)
         if (!egress.enforces()) {
             console.warn('This node does not deny workload egress by default — a workload can reach '
-                         + 'anything its address can route to. See docker-kata-ch/README.md')
+                         + 'anything its address can route to. See deployment/vm-node/README.md')
         }
         ret = new CloudHypervisorProvider(join(config.vmStateDir, 'cloud-hypervisor'),
                                           new Docker(),
                                           config.workloadDataDir,
                                           egress,
                                           config.workloadDns ?? null,
-                                          reportStatus)
+                                          reportStatus,
+                                          alloyManager)
     } else {
         throw new Error(`No provider implementation for ${config.providerType}`)
     }
@@ -86,36 +102,39 @@ function toStatusReport(workload: Workload): WorkloadStatusReport {
 }
 
 /**
- * Why this node cannot ship the logs of the workloads it runs, if it cannot. A workload whose
- * output goes nowhere is not one this node should be given, so this joins the invariants the
- * provider checks — the node keeps what it is running and stops being offered more.
+ * Why this node cannot ship the telemetry of the workloads it runs, if it cannot. A workload
+ * whose output goes nowhere is not one this node should be given, so this joins the invariants
+ * the provider checks — the node keeps what it is running and stops being offered more.
  *
- * Only a node that was asked to ship logs can fail to: one started without KINOTIC_LOKI_URL
- * has already said so at startup.
+ * Only a node that was asked to ship can fail to: one started without KINOTIC_LOKI_URL,
+ * KINOTIC_TEMPO_URL, and KINOTIC_MIMIR_URL has already said so at startup.
  */
-function logShippingProblems(): string[] {
+function shippingProblems(): string[] {
     const problem = alloyManager?.shippingProblem() ?? null
     return problem !== null ? [problem] : []
 }
 
 /**
- * Rejoins the server after the event bus fails fatally. A fatal error deactivates the connection
- * for good — a gateway restart that invalidates this connection's reply destination is the common
- * cause — so without this the node keeps running its workloads while the orchestrator sees it go
- * offline. Retries until it connects: the workloads outlive the server being down.
+ * Rejoins the server after a connection the event bus will not retry. An ordinary dropped connection
+ * is the STOMP client's own reconnect; a failure — a server ERROR frame, credentials that no longer
+ * resolve — ends the connection for good instead, so without this the node keeps running its
+ * workloads while the orchestrator sees it go offline. Retries until it connects: the workloads
+ * outlive the server being down.
  */
-function reconnectOnFatalError() {
-    Kinotic.eventBus.fatalErrors.subscribe(async (error: Error) => {
-        // Each failed reconnect signals another fatal error, which lands back here
-        if (reconnecting || shuttingDown) {
+function reconnectWhenTheBusStopsRetrying() {
+    Kinotic.eventBus.connectionEnded.subscribe(async (reason: Error | null) => {
+        // Each failed reconnect ends another connection, which lands back here
+        if (reconnecting || shuttingDown || Kinotic.eventBus.isConnectionActive()) {
             return
         }
         reconnecting = true
-        console.error('Kinotic connection failed fatally, reconnecting:', error)
+        console.error('Kinotic connection ended, reconnecting:', reason)
         try {
             let delayMs = RECONNECT_INITIAL_DELAY_MS
             while (!shuttingDown && !Kinotic.eventBus.isConnectionActive()) {
-                await new Promise(resolve => setTimeout(resolve, delayMs + Math.random() * RECONNECT_JITTER_MS))
+                const jitterMs = RECONNECT_MIN_JITTER_MS
+                                 + Math.random() * (RECONNECT_MAX_JITTER_MS - RECONNECT_MIN_JITTER_MS)
+                await new Promise(resolve => setTimeout(resolve, delayMs + jitterMs))
                 try {
                     // Published services and observed destinations re-subscribe with the new
                     // connection, and the next heartbeat marks the node online again
@@ -123,7 +142,7 @@ function reconnectOnFatalError() {
                     console.log('Reconnected to the Kinotic server')
                 } catch (e) {
                     delayMs = Math.min(delayMs * 2, RECONNECT_MAX_DELAY_MS)
-                    console.error(`Reconnect failed, retrying in ${delayMs / 1000}s:`, e)
+                    console.error(`Reconnect failed, retrying in ~${delayMs / 1000}s:`, e)
                 }
             }
         } finally {
@@ -135,11 +154,13 @@ function reconnectOnFatalError() {
 function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
                         vmManager: DefaultVmManager,
                         provider: IVmProvider) {
-    heartbeatTimer = setInterval(async () => {
+    // The next beat is scheduled once this one has finished, so a heartbeat that outlives its
+    // interval while the server is slow or unreachable never overlaps the one after it
+    const beat = async () => {
         try {
             // A node that stopped enforcing something keeps its workloads but takes no more
             await nodeOrchestrator.heartbeat(nodeId!, [...await provider.checkNodeHealth(),
-                                                      ...logShippingProblems()])
+                                                      ...shippingProblems()])
             // Snapshot reconciliation: re-reporting everything converges any transition
             // whose push was lost while the server was unreachable
             const workloads = await vmManager.listWorkloads()
@@ -148,8 +169,13 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
             }
         } catch (error) {
             console.error('Heartbeat failed:', error)
+        } finally {
+            if (!shuttingDown) {
+                heartbeatTimer = setTimeout(beat, config.heartbeatIntervalMs)
+            }
         }
-    }, config.heartbeatIntervalMs)
+    }
+    heartbeatTimer = setTimeout(beat, config.heartbeatIntervalMs)
 }
 
 async function start() {
@@ -164,8 +190,8 @@ async function start() {
     const server = Kinotic.eventBus.serverInfo
     console.log(`Connected to Kinotic server at ${server?.host}:${server?.port}`)
 
-    // Installed after the first connect so a fatal error there still fails startup
-    reconnectOnFatalError()
+    // Installed after the first connect so a failure there still fails startup
+    reconnectWhenTheBusStopsRetrying()
 
     const nodeOrchestrator = new VmNodeOrchestrationServiceProxy(Kinotic)
 
@@ -183,9 +209,9 @@ async function start() {
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
     const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
-    // Resume shipping the recovered workloads' logs, which also downloads and launches
+    // Resume shipping the recovered workloads' telemetry, which also downloads and launches
     // Alloy here rather than inside whichever startWorkload call arrives first
-    await vmManager.refreshLogShipping()
+    await vmManager.refreshShipping()
 
     // Build registration info from system resources
     const registration = new VmNodeRegistration(nodeId!, os.hostname(), os.hostname())
@@ -212,10 +238,10 @@ async function shutdown() {
     console.log('Shutting down VM Manager...')
     shuttingDown = true
     if (heartbeatTimer) {
-        clearInterval(heartbeatTimer)
+        clearTimeout(heartbeatTimer)
     }
     await alloyManager?.stop()
-    await Kinotic.disconnect()
+    await Promise.race([Kinotic.disconnect(), Bun.sleep(DISCONNECT_TIMEOUT_MS)])
     process.exit(0)
 }
 

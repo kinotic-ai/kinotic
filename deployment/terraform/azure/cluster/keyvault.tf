@@ -11,7 +11,7 @@ resource "azurerm_key_vault" "main" {
   tenant_id                  = data.azurerm_client_config.keyvault.tenant_id
   sku_name                   = "standard"
   soft_delete_retention_days = 7
-  purge_protection_enabled   = false  # set true for production
+  purge_protection_enabled   = false # set true for production
 
   # Use RBAC for access control (not access policies)
   rbac_authorization_enabled = true
@@ -37,11 +37,11 @@ resource "azurerm_role_assignment" "kinotic_server_kv_secrets" {
 
 # Federated credential so kinotic-server pods authenticate via workload identity
 resource "azurerm_federated_identity_credential" "kinotic_server" {
-  name                  = "kinotic-server-federated"
+  name                      = "kinotic-server-federated"
   user_assigned_identity_id = azurerm_user_assigned_identity.kinotic_server.id
-  audience              = ["api://AzureADTokenExchange"]
-  issuer                = data.azurerm_kubernetes_cluster.main.oidc_issuer_url
-  subject               = "system:serviceaccount:kinotic:kinotic-server"
+  audience                  = ["api://AzureADTokenExchange"]
+  issuer                    = data.azurerm_kubernetes_cluster.main.oidc_issuer_url
+  subject                   = "system:serviceaccount:kinotic:kinotic-server"
 }
 
 # ── Platform Key Vault access ─────────────────────────────────────────────────

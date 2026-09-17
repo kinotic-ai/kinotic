@@ -49,6 +49,33 @@ public class EventUtil {
         return Event.create(replyCRI, newMetadata, bodySupplier != null ?  bodySupplier.get() : null);
     }
 
+    /**
+     * The metadata an error reply to a request needs: the reply destination and the headers every reply
+     * persists, which is everything a hop holding the request outstanding has to keep.
+     * @param requestMetadata the request's metadata
+     * @return a new {@link Metadata} carrying the reply-to header and every {@code __} header
+     */
+    public static Metadata replyMetadataOf(Metadata requestMetadata) {
+        Metadata ret = Metadata.create();
+        for (Map.Entry<String, String> entry : requestMetadata) {
+            if (EventConstants.REPLY_TO_HEADER.equals(entry.getKey()) || entry.getKey().startsWith("__")) {
+                ret.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * Whether a reply ends the request it answers: an error reply, or one carrying the completion marker,
+     * which every single-value reply and every stream completion does.
+     * @param replyMetadata the reply's metadata
+     * @return true when no further reply follows for the request
+     */
+    public static boolean isTerminalReply(Metadata replyMetadata) {
+        return replyMetadata.contains(EventConstants.ERROR_HEADER)
+                || EventConstants.CONTROL_VALUE_COMPLETE.equals(replyMetadata.get(EventConstants.CONTROL_HEADER));
+    }
+
     public static String toString(Event<byte[]> event, boolean includeData) {
         StringBuilder sb = new StringBuilder("Event<byte>{\n");
         sb.append("\tcri=");

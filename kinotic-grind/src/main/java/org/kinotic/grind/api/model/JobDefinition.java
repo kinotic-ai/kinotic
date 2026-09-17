@@ -1,5 +1,6 @@
 package org.kinotic.grind.api.model;
 
+import org.kinotic.grind.api.services.JobService;
 import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.api.services.TaskClassCompiler;
 

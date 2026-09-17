@@ -58,7 +58,8 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
     private JsonObject createFilterIfNeeded(QueryContext context) {
         JsonObject filter = null;
         // add multi tenancy filters if needed
-        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED) {
+        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
+                && !context.getEntityContext().selectsAllTenants()) {
 
             if(entityDescriptor.isMultiTenantSelectionEnabled() && context.getEntityContext().hasTenantSelection()){
 
@@ -102,7 +103,7 @@ public class AggregateQueryExecutor extends AbstractQueryExecutor {
                 //       ]
                 //     }
 
-                String tenantId = context.getEntityContext().getParticipant().getTenantId();
+                String tenantId = context.getEntityContext().requireTenantId();
                 filter = new JsonObject().put("bool", new JsonObject()
                         .put("filter", new JsonArray()
                                 .add(new JsonObject().put("term", new JsonObject()

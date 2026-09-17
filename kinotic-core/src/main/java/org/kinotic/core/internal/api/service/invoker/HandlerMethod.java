@@ -4,8 +4,6 @@ package org.kinotic.core.internal.api.service.invoker;
 
 import lombok.Getter;
 import org.apache.commons.lang3.Validate;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.BridgeMethodResolver;
 import org.springframework.core.MethodParameter;
 import org.springframework.util.ClassUtils;
@@ -25,8 +23,6 @@ import java.util.stream.IntStream;
  * Created by Navid Mitchell on 2019-03-25.
  */
 public class HandlerMethod {
-
-    private static final Logger log = LoggerFactory.getLogger(HandlerMethod.class);
 
     /**
      * -- GETTER --
@@ -118,10 +114,6 @@ public class HandlerMethod {
         Method method = getBridgedMethod();
         ReflectionUtils.makeAccessible(method);
         try {
-            if(log.isTraceEnabled()){
-                log.trace(formatInvokeMessage("Invoking ", args));
-            }
-
             return method.invoke(getBean(), args);
         }
         catch (IllegalArgumentException ex) {

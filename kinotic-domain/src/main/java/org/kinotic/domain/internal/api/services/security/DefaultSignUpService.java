@@ -101,9 +101,10 @@ public class DefaultSignUpService implements SignUpService {
     }
 
     /**
-     * Creates the organization (failing if the name is taken), then makes {@code admin} its first
-     * member and creator. The admin (and its credential, when {@code password} is non-null) is
-     * created through {@link ParticipantIdentityService#createUser} so member creation has a single code path.
+     * Creates the organization (failing if the name is taken), makes {@code admin} its first
+     * member and creator. The admin (and its credential, when
+     * {@code password} is non-null) is created through {@link ParticipantIdentityService#createUser}
+     * so member creation has a single code path.
      */
     private Future<UserParticipantIdentity> createOrgWithAdmin(String orgName, String orgDescription, UserParticipantIdentity admin, String password) {
         Organization org = new Organization().setName(orgName).setDescription(orgDescription);
@@ -113,8 +114,7 @@ public class DefaultSignUpService implements SignUpService {
                     return identityService.createUser(admin, password)
                             .compose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
-                                return organizationService.save(savedOrg)
-                                                          .map(savedAdmin);
+                                return organizationService.save(savedOrg).map(savedAdmin);
                             });
                 });
     }

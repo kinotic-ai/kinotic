@@ -7,7 +7,10 @@ import reactor.core.publisher.Flux;
 
 /**
  * Executes {@link JobDefinition}s as recorded runs: a {@link JobRun} is persisted for the run
- * and a {@link TaskRecord} for every task.
+ * and a {@link TaskRecord} for every task. Records are written ahead of execution - the run
+ * and its PENDING task records before the first task starts, a task's RUNNING record before
+ * the task executes, and its terminal record before the next task starts - so a run cut short
+ * by its node leaves a ledger naming the task that was in flight.
  */
 public interface JobService {
 

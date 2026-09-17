@@ -15,6 +15,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 import tools.jackson.databind.util.TokenBuffer;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -142,6 +143,11 @@ public class DefaultRpcTestService implements RpcTestService{
     }
 
     @Override
+    public Mono<String> getMonoAfterDelay(String value, long delayMillis) {
+        return Mono.delay(Duration.ofMillis(delayMillis)).map(_ -> value);
+    }
+
+    @Override
     public Mono<Void> getMonoWithVoidFromEmpty() {
         return Mono.create(MonoSink::success);
     }
@@ -191,6 +197,11 @@ public class DefaultRpcTestService implements RpcTestService{
     @Override
     public List<String> modifyListOfStrings(String[] stringsToModify) {
         return Arrays.stream(stringsToModify).map(s -> "Hello "+ s).collect(Collectors.toList());
+    }
+
+    @Override
+    public Mono<String> narrowParticipant(NarrowParticipant participant){
+        return Mono.just(participant.getId());
     }
 
     @Override

@@ -1,24 +1,30 @@
 <template>
-  <Toolbar class="!w-full flex-shrink-0">
-    <template #start>
+  <div class="mb-3 flex shrink-0 items-center gap-2">
+    <IconField class="w-[236px] max-w-sm">
+      <InputIcon class="pi pi-search" />
       <InputText
         :modelValue="searchText"
-        @update:modelValue="$emit('update:searchText', $event)"
         placeholder="Search"
+        size="small"
+        name="search"
+        autocomplete="off"
+        @update:modelValue="$emit('update:searchText', $event)"
         @keyup.enter="$emit('search')"
         @focus="($event.target as HTMLInputElement)?.select()"
-        class="w-1/2"
       />
-      <Button icon="pi pi-times" class="ml-2" v-if="searchText" @click="$emit('clearSearch')" />
-    </template>
-  </Toolbar>
+    </IconField>
+    <Button v-if="searchText" icon="pi pi-times" severity="secondary" text rounded size="small"
+            aria-label="Clear search" @click="$emit('clearSearch')" />
+  </div>
 </template>
 
 <script setup lang="ts">
-import Toolbar from 'primevue/toolbar'
 import Button from 'primevue/button'
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 
+/** The search field above the entity table, in the shape every CrudTable draws its own. */
 withDefaults(defineProps<{
   searchText?: string | null
 }>(), {

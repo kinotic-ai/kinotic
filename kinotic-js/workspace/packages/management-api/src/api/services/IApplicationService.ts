@@ -12,10 +12,14 @@ export interface IApplicationService extends ICrudServiceProxy<Application> {
      * the server.
      * @param name the name of the application to create
      * @param description the description of the application to create
+     * @param tenantPerUser true to give every APPLICATION-scope user of this application its
+     *        own tenant, isolating each user's MultiTenancyType.SHARED entity data; false or
+     *        omitted to leave all users sharing one set of data. Applies to users created
+     *        while it is enabled, so it is chosen before the application has users
      * @return {@link Promise} emitting the created application, or the existing application
      *         whose id matches the slugified name
      */
-    createApplicationIfNotExist(name: string, description: string): Promise<Application>
+    createApplicationIfNotExist(name: string, description: string, tenantPerUser?: boolean): Promise<Application>
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -31,8 +35,8 @@ export class ApplicationService extends CrudServiceProxy<Application> implements
         super(kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.ApplicationService`))
     }
 
-    public createApplicationIfNotExist(id: string, description: string): Promise<Application> {
-        return this.serviceProxy.invoke('createApplicationIfNotExist', [id, description])
+    public createApplicationIfNotExist(name: string, description: string, tenantPerUser?: boolean): Promise<Application> {
+        return this.serviceProxy.invoke('createApplicationIfNotExist', [name, description, tenantPerUser])
     }
 
     public syncIndex(): Promise<void> {

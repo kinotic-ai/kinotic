@@ -30,7 +30,7 @@ describe('System login route', () => {
 
     function sessionCookie(res: Response): string {
         const cookies = res.headers.getSetCookie()
-        const session = cookies.find(c => c.startsWith('vertx-web.session='))
+        const session = cookies.find(c => c.startsWith('__Host-kinotic-session='))
         expect(session, 'login response must set the session cookie').toBeDefined()
         return session!.split(';')[0]
     }

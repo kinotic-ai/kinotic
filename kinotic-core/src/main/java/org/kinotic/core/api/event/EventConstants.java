@@ -34,9 +34,12 @@ public class EventConstants {
     public static final String SESSION_HEADER = "session";
 
     /**
-     * Cookie name used by browser clients to provide the session id during WebSocket handshake.
+     * Name of the browser session cookie, set by the api-gateway on login and presented on every
+     * request and WebSocket handshake. The {@code __Host-} prefix makes browsers accept it only
+     * when Secure, path {@code /} and without a Domain, so no page on a sibling host can plant
+     * or override it.
      */
-    public static final String SESSION_COOKIE_NAME = "kinotic-session";
+    public static final String SESSION_COOKIE_NAME = "__Host-kinotic-session";
 
     /**
      * Browser-readable cookie that indicates whether a session may be available.
@@ -63,6 +66,17 @@ public class EventConstants {
      * Origin service CRI sent on stream replies so a client can route a cancel back to the service.
      */
     public static final String ORIGIN_CRI_HEADER = "__origin-cri";
+
+    /**
+     * Marks a request the gateway matched against {@code kinotic.traceLog}. Persisted onto every
+     * reply the request produces, so a reply frame, which is addressed to the caller and names no
+     * service to match, is left out of trace logging along with the request it answers.
+     *
+     * Server-side bookkeeping, set only while trace logging is on: it travels between the gateway
+     * and whatever answers the request, and the gateway strips it from every frame it writes to a
+     * client.
+     */
+    public static final String TRACE_EXCLUDED_HEADER = "__trace-excluded";
 
     /**
      * Denotes that something caused an error. Will contain a brief message about the error.

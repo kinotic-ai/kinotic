@@ -15,6 +15,11 @@ kinotic:
     deployment:
       # required at boot; no deployment ever runs in tests, workloads would reach the local gateway
       serverHost: localhost
+    # placeholder site config, validated at boot; no test deploys a UI
+    uiDeployment:
+      disableProvisioner: true
+      sitesDomain: apps.localhost
+      sitesStorageEndpoint: "-"
 
 logging:
   level:

@@ -117,9 +117,11 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
     private ScriptSource buildScript(Map<String, Expression> assignments) {
         StringBuilder script = new StringBuilder();
         boolean merges = assignments.values().stream().anyMatch(UpdateStatementExecutor::mergesIntoStoredObject);
+
         if (merges) {
             script.append(MERGE_QUEUE);
         }
+
         assignments.forEach((field, expr) -> {
             if (expr instanceof BinaryExpression(String left, String binaryOperator, String rightOperand)) {
                 String operator = switch (binaryOperator) {
@@ -130,7 +132,9 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                     case "==" -> "=="; // Not typically used in SET, but included
                     default -> throw new IllegalStateException("Unsupported operator: " + binaryOperator);
                 };
+
                 String right = ParameterUtils.isReference(rightOperand) ? "params." + field : rightOperand;
+
                 script.append(BINARY_ASSIGNMENT.formatted(field, left, operator, right));
             } else if (clearsStoredValue(expr)) {
                 script.append(CLEARING_ASSIGNMENT.formatted(field));
@@ -142,9 +146,11 @@ public class UpdateStatementExecutor implements StatementExecutor<UpdateStatemen
                 script.append(ASSIGNMENT.formatted(field));
             }
         });
+
         if (merges) {
             script.append(MERGE_DRAIN);
         }
+
         return ScriptSource.of(ssb -> ssb.scriptString(script.toString()));
     }
 

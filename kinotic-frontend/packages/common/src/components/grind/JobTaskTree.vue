@@ -29,6 +29,19 @@
         <span class="w-16 shrink-0 text-right text-xs text-muted-color">
           {{ formatDuration(row.node.started, row.node.finished, now) }}
         </span>
+        <button v-if="props.expandable?.(row.node)"
+                class="w-5 shrink-0 text-muted-color hover:text-color"
+                type="button"
+                :aria-expanded="detailOpen(row.node)"
+                @click="toggleDetail(row.node.taskPath)">
+          <i :class="detailOpen(row.node) ? 'pi pi-angle-up' : 'pi pi-angle-down'" class="text-xs" />
+        </button>
+        <span v-else class="w-5 shrink-0" />
+      </div>
+      <div v-if="props.expandable?.(row.node) && detailOpen(row.node)"
+           class="pb-2 pr-3"
+           :style="{ paddingLeft: `${row.depth * 1.25 + 2.5}rem` }">
+        <slot name="detail" :node="row.node" />
       </div>
 
       <div v-if="row.node.progress && row.node.status === ExecutionStatus.RUNNING"
@@ -67,14 +80,23 @@ interface TreeRow {
 
 /**
  * The run's full task ledger as an indented, collapsible tree. Rows appear as tasks are
- * discovered, at any depth; now drives the running rows' elapsed time.
+ * discovered, at any depth; now drives the running rows' elapsed time. A row expandable
+ * per the given predicate carries the detail slot beneath it, open while the task runs
+ * unless toggled shut, and closed otherwise unless toggled open.
  */
 const props = defineProps<{
   root: JobTaskNode
   now: number
+  expandable?: (node: JobTaskNode) => boolean
+}>()
+
+defineSlots<{
+  detail(props: { node: JobTaskNode }): unknown
 }>()
 
 const collapsed = ref(new Set<string>())
+// Paths whose detail the user flipped away from its default of "open while running"
+const detailToggled = ref(new Set<string>())
 
 const rows = computed<TreeRow[]>(() => {
   const out: TreeRow[] = []
@@ -98,6 +120,20 @@ function toggle(taskPath: string): void {
     next.add(taskPath)
   }
   collapsed.value = next
+}
+
+function detailOpen(node: JobTaskNode): boolean {
+  return (node.status === ExecutionStatus.RUNNING) !== detailToggled.value.has(node.taskPath)
+}
+
+function toggleDetail(taskPath: string): void {
+  const next = new Set(detailToggled.value)
+  if (next.has(taskPath)) {
+    next.delete(taskPath)
+  } else {
+    next.add(taskPath)
+  }
+  detailToggled.value = next
 }
 
 function dotClass(node: JobTaskNode): string {

@@ -48,6 +48,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
     private final JobRunRepository repository;
     private final StateSerializer stateSerializer;
     private final RunThreadFactory runThreads;
+    private final Vertx vertx;
     private final Kinotic kinotic;
 
     private final Map<String, JobRunHandle> activeRuns = new ConcurrentHashMap<>();
@@ -58,6 +59,7 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         this.repository = repository;
         this.stateSerializer = new StateSerializer(objectMapper);
         this.runThreads = new RunThreadFactory(vertx);
+        this.vertx = vertx;
         this.kinotic = kinotic;
     }
 
@@ -70,10 +72,11 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
         RunRecorder recorder = new RunRecorder(runId, definition, owner, null,
-                                               kinotic.serverInfo().getNodeId(), repository);
+                                               kinotic.serverInfo().getNodeId(), repository, vertx);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
-                startRunThread(sink, runId, () -> interpreter(sink, runId, definition, recorder, Map.of()).run()));
+                startRunThread(sink, runId, () -> interpreter(runId, definition, recorder,
+                                                              new RunEventEmitter(sink), Map.of()).run()));
         return registeredHandle(runId, upstream);
     }
 
@@ -86,15 +89,14 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         String runId = UUID.randomUUID().toString();
         DefaultJobDefinition definition = (DefaultJobDefinition) jobDefinition;
         RunRecorder recorder = new RunRecorder(runId, definition, null, jobRunId,
-                                               kinotic.serverInfo().getNodeId(), repository);
+                                               kinotic.serverInfo().getNodeId(), repository, vertx);
 
         Flux<JobRunEvent> upstream = Flux.create(sink ->
                 startRunThread(sink, runId, () -> {
                     RunEventEmitter emitter = new RunEventEmitter(sink);
                     try {
                         Map<String, ReplayEntry> replay = loadReplay(jobRunId, definition, recorder);
-                        new JobInterpreter(applicationContext, runId, definition,
-                                           List.of(recorder, emitter), replay, stateSerializer, runThreads).run();
+                        interpreter(runId, definition, recorder, emitter, replay).run();
                     } catch (RunCancelledException e) {
                         recorder.runCancelled();
                         emitter.runCancelled();
@@ -141,11 +143,12 @@ public class DefaultJobService implements JobService, ApplicationContextAware {
         return handle;
     }
 
-    private JobInterpreter interpreter(FluxSink<JobRunEvent> sink, String runId,
-                                       DefaultJobDefinition definition, RunRecorder recorder,
-                                       Map<String, ReplayEntry> replay) {
+    private JobInterpreter interpreter(String runId, DefaultJobDefinition definition, RunRecorder recorder,
+                                       RunEventEmitter emitter, Map<String, ReplayEntry> replay) {
+        // the recorder precedes the emitter, and its callbacks return only once their writes
+        // are acknowledged, so a transition reaches watchers only after it is durable
         return new JobInterpreter(applicationContext, runId, definition,
-                                  List.of(recorder, new RunEventEmitter(sink)), replay, stateSerializer, runThreads);
+                                  List.of(recorder, emitter), replay, stateSerializer, runThreads);
     }
 
     private void startRunThread(FluxSink<JobRunEvent> sink, String runId, Runnable body) {

@@ -27,7 +27,8 @@ export interface IMachineService {
     /**
      * Lists the machines the deployment of one of the caller's organization's projects has
      * provisioned for its workloads, in the order the deployment records them — the sync
-     * workload's, then the runtime workload's. A project that has never deployed has none.
+     * workload's, then one per microservice in name order. A project that has never deployed
+     * has none.
      */
     findProjectMachines(projectId: string): Promise<MachineParticipantIdentity[]>
 

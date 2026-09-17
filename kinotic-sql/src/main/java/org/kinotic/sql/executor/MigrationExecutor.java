@@ -90,40 +90,52 @@ public class MigrationExecutor {
      */
     private CompletableFuture<Void> executeMigrationsForProject(List<Migration> migrations, String projectId) {
         log.info("Executing migrations for project {}", projectId);
+
         // Always make a copy so we don't sort the original reference
         List<Migration> sortedMigrations = new ArrayList<>(migrations);
         sortedMigrations.sort(Comparator.comparingInt(Migration::getVersion));
+
         // Track seen versions to detect duplicates
         Set<Integer> seenVersions = new HashSet<>();
         CompletableFuture<Void> chain = CompletableFuture.completedFuture(null);
+
         for (Migration migration : sortedMigrations) {
             Integer version = migration.getVersion();
+
             if (!isValidVersion(version)) {
                 throw new IllegalArgumentException("Invalid migration version for " + migration.getName() + ": " + version);
             }
+
             if (!seenVersions.add(version)) {
                 throw new IllegalStateException("Duplicate migration version found: " + version + " (" + migration.getName() + ")");
             }
+
             chain = chain.thenCompose(v -> isMigrationAppliedAsync(String.valueOf(version), projectId)
                 .thenCompose(applied -> {
                     if (!applied) {
                         log.info("Applying migration {} for project {}", version, projectId);
+
                         MigrationContent content = migration.getContent();
                         long start = System.currentTimeMillis();
+
                         CompletableFuture<Void> statementChain = CompletableFuture.completedFuture(null);
                         for (Statement statement : content.statements()) {
                             statementChain = statementChain.thenCompose(v2 -> executeStatement(statement));
                         }
+
                         return statementChain.thenCompose(v2 -> {
                             long duration = System.currentTimeMillis() - start;
+
                             return recordMigrationAsync(version, projectId, migration.getName(), duration);
                         });
                     } else {
                         log.debug("Migration {} already applied for project {}", version, projectId);
+
                         return CompletableFuture.completedFuture(null);
                     }
                 }));
         }
+
         return chain;
     }
 

@@ -32,7 +32,7 @@ data:
   {{ end }}
 
   # ── Loki (LogService) ─────────────────────────────────────
-  KINOTIC_DOMAIN_LOKI_URL: "{{ .Values.kinotic.domain.loki.url }}"
+  KINOTIC_MANAGEMENTAPI_LOKIURL: "{{ .Values.kinotic.managementApi.lokiUrl }}"
 
   {{- if .Values.tls.enabled }}
   # ── SSL/TLS ──────────────────────────────────────────────

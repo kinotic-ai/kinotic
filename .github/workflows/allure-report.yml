@@ -122,6 +122,36 @@ jobs:
           </html>
           EOF
 
+      # The README's build badge. GitHub's own badge is fixed green/red, so the state is published
+      # as a shields endpoint document in the brand's colors instead. It rides along with the report
+      # because this workflow already runs after every build, red or green, and /test-results is the
+      # one tree website-deploy folds back in when it replaces the branch. The prune below only
+      # deletes numbered run folders, so the file survives it.
+      #
+      # Anything but a finished develop build leaves the published state standing: a cancelled run is
+      # one a newer push superseded, and a main build would otherwise overwrite what the badge claims
+      # about develop.
+      - name: Write build badge
+        if: ${{ github.event.workflow_run.head_branch == 'develop' }}
+        env:
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          case "$CONCLUSION" in
+            success) message=passing; color=28FEB4 ;;
+            failure) message=failing; color=EC1F52 ;;
+            *) echo "Triggering build was $CONCLUSION; leaving the published badge as it is."; exit 0 ;;
+          esac
+          mkdir -p allure-history/test-results
+          cat > allure-history/test-results/build-badge.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "build",
+            "message": "${message}",
+            "color": "${color}",
+            "labelColor": "171717"
+          }
+          EOF
+
       # Reports are immutable and never overwritten, so without a prune the branch grows without
       # bound: it reached 11 GB across 248 run folders, past the 10 GB artifact cap that
       # actions/deploy-pages enforces, and the Pages deployment started failing.

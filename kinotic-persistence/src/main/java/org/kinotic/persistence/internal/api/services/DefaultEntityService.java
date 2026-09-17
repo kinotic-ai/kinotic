@@ -13,7 +13,6 @@ import io.opentelemetry.instrumentation.annotations.WithSpan;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.commons.lang3.ObjectUtils;
 import org.kinotic.domain.api.model.RawJson;
 import org.kinotic.core.api.crud.CursorPage;
 import org.kinotic.core.api.crud.Page;
@@ -26,6 +25,7 @@ import org.kinotic.persistence.api.services.NamedQueriesService;
 import org.kinotic.persistence.api.services.security.AuthorizationService;
 import org.kinotic.persistence.internal.api.hooks.DelegatingUpsertPreProcessor;
 import org.kinotic.persistence.internal.api.hooks.ReadPreProcessor;
+import org.kinotic.persistence.internal.utils.PersistenceUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
@@ -133,7 +133,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Long> count(EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.COUNT, context))
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
@@ -143,7 +143,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Long> countByQuery(String query, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.COUNT_BY_QUERY, context))
                 .compose(un -> crudServiceTemplate
                         .count(entityDescriptor.itemIndex(),
@@ -153,7 +153,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Void> deleteById(String id, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .map(un -> composeId(id, context))
                 .compose(composedId -> crudServiceTemplate
@@ -169,7 +169,7 @@ public class DefaultEntityService implements EntityService {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.DELETE_BY_ID, context))
                 .map(un -> composeId(id))
                 .compose(composedId -> crudServiceTemplate
@@ -182,7 +182,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public Future<Void> deleteByQuery(String query, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.DELETE_BY_QUERY, context))
                 .compose(un -> crudServiceTemplate
                         .deleteByQuery(entityDescriptor.itemIndex(),
@@ -193,7 +193,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<Page<T>> findAll(Pageable pageable, Class<T> type, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.FIND_ALL, context))
                 .compose(un -> {
 
@@ -243,7 +243,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<T> findById(String id, Class<T> type, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
                 .map(un -> composeId(id, context))
                 .compose(composedId -> doFindById(composedId, type, context));
@@ -255,7 +255,7 @@ public class DefaultEntityService implements EntityService {
         // We set the tenant selection so validation below will know that a tenant specific operation is being used
         context.setTenantSelection(List.of(id.tenantId()));
 
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.FIND_BY_ID, context))
                 .map(un -> composeId(id))
                 .compose(composedId -> doFindById(composedId, type, context));
@@ -264,7 +264,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<List<T>> findByIds(List<String> ids, Class<T> type, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.FIND_BY_IDS, context))
                 .map(un -> composeIds(ids, context))
                 .compose(composedIds -> doFindByIds(composedIds, type, context));
@@ -285,13 +285,12 @@ public class DefaultEntityService implements EntityService {
                                           ParameterHolder parameterHolder,
                                           Class<T> type,
                                           EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return validateContext(context)
-                .compose(unused -> namedQueriesService.executeNamedQuery(entityDescriptor,
-                                                                         queryName,
-                                                                         parameterHolder,
-                                                                         type,
-                                                                         context));
+        // Validation and authorization happen in the QueryExecutor, after the query's parameters have set any tenant selection
+        return namedQueriesService.executeNamedQuery(entityDescriptor,
+                                                     queryName,
+                                                     parameterHolder,
+                                                     type,
+                                                     context);
     }
 
     @WithSpan
@@ -301,14 +300,13 @@ public class DefaultEntityService implements EntityService {
                                               Pageable pageable,
                                               Class<T> type,
                                               EntityContext context) {
-        // Authorization happens in the QueryExecutor so we don't need an additional cache to hold the NamedQueryAuthorizationService
-        return validateContext(context)
-                .compose(unused -> namedQueriesService.executeNamedQueryPage(entityDescriptor,
-                                                                             queryName,
-                                                                             parameterHolder,
-                                                                             pageable,
-                                                                             type,
-                                                                             context));
+        // Validation and authorization happen in the QueryExecutor, after the query's parameters have set any tenant selection
+        return namedQueriesService.executeNamedQueryPage(entityDescriptor,
+                                                         queryName,
+                                                         parameterHolder,
+                                                         pageable,
+                                                         type,
+                                                         context);
     }
 
     @WithSpan
@@ -351,7 +349,7 @@ public class DefaultEntityService implements EntityService {
     @WithSpan
     @Override
     public <T> Future<Page<T>> search(String searchText, Pageable pageable, Class<T> type, EntityContext context) {
-        return validateContext(context)
+        return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                 .compose(un -> authService.authorize(EntityOperation.SEARCH, context))
                 .compose(un -> {
 
@@ -459,7 +457,7 @@ public class DefaultEntityService implements EntityService {
     private String composeId(final String id, final EntityContext context){
         String ret;
         if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            String tenantId = context.getParticipant().getTenantId();
+            String tenantId = context.requireTenantId();
             ret = tenantId + "-" + id;
         }else{
             ret = id;
@@ -475,7 +473,7 @@ public class DefaultEntityService implements EntityService {
         List<MultiGetOperation> ret = new ArrayList<>(ids.size());
         boolean multiTenancyShared = entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED;
 
-        String tenantId = context.getParticipant().getTenantId();
+        String tenantId = multiTenancyShared ? context.requireTenantId() : null;
         for (String id : ids){
             MultiGetOperation.Builder builder =  new MultiGetOperation.Builder();
             builder.index(entityDescriptor.itemIndex());
@@ -509,7 +507,7 @@ public class DefaultEntityService implements EntityService {
                     String tenant = extractTenant(object, tenantIdFieldName);
                     // Find and search methods will use the logged in tenant if no multi tenant selection is provided
                     if(context.hasTenantSelection()){
-                        if(tenant != null && tenantIds.contains(tenant)){
+                        if(tenant != null && (context.selectsAllTenants() || tenantIds.contains(tenant))){
                             result.add(object);
                         }else{
                             log.error(
@@ -521,14 +519,15 @@ public class DefaultEntityService implements EntityService {
                                     formatToPrintJson(object));
                         }
                     }else {
-                        if (tenant != null && tenant.equals(context.getParticipant().getTenantId())) {
+                        String tenantId = context.requireTenantId();
+                        if (tenant != null && tenant.equals(tenantId)) {
                             result.add(object);
                         }else{
                             log.error(
                                     "{} Multi tenancy is not working properly for EntityDefinition: {} and expected tenant: {} got: {}\nData:\n{}",
                                     what,
                                     entityDescriptor,
-                                    context.getParticipant().getTenantId(),
+                                    tenantId,
                                     tenant,
                                     formatToPrintJson(object));
                         }
@@ -638,16 +637,17 @@ public class DefaultEntityService implements EntityService {
                                     EntityContext context,
                                     Function<EntityHolder<?>, Future<T>> persistLogic){
         // We do this since ideally processing data before auth is not ideal
-        // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
+        // However, in the case of Multi-tenant access the data names the tenants, so they must be
+        // extracted before the context is validated and authorized
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            return validateContext(context)
-                    .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
+            return delegatingUpsertPreProcessor.process(entity, context)
                     .compose(entityHolder ->
-                                         authService.authorize(operation, context)
-                                                    .compose(un -> persistLogic.apply(entityHolder)));
+                                         PersistenceUtil.validateEntityContext(entityDescriptor, context)
+                                                 .compose(un -> authService.authorize(operation, context))
+                                                 .compose(un -> persistLogic.apply(entityHolder)));
         }else{
-            return validateContext(context)
+            return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                     .compose(un -> authService.authorize(operation, context))
                     .compose(un -> delegatingUpsertPreProcessor.process(entity, context))
                     .compose(persistLogic);
@@ -659,17 +659,18 @@ public class DefaultEntityService implements EntityService {
                                            EntityContext context,
                                            Function<EntityHolder<?>, BulkOperation> persistLogic){
         // We do this since ideally processing data before auth is not ideal
-        // However, in the case of Multi-tenant access we must extract tenant ids prior to calling auth
+        // However, in the case of Multi-tenant access the data names the tenants, so they must be
+        // extracted before the context is validated and authorized
         if(entityDescriptor.isMultiTenantSelectionEnabled()){
 
-            return validateContext(context)
-                    .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
+            return delegatingUpsertPreProcessor.processArray(entities, context)
                     .compose(entityList ->
-                                         authService.authorize(operation, context)
-                                                    .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
+                                         PersistenceUtil.validateEntityContext(entityDescriptor, context)
+                                                 .compose(un -> authService.authorize(operation, context))
+                                                 .compose(un -> doPersistBulkLogic(entityList, persistLogic)))
                     .mapEmpty();
         }else {
-            return validateContext(context)
+            return PersistenceUtil.validateEntityContext(entityDescriptor, context)
                     .compose(un -> authService.authorize(operation, context))
                     .compose(un -> delegatingUpsertPreProcessor.processArray(entities, context))
                     .compose(list -> doPersistBulkLogic(list, persistLogic))
@@ -825,67 +826,19 @@ public class DefaultEntityService implements EntityService {
         return entity;
     }
 
-    private Future<Void> validateContext(final EntityContext context){
-        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED){
-            if(context.getParticipant() != null && context.getParticipant().getTenantId() != null) {
-
-                // Check if tenant selection is trying to be used but not enabled
-                if (ObjectUtils.isNotEmpty(context.getTenantSelection())
-                        && !entityDescriptor.isMultiTenantSelectionEnabled()) {
-
-                    return Future.failedFuture(
-                            new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                                    entityDescriptor.name()))
-                    );
-                } else {
-                    return Future.succeededFuture();
-                }
-            }else{
-                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
-            }
-        }else if(ObjectUtils.isNotEmpty(context.getTenantSelection())){
-            // This check is here since continuum will allow any published service to be called.
-            // So someone could call the admin service even though it is not enabled for this EntityDefinition
-            // Multitenant access can only be enabled if MultiTenancyType.SHARED
-            return Future.failedFuture(
-                    new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                            entityDescriptor.name()))
-            );
-        }else{
-            return Future.succeededFuture();
-        }
-    }
-
     private Future<List<MultiGetOperation>> validate_ComposeIds_AddTenantsToContext(final List<TenantSpecificId> ids, EntityContext entityContext){
-        if(entityDescriptor.multiTenancyType() == MultiTenancyType.SHARED
-                && entityDescriptor.isMultiTenantSelectionEnabled()){
-
-            if(entityContext.getParticipant() != null && entityContext.getParticipant().getTenantId() != null) {
-
-                List<MultiGetOperation> ret = new ArrayList<>(ids.size());
-                List<String> tenants = new ArrayList<>(ids.size());
-                for (TenantSpecificId id : ids) {
-                    MultiGetOperation.Builder builder = new MultiGetOperation.Builder();
-                    builder.index(entityDescriptor.itemIndex())
-                           .id(id.tenantId() + "-" + id.entityId())
-                           .routing(id.tenantId());
-
-                    ret.add(builder.build());
-                    tenants.add(id.tenantId());
-                }
-
-                entityContext.setTenantSelection(tenants);
-                return Future.succeededFuture(ret);
-
-            }else{
-                return Future.failedFuture(new IllegalArgumentException("Participant with a TenantId is required when MultiTenancyType is SHARED"));
-            }
-        }else{
-            return Future.failedFuture(
-                    new IllegalArgumentException("Multi-tenant access for this EntityDefinition %s is not enabled".formatted(
-                            entityDescriptor.name()))
-            );
+        List<MultiGetOperation> ret = new ArrayList<>(ids.size());
+        Set<String> tenants = new LinkedHashSet<>();
+        for (TenantSpecificId id : ids) {
+            MultiGetOperation.Builder builder = new MultiGetOperation.Builder();
+            builder.index(entityDescriptor.itemIndex())
+                   .id(id.tenantId() + "-" + id.entityId())
+                   .routing(id.tenantId());
+            ret.add(builder.build());
+            tenants.add(id.tenantId());
         }
+        entityContext.setTenantSelection(new ArrayList<>(tenants));
+        return PersistenceUtil.validateEntityContext(entityDescriptor, entityContext).map(ret);
     }
 
 }

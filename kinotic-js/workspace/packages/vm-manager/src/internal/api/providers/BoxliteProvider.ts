@@ -1,13 +1,16 @@
 import { SimpleBox, getJsBoxlite, type Boxlite, type SimpleBoxOptions } from '@boxlite-ai/boxlite'
-import { mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statfsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
+import { Util } from '@/internal/api/Util'
 import { MountQuotaManager } from '@/internal/api/storage/MountQuotaManager'
 import { VolumeMountManager } from '@/internal/api/storage/VolumeMountManager'
-import type { LogTarget } from '@/model/LogTarget'
-import { LogFormat } from '@/model/LogFormat'
+import type { TelemetryTarget } from '@/internal/api/model/TelemetryTarget'
+import type { OtlpEndpoint } from '@/internal/api/model/OtlpEndpoint'
+import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
+import { LogFormat } from '@/internal/api/model/LogFormat'
 import { VmProviderType } from '@kinotic-ai/system-api'
-import { Workload, WorkloadStatus, NetworkMode } from '@kinotic-ai/management-api'
+import { LogPolicy, Workload, WorkloadStatus, NetworkMode } from '@kinotic-ai/management-api'
 
 /**
  * Guest path where the per-workload host log directory is mounted. This is the log-shipping
@@ -44,6 +47,17 @@ const NO_EGRESS_HOST = '192.0.2.1'
 const EXIT_POLL_MS = 500
 
 /**
+ * Where a guest reaches its host: the host alias of the gvisor-tap-vsock network boxlite gives
+ * every VM, whose proxy completes the connection over the host's loopback. A guest allowed the
+ * alias reaches every loopback service on the node, not one port of it, since boxlite's
+ * allowlist matches hosts.
+ */
+const HOST_FROM_GUEST = '192.168.127.254'
+
+/** Where the node's OTLP receivers for boxlite guests bind, being what the alias lands on. */
+const OTLP_LISTEN_ADDRESS = '127.0.0.1'
+
+/**
  * Lifecycle handle to a boxlite box, as returned by the runtime's get(). The SDK exports
  * no TS type for it (JsBox), so only the members this provider uses are declared.
  */
@@ -63,73 +77,6 @@ export interface ActiveVm {
     logDir: string
 }
 
-/**
- * Builds the boxlite options for a workload. The given host log directory is always mounted
- * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
- * declares them, so an empty value keeps the image default. The workload's disk size caps
- * the guest rootfs, which grows sparsely up to that cap.
- */
-export function buildBoxOptions(workload: Workload, logDir: string): SimpleBoxOptions {
-    // Silently binding to all interfaces when a specific one was requested would be a
-    // security failure, so an unsupported hostIp is rejected outright
-    const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
-    if (boundMapping) {
-        throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
-    }
-    // Rejected here so the operator gets the reason; letting it through surfaces only as
-    // an opaque libkrun status=-22 when the VM fails to boot
-    if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
-        throw new Error(`boxlite supports ${MAX_WORKLOAD_VOLUME_MOUNTS} workload volume mount(s) `
-                        + `alongside the log mount, but ${workload.volumeMounts.length} were declared`)
-    }
-    // A workload deserialized from the wire or a persisted state file may predate the
-    // network field, whose absence means the policy the model defaults to
-    const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
-    const allowedHosts = workload.network?.allowedHosts ?? []
-    return {
-        image: workload.image,
-        name: workload.id!,
-        cpus: workload.vcpus,
-        memoryMib: workload.memoryMb,
-        // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
-        // disk than it asked for, and leave the boxlite default when nothing was asked
-        ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
-        env: { ...workload.environment, ...workload.secrets },
-        // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
-        // CMD is suppressed unless the workload declares its own cmd
-        ...(workload.entrypoint.length > 0
-            ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
-            : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
-        // Always sent rather than left to the boxlite default, so what a guest can reach is
-        // decided by the workload record alone. A disabled network leaves the VM with no
-        // interface at all, which is also why boxlite refuses to publish ports on one
-        network: {
-            outbound: networkMode === NetworkMode.DISABLED
-                ? { mode: 'disabled' }
-                : { mode: 'enabled', allowNet: allowedHosts.length > 0 ? allowedHosts : [NO_EGRESS_HOST] },
-        },
-        ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
-            ...(hostPort !== undefined ? { hostPort } : {}),
-            guestPort,
-            // boxlite recognizes only lowercase 'udp'; any other value silently means tcp
-            ...(protocol !== undefined ? { protocol: protocol.toLowerCase() } : {}),
-        })),
-        volumes: [
-            ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
-                hostPath,
-                guestPath,
-                readOnly,
-            })),
-            { hostPath: logDir, guestPath: GUEST_LOG_DIR },
-        ],
-        // boxlite rejects autoRemove on detached boxes, so Workload.autoRemove is
-        // implemented by stop() instead of this flag
-        autoRemove: false,
-        // A workload deserialized from the wire or a persisted state file may predate the
-        // detached field; boxlite's default (false) is the opposite of the model's
-        detach: workload.detached ?? true,
-    }
-}
 
 /**
  * VM provider implementation using the boxlite Node.js SDK for micro VM management.
@@ -141,8 +88,91 @@ export class BoxliteProvider implements IVmProvider {
 
     readonly type: VmProviderType = VmProviderType.BOXLITE
 
+    /**
+     * Builds the boxlite options for a workload. The given host log directory is always mounted
+     * at {@link GUEST_LOG_DIR}; entrypoint and cmd are passed through only when the workload
+     * declares them, so an empty value keeps the image default. The workload's disk size caps
+     * the guest rootfs, which grows sparsely up to that cap. A workload that holds an OTLP
+     * endpoint is given it in the guest environment, and its host as an allowed destination.
+     */
+    static buildBoxOptions(workload: Workload, logDir: string, otlp: OtlpEndpoint | null = null): SimpleBoxOptions {
+        // Silently binding to all interfaces when a specific one was requested would be a
+        // security failure, so an unsupported hostIp is rejected outright
+        const boundMapping = workload.portMappings.find(mapping => mapping.hostIp)
+        if (boundMapping) {
+            throw new Error(`boxlite cannot bind a specific host interface (hostIp ${boundMapping.hostIp})`)
+        }
+        // Rejected here so the operator gets the reason; letting it through surfaces only as
+        // an opaque libkrun status=-22 when the VM fails to boot
+        if (workload.volumeMounts.length > MAX_WORKLOAD_VOLUME_MOUNTS) {
+            throw new Error(`boxlite supports ${MAX_WORKLOAD_VOLUME_MOUNTS} workload volume mount(s) `
+                            + `alongside the log mount, but ${workload.volumeMounts.length} were declared`)
+        }
+        // A workload deserialized from the wire or a persisted state file may predate the
+        // network field, whose absence means the policy the model defaults to
+        const networkMode = workload.network?.mode ?? NetworkMode.ENABLED
+        // The node's OTLP endpoint is a destination the workload cannot know, so the node adds
+        // it rather than expecting the policy to name it
+        const allowedHosts = [...new Set([...(workload.network?.allowedHosts ?? []),
+                                          ...(otlp !== null ? [HOST_FROM_GUEST] : [])])]
+        const logPolicy = workload.logPolicy ?? new LogPolicy()
+        return {
+            image: workload.image,
+            name: workload.id!,
+            cpus: workload.vcpus,
+            memoryMib: workload.memoryMb,
+            // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
+            // disk than it asked for, and leave the boxlite default when nothing was asked
+            ...(workload.diskSizeMb > 0 ? { diskSizeGb: Math.ceil(workload.diskSizeMb / 1024) } : {}),
+            env: {
+                ...AlloyManager.guestEnvironment(workload, HOST_FROM_GUEST, otlp),
+                // Nothing captures the entrypoint's stdout, so an image that knows the contract
+                // writes its own files under the log mount, rotated by the workload's policy
+                KINOTIC_LOG_DIR: GUEST_LOG_DIR,
+                KINOTIC_LOG_MAX_SIZE_MB: String(logPolicy.maxSizeMb),
+                KINOTIC_LOG_MAX_FILES: String(logPolicy.maxFiles),
+            },
+            // Kubernetes semantics: a declared entrypoint runs exactly as given — the image
+            // CMD is suppressed unless the workload declares its own cmd
+            ...(workload.entrypoint.length > 0
+                ? { entrypoint: workload.entrypoint, cmd: workload.cmd }
+                : workload.cmd.length > 0 ? { cmd: workload.cmd } : {}),
+            // Always sent rather than left to the boxlite default, so what a guest can reach is
+            // decided by the workload record alone. A disabled network leaves the VM with no
+            // interface at all, which is also why boxlite refuses to publish ports on one
+            network: {
+                outbound: networkMode === NetworkMode.DISABLED
+                    ? { mode: 'disabled' }
+                    : { mode: 'enabled', allowNet: allowedHosts.length > 0 ? allowedHosts : [NO_EGRESS_HOST] },
+            },
+            ports: workload.portMappings.map(({ hostPort, guestPort, protocol }) => ({
+                ...(hostPort !== undefined ? { hostPort } : {}),
+                guestPort,
+                // boxlite recognizes only lowercase 'udp'; any other value silently means tcp
+                ...(protocol !== undefined ? { protocol: protocol.toLowerCase() } : {}),
+            })),
+            volumes: [
+                ...workload.volumeMounts.map(({ hostPath, guestPath, readOnly }) => ({
+                    hostPath,
+                    guestPath,
+                    readOnly,
+                })),
+                { hostPath: logDir, guestPath: GUEST_LOG_DIR },
+            ],
+            // boxlite rejects autoRemove on detached boxes, so Workload.autoRemove is
+            // implemented by stop() instead of this flag
+            autoRemove: false,
+            // A workload deserialized from the wire or a persisted state file may predate the
+            // detached field; boxlite's default (false) is the opposite of the model's
+            detach: workload.detached ?? true,
+        }
+    }
+
     private readonly workloads: Map<string, Workload> = new Map()
     private readonly activeVms: Map<string, ActiveVm> = new Map()
+    // The box id of every workload with a box on this node, running or not: the vm_id label
+    // its shipped logs carry, kept as long as the log files are, until destroy
+    private readonly vmIds: Map<string, string> = new Map()
     private readonly boxliteHome: string
     private readonly logsBaseDir: string
     private readonly mounts: VolumeMountManager
@@ -159,16 +189,20 @@ export class BoxliteProvider implements IVmProvider {
     // it is running.
     private readonly runtime: Boxlite = getJsBoxlite().withDefaultConfig()
     private readonly onStatusChanged: ((workload: Workload) => void) | null
+    // Null on a node that ships nothing, where a workload's election issues nothing
+    private readonly alloyManager: AlloyManager | null
 
     constructor(boxliteHome: string,
                 logsBaseDir: string,
                 stateDir: string,
                 workloadDataDir: string,
-                onStatusChanged: ((workload: Workload) => void) | null = null) {
+                onStatusChanged: ((workload: Workload) => void) | null = null,
+                alloyManager: AlloyManager | null = null) {
         this.boxliteHome = boxliteHome
         this.logsBaseDir = logsBaseDir
         this.stateDir = stateDir
         this.onStatusChanged = onStatusChanged
+        this.alloyManager = alloyManager
         mkdirSync(stateDir, { recursive: true })
 
         this.mounts = new VolumeMountManager(workloadDataDir, new MountQuotaManager())
@@ -215,6 +249,7 @@ export class BoxliteProvider implements IVmProvider {
             this.workloads.set(workload.id!, workload)
             await this.recoverVm(workload)
         }
+        this.alloyManager?.reconcileEndpoints(new Set(this.workloads.keys()))
     }
 
     async start(workload: Workload): Promise<Workload> {
@@ -244,8 +279,20 @@ export class BoxliteProvider implements IVmProvider {
                 await this.runtime.remove(id, true)
             }
 
+            // boxlite answers a tag from its cache once it holds one, so a floating tag is
+            // resolved here to the digest the registry serves now, which the cache cannot fake
+            let image = workload.image
+            if (Util.mustPullBeforeStart(image)) {
+                image = await Util.pinImageReference(image)
+                console.log(`Workload ${id} image ${workload.image} resolved to ${image}`)
+            }
+
+            // The guest learns its endpoint from the environment, so it is issued before the box
+            const otlp = this.alloyManager?.issueEndpoint(workload, OTLP_LISTEN_ADDRESS) ?? null
+
             // Creates the box record only — the VM does not boot until start()
-            const vmId = await new SimpleBox({ ...buildBoxOptions(workload, logDir), runtime: this.runtime }).getId()
+            const vmId = await new SimpleBox({ ...BoxliteProvider.buildBoxOptions(workload, logDir, otlp), image, runtime: this.runtime }).getId()
+            this.vmIds.set(id, vmId)
 
             // The runtime's boot handshake doubles as the readiness check; unlike an exec
             // probe it requires no binaries from the guest image
@@ -262,12 +309,6 @@ export class BoxliteProvider implements IVmProvider {
         } finally {
             workload.updated = Date.now()
             this.persist(workload)
-        }
-
-        // A non-detached workload runs in the foreground: start resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await this.watchExit(workload)
         }
 
         return workload
@@ -308,12 +349,15 @@ export class BoxliteProvider implements IVmProvider {
             this.persist(workload)
         }
 
-        // A non-detached workload runs in the foreground: restart resolves only once the run
-        // has ended, with the outcome recorded on the workload by the exit watch
-        if (!(workload.detached ?? true)) {
-            await this.watchExit(workload)
-        }
+        return workload
+    }
 
+    async awaitExit(workloadId: string): Promise<Workload> {
+        const workload = this.workloads.get(workloadId)
+        if (!workload) {
+            throw new Error(`Workload not found: ${workloadId}`)
+        }
+        await this.watchExit(workload)
         return workload
     }
 
@@ -368,8 +412,10 @@ export class BoxliteProvider implements IVmProvider {
         }
 
         this.mounts.releaseQuotas(workload)
+        this.alloyManager?.releaseEndpoint(workloadId)
         rmSync(join(this.logsBaseDir, workloadId), { recursive: true, force: true })
         rmSync(this.stateFile(workloadId), { force: true })
+        this.vmIds.delete(workloadId)
         this.workloads.delete(workloadId)
     }
 
@@ -390,29 +436,43 @@ export class BoxliteProvider implements IVmProvider {
         return workloads
     }
 
-    async listLogTargets(): Promise<LogTarget[]> {
-        return Array.from(this.activeVms.entries()).map(([workloadId, vm]) => {
-            const workload = this.workloads.get(workloadId)!
-            return {
-                workloadId,
-                vmId: vm.vmId,
-                logPath: join(vm.logDir, '*.log'),
-                format: LogFormat.PLAIN,
-                organizationId: workload.organizationId,
-                applicationId: workload.applicationId,
+    async listTelemetryTargets(): Promise<TelemetryTarget[]> {
+        const ret: TelemetryTarget[] = []
+        for (const [workloadId, workload] of this.workloads) {
+            const vmId = this.vmIds.get(workloadId)
+            const logDir = join(this.logsBaseDir, workloadId)
+            if (vmId !== undefined && existsSync(logDir)) {
+                ret.push({
+                    workloadId,
+                    vmId,
+                    logPath: join(logDir, '*.log'),
+                    format: LogFormat.PLAIN,
+                    otlp: this.alloyManager?.endpointOf(workloadId) ?? null,
+                    organizationId: workload.organizationId,
+                    applicationId: workload.applicationId,
+                })
             }
-        })
+        }
+        return ret
     }
 
     // Reconciles a persisted workload with the actual box state, reattaching when it is
     // still running
     private async recoverVm(workload: Workload): Promise<void> {
+        const id = workload.id!
+        try {
+            const box = await this.runtime.getInfo(id)
+            if (box) {
+                this.vmIds.set(id, box.id)
+            }
+        } catch (error) {
+            console.error(`Failed to look up the box of workload ${id}:`, error)
+        }
         if (workload.status !== WorkloadStatus.STARTING &&
             workload.status !== WorkloadStatus.RUNNING &&
             workload.status !== WorkloadStatus.STOPPING) {
             return
         }
-        const id = workload.id!
         try {
             const info = await this.runtime.getInfo(id)
             if (info?.state.running) {
@@ -528,12 +588,9 @@ export class BoxliteProvider implements IVmProvider {
         return box
     }
 
-    // Written atomically (write + rename) so a crash mid-write cannot corrupt recovery state.
-    // Every status transition funnels through here, so the listener sees them all.
+    // Every status transition funnels through here, so the listener sees them all
     private persist(workload: Workload): void {
-        const file = this.stateFile(workload.id!)
-        writeFileSync(`${file}.tmp`, JSON.stringify(workload))
-        renameSync(`${file}.tmp`, file)
+        Util.writeJsonAtomically(this.stateFile(workload.id!), workload)
         this.onStatusChanged?.(workload)
     }
 

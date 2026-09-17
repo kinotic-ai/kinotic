@@ -3,9 +3,12 @@
 package org.kinotic.gateway.internal.endpoints;
 
 import io.vertx.core.Vertx;
+import io.vertx.ext.web.sstore.SessionStore;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.EventStreamService;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityService;
+import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
@@ -36,9 +39,15 @@ public class Services {
     @Autowired
     public SecurityService securityService;
     @Autowired
+    public RequestLivenessWatcher requestLivenessWatcher;
+    @Autowired
     public ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     @Autowired
+    public SessionStore sessionStore;
+    @Autowired
     public StompAuthorizerFactory stompAuthorizerFactory;
+    @Autowired
+    public TraceLogFilter traceLogFilter;
     @Autowired
     public Vertx vertx;
 }

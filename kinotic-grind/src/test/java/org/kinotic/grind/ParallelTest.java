@@ -59,9 +59,7 @@ public class ParallelTest extends AbstractGrindTest {
 
         assertNotNull(result.error());
         assertTrue(result.error().getMessage().contains("right side failed"));
-        awaitUntil("ledger to settle", () ->
-                repository.savedRuns.get(handle.getJobRunId()) != null
-                        && repository.savedRuns.get(handle.getJobRunId()).getStatus() == ExecutionStatus.FAILED);
+        assertEquals(ExecutionStatus.FAILED, repository.savedRuns.get(handle.getJobRunId()).getStatus());
         assertEquals(ExecutionStatus.FAILED, repository.taskAt(handle.getJobRunId(), "0/2").getStatus());
         assertEquals(ExecutionStatus.CANCELLED, repository.taskAt(handle.getJobRunId(), "0/1").getStatus());
     }

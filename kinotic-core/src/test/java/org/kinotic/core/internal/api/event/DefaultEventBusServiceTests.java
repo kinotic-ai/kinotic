@@ -11,9 +11,12 @@ import org.kinotic.core.api.event.Event;
 import org.kinotic.core.api.event.EventConstants;
 import org.kinotic.core.api.event.EventConsumer;
 import org.kinotic.core.api.event.Metadata;
+import org.kinotic.core.internal.KinoticIgniteClusterManager;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link DefaultEventBusService} local-delivery preference.
@@ -29,7 +32,10 @@ public class DefaultEventBusServiceTests {
     @BeforeEach
     public void setUp() {
         vertx = Vertx.vertx();
-        eventBusService = new DefaultEventBusService(null, vertx);
+        // A plain Vert.x has no node id; a consumer's acknowledgement names the one the cluster manager reports
+        KinoticIgniteClusterManager clusterManager = mock(KinoticIgniteClusterManager.class);
+        when(clusterManager.getNodeId()).thenReturn("test-node");
+        eventBusService = new DefaultEventBusService(clusterManager, vertx);
     }
 
     @AfterEach

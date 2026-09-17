@@ -6,7 +6,8 @@ scripts probing detach behavior, named-box reuse, and shared-volume semantics.
 **Verified against:** `@boxlite-ai/boxlite@0.9.5` (findings 1–4) and `0.9.7`
 (findings 5–8), Bun 1.3.10, macOS arm64 (`@boxlite-ai/boxlite-darwin-arm64`). Findings
 9–15 were verified on 0.9.7 under Bun 1.3.14 on an Azure `Standard_D4s_v3`
-(Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. The
+(Ubuntu 22.04, kernel 6.8, KVM), since they need nested virtualization and XFS. Finding 16
+was verified on `0.10.0`, which the project now pins, under Bun 1.3.10 on macOS arm64. The
 original detach bug was filed on Linux/WSL2; findings here reproduce cross-platform.
 Re-run the probes after a boxlite upgrade to confirm the findings still hold.
 
@@ -369,6 +370,60 @@ than refusing to run it.
 
 ---
 
+### 16. An allowlist naming a CNAME chain's head permits the chain; wildcards and bare addresses do not (`network-policy-test.ts`)
+
+`github.com` and `registry.npmjs.org` resolve directly, but an Azure storage account host is
+a CNAME chain — `<account>.blob.core.windows.net` → `blob.<cluster>.store.core.windows.net`
+→ address — so the question was whether an allowlist must name every link, or whether boxlite
+attributes the answer to the canonical name and refuses the head. Verified on 0.10.0, whose
+shim log names the mechanism (`allowNet: DNS sinkhole configured`, `allowNet TCP: handler
+overridden with SNI-inspecting forwarder`):
+
+```
+=== I. mode 'enabled', allowNet ['kin00aca0a5a87cfeb0a1f11.blob.core.windows.net'] — the head of the CNAME chain only ===
+  dns:kin00aca0a5a87cfeb0a1f11.blob.core.windows.net REACHED  exit=0  Name:	kin00aca0a5a87cfeb0a1f11.blob.core.windows.net | Address: 57.150.160.33
+  https://kin00aca0a5a87cfeb0a1f11.blob.core.windows.net/ REACHED  exit=1  wget: server returned error: HTTP/1.1 400 Value for one of the query parameters specified in the request URI is invalid.
+  https://blob.dsm41prdstr11a.store.core.windows.net/ blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+
+=== I. mode 'enabled', allowNet ['kin00aca0a5a87cfeb0a1f11.blob.core.windows.net', 'blob.dsm41prdstr11a.store.core.windows.net'] — the whole chain ===
+  dns:kin00aca0a5a87cfeb0a1f11.blob.core.windows.net REACHED  exit=0  Non-authoritative answer:
+  https://kin00aca0a5a87cfeb0a1f11.blob.core.windows.net/ REACHED  exit=1  wget: server returned error: HTTP/1.1 400 Value for one of the query parameters specified in the request URI is invalid.
+  https://blob.dsm41prdstr11a.store.core.windows.net/ REACHED  exit=1  wget: server returned error: HTTP/1.1 400 The requested URI does not represent any resource on the server.
+
+=== I. mode 'enabled', allowNet ['*.blob.core.windows.net'] — a wildcard ===
+  dns:kin00aca0a5a87cfeb0a1f11.blob.core.windows.net blocked  exit=1  Non-authoritative answer: | *** Can't find kin00aca0a5a87cfeb0a1f11.blob.core.windows.net: Parse error
+  https://kin00aca0a5a87cfeb0a1f11.blob.core.windows.net/ blocked  exit=1  wget: bad address 'kin00aca0a5a87cfeb0a1f11.blob.core.windows.net'
+  https://blob.dsm41prdstr11a.store.core.windows.net/ blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+
+=== I. mode 'enabled', allowNet ['57.150.160.33'] — the address alone ===
+  dns:kin00aca0a5a87cfeb0a1f11.blob.core.windows.net REACHED  exit=0  Non-authoritative answer:
+  https://kin00aca0a5a87cfeb0a1f11.blob.core.windows.net/ blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+  https://blob.dsm41prdstr11a.store.core.windows.net/ blocked  exit=1  wget: can't connect to remote host (0.0.0.0): Connection refused
+```
+
+Naming the head alone is enough: the guest resolves it to the real address and the TLS
+connection completes (Azure's `400` on `GET /` is the reply of a reached server; busybox
+`wget` exits non-zero on it, which is why the verdict reads the stderr line). The canonical
+name is reachable only when it is listed itself, so what the guest can connect to is decided
+by the name it asked for — the one carried in the TLS SNI — rather than by the answer's
+canonical name. A wildcard is not understood: `*.blob.core.windows.net` breaks name
+resolution for the account host outright (`Parse error`), and it reaches nothing. The bare
+address lets the name resolve but the connection is still sinkholed to `0.0.0.0`, so an
+address entry does not stand in for the name it resolves from.
+
+**Design implication:** a publish workload's allowlist names exactly the host of the URL it
+uploads to, as the head of the chain, and nothing more; resolving the CNAME chain at deploy
+time would add nothing. Wildcards are not an option on boxlite, and neither is the address.
+
+Two 0.10.0 changes the probe had to absorb: `exec` no longer boots a configured box
+(`Cannot exec box …: it is configured, and starting the box would run its main command`),
+so a box is started explicitly with `runtime.get(name).start()` before the first exec; and
+the legacy `network: { mode, allowNet }` shape is still accepted as an alias of
+`network.outbound`. The other scripts in `src/` were written against implicit boot and were
+not re-run on 0.10.0.
+
+---
+
 ## Scripts (`src/`)
 
 | File | Purpose | Leaves a box running? |
@@ -385,7 +440,7 @@ than refusing to run it.
 | `console-log-test.ts` | Does `boxes/<id>/logs/console.log` capture entrypoint stdout/stderr live? (finding #7 — it does not; kernel/guest-agent output only.) | self-cleaning |
 | `console-output-discovery-test.ts` | Sweeps `$BOXLITE_HOME` for any file that receives entrypoint output. | self-cleaning |
 | `log-capture-gaps-test.ts` | Demonstrates every entrypoint/exec output-capture gap in one run (basis of the upstream stdio-capture feature request). | self-cleaning |
-| `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, and whether it can be bypassed by connecting to a raw IP. Needs ordinary outbound internet. | self-cleaning |
+| `network-policy-test.ts` | What `network: { mode, allowNet }` actually enforces: whether `disabled` blocks egress, whether an allowlist blocks unlisted hosts, whether it can be bypassed by connecting to a raw IP, and how a CNAME chain is matched (finding #16). Needs ordinary outbound internet. An optional label prefix runs a subset: `bun run src/network-policy-test.ts azure`. | self-cleaning |
 | `disk-quota-test.ts` | Whether a workload's disk can be bounded: `diskSizeGb` as a rootfs cap and whether a rootfs above 1 GiB survives being filled (phases A and D, run anywhere), and an XFS project quota on a bind-mounted host directory as a volume cap, including the write cost of the accounting (phases B and C, need Linux + root + `xfsprogs`). | self-cleaning |
 | `repro-disk-size.ts` | Standalone reproducer, free of any dependency but the SDK, sweeping `diskSizeGb` 1/2/4/8 with the same 1536 MiB write in each to show whether a fixed ceiling applies regardless of the disk requested. Written to be handed to the boxlite maintainers as-is. | self-cleaning |
 | `boot-failure-test.ts` | Isolates the two generic "failed to start" errors behind findings #9 and #10 — whether `mode: 'disabled'` is bootable at all, and whether the volume ceiling counts volumes only or a shared device budget that ports and a sized rootfs also draw on. Dumps the full error, which carries the shim trace. | self-cleaning |

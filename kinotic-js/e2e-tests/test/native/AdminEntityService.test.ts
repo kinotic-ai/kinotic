@@ -1,29 +1,25 @@
-import {Direction, Kinotic, KinoticSingleton, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
+import {Direction, Kinotic, Order, Page, Pageable, Sort} from '@kinotic-ai/core'
 import {EntityDefinition} from '@kinotic-ai/management-api'
-import {AdminEntitiesRepository, AdminEntityRepository, EntitiesRepository, EntityRepository, IAdminEntityRepository, IEntityRepository, TenantSpecificId,} from '@kinotic-ai/persistence'
+import {AdminEntityRepository, EntityRepository, IAdminEntityRepository, IEntityRepository, TenantSpecificId,} from '@kinotic-ai/persistence'
 import * as allure from "allure-js-commons";
 import {afterAll, afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 import {PersonWithTenant} from '../domain/PersonWithTenant.js'
 import {
-    E2E_APP_TENANT as APP_TENANT,
     E2E_ORGANIZATION_ID as TEST_ORG_ID,
     createPersonEntityDefinitionIfNotExist,
     createTestPeopleWithTenantAndVerify,
     createTestPersonWithTenant,
     deleteEntityDefinition,
     generateRandomString,
-    initKinoticAppClient,
     initKinoticClient,
     logFailure,
     shutdownKinoticClient,
 } from '../TestHelpers.js'
 
-// The app user for this (APP_ID, APP_TENANT) pair is seeded by the V4__e2e_app_fixtures migration.
 const APP_ID = 'e2e-admin-entity'
 
 interface LocalTestContext {
     entityDefinition: EntityDefinition
-    appKinotic: KinoticSingleton
     adminEntityService: IAdminEntityRepository<PersonWithTenant>
     entityService: IEntityRepository<PersonWithTenant>
 }
@@ -43,25 +39,23 @@ describe('Kinotic JS', () => {
     beforeEach<LocalTestContext>(async (context) => {
         context.entityDefinition = await createPersonEntityDefinitionIfNotExist(TEST_ORG_ID, APP_ID, generateRandomString(5), true)
         expect(context.entityDefinition).toBeDefined()
-        context.appKinotic = await initKinoticAppClient(context.entityDefinition.applicationId, APP_TENANT)
+        // The repositories act through the ORGANIZATION user of initKinoticClient: an APPLICATION user is
+        // confined to its own tenant, and these tests save and select several
         context.adminEntityService = new AdminEntityRepository(
             context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,
-            context.entityDefinition.name,
-            new AdminEntitiesRepository(context.appKinotic)
+            context.entityDefinition.name
         )
         expect(context.adminEntityService).toBeDefined()
         context.entityService = new EntityRepository(
             context.entityDefinition.organizationId,
             context.entityDefinition.applicationId,
-            context.entityDefinition.name,
-            new EntitiesRepository(context.appKinotic)
+            context.entityDefinition.name
         )
         expect(context.entityService).toBeDefined()
     })
 
     afterEach<LocalTestContext>(async (context) => {
-        await context.appKinotic.disconnect()
         await expect(deleteEntityDefinition(context.entityDefinition.id as string)).resolves.toBeUndefined()
         await expect(Kinotic.entityDefinitions.syncIndex()).resolves.toBeNull()
         await Kinotic.projects.deleteById(context.entityDefinition.projectId)

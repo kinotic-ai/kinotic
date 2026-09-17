@@ -49,6 +49,13 @@ export class KinoticProjectConfig {
     public applicationId!: string
 
     /**
+     * The id of the Kinotic Project this configuration belongs to. Every server interaction the CLI
+     * makes on the project's behalf, such as `kinotic sync`, addresses this project; it must already
+     * exist in Kinotic OS.
+     */
+    public projectId!: string
+
+    /**
      * The paths to search for classes decorated with @Entity that Kinotic will be created for.
      * Each entry can be a string (simple path) or an {@link EntitiesPathConfig} object for full control
      * over where repository classes are generated.

@@ -45,11 +45,47 @@ CREATE TABLE IF NOT EXISTS kinotic_project_deployment (
     applicationId KEYWORD,
     nodeId KEYWORD,
     hostDir KEYWORD,
-    runtimeWorkloadId KEYWORD,
+    syncWorkloadId KEYWORD,
+    uiPublishWorkloadId KEYWORD,
     syncMachineIdentityId KEYWORD,
-    runtimeMachineIdentityId KEYWORD,
     commitSha KEYWORD,
+    artifacts OBJECT (
+        microservices OBJECT (name KEYWORD, dir KEYWORD, entry KEYWORD),
+        uis OBJECT (name KEYWORD, dir KEYWORD)
+    ),
+    artifactsCommitSha KEYWORD,
     lastJobRunId KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
+-- Microservice deployments: one row per microservice artifact a project deployment has ensured.
+CREATE TABLE IF NOT EXISTS kinotic_microservice_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    name KEYWORD,
+    workloadId KEYWORD,
+    machineIdentityId KEYWORD,
+    entryPoint KEYWORD,
+    commitSha KEYWORD,
+    status OBJECT (type KEYWORD, message TEXT),
+    created DATE,
+    updated DATE
+);
+
+-- UI deployments: one row per UI artifact a project deployment has published, keyed by the
+-- site's hostname label.
+CREATE TABLE IF NOT EXISTS kinotic_ui_deployment (
+    id KEYWORD,
+    organizationId KEYWORD,
+    applicationId KEYWORD,
+    projectId KEYWORD,
+    name KEYWORD,
+    url KEYWORD,
+    commitSha KEYWORD,
     status OBJECT (type KEYWORD, message TEXT),
     created DATE,
     updated DATE
@@ -344,6 +380,7 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     diskSizeMb INTEGER,
     network OBJECT (mode KEYWORD, allowedHosts KEYWORD),
     logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
+    telemetry BOOLEAN,
     detached BOOLEAN,
     autoRemove BOOLEAN,
     status KEYWORD,

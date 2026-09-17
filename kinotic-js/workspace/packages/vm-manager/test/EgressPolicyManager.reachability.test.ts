@@ -29,6 +29,15 @@ const sh = (command: string): string => {
     }
 }
 
+// The bridge address the node's dnsmasq listens on, which a provisioned node gives every
+// workload as KINOTIC_WORKLOAD_DNS. Hostnames are enforced through it, so the hostname case
+// also needs it running and ipset present.
+const RESOLVER = sh(`docker network inspect bridge -f '{{range .IPAM.Config}}{{.Gateway}}{{end}}'`)
+const resolvesNames = canRun
+    && RESOLVER !== ''
+    && spawnSync('systemctl', ['is-active', '--quiet', 'dnsmasq'], { encoding: 'utf-8' }).status === 0
+    && spawnSync('sh', ['-c', 'command -v ipset'], { encoding: 'utf-8' }).status === 0
+
 // Destinations off the workload bridge, so what is measured is the rules rather than the
 // daemon's own inter-container block. Anycast resolvers, reached on TCP 53.
 const ALPHA = '1.1.1.1'
@@ -36,10 +45,21 @@ const BETA = '8.8.8.8'
 const GAMMA = '9.9.9.9'
 const METADATA = '169.254.169.254'
 const DNS_PORT = 53
+const HTTPS_PORT = 443
 
-/** Whether the workload can open a connection to the address. */
-function reaches(id: string, address: string, port = DNS_PORT): boolean {
-    return sh(`docker exec ${id} sh -c 'nc -w 4 -z ${address} ${port} && echo yes'`) === 'yes'
+/** Whether the workload can open a connection to the address, or to what a name resolves to. */
+function reaches(id: string, destination: string, port = DNS_PORT): boolean {
+    return sh(`docker exec ${id} sh -c 'nc -w 4 -z ${destination} ${port} && echo yes'`) === 'yes'
+}
+
+/** Whether the workload can complete an HTTPS fetch of the URL, name resolution included. */
+function fetches(id: string, url: string): boolean {
+    return sh(`docker exec ${id} sh -c 'wget -q -T 8 -O /dev/null ${url} && echo yes'`) === 'yes'
+}
+
+/** Whether the workload's resolver answers for the name. */
+function resolves(id: string, name: string): boolean {
+    return sh(`docker exec ${id} sh -c 'nslookup ${name} >/dev/null 2>&1 && echo yes'`) === 'yes'
 }
 
 function waitUntilUp(id: string): void {
@@ -61,7 +81,8 @@ function launchAll(egress: EgressPolicyManager,
     // Started before any is awaited, so ten guests boot concurrently rather than in series
     ids.forEach(id => {
         sh(`docker rm -f ${id}`)
-        sh(`docker run -d --name ${id} --runtime ${RUNTIME} alpine:latest sleep 900`)
+        // Given the node's resolver as the vm-manager gives it, so a name resolves through it
+        sh(`docker run -d --name ${id} --runtime ${RUNTIME} ${RESOLVER ? `--dns ${RESOLVER}` : ''} alpine:latest sleep 900`)
         tracker.push(id)
     })
     ids.forEach(waitUntilUp)
@@ -223,5 +244,49 @@ describe.skipIf(!canRun)('many workloads on one node stay independent', () => {
                 .toEqual({ workload: spec.name, reached: false })
         }
     }, 600_000)
+
+})
+
+describe.skipIf(!resolvesNames)('a workload allowed a hostname reaches what the resolver answers for it', () => {
+
+    const egress = new EgressPolicyManager(RESOLVER)
+    const started: string[] = []
+
+    afterAll(() => {
+        for (const id of started) {
+            egress.release(id)
+            sh(`docker rm -f ${id}`)
+        }
+        egress.reconcile(new Set())
+    })
+
+    it('reaches the name, and not an address it never resolved', () => {
+        const [named, unnamed] = launchAll(egress, started, [
+            { name: 'named', allowed: ['example.com'] },
+            { name: 'unnamed', allowed: [] },
+        ])
+
+        expect(fetches(named!, 'https://example.com')).toBe(true)
+        // The set holds only what dnsmasq answered for the name, so an address the workload
+        // never resolved stays denied whatever the name's records say
+        expect(reaches(named!, ALPHA)).toBe(false)
+
+        // Resolving a name is not being allowed it: the answer is the same, the rule is not
+        expect(resolves(unnamed!, 'example.com')).toBe(true)
+        expect(reaches(unnamed!, 'example.com', HTTPS_PORT)).toBe(false)
+    }, 300_000)
+
+    it('leaves no set or directive behind once no workload is allowed the name', () => {
+        for (const id of started.splice(0)) {
+            egress.release(id)
+            sh(`docker rm -f ${id}`)
+        }
+        // A released name outlives its workload until the next reconcile, which is what a
+        // restarted vm-manager runs before it takes any workload
+        egress.reconcile(new Set())
+
+        expect(sh('ipset list -n').split('\n').filter(set => set.startsWith('kinotic-'))).toEqual([])
+        expect(existsSync('/etc/dnsmasq.d/kinotic-egress.conf')).toBe(false)
+    }, 120_000)
 
 })

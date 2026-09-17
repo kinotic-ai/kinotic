@@ -1,4 +1,6 @@
 import { Publish } from "../src"
+import { interval, Observable, of } from "rxjs"
+import { map } from "rxjs/operators"
 
 @Publish("com.example")
 export class TestServiceNoScope {
@@ -33,5 +35,14 @@ export class TestServiceNoScope {
 
     processListOfComplexObjects(list: { id: number, tags: string[] }[]): number {
         return list.reduce((sum, item) => sum + item.id + item.tags.length, 0)
+    }
+
+    countTo(n: number): Observable<number> {
+        return of(...Array.from({ length: n }, (_, i) => i + 1))
+    }
+
+    /** Emits once a period, for as long as something is subscribed. */
+    tick(periodMs: number): Observable<number> {
+        return interval(periodMs).pipe(map(i => i + 1))
     }
 }

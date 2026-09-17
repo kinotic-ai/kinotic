@@ -69,15 +69,17 @@ describe('Kinotic JS', () => {
             validateConnectedInfo(connectedInfo, ['ANONYMOUS'])
 
             const promise = new Promise((resolve, reject) => {
-                kinotic.eventBus.fatalErrors.subscribe((error: Error) => {
-                    resolve(error)
+                kinotic.eventBus.connectionEnded.subscribe((reason: Error | null) => {
+                    if (reason !== null) {
+                        resolve(reason)
+                    }
                 })
             })
 
             console.log('Sending invalid event from kinotic client')
             kinotic.eventBus.send(new Event(EventConstants.SERVICE_DESTINATION_PREFIX+ 'blah'))
 
-            const error = await logFailure(promise, 'Failed to receive error from fatalErrors observable')
+            const error = await logFailure(promise, 'Failed to receive the reason the connection ended')
 
             expect(error).toBeDefined()
 

@@ -40,12 +40,27 @@ export class VmManagerConfig {
     /**
      * KINOTIC_WORKLOAD_DNS — resolver given to each workload and permitted on port 53. A
      * property of the node's network rather than of any workload, which is why it is not
-     * carried on NetworkPolicy: a workload cannot know what resolver its node was given.
+     * carried on NetworkPolicy: a workload cannot know what resolver its node was given. On a
+     * node provisioned for CLOUD_HYPERVISOR it is the bridge address the node's dnsmasq
+     * listens on, whose answers are what a hostname in an allowlist is enforced against.
      */
     readonly workloadDns: string | undefined = process.env.KINOTIC_WORKLOAD_DNS
 
     /** KINOTIC_LOKI_URL — Loki HTTP API workload logs are shipped to; unset disables log shipping. */
     readonly lokiUrl: string | undefined = process.env.KINOTIC_LOKI_URL
+
+    /**
+     * KINOTIC_TEMPO_URL — base URL of the OTLP/HTTP endpoint workload traces are shipped to,
+     * Tempo's own or a collector in front of it; unset disables trace shipping.
+     */
+    readonly tempoUrl: string | undefined = process.env.KINOTIC_TEMPO_URL
+
+    /**
+     * KINOTIC_MIMIR_URL — base URL of the OTLP/HTTP endpoint workload metrics are shipped to,
+     * Mimir's own ({@code http://mimir:9009/otlp}) or a collector in front of it; unset
+     * disables metric shipping.
+     */
+    readonly mimirUrl: string | undefined = process.env.KINOTIC_MIMIR_URL
 
     /**
      * KINOTIC_WORKLOAD_DATA_DIR — base directory every workload volume mount on this node

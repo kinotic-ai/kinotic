@@ -26,6 +26,9 @@ dependencies {
 
     implementation 'tools.jackson.core:jackson-core'
     implementation 'tools.jackson.core:jackson-databind'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.vertx:vertx-ignite'
 }
 
 // kinotic-frontend builds the SPA into src/main/resources/webroot here, where the runtime

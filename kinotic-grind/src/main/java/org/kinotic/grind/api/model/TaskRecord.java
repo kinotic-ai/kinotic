@@ -48,7 +48,8 @@ public class TaskRecord implements Identifiable<String> {
     private ExecutionStatus status = ExecutionStatus.RUNNING;
 
     /**
-     * How the task's result was stored in the job scope. Null until the task completes.
+     * How the task's result is stored in the job scope. Known from discovery when the
+     * definition names the store, otherwise from completion; null when nothing is stored.
      */
     private StoreType storeType;
 
@@ -59,8 +60,9 @@ public class TaskRecord implements Identifiable<String> {
     private boolean dynamicTasks;
 
     /**
-     * The name the task's value was stored under in the job scope, or null if nothing
-     * was stored.
+     * The name the task's value is stored under in the job scope. Known from discovery
+     * when the definition names the store, derived from the value at completion otherwise;
+     * null when nothing is stored.
      */
     private String storedName;
 

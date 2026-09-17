@@ -27,4 +27,10 @@ public class SystemApiProperties {
     @Valid
     private DeploymentProperties deployment = new DeploymentProperties();
 
+    /**
+     * Where each published UI is served from.
+     */
+    @Valid
+    private UiDeploymentProperties uiDeployment = new UiDeploymentProperties();
+
 }

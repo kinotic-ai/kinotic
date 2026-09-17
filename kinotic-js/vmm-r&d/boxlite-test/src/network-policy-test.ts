@@ -1,4 +1,5 @@
 import { SimpleBox, getJsBoxlite, type NetworkSpec } from "@boxlite-ai/boxlite";
+import { resolve4, resolveCname } from "node:dns/promises";
 
 // What does SimpleBoxOptions.network actually enforce? The kinotic vm-manager now sends a
 // policy on every box (Workload.network -> { mode, allowNet }) so that what a guest can
@@ -30,6 +31,13 @@ import { SimpleBox, getJsBoxlite, type NetworkSpec } from "@boxlite-ai/boxlite";
 //                               for a no-egress policy. Whether it boots and denies
 //                               everything decides if NetworkMode.DISABLED can be
 //                               implemented at all on 0.9.7.
+//  I. CNAME chain           — github.com and registry.npmjs.org resolve directly, but an
+//                               Azure storage account host is a CNAME chain
+//                               (<account>.blob.core.windows.net -> blob.<cluster>.store.
+//                               core.windows.net -> address). Does an allowlist naming the
+//                               head of the chain permit the connection, or does boxlite
+//                               attribute the answer to the canonical name? The variants
+//                               name the whole chain, a wildcard, and the bare address.
 //
 // Requires ordinary outbound internet from the host. Every box is removed in cleanup.
 
@@ -47,6 +55,10 @@ const BLOCKED_IP = "1.1.1.1";
 // the .invalid TLD (RFC 2606) is guaranteed never to resolve.
 const SINK_IP = "192.0.2.1";
 const SINK_HOST = "no-egress.invalid";
+// A storage account host whose answer is a CNAME chain. The canonical name and address are
+// resolved on the host at startup rather than pinned, since Azure moves them.
+const AZURE_HOST = "kin00aca0a5a87cfeb0a1f11.blob.core.windows.net";
+const AZURE_WILDCARD = "*.blob.core.windows.net";
 
 interface Probe {
     /** What the guest was asked to reach. */
@@ -72,7 +84,10 @@ async function removeIfPresent(name: string) {
  * guest could reach it. The entrypoint idles so the work runs through exec, whose exit
  * code and stderr are observable (unlike an entrypoint's, per finding #7).
  */
-async function probeEgress(label: string, network: NetworkSpec | undefined): Promise<{ dns: Probe; targets: Probe[] }> {
+async function probeEgress(label: string,
+                           network: NetworkSpec | undefined,
+                           lookupHost = BLOCKED_HOST,
+                           urls = [`http://${ALLOWED_HOST}`, `http://${BLOCKED_HOST}`, `http://${BLOCKED_IP}`]): Promise<{ dns: Probe; targets: Probe[] }> {
     const name = `net-${RUN}-${label}`;
     try {
         const box = new SimpleBox({
@@ -86,6 +101,8 @@ async function probeEgress(label: string, network: NetworkSpec | undefined): Pro
             ...(network !== undefined ? { network } : {}),
         });
         await box.getId();
+        // 0.10 creates the record only; exec no longer boots the VM as a side effect
+        await (await runtime.get(name))!.start();
 
         // Separating name resolution from the fetch shows whether the allowlist is
         // enforced at DNS or on the connection itself
@@ -93,16 +110,16 @@ async function probeEgress(label: string, network: NetworkSpec | undefined): Pro
         // status of the LAST command in a pipeline, so piping nslookup into tail would
         // always report tail's success and hide a failed lookup
         const lookup = await box.exec("sh", "-c",
-            `nslookup ${BLOCKED_HOST} >/tmp/dns.out 2>&1; echo "lookup-exit=$?"; tail -n 3 /tmp/dns.out`);
+            `nslookup ${lookupHost} >/tmp/dns.out 2>&1; echo "lookup-exit=$?"; tail -n 3 /tmp/dns.out`);
         const reported = lookup.stdout.match(/lookup-exit=(\d+)/);
         const dns: Probe = {
-            target: `dns:${BLOCKED_HOST}`,
+            target: `dns:${lookupHost}`,
             exitCode: reported ? Number(reported[1]) : -1,
             detail: lookup.stdout.replace(/lookup-exit=\d+/, "").trim().split("\n").filter(Boolean).join(" | "),
         };
 
         const targets: Probe[] = [];
-        for (const target of [`http://${ALLOWED_HOST}`, `http://${BLOCKED_HOST}`, `http://${BLOCKED_IP}`]) {
+        for (const target of urls) {
             // -T bounds a silent drop, which is how a blocked connection usually presents
             const result = await box.exec("sh", "-c", `wget -T 8 -q -O /dev/null ${target}`);
             targets.push({
@@ -117,8 +134,16 @@ async function probeEgress(label: string, network: NetworkSpec | undefined): Pro
     }
 }
 
+/**
+ * Whether the guest got through to the target. Azure answers GET / with a 4xx, on which
+ * busybox wget exits non-zero, so an HTTP error response counts: TLS and HTTP happened.
+ */
+function reachedTarget(probe: Probe | undefined): boolean {
+    return probe !== undefined && (probe.exitCode === 0 || /server returned error: HTTP/.test(probe.detail));
+}
+
 function render(probe: Probe): string {
-    const verdict = probe.exitCode === 0 ? "REACHED" : "blocked";
+    const verdict = reachedTarget(probe) ? "REACHED" : "blocked";
     return `${probe.target.padEnd(28)} ${verdict.padEnd(8)} exit=${probe.exitCode}${probe.detail ? `  ${probe.detail}` : ""}`;
 }
 
@@ -126,9 +151,13 @@ async function main() {
     const boxliteVersion = (await import("@boxlite-ai/boxlite/package.json")).default.version as string;
     console.log(`boxlite version : ${boxliteVersion}`);
     console.log(`Platform        : ${process.platform} (${process.arch})  runtime: Bun ${Bun.version}`);
-    console.log(`Allowed host    : ${ALLOWED_HOST}   blocked host: ${BLOCKED_HOST}   blocked ip: ${BLOCKED_IP}\n`);
+    console.log(`Allowed host    : ${ALLOWED_HOST}   blocked host: ${BLOCKED_HOST}   blocked ip: ${BLOCKED_IP}`);
+    const [azureCname] = await resolveCname(AZURE_HOST);
+    const [azureIp] = await resolve4(AZURE_HOST);
+    console.log(`Azure host      : ${AZURE_HOST} -> ${azureCname} -> ${azureIp}\n`);
+    const azureUrls = [`https://${AZURE_HOST}/`, `https://${azureCname}/`];
 
-    const cases: Array<{ label: string; description: string; network: NetworkSpec | undefined }> = [
+    const cases: Array<{ label: string; description: string; network: NetworkSpec | undefined; lookupHost?: string; urls?: string[] }> = [
         { label: "omitted", description: "E. network option omitted entirely", network: undefined },
         { label: "enabled", description: "B. mode 'enabled', no allowNet", network: { mode: "enabled" } },
         { label: "disabled", description: "A. mode 'disabled'", network: { mode: "disabled" } },
@@ -152,13 +181,46 @@ async function main() {
             description: `H. mode 'enabled', allowNet ['${SINK_HOST}'] — a name that cannot resolve`,
             network: { mode: "enabled", allowNet: [SINK_HOST] },
         },
+        {
+            label: "azure-head",
+            description: `I. mode 'enabled', allowNet ['${AZURE_HOST}'] — the head of the CNAME chain only`,
+            network: { mode: "enabled", allowNet: [AZURE_HOST] },
+            lookupHost: AZURE_HOST,
+            urls: azureUrls,
+        },
+        {
+            label: "azure-chain",
+            description: `I. mode 'enabled', allowNet ['${AZURE_HOST}', '${azureCname}'] — the whole chain`,
+            network: { mode: "enabled", allowNet: [AZURE_HOST, azureCname] },
+            lookupHost: AZURE_HOST,
+            urls: azureUrls,
+        },
+        {
+            label: "azure-wildcard",
+            description: `I. mode 'enabled', allowNet ['${AZURE_WILDCARD}'] — a wildcard`,
+            network: { mode: "enabled", allowNet: [AZURE_WILDCARD] },
+            lookupHost: AZURE_HOST,
+            urls: azureUrls,
+        },
+        {
+            label: "azure-ip",
+            description: `I. mode 'enabled', allowNet ['${azureIp}'] — the address alone`,
+            network: { mode: "enabled", allowNet: [azureIp] },
+            lookupHost: AZURE_HOST,
+            urls: azureUrls,
+        },
     ];
 
+    // An optional label prefix runs a subset, e.g. `azure` for the CNAME cases alone
+    const only = process.argv[2];
     const results = new Map<string, { dns: Probe; targets: Probe[] }>();
-    for (const { label, description, network } of cases) {
+    for (const { label, description, network, lookupHost, urls } of cases) {
+        if (only && !label.startsWith(only)) {
+            continue;
+        }
         console.log(`=== ${description} ===`);
         try {
-            const result = await probeEgress(label, network);
+            const result = await probeEgress(label, network, lookupHost, urls);
             results.set(label, result);
             console.log(`  ${render(result.dns)}`);
             for (const probe of result.targets) {
@@ -174,7 +236,7 @@ async function main() {
 
     console.log("=== REPORT ===");
     const reached = (label: string, target: string) =>
-        results.get(label)?.targets.find(p => p.target.includes(target))?.exitCode === 0;
+        reachedTarget(results.get(label)?.targets.find(p => p.target.includes(target)));
 
     const allowlist = results.get("allowlist");
     console.log(`(a) 'disabled' blocks egress:              ${answer(results.has("disabled"), !reached("disabled", ALLOWED_HOST) && !reached("disabled", BLOCKED_IP))}`);
@@ -190,7 +252,17 @@ async function main() {
     console.log(`(h) a reserved-IP allowlist denies all:     ${denies("sink-ip")}`);
     console.log(`(i) an unresolvable-name allowlist denies:  ${denies("sink-name")}`);
     console.log(`    (either YES is a usable no-egress policy, since a populated list is enforced)`);
+    console.log(`(j) naming the chain's head alone reaches:   ${answer(results.has("azure-head"), reached("azure-head", AZURE_HOST))}`);
+    console.log(`(k) naming the whole chain reaches:         ${answer(results.has("azure-chain"), reached("azure-chain", AZURE_HOST))}`);
+    console.log(`(l) a wildcard reaches:                     ${answer(results.has("azure-wildcard"), reached("azure-wildcard", AZURE_HOST))}`);
+    console.log(`(m) the address alone reaches:              ${answer(results.has("azure-ip"), reached("azure-ip", AZURE_HOST))}`);
     console.log(`\nDNS under the allowlist: ${allowlist ? render(allowlist.dns) : "(not run)"}`);
+    for (const label of ["azure-head", "azure-chain", "azure-wildcard", "azure-ip"]) {
+        const result = results.get(label);
+        if (result) {
+            console.log(`DNS under ${label.padEnd(15)}: ${render(result.dns)}`);
+        }
+    }
 }
 
 function answer(ran: boolean, condition: boolean): string {

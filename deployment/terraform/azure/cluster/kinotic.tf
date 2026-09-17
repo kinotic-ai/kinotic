@@ -42,6 +42,9 @@ resource "helm_release" "kinotic_server" {
     # Cluster Key Vault for tenant/app secrets
     { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_DOMAIN_SECRET_STORAGE_AZURE_VAULT_URL", value = azurerm_key_vault.main.vault_uri },
+    # UI sites — the domain published UIs are served under and the account they are published into
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESDOMAIN", value = local.sites_domain },
+    { name = "extraEnv.KINOTIC_SYSTEMAPI_UIDEPLOYMENT_SITESSTORAGEENDPOINT", value = module.sites.storage_blob_endpoint },
     # Email (Azure Communication Services) — shared service from global terraform
     { name = "extraEnv.KINOTIC_EMAIL_BACKEND", value = "azure" },
     { name = "extraEnv.KINOTIC_EMAIL_AZURE_ENDPOINT", value = local.global.email_service_endpoint },
@@ -68,6 +71,7 @@ resource "helm_release" "kinotic_server" {
     helm_release.reloader,
     azurerm_role_assignment.kinotic_server_kv_secrets,
     azurerm_role_assignment.kinotic_server_email_contributor,
+    module.sites,
     azurerm_federated_identity_credential.kinotic_server,
   ]
 }

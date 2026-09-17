@@ -53,10 +53,7 @@ import java.util.concurrent.TimeUnit;
  * Alongside the project's own values, the render context carries a version range for
  * every published {@code @kinotic-ai} npm package, keyed by the spawn global a template
  * pins it through ({@code kinoticCoreVersion}, {@code kinoticCliVersion}, ...), so a
- * provisioned project depends on the package versions this server ships with. The
- * OpenTelemetry ranges those packages are built against travel the same way
- * ({@code otelSdkNodeVersion}, ...), so a project exports its telemetry through an SDK
- * that matches the API the platform emits spans with.
+ * provisioned project depends on the package versions this server ships with.
  */
 @Slf4j
 @Component
@@ -232,6 +229,7 @@ public class GitHubProjectRepoProvisioner implements ProjectRepoProvisioner {
         ret.put("projectSlug", SLUGIFY.slugify(project.getName()));
         ret.put("organizationId", project.getOrganizationId());
         ret.put("applicationId", project.getApplicationId());
+        ret.put("projectId", project.getId());
         return ret;
     }
 

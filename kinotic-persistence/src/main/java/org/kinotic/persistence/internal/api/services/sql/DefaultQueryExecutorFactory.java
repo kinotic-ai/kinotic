@@ -58,7 +58,9 @@ public class DefaultQueryExecutorFactory implements QueryExecutorFactory {
                                                .toCompletionStage().toCompletableFuture().join();
             return new ParameterProcessorExecutor(entityDescriptor,
                                                   namedQuery,
-                                                  new PreAuthorizationExecutor(authorizationService, queryExecutor));
+                                                  new PreAuthorizationExecutor(entityDescriptor,
+                                                                               authorizationService,
+                                                                               queryExecutor));
         }else{
             throw new IllegalArgumentException("Multiple statements not supported yet");
         }

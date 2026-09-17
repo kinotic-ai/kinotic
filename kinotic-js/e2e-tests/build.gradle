@@ -50,3 +50,9 @@ task pnpmBuild(type: PnpmTask) {
 task pnpmTest(type: PnpmTask) {
     args = ['test']
 }
+
+// Kills and restarts nodes of its own two-node stack, so it runs after the other suites have released theirs
+task pnpmTestNodeFailure(type: PnpmTask) {
+    args = ['test:node-failure']
+    mustRunAfter 'pnpmTest'
+}

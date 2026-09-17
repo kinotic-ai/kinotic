@@ -9,16 +9,11 @@
 - Use `bun run <script>` to run scripts
 - **DO NOT** use pnpm, yarn, or npm
 
-## Versioning: bumping `@kinotic-ai/core`
+## Versioning: peer dependencies between workspace packages
 
-Other packages declare `@kinotic-ai/core` as a **peerDependency** (e.g. `management-api`, `persistence`) with a `>=<version>` floor, plus a `workspace:*` devDependency for local builds. The `workspace:*` devDep tracks the local build automatically, but the peer floor is what a published consumer resolves against — so it does not move on its own.
+A workspace package that another workspace package augments at runtime (`core`, which `management-api` and `system-api` extend; `management-api`, which `system-api` extends) is declared as a **peerDependency** with `workspace:^`, plus a `workspace:*` devDependency for local builds. `bun publish` rewrites both from the versions `bun install` recorded in `bun.lock`: the peer becomes `^<current version of that package>`, the devDependency its exact version. So the floor a published consumer resolves against always names the version the package was built against, with nothing to edit by hand.
 
-Whenever you bump core's version, in the same change:
-
-1. Raise the `@kinotic-ai/core` peerDependency floor to `>=<new core version>` in **every** package that declares it (grep `@kinotic-ai/core` across `packages/*/package.json`).
-2. Bump that dependent package's own `version` so the new floor actually ships — a published consumer using `persistence` directly then pulls a core that has the API `persistence` was built against.
-
-This keeps `management-api`/`persistence` consumers from resolving an older core that lacks the symbols those packages now expect.
+What still moves by hand is the dependent's own `version`: a package is published only when its version is not on the registry yet, so when a package starts using a new API of one it augments, bump its `version` in the same change, or the publish that carries the new floor never happens.
 
 ## Kinotic Service Registration
 

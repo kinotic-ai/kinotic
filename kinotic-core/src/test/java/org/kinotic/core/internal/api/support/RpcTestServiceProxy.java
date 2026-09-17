@@ -63,6 +63,8 @@ public interface RpcTestServiceProxy {
 
     Mono<String> getMonoWithValue();
 
+    Mono<String> getMonoAfterDelay(String value, long delayMillis);
+
     Mono<Void> getMonoWithVoidFromEmpty();
 
     Mono<Void> getMonoWithVoidFromNull();
@@ -82,6 +84,8 @@ public interface RpcTestServiceProxy {
     Mono<String> middleArgParticipant(String prefix, String suffix);
 
     Mono<List<String>> modifyListOfStrings(List<String> stringsToModify);
+
+    Mono<String> narrowParticipant();
 
     Mono<Integer> putListOfSimpleObjects(List<SimpleObject> simpleObjects);
 

@@ -1,0 +1,27 @@
+/* A DataTable that is loading: an indeterminate line runs along the header row's bottom divider,
+   in place of PrimeVue's mask over the rows, so the rows stay readable while the next page loads. */
+.datatable-loading .p-datatable-thead {
+  position: relative;
+}
+
+.datatable-loading .p-datatable-thead::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--p-primary-500), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: datatable-loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes datatable-loading-slide {
+  0% {
+    background-position: -100% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}

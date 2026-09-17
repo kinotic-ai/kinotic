@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "dev:tunnel": "vite --mode tunnel",
+    "dev:tunnel:build": "vite build --mode tunnel && vite preview --mode tunnel",
     "build": "vue-tsc -b && vite build",
     "build:dev": "vue-tsc -b && vite build --mode development",
     "build:kind": "vue-tsc -b && vite build --mode kind",

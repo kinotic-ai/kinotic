@@ -6,6 +6,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.eventbus.MessageConsumer;
 import io.vertx.core.spi.cluster.RegistrationInfo;
 import io.vertx.core.tracing.TracingPolicy;
@@ -57,6 +58,7 @@ public class DefaultEventBusService implements EventBusService {
         MessageConsumer<Event<byte[]>> consumer = vertx.eventBus().consumer(address);
         localListenerCounts.merge(address, 1, Integer::sum);
         return new DefaultEventConsumer(consumer,
+                                        clusterManager.getNodeId(),
                                         () -> localListenerCounts.computeIfPresent(address, (k, count) -> count == 1 ? null : count - 1));
     }
 
@@ -65,6 +67,11 @@ public class DefaultEventBusService implements EventBusService {
         // Every registration change on the address emits its resulting status, dedupe to transitions
         return clusterManager.statusFlux(cri.baseResource())
                              .distinctUntilChanged();
+    }
+
+    @Override
+    public Flux<Set<String>> monitorClusterNodes() {
+        return clusterManager.clusterNodesFlux();
     }
 
     @Override
@@ -99,15 +106,16 @@ public class DefaultEventBusService implements EventBusService {
     }
 
     @Override
-    public Future<Void> sendWithAck(Event<byte[]> event) {
+    public Future<String> sendWithAck(Event<byte[]> event) {
         Validate.notNull(event, "Event must not be null");
         String baseResource = event.cri().baseResource();
         DeliveryOptions deliveryOptions = createDeliveryOptions(event, baseResource);
+        // the acknowledgement body is the id of the node whose consumer took the event
         return vertx.eventBus()
-                    .request(baseResource,
-                             event,
-                             deliveryOptions)
-                    .mapEmpty();
+                    .<String>request(baseResource,
+                                     event,
+                                     deliveryOptions)
+                    .map(Message::body);
     }
 
     DeliveryOptions createDeliveryOptions(Event<?> event, String baseResource){

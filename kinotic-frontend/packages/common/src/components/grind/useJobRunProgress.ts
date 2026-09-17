@@ -62,6 +62,8 @@ export function useJobRunProgress(jobRunId: string) {
         started: null,
         finished: null,
         progress: null,
+        storedName: null,
+        storedValue: null,
         children: []
       })
       nodesByPath.set(taskPath, node)
@@ -85,6 +87,10 @@ export function useJobRunProgress(jobRunId: string) {
     node.error = record.error
     node.started = record.started
     node.finished = record.finished
+    node.storedName = record.storedName ?? node.storedName
+    if (record.stateValue !== null && record.stateValue !== undefined) {
+      node.storedValue = record.stateValue
+    }
     if (record.status !== ExecutionStatus.RUNNING) {
       node.progress = null
     }
@@ -105,6 +111,10 @@ export function useJobRunProgress(jobRunId: string) {
         node.status = ExecutionStatus.COMPLETED
         node.finished = node.finished ?? Date.now()
         node.progress = null
+        node.storedName = event.storedName ?? node.storedName
+        if (event.wireValue !== null && event.wireValue !== undefined) {
+          node.storedValue = event.wireValue
+        }
         break
       }
       case JobRunEventType.TASK_FAILED: {

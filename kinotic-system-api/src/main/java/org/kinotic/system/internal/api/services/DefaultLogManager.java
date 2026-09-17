@@ -4,6 +4,8 @@ package org.kinotic.system.internal.api.services;
 
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.config.TraceLogProperties;
+import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.system.api.model.log.GroupLoggerLevelsDescriptor;
 import org.kinotic.system.api.model.log.LogLevel;
 import org.kinotic.system.api.model.log.LoggerLevelsDescriptor;
@@ -31,15 +33,18 @@ public class DefaultLogManager implements LogManager {
     private final Kinotic kinotic;
     private final LoggingSystem loggingSystem;
     private final LoggerGroups loggerGroups;
+    private final TraceLogFilter traceLogFilter;
 
 
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     public DefaultLogManager(Kinotic kinotic,
                              LoggingSystem loggingSystem,
-                             LoggerGroups loggerGroups) {
+                             LoggerGroups loggerGroups,
+                             TraceLogFilter traceLogFilter) {
         this.kinotic = kinotic;
         this.loggingSystem = loggingSystem;
         this.loggerGroups = loggerGroups;
+        this.traceLogFilter = traceLogFilter;
     }
 
     @Override
@@ -80,6 +85,14 @@ public class DefaultLogManager implements LogManager {
             return;
         }
         this.loggingSystem.setLogLevel(name, bootLevel);
+    }
+
+    public TraceLogProperties traceLog() {
+        return this.traceLogFilter.getPatterns();
+    }
+
+    public void configureTraceLog(TraceLogProperties traceLog) {
+        this.traceLogFilter.setPatterns(traceLog);
     }
 
     private NavigableSet<LogLevel> getLevels() {
