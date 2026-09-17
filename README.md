@@ -20,8 +20,6 @@
 
 ---
 
-**Kinotic turns application intent into production software.**
-
 AI has dramatically reduced the cost of writing software.
 
 The bottleneck is moving that software from a prototype into a secure, observable, scalable production system.
