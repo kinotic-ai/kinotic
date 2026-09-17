@@ -228,7 +228,7 @@ This allows developers to describe the application domain without manually build
 
 Application services provide executable business capabilities.
 
-Kinotic can generate the infrastructure required to expose and communicate with published service operations.
+Kinotic generates the infrastructure required to expose and communicate with published service operations.
 
 Services can also become discoverable capabilities for AI agents.
 
