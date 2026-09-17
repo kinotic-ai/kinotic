@@ -24,7 +24,7 @@ AI has dramatically reduced the cost of writing software.
 
 The bottleneck is moving that software from a prototype into a secure, observable, scalable production system.
 
-Kinotic is building the application-level operating system that closes that gap.
+Kinotic is the application-level operating system that closes that gap.
 
 > **Idea** →<br>
 > **Specification** →<br>
@@ -431,7 +431,7 @@ AI agents should not need to understand every cloud API, Kubernetes primitive, n
 
 They need a higher-level operating environment.
 
-**That's what Kinotic is building.**
+**That's what Kinotic is.**
 
 ---
 
