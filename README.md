@@ -124,7 +124,7 @@ Kinotic provides the capabilities required throughout that lifecycle:
 |---|---|
 | 🛠️&nbsp;**Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
 | 🔐&nbsp;**Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🔁&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 🚢&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
 | 📈&nbsp;**Operate** | Observability · LLM observability |
 
 ---
