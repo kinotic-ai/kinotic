@@ -4,6 +4,7 @@
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="340">
 </picture>
+&nbsp;&nbsp;<img src=".github/assets/cubes/header-mint.svg" width="46" alt="">
 
 ### Prototype to production
 
@@ -18,13 +19,15 @@
 
 </div>
 
----
+<div align="center">
+<img src=".github/assets/cubes/rule-red.svg" width="20" alt="">
+</div>
 
 AI has dramatically reduced the cost of writing software.
 
 The bottleneck is moving that software from a prototype into a secure, observable, scalable production system.
 
-Kinotic is building the application-level operating system that closes that gap.
+Kinotic is the application-level operating system that closes that gap.
 
 > **Idea** →<br>
 > **Specification** →<br>
@@ -35,7 +38,7 @@ Kinotic abstracts the complexity of cloud infrastructure so developers and AI ag
 
 ---
 
-## 🧭 Why Kinotic?
+## <img src=".github/assets/marks/why.svg" width="22" alt=""> Why Kinotic?
 
 Modern software development has an infrastructure problem.
 
@@ -68,7 +71,7 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 ---
 
-# 📐 A different abstraction layer
+# <img src=".github/assets/marks/abstraction-layer.svg" width="22" alt=""> A different abstraction layer
 
 Cloud providers made infrastructure available on demand.
 
@@ -108,7 +111,7 @@ That distinction is fundamental to the project.
 
 ---
 
-# 🚀 From prototype to production
+# <img src=".github/assets/marks/prototype-to-production.svg" width="22" alt=""> From prototype to production
 
 Kinotic is designed around a simple idea:
 
@@ -124,12 +127,12 @@ Kinotic provides the capabilities required throughout that lifecycle:
 |---|---|
 | 🛠️&nbsp;**Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
 | 🔐&nbsp;**Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🔁&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 🚢&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
 | 📈&nbsp;**Operate** | Observability · LLM observability |
 
 ---
 
-# 🤖 Built for humans and AI agents
+# <img src=".github/assets/marks/humans-and-agents.svg" width="22" alt=""> Built for humans and AI agents
 
 Kinotic treats AI agents as first-class participants in the software development lifecycle.
 
@@ -159,7 +162,7 @@ An agent can work with application capabilities rather than manipulating the und
 
 ---
 
-# 💡 What you can build
+# <img src=".github/assets/marks/what-you-can-build.svg" width="22" alt=""> What you can build
 
 Kinotic is designed for applications ranging from small internal tools to production SaaS systems.
 
@@ -170,7 +173,7 @@ Kinotic is designed for applications ranging from small internal tools to produc
 
 ---
 
-# 📦 Core concepts
+# <img src=".github/assets/marks/core-concepts.svg" width="22" alt=""> Core concepts
 
 Kinotic organizes applications around a small number of fundamental concepts.
 
@@ -228,13 +231,13 @@ This allows developers to describe the application domain without manually build
 
 Application services provide executable business capabilities.
 
-Kinotic can generate the infrastructure required to expose and communicate with published service operations.
+Kinotic generates the infrastructure required to expose and communicate with published service operations.
 
 Services can also become discoverable capabilities for AI agents.
 
 ---
 
-# ⚙️ Production capabilities
+# <img src=".github/assets/marks/production-capabilities.svg" width="22" alt=""> Production capabilities
 
 ## Identity and access control
 
@@ -286,7 +289,7 @@ The objective is simple:
 
 ---
 
-# ☁️ Your cloud or ours
+# <img src=".github/assets/marks/your-cloud-or-ours.svg" width="22" alt=""> Your cloud or ours
 
 Kinotic can run as a managed platform or inside infrastructure controlled by the customer.
 
@@ -300,7 +303,7 @@ This gives organizations a path from managed development to customer-controlled 
 
 ---
 
-# 🏗️ Architecture
+# <img src=".github/assets/marks/architecture.svg" width="22" alt=""> Architecture
 
 Kinotic is built as an open platform rather than a single monolithic runtime.
 
@@ -348,7 +351,7 @@ The architecture is intentionally designed so that the application abstraction s
 
 ---
 
-# 🔓 Open source
+# <img src=".github/assets/marks/open-source.svg" width="22" alt=""> Open source
 
 Kinotic is an open-source project.
 
@@ -358,13 +361,13 @@ The goal is not to create another opaque application platform where the generate
 
 Applications should remain inspectable, understandable, and deployable.
 
-Kinotic can provide the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
+Kinotic provides the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
 
 See [LICENSE.txt](LICENSE.txt) for the terms governing the project.
 
 ---
 
-# 🤝 Contributing
+# <img src=".github/assets/marks/contributing.svg" width="22" alt=""> Contributing
 
 Kinotic is actively evolving and contributions are welcome.
 
@@ -390,7 +393,7 @@ Pull requests are welcome.
 
 ---
 
-# 💻 Development
+# <img src=".github/assets/marks/development.svg" width="22" alt=""> Development
 
 Kinotic is a multi-module project containing both JVM and TypeScript components.
 
@@ -402,7 +405,7 @@ For development instructions, see the project documentation:
 
 ---
 
-# ✅ Test reports
+# <img src=".github/assets/marks/test-reports.svg" width="22" alt=""> Test reports
 
 Kinotic continuously runs its Java and TypeScript end-to-end test suites.
 
@@ -412,7 +415,7 @@ Test results and historical trends are published through Allure:
 
 ---
 
-# 🔭 The vision
+# <img src=".github/assets/marks/the-vision.svg" width="22" alt=""> The vision
 
 Software development is changing.
 
@@ -431,7 +434,7 @@ AI agents should not need to understand every cloud API, Kubernetes primitive, n
 
 They need a higher-level operating environment.
 
-**That's what Kinotic is building.**
+**That's what Kinotic is.**
 
 ---
 
@@ -441,6 +444,7 @@ They need a higher-level operating environment.
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="200">
 </picture>
+&nbsp;&nbsp;<img src=".github/assets/cubes/footer-red.svg" width="30" alt="">
 
 **Prototype to production**
 
