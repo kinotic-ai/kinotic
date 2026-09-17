@@ -76,9 +76,7 @@ Kubernetes took over running containers.
 
 AI took over writing the code.
 
-The application in between is still assembled by hand — one service, one schema, one deployment pipeline at a time.
-
-**That is what Kinotic takes over.**
+**Kinotic took over the application.**
 
 <div align="center">
 
