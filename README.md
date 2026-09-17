@@ -70,13 +70,13 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # 📐 A different abstraction layer
 
-The cloud provides the hardware.
+Kubernetes made infrastructure orchestration programmable.
 
-Kubernetes provides the orchestration.
+Cloud providers made infrastructure available on demand.
 
-AI provides the code.
+AI coding systems are making software creation nearly free.
 
-**Kinotic provides the rest.**
+**Kinotic sits between those layers.**
 
 <div align="center">
 
