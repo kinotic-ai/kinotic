@@ -57,3 +57,18 @@ output "hosts_entry" {
   description = "The /etc/hosts line each node carries, so the server's name verifies against its certificate and resolves on the LAN"
   value       = "${local.server_ip} ${local.azure.api_hostname}"
 }
+
+output "kinotic_version" {
+  description = "The image tag the server and the migration run, which redeploy.sh compares against Docker Hub"
+  value       = var.kinotic_version
+}
+
+output "vm_nodes" {
+  description = "The nodes redeploy.sh upgrades"
+  value       = var.vm_nodes
+}
+
+output "vm_manager_version" {
+  description = "The vm-manager version or dist-tag the nodes are kept on"
+  value       = var.vm_manager_version
+}
