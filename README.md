@@ -1,10 +1,11 @@
 <div align="center">
 
+<img src=".github/assets/cubes/header-mint.svg" width="46" align="right" alt="">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="340">
 </picture>
-&nbsp;&nbsp;<img src=".github/assets/cubes/header-mint.svg" width="46" alt="">
 
 ### Prototype to production
 
@@ -441,11 +442,12 @@ They need a higher-level operating environment.
 
 <div align="center">
 
+<img src=".github/assets/cubes/footer-red.svg" width="30" align="left" alt="">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="200">
 </picture>
-&nbsp;&nbsp;<img src=".github/assets/cubes/footer-red.svg" width="30" alt="">
 
 **Prototype to production**
 
