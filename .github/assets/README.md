@@ -43,3 +43,37 @@ line does.
 for Kinotic's own layers, `#EDEDEF` for what a caller brings, `#2B2A32` for the
 infrastructure underneath. Each pairs a fill with an explicit text color, so contrast holds
 whichever theme the reader is in.
+
+## Heading marks and cubes
+
+`marks/*.svg` are the fourteen section marks the README's headings carry; `cubes/*.svg` are the
+three cubes — mint beside the wordmark, red where the first divider was, red at the footer.
+
+Both are drawn from the site: the cubes are the geometry and fills of `CtaComponent.vue`, and the
+marks are built from that same cube as a primitive, repeated and arranged — three slabs for layers,
+four assembled for what you can build, three on a platform for architecture. `why.svg` is the mark
+from `website/public/icons/logo.svg`.
+
+### What keeps them legible
+
+**Filled, never stroked.** Every edge of an isometric drawing is a diagonal, so a 1.5px outline
+aliases into mush at 22px. The marks use the mint cube's three fills as solid faces —
+`#4BF2B0` top, `#17B87C` right, `#0E9E68` left — which is why the site's cubes read at any size.
+
+**Silhouettes differ, not details.** At 22px a reader sees an outline, so marks are distinguished by
+count and arrangement rather than internal drawing. Where two would still collide, colour separates
+them: humans-and-agents is one mint cube and one red, development is a cube and its ghost.
+
+**One file per mark, no theme variants.** Mint holds its contrast on white and on GitHub's dark
+ground, so these need no `<picture>`. Files are drawn at 44px and set to `width="22"` in the README,
+which keeps them sharp on a high-density screen.
+
+### Motion
+
+The cubes carry the home page's float (7s) and tumble (9s) as CSS inside the file, which animates
+inside an `<img>` because it is style rather than script. Each one honours
+`prefers-reduced-motion: reduce` and holds still for a reader who asked for that. Nothing else in
+the README moves — the marks are deliberately static.
+
+Nothing here reaches the size of the home page's largest cube, which renders about 148px. The page
+stays the loud one.
