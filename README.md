@@ -20,8 +20,6 @@
 
 ---
 
-**Kinotic turns application intent into production software.**
-
 AI has dramatically reduced the cost of writing software.
 
 The bottleneck is moving that software from a prototype into a secure, observable, scalable production system.
@@ -72,13 +70,13 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # 📐 A different abstraction layer
 
-Kubernetes made infrastructure orchestration programmable.
-
 Cloud providers made infrastructure available on demand.
 
-AI coding systems are making software creation programmable.
+Kubernetes made infrastructure orchestration programmable.
 
-**Kinotic sits between those layers.**
+AI coding systems are making software creation nearly free.
+
+**Kinotic does everything in between.**
 
 <div align="center">
 
@@ -124,10 +122,10 @@ Kinotic provides the capabilities required throughout that lifecycle:
 
 | Lifecycle stage | What Kinotic provides |
 |---|---|
-| 🛠️ **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
-| 🔐 **Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🔁 **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
-| 📈 **Operate** | Observability · LLM observability |
+| 🛠️&nbsp;**Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
+| 🔐&nbsp;**Secure** | Authentication · Fine-grained authorization · Security controls |
+| 🔁&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 📈&nbsp;**Operate** | Observability · LLM observability |
 
 ---
 
@@ -167,8 +165,8 @@ Kinotic is designed for applications ranging from small internal tools to produc
 
 |  |  |
 |---|---|
-| **🧪 Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢 Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
-| **🌱 Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️ Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
+| **🧪&nbsp;Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢&nbsp;Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
+| **🌱&nbsp;Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️&nbsp;Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
 
 ---
 
@@ -292,7 +290,7 @@ The objective is simple:
 
 Kinotic can run as a managed platform or inside infrastructure controlled by the customer.
 
-| ☁️ **Kinotic OS Cloud** | 🛡️ **Customer-managed Kinotic OS** |
+| ☁️&nbsp;**Kinotic OS Cloud** | 🛡️&nbsp;**Customer-managed Kinotic OS** |
 |---|---|
 | Start building without provisioning or operating the underlying platform. | Forward-deploy Kinotic into your own Kubernetes environment: your cloud, your cluster, your network, your data, your security boundaries. |
 
