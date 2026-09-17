@@ -70,13 +70,13 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # 📐 A different abstraction layer
 
-Cloud providers took over the hardware.
+The cloud provides the hardware.
 
-Kubernetes took over running containers.
+Kubernetes provides the orchestration.
 
-AI took over writing the code.
+AI provides the code.
 
-**Kinotic took the rest.**
+**Kinotic provides the rest.**
 
 <div align="center">
 
