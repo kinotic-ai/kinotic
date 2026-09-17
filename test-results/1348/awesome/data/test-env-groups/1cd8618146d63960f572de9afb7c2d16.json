@@ -1,0 +1,1 @@
+{"id":"1cd8618146d63960f572de9afb7c2d16","fullName":"org.kinotic.sql.parsers.UpdateStatementParserTest.whenScalarAssignments_thenLiteralsCarryTypedValues","name":"whenScalarAssignments_thenLiteralsCarryTypedValues()","status":"passed","testResultsByEnv":{"default":"0a2803d97c699971774b38cc9176a959"}}
