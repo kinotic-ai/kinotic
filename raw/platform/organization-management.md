@@ -392,6 +392,8 @@ Platform operators are not organization members — their `IamUser` has neither 
 
 The session established here is the same browser-session mechanism as every other login path; `/api/auth/me` and `/api/auth/logout` apply unchanged.
 
+The console lists them at **Members → Users**, read-only, from `SystemMemberService.findUsers` in the system zone. Operators are created outside the console — by the migration fixtures, or by the identity provider once SYSTEM scope is behind Entra — so the page reports who holds access rather than granting it.
+
 ### The WebSocket upgrade (the final step in every path)
 
 Authentication happens at the WebSocket upgrade (handshake), not in a STOMP CONNECT frame. How the upgrade is authenticated depends on the client:

@@ -293,6 +293,8 @@ Machines today come in two shapes: SYSTEM-scope platform daemons such as the vm-
 
 Org members manage the machines of their applications through the published `MachineService` — create (disclosing the generated secret once), list, rotate the secret, disable/enable, and remove — surfaced in the SPA as the **Machines** page under each application. Every operation proves the application belongs to the caller's organization; machines of other organizations are invisible.
 
+SYSTEM-scope machines are the platform's own, so they are managed from the system console instead, at **Members → Machines**, through `SystemMemberService` in the system zone. It carries the same lifecycle as `MachineService` under the same method names — create, list, rotate the secret, disable/enable, and remove — so each console's **Machines** page is the same `MachinesTable` component, bound to whichever service owns the scope it lists. The page is how a worker node's vm-manager gets the `KINOTIC_CLIENT_ID` and `KINOTIC_CLIENT_SECRET` it connects with. `SystemMemberService` works on SYSTEM scope alone: an organization's machines are not reachable from it even though a SYSTEM participant may address it.
+
 ### Multi-org identity keyed by `(oidcSubject, oidcConfigId)`
 
 For OIDC users, identity across org-scoped `ParticipantIdentity` rows is keyed by the OIDC `sub` claim plus the configId — **not** email. Email is mutable at the IdP and the same email across two IdP tenants is two different people. The `sub` is stable within an issuer, and pairing it with the configId disambiguates issuers.

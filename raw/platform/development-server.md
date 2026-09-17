@@ -1294,7 +1294,11 @@ which the service waits for:
     </td>
     
     <td>
-      a SYSTEM-scope machine created in the system console; client credentials are the non-Azure machine path
+      a SYSTEM-scope machine created in the system console at <strong>
+        Members → Machines
+      </strong>
+      
+      ; client credentials are the non-Azure machine path
     </td>
   </tr>
   
@@ -1856,8 +1860,9 @@ the stores, runs the migration to completion and verifies it, and starts the ser
 Register the snapshot repository and SLM policy; `deploy-ui.sh` for the two UIs; confirm
 sign-up mail arrives and the portal loads on `https://dev-portal.kinotic.ai`.
 5. **Nodes.** Ubuntu 22.04 and the kit on each NUC, `vm-manager.env` from the terraform
-output plus the node's id, the SYSTEM machine's credentials from the system console in
-`vm-manager.secrets.env`; confirm each node is `ONLINE` with no health message.
+output plus the node's id, the SYSTEM machine's credentials from the system console's
+**Members → Machines** page in `vm-manager.secrets.env`; confirm each node is `ONLINE`
+with no health message.
 6. **End to end.** Deploy the template project from a peer's organization: the sync VM fetches
 through the allowlist, the runtime VM registers its microservice, the UI appears at
 `<label>.apps-dev.kinotic.ai`, and the run's log and the microservice's traces show in the
@@ -1870,7 +1875,9 @@ portal against it. Repeat before cutover.
 - A first system user. The migration runs with the `production` profile, so no fixture user
 exists, and system users otherwise arrive through Entra SSO, which the development server
 does not run. The system console, and with it the SYSTEM machine the vm-manager connects as
-in step 5, needs a bootstrap for a first system user.
+in step 5, needs a bootstrap for a first system user. Once one exists, the console's
+**Members** pages cover the rest: **Users** lists the operators and **Machines** issues the
+vm-manager's credentials.
 - Containers from OCI images are a technology preview in Proxmox VE 9.1. The environment,
 the resolvers and the console log are applied on the host until the API takes them, and a
 container whose entrypoint exits is restarted by a host timer; both fold into the terraform
