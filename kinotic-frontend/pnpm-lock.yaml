@@ -19,8 +19,8 @@ catalogs:
       specifier: ^5.0.0-beta.10
       version: 5.0.0-beta.10
     '@kinotic-ai/system-api':
-      specifier: ^5.0.0-beta.13
-      version: 5.0.0-beta.13
+      specifier: ^5.0.0-beta.14
+      version: 5.0.0-beta.14
 
 importers:
 
@@ -169,7 +169,7 @@ importers:
         version: 5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13)
       '@kinotic-ai/system-api':
         specifier: 'catalog:'
-        version: 5.0.0-beta.13(@kinotic-ai/core@5.0.0-beta.13)(@kinotic-ai/management-api@5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13))
+        version: 5.0.0-beta.14(@kinotic-ai/core@5.0.0-beta.13)(@kinotic-ai/management-api@5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13))
       '@primeuix/themes':
         specifier: ^2.0.3
         version: 2.0.3
@@ -350,11 +350,11 @@ packages:
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.13
 
-  '@kinotic-ai/system-api@5.0.0-beta.13':
-    resolution: {integrity: sha512-dIziWzF+7XUCSYi+1olW6m02T/hjVpeLHbrJ80BLfkLzdXBArs4RuGPreSS8HQuZKBTb+kaWa2GMspYZxAEabw==}
+  '@kinotic-ai/system-api@5.0.0-beta.14':
+    resolution: {integrity: sha512-sRRkghLPpKp8Z5EI9+W56Y7nHlZFrLv8V4WCFDTAmANXyWISv0dyqtKEQYyVaf+WQsO/AZOV5QQc3XeavRTa2Q==}
     peerDependencies:
       '@kinotic-ai/core': ^5.0.0-beta.13
-      '@kinotic-ai/management-api': ^5.0.0-beta.31
+      '@kinotic-ai/management-api': ^5.0.0-beta.32
 
   '@mdi/js@7.4.47':
     resolution: {integrity: sha512-KPnNOtm5i2pMabqZxpUz7iQf+mfrYZyKCZ8QNz85czgEt7cuHcGorWfdzUMWYA0SD+a6Hn4FmJ+YhzzzjkTZrQ==}
@@ -1705,7 +1705,7 @@ snapshots:
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
-  '@kinotic-ai/system-api@5.0.0-beta.13(@kinotic-ai/core@5.0.0-beta.13)(@kinotic-ai/management-api@5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13))':
+  '@kinotic-ai/system-api@5.0.0-beta.14(@kinotic-ai/core@5.0.0-beta.13)(@kinotic-ai/management-api@5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13))':
     dependencies:
       '@kinotic-ai/core': 5.0.0-beta.13
       '@kinotic-ai/management-api': 5.0.0-beta.31(@kinotic-ai/core@5.0.0-beta.13)
