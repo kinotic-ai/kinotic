@@ -76,7 +76,7 @@ Kubernetes took over running containers.
 
 AI took over writing the code.
 
-**Kinotic took over the application.**
+**Kinotic took the rest.**
 
 <div align="center">
 
