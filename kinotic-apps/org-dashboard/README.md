@@ -9,8 +9,10 @@ organization the signed-in user belongs to.
 ## Layout
 
 ```
-.config/kinotic.config.ts   Project config (organization, application, project)
-packages/ui/web             The dashboard: a Vite + Vue UI, deployed as the UI artifact `web`
+.config/kinotic.config.ts    Project config (organization, application, project)
+.mcp.json                    The Kinotic OS MCP server, for Claude Code opened on this repository
+.claude/skills/org-dashboard The app's skill: how it signs users in, how to change and deploy it
+packages/ui/web              The dashboard: a Vite + Vue UI, deployed as the UI artifact `web`
 ```
 
 The repository is a Bun workspace shaped like the one Kinotic OS provisions for a project,
@@ -64,20 +66,49 @@ bun run build        # type-check, then vite build into packages/ui/web/dist
 
 Kinotic deploys a project by [push to deploy](https://kinotic.ai/docs/apps/deployment/push-to-deploy):
 every push to the default branch of the project's provisioned repository builds the UIs it
-finds under `packages/ui` and publishes each to its own site. To deploy the dashboard:
+finds under `packages/ui` and publishes each to its own site. The app is created the way the
+Kinotic Claude plugin's `create-app` skill creates any Kinotic app, through the Kinotic OS
+MCP server; tool names are opaque hashes, so tools are resolved by **title** from the tool
+listing:
 
-1. In Kinotic OS, create an Application (for example *Org Dashboard*) and a Project in it.
-   Kinotic OS provisions a GitHub repository for the project, with a
-   `.config/kinotic.config.ts` carrying the project's ids.
-2. Copy this directory's contents into the root of that repository, keeping the provisioned
-   `.config/kinotic.config.ts`. The one in this directory holds placeholder ids for a
-   checkout outside a provisioned repository.
-3. Commit and push. The deployment builds `packages/ui/web` with
-   `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and `VITE_KINOTIC_USE_SSL` set to the platform's
-   address, and publishes it at `https://<org>-<app>-web.<sites domain>`. The project's
-   Deployment page lists the site.
+1. `Application Service Create Application If Not Exist` with
+   `{"name": "Org Dashboard", "description": "...", "tenantPerUser": false}`. Record the
+   returned `id` and `organizationId`.
+2. `Project Service Create Project If Not Exist` with
+   `{"project": {"id": "<application id>-main", "applicationId": "<application id>",
+   "organizationId": "<organizationId>", "name": "Org Dashboard", "description": "...",
+   "repoPrivate": true, "sourceOfTruth": "TYPESCRIPT"}}`. Kinotic OS provisions the
+   project's GitHub repository from its template, with a `.config/kinotic.config.ts`
+   carrying the project's ids. Record `repoFullName`.
+3. Clone that repository and add `packages/ui/web`, `.mcp.json` and `.claude` from this
+   directory. The provisioned root already lists `packages/ui/*` in its workspaces and pins
+   `@kinotic-ai/core` and `@kinotic-ai/management-api` in its catalog, which is everything
+   the UI package references. Keep the provisioned `.config/kinotic.config.ts`; the one in
+   this directory holds placeholder ids for a checkout outside a provisioned repository.
+4. `bun install`, `bun run type-check`, commit and push. The deployment builds
+   `packages/ui/web` with `VITE_KINOTIC_HOST`, `VITE_KINOTIC_PORT` and
+   `VITE_KINOTIC_USE_SSL` set to the platform's address and publishes it at
+   `https://<org>-<app>-web.<sites domain>`.
+5. `Project Service Find Deployment` with `{"projectId": "<project id>"}` until
+   `status.type` is `RUNNING` on the pushed commit. The project's Deployment page lists
+   the site.
 
 The published site and the API share one site in production, so the `SameSite=Lax` session
 cookie the login sets is sent on the dashboard's requests. A deployment whose sites and API
 live on unrelated domains needs `kinotic.apiGateway.sessionCookieSameSite: NONE` on the
 server, and the site's origin admitted by the gateway's CORS pattern.
+
+## Working on it with Claude Code
+
+`.mcp.json` registers the Kinotic OS MCP server (`kinotic-os`, the same dev server the
+[Kinotic Claude plugin](https://github.com/kinotic-ai/claude-plugin) targets), so Claude Code
+opened on this repository has the platform's tools once `/mcp` → `kinotic-os` is
+authenticated as an organization member. A different Kinotic OS is added alongside with
+`claude mcp add -s user --transport http kinotic-os-test <url>/mcp`.
+
+`.claude/skills/org-dashboard/SKILL.md` is the app's own skill: the organization-scope
+sign-in contract, the layout, the working loop and the deployment steps above. The plugin's
+skills carry the platform rules it builds on.
+
+The platform serves MCP tools only for its own services today; a TypeScript `@Publish`
+service registers no tool metadata, so the dashboard exposes no tools of its own.
