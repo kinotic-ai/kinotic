@@ -1,0 +1,8 @@
+{
+	"extends": "./tsconfig.base.json",
+	// `bun run generate` reads compilerOptions from this file. The include below exists for
+	// editors — packages type-check through their own tsconfigs.
+	"files": [],
+	"include": ["packages/**/*"],
+	"exclude": ["**/node_modules", "**/dist"]
+}

@@ -1,0 +1,23 @@
+{
+    "name": "org-dashboard",
+    "private": true,
+    "scripts": {
+        "dev": "bun run --filter '@org-dashboard/web' dev",
+        "build": "bun run --filter '*' build",
+        "generate": "kinotic generate",
+        "type-check": "bun run --filter '*' type-check"
+    },
+    "devDependencies": {
+        "@kinotic-ai/kinotic-cli": "^5.2.0-beta.17",
+        "@kinotic-ai/management-api": "catalog:",
+        "typescript": "^5.9.3"
+    },
+    "catalog": {
+        "@kinotic-ai/core": "^5.0.0-beta.13",
+        "@kinotic-ai/management-api": "^5.0.0-beta.32"
+    },
+    "workspaces": [
+        "packages/ui/*"
+    ],
+    "type": "module"
+}
