@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "kinotic-os": {
-      "type": "http",
-      "url": "https://dev-api.kinotic.ai/mcp"
-    }
-  }
-}
