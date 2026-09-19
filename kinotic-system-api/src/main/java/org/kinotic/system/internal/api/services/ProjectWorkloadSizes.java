@@ -8,10 +8,10 @@ package org.kinotic.system.internal.api.services;
 public final class ProjectWorkloadSizes {
 
     /**
-     * CPU of the sync VM, in cores. It compiles the project's entity sources and builds the UIs,
-     * which is where a deployment spends its CPU.
+     * CPU of the sync VM, in cores; a share of one core. It compiles the project's entity sources
+     * and builds the UIs, so a deployment takes longer on a smaller share.
      */
-    public static final double SYNC_CPUS = 1;
+    public static final double SYNC_CPUS = 0.5;
 
     /**
      * Size of the sync VM's root filesystem in megabytes, enforced by the node's filesystem
