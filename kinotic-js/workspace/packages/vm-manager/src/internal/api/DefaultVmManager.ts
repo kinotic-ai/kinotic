@@ -56,14 +56,6 @@ export class DefaultVmManager implements IVmManager {
         })
     }
 
-    async restartWorkload(workloadId: string): Promise<Workload> {
-        return this.logged('restartWorkload', workloadId, async () => {
-            const restarted = await this.provider.restart(workloadId)
-            await this.refreshShipping()
-            return this.settled(restarted)
-        })
-    }
-
     // A non-detached workload runs in the foreground: its reply carries the run's outcome.
     // Log shipping is configured before the wait, so a run over in seconds is still tailed
     private settled(workload: Workload): Promise<Workload> {

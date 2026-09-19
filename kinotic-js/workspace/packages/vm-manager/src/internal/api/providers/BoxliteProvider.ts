@@ -161,8 +161,7 @@ export class BoxliteProvider implements IVmProvider {
                 })),
                 { hostPath: logDir, guestPath: GUEST_LOG_DIR },
             ],
-            // boxlite rejects autoRemove on detached boxes, so Workload.autoRemove is
-            // implemented by stop() instead of this flag
+            // boxlite rejects autoRemove on detached boxes; destroy() removes the box instead
             autoRemove: false,
             // A workload deserialized from the wire or a persisted state file may predate the
             // detached field; boxlite's default (false) is the opposite of the model's
@@ -316,44 +315,6 @@ export class BoxliteProvider implements IVmProvider {
         return workload
     }
 
-    async restart(workloadId: string): Promise<Workload> {
-        const workload = this.workloads.get(workloadId)
-        if (!workload) {
-            throw new Error(`Workload not found: ${workloadId}`)
-        }
-        if (workload.status !== WorkloadStatus.STOPPED) {
-            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
-        }
-        const info = await this.runtime.getInfo(workloadId)
-        if (!info) {
-            throw new Error(`Workload ${workloadId} cannot be restarted — its VM was discarded (autoRemove)`)
-        }
-
-        workload.status = WorkloadStatus.STARTING
-        workload.updated = Date.now()
-        workload.exitCode = null
-        this.persist(workload)
-
-        try {
-            const box = await this.boxHandle(workloadId)
-            await box.start()
-
-            const logDir = join(this.logsBaseDir, workloadId)
-            this.activeVms.set(workloadId, { box, vmId: info.id, logDir })
-
-            workload.status = WorkloadStatus.RUNNING
-        } catch (error) {
-            workload.status = WorkloadStatus.FAILED
-            this.activeVms.delete(workloadId)
-            throw error
-        } finally {
-            workload.updated = Date.now()
-            this.persist(workload)
-        }
-
-        return workload
-    }
-
     async awaitExit(workloadId: string): Promise<Workload> {
         const workload = this.workloads.get(workloadId)
         if (!workload) {
@@ -382,13 +343,6 @@ export class BoxliteProvider implements IVmProvider {
         const info = await this.runtime.getInfo(workloadId)
         workload.exitCode = info ? this.readExitCode(info.id) : null
 
-        // Implements Workload.autoRemove: boxlite forbids its own autoRemove flag on
-        // detached boxes, so the provider discards the box explicitly
-        if (workload.autoRemove ?? false) {
-            await this.runtime.remove(workloadId, true)
-            this.mounts.releaseQuotas(workload)
-        }
-
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
         // The log dir is kept so already-written logs remain shippable until destroy
@@ -399,7 +353,7 @@ export class BoxliteProvider implements IVmProvider {
     async destroy(workloadId: string): Promise<void> {
         const workload = this.workloads.get(workloadId)
         if (!workload) {
-            throw new Error(`Workload not found: ${workloadId}`)
+            return
         }
 
         const vm = this.activeVms.get(workloadId)
@@ -408,7 +362,7 @@ export class BoxliteProvider implements IVmProvider {
             this.activeVms.delete(workloadId)
         }
 
-        // autoRemove is off, so the box record survives stop and must be removed explicitly
+        // the box record survives stop and must be removed explicitly
         if (await this.runtime.getInfo(workloadId)) {
             await this.runtime.remove(workloadId, true)
         }

@@ -1,7 +1,7 @@
 /**
- * The room one workload holds on a VmNode: its CPU, memory and disk while its VM runs, and its
- * disk alone once the run has ended, since a VM that is kept for a restart keeps its disk on the
- * node. A workload holds at most one reservation per node, keyed by its id.
+ * The room one workload's run holds on a VmNode: the CPU, memory and disk its VM is sized for,
+ * from the moment it is placed until its run ends or it is destroyed. A workload holds at most
+ * one reservation per node, keyed by its id.
  */
 export interface WorkloadReservation {
     /** The id of the workload holding the reservation. */
@@ -12,9 +12,4 @@ export interface WorkloadReservation {
     memoryMb: number
     /** Disk the workload's VM is allotted, in megabytes. */
     diskMb: number
-    /**
-     * True while the workload's run holds its CPU and memory; false once the run has ended and
-     * only the disk is still held.
-     */
-    running: boolean
 }

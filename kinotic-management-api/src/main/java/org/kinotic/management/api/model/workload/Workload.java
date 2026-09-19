@@ -98,20 +98,13 @@ public class Workload implements Identifiable<String> {
 
     /**
      * When {@code true} the VM runs detached from the vm-manager process and survives its
-     * restarts, and calls that start its run (deploy, restart) complete as soon as it is
+     * restarts, and the call that starts its run completes as soon as it is
      * running. When {@code false} the workload runs in the foreground: it ends when the
      * vm-manager exits, and calls that start its run complete only once the run has ended —
      * {@link WorkloadStatus#STOPPED} or {@link WorkloadStatus#FAILED}, with
      * {@link #getExitCode()} set.
      */
     private boolean detached = true;
-
-    /**
-     * When {@code true} the VM and its disk are discarded when the workload stops, so a
-     * stopped workload cannot be restarted. When {@code false} the disk is kept and the
-     * workload may be restarted in place.
-     */
-    private boolean autoRemove = false;
 
     /**
      * Current status of the workload.

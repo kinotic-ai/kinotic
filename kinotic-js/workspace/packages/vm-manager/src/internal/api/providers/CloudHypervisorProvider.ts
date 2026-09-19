@@ -253,43 +253,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         return workload
     }
 
-    async restart(workloadId: string): Promise<Workload> {
-        const workload = this.requireWorkload(workloadId)
-        if (workload.status !== WorkloadStatus.STOPPED) {
-            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
-        }
-
-        workload.status = WorkloadStatus.STARTING
-        workload.updated = Date.now()
-        workload.exitCode = null
-        this.persist(workload)
-
-        try {
-            this.requireEnforcement(workload, this.alloyManager?.endpointOf(workloadId) !== null)
-            this.prepareEgressPolicy(workload)
-            // Starting the stopped container again keeps its writable layer, so the workload
-            // resumes with the disk state it had
-            const container = this.docker.getContainer(workloadId)
-            await container.start()
-
-            const info = await container.inspect()
-            this.applyEgressPolicy(workload, info)
-            this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
-
-            workload.status = WorkloadStatus.RUNNING
-            this.exitWatches.set(workloadId, this.watchExit(workload))
-        } catch (error) {
-            workload.status = WorkloadStatus.FAILED
-            this.containers.delete(workloadId)
-            throw error
-        } finally {
-            workload.updated = Date.now()
-            this.persist(workload)
-        }
-
-        return workload
-    }
-
     async awaitExit(workloadId: string): Promise<Workload> {
         const workload = this.requireWorkload(workloadId)
         await (this.exitWatches.get(workloadId) ?? this.watchExit(workload))
@@ -308,21 +271,16 @@ export class CloudHypervisorProvider implements IVmProvider {
         workload.exitCode = (await container.inspect()).State.ExitCode
         this.egress.release(workloadId)
 
-        // Implements Workload.autoRemove: the container is created without Docker's own
-        // auto-remove so that a stopped workload can be restarted when the flag is off
-        if (workload.autoRemove ?? false) {
-            await this.removeContainer(workloadId)
-            this.mounts.releaseQuotas(workload)
-            this.containers.delete(workloadId)
-        }
-
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
         this.persist(workload)
     }
 
     async destroy(workloadId: string): Promise<void> {
-        const workload = this.requireWorkload(workloadId)
+        const workload = this.workloads.get(workloadId)
+        if (!workload) {
+            return
+        }
 
         await this.removeContainer(workloadId)
         this.mounts.releaseQuotas(workload)
@@ -373,7 +331,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             info = await this.docker.getContainer(id).inspect()
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
         } catch {
-            // Removed (autoRemove) or never created — nothing on the node to attach to
+            // Removed or never created — nothing on the node to attach to
         }
         if (workload.status !== WorkloadStatus.STARTING &&
             workload.status !== WorkloadStatus.RUNNING &&

@@ -26,7 +26,7 @@
           <Button label="Logs" icon="pi pi-align-left" size="small" severity="secondary" text
                   :disabled="!data.workloadId" @click="emit('logs', data)" />
           <Button label="Restart" icon="pi pi-refresh" size="small" severity="secondary" text
-                  :disabled="!data.workloadId" @click="emit('restart', data)" />
+                  :disabled="!data.entryPoint" @click="emit('restart', data)" />
           <Button label="Remove" icon="pi pi-trash" size="small" severity="danger" text
                   @click="emit('remove', data)" />
         </div>

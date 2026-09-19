@@ -84,56 +84,11 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                         .recover(error -> {
                                             log.error("Failed to start workload {} on node {}",
                                                       savedWorkload.getId(), node.getId(), error);
-                                            // a foreground workload leaves nothing behind whatever ended
-                                            // it; a detached one is recorded failed with its VM kept
-                                            Future<Workload> ended = savedWorkload.isDetached()
-                                                    ? recordRunEnded(savedWorkload, WorkloadStatus.FAILED)
-                                                    : destroyWorkload(savedWorkload.getId()).map(savedWorkload);
-                                            return ended.transform(_ -> Future.failedFuture(error));
+                                            return recordRunEnded(savedWorkload, WorkloadStatus.FAILED)
+                                                    .transform(_ -> Future.failedFuture(error));
                                         })
                             );
                 });
-    }
-
-    @Override
-    public Future<Workload> restartWorkload(String workloadId) {
-        Validate.notNull(workloadId, "Workload id cannot be null");
-
-        return workloadService.findById(workloadId)
-                .compose(workload -> {
-                    if (workload == null) {
-                        return Future.failedFuture(
-                                new IllegalArgumentException("Workload not found: " + workloadId));
-                    }
-                    if (workload.getStatus() != WorkloadStatus.STOPPED) {
-                        return Future.failedFuture(new IllegalStateException(
-                                "Workload " + workloadId + " is not stopped (status: " + workload.getStatus() + ")"));
-                    }
-
-                    // the run that ended gave its CPU and memory back, so a new run takes them again
-                    return vmNodeService.reserveSync(workload.getNodeId(), WorkloadReservation.forRun(workload))
-                            .compose(reserved -> {
-                                Future<Workload> ret;
-                                if (reserved) {
-                                    workload.setStatus(WorkloadStatus.STARTING);
-                                    ret = workloadService.saveSync(workload);
-                                } else {
-                                    ret = Future.failedFuture(new IllegalStateException(
-                                            "Node " + workload.getNodeId() + " lacks capacity to restart workload " + workloadId));
-                                }
-                                return ret;
-                            });
-                })
-                .compose(workload ->
-                    verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.restartWorkload(workload.getNodeId(), workloadId))
-                            .compose(this::applyStartReply)
-                            .recover(error -> {
-                                log.error("Failed to restart workload {} on node {}",
-                                          workloadId, workload.getNodeId(), error);
-                                return recordRunEnded(workload, WorkloadStatus.FAILED)
-                                        .compose(failed -> Future.failedFuture(error));
-                            })
-                );
     }
 
     @Override
@@ -187,17 +142,10 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // Destroyed while the dispatch was in flight — a save here would
                         // resurrect the record
                         ret = Future.succeededFuture(startedWorkload);
-                    } else if (startedWorkload.getStatus().isComplete() && !startedWorkload.isDetached()) {
-                        // A foreground run is over once its reply arrives, and nothing of it stays
-                        // on the node or in the store: its logs are in the log store, and the
-                        // caller holds its outcome in the reply
-                        ret = destroyWorkload(startedWorkload.getId()).map(startedWorkload);
                     } else if (startedWorkload.getStatus().isComplete()) {
-                        // A detached run's VM is kept for a restart, so the run's reservation ends
-                        // and its disk stays held
-                        ret = persistRedacted(startedWorkload)
-                                .compose(persisted -> vmNodeService.releaseRunSync(persisted.getNodeId(), persisted.getId())
-                                                                   .map(persisted));
+                        // A terminal reply — a non-detached run that already ended — is the
+                        // node's final word
+                        ret = recordRunEnded(startedWorkload, startedWorkload.getStatus());
                     } else if (current.getStatus() == WorkloadStatus.STARTING) {
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
@@ -276,13 +224,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     /**
-     * Persists the terminal status of a run and gives the run's CPU and memory back to the node;
-     * the disk stays held until the workload is destroyed.
+     * Persists the terminal status of a run and gives its room back to the node. The record stays
+     * as the run's outcome; the node removes the VM on its own once the run has ended.
      */
     private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status) {
         workload.setStatus(status);
         return persistRedacted(workload)
-                .compose(persisted -> vmNodeService.releaseRunSync(persisted.getNodeId(), persisted.getId())
+                .compose(persisted -> vmNodeService.releaseSync(persisted.getNodeId(), persisted.getId())
                                                    .map(persisted));
     }
 

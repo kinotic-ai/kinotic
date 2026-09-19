@@ -348,8 +348,8 @@ CREATE TABLE IF NOT EXISTS kinotic_oauth_authorization_grant (
 );
 
 -- Create the vm_node table for tracking VmManager nodes. reservations is the ledger of the room
--- each workload holds on the node, one entry per workload; the available* columns are the totals
--- less what the ledger holds.
+-- each running workload holds on the node, one entry per workload; the available* columns are
+-- the totals less what the ledger holds.
 CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     id KEYWORD,
     name KEYWORD,
@@ -362,7 +362,7 @@ CREATE TABLE IF NOT EXISTS kinotic_vm_node (
     availableCpus DOUBLE,
     availableMemoryMb INTEGER,
     availableDiskMb INTEGER,
-    reservations NESTED (workloadId KEYWORD, cpus DOUBLE, memoryMb INTEGER, diskMb INTEGER, running BOOLEAN),
+    reservations NESTED (workloadId KEYWORD, cpus DOUBLE, memoryMb INTEGER, diskMb INTEGER),
     lastSeen DATE,
     workloadDataDir KEYWORD
 );
@@ -385,7 +385,6 @@ CREATE TABLE IF NOT EXISTS kinotic_workload (
     logPolicy OBJECT (maxSizeMb INTEGER, maxFiles INTEGER),
     telemetry BOOLEAN,
     detached BOOLEAN,
-    autoRemove BOOLEAN,
     status KEYWORD,
     exitCode INTEGER,
     environment JSON NOT INDEXED,

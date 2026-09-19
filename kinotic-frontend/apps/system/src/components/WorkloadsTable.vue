@@ -102,7 +102,6 @@ interface WorkloadRow extends DescriptiveIdentifiable {
   resources: string
   created: number | null
   detached: boolean
-  autoRemove: boolean
 }
 
 const DEFAULT_SORT = [new Order('created', Direction.DESC)]
@@ -203,8 +202,7 @@ function toRow(workload: Workload): WorkloadRow {
     image: workload.image,
     resources: `${formatCpus(workload.cpus)} CPU · ${formatMb(workload.memoryMb)} · ${formatMb(workload.diskSizeMb)}`,
     created: workload.created,
-    detached: workload.detached,
-    autoRemove: workload.autoRemove
+    detached: workload.detached
   }
 }
 
@@ -232,14 +230,6 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       label: 'Stop',
       icon: 'pi pi-stop-circle',
       command: () => act(() => Kinotic.workloadOrchestration.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
-    })
-  }
-  // A workload stopped with autoRemove has no VM left to restart
-  if ((item.status === WorkloadStatus.STOPPED && !item.autoRemove) || item.status === WorkloadStatus.FAILED) {
-    actions.push({
-      label: 'Restart',
-      icon: 'pi pi-replay',
-      command: () => act(() => Kinotic.workloadOrchestration.restartWorkload(item.id), 'Workload restarting', 'Failed to restart workload')
     })
   }
   actions.push({

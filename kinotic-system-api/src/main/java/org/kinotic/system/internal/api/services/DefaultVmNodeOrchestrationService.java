@@ -94,7 +94,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
                         log.info("Registering new VmNode: {} ({})", registration.getName(), registration.getId());
                     }
-                    // The workload records are what is placed on the node: the ledger is rebuilt from
+                    // The workload records are what runs on the node: the ledger is rebuilt from
                     // them, so a node that re-registers with different hardware, or after a release
                     // the node never saw, still accounts for exactly what it hosts.
                     List<WorkloadReservation> reservations = reservationsOf(placed.getContent());
@@ -107,9 +107,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         .setWorkloadDataDir(registration.getWorkloadDataDir())
                         .setReservations(reservations)
                         .setAvailableCpus(registration.getTotalCpus()
-                                - reservations.stream().filter(WorkloadReservation::isRunning).mapToDouble(WorkloadReservation::getCpus).sum())
+                                - reservations.stream().mapToDouble(WorkloadReservation::getCpus).sum())
                         .setAvailableMemoryMb(registration.getTotalMemoryMb()
-                                - reservations.stream().filter(WorkloadReservation::isRunning).mapToInt(WorkloadReservation::getMemoryMb).sum())
+                                - reservations.stream().mapToInt(WorkloadReservation::getMemoryMb).sum())
                         .setAvailableDiskMb(registration.getTotalDiskMb()
                                 - reservations.stream().mapToInt(WorkloadReservation::getDiskMb).sum())
                         .setStatus(new VmNodeStatus())
@@ -118,15 +118,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 });
     }
 
-    /**
-     * The room the given workloads hold: a run that has not ended holds everything, an ended one
-     * whose VM is kept holds its disk, and one never placed holds nothing.
-     */
+    /** The room the given workloads hold: one reservation per run that has not ended. */
     private static List<WorkloadReservation> reservationsOf(List<Workload> workloads) {
         List<WorkloadReservation> ret = new ArrayList<>();
         for (Workload workload : workloads) {
-            if (workload.getStatus() != WorkloadStatus.PENDING) {
-                ret.add(WorkloadReservation.forRun(workload).setRunning(!workload.getStatus().isComplete()));
+            if (workload.getStatus() != WorkloadStatus.PENDING && !workload.getStatus().isComplete()) {
+                ret.add(WorkloadReservation.forRun(workload));
             }
         }
         return ret;
@@ -212,7 +209,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         workload.setExitCode(report.getExitCode());
                         ret = workloadService.saveSync(workload);
                         if (report.getStatus().isComplete()) {
-                            ret = ret.compose(saved -> vmNodeService.releaseRunSync(nodeId, saved.getId()).map(saved));
+                            ret = ret.compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()).map(saved));
                         }
                     }
 
@@ -320,7 +317,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
-                                                      .compose(saved -> vmNodeService.releaseRunSync(nodeId, saved.getId()));
+                                                      .compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()));
                             });
                         }
                     }

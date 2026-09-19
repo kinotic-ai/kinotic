@@ -33,9 +33,9 @@
       <section class="mt-8">
         <h2 class="text-base font-medium mb-1">Microservices</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
-          Each microservice the deployment has ensured runs in a VM of its own. Restart boots
-          the VM again in place; Remove destroys the VM and its machine identity — a
-          microservice the current commit still contains comes back with the next deployment.
+          Each microservice the deployment has ensured runs in a VM of its own. Restart runs it
+          in a fresh VM; Remove destroys the VM and its machine identity — a microservice the
+          current commit still contains comes back with the next deployment.
         </p>
         <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
                                       @logs="openLogs" @restart="confirmRestart" @remove="confirmRemove" />
@@ -196,7 +196,7 @@ function openLogs(microservice: MicroserviceDeployment): void {
 function confirmRestart(microservice: MicroserviceDeployment): void {
   confirm.require({
     header: 'Restart microservice',
-    message: `Restart the VM of ${microservice.name}? It boots again in place and the service is unavailable meanwhile.`,
+    message: `Restart ${microservice.name}? It runs again in a fresh VM and the service is unavailable meanwhile.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Restart', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },

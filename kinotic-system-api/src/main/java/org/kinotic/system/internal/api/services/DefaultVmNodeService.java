@@ -42,13 +42,6 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public Future<Void> releaseRunSync(String nodeId, String workloadId) {
-        Validate.notNull(nodeId, "VmNode id cannot be null");
-        Validate.notNull(workloadId, "Workload id cannot be null");
-        return vmNodeRepository.releaseRunSync(nodeId, workloadId);
-    }
-
-    @Override
     public Future<Void> releaseSync(String nodeId, String workloadId) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
         Validate.notNull(workloadId, "Workload id cannot be null");

@@ -87,19 +87,12 @@ export class Workload implements Identifiable<string> {
 
     /**
      * When true the VM runs detached from the vm-manager process and survives its restarts,
-     * and calls that start its run (deploy, restart) complete as soon as it is running.
+     * and the call that starts its run completes as soon as it is running.
      * When false the workload runs in the foreground: it ends when the vm-manager exits,
      * and calls that start its run complete only once the run has ended — STOPPED or
      * FAILED, with the exit code set.
      */
     public detached: boolean = true
-
-    /**
-     * When true the VM and its disk are discarded when the workload stops, so a
-     * stopped workload cannot be restarted. When false the disk is kept and the
-     * workload may be restarted in place.
-     */
-    public autoRemove: boolean = false
 
     /**
      * Current status of the workload.

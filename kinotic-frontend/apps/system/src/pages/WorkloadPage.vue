@@ -11,8 +11,6 @@
         <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
         <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
-        <Button v-if="canRestart" label="Restart" icon="pi pi-replay" severity="secondary" outlined
-                @click="act(() => Kinotic.workloadOrchestration.restartWorkload(workloadId), 'Workload restarting', 'Failed to restart workload')" />
         <Button label="Destroy" icon="pi pi-trash" severity="danger" outlined :disabled="!workload" @click="confirmDestroy" />
       </template>
     </PageHeader>
@@ -45,8 +43,6 @@
                   <dd class="break-all font-mono">{{ command || '—' }}</dd>
                   <dt class="text-muted-color">Detached</dt>
                   <dd>{{ workload.detached ? 'Yes — a long-running service' : 'No — a one-off task' }}</dd>
-                  <dt class="text-muted-color">Auto remove</dt>
-                  <dd>{{ workload.autoRemove ? 'Yes — the VM is removed once it exits' : 'No' }}</dd>
                   <dt class="text-muted-color">Telemetry</dt>
                   <dd>{{ workload.telemetry ? 'Traces and metrics shipped through the node' : 'Off' }}</dd>
                   <dt class="text-muted-color">Log policy</dt>
@@ -166,9 +162,6 @@ const tab = computed<string>({
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
-// A workload stopped with autoRemove has no VM left to restart
-const canRestart = computed(() => (workload.value?.status === WorkloadStatus.STOPPED && !workload.value.autoRemove)
-    || workload.value?.status === WorkloadStatus.FAILED)
 
 const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
 const allowedHosts = computed(() => workload.value?.network?.allowedHosts ?? [])

@@ -125,7 +125,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
     /**
      * A node that comes back with different hardware must not look wholly free while its workloads
      * are still running, or placement will oversubscribe it: the ledger is rebuilt from the workload
-     * records, a running one holding everything and an ended one its disk.
+     * records, one entry per run that has not ended.
      */
     @Test
     public void reRegisteringWithNewCapacityKeepsPlacedWorkloadsAccountedFor() throws Exception {
@@ -147,7 +147,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
         Assertions.assertEquals(16, grown.getTotalCpus());
         Assertions.assertEquals(13.5, grown.getAvailableCpus(), "the running workload's CPU should survive the capacity change");
         Assertions.assertEquals(8192 - 1024, grown.getAvailableMemoryMb());
-        Assertions.assertEquals(20480 - 2048 - 2048, grown.getAvailableDiskMb(), "an ended run's VM still holds its disk");
+        Assertions.assertEquals(20480 - 2048, grown.getAvailableDiskMb(), "an ended run holds nothing");
     }
 
     /**
@@ -168,13 +168,8 @@ public class VmNodePlacementTests extends KinoticTestBase {
         Assertions.assertEquals(20480 - 2048, held.getAvailableDiskMb());
         Assertions.assertEquals(1, held.getReservations().size());
 
-        await(vmNodeService.releaseRunSync("placement-ledger", "wl-1"));
-        VmNode ended = await(vmNodeService.findById("placement-ledger"));
-        Assertions.assertEquals(4, ended.getAvailableCpus());
-        Assertions.assertEquals(20480 - 2048, ended.getAvailableDiskMb(), "the ended run's disk stays held");
-
         Assertions.assertFalse(await(vmNodeService.reserveSync("placement-ledger",
-                new WorkloadReservation().setWorkloadId("wl-2").setCpus(4.5).setMemoryMb(1024).setDiskMb(1024))), "more CPU than the node has");
+                new WorkloadReservation().setWorkloadId("wl-2").setCpus(4).setMemoryMb(1024).setDiskMb(1024))), "more CPU than the node has left");
 
         await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
         await(vmNodeService.releaseSync("placement-ledger", "wl-1"));

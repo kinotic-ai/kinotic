@@ -11,7 +11,7 @@ import type { IVmProvider } from '@/internal/api/providers/IVmProvider'
 import { VmManagerConfig } from '@/api/VmManagerConfig'
 import { AlloyManager } from '@/internal/api/telemetry/AlloyManager'
 import { SYSTEM_API_ZONE, VmProviderType } from '@kinotic-ai/system-api'
-import type { Workload } from '@kinotic-ai/management-api'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { WorkloadStatusReport } from '@kinotic-ai/system-api'
 import Docker from 'dockerode'
 import os from 'node:os'
@@ -92,6 +92,21 @@ function createProvider(reportStatus: (workload: Workload) => void): IVmProvider
     return ret
 }
 
+/**
+ * Removes what a run that has ended still occupies on the node — its VM, log files and state —
+ * once the server holds the run's outcome, so the node keeps nothing of a workload that is not
+ * running and the server's record is the run's history.
+ */
+async function cleanUpIfEnded(vmManager: DefaultVmManager, workload: Workload): Promise<void> {
+    if (workload.status === WorkloadStatus.STOPPED || workload.status === WorkloadStatus.FAILED) {
+        try {
+            await vmManager.destroyWorkload(workload.id!)
+        } catch (error) {
+            console.error(`Failed to clean up ended workload ${workload.id}:`, error)
+        }
+    }
+}
+
 function toStatusReport(workload: Workload): WorkloadStatusReport {
     return {
         workloadId: workload.id!,
@@ -166,6 +181,9 @@ function startHeartbeat(nodeOrchestrator: VmNodeOrchestrationServiceProxy,
             const workloads = await vmManager.listWorkloads()
             if (workloads.length > 0) {
                 await nodeOrchestrator.reportWorkloadStatus(nodeId!, workloads.map(toStatusReport))
+                for (const workload of workloads) {
+                    await cleanUpIfEnded(vmManager, workload)
+                }
             }
         } catch (error) {
             console.error('Heartbeat failed:', error)
@@ -198,16 +216,19 @@ async function start() {
     // Reattach to workloads a previous vm-manager process left running before the
     // VmManager service is published and can receive new workload operations. Every
     // node-side status transition is pushed so the server tracks the workload's real
-    // state; a failed push is only logged — the heartbeat snapshot reconciles it.
+    // state; a failed push is only logged — the heartbeat snapshot reconciles it, and
+    // cleans up what ended meanwhile.
+    let vmManager: DefaultVmManager | null = null
     const reportStatus = (workload: Workload) => {
         nodeOrchestrator.reportWorkloadStatus(nodeId!, [toStatusReport(workload)])
+                        .then(() => vmManager ? cleanUpIfEnded(vmManager, workload) : undefined)
                         .catch(error => console.error('Failed to report workload status:', error))
     }
     const provider = createProvider(reportStatus)
     await provider.recover()
 
     // Create and register the VmManager service (automatically registered via @Publish + @Scope)
-    const vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
+    vmManager = new DefaultVmManager(nodeId!, provider, alloyManager)
 
     // Resume shipping the recovered workloads' telemetry, which also downloads and launches
     // Alloy here rather than inside whichever startWorkload call arrives first

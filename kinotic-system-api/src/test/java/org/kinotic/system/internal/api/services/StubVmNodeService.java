@@ -46,34 +46,20 @@ public class StubVmNodeService implements VmNodeService {
         boolean[] reserved = new boolean[1];
         // one node's reservations serialize under the map's lock, as the scripted update does on the shard
         return update(nodeId, node -> {
-            WorkloadReservation held = held(node, reservation.getWorkloadId());
-            double needCpus = held != null && held.isRunning() ? 0 : reservation.getCpus();
-            int needMemoryMb = held != null && held.isRunning() ? 0 : reservation.getMemoryMb();
-            int needDiskMb = held != null ? 0 : reservation.getDiskMb();
-            reserved[0] = node.getAvailableCpus() >= needCpus && node.getAvailableMemoryMb() >= needMemoryMb && node.getAvailableDiskMb() >= needDiskMb;
-            if (reserved[0]) {
-                node.setAvailableCpus(node.getAvailableCpus() - needCpus)
-                    .setAvailableMemoryMb(node.getAvailableMemoryMb() - needMemoryMb)
-                    .setAvailableDiskMb(node.getAvailableDiskMb() - needDiskMb);
-                if (held == null) {
-                    node.getReservations().add(reservation.setRunning(true));
-                } else {
-                    held.setRunning(true);
+            if (held(node, reservation.getWorkloadId()) != null) {
+                reserved[0] = true;
+            } else {
+                reserved[0] = node.getAvailableCpus() >= reservation.getCpus()
+                        && node.getAvailableMemoryMb() >= reservation.getMemoryMb()
+                        && node.getAvailableDiskMb() >= reservation.getDiskMb();
+                if (reserved[0]) {
+                    node.setAvailableCpus(node.getAvailableCpus() - reservation.getCpus())
+                        .setAvailableMemoryMb(node.getAvailableMemoryMb() - reservation.getMemoryMb())
+                        .setAvailableDiskMb(node.getAvailableDiskMb() - reservation.getDiskMb());
+                    node.getReservations().add(reservation);
                 }
             }
         }).map(v -> reserved[0]);
-    }
-
-    @Override
-    public Future<Void> releaseRunSync(String nodeId, String workloadId) {
-        return update(nodeId, node -> {
-            WorkloadReservation held = held(node, workloadId);
-            if (held != null && held.isRunning()) {
-                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
-                    .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()));
-                held.setRunning(false);
-            }
-        });
     }
 
     @Override
@@ -81,11 +67,9 @@ public class StubVmNodeService implements VmNodeService {
         return update(nodeId, node -> {
             WorkloadReservation held = held(node, workloadId);
             if (held != null) {
-                if (held.isRunning()) {
-                    node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
-                        .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()));
-                }
-                node.setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + held.getDiskMb()));
+                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
+                    .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()))
+                    .setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + held.getDiskMb()));
                 node.getReservations().remove(held);
             }
         });
