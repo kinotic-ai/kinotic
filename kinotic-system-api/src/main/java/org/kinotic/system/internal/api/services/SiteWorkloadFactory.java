@@ -65,7 +65,7 @@ public class SiteWorkloadFactory {
         workload.setApplicationId(applicationId);
         workload.setDetached(false);
         workload.setCpus(ProjectWorkloadSizes.RUNTIME_CPUS);
-        workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setMemoryMb(ProjectWorkloadSizes.RUNTIME_MEMORY_MB);
         workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", entrypoint));
         return workload;

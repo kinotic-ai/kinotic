@@ -191,7 +191,7 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             Workload probe = new Workload();
             probe.setCpus(ProjectWorkloadSizes.SYNC_CPUS);
-            probe.setMemoryMb(deployment().getSyncMemoryMb());
+            probe.setMemoryMb(ProjectWorkloadSizes.SYNC_MEMORY_MB);
             probe.setDiskSizeMb(ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
 
             log.debug("Resolving deploy target for project {}: asking for a node with {} cpus, {}MB memory, {}MB disk",
@@ -581,7 +581,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
         workload.setCpus(ProjectWorkloadSizes.SYNC_CPUS);
-        workload.setMemoryMb(deployment.getSyncMemoryMb());
+        workload.setMemoryMb(ProjectWorkloadSizes.SYNC_MEMORY_MB);
         workload.setDiskSizeMb(ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
@@ -594,7 +594,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.getSecrets().put("GIT_TOKEN", token.getToken());
         workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
                                                         .setGuestPath("/workspace")
-                                                        .setSizeLimitMb(deployment.getSyncMountLimitMb()));
+                                                        .setSizeLimitMb(ProjectWorkloadSizes.SYNC_MOUNT_LIMIT_MB));
         workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment));
         return workload;
     }
@@ -612,7 +612,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setCpus(ProjectWorkloadSizes.RUNTIME_CPUS);
-        workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setMemoryMb(ProjectWorkloadSizes.RUNTIME_MEMORY_MB);
         workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
         // The project's microservices export their traces and metrics through the node, grouped

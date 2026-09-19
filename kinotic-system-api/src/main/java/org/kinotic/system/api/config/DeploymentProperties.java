@@ -57,21 +57,4 @@ public class DeploymentProperties {
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
 
-    /**
-     * Memory of the sync workload's VM in megabytes. It compiles the project's entity
-     * sources during {@code kinotic sync}, which needs more headroom than serving does.
-     */
-    private int syncMemoryMb = 2048;
-
-    /**
-     * Size limit applied to the project checkout mount (clone plus node_modules), enforced
-     * by the node's filesystem quota.
-     */
-    private int syncMountLimitMb = 4096;
-
-    /**
-     * Memory of the runtime workload's VM in megabytes.
-     */
-    private int runtimeMemoryMb = 1024;
-
 }
