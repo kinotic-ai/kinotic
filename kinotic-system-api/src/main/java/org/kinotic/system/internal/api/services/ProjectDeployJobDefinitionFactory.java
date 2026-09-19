@@ -190,9 +190,9 @@ public class ProjectDeployJobDefinitionFactory {
                                                uiPublishWorkloadId));
         } else {
             Workload probe = new Workload();
-            probe.setCpus(deployment().getSyncCpus());
+            probe.setCpus(ProjectWorkloadSizes.SYNC_CPUS);
             probe.setMemoryMb(deployment().getSyncMemoryMb());
-            probe.setDiskSizeMb(deployment().getSyncDiskSizeMb());
+            probe.setDiskSizeMb(ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
 
             log.debug("Resolving deploy target for project {}: asking for a node with {} cpus, {}MB memory, {}MB disk",
                      projectId, probe.getCpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
@@ -580,9 +580,9 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
-        workload.setCpus(deployment.getSyncCpus());
+        workload.setCpus(ProjectWorkloadSizes.SYNC_CPUS);
         workload.setMemoryMb(deployment.getSyncMemoryMb());
-        workload.setDiskSizeMb(deployment.getSyncDiskSizeMb());
+        workload.setDiskSizeMb(ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
         workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
         workload.getEnvironment().put("GIT_REF", commitSha);
@@ -611,9 +611,9 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
-        workload.setCpus(deployment.getRuntimeCpus());
+        workload.setCpus(ProjectWorkloadSizes.RUNTIME_CPUS);
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
-        workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
+        workload.setDiskSizeMb(ProjectWorkloadSizes.RUNTIME_DISK_SIZE_MB);
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
         // The project's microservices export their traces and metrics through the node, grouped
         // under the project's name; the sync and publish workloads are steps of the run and

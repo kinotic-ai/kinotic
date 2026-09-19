@@ -58,12 +58,6 @@ public class DeploymentProperties {
     private List<String> runtimeAllowedHosts = new ArrayList<>();
 
     /**
-     * CPU of the sync workload's VM, in cores. It compiles the project's entity sources and
-     * builds the UIs, which is where a deployment spends its CPU.
-     */
-    private double syncCpus = 1;
-
-    /**
      * Memory of the sync workload's VM in megabytes. It compiles the project's entity
      * sources during {@code kinotic sync}, which needs more headroom than serving does.
      */
@@ -76,27 +70,8 @@ public class DeploymentProperties {
     private int syncMountLimitMb = 4096;
 
     /**
-     * Size of the sync workload's root filesystem in megabytes, enforced by the node's
-     * filesystem quota. The package manager's cache lives there, outside the checkout mount.
-     */
-    private int syncDiskSizeMb = 2048;
-
-    /**
-     * CPU of each runtime workload's VM, in cores; a fraction is a share of one core. The site
-     * publish and removal workloads are sized the same way.
-     */
-    private double runtimeCpus = 0.5;
-
-    /**
      * Memory of the runtime workload's VM in megabytes.
      */
     private int runtimeMemoryMb = 1024;
-
-    /**
-     * Size of the runtime workload's root filesystem in megabytes, enforced by the node's
-     * filesystem quota. The checkout is a read-only mount, so the root holds only what the
-     * microservice writes.
-     */
-    private int runtimeDiskSizeMb = 512;
 
 }
