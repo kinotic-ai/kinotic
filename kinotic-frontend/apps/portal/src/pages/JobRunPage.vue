@@ -14,7 +14,7 @@
 
     <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployStores.hasDetail">
       <template #detail="{ node, root }">
-        <ProjectDeployTaskDetail :node="node" :root="root" />
+        <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
       </template>
     </JobRunProgress>
   </div>
@@ -26,6 +26,7 @@ import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import { Kinotic } from '@kinotic-ai/core'
 import { createDebug, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail } from '@kinotic-ai/frontend-common'
+import { KinoticStates } from '@/states'
 
 const debug = createDebug('job-run-page')
 
@@ -38,6 +39,7 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
+const organizationId = KinoticStates.getUserState().getOrganizationId()
 
 const projectDeploymentPath = ref<string | null>(null)
 

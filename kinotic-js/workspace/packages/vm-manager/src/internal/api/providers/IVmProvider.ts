@@ -44,16 +44,6 @@ export interface IVmProvider {
     start(workload: Workload): Promise<Workload>
 
     /**
-     * Restarts a stopped workload in place: the same VM boots again with its disk state
-     * intact and the workload's entrypoint runs again. Fails unless the workload is
-     * STOPPED and its VM still exists (a workload stopped with autoRemove has none).
-     * Resolves at boot the same way as {@link start}.
-     * @param workloadId the id of the workload to restart
-     * @return a Promise resolving to the workload with updated status
-     */
-    restart(workloadId: string): Promise<Workload>
-
-    /**
      * Waits for a running workload's run to end, resolving with its final status and exit
      * code, or rejecting if the provider cannot observe the guest's exit.
      * @param workloadId the id of the workload to wait for
@@ -68,7 +58,8 @@ export interface IVmProvider {
     stop(workloadId: string): Promise<void>
 
     /**
-     * Destroys a VM for the given workload, removing all resources.
+     * Destroys a VM for the given workload, removing all resources, and forgets the workload. A
+     * workload this provider does not know is already gone, so destroying it changes nothing.
      * @param workloadId the id of the workload to destroy
      */
     destroy(workloadId: string): Promise<void>

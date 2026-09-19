@@ -15,7 +15,7 @@ import { computed } from 'vue'
 import { formatMb } from '@kinotic-ai/frontend-common'
 
 import CapacityBar from './CapacityBar.vue'
-import { percentOf, type Capacity } from '@/util/nodes'
+import { formatCpus, percentOf, type Capacity } from '@/util/nodes'
 
 /** CPU, memory and disk gauges: allocated over total. */
 const props = defineProps<{
@@ -25,7 +25,7 @@ const props = defineProps<{
 const rows = computed(() => {
   const c = props.capacity
   return [
-    { label: 'CPU', text: `${c.usedCpus} / ${c.cpus} vCPU`, pct: percentOf(c.usedCpus, c.cpus) },
+    { label: 'CPU', text: `${formatCpus(c.usedCpus)} / ${c.cpus} CPU`, pct: percentOf(c.usedCpus, c.cpus) },
     { label: 'Memory', text: `${formatMb(c.usedMemoryMb)} / ${formatMb(c.memoryMb)}`, pct: percentOf(c.usedMemoryMb, c.memoryMb) },
     { label: 'Disk', text: `${formatMb(c.usedDiskMb)} / ${formatMb(c.diskMb)}`, pct: percentOf(c.usedDiskMb, c.diskMb) }
   ]

@@ -5,6 +5,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
+import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,7 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
+    public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return vmNodeRepository.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
     }
 
@@ -33,15 +34,18 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public Future<Boolean> reserveSync(String nodeId, int cpus, int memoryMb, int diskMb) {
+    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
-        return vmNodeRepository.reserveSync(nodeId, cpus, memoryMb, diskMb);
+        Validate.notNull(reservation, "Reservation cannot be null");
+        Validate.notNull(reservation.getWorkloadId(), "Reservation workload id cannot be null");
+        return vmNodeRepository.reserveSync(nodeId, reservation);
     }
 
     @Override
-    public Future<Void> releaseSync(String nodeId, int cpus, int memoryMb, int diskMb) {
+    public Future<Void> releaseSync(String nodeId, String workloadId) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
-        return vmNodeRepository.releaseSync(nodeId, cpus, memoryMb, diskMb);
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        return vmNodeRepository.releaseSync(nodeId, workloadId);
     }
 
     @Override

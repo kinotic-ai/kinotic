@@ -89,7 +89,7 @@ import { DatetimeUtil, PageHeader, errorMessage, formatMb } from '@kinotic-ai/fr
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { capacityOf, nodeSeverity, percentOf } from '@/util/nodes'
+import { capacityOf, formatCpus, nodeSeverity, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 /**
@@ -124,7 +124,7 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'CPU',
       value: `${percentOf(n.totalCpus - n.availableCpus, n.totalCpus)}%`,
-      description: `${n.totalCpus - n.availableCpus} of ${n.totalCpus} vCPU allocated`,
+      description: `${formatCpus(n.totalCpus - n.availableCpus)} of ${n.totalCpus} CPU allocated`,
       icon: 'pi-microchip',
       accent: 'sky'
     },
