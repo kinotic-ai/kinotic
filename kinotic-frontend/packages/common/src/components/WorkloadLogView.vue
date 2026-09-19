@@ -64,6 +64,8 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetry/telemetryApi'
 import type { WorkloadRun } from './WorkloadRun'
 
 const props = defineProps<{
+  /** The organization the workload ran for; null for a platform workload, which only the system console reads. */
+  organizationId: string | null
   workloadId: string
   /**
    * The window the workload ran over, when the caller knows it. A run that has ended opens on
@@ -192,6 +194,7 @@ async function loadHistory() {
   error.value = null
   try {
     const bytes = await Kinotic.logs.history({
+      organizationId: props.organizationId,
       workloadId: props.workloadId,
       start: range.start,
       end: range.end,
@@ -215,7 +218,7 @@ function startTail() {
   if (tailSubscription) {
     return
   }
-  tailSubscription = Kinotic.logs.tail(props.workloadId).subscribe({
+  tailSubscription = Kinotic.logs.tail(props.organizationId, props.workloadId).subscribe({
     next: (bytes: Uint8Array) => {
       // Raw Loki tail WebSocket frame: {streams: [{stream, values}], dropped_entries?}
       const frame = parseJsonBytes(bytes)

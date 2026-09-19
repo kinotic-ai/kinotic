@@ -119,7 +119,9 @@ export class BoxliteProvider implements IVmProvider {
         return {
             image: workload.image,
             name: workload.id!,
-            cpus: workload.vcpus,
+            // boxlite boots the VM with whole vCPUs and has no quota, so a fractional share
+            // becomes the whole core it is a share of
+            cpus: Math.ceil(workload.cpus),
             memoryMib: workload.memoryMb,
             // boxlite sizes the rootfs in whole GB; round up so a workload never gets less
             // disk than it asked for, and leave the boxlite default when nothing was asked

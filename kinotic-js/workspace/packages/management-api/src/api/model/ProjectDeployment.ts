@@ -32,14 +32,16 @@ export class ProjectDeployment implements Identifiable<string> {
     public hostDir: string | null = null
 
     /**
-     * The id of the sync workload of the most recent deployment run, kept with its logs until
-     * the next run retires it, or null before the first run resolved its target.
+     * The id of the sync workload of the most recent deployment run, or null before the first run
+     * resolved its target. The workload is destroyed when its run ends; its logs stay in the
+     * organization's log store under this id.
      */
     public syncWorkloadId: string | null = null
 
     /**
-     * The id of the UI publish workload of the most recent deployment run, kept with its logs
-     * until the next run retires it, or null before a run has published a UI.
+     * The id of the UI publish workload of the most recent deployment run, or null before a run
+     * has published a UI. The workload is destroyed when its run ends; its logs stay in the
+     * organization's log store under this id.
      */
     public uiPublishWorkloadId: string | null = null
 

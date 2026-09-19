@@ -125,7 +125,9 @@ export class CloudHypervisorProvider implements IVmProvider {
             HostConfig: {
                 Runtime: KATA_CLH_RUNTIME,
                 Memory: workload.memoryMb * 1024 * 1024,
-                NanoCpus: workload.vcpus * 1_000_000_000,
+                // A fraction of a core is a CPU quota on the container's cgroup, which Kata
+                // sizes the guest's vCPUs from
+                NanoCpus: Math.round(workload.cpus * 1_000_000_000),
                 // Needs overlay2 on an XFS filesystem mounted with pquota, which the node's
                 // provisioning supplies; without it the daemon refuses the container outright
                 ...(workload.diskSizeMb > 0 ? { StorageOpt: { size: `${workload.diskSizeMb}m` } } : {}),

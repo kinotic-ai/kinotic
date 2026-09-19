@@ -133,7 +133,7 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
      * Deletes the site's directory through a removal workload on the node its project deploys
      * to, with a URL scoped to that directory. A project never deployed has no node, and its
      * site no files; a removal that fails leaves the files for a later publish of the same
-     * label to adopt, and the workload for inspection.
+     * label to adopt; the removal workload's logs stay in the organization's log store.
      */
     private Future<Void> deleteFiles(UiDeployment deployment) {
         return projectDeploymentRepository.findById(deployment.getProjectId(), deployment.getOrganizationId())
@@ -148,11 +148,10 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
                                 .compose(finished -> {
                                     Future<Void> removed;
                                     if (finished.getStatus() == WorkloadStatus.STOPPED && Integer.valueOf(0).equals(finished.getExitCode())) {
-                                        removed = workloadOrchestrationService.destroyWorkload(finished.getId());
+                                        removed = Future.succeededFuture();
                                     } else {
                                         removed = Future.failedFuture(new IllegalStateException("Removal workload " + finished.getId()
-                                                + " ended " + finished.getStatus() + " with exit code " + finished.getExitCode()
-                                                + "; the workload is kept for log inspection"));
+                                                + " ended " + finished.getStatus() + " with exit code " + finished.getExitCode()));
                                     }
                                     return removed;
                                 });

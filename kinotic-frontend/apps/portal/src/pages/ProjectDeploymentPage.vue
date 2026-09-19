@@ -26,7 +26,7 @@
                       :job-run-id="deployment.lastJobRunId"
                       :expandable="ProjectDeployStores.hasDetail">
         <template #detail="{ node, root }">
-          <ProjectDeployTaskDetail :node="node" :root="root" />
+          <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
         </template>
       </JobRunProgress>
 
@@ -81,6 +81,7 @@
 
     <WorkloadLogsDialog v-if="logsFor?.workloadId"
                         v-model:visible="logsVisible"
+                        :organization-id="logsFor.organizationId"
                         :workload-id="logsFor.workloadId"
                         :workload-name="logsFor.name" />
     <ConfirmDialog />
@@ -105,6 +106,7 @@ import { DeploymentStatusType,
          type ProjectDeployment,
          type UiDeployment } from '@kinotic-ai/management-api'
 import MicroserviceDeploymentsTable from '@/components/MicroserviceDeploymentsTable.vue'
+import { KinoticStates } from '@/states'
 import UiDeploymentsTable from '@/components/UiDeploymentsTable.vue'
 
 /** One row — a machine the deployment provisioned, labelled by the workload it authenticates. */
@@ -129,6 +131,7 @@ const POLL_INTERVAL_MS = 5000
 
 const toast = useToast()
 const confirm = useConfirm()
+const organizationId = KinoticStates.getUserState().getOrganizationId()
 const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)

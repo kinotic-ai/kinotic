@@ -46,6 +46,7 @@
     <WorkloadLogsDialog
       v-if="logsWorkload"
       v-model:visible="logsVisible"
+      :organization-id="logsWorkload.organizationId"
       :workload-id="logsWorkload.id ?? ''"
       :workload-name="logsWorkload.name"
       :workload="logsWorkload"
@@ -66,6 +67,7 @@ import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
+import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'
 import { shortImage, workloadSeverity } from '@/util/workloads'
 
@@ -199,7 +201,7 @@ function toRow(workload: Workload): WorkloadRow {
     node: workload.nodeId ? props.nodeNames[workload.nodeId] ?? workload.nodeId : '',
     owner: ownerOf(workload),
     image: workload.image,
-    resources: `${workload.vcpus} vCPU · ${formatMb(workload.memoryMb)} · ${formatMb(workload.diskSizeMb)}`,
+    resources: `${formatCpus(workload.cpus)} CPU · ${formatMb(workload.memoryMb)} · ${formatMb(workload.diskSizeMb)}`,
     created: workload.created,
     detached: workload.detached,
     autoRemove: workload.autoRemove

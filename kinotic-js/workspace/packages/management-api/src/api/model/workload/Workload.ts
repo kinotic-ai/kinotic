@@ -51,9 +51,10 @@ export class Workload implements Identifiable<string> {
     public image: string
 
     /**
-     * Number of vCPUs allocated to the VM.
+     * CPU allotted to the VM, in cores; a fraction is a share of one core, enforced as a CPU
+     * quota on the VM.
      */
-    public vcpus: number = 1
+    public cpus: number = 1
 
     /**
      * Memory allocated to the VM in megabytes.

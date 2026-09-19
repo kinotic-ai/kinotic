@@ -4,7 +4,7 @@
     <span v-else class="text-xs text-muted-color">Waiting for the sync workload's artifact report</span>
   </template>
   <template v-else>
-    <WorkloadLogView v-if="workloadId" :key="workloadId" :workload-id="workloadId" :run="run" />
+    <WorkloadLogView v-if="workloadId" :key="workloadId" :organization-id="organizationId" :workload-id="workloadId" :run="run" />
     <span v-else class="text-xs text-muted-color">Waiting for the deployment target</span>
   </template>
 </template>
@@ -23,6 +23,8 @@ import ProjectDeployStores from './ProjectDeployStores'
  * pair it with ProjectDeployStores.hasDetail as the JobRunProgress expandable predicate.
  */
 const props = defineProps<{
+  /** The organization the run deployed for, whose log store holds the workloads' logs. */
+  organizationId: string | null
   node: JobTaskNode
   root: JobTaskNode | null
 }>()

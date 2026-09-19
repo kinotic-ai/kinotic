@@ -96,7 +96,7 @@
         </TabPanel>
         <TabPanel value="logs">
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
-          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
+          <WorkloadLogView v-if="tab === 'logs' && workload" :organization-id="workload.organizationId" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
         </TabPanel>
       </TabPanels>
     </Tabs>
@@ -124,6 +124,7 @@ import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, show
          workloadRun } from '@kinotic-ai/frontend-common'
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
+import { formatCpus } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
 import { workloadSeverity } from '@/util/workloads'
 
@@ -237,7 +238,7 @@ const stats = computed<Stat[]>(() => {
     },
     {
       label: 'Resources',
-      value: `${w.vcpus} vCPU`,
+      value: `${formatCpus(w.cpus)} CPU`,
       description: `${formatMb(w.memoryMb)} memory · ${formatMb(w.diskSizeMb)} disk`,
       icon: 'pi-microchip',
       accent: 'sky'

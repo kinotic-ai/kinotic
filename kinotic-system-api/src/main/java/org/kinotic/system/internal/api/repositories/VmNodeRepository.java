@@ -7,6 +7,7 @@ import io.vertx.core.Future;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
+import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -15,22 +16,85 @@ import java.util.Map;
 @Component
 public class VmNodeRepository extends AbstractRepository<VmNode> {
 
-    // declines with noop rather than going negative, so the caller learns the capacity was taken
-    private static final String RESERVE_SCRIPT = """
-            if (ctx._source.availableCpus < params.cpus
-                    || ctx._source.availableMemoryMb < params.memoryMb
-                    || ctx._source.availableDiskMb < params.diskMb) {
-                ctx.op = 'noop';
-            } else {
-                ctx._source.availableCpus -= params.cpus;
-                ctx._source.availableMemoryMb -= params.memoryMb;
-                ctx._source.availableDiskMb -= params.diskMb;
+    // Shared by the three allocation scripts: finds the workload's entry in the node's reservations,
+    // and keeps the fractional CPU total from drifting through repeated adds and subtracts
+    private static final String ALLOCATION_FUNCTIONS = """
+            Map held(def node, String workloadId) {
+                if (node.reservations == null) {
+                    node.reservations = new ArrayList();
+                }
+                for (def r : node.reservations) {
+                    if (r.workloadId == workloadId) {
+                        return r;
+                    }
+                }
+                return null;
+            }
+            double cpus(double value) {
+                return Math.round(value * 1000) / 1000.0;
             }
             """;
-    private static final String RELEASE_SCRIPT = """
-            ctx._source.availableCpus = Math.min(ctx._source.totalCpus, ctx._source.availableCpus + params.cpus);
-            ctx._source.availableMemoryMb = Math.min(ctx._source.totalMemoryMb, ctx._source.availableMemoryMb + params.memoryMb);
-            ctx._source.availableDiskMb = Math.min(ctx._source.totalDiskMb, ctx._source.availableDiskMb + params.diskMb);
+
+    // A workload already holding its run needs nothing more; one holding only its disk needs its CPU
+    // and memory back. The node declines with noop rather than going negative, so the caller learns
+    // the capacity was taken.
+    private static final String RESERVE_SCRIPT = ALLOCATION_FUNCTIONS + """
+            def node = ctx._source;
+            Map held = held(node, params.workloadId);
+            double needCpus = params.cpus;
+            int needMemoryMb = params.memoryMb;
+            int needDiskMb = params.diskMb;
+            if (held != null && held.running == true) {
+                needCpus = 0;
+                needMemoryMb = 0;
+                needDiskMb = 0;
+            } else if (held != null) {
+                needDiskMb = 0;
+            }
+            if (node.availableCpus < needCpus
+                    || node.availableMemoryMb < needMemoryMb
+                    || node.availableDiskMb < needDiskMb) {
+                ctx.op = 'noop';
+            } else {
+                node.availableCpus = cpus(node.availableCpus - needCpus);
+                node.availableMemoryMb -= needMemoryMb;
+                node.availableDiskMb -= needDiskMb;
+                if (held == null) {
+                    node.reservations.add(['workloadId': params.workloadId, 'cpus': params.cpus,
+                                           'memoryMb': params.memoryMb, 'diskMb': params.diskMb, 'running': true]);
+                } else {
+                    held.running = true;
+                }
+            }
+            """;
+
+    // Returns the CPU and memory of a run that ended; the disk stays held with the VM
+    private static final String RELEASE_RUN_SCRIPT = ALLOCATION_FUNCTIONS + """
+            def node = ctx._source;
+            Map held = held(node, params.workloadId);
+            if (held == null || held.running != true) {
+                ctx.op = 'noop';
+            } else {
+                node.availableCpus = cpus(Math.min(node.totalCpus, node.availableCpus + held.cpus));
+                node.availableMemoryMb = Math.min(node.totalMemoryMb, node.availableMemoryMb + held.memoryMb);
+                held.running = false;
+            }
+            """;
+
+    // Returns everything the workload still holds and forgets it
+    private static final String RELEASE_SCRIPT = ALLOCATION_FUNCTIONS + """
+            def node = ctx._source;
+            Map held = held(node, params.workloadId);
+            if (held == null) {
+                ctx.op = 'noop';
+            } else {
+                if (held.running == true) {
+                    node.availableCpus = cpus(Math.min(node.totalCpus, node.availableCpus + held.cpus));
+                    node.availableMemoryMb = Math.min(node.totalMemoryMb, node.availableMemoryMb + held.memoryMb);
+                }
+                node.availableDiskMb = Math.min(node.totalDiskMb, node.availableDiskMb + held.diskMb);
+                node.reservations.remove(node.reservations.indexOf(held));
+            }
             """;
 
     public VmNodeRepository(CrudServiceTemplate crudServiceTemplate) {
@@ -41,7 +105,7 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
      * Returns an {@link VmNodeStatusType#ONLINE} node with at least the requested resources
      * unallocated, or {@code null} when the cluster has no node with room for them.
      */
-    public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
+    public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return findFirst(b -> b.query(composeFilter(termFilter("status.type", VmNodeStatusType.ONLINE.name()),
                                                     atLeast("availableCpus", requiredCpus),
                                                     atLeast("availableMemoryMb", requiredMemoryMb),
@@ -57,28 +121,39 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
     }
 
     /**
-     * Takes the resources from a node's unallocated {@code available*} fields in one shard operation, so two
-     * reservations can never both be granted the same capacity, visible to search on completion.
-     * @return true when the node had the capacity and it is now reserved, false when it did not
+     * Takes a workload's room from a node's unallocated {@code available*} fields and records it in the
+     * node's reservations, in one shard operation, so two reservations can never both be granted the
+     * same capacity; visible to search on completion. A workload already holding the room keeps it.
+     * @return true when the workload holds the room, false when the node does not have it
      */
-    public Future<Boolean> reserveSync(String nodeId, int cpus, int memoryMb, int diskMb) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT, allocationParams(cpus, memoryMb, diskMb));
+    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
+        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RESERVE_SCRIPT,
+                                                      Map.of("workloadId", reservation.getWorkloadId(),
+                                                             "cpus", reservation.getCpus(),
+                                                             "memoryMb", reservation.getMemoryMb(),
+                                                             "diskMb", reservation.getDiskMb()));
     }
 
     /**
-     * Returns the resources to a node's unallocated {@code available*} fields in one shard operation, never
-     * past the node's totals, visible to search on completion.
+     * Returns the CPU and memory of a workload whose run ended to a node's unallocated fields, keeping
+     * its disk held, in one shard operation, visible to search on completion. A workload not holding a
+     * run is left as it is.
      */
-    public Future<Void> releaseSync(String nodeId, int cpus, int memoryMb, int diskMb) {
-        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RELEASE_SCRIPT, allocationParams(cpus, memoryMb, diskMb))
+    public Future<Void> releaseRunSync(String nodeId, String workloadId) {
+        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RELEASE_RUN_SCRIPT, Map.of("workloadId", workloadId))
                                   .mapEmpty();
     }
 
-    private static Map<String, Object> allocationParams(int cpus, int memoryMb, int diskMb) {
-        return Map.of("cpus", cpus, "memoryMb", memoryMb, "diskMb", diskMb);
+    /**
+     * Returns everything a workload holds to a node's unallocated fields and drops its reservation, in one
+     * shard operation, visible to search on completion. A workload holding nothing is left as it is.
+     */
+    public Future<Void> releaseSync(String nodeId, String workloadId) {
+        return crudServiceTemplate.scriptedUpdateSync(indexName, nodeId, RELEASE_SCRIPT, Map.of("workloadId", workloadId))
+                                  .mapEmpty();
     }
 
-    private static Query atLeast(String field, int required) {
-        return Query.of(q -> q.range(r -> r.number(n -> n.field(field).gte((double) required))));
+    private static Query atLeast(String field, double required) {
+        return Query.of(q -> q.range(r -> r.number(n -> n.field(field).gte(required))));
     }
 }

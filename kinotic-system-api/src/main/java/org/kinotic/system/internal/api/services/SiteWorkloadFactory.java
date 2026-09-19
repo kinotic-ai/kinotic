@@ -28,8 +28,7 @@ public class SiteWorkloadFactory {
 
     /**
      * The publish workload of a deploy: the checkout read-only at {@code /workspace}, and one
-     * upload URL per UI, by name. Kept after its run, like the sync workload, so its logs stay
-     * inspectable until the next run retires it.
+     * upload URL per UI, by name.
      */
     public Workload publish(Project project, DeployTarget target, JsonObject uploadUrls, String commitSha) {
         Workload workload = siteWorkload("project-ui-publish-" + project.getId(), "UI publish for project " + project.getId(),
@@ -65,7 +64,9 @@ public class SiteWorkloadFactory {
         workload.setOrganizationId(organizationId);
         workload.setApplicationId(applicationId);
         workload.setDetached(false);
+        workload.setCpus(deployment.getRuntimeCpus());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
+        workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
         workload.setEntrypoint(List.of("bun", entrypoint));
         return workload;
     }

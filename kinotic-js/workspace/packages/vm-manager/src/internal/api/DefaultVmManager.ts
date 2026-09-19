@@ -36,7 +36,7 @@ export class DefaultVmManager implements IVmManager {
     }
 
     async startWorkload(workload: Workload): Promise<Workload> {
-        return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} vcpus=${workload.vcpus} memoryMb=${workload.memoryMb}`, async () => {
+        return this.logged('startWorkload', `${workload.name} [${workload.id}] image=${workload.image} cpus=${workload.cpus} memoryMb=${workload.memoryMb}`, async () => {
             // A workload with no network has no interface to publish a port on, and no way to
             // reach the node's OTLP endpoint. Rejected here rather than in a provider, so the
             // answer does not depend on where it is placed.

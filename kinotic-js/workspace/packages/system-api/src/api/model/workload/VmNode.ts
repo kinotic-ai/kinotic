@@ -1,5 +1,6 @@
 import type { Identifiable } from '@kinotic-ai/core'
 import { VmNodeStatus } from '@/api/model/workload/VmNodeStatus'
+import type { WorkloadReservation } from '@/api/model/workload/WorkloadReservation'
 import { VmProviderType } from '@/api/model/workload/VmProviderType'
 
 /**
@@ -50,8 +51,8 @@ export class VmNode implements Identifiable<string> {
     public totalDiskMb: number = 0
 
     /**
-     * Number of vCPUs not allocated to any workload. What is allocated is
-     * totalCpus - availableCpus.
+     * CPU not allocated to any workload, in cores. What is allocated is
+     * totalCpus - availableCpus, the sum of the reservations that are running.
      */
     public availableCpus: number = 0
 
@@ -64,6 +65,13 @@ export class VmNode implements Identifiable<string> {
      * Disk space not allocated to any workload, in megabytes.
      */
     public availableDiskMb: number = 0
+
+    /**
+     * The room each workload placed on this node holds, one entry per workload. The available*
+     * fields are the totals less what these hold, so a workload's room is reserved and released
+     * by its id and never counted twice.
+     */
+    public reservations: WorkloadReservation[] = []
 
     /**
      * The date and time the node was last seen/heartbeat.

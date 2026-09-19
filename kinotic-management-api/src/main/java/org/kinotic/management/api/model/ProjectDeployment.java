@@ -45,15 +45,16 @@ public class ProjectDeployment implements ApplicationScoped<String> {
     private String hostDir;
 
     /**
-     * The id of the sync workload of the most recent deployment run, kept with its logs
-     * until the next run retires it, or {@code null} before the first run resolved its
-     * target.
+     * The id of the sync workload of the most recent deployment run, or {@code null} before the
+     * first run resolved its target. The workload is destroyed when its run ends; its logs stay
+     * in the organization's log store under this id.
      */
     private String syncWorkloadId;
 
     /**
-     * The id of the UI publish workload of the most recent deployment run, kept with its logs
-     * until the next run retires it, or {@code null} before a run has published a UI.
+     * The id of the UI publish workload of the most recent deployment run, or {@code null} before
+     * a run has published a UI. The workload is destroyed when its run ends; its logs stay in the
+     * organization's log store under this id.
      */
     private String uiPublishWorkloadId;
 

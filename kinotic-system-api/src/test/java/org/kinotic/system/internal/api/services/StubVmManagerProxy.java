@@ -26,6 +26,9 @@ public class StubVmManagerProxy implements VmManagerProxy {
     /** The node's view of the most recently started or restarted workload. */
     public Workload lastStarted;
 
+    /** The ids of the workloads the node was told to destroy, in order. */
+    public final List<String> destroyed = new ArrayList<>();
+
     /** The held-open reply of the most recent non-detached start or restart. */
     public Promise<Workload> pendingReply;
 
@@ -66,6 +69,7 @@ public class StubVmManagerProxy implements VmManagerProxy {
 
     @Override
     public Future<Void> destroyWorkload(String nodeId, String workloadId) {
+        destroyed.add(workloadId);
         return Future.succeededFuture();
     }
 
@@ -107,7 +111,7 @@ public class StubVmManagerProxy implements VmManagerProxy {
                 .setStatus(workload.getStatus())
                 .setExitCode(workload.getExitCode())
                 .setDetached(workload.isDetached())
-                .setVcpus(workload.getVcpus())
+                .setCpus(workload.getCpus())
                 .setMemoryMb(workload.getMemoryMb())
                 .setDiskSizeMb(workload.getDiskSizeMb())
                 .setEnvironment(new LinkedHashMap<>(workload.getEnvironment()))

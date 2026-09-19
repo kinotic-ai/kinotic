@@ -172,10 +172,9 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Reuses the node and checkout directory of an existing deployment, retiring the sync and
-     * publish workloads its last run left for inspection; a first deployment picks a node with
-     * the capacity the sync workload needs and derives the checkout directory from the node's
-     * advertised workload data directory. Either way the run's workloads get fresh ids.
+     * Reuses the node and checkout directory of an existing deployment; a first deployment picks
+     * a node with the capacity the sync workload needs and derives the checkout directory from
+     * the node's advertised workload data directory. Either way the run's workloads get fresh ids.
      */
     private Future<DeployTarget> resolveTarget(String projectId, ProjectDeployment existing) {
         Future<DeployTarget> ret;
@@ -191,12 +190,14 @@ public class ProjectDeployJobDefinitionFactory {
                                                uiPublishWorkloadId));
         } else {
             Workload probe = new Workload();
+            probe.setCpus(deployment().getSyncCpus());
             probe.setMemoryMb(deployment().getSyncMemoryMb());
+            probe.setDiskSizeMb(deployment().getSyncDiskSizeMb());
 
-            log.debug("Resolving deploy target for project {}: asking for a node with {} vcpus, {}MB memory, {}MB disk",
-                     projectId, probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
+            log.debug("Resolving deploy target for project {}: asking for a node with {} cpus, {}MB memory, {}MB disk",
+                     projectId, probe.getCpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
 
-            ret = vmNodeOrchestrationService.findAvailableNode(probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb())
+            ret = vmNodeOrchestrationService.findAvailableNode(probe.getCpus(), probe.getMemoryMb(), probe.getDiskSizeMb())
                     .onFailure(error -> log.error("Placement query failed for project {}", projectId, error))
                     .compose(node -> {
                         log.info("Placement query for project {} returned {}", projectId,
@@ -225,15 +226,17 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
-    // The previous run's workload may already be gone - removed from the console, never
-    // recorded because that run failed before its target was known, or never deployed
-    // because that run had nothing to publish
+    // The orchestrator destroys a foreground workload as its run ends, so the previous run's
+    // are normally gone; one is still here only when that run was cut short before its reply
     private Future<Void> destroyPreviousWorkload(String workloadId, String role, String projectId) {
         Future<Void> ret;
         if (workloadId == null) {
             ret = Future.succeededFuture();
         } else {
-            ret = workloadOrchestrationService.destroyWorkload(workloadId)
+            ret = workloadService.findById(workloadId)
+                    .compose(leftBehind -> leftBehind == null
+                            ? Future.succeededFuture()
+                            : workloadOrchestrationService.destroyWorkload(workloadId))
                     .recover(error -> {
                         log.warn("Previous {} workload {} of project {} could not be destroyed: {}",
                                  role, workloadId, projectId, error.getMessage());
@@ -244,9 +247,8 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Runs the checkout-and-sync workload in the foreground on the target node. The
-     * workload is kept after its run, whatever the outcome, so its logs stay inspectable
-     * until the next deployment retires it; a failed run fails the job.
+     * Runs the checkout-and-sync workload in the foreground on the target node; a failed run
+     * fails the job.
      */
     private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
@@ -258,8 +260,8 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Passes a foreground workload's run only when it exited cleanly; the workload is kept
-     * either way, so a failed run's logs stay inspectable.
+     * Passes a foreground workload's run only when it exited cleanly. The orchestrator has
+     * already destroyed the workload; its logs stay in the organization's log store.
      */
     private static Future<String> requireSucceeded(Workload finished, String role) {
         Future<String> ret;
@@ -268,8 +270,7 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             ret = Future.failedFuture(new IllegalStateException(
                     role + " workload " + finished.getId() + " ended " + finished.getStatus()
-                            + " with exit code " + finished.getExitCode()
-                            + "; the workload is kept for log inspection"));
+                            + " with exit code " + finished.getExitCode()));
         }
         return ret;
     }
@@ -579,6 +580,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
         workload.setDetached(false);
+        workload.setCpus(deployment.getSyncCpus());
         workload.setMemoryMb(deployment.getSyncMemoryMb());
         workload.setDiskSizeMb(deployment.getSyncDiskSizeMb());
         workload.setEntrypoint(List.of("bun", "src/sync.ts"));
@@ -609,6 +611,7 @@ public class ProjectDeployJobDefinitionFactory {
         workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
+        workload.setCpus(deployment.getRuntimeCpus());
         workload.setMemoryMb(deployment.getRuntimeMemoryMb());
         workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
         workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);

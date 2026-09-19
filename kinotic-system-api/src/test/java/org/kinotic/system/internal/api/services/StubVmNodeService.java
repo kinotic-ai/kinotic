@@ -5,6 +5,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
+import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import tools.jackson.databind.ObjectMapper;
 
@@ -31,7 +32,7 @@ public class StubVmNodeService implements VmNodeService {
     public VmNode availableNode;
 
     @Override
-    public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
+    public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return Future.succeededFuture(availableNode);
     }
 
@@ -41,24 +42,60 @@ public class StubVmNodeService implements VmNodeService {
     }
 
     @Override
-    public Future<Boolean> reserveSync(String nodeId, int cpus, int memoryMb, int diskMb) {
+    public Future<Boolean> reserveSync(String nodeId, WorkloadReservation reservation) {
         boolean[] reserved = new boolean[1];
         // one node's reservations serialize under the map's lock, as the scripted update does on the shard
         return update(nodeId, node -> {
-            reserved[0] = node.getAvailableCpus() >= cpus && node.getAvailableMemoryMb() >= memoryMb && node.getAvailableDiskMb() >= diskMb;
+            WorkloadReservation held = held(node, reservation.getWorkloadId());
+            double needCpus = held != null && held.isRunning() ? 0 : reservation.getCpus();
+            int needMemoryMb = held != null && held.isRunning() ? 0 : reservation.getMemoryMb();
+            int needDiskMb = held != null ? 0 : reservation.getDiskMb();
+            reserved[0] = node.getAvailableCpus() >= needCpus && node.getAvailableMemoryMb() >= needMemoryMb && node.getAvailableDiskMb() >= needDiskMb;
             if (reserved[0]) {
-                node.setAvailableCpus(node.getAvailableCpus() - cpus)
-                    .setAvailableMemoryMb(node.getAvailableMemoryMb() - memoryMb)
-                    .setAvailableDiskMb(node.getAvailableDiskMb() - diskMb);
+                node.setAvailableCpus(node.getAvailableCpus() - needCpus)
+                    .setAvailableMemoryMb(node.getAvailableMemoryMb() - needMemoryMb)
+                    .setAvailableDiskMb(node.getAvailableDiskMb() - needDiskMb);
+                if (held == null) {
+                    node.getReservations().add(reservation.setRunning(true));
+                } else {
+                    held.setRunning(true);
+                }
             }
         }).map(v -> reserved[0]);
     }
 
     @Override
-    public Future<Void> releaseSync(String nodeId, int cpus, int memoryMb, int diskMb) {
-        return update(nodeId, node -> node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + cpus))
-                                          .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + memoryMb))
-                                          .setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + diskMb)));
+    public Future<Void> releaseRunSync(String nodeId, String workloadId) {
+        return update(nodeId, node -> {
+            WorkloadReservation held = held(node, workloadId);
+            if (held != null && held.isRunning()) {
+                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
+                    .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()));
+                held.setRunning(false);
+            }
+        });
+    }
+
+    @Override
+    public Future<Void> releaseSync(String nodeId, String workloadId) {
+        return update(nodeId, node -> {
+            WorkloadReservation held = held(node, workloadId);
+            if (held != null) {
+                if (held.isRunning()) {
+                    node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
+                        .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()));
+                }
+                node.setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + held.getDiskMb()));
+                node.getReservations().remove(held);
+            }
+        });
+    }
+
+    private static WorkloadReservation held(VmNode node, String workloadId) {
+        return node.getReservations().stream()
+                   .filter(reservation -> workloadId.equals(reservation.getWorkloadId()))
+                   .findFirst()
+                   .orElse(null);
     }
 
     private Future<Void> update(String nodeId, Consumer<VmNode> partial) {

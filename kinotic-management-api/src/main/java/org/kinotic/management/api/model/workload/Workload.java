@@ -62,9 +62,10 @@ public class Workload implements Identifiable<String> {
     private String image;
 
     /**
-     * Number of vCPUs allocated to the VM.
+     * CPU allotted to the VM, in cores; a fraction is a share of one core, enforced as a CPU quota
+     * on the VM.
      */
-    private int vcpus = 1;
+    private double cpus = 1;
 
     /**
      * Memory allocated to the VM in megabytes.
