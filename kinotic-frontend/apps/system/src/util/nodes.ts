@@ -61,9 +61,9 @@ export function capacityOf(nodes: VmNode[]): Capacity {
         ret.cpus += node.totalCpus
         ret.memoryMb += node.totalMemoryMb
         ret.diskMb += node.totalDiskMb
-        ret.usedCpus += node.totalCpus - node.availableCpus
-        ret.usedMemoryMb += node.totalMemoryMb - node.availableMemoryMb
-        ret.usedDiskMb += node.totalDiskMb - node.availableDiskMb
+        ret.usedCpus += node.totalCpus - node.freeCpus
+        ret.usedMemoryMb += node.totalMemoryMb - node.freeMemoryMb
+        ret.usedDiskMb += node.totalDiskMb - node.freeDiskMb
     }
     return ret
 }

@@ -40,14 +40,14 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
     private static final String RESERVE_SCRIPT = ALLOCATION_FUNCTIONS + """
             def node = ctx._source;
             if (held(node, params.workloadId) == null) {
-                if (node.availableCpus < params.cpus
-                        || node.availableMemoryMb < params.memoryMb
-                        || node.availableDiskMb < params.diskMb) {
+                if (node.freeCpus < params.cpus
+                        || node.freeMemoryMb < params.memoryMb
+                        || node.freeDiskMb < params.diskMb) {
                     ctx.op = 'noop';
                 } else {
-                    node.availableCpus = cpus(node.availableCpus - params.cpus);
-                    node.availableMemoryMb -= params.memoryMb;
-                    node.availableDiskMb -= params.diskMb;
+                    node.freeCpus = cpus(node.freeCpus - params.cpus);
+                    node.freeMemoryMb -= params.memoryMb;
+                    node.freeDiskMb -= params.diskMb;
                     node.reservations.add(['workloadId': params.workloadId, 'cpus': params.cpus,
                                            'memoryMb': params.memoryMb, 'diskMb': params.diskMb]);
                 }
@@ -61,9 +61,9 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
             if (held == null) {
                 ctx.op = 'noop';
             } else {
-                node.availableCpus = cpus(Math.min(node.totalCpus, node.availableCpus + held.cpus));
-                node.availableMemoryMb = Math.min(node.totalMemoryMb, node.availableMemoryMb + held.memoryMb);
-                node.availableDiskMb = Math.min(node.totalDiskMb, node.availableDiskMb + held.diskMb);
+                node.freeCpus = cpus(Math.min(node.totalCpus, node.freeCpus + held.cpus));
+                node.freeMemoryMb = Math.min(node.totalMemoryMb, node.freeMemoryMb + held.memoryMb);
+                node.freeDiskMb = Math.min(node.totalDiskMb, node.freeDiskMb + held.diskMb);
                 node.reservations.remove(node.reservations.indexOf(held));
             }
             """;
@@ -78,9 +78,9 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
      */
     public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return findFirst(b -> b.query(composeFilter(termFilter("status.type", VmNodeStatusType.ONLINE.name()),
-                                                    atLeast("availableCpus", requiredCpus),
-                                                    atLeast("availableMemoryMb", requiredMemoryMb),
-                                                    atLeast("availableDiskMb", requiredDiskMb))));
+                                                    atLeast("freeCpus", requiredCpus),
+                                                    atLeast("freeMemoryMb", requiredMemoryMb),
+                                                    atLeast("freeDiskMb", requiredDiskMb))));
     }
 
     /**
@@ -92,7 +92,7 @@ public class VmNodeRepository extends AbstractRepository<VmNode> {
     }
 
     /**
-     * Takes a workload's room from a node's unallocated {@code available*} fields and records it in the
+     * Takes a workload's room from a node's {@code free*} fields and records it in the
      * node's reservations, in one shard operation, so two reservations can never both be granted the
      * same capacity; visible to search on completion. A workload already holding its room keeps it.
      * @return true when the workload holds the room, false when the node does not have it

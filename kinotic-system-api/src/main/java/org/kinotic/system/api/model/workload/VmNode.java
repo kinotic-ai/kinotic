@@ -64,23 +64,23 @@ public class VmNode implements Identifiable<String> {
 
     /**
      * CPU not allocated to any workload, in cores. What is allocated is
-     * {@code totalCpus - availableCpus}, the sum of the {@link #reservations}.
+     * {@code totalCpus - freeCpus}, the sum of the {@link #reservations}.
      */
-    private double availableCpus;
+    private double freeCpus;
 
     /**
      * Memory not allocated to any workload, in megabytes.
      */
-    private int availableMemoryMb;
+    private int freeMemoryMb;
 
     /**
      * Disk space not allocated to any workload, in megabytes.
      */
-    private int availableDiskMb;
+    private int freeDiskMb;
 
     /**
      * The room each workload running on this node holds, one entry per workload. The
-     * {@code available*} fields are the totals less what these hold, so a workload's room is
+     * {@code free*} fields are the totals less what these hold, so a workload's room is
      * reserved and released by its id and never counted twice.
      */
     private List<WorkloadReservation> reservations = new ArrayList<>();

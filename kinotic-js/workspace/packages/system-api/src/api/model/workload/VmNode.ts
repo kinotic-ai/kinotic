@@ -52,22 +52,22 @@ export class VmNode implements Identifiable<string> {
 
     /**
      * CPU not allocated to any workload, in cores. What is allocated is
-     * totalCpus - availableCpus, the sum of the reservations.
+     * totalCpus - freeCpus, the sum of the reservations.
      */
-    public availableCpus: number = 0
+    public freeCpus: number = 0
 
     /**
      * Memory not allocated to any workload, in megabytes.
      */
-    public availableMemoryMb: number = 0
+    public freeMemoryMb: number = 0
 
     /**
      * Disk space not allocated to any workload, in megabytes.
      */
-    public availableDiskMb: number = 0
+    public freeDiskMb: number = 0
 
     /**
-     * The room each workload running on this node holds, one entry per workload. The available*
+     * The room each workload running on this node holds, one entry per workload. The free*
      * fields are the totals less what these hold, so a workload's room is reserved and released
      * by its id and never counted twice.
      */

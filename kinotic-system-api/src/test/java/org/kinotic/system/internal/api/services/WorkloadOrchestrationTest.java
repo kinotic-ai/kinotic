@@ -64,7 +64,7 @@ public class WorkloadOrchestrationTest {
         // a node with room for the default workload; a deploy reserves on the stored record
         nodes.availableNode = new VmNode(NODE_ID, "node-1", "host-1");
         nodes.availableNode.setTotalCpus(4).setTotalMemoryMb(4096).setTotalDiskMb(10240)
-                           .setAvailableCpus(4).setAvailableMemoryMb(4096).setAvailableDiskMb(10240);
+                           .setFreeCpus(4).setFreeMemoryMb(4096).setFreeDiskMb(10240);
         nodes.saveSync(nodes.availableNode);
         vmManager = new StubVmManagerProxy();
         // the node's vm-manager registration, as the cluster reports it: absent unless a test says otherwise
@@ -245,8 +245,8 @@ public class WorkloadOrchestrationTest {
         assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(finished.getId()).getStatus());
         assertEquals(0, workloads.saved.get(finished.getId()).getExitCode());
         assertTrue(vmManager.destroyed.isEmpty());
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
-        assertEquals(10240, nodes.saved.get(NODE_ID).getAvailableDiskMb());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
         assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
     }
 
@@ -294,8 +294,8 @@ public class WorkloadOrchestrationTest {
         assertTrue(run.failed());
         assertEquals("image not found", run.cause().getMessage());
         assertEquals(WorkloadStatus.FAILED, workloads.saved.values().iterator().next().getStatus());
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
-        assertEquals(10240, nodes.saved.get(NODE_ID).getAvailableDiskMb());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
     }
 
     @Test
@@ -307,8 +307,8 @@ public class WorkloadOrchestrationTest {
         Workload finished = await(run);
         assertEquals(WorkloadStatus.FAILED, finished.getStatus());
         assertEquals(137, workloads.saved.get(finished.getId()).getExitCode());
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
-        assertEquals(10240, nodes.saved.get(NODE_ID).getAvailableDiskMb());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
     }
 
     @Test
@@ -319,9 +319,9 @@ public class WorkloadOrchestrationTest {
 
         assertEquals("node-2", deployed.getNodeId());
         assertEquals("node-2", vmManager.lastStarted.getNodeId());
-        assertEquals(4 - deployed.getCpus(), target.getAvailableCpus());
-        assertEquals(4096 - deployed.getMemoryMb(), target.getAvailableMemoryMb());
-        assertEquals(10240 - deployed.getDiskSizeMb(), target.getAvailableDiskMb());
+        assertEquals(4 - deployed.getCpus(), target.getFreeCpus());
+        assertEquals(4096 - deployed.getMemoryMb(), target.getFreeMemoryMb());
+        assertEquals(10240 - deployed.getDiskSizeMb(), target.getFreeDiskMb());
     }
 
     @Test
@@ -354,7 +354,7 @@ public class WorkloadOrchestrationTest {
         Future.join(first, second).toCompletionStage().toCompletableFuture().handle((v, t) -> null).get(5, TimeUnit.SECONDS);
 
         assertTrue(first.succeeded() != second.succeeded(), "exactly one deploy may hold the node's last vCPU");
-        assertEquals(0, nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(0, nodes.saved.get(NODE_ID).getFreeCpus());
         assertEquals(1, vmManager.started.size());
     }
 
@@ -363,12 +363,12 @@ public class WorkloadOrchestrationTest {
         nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
 
         Workload deployed = await(orchestration.deployWorkload(newWorkload()));
-        assertEquals(4 - deployed.getCpus(), nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(4 - deployed.getCpus(), nodes.saved.get(NODE_ID).getFreeCpus());
 
         await(orchestration.destroyWorkload(deployed.getId()));
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
-        assertEquals(4096, nodes.saved.get(NODE_ID).getAvailableMemoryMb());
-        assertEquals(10240, nodes.saved.get(NODE_ID).getAvailableDiskMb());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
         assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
     }
 
@@ -376,21 +376,21 @@ public class WorkloadOrchestrationTest {
     public void stoppedRunReturnsItsRoomOnce() throws Exception {
         nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
         Workload deployed = await(orchestration.deployWorkload(newWorkload().setCpus(0.5)));
-        assertEquals(3.5, nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(3.5, nodes.saved.get(NODE_ID).getFreeCpus());
 
         await(orchestration.stopWorkload(deployed.getId()));
 
         VmNode node = nodes.saved.get(NODE_ID);
-        assertEquals(4, node.getAvailableCpus());
-        assertEquals(4096, node.getAvailableMemoryMb());
-        assertEquals(10240, node.getAvailableDiskMb());
+        assertEquals(4, node.getFreeCpus());
+        assertEquals(4096, node.getFreeMemoryMb());
+        assertEquals(10240, node.getFreeDiskMb());
         assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus());
 
         // the node's own report of the same end, and a later destroy, return nothing twice
         report(deployed.getId(), WorkloadStatus.STOPPED, 0);
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
         await(orchestration.destroyWorkload(deployed.getId()));
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
         assertNull(workloads.saved.get(deployed.getId()));
     }
 
@@ -398,13 +398,13 @@ public class WorkloadOrchestrationTest {
     public void statusReportOfAnEndedRunReturnsItsRoom() throws Exception {
         nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
         Workload deployed = await(orchestration.deployWorkload(newWorkload().setCpus(2)));
-        assertEquals(2, nodes.saved.get(NODE_ID).getAvailableCpus());
+        assertEquals(2, nodes.saved.get(NODE_ID).getFreeCpus());
 
         report(deployed.getId(), WorkloadStatus.FAILED, 137);
 
-        assertEquals(4, nodes.saved.get(NODE_ID).getAvailableCpus());
-        assertEquals(4096, nodes.saved.get(NODE_ID).getAvailableMemoryMb());
-        assertEquals(10240, nodes.saved.get(NODE_ID).getAvailableDiskMb());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
         assertEquals(137, workloads.saved.get(deployed.getId()).getExitCode());
     }
 
@@ -415,7 +415,7 @@ public class WorkloadOrchestrationTest {
         Workload ended = await(orchestration.deployWorkload(newWorkload().setCpus(1)));
         await(orchestration.stopWorkload(ended.getId()));
         // the node comes back with more CPU, and a leak the ledger does not know about
-        nodes.saved.get(NODE_ID).setAvailableCpus(0);
+        nodes.saved.get(NODE_ID).setFreeCpus(0);
 
         VmNode registered = await(nodeOrchestration.registerNode(new VmNodeRegistration().setId(NODE_ID)
                                                                                          .setName("node-1")
@@ -424,9 +424,9 @@ public class WorkloadOrchestrationTest {
                                                                                          .setTotalMemoryMb(4096)
                                                                                          .setTotalDiskMb(10240)));
 
-        assertEquals(8 - running.getCpus(), registered.getAvailableCpus());
-        assertEquals(4096 - running.getMemoryMb(), registered.getAvailableMemoryMb());
-        assertEquals(10240 - running.getDiskSizeMb(), registered.getAvailableDiskMb(), "an ended run holds nothing");
+        assertEquals(8 - running.getCpus(), registered.getFreeCpus());
+        assertEquals(4096 - running.getMemoryMb(), registered.getFreeMemoryMb());
+        assertEquals(10240 - running.getDiskSizeMb(), registered.getFreeDiskMb(), "an ended run holds nothing");
         assertEquals(1, registered.getReservations().size());
         assertEquals(running.getId(), registered.getReservations().get(0).getWorkloadId());
     }
@@ -474,9 +474,9 @@ public class WorkloadOrchestrationTest {
         node.setTotalCpus(cpus);
         node.setTotalMemoryMb(memoryMb);
         node.setTotalDiskMb(diskMb);
-        node.setAvailableCpus(cpus);
-        node.setAvailableMemoryMb(memoryMb);
-        node.setAvailableDiskMb(diskMb);
+        node.setFreeCpus(cpus);
+        node.setFreeMemoryMb(memoryMb);
+        node.setFreeDiskMb(diskMb);
         nodes.saved.put(nodeId, node);
         return node;
     }

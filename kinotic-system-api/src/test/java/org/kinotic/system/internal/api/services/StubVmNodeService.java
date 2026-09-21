@@ -49,13 +49,13 @@ public class StubVmNodeService implements VmNodeService {
             if (held(node, reservation.getWorkloadId()) != null) {
                 reserved[0] = true;
             } else {
-                reserved[0] = node.getAvailableCpus() >= reservation.getCpus()
-                        && node.getAvailableMemoryMb() >= reservation.getMemoryMb()
-                        && node.getAvailableDiskMb() >= reservation.getDiskMb();
+                reserved[0] = node.getFreeCpus() >= reservation.getCpus()
+                        && node.getFreeMemoryMb() >= reservation.getMemoryMb()
+                        && node.getFreeDiskMb() >= reservation.getDiskMb();
                 if (reserved[0]) {
-                    node.setAvailableCpus(node.getAvailableCpus() - reservation.getCpus())
-                        .setAvailableMemoryMb(node.getAvailableMemoryMb() - reservation.getMemoryMb())
-                        .setAvailableDiskMb(node.getAvailableDiskMb() - reservation.getDiskMb());
+                    node.setFreeCpus(node.getFreeCpus() - reservation.getCpus())
+                        .setFreeMemoryMb(node.getFreeMemoryMb() - reservation.getMemoryMb())
+                        .setFreeDiskMb(node.getFreeDiskMb() - reservation.getDiskMb());
                     node.getReservations().add(reservation);
                 }
             }
@@ -67,9 +67,9 @@ public class StubVmNodeService implements VmNodeService {
         return update(nodeId, node -> {
             WorkloadReservation held = held(node, workloadId);
             if (held != null) {
-                node.setAvailableCpus(Math.min(node.getTotalCpus(), node.getAvailableCpus() + held.getCpus()))
-                    .setAvailableMemoryMb(Math.min(node.getTotalMemoryMb(), node.getAvailableMemoryMb() + held.getMemoryMb()))
-                    .setAvailableDiskMb(Math.min(node.getTotalDiskMb(), node.getAvailableDiskMb() + held.getDiskMb()));
+                node.setFreeCpus(Math.min(node.getTotalCpus(), node.getFreeCpus() + held.getCpus()))
+                    .setFreeMemoryMb(Math.min(node.getTotalMemoryMb(), node.getFreeMemoryMb() + held.getMemoryMb()))
+                    .setFreeDiskMb(Math.min(node.getTotalDiskMb(), node.getFreeDiskMb() + held.getDiskMb()));
                 node.getReservations().remove(held);
             }
         });

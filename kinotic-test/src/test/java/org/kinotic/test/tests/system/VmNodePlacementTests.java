@@ -131,7 +131,7 @@ public class VmNodePlacementTests extends KinoticTestBase {
     public void reRegisteringWithNewCapacityKeepsPlacedWorkloadsAccountedFor() throws Exception {
         VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 8, 8192, 20480)));
         created.add(registered.getId());
-        Assertions.assertEquals(8, registered.getAvailableCpus());
+        Assertions.assertEquals(8, registered.getFreeCpus());
         Workload running = await(workloadService.saveSync(workload("placement-rereg", 2.5, 1024, 2048, WorkloadStatus.RUNNING)));
         Workload ended = await(workloadService.saveSync(workload("placement-rereg", 1, 1024, 2048, WorkloadStatus.STOPPED)));
         await(workloadService.syncIndex());
@@ -145,9 +145,9 @@ public class VmNodePlacementTests extends KinoticTestBase {
         }
 
         Assertions.assertEquals(16, grown.getTotalCpus());
-        Assertions.assertEquals(13.5, grown.getAvailableCpus(), "the running workload's CPU should survive the capacity change");
-        Assertions.assertEquals(8192 - 1024, grown.getAvailableMemoryMb());
-        Assertions.assertEquals(20480 - 2048, grown.getAvailableDiskMb(), "an ended run holds nothing");
+        Assertions.assertEquals(13.5, grown.getFreeCpus(), "the running workload's CPU should survive the capacity change");
+        Assertions.assertEquals(8192 - 1024, grown.getFreeMemoryMb());
+        Assertions.assertEquals(20480 - 2048, grown.getFreeDiskMb(), "an ended run holds nothing");
     }
 
     /**
@@ -163,9 +163,9 @@ public class VmNodePlacementTests extends KinoticTestBase {
         Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)));
         Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)), "a workload holding its room keeps it");
         VmNode held = await(vmNodeService.findById("placement-ledger"));
-        Assertions.assertEquals(3.5, held.getAvailableCpus());
-        Assertions.assertEquals(8192 - 1024, held.getAvailableMemoryMb());
-        Assertions.assertEquals(20480 - 2048, held.getAvailableDiskMb());
+        Assertions.assertEquals(3.5, held.getFreeCpus());
+        Assertions.assertEquals(8192 - 1024, held.getFreeMemoryMb());
+        Assertions.assertEquals(20480 - 2048, held.getFreeDiskMb());
         Assertions.assertEquals(1, held.getReservations().size());
 
         Assertions.assertFalse(await(vmNodeService.reserveSync("placement-ledger",
@@ -174,8 +174,8 @@ public class VmNodePlacementTests extends KinoticTestBase {
         await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
         await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
         VmNode released = await(vmNodeService.findById("placement-ledger"));
-        Assertions.assertEquals(4, released.getAvailableCpus());
-        Assertions.assertEquals(20480, released.getAvailableDiskMb());
+        Assertions.assertEquals(4, released.getFreeCpus());
+        Assertions.assertEquals(20480, released.getFreeDiskMb());
         Assertions.assertTrue(released.getReservations().isEmpty());
     }
 
@@ -190,14 +190,14 @@ public class VmNodePlacementTests extends KinoticTestBase {
     }
 
     private VmNode node(String id, int totalCpus, int totalMemoryMb, int totalDiskMb,
-                        double availableCpus, int availableMemoryMb, int availableDiskMb) throws Exception {
+                        double freeCpus, int freeMemoryMb, int freeDiskMb) throws Exception {
         VmNode node = new VmNode(id, id, "host-" + id);
         node.setTotalCpus(totalCpus)
             .setTotalMemoryMb(totalMemoryMb)
             .setTotalDiskMb(totalDiskMb)
-            .setAvailableCpus(availableCpus)
-            .setAvailableMemoryMb(availableMemoryMb)
-            .setAvailableDiskMb(availableDiskMb)
+            .setFreeCpus(freeCpus)
+            .setFreeMemoryMb(freeMemoryMb)
+            .setFreeDiskMb(freeDiskMb)
             .setStatus(new VmNodeStatus(VmNodeStatusType.ONLINE, null));
         created.add(id);
         return await(vmNodeService.save(node));
