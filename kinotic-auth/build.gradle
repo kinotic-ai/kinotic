@@ -58,8 +58,13 @@ dependencies {
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    // CEL runtime for the engine comparison harness (candidate fine-grained evaluator)
+    // Candidate in-process evaluators measured against Aviator in EngineComparisonTest
     testImplementation 'dev.cel:cel'
+    testImplementation 'org.springframework:spring-expression'
+    testImplementation 'org.springframework:spring-context'
+    testImplementation 'org.apache.commons:commons-jexl3'
+    testImplementation 'org.codehaus.janino:janino'
+    testImplementation 'org.apache.tomcat.embed:tomcat-embed-el'
     // SpiceDB Java client + gRPC transport for the coarse-gate benchmark (skips without a server)
     testImplementation 'com.authzed.api:authzed'
     testImplementation 'io.grpc:grpc-api'

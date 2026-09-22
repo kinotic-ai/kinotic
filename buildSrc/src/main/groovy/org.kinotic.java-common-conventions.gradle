@@ -116,6 +116,8 @@ dependencyManagement {
 
         dependency "dev.cel:cel:${celVersion}"
 
+        dependency "org.apache.commons:commons-jexl3:${commonsJexlVersion}"
+
         dependency "io.grpc:grpc-api:${grpcVersion}"
         dependency "io.grpc:grpc-context:${grpcVersion}"
         dependency "io.grpc:grpc-core:${grpcVersion}"

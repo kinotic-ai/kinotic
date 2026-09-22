@@ -1,4 +1,4 @@
-package org.kinotic.auth;
+package org.kinotic.auth.engines;
 
 import dev.cel.common.CelAbstractSyntaxTree;
 import dev.cel.common.types.MapType;
@@ -11,26 +11,16 @@ import org.kinotic.auth.api.engine.AuthorizationEngine;
 import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.compilers.CelCompiler;
 import org.kinotic.auth.parsers.PolicyExpressionParser;
-import tools.jackson.databind.DeserializationFeature;
-import tools.jackson.databind.ObjectMapper;
-import tools.jackson.databind.json.JsonMapper;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Benchmark-only {@link AuthorizationEngine} backed by CEL: each action's condition is compiled
- * once to a {@link CelRuntime.Program} and evaluated in-process against the request's participant
+ * Benchmark engine backed by CEL: each action's condition is compiled once to a
+ * {@link CelRuntime.Program} and evaluated in-process against the request's participant
  * attributes ({@code r.sub}) and named arguments ({@code r.obj}).
  */
-class CelEngine implements AuthorizationEngine {
-
-    // CEL ints are 64-bit; parse JSON integers as Long so they adapt without a conversion step.
-    private static final ObjectMapper MAPPER = JsonMapper.builder()
-            .enable(DeserializationFeature.USE_LONG_FOR_INTS)
-            .build();
+public final class CelEngine implements AuthorizationEngine, PreparsedEngine {
 
     private final dev.cel.compiler.CelCompiler compiler = CelCompilerFactory.standardCelCompilerBuilder()
             .setStandardMacros(CelStandardMacro.STANDARD_MACROS)
@@ -52,19 +42,23 @@ class CelEngine implements AuthorizationEngine {
 
     @Override
     public boolean isAuthorized(AuthorizationRequest request) {
-        CelRuntime.Program program = programs.get(request.action());
+        return isAllowed(request.action(), RequestJson.subject(request), RequestJson.arguments(request));
+    }
+
+    @Override
+    public boolean isAllowed(String action, Map<String, Object> subject, Map<String, Object> arguments) {
+        CelRuntime.Program program = programs.get(action);
         if (program == null) {
-            throw new IllegalStateException("No policy registered for action: " + request.action());
+            throw new IllegalStateException("No policy registered for action: " + action);
         }
-        Map<String, Object> env = Map.of("r", Map.of(
-                "sub", parseObject(request.principalAttributesJson()),
-                "obj", buildNamedArguments(request.argumentsJson(), request.parameterNames())));
+        boolean ret;
         try {
-            return Boolean.TRUE.equals(program.eval(env));
+            ret = Boolean.TRUE.equals(program.eval(Map.<String, Object>of("r", Map.<String, Object>of("sub", subject, "obj", arguments))));
         } catch (Exception evaluationError) {
             // A missing attribute or type mismatch denies, matching the other engines.
-            return false;
+            ret = false;
         }
+        return ret;
     }
 
     @Override
@@ -75,23 +69,5 @@ class CelEngine implements AuthorizationEngine {
     @Override
     public void removePolicy(String action) {
         programs.remove(action);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> parseObject(String json) {
-        if (json == null || json.isBlank()) {
-            return Map.of();
-        }
-        return MAPPER.readValue(json, Map.class);
-    }
-
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> buildNamedArguments(String argumentsJson, List<String> parameterNames) {
-        List<Object> arguments = MAPPER.readValue(argumentsJson, List.class);
-        Map<String, Object> named = new HashMap<>();
-        for (int i = 0; i < arguments.size() && i < parameterNames.size(); i++) {
-            named.put(parameterNames.get(i), arguments.get(i));
-        }
-        return named;
     }
 }

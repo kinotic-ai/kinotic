@@ -175,8 +175,10 @@ Compiles to an AviatorScript condition evaluated by the jCasbin engine — a pur
 PolicyExpression expr = PolicyExpressionParser.parse(
     "participant.role contains 'finance' and order.amount < 50000");
 String condition = CasbinCompiler.compile(expr);
-// → include(r.sub.role, "finance") && r.obj.order.amount < 50000
+// → (r.sub.role != nil && include(r.sub.role, "finance")) && (r.obj.order.amount != nil && r.obj.order.amount < 50000)
 ```
+
+Every path operand is guarded against `nil`: AviatorScript orders `nil` below every value, so an absent attribute would otherwise satisfy any upper bound or inequality instead of denying.
 
 Path mapping:
 

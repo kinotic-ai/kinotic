@@ -67,7 +67,7 @@ public class CelCompiler {
             // has() tests key presence on a map without evaluating the value.
             case EXISTS -> "has(" + left + ")";
             // RE2 regex match; the glob is anchored so '*' spans the whole value.
-            case LIKE -> left + ".matches(" + celString(globToRegex(((LiteralValue) comp.right()).asString())) + ")";
+            case LIKE -> left + ".matches(" + celString(GlobPattern.toRegex(((LiteralValue) comp.right()).asString())) + ")";
         };
     }
 
@@ -104,20 +104,5 @@ public class CelCompiler {
 
     private static String celString(String value) {
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
-    }
-
-    private static String globToRegex(String glob) {
-        StringBuilder regex = new StringBuilder("^");
-        for (int i = 0; i < glob.length(); i++) {
-            char c = glob.charAt(i);
-            if (c == '*') {
-                regex.append(".*");
-            } else if ("\\.[]{}()+-^$|?".indexOf(c) >= 0) {
-                regex.append('\\').append(c);
-            } else {
-                regex.append(c);
-            }
-        }
-        return regex.append("$").toString();
     }
 }

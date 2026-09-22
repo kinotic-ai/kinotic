@@ -19,8 +19,11 @@ import java.util.stream.Collectors;
  * Example:
  * <pre>
  * Input:  participant.roles contains 'finance' and order.amount < 50000
- * Output: include(r.sub.roles, "finance") && r.obj.order.amount < 50000
+ * Output: (r.sub.roles != nil && include(r.sub.roles, "finance")) && (r.obj.order.amount != nil && r.obj.order.amount < 50000)
  * </pre>
+ * Every path operand is guarded against {@code nil}: AviatorScript orders {@code nil} below every
+ * value and treats it as unequal to everything, so an absent attribute would otherwise satisfy any
+ * upper bound or inequality.
  */
 public class CasbinCompiler {
 
@@ -51,7 +54,7 @@ public class CasbinCompiler {
     private static String compileComparison(ComparisonExpression comp) {
         String left = compilePath(comp.left());
 
-        return switch (comp.operator()) {
+        String condition = switch (comp.operator()) {
             case EQUALS -> left + " == " + compileOperand(comp.right());
             case NOT_EQUALS -> left + " != " + compileOperand(comp.right());
             case GREATER_THAN -> left + " > " + compileOperand(comp.right());
@@ -66,6 +69,24 @@ public class CasbinCompiler {
             // Custom like(value, glob) function ('*' matches any sequence); see LikeFunction.
             case LIKE -> "like(" + left + ", " + compileLiteral((LiteralValue) comp.right()) + ")";
         };
+
+        String ret;
+        if (comp.operator() == ComparisonOperator.EXISTS) {
+            ret = condition;
+        } else {
+            ret = guardedAgainstNil(condition, left, comp.right());
+        }
+        return ret;
+    }
+
+    // AviatorScript orders nil below every value and treats it as unequal to everything, so without
+    // this guard an absent attribute satisfies any upper bound or inequality and the policy fails open.
+    private static String guardedAgainstNil(String condition, String left, Operand right) {
+        StringBuilder ret = new StringBuilder("(").append(left).append(" != nil && ");
+        if (right instanceof AttributePath path) {
+            ret.append(compilePath(path)).append(" != nil && ");
+        }
+        return ret.append(condition).append(")").toString();
     }
 
     private static String compileIn(String left, ArrayValue array) {

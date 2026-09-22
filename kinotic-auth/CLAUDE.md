@@ -29,7 +29,7 @@
 | `org.kinotic.auth.api.engine` | `AuthorizationEngine` SPI and `AuthorizationRequest` — the engine-neutral contract both the Cedar and jCasbin services implement |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
-| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), `CelCompiler` (AST → CEL expression), and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), `CelCompiler` (AST → CEL expression), `EsQueryCompiler` (AST → Elasticsearch `Query`), and the shared `GlobPattern` (`like` glob → anchored regex) |
 | `org.kinotic.auth.cedar` | `CedarAuthorizationService` — Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
 | `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM engine evaluating pre-compiled AviatorScript matchers (Casbin's matcher language), no native library |
 

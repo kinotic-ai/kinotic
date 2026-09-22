@@ -4,18 +4,27 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.auth.api.engine.AuthorizationEngine;
 import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.casbin.CasbinAuthorizationService;
+import org.kinotic.auth.casbin.PreparsedAviatorEngine;
 import org.kinotic.auth.cedar.CedarAuthorizationService;
+import org.kinotic.auth.engines.CelEngine;
+import org.kinotic.auth.engines.ElEngine;
+import org.kinotic.auth.engines.JaninoEngine;
+import org.kinotic.auth.engines.Jexl3Engine;
+import org.kinotic.auth.engines.PreparsedEngine;
+import org.kinotic.auth.engines.RequestJson;
+import org.kinotic.auth.engines.SpelEngine;
 
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Side-by-side comparison of the {@link AuthorizationEngine} implementations: the same ABAC policies
- * and requests are evaluated by every engine, asserting each reaches the expected decision (so all
- * engines agree), and reporting per-engine evaluation throughput.
+ * Side-by-side comparison of the authorization engines: the same ABAC policies and requests are
+ * evaluated by every engine, asserting each reaches the expected decision (so all engines agree),
+ * then reporting throughput for the full path (request JSON parsed per evaluation) and, where an
+ * engine exposes one, the pre-parsed path that isolates evaluator cost.
  */
 class EngineComparisonTest {
 
@@ -27,13 +36,23 @@ class EngineComparisonTest {
                         List<String> parameterNames,
                         boolean expected) {}
 
+    /** One engine under test: its full-path implementation and, when it has one, its pre-parsed entry point. */
+    private record Candidate(String name, AuthorizationEngine full, PreparsedEngine preparsed) {}
+
+    private record PreparsedCase(String action,
+                                 Map<String, Object> subject,
+                                 Map<String, Object> arguments,
+                                 boolean expected,
+                                 String label) {}
+
     private static final List<Scenario> SCENARIOS = List.of(
             new Scenario("placeOrder",
                     "participant.roles contains 'finance' and order.amount < 50000",
                     List.of(
                             new Case("finance under limit", "{\"roles\":[\"finance\"]}", "[{\"amount\":25000}]", List.of("order"), true),
                             new Case("finance over limit", "{\"roles\":[\"finance\"]}", "[{\"amount\":75000}]", List.of("order"), false),
-                            new Case("wrong role", "{\"roles\":[\"engineering\"]}", "[{\"amount\":25000}]", List.of("order"), false))),
+                            new Case("wrong role", "{\"roles\":[\"engineering\"]}", "[{\"amount\":25000}]", List.of("order"), false),
+                            new Case("amount missing must deny", "{\"roles\":[\"finance\"]}", "[{\"department\":\"sales\"}]", List.of("order"), false))),
 
             new Scenario("transferFunds",
                     "participant.roles contains 'finance' and transfer.amount <= participant.transferLimit and transfer.currency == 'USD' and approval.approved == true",
@@ -70,17 +89,28 @@ class EngineComparisonTest {
                             new Case("approver absent", "{}", "[{\"title\":\"q3\"}]", List.of("doc"), false)))
     );
 
-    private static Map<String, AuthorizationEngine> engines() {
-        Map<String, AuthorizationEngine> engines = new LinkedHashMap<>();
-        engines.put("Cedar (JNI)           ", new CedarAuthorizationService());
-        engines.put("Aviator (jCasbin core)", new CasbinAuthorizationService());
-        engines.put("CEL                   ", new CelEngine());
-        for (AuthorizationEngine engine : engines.values()) {
-            for (Scenario scenario : SCENARIOS) {
-                engine.registerPolicy(scenario.action(), scenario.expression());
+    private static List<Candidate> candidates() {
+        PreparsedAviatorEngine aviator = new PreparsedAviatorEngine();
+        CelEngine cel = new CelEngine();
+        SpelEngine spel = new SpelEngine();
+        Jexl3Engine jexl = new Jexl3Engine();
+        JaninoEngine janino = new JaninoEngine();
+        ElEngine el = new ElEngine();
+        List<Candidate> ret = List.of(
+                new Candidate("Cedar (JNI)", new CedarAuthorizationService(), null),
+                new Candidate("Aviator (jCasbin core)", new CasbinAuthorizationService(), aviator),
+                new Candidate("CEL (Google)", cel, cel),
+                new Candidate("SpEL (Spring)", spel, spel),
+                new Candidate("JEXL 3 (Apache)", jexl, jexl),
+                new Candidate("Janino", janino, janino),
+                new Candidate("Jakarta EL (Tomcat)", el, el));
+        for (Scenario scenario : SCENARIOS) {
+            for (Candidate candidate : ret) {
+                candidate.full().registerPolicy(scenario.action(), scenario.expression());
             }
+            aviator.registerPolicy(scenario.action(), scenario.expression());
         }
-        return engines;
+        return ret;
     }
 
     private static AuthorizationRequest requestFor(Scenario scenario, Case c) {
@@ -88,37 +118,74 @@ class EngineComparisonTest {
                 scenario.action(), c.argumentsJson(), c.parameterNames());
     }
 
+    private static List<PreparsedCase> preparsedCases() {
+        List<PreparsedCase> ret = new ArrayList<>();
+        for (Scenario scenario : SCENARIOS) {
+            for (Case c : scenario.cases()) {
+                AuthorizationRequest request = requestFor(scenario, c);
+                ret.add(new PreparsedCase(scenario.action(), RequestJson.subject(request), RequestJson.arguments(request),
+                        c.expected(), scenario.action() + " / " + c.description()));
+            }
+        }
+        return ret;
+    }
+
     @Test
     void enginesAgreeAndAreCorrect() {
-        Map<String, AuthorizationEngine> engines = engines();
+        List<Candidate> candidates = candidates();
         for (Scenario scenario : SCENARIOS) {
             for (Case c : scenario.cases()) {
                 AuthorizationRequest request = requestFor(scenario, c);
                 String label = scenario.action() + " / " + c.description();
-                engines.forEach((name, engine) ->
-                        assertEquals(c.expected(), engine.isAuthorized(request),
-                                name.trim() + " reached the wrong decision: " + label));
+                for (Candidate candidate : candidates) {
+                    assertEquals(c.expected(), candidate.full().isAuthorized(request),
+                            candidate.name() + " reached the wrong decision: " + label);
+                }
+            }
+        }
+        List<PreparsedCase> preparsed = preparsedCases();
+        for (Candidate candidate : candidates) {
+            if (candidate.preparsed() != null) {
+                for (PreparsedCase p : preparsed) {
+                    assertEquals(p.expected(), candidate.preparsed().isAllowed(p.action(), p.subject(), p.arguments()),
+                            candidate.name() + " (pre-parsed) reached the wrong decision: " + p.label());
+                }
             }
         }
     }
 
     @Test
     void throughputComparison() {
-        Map<String, AuthorizationEngine> engines = engines();
+        List<Candidate> candidates = candidates();
         List<AuthorizationRequest> requests = SCENARIOS.stream()
                 .flatMap(s -> s.cases().stream().map(c -> requestFor(s, c)))
                 .toList();
+        List<PreparsedCase> preparsed = preparsedCases();
 
-        // Every engine runs its production path; each eval still parses the request JSON,
-        // as it arrives at the gateway.
+        // Full path: every engine runs its production entry point, parsing the request JSON per eval.
         int warmup = 200;
         int iterations = 500;
         long evaluations = (long) iterations * requests.size();
+        for (Candidate candidate : candidates) {
+            report("ENGINE     ", candidate.name(), timeFull(candidate.full(), requests, warmup, iterations), evaluations);
+        }
 
-        engines.forEach((name, engine) -> report(name, time(engine, requests, warmup, iterations), evaluations));
+        // Pre-parsed path isolates the evaluator; it is fast enough to need more iterations for stable figures.
+        int preparsedIterations = 5000;
+        long preparsedEvaluations = (long) preparsedIterations * preparsed.size();
+        for (Candidate candidate : candidates) {
+            if (candidate.preparsed() != null) {
+                report("ENGINE-ONLY", candidate.name(), timePreparsed(candidate.preparsed(), preparsed, warmup, preparsedIterations), preparsedEvaluations);
+            }
+        }
+        for (Candidate candidate : candidates) {
+            if (candidate.full() instanceof SpelEngine spel) {
+                System.out.println("SPEL compiled to bytecode per action: " + spel.compileAll());
+            }
+        }
     }
 
-    private static long time(AuthorizationEngine engine, List<AuthorizationRequest> requests, int warmup, int iterations) {
+    private static long timeFull(AuthorizationEngine engine, List<AuthorizationRequest> requests, int warmup, int iterations) {
         for (int i = 0; i < warmup; i++) {
             for (AuthorizationRequest request : requests) {
                 engine.isAuthorized(request);
@@ -133,10 +200,25 @@ class EngineComparisonTest {
         return System.nanoTime() - start;
     }
 
-    private static void report(String name, long nanos, long evaluations) {
+    private static long timePreparsed(PreparsedEngine engine, List<PreparsedCase> cases, int warmup, int iterations) {
+        for (int i = 0; i < warmup; i++) {
+            for (PreparsedCase c : cases) {
+                engine.isAllowed(c.action(), c.subject(), c.arguments());
+            }
+        }
+        long start = System.nanoTime();
+        for (int i = 0; i < iterations; i++) {
+            for (PreparsedCase c : cases) {
+                engine.isAllowed(c.action(), c.subject(), c.arguments());
+            }
+        }
+        return System.nanoTime() - start;
+    }
+
+    private static void report(String path, String name, long nanos, long evaluations) {
         double microsPerEval = nanos / 1000.0 / evaluations;
         double perSecond = evaluations / (nanos / 1_000_000_000.0);
-        System.out.printf("ENGINE %s : %,d evals in %,d ms -> %.2f us/eval, %,.0f evals/sec%n",
-                name, evaluations, nanos / 1_000_000, microsPerEval, perSecond);
+        System.out.printf("%s %-22s : %,d evals in %,d ms -> %.2f us/eval, %,.0f evals/sec%n",
+                path, name, evaluations, nanos / 1_000_000, microsPerEval, perSecond);
     }
 }
