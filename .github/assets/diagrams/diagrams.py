@@ -238,9 +238,10 @@ def w_core_concepts(t):
         f'<div class="card-h">{glyph(17)}<span class="card-t">Project</span></div>'
         f'<div class="chips chips-col">' + ''.join(f'<span class="chip">{a}</span>' for a in arts)
         + '</div></div>' for arts in projects)
-    return (f'<div class="d" style="width:620px;height:165px">'
+    return (f'<div class="d" style="width:620px;height:178px">'
             f'<div class="outer">'
-            f'<div class="outer-h">{cluster(26)}<span class="outer-t">Application</span>'
+            f'<div class="outer-h outer-h-row">{cluster(26)}'
+            f'<span class="outer-t">Application</span>'
             f'<span class="outer-s outer-s-inline">the boundary of a complete software system</span></div>'
             f'<div class="row3 g12">{cards}</div></div></div>')
 
@@ -414,6 +415,7 @@ border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:
 {p} .card-col{{flex-direction:column;align-items:stretch;gap:10px}}
 {p} .card-col .card-h{{width:auto}}
 {p} .chips-col{{flex-direction:column;gap:6px}}
+{p} .outer-h-row{{margin-bottom:13px}}
 {p} .outer-s-inline{{margin:0 0 0 2px}}
 {p} .branch-row{{flex-direction:row;align-items:center;gap:10px;margin-left:4px;margin-bottom:-10px}}
 {p} .pill-row{{flex-direction:row;align-items:baseline;gap:9px;border-radius:999px}}
@@ -432,7 +434,7 @@ SPECS = [
     ('abstraction-layer', 'A different abstraction layer',
      (abstraction_layer, 440, 292), (w_abstraction_layer, 560, 322)),
     ('core-concepts', 'Core concepts',
-     (core_concepts, 440, 256), (w_core_concepts, 620, 165)),
+     (core_concepts, 440, 256), (w_core_concepts, 620, 178)),
     ('environments', 'CI/CD environments',
      (environments, 300, 280), (w_environments, 620, 237)),
     ('architecture', 'Architecture',
