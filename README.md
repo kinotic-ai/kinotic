@@ -75,13 +75,13 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 # <img src=".github/assets/marks/abstraction-layer.svg" width="22" alt=""> A different abstraction layer
 
-Cloud providers made infrastructure available on demand.
+<img src=".github/assets/marks/beat.svg" width="14" alt=""> &nbsp;Cloud providers made infrastructure available on demand.
 
-Kubernetes made infrastructure orchestration programmable.
+<img src=".github/assets/marks/beat.svg" width="14" alt=""> &nbsp;Kubernetes made infrastructure orchestration programmable.
 
-AI coding systems are making software creation nearly free.
+<img src=".github/assets/marks/beat.svg" width="14" alt=""> &nbsp;AI coding systems are making software creation nearly free.
 
-**Kinotic does everything in between.**
+<img src=".github/assets/marks/beat-mint.svg" width="14" alt=""> &nbsp;**Kinotic does everything in between.**
 
 <div align="center">
 
@@ -96,7 +96,16 @@ AI coding systems are making software creation nearly free.
 
 Kinotic provides an application-level model that understands:
 
-applications&nbsp;· projects&nbsp;· domain&nbsp;models&nbsp;· services&nbsp;· APIs&nbsp;· permissions&nbsp;· artifacts&nbsp;· environments&nbsp;· deployments&nbsp;· runtime&nbsp;behavior
+- applications
+- projects
+- domain models
+- services
+- APIs
+- permissions
+- artifacts
+- environments
+- deployments
+- runtime behavior
 
 This gives both humans and AI agents a constrained, inspectable way to create and operate software.
 

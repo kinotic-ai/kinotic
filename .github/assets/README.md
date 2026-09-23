@@ -119,6 +119,19 @@ them: humans-and-agents is one mint cube and one red, development is a cube and 
 ground, so these need no `<picture>`. Files are drawn at 44px and set to `width="22"` in the README,
 which keeps them sharp on a high-density screen.
 
+### The beat marks
+
+`marks/beat.svg` and `marks/beat-mint.svg` are one cube each, and are the only marks that
+appear in body copy rather than on a heading. The abstraction layer section is three things
+other people built followed by the turn, so the three carry the neutral cube and the turn
+carries the mint one — the colour is what says which line is the answer.
+
+They sit on four separate paragraphs rather than on `<br>`-separated lines. A wrapped line
+returns to the left margin, so with `<br>` the three beats run together into one block at
+phone width and the markers stop delimiting anything; paragraph gaps hold at any width.
+A markdown list cannot carry them at all: GitHub strips `list-style`, so an image inside a
+list item renders the disc as well as the mark.
+
 ### Motion
 
 The cubes carry the home page's float (7s) and tumble (9s) as CSS inside the file, which animates
