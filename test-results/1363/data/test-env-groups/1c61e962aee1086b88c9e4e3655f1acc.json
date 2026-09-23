@@ -1,0 +1,1 @@
+{"id":"1c61e962aee1086b88c9e4e3655f1acc","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testClientCancelIsPublishedToEveryInstance","name":"testClientCancelIsPublishedToEveryInstance()","status":"passed","testResultsByEnv":{"default":"033fa9543a99099011dd977937042b9d"}}
