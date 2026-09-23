@@ -77,11 +77,11 @@ public interface VmNodeOrchestrationService {
     /**
      * Finds a node with sufficient resources to host a workload with the given requirements.
      *
-     * @param requiredCpus the number of vCPUs required
+     * @param requiredCpus the CPU required, in cores
      * @param requiredMemoryMb the amount of memory required in megabytes
      * @param requiredDiskMb the amount of disk space required in megabytes
      * @return a future that will complete with a suitable node, or null if none available
      */
-    Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb);
+    Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb);
 
 }

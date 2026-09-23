@@ -3,6 +3,12 @@
  */
 export interface LogQuery {
 
+    /**
+     * Organization whose workload's logs to return. Null names the platform's own, which only a
+     * system participant may read.
+     */
+    organizationId: string | null
+
     /** Id of the workload whose logs to return. */
     workloadId: string
 

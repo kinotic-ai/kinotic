@@ -6,7 +6,7 @@
     :style="{ width: '70rem', maxWidth: '95vw' }"
   >
     <!-- Mounted with the dialog, so a reopen starts a fresh history load and tail -->
-    <WorkloadLogView v-if="visible" :workload-id="workloadId" :run="workloadRun(workload)" />
+    <WorkloadLogView v-if="visible" :organization-id="organizationId" :workload-id="workloadId" :run="workloadRun(workload)" />
   </Dialog>
 </template>
 
@@ -18,6 +18,7 @@ import { workloadRun } from './WorkloadRun'
 
 /** The log view in a dialog; given the workload's record, the view opens on its run once it has ended. */
 defineProps<{
+  organizationId: string | null
   workloadId: string
   workloadName: string
   workload?: Workload

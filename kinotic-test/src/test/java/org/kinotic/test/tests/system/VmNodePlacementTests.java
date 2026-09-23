@@ -8,7 +8,11 @@ import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
+import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
+import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.test.support.kinotic.KinoticTestBase;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +35,9 @@ public class VmNodePlacementTests extends KinoticTestBase {
 
     @Autowired
     private VmNodeOrchestrationService vmNodeOrchestrationService;
+
+    @Autowired
+    private WorkloadService workloadService;
 
     private final List<String> created = new ArrayList<>();
 
@@ -117,32 +124,80 @@ public class VmNodePlacementTests extends KinoticTestBase {
 
     /**
      * A node that comes back with different hardware must not look wholly free while its workloads
-     * are still running, or placement will oversubscribe it.
+     * are still running, or placement will oversubscribe it: the ledger is rebuilt from the workload
+     * records, one entry per run that has not ended.
      */
     @Test
-    public void reRegisteringWithNewCapacityKeepsRunningWorkloadsAccountedFor() throws Exception {
+    public void reRegisteringWithNewCapacityKeepsPlacedWorkloadsAccountedFor() throws Exception {
         VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 8, 8192, 20480)));
         created.add(registered.getId());
-        Assertions.assertEquals(8, registered.getAvailableCpus());
+        Assertions.assertEquals(8, registered.getFreeCpus());
+        Workload running = await(workloadService.saveSync(workload("placement-rereg", 2.5, 1024, 2048, WorkloadStatus.RUNNING)));
+        Workload ended = await(workloadService.saveSync(workload("placement-rereg", 1, 1024, 2048, WorkloadStatus.STOPPED)));
+        await(workloadService.syncIndex());
 
-        registered.setAvailableCpus(5);
-        await(vmNodeService.saveSync(registered));
-
-        VmNode grown = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 16, 8192, 20480)));
+        VmNode grown;
+        try {
+            grown = await(vmNodeOrchestrationService.registerNode(registration("placement-rereg", 16, 8192, 20480)));
+        } finally {
+            await(workloadService.deleteById(running.getId()));
+            await(workloadService.deleteById(ended.getId()));
+        }
 
         Assertions.assertEquals(16, grown.getTotalCpus());
-        Assertions.assertEquals(13, grown.getAvailableCpus(), "the 3 allocated vCPUs should survive the capacity change");
+        Assertions.assertEquals(13.5, grown.getFreeCpus(), "the running workload's CPU should survive the capacity change");
+        Assertions.assertEquals(8192 - 1024, grown.getFreeMemoryMb());
+        Assertions.assertEquals(20480 - 2048, grown.getFreeDiskMb(), "an ended run holds nothing");
+    }
+
+    /**
+     * The scripted reservation and releases are what placement reads, so the stored availability
+     * has to move by what each holds, with the fraction of a core surviving the round trip.
+     */
+    @Test
+    public void reservingAndReleasingMoveTheStoredAvailability() throws Exception {
+        VmNode registered = await(vmNodeOrchestrationService.registerNode(registration("placement-ledger", 4, 8192, 20480)));
+        created.add(registered.getId());
+        WorkloadReservation reservation = new WorkloadReservation().setWorkloadId("wl-1").setCpus(0.5).setMemoryMb(1024).setDiskMb(2048);
+
+        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)));
+        Assertions.assertTrue(await(vmNodeService.reserveSync("placement-ledger", reservation)), "a workload holding its room keeps it");
+        VmNode held = await(vmNodeService.findById("placement-ledger"));
+        Assertions.assertEquals(3.5, held.getFreeCpus());
+        Assertions.assertEquals(8192 - 1024, held.getFreeMemoryMb());
+        Assertions.assertEquals(20480 - 2048, held.getFreeDiskMb());
+        Assertions.assertEquals(1, held.getReservations().size());
+
+        Assertions.assertFalse(await(vmNodeService.reserveSync("placement-ledger",
+                new WorkloadReservation().setWorkloadId("wl-2").setCpus(4).setMemoryMb(1024).setDiskMb(1024))), "more CPU than the node has left");
+
+        await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
+        await(vmNodeService.releaseSync("placement-ledger", "wl-1"));
+        VmNode released = await(vmNodeService.findById("placement-ledger"));
+        Assertions.assertEquals(4, released.getFreeCpus());
+        Assertions.assertEquals(20480, released.getFreeDiskMb());
+        Assertions.assertTrue(released.getReservations().isEmpty());
+    }
+
+    private static Workload workload(String nodeId, double cpus, int memoryMb, int diskMb, WorkloadStatus status) {
+        Workload workload = new Workload("placement-" + status.name().toLowerCase(), "alpine:latest");
+        workload.setNodeId(nodeId);
+        workload.setCpus(cpus);
+        workload.setMemoryMb(memoryMb);
+        workload.setDiskSizeMb(diskMb);
+        workload.setStatus(status);
+        return workload;
     }
 
     private VmNode node(String id, int totalCpus, int totalMemoryMb, int totalDiskMb,
-                        int availableCpus, int availableMemoryMb, int availableDiskMb) throws Exception {
+                        double freeCpus, int freeMemoryMb, int freeDiskMb) throws Exception {
         VmNode node = new VmNode(id, id, "host-" + id);
         node.setTotalCpus(totalCpus)
             .setTotalMemoryMb(totalMemoryMb)
             .setTotalDiskMb(totalDiskMb)
-            .setAvailableCpus(availableCpus)
-            .setAvailableMemoryMb(availableMemoryMb)
-            .setAvailableDiskMb(availableDiskMb)
+            .setFreeCpus(freeCpus)
+            .setFreeMemoryMb(freeMemoryMb)
+            .setFreeDiskMb(freeDiskMb)
             .setStatus(new VmNodeStatus(VmNodeStatusType.ONLINE, null));
         created.add(id);
         return await(vmNodeService.save(node));

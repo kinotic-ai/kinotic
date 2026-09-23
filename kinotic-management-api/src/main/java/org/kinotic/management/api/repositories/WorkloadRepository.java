@@ -1,5 +1,11 @@
 package org.kinotic.management.api.repositories;
 
+import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
+
+import java.util.List;
+import java.util.stream.Stream;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 
 import io.vertx.core.Future;
@@ -20,7 +26,14 @@ public class WorkloadRepository extends AbstractRepository<Workload> {
         return findAll(pageable, b -> b.query(termFilter("nodeId", nodeId)));
     }
 
-    public Future<Long> countForNode(String nodeId) {
-        return count(b -> b.query(termFilter("nodeId", nodeId)));
+    /**
+     * Counts the workloads on a node whose run has not ended: the ones still holding a VM there.
+     */
+    public Future<Long> countRunningForNode(String nodeId) {
+        List<FieldValue> running = Stream.of(WorkloadStatus.STARTING, WorkloadStatus.RUNNING, WorkloadStatus.STOPPING)
+                                         .map(status -> FieldValue.of(status.name()))
+                                         .toList();
+        return count(b -> b.query(composeFilter(termFilter("nodeId", nodeId),
+                                                Query.of(q -> q.terms(t -> t.field("status").terms(v -> v.value(running)))))));
     }
 }

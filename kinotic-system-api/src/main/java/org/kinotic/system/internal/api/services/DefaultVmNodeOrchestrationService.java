@@ -13,6 +13,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
@@ -23,11 +24,13 @@ import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
+import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -39,6 +42,9 @@ import java.util.concurrent.TimeUnit;
 @Component
 @RequiredArgsConstructor
 public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationService {
+
+    // Workloads read per node in one page: what a node can host is far below this
+    private static final int WORKLOAD_PAGE_SIZE = 500;
 
     private final KinoticSystemApiProperties orchestratorProperties;
     private final VmNodeService vmNodeService;
@@ -75,47 +81,52 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         Validate.notNull(registration, "Registration cannot be null");
         Validate.notNull(registration.getId(), "Node id cannot be null");
 
-        return vmNodeService.findById(registration.getId())
-                .compose(existing -> {
-                    Future<VmNode> ret;
+        return Future.all(vmNodeService.findById(registration.getId()),
+                          workloadService.findAllForNode(registration.getId(), Pageable.create(0, WORKLOAD_PAGE_SIZE, null)))
+                .compose(results -> {
+                    VmNode existing = results.resultAt(0);
+                    Page<Workload> placed = results.resultAt(1);
+                    VmNode node;
                     if (existing != null) {
-                        // Read the allocation off the old capacity before overwriting it, so a node
-                        // that re-registers with different hardware keeps its running workloads
-                        // accounted for rather than appearing wholly free.
-                        int allocatedCpus = existing.getTotalCpus() - existing.getAvailableCpus();
-                        int allocatedMemoryMb = existing.getTotalMemoryMb() - existing.getAvailableMemoryMb();
-                        int allocatedDiskMb = existing.getTotalDiskMb() - existing.getAvailableDiskMb();
-                        existing.setHostname(registration.getHostname())
-                                .setName(registration.getName())
-                                .setProviderType(registration.getProviderType())
-                                .setTotalCpus(registration.getTotalCpus())
-                                .setTotalMemoryMb(registration.getTotalMemoryMb())
-                                .setTotalDiskMb(registration.getTotalDiskMb())
-                                .setWorkloadDataDir(registration.getWorkloadDataDir())
-                                .setAvailableCpus(registration.getTotalCpus() - allocatedCpus)
-                                .setAvailableMemoryMb(registration.getTotalMemoryMb() - allocatedMemoryMb)
-                                .setAvailableDiskMb(registration.getTotalDiskMb() - allocatedDiskMb)
-                                .setStatus(new VmNodeStatus())
-                                .setLastSeen(new Date());
-                        log.info("Re-registering VmNode: {} ({})", existing.getName(), existing.getId());
-                        ret = vmNodeService.saveSync(existing);
+                        node = existing;
+                        log.info("Re-registering VmNode: {} ({})", registration.getName(), registration.getId());
                     } else {
-                        VmNode node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
-                        node.setProviderType(registration.getProviderType());
-                        node.setTotalCpus(registration.getTotalCpus());
-                        node.setTotalMemoryMb(registration.getTotalMemoryMb());
-                        node.setTotalDiskMb(registration.getTotalDiskMb());
-                        node.setAvailableCpus(registration.getTotalCpus());
-                        node.setAvailableMemoryMb(registration.getTotalMemoryMb());
-                        node.setAvailableDiskMb(registration.getTotalDiskMb());
-                        node.setWorkloadDataDir(registration.getWorkloadDataDir());
-                        node.setStatus(new VmNodeStatus());
-                        node.setLastSeen(new Date());
-                        log.info("Registering new VmNode: {} ({})", node.getName(), node.getId());
-                        ret = vmNodeService.saveSync(node);
+                        node = new VmNode(registration.getId(), registration.getName(), registration.getHostname());
+                        log.info("Registering new VmNode: {} ({})", registration.getName(), registration.getId());
                     }
-                    return ret;
+                    // The workload records are what runs on the node: the ledger is rebuilt from
+                    // them, so a node that re-registers with different hardware, or after a release
+                    // the node never saw, still accounts for exactly what it hosts.
+                    List<WorkloadReservation> reservations = reservationsOf(placed.getContent());
+                    node.setHostname(registration.getHostname())
+                        .setName(registration.getName())
+                        .setProviderType(registration.getProviderType())
+                        .setTotalCpus(registration.getTotalCpus())
+                        .setTotalMemoryMb(registration.getTotalMemoryMb())
+                        .setTotalDiskMb(registration.getTotalDiskMb())
+                        .setWorkloadDataDir(registration.getWorkloadDataDir())
+                        .setReservations(reservations)
+                        .setFreeCpus(registration.getTotalCpus()
+                                - reservations.stream().mapToDouble(WorkloadReservation::getCpus).sum())
+                        .setFreeMemoryMb(registration.getTotalMemoryMb()
+                                - reservations.stream().mapToInt(WorkloadReservation::getMemoryMb).sum())
+                        .setFreeDiskMb(registration.getTotalDiskMb()
+                                - reservations.stream().mapToInt(WorkloadReservation::getDiskMb).sum())
+                        .setStatus(new VmNodeStatus())
+                        .setLastSeen(new Date());
+                    return vmNodeService.saveSync(node);
                 });
+    }
+
+    /** The room the given workloads hold: one reservation per run that has not ended. */
+    private static List<WorkloadReservation> reservationsOf(List<Workload> workloads) {
+        List<WorkloadReservation> ret = new ArrayList<>();
+        for (Workload workload : workloads) {
+            if (workload.getStatus() != WorkloadStatus.PENDING && !workload.getStatus().isComplete()) {
+                ret.add(WorkloadReservation.forRun(workload));
+            }
+        }
+        return ret;
     }
 
     @Override
@@ -197,6 +208,9 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         workload.setStatus(report.getStatus());
                         workload.setExitCode(report.getExitCode());
                         ret = workloadService.saveSync(workload);
+                        if (report.getStatus().isComplete()) {
+                            ret = ret.compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()).map(saved));
+                        }
                     }
 
                     return ret;
@@ -207,12 +221,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     public Future<Void> deregisterNode(String nodeId) {
         Validate.notNull(nodeId, "Node id cannot be null");
 
-        return workloadService.countForNode(nodeId)
+        return workloadService.countRunningForNode(nodeId)
                 .compose(count -> {
                     if (count > 0) {
                         return Future.failedFuture(
-                                new IllegalStateException("Cannot deregister node with active workloads. "
-                                        + "Destroy all workloads on node " + nodeId + " first."));
+                                new IllegalStateException("Cannot deregister node with running workloads. "
+                                        + "Stop or destroy the workloads running on node " + nodeId + " first."));
                     }
                     log.info("Deregistering VmNode: {}", nodeId);
                     return vmNodeService.deleteById(nodeId);
@@ -220,7 +234,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     @Override
-    public Future<VmNode> findAvailableNode(int requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
+    public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return vmNodeService.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
     }
 
@@ -290,7 +304,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     }
 
     private Future<Void> markNodeWorkloadsFailed(String nodeId) {
-        return workloadService.findAllForNode(nodeId, Pageable.create(0, 500, null))
+        return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(page -> {
                     Future<Void> chain = Future.succeededFuture();
                     for (Workload workload : page.getContent()) {
@@ -303,7 +317,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                          workload.getId(), nodeId);
                                 workload.setStatus(WorkloadStatus.FAILED);
                                 return workloadService.saveSync(workload)
-                                                      .mapEmpty();
+                                                      .compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()));
                             });
                         }
                     }
