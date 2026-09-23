@@ -1,5 +1,5 @@
-// Screenshots the pages diagrams.py writes into build/, two device pixels per CSS
-// pixel, and drops the PNGs beside this file. Chromium comes from CHROME, else from
+// Screenshots the pages diagrams.py writes into build/ at the device-pixel ratio each
+// job asks for, and drops the PNGs beside this file. Chromium comes from CHROME, else from
 // PLAYWRIGHT_BROWSERS_PATH, else from the usual system locations.
 const fs = require('fs');
 const path = require('path');
@@ -53,10 +53,10 @@ async function main() {
     const shot = await send('Page.captureScreenshot', {
       format: 'png',
       captureBeyondViewport: true,
-      clip: { x: 0, y: 0, width: job.w, height: job.h, scale: 2 },
+      clip: { x: 0, y: 0, width: job.w, height: job.h, scale: job.scale },
     });
     fs.writeFileSync(path.join(__dirname, job.png), Buffer.from(shot.data, 'base64'));
-    console.log(job.png, `${job.w}x${job.h}`);
+    console.log(job.png, `${job.w}x${job.h} @${job.scale}x`);
     ws.close();
     await fetch(`http://127.0.0.1:${PORT}/json/close/${target.id}`);
   }

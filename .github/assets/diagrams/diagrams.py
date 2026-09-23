@@ -454,7 +454,10 @@ def main():
     os.makedirs(out, exist_ok=True)
     jobs = []
     for key, _title, narrow, wide in SPECS:
-        for suffix, (fn, w, h) in (('', narrow), ('-wide', wide)):
+        # The narrow variant is the one phones get, where a 358px column on a 3x screen
+        # asks for 1074 device pixels; the wide one only ever lands on a desktop, where
+        # 2x is already native.
+        for suffix, (fn, w, h), scale in (('', narrow, 3), ('-wide', wide, 2)):
             for t in (LIGHT, DARK):
                 stem = f'{key}{suffix}-{t["name"]}'
                 open(os.path.join(out, stem + '.html'), 'w').write(
@@ -462,7 +465,8 @@ def main():
                     f'{FONTS}{CSS}{scoped(t)}body{{margin:0;background:{t["ground"]}}}'
                     f'</style></head><body><div class="pane pane-{t["name"][0]}" '
                     f'style="width:{w}px;padding:0">{fn(t)}</div></body></html>')
-                jobs.append({'html': stem + '.html', 'png': stem + '.png', 'w': w, 'h': h})
+                jobs.append({'html': stem + '.html', 'png': stem + '.png',
+                             'w': w, 'h': h, 'scale': scale})
     open(os.path.join(out, 'jobs.json'), 'w').write(json.dumps(jobs, indent=2))
     print(f'{len(jobs)} pages in {out}; now run: node render.js')
 

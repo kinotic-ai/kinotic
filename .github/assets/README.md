@@ -1,10 +1,10 @@
 # README assets
 
 Everything the repository README embeds. Every raster image ships on a light and a dark
-ground, selected with `<picture>` on `prefers-color-scheme`, and is rendered at 2x with the
-README setting the displayed width to half the pixel width so it stays sharp on a
-high-density screen. Diagrams add a second axis — a narrow and a wide layout, chosen on
-viewport width — so each of them is four files.
+ground, selected with `<picture>` on `prefers-color-scheme`, and is rendered at a multiple
+of the width the README displays it at so it stays sharp on a high-density screen. Diagrams
+add a second axis — a narrow and a wide layout, chosen on viewport width — so each of them
+is four files.
 
 ## Logo
 
@@ -31,6 +31,20 @@ node render.js        # screenshots them at 2x into the PNGs beside it
 
 `render.js` finds Chromium through `CHROME`, then `PLAYWRIGHT_BROWSERS_PATH`, then the usual
 system locations. `build/` is scratch and is not committed.
+
+### Why the narrow variant renders at 3x and the wide one at 2x
+
+Each is rendered at the density the screen it lands on actually asks for:
+
+```
+narrow, on a 390px phone at DPR 3   358 css × 3 = 1074 device px   → 3x of 440 = 1320  ✓
+wide, on a retina desktop at DPR 2  880 css × 2 = 1760 device px   → 2x of 880 = 1760  ✓
+```
+
+At 2x the narrow variant would supply 880px into a box wanting 1074, and the browser would
+upscale its text by 1.22x. The wide variant never lands on a phone, so 2x is already native
+there and 3x would be 300KB of pixels nobody sees. `diagrams.py` carries the ratio per job
+in `build/jobs.json` and `render.js` reads it.
 
 ### Why two layouts
 
