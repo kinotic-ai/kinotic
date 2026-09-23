@@ -7,6 +7,7 @@ import {
   type JobRunEvent,
   type TaskRecord
 } from '@kinotic-ai/management-api'
+import DatetimeUtil from '../../util/DatetimeUtil'
 import type { JobTaskNode } from './JobTaskNode'
 
 const POLL_INTERVAL_MS = 2000
@@ -85,8 +86,9 @@ export function useJobRunProgress(jobRunId: string) {
     node.status = record.status
     node.dynamicTasks = record.dynamicTasks
     node.error = record.error
-    node.started = record.started
-    node.finished = record.finished
+    // the wire carries TaskRecord's java.util.Date fields as ISO-8601 strings; the node holds epoch millis
+    node.started = DatetimeUtil.toEpochMillis(record.started)
+    node.finished = DatetimeUtil.toEpochMillis(record.finished)
     node.storedName = record.storedName ?? node.storedName
     if (record.stateValue !== null && record.stateValue !== undefined) {
       node.storedValue = record.stateValue
