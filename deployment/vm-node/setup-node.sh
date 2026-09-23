@@ -32,7 +32,7 @@ KATA_VERSION="${KATA_VERSION:-4.1.0}"
 step "Base packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq curl jq tar zstd xfsprogs ca-certificates iptables ipset >/dev/null
+apt-get install -y -qq curl jq rsync tar zstd xfsprogs ca-certificates iptables ipset >/dev/null
 
 step "Docker Engine"
 # Docker brings its own containerd. Installing nerdctl-full as well would put a second
