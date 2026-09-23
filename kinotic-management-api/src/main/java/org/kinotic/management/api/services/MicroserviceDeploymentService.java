@@ -19,6 +19,8 @@ public interface MicroserviceDeploymentService {
      * ordered by microservice name. A project that has never deployed has none.
      *
      * @param projectId a project belonging to the caller's organization
+     * A deployment whose VM has since ended reads {@code FAILED} with the run's exit, whatever the
+     * deployment recorded.
      * @return a future emitting the deployments, empty when the project has none
      */
     Future<List<MicroserviceDeployment>> findAllForProject(String projectId);

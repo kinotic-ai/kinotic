@@ -11,7 +11,8 @@ export interface IMicroserviceDeploymentService {
 
     /**
      * Lists the microservice deployments of one of the caller's organization's projects,
-     * ordered by microservice name. A project that has never deployed has none.
+     * ordered by microservice name. A project that has never deployed has none. A deployment
+     * whose VM has since ended reads FAILED with the run's exit, whatever the deployment recorded.
      * @param projectId a project belonging to the caller's organization
      */
     findAllForProject(projectId: string): Promise<MicroserviceDeployment[]>
