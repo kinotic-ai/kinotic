@@ -30,8 +30,8 @@ storage created and is ready for data operations; entities already published kee
 serving. Pending migrations in `./migrations` are applied in the same step. The
 artifacts it found are reported to the platform, and only after everything succeeded
 does it signal the runtime to reload. The step expands on the job run page into the
-build VM's log, live while it runs; the VM is kept after its run, whatever the outcome,
-so the log stays readable until the next deployment retires it.
+build VM's log, live while it runs; the VM is destroyed once its run ends, whatever the
+outcome, and the log stays readable from the run's history.
 3. **Resolve artifacts** — binds the artifacts the build VM reported for this commit into
 the deployment run. The step's row on the job run page lists them: each microservice
 with the module it starts from, and each UI.
