@@ -86,8 +86,10 @@ AI coding systems are making software creation nearly free.
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-dark.png">
-  <img alt="Developers and AI agents work through the Kinotic application model, which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage" width="277" src=".github/assets/diagrams/abstraction-layer-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-wide-dark.png" width="560">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/abstraction-layer-wide-light.png" width="560">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-dark.png" width="440">
+  <img alt="Developers and AI agents work through the Kinotic application model, which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage" src=".github/assets/diagrams/abstraction-layer-light.png" width="440">
 </picture>
 
 </div>
@@ -182,8 +184,10 @@ Kinotic organizes applications around a small number of fundamental concepts.
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-dark.png">
-  <img alt="An application contains projects, and each project provides artifacts: microservices, persistence models, frontends, UI components, batch jobs and MCP tools" width="608" src=".github/assets/diagrams/core-concepts-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-wide-dark.png" width="620">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/core-concepts-wide-light.png" width="620">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-dark.png" width="440">
+  <img alt="An application contains projects, and each project provides artifacts: microservices, persistence models, frontends, UI components, batch jobs and MCP tools" src=".github/assets/diagrams/core-concepts-light.png" width="440">
 </picture>
 
 </div>
@@ -264,8 +268,10 @@ Feature branches can receive isolated development environments, allowing changes
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-dark.png">
-  <img alt="A feature branch gets an isolated environment that is built and tested, then promoted through development, staging and production" width="206" src=".github/assets/diagrams/environments-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-wide-dark.png" width="620">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/environments-wide-light.png" width="620">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-dark.png" width="300">
+  <img alt="A feature branch gets an isolated environment that is built and tested, then promoted through development, staging and production" src=".github/assets/diagrams/environments-light.png" width="300">
 </picture>
 
 </div>
@@ -312,8 +318,10 @@ Kinotic is built as an open platform rather than a single monolithic runtime.
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png">
-  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" width="846" src=".github/assets/diagrams/architecture-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-wide-dark.png" width="880">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/architecture-wide-light.png" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png" width="440">
+  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
 </picture>
 
 </div>
@@ -424,8 +432,10 @@ Software development is changing.
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-dark.png">
-  <img alt="For decades: human to source code to infrastructure to production. Increasingly: human to intent to AI agent to software to production" width="403" src=".github/assets/diagrams/vision-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-wide-dark.png" width="660">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/vision-wide-light.png" width="660">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-dark.png" width="440">
+  <img alt="For decades: human to source code to infrastructure to production. Increasingly: human to intent to AI agent to software to production" src=".github/assets/diagrams/vision-light.png" width="440">
 </picture>
 
 </div>
