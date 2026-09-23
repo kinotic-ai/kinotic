@@ -119,6 +119,12 @@ them: humans-and-agents is one mint cube and one red, development is a cube and 
 ground, so these need no `<picture>`. Files are drawn at 44px and set to `width="22"` in the README,
 which keeps them sharp on a high-density screen.
 
+**SVG by relative path renders in the GitHub mobile app**, confirmed on Android — the heading
+marks, the wordmark and the cubes all come through, and the cubes' CSS animation runs there
+too. That is why the marks stay SVG while the diagrams are PNG: the diagrams are raster for
+the type they carry, not because SVG is unsafe. Mermaid is the thing the app will not render,
+and it shows up there as raw code.
+
 ### The beat marks
 
 `marks/beat.svg` and `marks/beat-mint.svg` are one cube each, and are the only marks that
