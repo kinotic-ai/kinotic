@@ -79,6 +79,11 @@ neutral ramp what a caller brings, `#2B2A32` the infrastructure underneath — d
 themes, because it is not ours. Red appears only on the AI-agent cube, matching
 `marks/humans-and-agents.svg`; it never marks a component.
 
+**18px of air on top, 6px underneath.** GitHub leaves 16px between a paragraph and the
+image after it but 24px or more before the heading that follows, so a diagram with no
+padding of its own sits closer to the text above than the text below. The padding is inside
+`.d`, which is `border-box`, so every declared height carries the 24px.
+
 **Isometry only where it means something.** The abstraction layer is a stack, so it is drawn
 as isometric slabs; promotion moves forward, so its environments are cubes on a line.
 Diagrams that are really lists — core concepts, architecture — use panels with a cube glyph

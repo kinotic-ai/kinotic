@@ -81,7 +81,7 @@ Kubernetes made infrastructure orchestration programmable.
 
 AI coding systems are making software creation nearly free.
 
-**Kinotic does everything in between.**
+Kinotic does everything in between.
 
 <div align="center">
 

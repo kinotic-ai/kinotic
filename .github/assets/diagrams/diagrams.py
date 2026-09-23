@@ -90,7 +90,7 @@ def abstraction_layer(t):
            f'<text x="244" y="246" class="t-name-dim">Kubernetes · cloud</text>'
            f'<text x="244" y="263" class="t-sub">networking · storage</text>'
            f'</svg>')
-    return f'<div class="d" style="width:440px;height:292px">{svg}</div>'
+    return f'<div class="d" style="width:440px;height:316px">{svg}</div>'
 
 # ---------------------------------------------------------------- diagram 2
 
@@ -103,7 +103,7 @@ def core_concepts(t):
         f'<div class="card-h">{glyph(17)}<span class="card-t">Project</span></div>'
         f'<div class="chips">' + ''.join(f'<span class="chip">{a}</span>' for a in arts) + '</div>'
         f'</div>' for arts in projects)
-    return (f'<div class="d" style="width:440px;height:256px">'
+    return (f'<div class="d" style="width:440px;height:280px">'
             f'<div class="outer">'
             f'<div class="outer-h">{cluster(26)}'
             f'<span class="outer-t">Application</span></div>'
@@ -134,7 +134,7 @@ def environments(t):
            f'<text x="64" y="81" class="t-name">Isolated environment</text>'
            f'<text x="64" y="97" class="t-sub">built and tested</text>'
            f'{names}{promote}</svg>')
-    return f'<div class="d" style="width:300px;height:280px">{svg}</div>'
+    return f'<div class="d" style="width:300px;height:304px">{svg}</div>'
 
 # ---------------------------------------------------------------- diagram 4
 
@@ -165,7 +165,7 @@ def architecture(t):
              f'preserveAspectRatio="none" aria-hidden="true">'
              f'<path d="M 11 0 L 11 236" stroke="{t["line"]}" stroke-width="1" fill="none"/>'
              f'</svg>')
-    return (f'<div class="d" style="width:440px;height:761px">'
+    return (f'<div class="d" style="width:440px;height:785px">'
             f'<div class="row3 g10">{client_tiles}</div>'
             f'{drops([72, 220, 368], 20)}'
             f'<div class="gw"><span class="mono mono-gw">kinotic-api-gateway</span>'
@@ -196,7 +196,7 @@ def vision(t):
                                ('Production', 0)], True)
     new = lane('Increasingly', [('Human', 0), ('Intent', 1), ('AI agent', 1), ('Software', 0),
                                 ('Production', 0)], False)
-    return f'<div class="d" style="width:440px;height:274px"><div class="lanes">{old}{new}</div></div>'
+    return f'<div class="d" style="width:440px;height:298px"><div class="lanes">{old}{new}</div></div>'
 
 # ================================================================ wide variants
 # Same content and type scale as the narrow set, laid out for a desktop column.
@@ -227,7 +227,7 @@ def w_abstraction_layer(t):
            f'<text x="312" y="278" class="t-name-dim">Kubernetes · cloud</text>'
            f'<text x="312" y="295" class="t-sub">networking · storage</text>'
            f'</svg>')
-    return f'<div class="d" style="width:560px;height:322px">{svg}</div>'
+    return f'<div class="d" style="width:560px;height:346px">{svg}</div>'
 
 
 def w_core_concepts(t):
@@ -238,7 +238,7 @@ def w_core_concepts(t):
         f'<div class="card-h">{glyph(17)}<span class="card-t">Project</span></div>'
         f'<div class="chips chips-col">' + ''.join(f'<span class="chip">{a}</span>' for a in arts)
         + '</div></div>' for arts in projects)
-    return (f'<div class="d" style="width:620px;height:178px">'
+    return (f'<div class="d" style="width:620px;height:202px">'
             f'<div class="outer">'
             f'<div class="outer-h outer-h-row">{cluster(26)}'
             f'<span class="outer-t">Application</span>'
@@ -262,7 +262,7 @@ def w_environments(t):
            f'aria-label="A feature branch gets an isolated environment that is built and tested, '
            f'then promoted through development, staging and production">'
            f'{drop}{rail}{cubes}{names}{promote}</svg>')
-    return (f'<div class="d" style="width:620px;height:237px">'
+    return (f'<div class="d" style="width:620px;height:261px">'
             f'<div class="branch branch-row">'
             f'<span class="pill">Feature branch</span><span class="arrow">&#8594;</span>'
             f'<span class="pill pill-mint pill-row">Isolated environment'
@@ -304,7 +304,7 @@ def w_architecture(t):
         return f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" aria-hidden="true">{p}</svg>'
 
     # module tiles are 274 wide inside a panel padded 16 → centres 153, 440, 727
-    return (f'<div class="d" style="width:{W}px;height:474px">'
+    return (f'<div class="d" style="width:{W}px;height:498px">'
             f'<div class="row3 g16">{client_tiles}</div>'
             f'{drops([148, 440, 732], 22)}'
             f'<div class="gw gw-row"><span class="mono mono-gw">kinotic-api-gateway</span>'
@@ -334,7 +334,7 @@ def w_vision(t):
                                ('Production', 0)], True)
     new = lane('Increasingly', [('Human', 0), ('Intent', 1), ('AI agent', 1), ('Software', 0),
                                 ('Production', 0)], False)
-    return (f'<div class="d" style="width:660px;height:84px">'
+    return (f'<div class="d" style="width:660px;height:108px">'
             f'<div class="lanes lanes-row">{old}{new}</div></div>')
 
 # `.pane-l` / `.pane-d` are only a scoping hook: every colour lives in scoped() below,
@@ -342,7 +342,7 @@ def w_vision(t):
 CSS = """
 *{box-sizing:border-box}
 body{margin:0;font-family:'Figtree',system-ui,sans-serif}
-.d{position:relative}
+.d{position:relative;padding:18px 0 6px}
 .d>svg{display:block}
 .g{display:block;flex:none}
 """
@@ -356,7 +356,7 @@ def scoped(t):
     p = f'.pane-{t["name"][0]}'
     return f"""
 {p} .t-cap{{font:500 12px 'Figtree',sans-serif;fill:{t['body']}}}
-{p} .t-cap-up{{font:500 11px 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;fill:{t['dim']}}}
+{p} .t-cap-up{{font:600 11px 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;fill:{t['body']}}}
 {p} .t-name{{font:600 15px 'Figtree',sans-serif;fill:{t['heading']}}}
 {p} .t-name-dim{{font:600 15px 'Figtree',sans-serif;fill:{t['body']}}}
 {p} .t-sub{{font:400 12px 'Figtree',sans-serif;fill:{t['muted']}}}
@@ -400,11 +400,11 @@ flex-direction:column;gap:2px}}
 {p} .server{{border:1px solid {t['line']};border-radius:12px;padding:12px 14px 14px;
 background:{t['panel']}}}
 {p} .server-tab{{display:block;margin-bottom:9px;
-font:500 11px 'Fira Code',monospace;letter-spacing:.04em;color:{t['dim']}}}
+font:500 11px 'Fira Code',monospace;letter-spacing:.04em;color:{t['muted']}}}
 {p} .lanes{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}}
 {p} .lane{{display:flex;flex-direction:column;gap:10px}}
-{p} .lane-l{{font:500 11px 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;
-color:{t['dim']}}}
+{p} .lane-l{{font:600 11px 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;
+color:{t['body']}}}
 {p} .lane-c{{display:flex;flex-direction:column;align-items:center;gap:3px}}
 {p} .v-chip{{font:600 13px 'Figtree',sans-serif;color:{t['text']};border:1px solid {t['line']};
 border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:center}}
@@ -432,15 +432,15 @@ border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:
 # key, title, narrow (fn, w, h), wide (fn, w, h)
 SPECS = [
     ('abstraction-layer', 'A different abstraction layer',
-     (abstraction_layer, 440, 292), (w_abstraction_layer, 560, 322)),
+     (abstraction_layer, 440, 316), (w_abstraction_layer, 560, 346)),
     ('core-concepts', 'Core concepts',
-     (core_concepts, 440, 256), (w_core_concepts, 620, 178)),
+     (core_concepts, 440, 280), (w_core_concepts, 620, 202)),
     ('environments', 'CI/CD environments',
-     (environments, 300, 280), (w_environments, 620, 237)),
+     (environments, 300, 304), (w_environments, 620, 261)),
     ('architecture', 'Architecture',
-     (architecture, 440, 761), (w_architecture, 880, 474)),
+     (architecture, 440, 785), (w_architecture, 880, 498)),
     ('vision', 'The vision',
-     (vision, 440, 274), (w_vision, 660, 84)),
+     (vision, 440, 298), (w_vision, 660, 108)),
 ]
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
