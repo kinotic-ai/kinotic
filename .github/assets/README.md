@@ -73,8 +73,12 @@ carries the narrow layout and its own width as the fallback every client can ren
 ### Constraints the source respects
 
 **A 15px floor on labels, 12px on sub-labels.** At the 0.81 scale a 440px-wide diagram takes
-on a phone, those land at 12.2px and 9.8px. Anything smaller stops being readable there.
+on a phone, those land at 12.2px and 9.8px. Anything smaller stops being readable there — the
+vision lane labels sat at 11px and were the first thing anyone noticed on a phone.
 `environments` is 300px wide — under the phone's column — so it never scales at all.
+
+The `promote` labels are the deliberate exception at 11px. They name the arrow between two
+stations rather than any content, and they read better small; leave them there.
 
 **Type is the repo's own.** `diagrams.py` loads `website/public/fonts/figtree-latin.woff2`
 and `fira-code-latin.woff2` by absolute path, so the PNGs carry Figtree and Fira Code
