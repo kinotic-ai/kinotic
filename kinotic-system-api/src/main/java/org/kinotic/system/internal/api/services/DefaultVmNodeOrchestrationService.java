@@ -221,12 +221,12 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     public Future<Void> deregisterNode(String nodeId) {
         Validate.notNull(nodeId, "Node id cannot be null");
 
-        return workloadService.countForNode(nodeId)
+        return workloadService.countRunningForNode(nodeId)
                 .compose(count -> {
                     if (count > 0) {
                         return Future.failedFuture(
-                                new IllegalStateException("Cannot deregister node with active workloads. "
-                                        + "Destroy all workloads on node " + nodeId + " first."));
+                                new IllegalStateException("Cannot deregister node with running workloads. "
+                                        + "Stop or destroy the workloads running on node " + nodeId + " first."));
                     }
                     log.info("Deregistering VmNode: {}", nodeId);
                     return vmNodeService.deleteById(nodeId);
