@@ -15,10 +15,8 @@ import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
-import org.kinotic.management.api.model.ProjectRepoToken;
 import org.kinotic.management.api.model.UiArtifact;
 import org.kinotic.management.api.model.UiDeployment;
-import org.kinotic.management.api.model.workload.VolumeMount;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
@@ -29,10 +27,7 @@ import org.kinotic.system.api.services.SiteStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.UiDeploymentProvisioner;
 import org.kinotic.system.api.services.WorkloadService;
-import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.domain.api.services.OrganizationService;
-import org.kinotic.system.api.config.DeploymentProperties;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
@@ -92,8 +87,8 @@ public class ProjectDeployJobDefinitionFactory {
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
     private final SiteWorkloadFactory siteWorkloadFactory;
     private final ProjectDeployIdentityService projectDeployIdentityService;
+    private final ProjectWorkloadFactory projectWorkloadFactory;
     private final KinoticSystemApiProperties properties;
-    private final KinoticDomainProperties domainProperties;
 
     /**
      * Creates the job definition deploying the given commit of the project.
@@ -172,10 +167,9 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Reuses the node and checkout directory of an existing deployment, retiring the sync and
-     * publish workloads its last run left for inspection; a first deployment picks a node with
-     * the capacity the sync workload needs and derives the checkout directory from the node's
-     * advertised workload data directory. Either way the run's workloads get fresh ids.
+     * Reuses the node and checkout directory of an existing deployment; a first deployment picks
+     * a node with the capacity the sync workload needs and derives the checkout directory from
+     * the node's advertised workload data directory. Either way the run's workloads get fresh ids.
      */
     private Future<DeployTarget> resolveTarget(String projectId, ProjectDeployment existing) {
         Future<DeployTarget> ret;
@@ -183,20 +177,17 @@ public class ProjectDeployJobDefinitionFactory {
         String uiPublishWorkloadId = UUID.randomUUID().toString();
 
         if (existing != null && existing.getNodeId() != null) {
-            ret = destroyPreviousWorkload(existing.getSyncWorkloadId(), "sync", projectId)
-                    .compose(v -> destroyPreviousWorkload(existing.getUiPublishWorkloadId(), "UI publish", projectId))
-                    .map(v -> new DeployTarget(existing.getNodeId(),
-                                               existing.getHostDir(),
-                                               syncWorkloadId,
-                                               uiPublishWorkloadId));
+            ret = Future.succeededFuture(new DeployTarget(existing.getNodeId(),
+                                                          existing.getHostDir(),
+                                                          syncWorkloadId,
+                                                          uiPublishWorkloadId));
         } else {
-            Workload probe = new Workload();
-            probe.setMemoryMb(deployment().getSyncMemoryMb());
+            log.debug("Resolving deploy target for project {}: asking for a node with {} cpus, {}MB memory, {}MB disk",
+                     projectId, ProjectWorkloadSizes.SYNC_CPUS, ProjectWorkloadSizes.SYNC_MEMORY_MB, ProjectWorkloadSizes.SYNC_DISK_SIZE_MB);
 
-            log.debug("Resolving deploy target for project {}: asking for a node with {} vcpus, {}MB memory, {}MB disk",
-                     projectId, probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb());
-
-            ret = vmNodeOrchestrationService.findAvailableNode(probe.getVcpus(), probe.getMemoryMb(), probe.getDiskSizeMb())
+            ret = vmNodeOrchestrationService.findAvailableNode(ProjectWorkloadSizes.SYNC_CPUS,
+                                                               ProjectWorkloadSizes.SYNC_MEMORY_MB,
+                                                               ProjectWorkloadSizes.SYNC_DISK_SIZE_MB)
                     .onFailure(error -> log.error("Placement query failed for project {}", projectId, error))
                     .compose(node -> {
                         log.info("Placement query for project {} returned {}", projectId,
@@ -225,41 +216,22 @@ public class ProjectDeployJobDefinitionFactory {
         return ret;
     }
 
-    // The previous run's workload may already be gone - removed from the console, never
-    // recorded because that run failed before its target was known, or never deployed
-    // because that run had nothing to publish
-    private Future<Void> destroyPreviousWorkload(String workloadId, String role, String projectId) {
-        Future<Void> ret;
-        if (workloadId == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = workloadOrchestrationService.destroyWorkload(workloadId)
-                    .recover(error -> {
-                        log.warn("Previous {} workload {} of project {} could not be destroyed: {}",
-                                 role, workloadId, projectId, error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
-    }
-
     /**
-     * Runs the checkout-and-sync workload in the foreground on the target node. The
-     * workload is kept after its run, whatever the outcome, so its logs stay inspectable
-     * until the next deployment retires it; a failed run fails the job.
+     * Runs the checkout-and-sync workload in the foreground on the target node; a failed run
+     * fails the job.
      */
     private CompletableFuture<String> syncSource(Project project, DeployTarget target, String commitSha) {
         return projectRepoTokenProvider.issueRepoToken(project.getOrganizationId(), project.getId())
                 .compose(token -> projectDeployIdentityService.issueSyncCredentials(project)
-                        .map(credentials -> syncWorkload(project, target, token, credentials, commitSha)))
+                        .map(credentials -> projectWorkloadFactory.sync(project, target, token, credentials, commitSha)))
                 .compose(workloadOrchestrationService::deployWorkload)
                 .compose(finished -> requireSucceeded(finished, "Sync"))
                 .toCompletionStage().toCompletableFuture();
     }
 
     /**
-     * Passes a foreground workload's run only when it exited cleanly; the workload is kept
-     * either way, so a failed run's logs stay inspectable.
+     * Passes a foreground workload's run only when it exited cleanly. The node has removed the
+     * VM either way; the workload's record and logs stay as the run's outcome.
      */
     private static Future<String> requireSucceeded(Workload finished, String role) {
         Future<String> ret;
@@ -268,8 +240,7 @@ public class ProjectDeployJobDefinitionFactory {
         } else {
             ret = Future.failedFuture(new IllegalStateException(
                     role + " workload " + finished.getId() + " ended " + finished.getStatus()
-                            + " with exit code " + finished.getExitCode()
-                            + "; the workload is kept for log inspection"));
+                            + " with exit code " + finished.getExitCode()));
         }
         return ret;
     }
@@ -296,8 +267,8 @@ public class ProjectDeployJobDefinitionFactory {
      * the synced checkout, one VM and one machine identity each, and records the outcome on the
      * microservice's {@link MicroserviceDeployment}. A running workload is kept: its supervisor
      * picks the new commit up through the reload sentinel the sync workload wrote. One whose run
-     * ended — stopped by hand or crashed — or whose entry module moved is replaced rather than
-     * started again, so a deployment never reuses a VM whose state may be what failed it. A
+     * ended — stopped by hand or crashed — gets a new VM, and one whose entry module moved is
+     * stopped and gets a new VM; the ended run's record stays as its outcome. A
      * microservice without a deployment gets one; a deployment whose microservice the commit
      * no longer contains is marked orphaned and left running. A microservice that cannot be
      * left running is recorded failed and the others still deploy; the task then fails naming
@@ -370,7 +341,8 @@ public class ProjectDeployJobDefinitionFactory {
 
     /**
      * Leaves the microservice with a running workload: the recorded one when it is up and still
-     * starts the same entry point, otherwise a new one.
+     * starts the same entry point, otherwise a new one, stopping the recorded one first when it
+     * is still running.
      */
     private Future<String> ensureWorkload(Project project, DeployTarget target, MicroserviceDeployment deployment, String entryPoint) {
         Future<String> ret;
@@ -386,10 +358,10 @@ public class ProjectDeployJobDefinitionFactory {
                             // The running supervisor picks the new commit up through the
                             // reload sentinel the sync workload wrote — nothing to deploy
                             ensured = Future.succeededFuture(existing.getId());
-                        } else if (existing != null) {
-                            ensured = workloadOrchestrationService.destroyWorkload(existing.getId())
+                        } else if (running) {
+                            ensured = workloadOrchestrationService.stopWorkload(existing.getId())
                                     .recover(error -> {
-                                        log.warn("Runtime workload {} of microservice {} of project {} could not be destroyed: {}",
+                                        log.warn("Runtime workload {} of microservice {} of project {} could not be stopped: {}",
                                                  existing.getId(), deployment.getName(), project.getId(), error.getMessage());
                                         return Future.succeededFuture();
                                     })
@@ -409,7 +381,7 @@ public class ProjectDeployJobDefinitionFactory {
                                                  String entryPoint) {
         return projectDeployIdentityService.issueRuntimeCredentials(project, deployment)
                 .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                        runtimeWorkload(project, target, deployment.getName(), entryPoint, credentials)))
+                        projectWorkloadFactory.runtime(project, target.nodeId(), target.hostDir(), deployment.getName(), entryPoint, credentials)))
                 .map(Workload::getId);
     }
 
@@ -566,89 +538,6 @@ public class ProjectDeployJobDefinitionFactory {
         return Future.all(saves).map(CompositeFuture::list);
     }
 
-    private Workload syncWorkload(Project project,
-                                  DeployTarget target,
-                                  ProjectRepoToken token,
-                                  MachineProvisionResult credentials,
-                                  String commitSha) {
-        DeploymentProperties deployment = deployment();
-        Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
-        workload.setId(target.syncWorkloadId());
-        workload.setDescription("Checkout and entity sync for project " + project.getId());
-        workload.setNodeId(target.nodeId());
-        workload.setOrganizationId(project.getOrganizationId());
-        workload.setApplicationId(project.getApplicationId());
-        workload.setDetached(false);
-        workload.setMemoryMb(deployment.getSyncMemoryMb());
-        workload.setDiskSizeMb(deployment.getSyncDiskSizeMb());
-        workload.setEntrypoint(List.of("bun", "src/sync.ts"));
-        workload.getEnvironment().put("GIT_CLONE_URL", token.getCloneUrl());
-        workload.getEnvironment().put("GIT_REF", commitSha);
-        workload.getEnvironment().put("KINOTIC_PROJECT_ID", project.getId());
-        // The UIs are built against the address a browser reaches the platform on, which the
-        // egress address in DeploymentProperties.serverHost is not
-        workload.getEnvironment().put("KINOTIC_UI_SERVER_URL", domainProperties.getDomain().resolveApiBaseUrl());
-        putKinoticConnection(workload, deployment, credentials);
-        workload.getSecrets().put("GIT_TOKEN", token.getToken());
-        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
-                                                        .setGuestPath("/workspace")
-                                                        .setSizeLimitMb(deployment.getSyncMountLimitMb()));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getSyncAllowedHosts(), deployment));
-        return workload;
-    }
-
-    private Workload runtimeWorkload(Project project,
-                                     DeployTarget target,
-                                     String microserviceName,
-                                     String entryPoint,
-                                     MachineProvisionResult credentials) {
-        DeploymentProperties deployment = deployment();
-        Workload workload = new Workload("project-runtime-" + project.getId() + "-" + microserviceName,
-                                         deployment.getWorkloadRunnerImage());
-        workload.setDescription("Microservice " + microserviceName + " of project " + project.getId());
-        workload.setNodeId(target.nodeId());
-        workload.setOrganizationId(project.getOrganizationId());
-        workload.setApplicationId(project.getApplicationId());
-        workload.setMemoryMb(deployment.getRuntimeMemoryMb());
-        workload.setDiskSizeMb(deployment.getRuntimeDiskSizeMb());
-        workload.getEnvironment().put("KINOTIC_APP_ENTRY", entryPoint);
-        // The project's microservices export their traces and metrics through the node, grouped
-        // under the project's name; the sync and publish workloads are steps of the run and
-        // export nothing
-        workload.setTelemetry(true);
-        workload.getEnvironment().put("OTEL_SERVICE_NAME", project.getName());
-        putKinoticConnection(workload, deployment, credentials);
-        workload.getVolumeMounts().add(new VolumeMount().setHostPath(target.hostDir())
-                                                        .setGuestPath("/app")
-                                                        .setReadOnly(true));
-        workload.getNetwork().setAllowedHosts(allowedHosts(deployment.getRuntimeAllowedHosts(), deployment));
-        return workload;
-    }
-
-    /**
-     * Configures how the workload reaches Kinotic and who it connects as. Requires the
-     * workload's {@code organizationId} to already be set.
-     */
-    private static void putKinoticConnection(Workload workload,
-                                             DeploymentProperties deployment,
-                                             MachineProvisionResult credentials) {
-        workload.getEnvironment().put("KINOTIC_SERVER_HOST", deployment.getServerHost());
-        workload.getEnvironment().put("KINOTIC_SERVER_PORT", String.valueOf(deployment.getServerPort()));
-        workload.getEnvironment().put("KINOTIC_SERVER_USE_SSL", String.valueOf(deployment.isServerUseSsl()));
-        workload.getEnvironment().put("KINOTIC_ORGANIZATION_ID", workload.getOrganizationId());
-        workload.getEnvironment().put("KINOTIC_CLIENT_ID", credentials.machine().getId());
-        // a workload's environment is persisted verbatim and readable by anyone who can read
-        // the workload back, so the secret travels as a secret, which the node injects into
-        // the guest and never stores
-        workload.getSecrets().put("KINOTIC_CLIENT_SECRET", credentials.clientSecret());
-    }
-
-    private static List<String> allowedHosts(List<String> workloadHosts, DeploymentProperties deployment) {
-        List<String> hosts = new ArrayList<>(workloadHosts);
-        hosts.add(deployment.getServerHost());
-        return hosts;
-    }
-
     /**
      * Applies the operation to each item in turn, each one after the previous completed,
      * collecting the results in the items' order.
@@ -677,10 +566,6 @@ public class ProjectDeployJobDefinitionFactory {
             ret = Future.failedFuture(new IllegalStateException(what + ": " + failures));
         }
         return ret;
-    }
-
-    private DeploymentProperties deployment() {
-        return properties.getSystemApi().getDeployment();
     }
 
     private UiDeploymentProperties uiDeployment() {

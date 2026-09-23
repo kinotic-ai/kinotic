@@ -12,8 +12,8 @@ public enum WorkloadStatus {
     FAILED;
 
     /**
-     * True when this run of the workload has ended — the guest is no longer executing.
-     * A {@link #STOPPED} workload may still be restarted in place, which begins a new run.
+     * True when this run of the workload has ended — the guest is no longer executing and the
+     * node removes its VM.
      */
     public boolean isComplete() {
         return this == STOPPED || this == FAILED;

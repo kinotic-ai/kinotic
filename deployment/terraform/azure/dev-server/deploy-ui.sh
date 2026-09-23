@@ -23,11 +23,17 @@ if [[ "$DEPLOY_ONLY" == "false" ]]; then
   (cd "$FRONTEND" && pnpm install --frozen-lockfile)
 fi
 
+# The tree the build came from, recorded in each site's version.json the way a published
+# site's is, so redeploy.sh in the Proxmox root can tell whether the sites are current
+tree=$(git -C "$FRONTEND" rev-parse HEAD:kinotic-frontend)
+[[ -n "$(git -C "$FRONTEND" status --porcelain -- .)" ]] && tree="$tree-dirty"
+
 deploy() {
   local app="$1" hostname="$2"
   if [[ "$DEPLOY_ONLY" == "false" ]]; then
     echo "==> Building $app for $hostname"
     (cd "$FRONTEND/apps/$app" && pnpm build --mode dev-server)
+    printf '{"commitSha":"%s"}\n' "$tree" > "$FRONTEND/apps/$app/dist/version.json"
   fi
   echo "==> Uploading $app to sites/$hostname/"
   az storage blob upload-batch --auth-mode login --account-name "$account" \

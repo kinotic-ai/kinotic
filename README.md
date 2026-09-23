@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/cubes/header-mint.svg" width="46" align="right" alt="">
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">
   <img alt="Kinotic" src=".github/assets/kinotic-logo-light.png" width="340">
@@ -7,7 +9,8 @@
 
 ### Prototype to production
 
-**Linux abstracted the hardware. Kinotic OS abstracts the cloud, so humans and AI can build enterprise software at internet scale.**
+Linux abstracted the hardware. Kinotic OS abstracts the cloud,<br>
+so humans and AI can build enterprise software at internet scale.
 
 [![Build](https://img.shields.io/endpoint?url=https%3A%2F%2Fkinotic.ai%2Ftest-results%2Fbuild-badge.json&cacheSeconds=300)](https://github.com/kinotic-ai/kinotic/actions/workflows/gradle-build.yml)
 [![Java 25](https://img.shields.io/badge/Java-25-171717)](buildSrc/src/main/groovy/org.kinotic.java-common-conventions.gradle)
@@ -18,15 +21,15 @@
 
 </div>
 
----
-
-**Kinotic turns application intent into production software.**
+<div align="center">
+<img src=".github/assets/cubes/rule-red.svg" width="20" alt="">
+</div>
 
 AI has dramatically reduced the cost of writing software.
 
 The bottleneck is moving that software from a prototype into a secure, observable, scalable production system.
 
-Kinotic is building the application-level operating system that closes that gap.
+Kinotic is the application-level operating system that closes that gap.
 
 > **Idea** →<br>
 > **Specification** →<br>
@@ -37,7 +40,7 @@ Kinotic abstracts the complexity of cloud infrastructure so developers and AI ag
 
 ---
 
-## 🧭 Why Kinotic?
+## <img src=".github/assets/marks/why.svg" width="22" alt=""> Why Kinotic?
 
 Modern software development has an infrastructure problem.
 
@@ -70,21 +73,23 @@ Instead of asking developers or AI agents to manipulate infrastructure directly,
 
 ---
 
-# 📐 A different abstraction layer
-
-Kubernetes made infrastructure orchestration programmable.
+# <img src=".github/assets/marks/abstraction-layer.svg" width="22" alt=""> A different abstraction layer
 
 Cloud providers made infrastructure available on demand.
 
-AI coding systems are making software creation programmable.
+Kubernetes made infrastructure orchestration programmable.
 
-**Kinotic sits between those layers.**
+AI coding systems are making software creation nearly free.
+
+**Kinotic does everything in between.**
 
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-dark.png">
-  <img alt="Developers and AI agents work through the Kinotic application model, which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage" width="277" src=".github/assets/diagrams/abstraction-layer-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-wide-dark.png" width="560">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/abstraction-layer-wide-light.png" width="560">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/abstraction-layer-dark.png" width="440">
+  <img alt="Developers and AI agents work through the Kinotic application model, which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage" src=".github/assets/diagrams/abstraction-layer-light.png" width="440">
 </picture>
 
 </div>
@@ -110,7 +115,7 @@ That distinction is fundamental to the project.
 
 ---
 
-# 🚀 From prototype to production
+# <img src=".github/assets/marks/prototype-to-production.svg" width="22" alt=""> From prototype to production
 
 Kinotic is designed around a simple idea:
 
@@ -124,14 +129,14 @@ Kinotic provides the capabilities required throughout that lifecycle:
 
 | Lifecycle stage | What Kinotic provides |
 |---|---|
-| 🛠️ **Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
-| 🔐 **Secure** | Authentication · Fine-grained authorization · Security controls |
-| 🔁 **Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
-| 📈 **Operate** | Observability · LLM observability |
+| 🛠️&nbsp;**Build** | Application development · Domain models · Persistence · APIs & services · Frontends · MCP tools |
+| 🔐&nbsp;**Secure** | Authentication · Fine-grained authorization · Security controls |
+| 🚢&nbsp;**Ship** | CI/CD · Preview environments · Staging & production · Kubernetes deployment · Customer-managed infrastructure |
+| 📈&nbsp;**Operate** | Observability · LLM observability |
 
 ---
 
-# 🤖 Built for humans and AI agents
+# <img src=".github/assets/marks/humans-and-agents.svg" width="22" alt=""> Built for humans and AI agents
 
 Kinotic treats AI agents as first-class participants in the software development lifecycle.
 
@@ -161,26 +166,28 @@ An agent can work with application capabilities rather than manipulating the und
 
 ---
 
-# 💡 What you can build
+# <img src=".github/assets/marks/what-you-can-build.svg" width="22" alt=""> What you can build
 
 Kinotic is designed for applications ranging from small internal tools to production SaaS systems.
 
 |  |  |
 |---|---|
-| **🧪 Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢 Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
-| **🌱 Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️ Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
+| **🧪&nbsp;Micro-SaaS**<br><br>Build and deploy a complete application without first assembling a cloud architecture. | **🏢&nbsp;Internal applications**<br><br>Replace spreadsheets, scripts, and disconnected tools with governed applications backed by real APIs and data. |
+| **🌱&nbsp;Startup applications**<br><br>Move from an idea to a production application without building a separate infrastructure platform first. | **🏛️&nbsp;Enterprise applications**<br><br>Build applications while retaining control over infrastructure, networking, data, and deployment. |
 
 ---
 
-# 📦 Core concepts
+# <img src=".github/assets/marks/core-concepts.svg" width="22" alt=""> Core concepts
 
 Kinotic organizes applications around a small number of fundamental concepts.
 
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-dark.png">
-  <img alt="An application contains projects, and each project provides artifacts: microservices, persistence models, frontends, UI components, batch jobs and MCP tools" width="608" src=".github/assets/diagrams/core-concepts-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-wide-dark.png" width="620">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/core-concepts-wide-light.png" width="620">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/core-concepts-dark.png" width="440">
+  <img alt="An application contains projects, and each project provides artifacts: microservices, persistence models, frontends, UI components, batch jobs and MCP tools" src=".github/assets/diagrams/core-concepts-light.png" width="440">
 </picture>
 
 </div>
@@ -230,13 +237,13 @@ This allows developers to describe the application domain without manually build
 
 Application services provide executable business capabilities.
 
-Kinotic can generate the infrastructure required to expose and communicate with published service operations.
+Kinotic generates the infrastructure required to expose and communicate with published service operations.
 
 Services can also become discoverable capabilities for AI agents.
 
 ---
 
-# ⚙️ Production capabilities
+# <img src=".github/assets/marks/production-capabilities.svg" width="22" alt=""> Production capabilities
 
 ## Identity and access control
 
@@ -261,8 +268,10 @@ Feature branches can receive isolated development environments, allowing changes
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-dark.png">
-  <img alt="A feature branch gets an isolated environment that is built and tested, then promoted through development, staging and production" width="206" src=".github/assets/diagrams/environments-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-wide-dark.png" width="620">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/environments-wide-light.png" width="620">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/environments-dark.png" width="300">
+  <img alt="A feature branch gets an isolated environment that is built and tested, then promoted through development, staging and production" src=".github/assets/diagrams/environments-light.png" width="300">
 </picture>
 
 </div>
@@ -288,11 +297,11 @@ The objective is simple:
 
 ---
 
-# ☁️ Your cloud or ours
+# <img src=".github/assets/marks/your-cloud-or-ours.svg" width="22" alt=""> Your cloud or ours
 
 Kinotic can run as a managed platform or inside infrastructure controlled by the customer.
 
-| ☁️ **Kinotic OS Cloud** | 🛡️ **Customer-managed Kinotic OS** |
+| ☁️&nbsp;**Kinotic OS Cloud** | 🛡️&nbsp;**Customer-managed Kinotic OS** |
 |---|---|
 | Start building without provisioning or operating the underlying platform. | Forward-deploy Kinotic into your own Kubernetes environment: your cloud, your cluster, your network, your data, your security boundaries. |
 
@@ -302,15 +311,17 @@ This gives organizations a path from managed development to customer-controlled 
 
 ---
 
-# 🏗️ Architecture
+# <img src=".github/assets/marks/architecture.svg" width="22" alt=""> Architecture
 
 Kinotic is built as an open platform rather than a single monolithic runtime.
 
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png">
-  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" width="846" src=".github/assets/diagrams/architecture-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-wide-dark.png" width="880">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/architecture-wide-light.png" width="880">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/architecture-dark.png" width="440">
+  <img alt="Consoles, CLI and SDKs, and AI agents reach the kinotic-api-gateway over STOMP, REST and MCP; the gateway dispatches through kinotic-core to the domain, persistence and management modules inside kinotic-server, which read and write Elasticsearch, Loki, Mimir, Tempo and the VM nodes" src=".github/assets/diagrams/architecture-light.png" width="440">
 </picture>
 
 </div>
@@ -350,7 +361,7 @@ The architecture is intentionally designed so that the application abstraction s
 
 ---
 
-# 🔓 Open source
+# <img src=".github/assets/marks/open-source.svg" width="22" alt=""> Open source
 
 Kinotic is an open-source project.
 
@@ -360,13 +371,13 @@ The goal is not to create another opaque application platform where the generate
 
 Applications should remain inspectable, understandable, and deployable.
 
-Kinotic can provide the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
+Kinotic provides the higher-level abstractions while allowing developers and organizations to retain visibility into the systems they are building.
 
 See [LICENSE.txt](LICENSE.txt) for the terms governing the project.
 
 ---
 
-# 🤝 Contributing
+# <img src=".github/assets/marks/contributing.svg" width="22" alt=""> Contributing
 
 Kinotic is actively evolving and contributions are welcome.
 
@@ -392,7 +403,7 @@ Pull requests are welcome.
 
 ---
 
-# 💻 Development
+# <img src=".github/assets/marks/development.svg" width="22" alt=""> Development
 
 Kinotic is a multi-module project containing both JVM and TypeScript components.
 
@@ -404,7 +415,7 @@ For development instructions, see the project documentation:
 
 ---
 
-# ✅ Test reports
+# <img src=".github/assets/marks/test-reports.svg" width="22" alt=""> Test reports
 
 Kinotic continuously runs its Java and TypeScript end-to-end test suites.
 
@@ -414,15 +425,17 @@ Test results and historical trends are published through Allure:
 
 ---
 
-# 🔭 The vision
+# <img src=".github/assets/marks/the-vision.svg" width="22" alt=""> The vision
 
 Software development is changing.
 
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-dark.png">
-  <img alt="For decades: human to source code to infrastructure to production. Increasingly: human to intent to AI agent to software to production" width="403" src=".github/assets/diagrams/vision-light.png">
+  <source media="(min-width: 1000px) and (prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-wide-dark.png" width="660">
+  <source media="(min-width: 1000px)" srcset=".github/assets/diagrams/vision-wide-light.png" width="660">
+  <source media="(prefers-color-scheme: dark)" srcset=".github/assets/diagrams/vision-dark.png" width="440">
+  <img alt="For decades: human to source code to infrastructure to production. Increasingly: human to intent to AI agent to software to production" src=".github/assets/diagrams/vision-light.png" width="440">
 </picture>
 
 </div>
@@ -433,11 +446,13 @@ AI agents should not need to understand every cloud API, Kubernetes primitive, n
 
 They need a higher-level operating environment.
 
-**That's what Kinotic is building.**
+**That's what Kinotic is.**
 
 ---
 
 <div align="center">
+
+<img src=".github/assets/cubes/footer-red.svg" width="30" align="left" alt="">
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/kinotic-logo-dark.png">

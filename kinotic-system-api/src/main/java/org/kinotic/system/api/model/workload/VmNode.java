@@ -7,7 +7,9 @@ import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
 import org.kinotic.management.api.model.workload.Workload;
 
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * Represents a node in the cluster that is running a VmManager process
@@ -61,20 +63,27 @@ public class VmNode implements Identifiable<String> {
     private int totalDiskMb;
 
     /**
-     * Number of vCPUs not allocated to any workload. What is allocated is
-     * {@code totalCpus - availableCpus}.
+     * CPU not allocated to any workload, in cores. What is allocated is
+     * {@code totalCpus - freeCpus}, the sum of the {@link #reservations}.
      */
-    private int availableCpus;
+    private double freeCpus;
 
     /**
      * Memory not allocated to any workload, in megabytes.
      */
-    private int availableMemoryMb;
+    private int freeMemoryMb;
 
     /**
      * Disk space not allocated to any workload, in megabytes.
      */
-    private int availableDiskMb;
+    private int freeDiskMb;
+
+    /**
+     * The room each workload running on this node holds, one entry per workload. The
+     * {@code free*} fields are the totals less what these hold, so a workload's room is
+     * reserved and released by its id and never counted twice.
+     */
+    private List<WorkloadReservation> reservations = new ArrayList<>();
 
     /**
      * The date and time the node was last seen/heartbeat.

@@ -196,3 +196,15 @@ variable "azure_state_path" {
   type        = string
   default     = "../azure/dev-server/terraform.tfstate"
 }
+
+variable "vm_nodes" {
+  description = "The ssh targets (user@host) of the nodes redeploy.sh keeps on the vm-manager version at vm_manager_version"
+  type        = list(string)
+  default     = []
+}
+
+variable "vm_manager_version" {
+  description = "The @kinotic-ai/vm-manager version, or npm dist-tag, the nodes run; a SNAPSHOT server pairs with the beta tag"
+  type        = string
+  default     = "beta"
+}

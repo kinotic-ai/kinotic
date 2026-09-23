@@ -137,7 +137,8 @@ under `/opt/kinotic/vm-manager`, and registers `kinotic-vm-manager.service`. The
 
 Every variable is documented under [VM provider](https://kinotic.ai/platform/configuration#vm-provider)
 and [Workload egress](https://kinotic.ai/platform/configuration#workload-egress). Set
-`VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades. The
+`VM_MANAGER_VERSION` to install a specific release; re-running the installer upgrades the
+package and its peers together. The
 default is npm's `latest` tag, which is the last released line; a server on a pre-release
 line takes the matching pre-release, `VM_MANAGER_VERSION=5.0.0-beta.21` for a 5.0.0 server.
 

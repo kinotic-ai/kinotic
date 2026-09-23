@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="428 78 76 108" width="92" height="131" fill="none" role="img" aria-label="">
+  <style>
+    .c { animation: tumble 9s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes tumble { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-26%) rotate(2deg); } }
+    @media (prefers-reduced-motion: reduce) { .c { animation: none; } }
+  </style>
+  <g class="c"><path d="M 428 122 L 466 104 L 504 122 L 466 140 Z" fill="#4BF2B0"></path><path d="M 428 122 L 428 164 L 466 182 L 466 140 Z" fill="#0E9E68"></path><path d="M 504 122 L 504 164 L 466 182 L 466 140 Z" fill="#17B87C"></path></g>
+</svg>

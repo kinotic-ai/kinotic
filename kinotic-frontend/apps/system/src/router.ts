@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
+import { ConnectedAppsPage, type SidebarItemMeta } from '@kinotic-ai/frontend-common'
 
 /**
  * The console has five scopes, each with its own sidebar group: the platform, one organization,
@@ -222,7 +222,7 @@ const routes: RouteRecordRaw[] = [
             {
                 name: 'account-connected-apps',
                 path: 'account/connected-apps',
-                component: () => import('@kinotic-ai/frontend-common').then(m => m.ConnectedAppsPage),
+                component: ConnectedAppsPage,
                 meta: { sidebar: accountItem('Connected apps', 'pi-link', 10) }
             }
         ]

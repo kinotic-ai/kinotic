@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="96 43 90 124" width="40" height="55" fill="none" role="img" aria-label="">
+  <style>
+    .c { animation: float 7s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-18%); } }
+    @media (prefers-reduced-motion: reduce) { .c { animation: none; } }
+  </style>
+  <g class="c"><path d="M 96 92 L 141 71 L 186 92 L 141 113 Z" fill="#B0324C"></path><path d="M 96 92 L 96 142 L 141 163 L 141 113 Z" fill="#7A1D33"></path><path d="M 186 92 L 186 142 L 141 163 L 141 113 Z" fill="#96263F"></path></g>
+</svg>

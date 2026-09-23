@@ -26,7 +26,7 @@
 
       <JobRunProgress :key="latestRun.id ?? ''" :job-run-id="latestRun.id ?? ''" :expandable="ProjectDeployStores.hasDetail">
         <template #detail="{ node, root }">
-          <ProjectDeployTaskDetail :node="node" :root="root" />
+          <ProjectDeployTaskDetail :organization-id="organizationId" :node="node" :root="root" />
         </template>
       </JobRunProgress>
 

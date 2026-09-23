@@ -20,15 +20,6 @@ export interface IWorkloadOrchestrationService {
     deployWorkload(workload: Workload): Promise<Workload>
 
     /**
-     * Restarts a stopped workload in place on the node it is deployed to. Fails unless the
-     * workload is stopped; a workload stopped with autoRemove true has no VM left to restart.
-     * Honors the workload's detached flag the same way as {@link deployWorkload}.
-     * @param workloadId the id of the workload to restart
-     * @return a Promise resolving to the restarted workload
-     */
-    restartWorkload(workloadId: string): Promise<Workload>
-
-    /**
      * Stops a running workload.
      * @param workloadId the id of the workload to stop
      * @return a Promise that resolves when the workload has been stopped
@@ -54,10 +45,6 @@ export class WorkloadOrchestrationService implements IWorkloadOrchestrationServi
 
     public deployWorkload(workload: Workload): Promise<Workload> {
         return this.serviceProxy.invoke('deployWorkload', [workload])
-    }
-
-    public restartWorkload(workloadId: string): Promise<Workload> {
-        return this.serviceProxy.invoke('restartWorkload', [workloadId])
     }
 
     public stopWorkload(workloadId: string): Promise<void> {

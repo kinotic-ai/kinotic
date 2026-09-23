@@ -626,7 +626,9 @@ resource "proxmox_virtual_environment_container" "fleet" {
   }
 
   lifecycle {
-    ignore_changes = [started]
+    # A replaced container reads back Proxmox's console defaults as drift, and the in-place
+    # update that clears them restarts the container on the next apply
+    ignore_changes = [started, console]
   }
 
   depends_on = [proxmox_sdn_applier.private, terraform_data.prepare]

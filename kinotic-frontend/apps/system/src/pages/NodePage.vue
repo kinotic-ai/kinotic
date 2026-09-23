@@ -89,7 +89,7 @@ import { DatetimeUtil, PageHeader, errorMessage, formatMb } from '@kinotic-ai/fr
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { capacityOf, nodeSeverity, percentOf } from '@/util/nodes'
+import { capacityOf, formatCpus, nodeSeverity, percentOf } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
 /**
@@ -123,22 +123,22 @@ const stats = computed<Stat[]>(() => {
   return [
     {
       label: 'CPU',
-      value: `${percentOf(n.totalCpus - n.availableCpus, n.totalCpus)}%`,
-      description: `${n.totalCpus - n.availableCpus} of ${n.totalCpus} vCPU allocated`,
+      value: `${percentOf(n.totalCpus - n.freeCpus, n.totalCpus)}%`,
+      description: `${formatCpus(n.totalCpus - n.freeCpus)} of ${n.totalCpus} CPU allocated`,
       icon: 'pi-microchip',
       accent: 'sky'
     },
     {
       label: 'Memory',
-      value: `${percentOf(n.totalMemoryMb - n.availableMemoryMb, n.totalMemoryMb)}%`,
-      description: `${formatMb(n.totalMemoryMb - n.availableMemoryMb)} of ${formatMb(n.totalMemoryMb)}`,
+      value: `${percentOf(n.totalMemoryMb - n.freeMemoryMb, n.totalMemoryMb)}%`,
+      description: `${formatMb(n.totalMemoryMb - n.freeMemoryMb)} of ${formatMb(n.totalMemoryMb)}`,
       icon: 'pi-database',
       accent: 'violet'
     },
     {
       label: 'Disk',
-      value: `${percentOf(n.totalDiskMb - n.availableDiskMb, n.totalDiskMb)}%`,
-      description: `${formatMb(n.totalDiskMb - n.availableDiskMb)} of ${formatMb(n.totalDiskMb)}`,
+      value: `${percentOf(n.totalDiskMb - n.freeDiskMb, n.totalDiskMb)}%`,
+      description: `${formatMb(n.totalDiskMb - n.freeDiskMb)} of ${formatMb(n.totalDiskMb)}`,
       icon: 'pi-inbox',
       accent: 'teal'
     },

@@ -49,6 +49,11 @@ export function percentOf(part: number, total: number): number {
     return total > 0 ? Math.round((part / total) * 100) : 0
 }
 
+/** A CPU allotment in cores, with a fraction shown to the hundredth and no trailing zeros: 4, 0.5, 2.25. */
+export function formatCpus(cpus: number): string {
+    return String(Math.round(cpus * 100) / 100)
+}
+
 /** The capacity of the nodes added up: what they promised at registration, less what is placed on them. */
 export function capacityOf(nodes: VmNode[]): Capacity {
     const ret: Capacity = { cpus: 0, memoryMb: 0, diskMb: 0, usedCpus: 0, usedMemoryMb: 0, usedDiskMb: 0 }
@@ -56,9 +61,9 @@ export function capacityOf(nodes: VmNode[]): Capacity {
         ret.cpus += node.totalCpus
         ret.memoryMb += node.totalMemoryMb
         ret.diskMb += node.totalDiskMb
-        ret.usedCpus += node.totalCpus - node.availableCpus
-        ret.usedMemoryMb += node.totalMemoryMb - node.availableMemoryMb
-        ret.usedDiskMb += node.totalDiskMb - node.availableDiskMb
+        ret.usedCpus += node.totalCpus - node.freeCpus
+        ret.usedMemoryMb += node.totalMemoryMb - node.freeMemoryMb
+        ret.usedDiskMb += node.totalDiskMb - node.freeDiskMb
     }
     return ret
 }

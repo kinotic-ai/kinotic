@@ -28,7 +28,9 @@ mkdir -p "$PREFIX" /etc/kinotic
 cd "$PREFIX"
 [ -f package.json ] || printf '{\n  "name": "kinotic-vm-manager-node",\n  "private": true\n}\n' > package.json
 # The package's peers (core, management-api, system-api) come with it: bun installs peer
-# dependencies by default
+# dependencies on a fresh add. On an upgrade it keeps the lockfile's peer versions even once
+# the new package's ranges exclude them, so the lockfile goes and the peers resolve again
+rm -f bun.lock
 bun add "@kinotic-ai/vm-manager@$VM_MANAGER_VERSION" >/dev/null
 echo "  @kinotic-ai/vm-manager $(node -e "console.log(require('$PREFIX/node_modules/@kinotic-ai/vm-manager/package.json').version)" 2>/dev/null || bun -e "console.log(require('$PREFIX/node_modules/@kinotic-ai/vm-manager/package.json').version)")"
 
