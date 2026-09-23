@@ -165,7 +165,7 @@ def architecture(t):
              f'preserveAspectRatio="none" aria-hidden="true">'
              f'<path d="M 11 0 L 11 236" stroke="{t["line"]}" stroke-width="1" fill="none"/>'
              f'</svg>')
-    return (f'<div class="d" style="width:440px;height:739px">'
+    return (f'<div class="d" style="width:440px;height:761px">'
             f'<div class="row3 g10">{client_tiles}</div>'
             f'{drops([72, 220, 368], 20)}'
             f'<div class="gw"><span class="mono mono-gw">kinotic-api-gateway</span>'
@@ -303,7 +303,7 @@ def w_architecture(t):
         return f'<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" aria-hidden="true">{p}</svg>'
 
     # module tiles are 274 wide inside a panel padded 16 → centres 153, 440, 727
-    return (f'<div class="d" style="width:{W}px;height:470px">'
+    return (f'<div class="d" style="width:{W}px;height:474px">'
             f'<div class="row3 g16">{client_tiles}</div>'
             f'{drops([148, 440, 732], 22)}'
             f'<div class="gw gw-row"><span class="mono mono-gw">kinotic-api-gateway</span>'
@@ -396,9 +396,9 @@ display:flex;flex-direction:column;gap:3px;justify-content:center}}
 {p} .gw{{background:{t['mint']};border-radius:10px;padding:11px 14px;display:flex;
 flex-direction:column;gap:2px}}
 {p} .gw-s{{font:400 12px 'Figtree',sans-serif;color:rgba(8,9,10,.72)}}
-{p} .server{{border:1px solid {t['line']};border-radius:12px;padding:14px;position:relative;
+{p} .server{{border:1px solid {t['line']};border-radius:12px;padding:12px 14px 14px;
 background:{t['panel']}}}
-{p} .server-tab{{position:absolute;top:-8px;left:14px;background:{t['ground']};padding:0 6px;
+{p} .server-tab{{display:block;margin-bottom:9px;
 font:500 11px 'Fira Code',monospace;letter-spacing:.04em;color:{t['dim']}}}
 {p} .lanes{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}}
 {p} .lane{{display:flex;flex-direction:column;gap:10px}}
@@ -418,7 +418,7 @@ border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:
 {p} .branch-row{{flex-direction:row;align-items:center;gap:10px;margin-left:4px;margin-bottom:-10px}}
 {p} .pill-row{{flex-direction:row;align-items:baseline;gap:9px;border-radius:999px}}
 {p} .gw-row{{flex-direction:row;align-items:baseline;gap:12px}}
-{p} .tile-core-row{{flex-direction:row;align-items:baseline;gap:12px}}
+{p} .tile-core-row{{flex-direction:row;align-items:baseline;justify-content:flex-start;gap:12px}}
 {p} .lanes-row{{display:flex;flex-direction:column;gap:18px}}
 {p} .lane-row{{flex-direction:row;align-items:center;gap:14px}}
 {p} .lane-l-row{{width:104px;flex:none;text-align:right}}
@@ -436,7 +436,7 @@ SPECS = [
     ('environments', 'CI/CD environments',
      (environments, 300, 280), (w_environments, 620, 237)),
     ('architecture', 'Architecture',
-     (architecture, 440, 739), (w_architecture, 880, 452)),
+     (architecture, 440, 761), (w_architecture, 880, 474)),
     ('vision', 'The vision',
      (vision, 440, 274), (w_vision, 660, 84)),
 ]
