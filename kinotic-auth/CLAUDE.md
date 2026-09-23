@@ -18,7 +18,7 @@
 - Always keep the `@AbacPolicy` annotation and `AbacPolicyDecorator` in `api` packages — they are part of the public surface consumed by `kinotic-core`, `kinotic-persistence`, and `kinotic-rpc-gateway`.
 - The `EsQueryCompiler` must only produce document field references from resource/entity paths — participant and context paths must always be resolved to concrete values at compile time via the `participantAttributes` map.
 - The `SpelCompiler` maps `participant.*` to `sub.*` and every other root (entity, method parameters) to `obj.<root>.*` — nested under the named-argument map by parameter name, matching the request the gateway builds.
-- `SpelCompiler` may emit only map navigation, indexing, operators, literals and the registered `#contains`/`#like` functions — never method invocation, `T(...)`, `new` or `@bean` — because `SpelAuthorizationService` evaluates on a `SimpleEvaluationContext` that forbids all of those. Every path operand must stay null-guarded: SpEL orders null below every value, so an unguarded comparison against a missing attribute allows instead of denying.
+- `SpelCompiler` may emit only map navigation, indexing, operators, literals and the registered `#contains`/`#like` functions — never method invocation, `T(...)`, `new` or `@bean` — because every policy evaluates on the `SpelPolicySandbox` context, which forbids all of those (`SpelPolicySandboxTest` holds it to that against raw injections; extend that test whenever the sandbox changes). Every path operand must stay null-guarded: SpEL orders null below every value, so an unguarded comparison against a missing attribute allows instead of denying.
 
 ## Package Structure
 
@@ -31,7 +31,7 @@
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
 | `org.kinotic.auth.compilers` | `SpelCompiler` (AST → SpEL expression) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
-| `org.kinotic.auth.spel` | `SpelAuthorizationService` — the allow/deny engine: sandboxed SpEL (no methods, type references, constructors, bean references or assignment) with `SpelPolicyFunctions` providing `#contains` and `#like` |
+| `org.kinotic.auth.spel` | `SpelAuthorizationService` — the allow/deny engine; `SpelPolicySandbox` — the shared evaluation context (no methods, type references, constructors, bean references or assignment); `SpelPolicyFunctions` — the `#contains` and `#like` functions it registers |
 
 ## Expression Language
 
@@ -66,6 +66,5 @@ For service method policies, the gateway transforms raw JSON argument arrays int
 |---|---|
 | `kinotic-idl` | `C3Decorator`, `DecoratorTarget` used by `AbacPolicyDecorator` |
 | `co.elastic.clients:elasticsearch-java` | Elasticsearch `Query`, `BoolQuery`, `FieldValue` types used by `EsQueryCompiler` |
-| `org.springframework:spring-expression` | SpEL parser, compiler and `SimpleEvaluationContext` used by `SpelAuthorizationService` |
-| `org.springframework:spring-context` | `MapAccessor`, the only property accessor on the sandboxed SpEL context |
+| `org.springframework:spring-expression` | SpEL parser and compiler used by `SpelAuthorizationService`; `SimpleEvaluationContext` and `MapAccessor`, the only property accessor, used by `SpelPolicySandbox` |
 | `org.antlr:antlr4-runtime` | ANTLR runtime for the generated parser |

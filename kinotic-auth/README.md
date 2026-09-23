@@ -159,7 +159,7 @@ String spel = SpelCompiler.compile(expr);
 // → ((sub.role != null && #contains(sub.role, 'finance')) && (obj.order.amount != null && obj.order.amount < 50000L))
 ```
 
-The output uses only map navigation, indexing, operators, literals and the two registered functions `#contains` and `#like`. The service evaluates it on a `SimpleEvaluationContext` that permits nothing else — no method invocation, type references (`T(...)`), constructors, bean references or assignment — so a policy string, or a hostile value inside one, can never reach the JVM beyond the request data. Every path operand is guarded against `null` because SpEL orders `null` below every value; a missing attribute denies.
+The output uses only map navigation, indexing, operators, literals and the two registered functions `#contains` and `#like`. The service evaluates it on the `SpelPolicySandbox` context, which permits nothing else — no method invocation, type references (`T(...)`), constructors, bean references or assignment — so a policy string, or a hostile value inside one, can never reach the JVM beyond the request data. Every path operand is guarded against `null` because SpEL orders `null` below every value; a missing attribute denies.
 
 Path mapping:
 

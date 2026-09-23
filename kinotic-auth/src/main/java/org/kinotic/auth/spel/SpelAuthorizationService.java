@@ -4,13 +4,11 @@ import org.kinotic.auth.api.engine.AuthorizationEngine;
 import org.kinotic.auth.api.engine.AuthorizationRequest;
 import org.kinotic.auth.compilers.SpelCompiler;
 import org.kinotic.auth.parsers.PolicyExpressionParser;
-import org.springframework.context.expression.MapAccessor;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.SpelCompilerMode;
 import org.springframework.expression.spel.SpelParserConfiguration;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
-import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -24,9 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * SpEL-backed {@link AuthorizationEngine}: each action's ABAC expression is compiled once (via
  * {@link SpelCompiler}) and evaluated in-process, with SpEL compiling hot expressions to bytecode.
  * <p>
- * Evaluation runs on a sandboxed context that permits only read-only map navigation, indexing,
- * operators and the {@code #contains}/{@code #like} functions: no method invocation, type
- * references, constructors, bean references or assignment, so a policy can never reach the JVM
+ * Evaluation runs on the {@link SpelPolicySandbox} context, so a policy can never reach the JVM
  * beyond the request data it is given. A missing attribute or a type mismatch denies.
  */
 public class SpelAuthorizationService implements AuthorizationEngine {
@@ -41,21 +37,8 @@ public class SpelAuthorizationService implements AuthorizationEngine {
     // failing the request.
     private final SpelExpressionParser parser = new SpelExpressionParser(
             new SpelParserConfiguration(SpelCompilerMode.MIXED, SpelAuthorizationService.class.getClassLoader()));
-    private final EvaluationContext context;
+    private final EvaluationContext context = SpelPolicySandbox.newContext();
     private final Map<String, Expression> expressions = new ConcurrentHashMap<>();
-
-    public SpelAuthorizationService() {
-        try {
-            SimpleEvaluationContext sandbox = SimpleEvaluationContext.forPropertyAccessors(new MapAccessor(false))
-                    .withAssignmentDisabled()
-                    .build();
-            sandbox.setVariable("contains", SpelPolicyFunctions.class.getMethod("contains", Object.class, Object.class));
-            sandbox.setVariable("like", SpelPolicyFunctions.class.getMethod("like", Object.class, String.class));
-            this.context = sandbox;
-        } catch (NoSuchMethodException e) {
-            throw new IllegalStateException("Policy functions are missing", e);
-        }
-    }
 
     @Override
     public void registerPolicy(String action, String expression) {

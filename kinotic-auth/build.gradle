@@ -41,9 +41,8 @@ dependencies {
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
-    // SpEL evaluator for the fine-grained gate; spring-context supplies MapAccessor
+    // SpEL evaluator for the fine-grained gate
     implementation 'org.springframework:spring-expression'
-    implementation 'org.springframework:spring-context'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
