@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader :title="applicationId ? 'Users' : 'Members'" :description="description" />
+    <PageHeader :title="title" :description="description" />
     <CrudTable
       ref="crudTable"
       :headers="headers"
@@ -54,12 +54,13 @@ import {
 } from '@kinotic-ai/frontend-common'
 
 /**
- * The people with access to an organization, or the users of one of its applications, with
- * pending invitations inline. Read-only: inviting, disabling and removing are the
- * organization's to do.
+ * The platform's operators when no scope is given, otherwise the people with access to an
+ * organization or the users of one of its applications, with pending invitations inline.
+ * Read-only: an organization's people are the organization's to manage, and the platform's are
+ * the identity provider's.
  */
 const props = defineProps<{
-  organizationId: string
+  organizationId?: string
   applicationId?: string
 }>()
 
@@ -85,23 +86,58 @@ const headers: CrudHeader[] = [
   { field: 'created', header: 'Created', sortable: false, optional: true }
 ]
 
-const description = computed(() => props.applicationId
-    ? 'Everyone who signs in to this application, including pending invitations. Inviting, disabling and removing are the organization\'s to do.'
-    : 'People with access to this organization, including pending invitations.')
+// An organization's people are its members; an application's and the platform's are its users
+const title = computed(() => props.organizationId && !props.applicationId ? 'Members' : 'Users')
+
+const description = computed(() => {
+  let ret: string
+  if (!props.organizationId) {
+    ret = 'Platform operators who sign in to this console.'
+  } else if (props.applicationId) {
+    ret = 'Everyone who signs in to this application, including pending invitations. Inviting, disabling and removing are the organization\'s to do.'
+  } else {
+    ret = 'People with access to this organization, including pending invitations.'
+  }
+  return ret
+})
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
 const formatDate = DatetimeUtil.formatEpochDate
 
+async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
+  const organizationId = props.organizationId
+  const page = organizationId
+      ? await organizationMembers(organizationId, pageable, searchText)
+      : await platformOperators(pageable, searchText)
+
+  return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
+}
+
+/** The platform's operators; SYSTEM scope is not invited into, so there is nothing to fold in. */
+async function platformOperators(pageable: Pageable, searchText: string | null): Promise<Page<DescriptiveIdentifiable>> {
+  const users = searchText
+      ? await Kinotic.systemMembers.searchUsers(searchText, pageable)
+      : await Kinotic.systemMembers.findUsers(pageable)
+
+  return {
+    content: (users.content ?? []).map(user => toMemberRow(user)),
+    totalElements: users.totalElements ?? 0,
+    cursor: undefined
+  }
+}
+
 // Mirrors the portal MembersPage: pending invitations render inline ahead of the members
 // on the first page; member search is server-side, invite filtering client-side.
-async function load(pageable: Pageable, searchText: string | null): Promise<IterablePage<DescriptiveIdentifiable>> {
+async function organizationMembers(organizationId: string,
+                                   pageable: Pageable,
+                                   searchText: string | null): Promise<Page<DescriptiveIdentifiable>> {
   const applicationId = props.applicationId ?? null
   const membersPage = searchText
-      ? await Kinotic.systemOrganizations.searchMembers(searchText, props.organizationId, applicationId, pageable)
-      : await Kinotic.systemOrganizations.findMembers(props.organizationId, applicationId, pageable)
+      ? await Kinotic.systemOrganizations.searchMembers(searchText, organizationId, applicationId, pageable)
+      : await Kinotic.systemOrganizations.findMembers(organizationId, applicationId, pageable)
 
-  const invites = await Kinotic.systemOrganizations.findPendingInvites(props.organizationId, applicationId, Pageable.create(0, INVITE_PAGE_SIZE, null))
+  const invites = await Kinotic.systemOrganizations.findPendingInvites(organizationId, applicationId, Pageable.create(0, INVITE_PAGE_SIZE, null))
   let inviteRows = (invites.content ?? []).map(invite => toInviteRow(invite))
   let inviteTotal = invites.totalElements ?? inviteRows.length
   if (searchText) {
@@ -115,13 +151,11 @@ async function load(pageable: Pageable, searchText: string | null): Promise<Iter
     inviteRows = []
   }
 
-  const page: Page<DescriptiveIdentifiable> = {
+  return {
     content: [...inviteRows, ...(membersPage.content ?? []).map(user => toMemberRow(user))],
     totalElements: (membersPage.totalElements ?? 0) + inviteTotal,
     cursor: undefined
   }
-
-  return new FunctionalIterablePage(pageable, page, (next: Pageable) => load(next, searchText))
 }
 
 function toInviteRow(invite: PendingInviteSummary): MemberRow {

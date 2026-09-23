@@ -11,15 +11,16 @@ export interface IMicroserviceDeploymentService {
 
     /**
      * Lists the microservice deployments of one of the caller's organization's projects,
-     * ordered by microservice name. A project that has never deployed has none.
+     * ordered by microservice name. A project that has never deployed has none. A deployment
+     * whose VM has since ended reads FAILED with the run's exit, whatever the deployment recorded.
      * @param projectId a project belonging to the caller's organization
      */
     findAllForProject(projectId: string): Promise<MicroserviceDeployment[]>
 
     /**
-     * Restarts the microservice's VM in place: a running VM is stopped and booted again with its
-     * disk intact, a stopped or failed one is booted again. Fails when the deployment has no VM,
-     * which the next deployment of the project resolves.
+     * Runs the microservice in a fresh VM from the project's current deployment, stopping the VM
+     * that runs it first when one does. The ended run keeps its record and logs. Fails when the
+     * project has never been deployed.
      * @param deploymentId the deployment of a microservice of one of the caller's organization's projects
      */
     restart(deploymentId: string): Promise<MicroserviceDeployment>

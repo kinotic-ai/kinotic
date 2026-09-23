@@ -1,4 +1,5 @@
 <template>
+  <DiagramFrame>
   <div class="arch-diagram-wrap">
     <svg class="arch-diagram" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1172 825" role="img" aria-label="Kinotic three-plane network architecture: internet clients reach two public gateways over HTTPS; the system server is reachable only through a VPN gate or from inside the Azure VNet; the app plane is an isolated island; shared data stores are the only coupling between the buses.">
 
@@ -173,6 +174,7 @@
       <text class="t-tiny" x="766" y="654" text-anchor="middle">logs</text>
     </svg>
   </div>
+  </DiagramFrame>
 </template>
 
 <style>

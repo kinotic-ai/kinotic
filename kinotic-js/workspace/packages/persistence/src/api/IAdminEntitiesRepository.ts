@@ -88,23 +88,27 @@ export interface IAdminEntitiesRepository {
      * @param entityDefinitionId the id of the structure that this named query is defined for
      * @param queryName the name of the function that defines the query
      * @param parameters to pass to the query
+     * @param tenantSelection the list of tenants to use when executing the query
      * @returns Promise with the result of the query
      */
     namedQuery<T>(entityDefinitionId: string,
                   queryName: string,
-                  parameters: QueryParameter[]): Promise<T>
+                  parameters: QueryParameter[],
+                  tenantSelection: TenantSelection): Promise<T>
 
     /**
      * Executes a named query and returns a Page of results.
      * @param entityDefinitionId the id of the structure that this named query is defined for
      * @param queryName the name of the function that defines the query
      * @param parameters to pass to the query
+     * @param tenantSelection the list of tenants to use when executing the query
      * @param pageable the page settings to be used
      * @returns Promise with the result of the query
      */
     namedQueryPage<T>(entityDefinitionId: string,
                       queryName: string,
                       parameters: QueryParameter[],
+                      tenantSelection: TenantSelection,
                       pageable: Pageable): Promise<IterablePage<T>>
 
     /**
@@ -164,27 +168,31 @@ export class AdminEntitiesRepository implements IAdminEntitiesRepository {
 
     public namedQuery<T>(entityDefinitionId: string,
                          queryName: string,
-                         parameters: QueryParameter[]): Promise<T> {
-        return this.serviceProxy.invoke('namedQuery', [entityDefinitionId, queryName, parameters])
+                         parameters: QueryParameter[],
+                         tenantSelection: TenantSelection): Promise<T> {
+        return this.serviceProxy.invoke('namedQuery', [entityDefinitionId, queryName, parameters, tenantSelection])
     }
 
     public async namedQueryPage<T>(entityDefinitionId: string,
                                    queryName: string,
                                    parameters: QueryParameter[],
+                                   tenantSelection: TenantSelection,
                                    pageable: Pageable): Promise<IterablePage<T>> {
-        const page: Page<T> = await this.namedQuerySinglePage(entityDefinitionId, queryName, parameters, pageable)
+        const page: Page<T> = await this.namedQuerySinglePage(entityDefinitionId, queryName, parameters, tenantSelection, pageable)
         return new FunctionalIterablePage(pageable, page,
                                           (pageable: Pageable) => this.namedQuerySinglePage(entityDefinitionId,
                                                                                             queryName,
                                                                                             parameters,
+                                                                                            tenantSelection,
                                                                                             pageable))
     }
 
     public namedQuerySinglePage<T>(entityDefinitionId: string,
                                    queryName: string,
                                    parameters: QueryParameter[],
+                                   tenantSelection: TenantSelection,
                                    pageable: Pageable): Promise<Page<T>> {
-        return this.serviceProxy.invoke('namedQueryPage', [entityDefinitionId, queryName, parameters, pageable])
+        return this.serviceProxy.invoke('namedQueryPage', [entityDefinitionId, queryName, parameters, tenantSelection, pageable])
     }
 
     public async search<T>(entityDefinitionId: string,

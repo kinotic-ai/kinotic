@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col">
-    <PageHeader title="Organizations" description="Every organization registered on the platform, and whether it is ready to deploy." />
+    <PageHeader title="Organizations" description="Every organization registered on the platform." />
 
     <CrudTable
       ref="crudTable"
@@ -16,11 +16,6 @@
     >
       <template #item.id="{ item }">
         <span class="font-mono text-sm">{{ item.id }}</span>
-      </template>
-
-      <template #item.storage="{ item }">
-        <Tag v-if="item.storage" :value="item.storage" :severity="deploymentStatusSeverity(item.storage)" :title="item.storageMessage ?? undefined" />
-        <span v-else class="text-muted-color">Not provisioned</span>
       </template>
 
       <template #item.applications="{ item }">
@@ -41,15 +36,13 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import Tag from 'primevue/tag'
 
 import { FunctionalIterablePage, Kinotic, Pageable, type IterablePage, type Page } from '@kinotic-ai/core'
-import { DeploymentStatusType, WorkloadStatus, type Organization } from '@kinotic-ai/management-api'
+import { WorkloadStatus, type Organization } from '@kinotic-ai/management-api'
 import {
   CrudTable,
   PageHeader,
   DatetimeUtil,
-  deploymentStatusSeverity,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
@@ -62,8 +55,6 @@ import { scanWorkloads } from '@/util/workloads'
 interface OrganizationRow extends DescriptiveIdentifiable {
   id: string
   name: string
-  storage: DeploymentStatusType | null
-  storageMessage: string | null
   applications: number | null
   running: number
   members: number | null
@@ -76,7 +67,6 @@ const formatDate = DatetimeUtil.formatEpochDate
 const headers: CrudHeader[] = [
   { field: 'name', header: 'Name', sortable: true },
   { field: 'id', header: 'Id', sortable: false, optional: true },
-  { field: 'storage', header: 'Storage', sortable: false },
   { field: 'applications', header: 'Apps', sortable: false, optional: true },
   { field: 'running', header: 'Running', sortable: false, optional: true },
   { field: 'members', header: 'Members', sortable: false, optional: true },
@@ -112,8 +102,6 @@ async function toRow(org: Organization): Promise<OrganizationRow> {
   return {
     id,
     name: org.name,
-    storage: org.storage?.status.type ?? null,
-    storageMessage: org.storage?.status.message ?? null,
     applications,
     running: runningByOrganization.value[id] ?? 0,
     members,

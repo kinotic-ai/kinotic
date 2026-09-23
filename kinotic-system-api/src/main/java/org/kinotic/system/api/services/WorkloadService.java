@@ -23,10 +23,11 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
     Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable);
 
     /**
-     * Counts all workloads deployed on the given node.
+     * Counts the workloads on the given node whose run has not ended: the ones still holding a VM
+     * there.
      * @param nodeId the id of the node to count workloads for
-     * @return a future that will complete with the number of workloads
+     * @return a future that will complete with the number of running workloads
      */
-    Future<Long> countForNode(String nodeId);
+    Future<Long> countRunningForNode(String nodeId);
 
 }

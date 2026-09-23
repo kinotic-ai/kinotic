@@ -14,7 +14,7 @@
 
     <JobRunProgress :key="jobRunId" :job-run-id="jobRunId" :expandable="ProjectDeployStores.hasDetail">
       <template #detail="{ node, root }">
-        <ProjectDeployTaskDetail :node="node" :root="root" />
+        <ProjectDeployTaskDetail :organization-id="scope.organizationId ?? owningOrganizationId" :node="node" :root="root" />
       </template>
     </JobRunProgress>
   </div>

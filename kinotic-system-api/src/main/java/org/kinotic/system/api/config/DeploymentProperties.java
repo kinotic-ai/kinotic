@@ -29,8 +29,7 @@ public class DeploymentProperties {
      * Host the deployed workloads use to reach the api-gateway ({@code KINOTIC_SERVER_HOST}
      * in the guest), and the one destination every workload's egress policy always permits.
      * There is no advertised-address the server knows about itself, so deployments must
-     * configure how workloads reach it. Must be an IPv4 address on nodes whose egress
-     * rules match addresses only ({@code CLOUD_HYPERVISOR}).
+     * configure how workloads reach it. An IPv4 address or a hostname, on either provider.
      */
     @NotBlank
     private String serverHost;
@@ -46,33 +45,16 @@ public class DeploymentProperties {
     private boolean serverUseSsl = false;
 
     /**
-     * Destinations (IPv4 addresses or CIDRs) the sync workload may reach beyond the
-     * gateway — the repository host's address ranges, so {@code git fetch} works on nodes
-     * that deny workload egress by default.
+     * Destinations (IPv4 addresses, CIDRs, or hostnames) the sync workload may reach beyond
+     * the gateway — the repository and package registry hosts, so {@code git fetch} and
+     * {@code bun install} work on nodes that deny workload egress by default.
      */
     private List<String> syncAllowedHosts = new ArrayList<>();
 
     /**
-     * Destinations (IPv4 addresses or CIDRs) the runtime workload may reach beyond the
-     * gateway.
+     * Destinations (IPv4 addresses, CIDRs, or hostnames) the runtime workload may reach
+     * beyond the gateway.
      */
     private List<String> runtimeAllowedHosts = new ArrayList<>();
-
-    /**
-     * Memory of the sync workload's VM in megabytes. It compiles the project's entity
-     * sources during {@code kinotic sync}, which needs more headroom than serving does.
-     */
-    private int syncMemoryMb = 2048;
-
-    /**
-     * Size limit applied to the project checkout mount (clone plus node_modules), enforced
-     * by the node's filesystem quota.
-     */
-    private int syncMountLimitMb = 4096;
-
-    /**
-     * Memory of the runtime workload's VM in megabytes.
-     */
-    private int runtimeMemoryMb = 1024;
 
 }

@@ -1,0 +1,12 @@
+# Local state: one server, applied from one machine (see main.tf)
+*.tfstate
+*.tfstate.backup
+.terraform.tfstate.lock.info
+.terraform/
+.terraform.lock.hcl
+
+# Local values: the API token, this host's disks and addresses
+*.auto.tfvars
+
+# What generate-secrets.sh writes by default
+dev-server-secrets/

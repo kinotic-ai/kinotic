@@ -1,6 +1,17 @@
 package org.kinotic.core.api.utils;
 
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
+import lombok.extern.slf4j.Slf4j;
 import net.openhft.hashing.LongTupleHashFunction;
+import org.kinotic.core.api.directory.ServiceDirectory;
+import org.kinotic.core.internal.utils.MetaUtil;
+import org.kinotic.core.api.service.ServiceIdentifier;
+import org.kinotic.core.api.annotations.Proxy;
+import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.exceptions.RpcMissingServiceException;
+import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 
 import java.math.BigInteger;
 import java.net.URLEncoder;
@@ -13,11 +24,61 @@ import java.util.function.Function;
  *
  * Created by Navid Mitchell on 6/10/20
  */
+@Slf4j
 public class KinoticUtil {
 
     public static String safeEncodeURI(String uri){
         String encoded = URLEncoder.encode(uri, StandardCharsets.UTF_8);
         return encoded.replace("_", "-");
+    }
+
+    /**
+     * Maps a failed RPC send to the exception the caller should observe. A {@link ReplyFailure#NO_HANDLERS}
+     * failure becomes {@link RpcMissingServiceException}; any other failure is returned unchanged.
+     * When a {@link ServiceDirectory} is provided, a NO_HANDLERS failure is also reported to it, so every
+     * RPC send doubles as a liveness probe and the directory self-heals from ordinary traffic.
+     * @param throwable the failure the send completed with
+     * @param destination the CRI the send was addressed to
+     * @param serviceDirectory the directory to report unreachability to, or null when none is configured
+     * @return the throwable to propagate to the caller
+     */
+    public static Throwable mapSendFailure(Throwable throwable, CRI destination, ServiceDirectory serviceDirectory) {
+        Throwable ret = throwable;
+        if (throwable instanceof ReplyException replyException) {
+            if (replyException.failureType() == ReplyFailure.NO_HANDLERS) {
+                if (serviceDirectory != null) {
+                    // fire-and-forget: reportUnreachable debounces and only writes verified state
+                    serviceDirectory.reportUnreachable(destination.raw())
+                                    .onFailure(reportFailure -> log.debug("Failed to report unreachable service {}",
+                                                                          destination.raw(), reportFailure));
+                }
+                ret = new RpcMissingServiceException(throwable);
+            } else if (replyException.failureType() == ReplyFailure.TIMEOUT) {
+                // the consumer acknowledges before it dispatches, so a lost acknowledgement cannot rule out
+                // that the handler ran
+                ret = new RpcServiceUnavailableException("No acknowledgement for the request to " + destination.raw(), throwable);
+            }
+        }
+        return ret;
+    }
+
+    /**
+     * The identity a {@link org.kinotic.core.api.annotations.Proxy} interface addresses: its zone, namespace,
+     * name and version as declared on the interface, with no scope. A scoped call adds the scope per invocation.
+     * @param proxyInterface an interface annotated with {@link org.kinotic.core.api.annotations.Proxy}
+     * @return the identifier the interface's calls are routed by
+     */
+    public static ServiceIdentifier serviceIdentifierOf(Class<?> proxyInterface) {
+        Proxy proxyAnnotation = proxyInterface.getAnnotation(Proxy.class);
+        Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
+        String namespace = proxyAnnotation.namespace().isEmpty() ? safeEncodeURI(proxyInterface.getPackageName()) : safeEncodeURI(proxyAnnotation.namespace());
+        String name = proxyAnnotation.name().isEmpty() ? proxyInterface.getSimpleName() : proxyAnnotation.name();
+        // A proxy targets one address; with no declaration it targets the un-zoned address
+        return new ServiceIdentifier(MetaUtil.getZone(proxyInterface),
+                                     namespace,
+                                     name,
+                                     null,
+                                     MetaUtil.getVersion(proxyInterface));
     }
 
     /**

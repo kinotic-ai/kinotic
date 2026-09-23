@@ -62,6 +62,14 @@ function scopeFor(group: string | null): SidebarScopeProps {
             backTo: '/organizations',
             backLabel: 'System'
         }
+    } else if (group === 'account') {
+        ret = {
+            name: 'Account',
+            kind: 'Operator',
+            icon: 'pi-user',
+            backTo: '/dashboard',
+            backLabel: 'System'
+        }
     } else {
         ret = { name: 'Kinotic', kind: 'System', icon: 'pi-shield' }
     }

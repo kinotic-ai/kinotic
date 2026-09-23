@@ -29,8 +29,8 @@ import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
 import { scopeName, scopePath, type Scope } from '@/util/scope'
 
 /**
- * The job runs of the scope the route names: every run on the platform, or the deployments and
- * provisioning of an organization, an application or a project. State chips carry the counts
+ * The job runs of the scope the route names: every run on the platform, or the deployments of
+ * an organization, an application or a project. State chips carry the counts
  * and live in the URL so a tile can link to the failed runs.
  */
 const props = defineProps<{
@@ -52,8 +52,8 @@ const scope = computed<Scope>(() => ({
 }))
 
 const description = computed(() => scope.value.organizationId
-    ? `Job runs executed for ${scopeName(scope.value)}: its deployments${scope.value.applicationId ? '' : ' and its provisioning'}.`
-    : 'Grind job runs across the platform: deployments and organization provisioning, step by step.')
+    ? `Job runs executed for ${scopeName(scope.value)}: its deployments.`
+    : 'Grind job runs across the platform: deployments, step by step.')
 
 const counted = ref<JobRun[]>([])
 

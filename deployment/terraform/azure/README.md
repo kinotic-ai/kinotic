@@ -32,11 +32,16 @@ deployment/terraform/azure/
 │   ├── main.tf
 │   ├── deploy.sh
 │   └── terraform.tfvars
-├── dev/                       # Storage resource group, Front Door and a service principal for a kinotic-server on a developer machine
+├── dev/                       # A developer's own environment: the dev-environment module, and .env.local on their machine
 │   ├── README.md              # Getting started on your machine
 │   ├── main.tf
 │   └── terraform.tfvars
-├── modules/                   # Shared modules (aks, firecracker, identity, micro-vm-node, networking)
+├── dev-server/                # The shared development server's Azure side: the module plus a server key vault, snapshots, and a hostname
+│   ├── README.md
+│   ├── main.tf
+│   ├── outputs.tf
+│   └── variables.tf
+├── modules/                   # Shared modules (aks, dev-environment, firecracker, identity, micro-vm-node, networking, sites)
 ├── bootstrap-state.sh         # One-time state storage setup
 ├── OPS.md                     # Day-2 operations
 ├── TROUBLESHOOTING.md         # Common errors and fixes
@@ -209,6 +214,7 @@ terraform apply -var="beta_mode=false"
 | Static Web App (SPA) | `frontend/` | Independent |
 | portal.kinotic.ai CNAME | `frontend/` | Independent |
 | Developer storage resource group + Front Door (apps-<environment>.kinotic.ai) | `dev/` | Per developer, local state |
+| Development server: Front Door (apps-dev.kinotic.ai), server key vault, snapshot storage, dev.kinotic.ai | `dev-server/` | One per zone, local state |
 
 ## Additional Docs
 

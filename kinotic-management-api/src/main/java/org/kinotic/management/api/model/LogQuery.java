@@ -15,6 +15,12 @@ import lombok.experimental.Accessors;
 public class LogQuery {
 
     /**
+     * Organization whose workload's logs to return. Null names the platform's own, which only a
+     * system participant may read.
+     */
+    private String organizationId;
+
+    /**
      * Id of the workload whose logs to return.
      */
     private String workloadId;

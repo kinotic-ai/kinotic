@@ -9,8 +9,8 @@ import lombok.experimental.Accessors;
 /**
  * Where the platform serves each published UI from, bound under
  * {@code kinotic.systemApi.uiDeployment.*}. Every site is a hostname label under
- * {@link #sitesDomain}. The Front Door and DNS fields are validated at boot, so an
- * environment that disables the provisioner still sets them, to placeholders.
+ * {@link #sitesDomain}, and its files live in the sites storage account. Both are validated
+ * at boot, so an environment that disables the provisioner still sets them, to placeholders.
  */
 @Getter
 @Setter
@@ -33,23 +33,11 @@ public class UiDeploymentProperties {
     private String sitesDomain;
 
     /**
-     * Id of the Azure DNS zone that holds {@link #sitesDomain}, where each site's CNAME and
-     * validation TXT records are written.
+     * Blob endpoint of the sites storage account every published UI is written to, under
+     * {@code sites/<hostname>/}, from which Front Door serves it.
      */
     @NotBlank
-    private String dnsZoneId;
-
-    /**
-     * Id of the Front Door Standard profile every site is served through.
-     */
-    @NotBlank
-    private String frontDoorProfileId;
-
-    /**
-     * Host name of the profile's endpoint, the target of every site's CNAME.
-     */
-    @NotBlank
-    private String frontDoorEndpointHostName;
+    private String sitesStorageEndpoint;
 
     /**
      * The hostname a site with the given label is served at.

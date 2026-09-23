@@ -1,6 +1,10 @@
 # Phase Prompt
 
-I would like you to break this work into a series of phases where ideally each phase changes around 10 files. After each phase I would like you to wait for me to review the code before proceeding with the next phase. Once I give approval, you can move onto the next phase. No phase may rewrite, refactor, or restructure what an earlier phase produced, and if a later phase would force that, the earlier phase drew its boundary wrong: say so and re-plan rather than churning code.
+Break the work into phases of about ten files each. After each phase, stop for my review; continue only once I approve.
+
+A phase changes existing code in place. It never adds a parallel copy of something that already exists to keep itself small or reviewable — no second class, service, script or contract that does the job an existing one does, with the old one left for a later phase to delete. When the right change is to reshape an existing class or contract together with its callers, that reshaping is a phase of its own: plan it as one, size it by what the change requires, and review it as one. Duplicating existing functionality is never an acceptable way to draw a phase boundary.
+
+No phase may rewrite, refactor or restructure what an earlier phase produced. If a later phase would force that, the earlier phase drew its boundary wrong: say so and re-plan rather than churn code.
 
 
 ### IamUser refactor

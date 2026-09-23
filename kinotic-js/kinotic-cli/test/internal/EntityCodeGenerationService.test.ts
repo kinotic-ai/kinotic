@@ -2,6 +2,7 @@ import {expect} from 'chai'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {KinoticProjectConfig} from '@kinotic-ai/management-api'
 import {EntityCodeGenerationService} from '../../src/internal/EntityCodeGenerationService.js'
 import {ConsoleLogger} from '../../src/internal/Logger.js'
@@ -28,6 +29,55 @@ export class TodoRepository extends BaseTodoRepository {
 
   @Query('SELECT * FROM todo WHERE title = :title')
   public async findByTitle(title: string): Promise<Todo[]> {
+    throw new Error('not implemented')
+  }
+
+}
+`
+
+const TENANT_ENTITY_SOURCE = `import {Entity, Id, MultiTenancyType, TenantId} from '@kinotic-ai/persistence'
+
+@Entity(MultiTenancyType.SHARED)
+export class Todo {
+    @Id()
+    public id!: string
+    public title!: string
+    @TenantId
+    public tenantId!: string
+}
+`
+
+const ADMIN_REPOSITORY_WITH_TENANT_SELECTION = `import {type IAdminEntitiesRepository, Query, type TenantSelection} from '@kinotic-ai/persistence'
+import {BaseTodoAdminRepository} from './generated/BaseTodoAdminRepository.js'
+
+export class TodoAdminRepository extends BaseTodoAdminRepository {
+
+  constructor(adminEntitiesRepository?: IAdminEntitiesRepository) {
+    super(adminEntitiesRepository)
+  }
+
+  @Query('SELECT COUNT(title) AS count FROM todo WHERE title = :title')
+  public async countByTitle(title: string, tenantSelection: TenantSelection): Promise<number> {
+    throw new Error('not implemented')
+  }
+
+}
+`
+
+const ADMIN_REPOSITORY_WITHOUT_TENANT_SELECTION = ADMIN_REPOSITORY_WITH_TENANT_SELECTION
+    .replace('title: string, tenantSelection: TenantSelection', 'title: string')
+
+const REPOSITORY_WITH_TENANT_SELECTION = `import {type IEntitiesRepository, Query, type TenantSelection} from '@kinotic-ai/persistence'
+import {BaseTodoRepository} from './generated/BaseTodoRepository.js'
+
+export class TodoRepository extends BaseTodoRepository {
+
+  constructor(entitiesRepository?: IEntitiesRepository) {
+    super(false, entitiesRepository)
+  }
+
+  @Query('SELECT COUNT(title) AS count FROM todo WHERE title = :title')
+  public async countByTitle(title: string, tenantSelection: TenantSelection): Promise<number> {
     throw new Error('not implemented')
   }
 
@@ -61,6 +111,8 @@ describe('EntityCodeGenerationService', () => {
         fs.mkdirSync(path.join(projectDir, 'src/model'), {recursive: true})
         fs.mkdirSync(path.join(projectDir, 'src/repository'), {recursive: true})
         fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), ENTITY_SOURCE)
+        // Parameter types such as TenantSelection are recognized through the installed @kinotic-ai/persistence
+        fs.symlinkSync(fileURLToPath(new URL('../../node_modules', import.meta.url)), path.join(projectDir, 'node_modules'))
         // No "files"/"include" on purpose: generation reads compilerOptions from the
         // tsconfig but must discover entities from entitiesPaths alone.
         fs.writeFileSync(path.join(projectDir, 'tsconfig.json'), JSON.stringify({
@@ -98,6 +150,16 @@ describe('EntityCodeGenerationService', () => {
                                                         projectConfig.fileExtensionForImports,
                                                         new ConsoleLogger())
         await service.generateAllEntities(projectConfig, false, undefined, true)
+    }
+
+    async function generateError(): Promise<string | null> {
+        let ret: string | null = null
+        try {
+            await generate()
+        } catch (e) {
+            ret = (e as Error).message
+        }
+        return ret
     }
 
     function readIfExists(...segments: string[]): string | null {
@@ -158,6 +220,41 @@ describe('EntityCodeGenerationService', () => {
         await generate()
 
         expect(readIfExists('.config/c3/queries/TodoRepository.json'), 'named queries json').to.be.null
+    })
+
+    it('passes an AdminRepository query tenant selection as the namedQuery argument', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), TENANT_ENTITY_SOURCE)
+        await generate()
+
+        fs.writeFileSync(path.join(projectDir, 'src/repository/TodoAdminRepository.ts'), ADMIN_REPOSITORY_WITH_TENANT_SELECTION)
+        await generate()
+
+        const repository = readIfExists('src/repository/TodoAdminRepository.ts') as string
+        expect(repository).to.contain(`{key: 'title', value: title}`)
+        expect(repository).to.not.contain(`{key: 'tenantSelection'`)
+        expect(repository).to.contain(`return this.namedQuery('countByTitle', parameters, tenantSelection)`)
+
+        const queries = JSON.parse(readIfExists('.config/c3/queries/TodoAdminRepository.json') as string)
+        expect(queries.namedQueries[0].parameters.map((p: {name: string}) => p.name)).to.deep.equal(['title', 'tenantSelection'])
+    })
+
+    it('fails an AdminRepository query without a tenant selection', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), TENANT_ENTITY_SOURCE)
+        await generate()
+
+        fs.writeFileSync(path.join(projectDir, 'src/repository/TodoAdminRepository.ts'), ADMIN_REPOSITORY_WITHOUT_TENANT_SELECTION)
+
+        expect(await generateError()).to.equal('TodoAdminRepository.countByTitle must declare a TenantSelection parameter')
+    })
+
+    it('fails a Repository query with a tenant selection', async () => {
+        fs.writeFileSync(path.join(projectDir, 'src/model/Todo.ts'), TENANT_ENTITY_SOURCE)
+        await generate()
+
+        fs.writeFileSync(path.join(projectDir, 'src/repository/TodoRepository.ts'), REPOSITORY_WITH_TENANT_SELECTION)
+
+        expect(await generateError())
+            .to.equal('TodoRepository.countByTitle cannot declare a TenantSelection parameter, declare the query on the AdminRepository')
     })
 
 })

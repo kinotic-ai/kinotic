@@ -8,12 +8,13 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
 import org.kinotic.core.api.RpcServiceProxyHandle;
 import org.kinotic.core.api.ServiceRegistry;
-import org.kinotic.core.api.annotations.Proxy;
+import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.TraceLogFilter;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.core.api.service.ServiceDescriptor;
 import org.kinotic.core.api.service.FunctionInstanceProvider;
+import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.internal.api.service.ExceptionConverterComposite;
 import org.kinotic.core.internal.api.service.invoker.ArgumentResolverComposite;
@@ -24,7 +25,7 @@ import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverter;
 import org.kinotic.core.internal.api.service.rpc.RpcArgumentConverterResolver;
 import org.kinotic.core.internal.api.service.rpc.RpcReturnValueHandlerFactory;
 import org.kinotic.core.api.utils.KinoticUtil;
-import org.kinotic.core.internal.utils.MetaUtil;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ReactiveAdapterRegistry;
 import org.springframework.stereotype.Component;
@@ -64,8 +65,13 @@ public class DefaultServiceRegistry implements ServiceRegistry {
     private SecurityContext securityContext;
     @Autowired
     private OpenTelemetry openTelemetry;
+    // resolved lazily per send failure: the directory bean is conditional and may not exist
+    @Autowired
+    private ObjectProvider<ServiceDirectory> serviceDirectoryProvider;
     @Autowired
     private TraceLogFilter traceLogFilter;
+    @Autowired
+    private RequestLivenessWatcher requestLivenessWatcher;
 
     @Override
     public Future<Void> register(ServiceIdentifier serviceIdentifier, Class<?> serviceInterface, Object instance) {
@@ -127,6 +133,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
+                                                  serviceDirectoryProvider,
+                                                  requestLivenessWatcher,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
                                                   openTelemetry,
@@ -145,6 +153,8 @@ public class DefaultServiceRegistry implements ServiceRegistry {
                                                   rpcReturnValueHandlerFactory,
                                                   eventBusService,
                                                   securityContext,
+                                                  serviceDirectoryProvider,
+                                                  requestLivenessWatcher,
                                                   vertx,
                                                   Thread.currentThread().getContextClassLoader(),
                                                   openTelemetry,
@@ -153,23 +163,7 @@ public class DefaultServiceRegistry implements ServiceRegistry {
 
     @Override
     public <T> RpcServiceProxyHandle<T> serviceProxy(Class<T> serviceInterface) {
-        Proxy proxyAnnotation = serviceInterface.getAnnotation(Proxy.class);
-        Validate.notNull(proxyAnnotation, "The Class provided must be annotated with @Proxy");
-
-        String namespace = proxyAnnotation.namespace().isEmpty() ? KinoticUtil.safeEncodeURI(serviceInterface.getPackageName()) : KinoticUtil.safeEncodeURI(proxyAnnotation.namespace());
-        String name = proxyAnnotation.name().isEmpty() ? serviceInterface.getSimpleName() : proxyAnnotation.name();
-        String version = MetaUtil.getVersion(serviceInterface);
-
-        // A proxy targets one address; with no declaration it targets the un-zoned address
-        String zone = MetaUtil.getZone(serviceInterface);
-
-        ServiceIdentifier serviceIdentifier = new ServiceIdentifier(zone,
-                                                                    namespace,
-                                                                    name,
-                                                                    null,
-                                                                    version);
-
-        return serviceProxy(serviceIdentifier, serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
+        return serviceProxy(KinoticUtil.serviceIdentifierOf(serviceInterface), serviceInterface, MimeTypeUtils.APPLICATION_JSON_VALUE);
     }
 
     @Override

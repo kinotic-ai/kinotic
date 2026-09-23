@@ -68,7 +68,7 @@
         <div class="rounded-lg border border-surface p-4">
           <h2 class="text-base font-semibold">Platform workloads</h2>
           <p class="mt-1 mb-3 text-sm text-muted-color">
-            Workloads the platform runs for itself, with no organization: provisioning runs and its own services.
+            Workloads the platform runs for itself, with no organization.
           </p>
           <Button label="Show platform workloads" icon="pi pi-box" severity="secondary" outlined size="small"
                   @click="router.push({ path: '/workloads', query: { org: PLATFORM_ONLY } })" />

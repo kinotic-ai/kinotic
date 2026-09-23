@@ -1,12 +1,30 @@
 package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import org.kinotic.core.api.event.CRI;
+import org.mockito.ArgumentCaptor;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.any;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import java.util.Date;
+import reactor.core.publisher.Flux;
+import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
+import org.kinotic.core.api.exceptions.RpcMissingServiceException;
+import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.event.EventBusService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatus;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
+import org.kinotic.system.api.workload.VmNodeRegistration;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.workload.WorkloadStatusReport;
@@ -33,6 +51,9 @@ public class WorkloadOrchestrationTest {
     private StubWorkloadService workloads;
     private StubVmNodeService nodes;
     private StubVmManagerProxy vmManager;
+    private EventBusService eventBus;
+    private Vertx vertx;
+    private KinoticSystemApiProperties properties;
     private DefaultVmNodeOrchestrationService nodeOrchestration;
     private DefaultWorkloadOrchestrationService orchestration;
 
@@ -40,12 +61,161 @@ public class WorkloadOrchestrationTest {
     void setUp() {
         workloads = new StubWorkloadService();
         nodes = new StubVmNodeService();
+        // a node with room for the default workload; a deploy reserves on the stored record
         nodes.availableNode = new VmNode(NODE_ID, "node-1", "host-1");
+        nodes.availableNode.setTotalCpus(4).setTotalMemoryMb(4096).setTotalDiskMb(10240)
+                           .setFreeCpus(4).setFreeMemoryMb(4096).setFreeDiskMb(10240);
+        nodes.saveSync(nodes.availableNode);
         vmManager = new StubVmManagerProxy();
-        nodeOrchestration = new DefaultVmNodeOrchestrationService(new KinoticSystemApiProperties(),
-                                                                  nodes, workloads);
+        // the node's vm-manager registration, as the cluster reports it: absent unless a test says otherwise
+        eventBus = mock(EventBusService.class);
+        when(eventBus.monitorListenerStatus(any())).thenReturn(Flux.just(ListenerStatus.INACTIVE));
+        properties = new KinoticSystemApiProperties();
+        vertx = Vertx.vertx();
+        nodeOrchestration = new DefaultVmNodeOrchestrationService(properties, nodes, workloads, eventBus, vertx);
         orchestration = new DefaultWorkloadOrchestrationService(nodeOrchestration, vmManager,
                                                                 nodes, workloads);
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        await(vertx.close());
+    }
+
+    @Test
+    public void unreachableVmManagerMarksItsNodeUnreachableAtOnce() throws Exception {
+        vmManager.failStartWith = new RpcMissingServiceException("no vm-manager registered for node-1");
+
+        Exception failure = assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+        assertInstanceOf(RpcMissingServiceException.class, failure.getCause());
+
+        // the registration checked is the vm-manager scoped to this node, the address the proxy sends to
+        ArgumentCaptor<CRI> watched = ArgumentCaptor.forClass(CRI.class);
+        verify(eventBus).monitorListenerStatus(watched.capture());
+        assertEquals(NODE_ID, watched.getValue().scope());
+        assertTrue(watched.getValue().raw().contains("VmManager"), watched.getValue().raw());
+        assertEquals(VmNodeStatusType.UNREACHABLE, awaitNodeStatus(VmNodeStatusType.UNREACHABLE));
+    }
+
+    @Test
+    public void markingUnreachableLeavesLastSeenAlone() throws Exception {
+        // The placement read (availableNode) predates this heartbeat, so a full save of it would
+        // put the older lastSeen back
+        Date heartbeatAt = await(nodeOrchestration.heartbeat(NODE_ID, List.of())).getLastSeen();
+        vmManager.failStartWith = new RpcMissingServiceException("gone");
+
+        assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+
+        assertEquals(VmNodeStatusType.UNREACHABLE, awaitNodeStatus(VmNodeStatusType.UNREACHABLE));
+        assertEquals(heartbeatAt, nodes.saved.get(NODE_ID).getLastSeen());
+    }
+
+    @Test
+    public void registeringANewNodeStampsLastSeen() throws Exception {
+        Date before = new Date();
+
+        await(nodeOrchestration.registerNode(new VmNodeRegistration("node-2", "node-2", "host-2")));
+
+        assertFalse(nodes.saved.get("node-2").getLastSeen().before(before));
+    }
+
+    @Test
+    public void reRegisteringANodeStampsLastSeen() throws Exception {
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setLastSeen(new Date(System.currentTimeMillis() - 10_000));
+        nodes.saveSync(node);
+        Date before = new Date();
+
+        await(nodeOrchestration.registerNode(new VmNodeRegistration(NODE_ID, "node-1", "host-1")));
+
+        assertFalse(nodes.saved.get(NODE_ID).getLastSeen().before(before));
+    }
+
+    @Test
+    public void ordinaryStartFailureDoesNotVerifyTheNode() throws Exception {
+        vmManager.failStartWith = new RuntimeException("node exploded");
+
+        assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+
+        verify(eventBus, never()).monitorListenerStatus(any());
+        assertEquals(VmNodeStatusType.ONLINE, nodes.saved.get(NODE_ID).getStatus().getType());
+    }
+
+    @Test
+    public void heartbeatBringsAnUnreachableNodeBackOnline() throws Exception {
+        vmManager.failStartWith = new RpcMissingServiceException("gone");
+        assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+        assertEquals(VmNodeStatusType.UNREACHABLE, awaitNodeStatus(VmNodeStatusType.UNREACHABLE));
+
+        await(nodeOrchestration.heartbeat(NODE_ID, List.of()));
+
+        assertEquals(VmNodeStatusType.ONLINE, nodes.saved.get(NODE_ID).getStatus().getType());
+    }
+
+    @Test
+    public void reachableVmManagerKeepsItsNodeOnlineWhenACallFails() throws Exception {
+        when(eventBus.monitorListenerStatus(any())).thenReturn(Flux.just(ListenerStatus.ACTIVE));
+        vmManager.failStartWith = new RpcServiceUnavailableException("the gateway serving it left mid-call");
+
+        assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+
+        assertEquals(VmNodeStatusType.ONLINE, nodes.saved.get(NODE_ID).getStatus().getType());
+    }
+
+    @Test
+    public void silentNodeGoesOfflineWhateverItReportedLast() throws Exception {
+        properties.getSystemApi().getVmNode().setHealthCheckIntervalSeconds(1);
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setStatus(new VmNodeStatus(VmNodeStatusType.DRAINING, "telemetry shipping lost"));
+        node.setLastSeen(new Date(System.currentTimeMillis() - 10_000));
+        nodes.saveSync(node);
+
+        nodeOrchestration.init();
+        try {
+            assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
+            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
+        } finally {
+            nodeOrchestration.destroy();
+        }
+    }
+
+    @Test
+    public void silentUnreachableNodeGoesOffline() throws Exception {
+        properties.getSystemApi().getVmNode().setHealthCheckIntervalSeconds(1);
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setStatus(new VmNodeStatus(VmNodeStatusType.UNREACHABLE, null));
+        node.setLastSeen(new Date(System.currentTimeMillis() - 10_000));
+        nodes.saveSync(node);
+
+        nodeOrchestration.init();
+        try {
+            assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
+        } finally {
+            nodeOrchestration.destroy();
+        }
+    }
+
+    @Test
+    public void silentNodeFailsItsStoppingWorkload() throws Exception {
+        properties.getSystemApi().getVmNode().setHealthCheckIntervalSeconds(1);
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
+        // a stop whose reply never came back from the node leaves the record STOPPING
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        workloads.saved.get(deployed.getId()).setStatus(WorkloadStatus.STOPPING);
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setLastSeen(new Date(System.currentTimeMillis() - 10_000));
+        nodes.saveSync(node);
+
+        nodeOrchestration.init();
+        try {
+            assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
+            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
+        } finally {
+            nodeOrchestration.destroy();
+        }
     }
 
     @Test
@@ -71,8 +241,13 @@ public class WorkloadOrchestrationTest {
         Workload finished = await(run);
         assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
         assertEquals(0, finished.getExitCode());
+        // the record keeps the outcome; the room is released, and the node removes the VM on its own
         assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(finished.getId()).getStatus());
         assertEquals(0, workloads.saved.get(finished.getId()).getExitCode());
+        assertTrue(vmManager.destroyed.isEmpty());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
+        assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
     }
 
     @Test
@@ -111,20 +286,29 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void foregroundRestartCompletesAtRunEnd() throws Exception {
-        Future<Workload> firstRun = orchestration.deployWorkload(newForegroundWorkload());
-        String workloadId = vmManager.lastStarted.getId();
-        vmManager.completeRun(WorkloadStatus.STOPPED, 0);
-        await(firstRun);
+    public void workloadThatFailsToStartReleasesItsRoom() {
+        vmManager.failStartWith = new RuntimeException("image not found");
 
-        Future<Workload> secondRun = orchestration.restartWorkload(workloadId);
-        assertFalse(secondRun.isComplete());
+        Future<Workload> run = orchestration.deployWorkload(newForegroundWorkload());
 
-        vmManager.completeRun(WorkloadStatus.STOPPED, 3);
+        assertTrue(run.failed());
+        assertEquals("image not found", run.cause().getMessage());
+        assertEquals(WorkloadStatus.FAILED, workloads.saved.values().iterator().next().getStatus());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
+    }
 
-        Workload finished = await(secondRun);
-        assertEquals(WorkloadStatus.STOPPED, finished.getStatus());
-        assertEquals(3, finished.getExitCode());
+    @Test
+    public void foregroundRunThatFailsReleasesItsRoom() throws Exception {
+        Future<Workload> run = orchestration.deployWorkload(newForegroundWorkload());
+
+        vmManager.completeRun(WorkloadStatus.FAILED, 137);
+
+        Workload finished = await(run);
+        assertEquals(WorkloadStatus.FAILED, finished.getStatus());
+        assertEquals(137, workloads.saved.get(finished.getId()).getExitCode());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
     }
 
     @Test
@@ -135,9 +319,9 @@ public class WorkloadOrchestrationTest {
 
         assertEquals("node-2", deployed.getNodeId());
         assertEquals("node-2", vmManager.lastStarted.getNodeId());
-        assertEquals(4 - deployed.getVcpus(), target.getAvailableCpus());
-        assertEquals(4096 - deployed.getMemoryMb(), target.getAvailableMemoryMb());
-        assertEquals(10240 - deployed.getDiskSizeMb(), target.getAvailableDiskMb());
+        assertEquals(4 - deployed.getCpus(), target.getFreeCpus());
+        assertEquals(4096 - deployed.getMemoryMb(), target.getFreeMemoryMb());
+        assertEquals(10240 - deployed.getDiskSizeMb(), target.getFreeDiskMb());
     }
 
     @Test
@@ -161,10 +345,97 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
+    public void concurrentDeploysCannotOverAllocateANode() throws Exception {
+        // room for exactly one of the two workloads; the placement returns the same node to both
+        nodes.availableNode = registeredNode(NODE_ID, 1, 4096, 10240);
+
+        Future<Workload> first = orchestration.deployWorkload(newWorkload().setCpus(1));
+        Future<Workload> second = orchestration.deployWorkload(newWorkload().setCpus(1));
+        Future.join(first, second).toCompletionStage().toCompletableFuture().handle((v, t) -> null).get(5, TimeUnit.SECONDS);
+
+        assertTrue(first.succeeded() != second.succeeded(), "exactly one deploy may hold the node's last vCPU");
+        assertEquals(0, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(1, vmManager.started.size());
+    }
+
+    @Test
+    public void destroyReturnsTheWorkloadsReservation() throws Exception {
+        nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
+
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        assertEquals(4 - deployed.getCpus(), nodes.saved.get(NODE_ID).getFreeCpus());
+
+        await(orchestration.destroyWorkload(deployed.getId()));
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
+        assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
+    }
+
+    @Test
+    public void stoppedRunReturnsItsRoomOnce() throws Exception {
+        nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
+        Workload deployed = await(orchestration.deployWorkload(newWorkload().setCpus(0.5)));
+        assertEquals(3.5, nodes.saved.get(NODE_ID).getFreeCpus());
+
+        await(orchestration.stopWorkload(deployed.getId()));
+
+        VmNode node = nodes.saved.get(NODE_ID);
+        assertEquals(4, node.getFreeCpus());
+        assertEquals(4096, node.getFreeMemoryMb());
+        assertEquals(10240, node.getFreeDiskMb());
+        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus());
+
+        // the node's own report of the same end, and a later destroy, return nothing twice
+        report(deployed.getId(), WorkloadStatus.STOPPED, 0);
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        await(orchestration.destroyWorkload(deployed.getId()));
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertNull(workloads.saved.get(deployed.getId()));
+    }
+
+    @Test
+    public void statusReportOfAnEndedRunReturnsItsRoom() throws Exception {
+        nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
+        Workload deployed = await(orchestration.deployWorkload(newWorkload().setCpus(2)));
+        assertEquals(2, nodes.saved.get(NODE_ID).getFreeCpus());
+
+        report(deployed.getId(), WorkloadStatus.FAILED, 137);
+
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+        assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
+        assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
+        assertEquals(137, workloads.saved.get(deployed.getId()).getExitCode());
+    }
+
+    @Test
+    public void registrationRebuildsTheLedgerFromTheWorkloadRecords() throws Exception {
+        nodes.availableNode = registeredNode(NODE_ID, 4, 4096, 10240);
+        Workload running = await(orchestration.deployWorkload(newWorkload().setCpus(1)));
+        Workload ended = await(orchestration.deployWorkload(newWorkload().setCpus(1)));
+        await(orchestration.stopWorkload(ended.getId()));
+        // the node comes back with more CPU, and a leak the ledger does not know about
+        nodes.saved.get(NODE_ID).setFreeCpus(0);
+
+        VmNode registered = await(nodeOrchestration.registerNode(new VmNodeRegistration().setId(NODE_ID)
+                                                                                         .setName("node-1")
+                                                                                         .setHostname("host-1")
+                                                                                         .setTotalCpus(8)
+                                                                                         .setTotalMemoryMb(4096)
+                                                                                         .setTotalDiskMb(10240)));
+
+        assertEquals(8 - running.getCpus(), registered.getFreeCpus());
+        assertEquals(4096 - running.getMemoryMb(), registered.getFreeMemoryMb());
+        assertEquals(10240 - running.getDiskSizeMb(), registered.getFreeDiskMb(), "an ended run holds nothing");
+        assertEquals(1, registered.getReservations().size());
+        assertEquals(running.getId(), registered.getReservations().get(0).getWorkloadId());
+    }
+
+    @Test
     public void pinnedDeployFailsWhenNodeLacksCapacity() {
         registeredNode("node-2", 1, 4096, 10240);
 
-        Future<Workload> run = orchestration.deployWorkload(newWorkload().setNodeId("node-2").setVcpus(2));
+        Future<Workload> run = orchestration.deployWorkload(newWorkload().setNodeId("node-2").setCpus(2));
 
         assertTrue(run.failed());
         assertNull(vmManager.lastStarted);
@@ -203,15 +474,41 @@ public class WorkloadOrchestrationTest {
         node.setTotalCpus(cpus);
         node.setTotalMemoryMb(memoryMb);
         node.setTotalDiskMb(diskMb);
-        node.setAvailableCpus(cpus);
-        node.setAvailableMemoryMb(memoryMb);
-        node.setAvailableDiskMb(diskMb);
+        node.setFreeCpus(cpus);
+        node.setFreeMemoryMb(memoryMb);
+        node.setFreeDiskMb(diskMb);
         nodes.saved.put(nodeId, node);
         return node;
     }
 
     private static <T> T await(Future<T> future) throws Exception {
         return future.toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Returns the stored status type of {@link #NODE_ID} once it is {@code expected}, or whatever it is
+     * when the wait runs out. Status writes made by verifyNode's continuation land on the Vertx
+     * context and by the reaper on its scheduler thread, after the call the test awaited returned.
+     */
+    private VmNodeStatusType awaitNodeStatus(VmNodeStatusType expected) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (nodes.saved.get(NODE_ID).getStatus().getType() != expected && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        return nodes.saved.get(NODE_ID).getStatus().getType();
+    }
+
+    /**
+     * Returns the stored status of a workload once it is {@code expected}, or whatever it is when the wait
+     * runs out. The reaper writes a node's workloads FAILED after its OFFLINE write completes, on its
+     * scheduler thread, so the workload lags the node status a test already waited for.
+     */
+    private WorkloadStatus awaitWorkloadStatus(String workloadId, WorkloadStatus expected) throws Exception {
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (workloads.saved.get(workloadId).getStatus() != expected && System.currentTimeMillis() < deadline) {
+            Thread.sleep(50);
+        }
+        return workloads.saved.get(workloadId).getStatus();
     }
 
     private static Workload newWorkload() {

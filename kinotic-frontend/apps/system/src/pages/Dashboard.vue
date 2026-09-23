@@ -56,9 +56,8 @@ import { computed, onMounted, ref } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
 
-import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { DeploymentStatusType, ExecutionStatus, WorkloadStatus,
-         type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
+import { Kinotic } from '@kinotic-ai/core'
+import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil, PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
 
@@ -75,15 +74,12 @@ import { scanWorkloads } from '@/util/workloads'
 const DAY_MS = 24 * 60 * 60 * 1000
 /** How far back the runs chart and the recent-runs list look. */
 const RUN_WINDOW_DAYS = 7
-/** How many organizations the ready-to-deploy count and the attention list consider. */
-const ORGANIZATION_PAGE_SIZE = 100
 const RECENT_RUN_COUNT = 5
 
 const cluster = ref<KinoticClusterInfo | null>(null)
 const nodes = ref<VmNode[]>([])
 const workloads = ref<Workload[]>([])
 const runs = ref<JobRun[]>([])
-const organizations = ref<Organization[]>([])
 const organizationCount = ref<number | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
@@ -98,11 +94,12 @@ const nodeStates = computed(() => {
   return [
     { label: 'Online', count: count(VmNodeStatusType.ONLINE), color: accentColor('green', isDark.value) },
     { label: 'Draining', count: count(VmNodeStatusType.DRAINING), color: accentColor('amber', isDark.value) },
+    { label: 'Unreachable', count: count(VmNodeStatusType.UNREACHABLE), color: accentColor('violet', isDark.value) },
     { label: 'Offline', count: count(VmNodeStatusType.OFFLINE), color: accentColor('red', isDark.value) }
   ]
 })
 
-const attention = computed(() => platformAttention(cluster.value, nodes.value, workloads.value, runs.value, organizations.value))
+const attention = computed(() => platformAttention(cluster.value, nodes.value, workloads.value, runs.value))
 
 const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 
@@ -121,7 +118,6 @@ const stats = computed<Stat[]>(() => {
   const dayAgo = Date.now() - DAY_MS
   const today = runs.value.filter(run => (DatetimeUtil.toEpochMillis(run.started) ?? 0) >= dayAgo)
   const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
-  const ready = organizations.value.filter(org => org.storage?.status.type === DeploymentStatusType.READY).length
   return [
     {
       label: 'Cluster',
@@ -159,7 +155,7 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Organizations',
       value: organizationCount.value?.toString() ?? '—',
-      description: `${ready} ready to deploy`,
+      description: 'registered on the platform',
       to: '/organizations',
       icon: 'pi-building',
       accent: 'teal'
@@ -181,9 +177,6 @@ async function load() {
                      .catch(err => failures.push(errorMessage(err, 'Failed to load workloads'))),
     scanJobRuns({ since: Date.now() - RUN_WINDOW_DAYS * DAY_MS }).then(list => { runs.value = list })
                                                                   .catch(err => failures.push(errorMessage(err, 'Failed to load job runs'))),
-    Kinotic.systemOrganizations.findOrganizations(Pageable.create(0, ORGANIZATION_PAGE_SIZE))
-           .then(page => { organizations.value = page.content ?? [] })
-           .catch(err => failures.push(errorMessage(err, 'Failed to load organizations'))),
     Kinotic.systemOrganizations.countOrganizations().then(count => { organizationCount.value = count })
            .catch(() => { /* the tile shows an em dash */ })
   ])

@@ -1,20 +1,22 @@
 # Developer UI Publishing
 
 Everything a kinotic-server on your machine needs to publish UIs to a real Azure
-subscription, instead of the Azurite and no-op site provisioner the development profile
-uses. One apply creates:
+subscription, instead of the no-op site provisioner the development profile uses. One apply
+creates:
 
 | Resource | Name | Purpose |
 |---|---|---|
-| Resource group | `rg-kinotic-<environment>` | Holds the Front Door profile and, created by the server at runtime, one storage account per organization |
-| Front Door Standard profile + endpoint | `afd-kinotic-<environment>-sites` | Serves every published UI at `<label>.apps-<environment>.kinotic.ai`; its system identity holds Storage Blob Data Reader on the group, and the server adds origin groups, the rule set, domains and routes at runtime |
-| Service principal | `kinotic-<environment>-server` | The identity the server runs as, with Contributor and Storage Blob Data Contributor on the group, DNS Zone Contributor on `kinotic.ai`, and Contributor on the email service |
+| Resource group | `rg-kinotic-<environment>` | Holds everything below but the service principal |
+| Front Door Standard profile + endpoint | `afd-kinotic-<environment>-sites` | Serves every published UI at `<label>.apps-<environment>.kinotic.ai` through one wildcard domain, one wildcard DNS record and one route; nothing on Front Door changes when a UI is published (`modules/sites`) |
+| Sites storage account | `stkinotic<environment>sites` | Holds every site's files under `sites/<hostname>/`, read by the profile's identity and written by the publish workloads through URLs the server signs |
+| Key vault | `kv-kinotic-<environment>-sites` | Holds the Let's Encrypt wildcard certificate for `*.apps-<environment>.kinotic.ai`, issued by the apply through a DNS challenge and renewed by an apply within 30 days of expiry |
+| Service principal | `kinotic-<environment>-server` | The identity the server runs as, with Storage Blob Data Contributor on the sites account and Contributor on the email service |
 | `.env.local` at the repository root | | The principal's `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` and `AZURE_TENANT_ID`, written by the apply |
 
-Site DNS records are written into the shared `kinotic.ai` zone under `apps-<environment>`,
-so the zone itself is not created here. There is no VNet: the server reaches the storage
-accounts over their public endpoints, which the `local` profile's `disablePrivateEndpoint`
-allows for. State is local, in this directory, and gitignored.
+The wildcard DNS records are written into the shared `kinotic.ai` zone under
+`apps-<environment>`, so the zone itself is not created here. There is no VNet: the publish
+workloads reach the account over its public endpoint. State is local, in this directory, and
+gitignored.
 
 ## Prerequisites
 
@@ -41,30 +43,36 @@ profile in all of Azure, so two developers sharing one would collide:
 environment = "local"   # e.g. your first name
 ```
 
+```hcl
+# local.auto.tfvars (gitignored)
+lets_encrypt_email = "you@example.com"   # the Let's Encrypt account the wildcard certificate is issued under
+```
+
 ```bash
 terraform init
-terraform apply -target=azurerm_cdn_frontdoor_profile.sites   # the profile first: the role below needs its identity's principal id
+terraform apply -target=module.sites.azurerm_cdn_frontdoor_profile.sites   # the profile first: the roles need its identity's principal id
 terraform apply
 terraform output -raw application_local_yml > ../../../../kinotic-server/src/main/resources/application-local.yml
 ```
 
-The last command writes the `local` Spring profile, gitignored, which turns both provisioners
-on and names the resources above. `.env.local` at the repository root now carries the
+The last command writes the `local` Spring profile, gitignored, which turns the site
+provisioner on and names the sites domain and the account. `.env.local` at the repository root now carries the
 principal's credentials; if the file existed, its other lines are untouched.
 
 ## Checking the setup
 
-Provision a fixed organization and one site from a test, before starting the server. It
-reads `application-local.yml`, takes the principal from `.env.local`, and reads back from Azure
-what each step created, so whatever Azure rejects fails naming the call:
+Publish one site from a test, before starting the server. It reads `application-local.yml`,
+takes the principal from `.env.local`, uploads through the URLs the server would sign, reads
+back through Front Door what it published, and checks that a URL acts on one site's directory
+alone, so whatever Azure rejects fails naming the call:
 
 ```bash
 cd ../../../..
 ./gradlew :kinotic-system-api:test --tests '*AzureProvisioningIntegrationTest*'
 ```
 
-It creates the storage account of `kinotic-azure-it` in the resource group and the site
-`azure-it.apps-<environment>.kinotic.ai`, and leaves them, so a second run is quick.
+It publishes the site `azure-it.apps-<environment>.kinotic.ai` and leaves it, so a second run
+is quick.
 
 ## Running the server
 
@@ -75,7 +83,7 @@ SPRING_PROFILES_ACTIVE=development,local
 ```
 
 `DefaultAzureCredential` takes the three `AZURE_*` variables before anything else, so the
-server provisions as the principal whatever `az login` is signed in as.
+server signs as the principal whatever `az login` is signed in as.
 
 If your local Elasticsearch predates this, drop the organization index and the migration
 history so the current mapping is created:
@@ -85,12 +93,10 @@ curl -XDELETE 'localhost:9200/kinotic_organization'
 curl -XDELETE 'localhost:9200/migration_history'
 ```
 
-Then sign up a new organization. Its overview in the system console shows the provisioning
-job creating the storage account and preparing Front Door; deploy a project that contains a
-UI and its site appears on the deployment page, `PROVISIONING` for a few minutes while Front
-Door validates the domain and issues the certificate, then `READY` with its URL. An
-organization created before the roles propagated fails with `AuthorizationFailed`;
-**Provision again** on its overview finishes it.
+Then deploy a project that contains a UI: its site appears on the deployment page,
+`PROVISIONING` while the publish workload uploads it and Front Door serves the first request,
+then `READY` with its URL. A publish before the roles propagated fails with
+`AuthorizationFailed` on the workload; the next deploy of the project succeeds.
 
 ## Tearing down
 
@@ -98,11 +104,9 @@ organization created before the roles propagated fails with `AuthorizationFailed
 terraform destroy
 ```
 
-This removes the resource group with every storage account and Front Door resource the
-server created in it, the service principal, and its role assignments. Two things it does not
-touch: the site CNAME and validation TXT records in the `kinotic.ai` zone, which the server
-removes when a deployment is removed, so remove your deployments first or delete the records
-under `apps-<environment>` by hand; and the three lines in `.env.local`.
+This removes the resource group with the sites account, the Front Door profile and the key
+vault, the wildcard records under `apps-<environment>` in the `kinotic.ai` zone, the service
+principal, and its role assignments. It does not touch the three lines in `.env.local`.
 
 ## Troubleshooting
 
@@ -110,5 +114,5 @@ under `apps-<environment>` by hand; and the three lines in `.env.local`.
 |---|---|
 | `subscription_id is a required provider property` | `ARM_SUBSCRIPTION_ID` is not exported in this shell |
 | `Error acquiring the state lock` with nothing running | A previous run was interrupted; `terraform force-unlock <ID>` with the id from `.terraform.tfstate.lock.info` |
-| Organization storage `FAILED` with `AuthorizationFailed` right after apply | Role assignments take a minute or two to become visible; **Provision again** |
+| A publish workload fails with `AuthorizationFailed` right after apply | Role assignments take a minute or two to become visible; deploy the project again |
 | The server still authenticates as an old principal | The three `AZURE_*` variables are set elsewhere in its environment, ahead of `.env.local` |

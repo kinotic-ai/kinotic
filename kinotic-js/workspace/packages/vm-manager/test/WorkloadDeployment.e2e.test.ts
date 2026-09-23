@@ -13,8 +13,8 @@ import { Workload, WorkloadStatus } from '@kinotic-ai/management-api'
 // publishes answering a call. Nothing here is faked, which is also why nothing here runs
 // unattended — it needs a registered node, a reachable server, and seeded org/app records.
 //
-// Opt in with KINOTIC_WORKLOAD_E2E=1 once the lab is up; see the runbook in
-// vmm-r&d/docker-kata-ch-test/NOTES.md. CI has no lab, so it never sets this and skips.
+// Opt in with KINOTIC_WORKLOAD_E2E=1 once the lab is up; a node is built with
+// deployment/vm-node. CI has no lab, so it never sets this and skips.
 //
 // Nothing here names a provider: the path it walks is the server's, and a node is a node to
 // it. What differs between providers is configuration, and all of it is read from the

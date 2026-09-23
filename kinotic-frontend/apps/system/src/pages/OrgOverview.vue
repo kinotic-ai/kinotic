@@ -10,7 +10,7 @@
 
     <!-- The same bands as the dashboard: tiles, attention, charts, runs, then the records -->
     <div class="flex flex-col gap-4">
-      <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
       </div>
 
@@ -23,60 +23,20 @@
 
       <RecentRunsTable :runs="recentRuns" :scope="{ organizationId }" />
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
-          <h2 class="text-base font-semibold">Details</h2>
-          <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-            <dt class="text-muted-color">Id</dt>
-            <dd class="font-mono">{{ organizationId }}</dd>
-            <dt class="text-muted-color">Name</dt>
-            <dd>{{ organization?.name ?? '—' }}</dd>
-            <dt class="text-muted-color">Description</dt>
-            <dd>{{ organization?.description || '—' }}</dd>
-            <dt class="text-muted-color">Created</dt>
-            <dd>{{ formatEpochDate(organization?.created ?? null) }}</dd>
-            <dt class="text-muted-color">Created by</dt>
-            <dd class="break-all font-mono">{{ organization?.createdBy ?? '—' }}</dd>
-          </dl>
-        </div>
-        <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
-          <div class="flex items-center justify-between gap-2">
-            <h2 class="text-base font-semibold">Provisioning</h2>
-            <Button label="Provision again" icon="pi pi-refresh" size="small" severity="secondary" outlined
-                    :loading="provisioning" :disabled="!organization" @click="provision" />
-          </div>
-          <p class="mt-0 text-sm text-muted-color">
-            The storage the organization's deployments publish to, and what serves its UIs from
-            it, created by a job when the organization was. Provision again runs that job once
-            more; it does whatever an earlier run left undone.
-          </p>
-          <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-            <dt class="text-muted-color">Storage</dt>
-            <dd>
-              <span v-if="organization?.storage" :title="organization.storage.status.message ?? undefined">
-                <Tag :value="organization.storage.status.type"
-                     :severity="deploymentStatusSeverity(organization.storage.status.type)" />
-              </span>
-              <span v-else>Not provisioned</span>
-            </dd>
-            <template v-if="organization?.storage?.status.message">
-              <dt class="text-muted-color">Reason</dt>
-              <dd class="break-words">{{ organization.storage.status.message }}</dd>
-            </template>
-            <dt class="text-muted-color">Account</dt>
-            <dd class="font-mono">{{ organization?.storage?.azureAccountName || '—' }}</dd>
-            <dt class="text-muted-color">Endpoint</dt>
-            <dd class="break-all font-mono">{{ organization?.storage?.azureBlobEndpoint || '—' }}</dd>
-            <dt class="text-muted-color">Last run</dt>
-            <dd>
-              <RouterLink v-if="organization?.provisioningJobRunId" class="font-mono text-primary hover:underline"
-                          :to="`${basePath}/jobs/${encodeURIComponent(organization.provisioningJobRunId)}`">
-                {{ organization.provisioningJobRunId }}
-              </RouterLink>
-              <span v-else>—</span>
-            </dd>
-          </dl>
-        </div>
+      <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
+        <h2 class="text-base font-semibold">Details</h2>
+        <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
+          <dt class="text-muted-color">Id</dt>
+          <dd class="font-mono">{{ organizationId }}</dd>
+          <dt class="text-muted-color">Name</dt>
+          <dd>{{ organization?.name ?? '—' }}</dd>
+          <dt class="text-muted-color">Description</dt>
+          <dd>{{ organization?.description || '—' }}</dd>
+          <dt class="text-muted-color">Created</dt>
+          <dd>{{ formatEpochDate(organization?.created ?? null) }}</dd>
+          <dt class="text-muted-color">Created by</dt>
+          <dd class="break-all font-mono">{{ organization?.createdBy ?? '—' }}</dd>
+        </dl>
       </div>
     </div>
   </div>
@@ -86,13 +46,10 @@
 import { computed, ref, watch } from 'vue'
 import Button from 'primevue/button'
 import Message from 'primevue/message'
-import Tag from 'primevue/tag'
-import { useToast } from 'primevue/usetoast'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { ExecutionStatus, DeploymentStatusType, WorkloadStatus,
-         type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, deploymentStatusSeverity, errorMessage, scanJobRuns, showErrorToast } from '@kinotic-ai/frontend-common'
+import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
+import { DatetimeUtil, PageHeader, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
 
 import AttentionList from '@/components/AttentionList.vue'
 import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
@@ -112,7 +69,6 @@ const props = defineProps<{
   organizationId: string
 }>()
 
-const toast = useToast()
 const formatEpochDate = DatetimeUtil.formatEpochDate
 
 const basePath = computed(() => organizationPath(props.organizationId))
@@ -124,7 +80,6 @@ const applicationCount = ref<number | null>(null)
 const projectCount = ref<number | null>(null)
 const memberCount = ref<number | null>(null)
 const inviteCount = ref<number | null>(null)
-const provisioning = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
 
@@ -144,15 +99,6 @@ interface Stat {
 const stats = computed<Stat[]>(() => {
   const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
   const runningRuns = runs.value.filter(run => run.status === ExecutionStatus.RUNNING).length
-  const storage = organization.value?.storage?.status.type ?? null
-  let storageDescription: string
-  if (storage === DeploymentStatusType.READY) {
-    storageDescription = 'deployments can publish'
-  } else if (storage === DeploymentStatusType.FAILED) {
-    storageDescription = 'deployments are blocked'
-  } else {
-    storageDescription = 'not ready yet'
-  }
   return [
     {
       label: 'Applications',
@@ -185,14 +131,6 @@ const stats = computed<Stat[]>(() => {
       to: `${basePath.value}/jobs`,
       icon: 'pi-list-check',
       accent: 'violet'
-    },
-    {
-      label: 'Storage',
-      value: storage ?? 'None',
-      description: storageDescription,
-      tag: storage ? deploymentStatusSeverity(storage) : 'secondary',
-      icon: 'pi-cloud',
-      accent: storage === DeploymentStatusType.FAILED ? 'red' : 'teal'
     }
   ]
 })
@@ -224,18 +162,6 @@ async function load() {
     error.value = errorMessage(err, 'Failed to load the organization')
   } finally {
     loading.value = false
-  }
-}
-
-async function provision() {
-  provisioning.value = true
-  try {
-    organization.value = await Kinotic.systemOrganizations.provisionOrganization(props.organizationId)
-    toast.add({ severity: 'success', summary: 'Provisioning started', life: 3000 })
-  } catch (err) {
-    showErrorToast(toast, 'Failed to start provisioning', err, { life: 8000 })
-  } finally {
-    provisioning.value = false
   }
 }
 

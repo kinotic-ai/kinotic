@@ -104,7 +104,9 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
-    public Future<Long> countForNode(String nodeId) {
-        return findAllForNode(nodeId, null).map(Page::getTotalElements);
+    public Future<Long> countRunningForNode(String nodeId) {
+        return findAllForNode(nodeId, null).map(page -> page.getContent().stream()
+                                                             .filter(workload -> !workload.getStatus().isComplete())
+                                                             .count());
     }
 }

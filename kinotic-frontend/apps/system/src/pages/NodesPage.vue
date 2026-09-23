@@ -37,6 +37,9 @@
           No heartbeat since {{ formatEpochDateTime(node.lastSeen) }}.
           {{ workloadsOn(node.id).length > 0 ? `Its ${workloadsOn(node.id).length} workloads are unreachable with it.` : '' }}
         </div>
+        <div v-else-if="node.status.type === VmNodeStatusType.UNREACHABLE" class="py-2 text-sm text-muted-color">
+          A call to its vm-manager could not be delivered. Nothing is placed here until its next heartbeat.
+        </div>
         <CapacityRows v-else :capacity="capacityOf([node])" class="mt-1" />
 
         <Message v-if="node.status.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
@@ -68,7 +71,7 @@ import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
 import { capacityOf, loadNodes, nodeSeverity } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
-const NODE_STATES = [VmNodeStatusType.ONLINE, VmNodeStatusType.DRAINING, VmNodeStatusType.OFFLINE]
+const NODE_STATES = [VmNodeStatusType.ONLINE, VmNodeStatusType.DRAINING, VmNodeStatusType.UNREACHABLE, VmNodeStatusType.OFFLINE]
 
 const route = useRoute()
 const router = useRouter()

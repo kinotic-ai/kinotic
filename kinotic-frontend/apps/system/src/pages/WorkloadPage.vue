@@ -11,8 +11,6 @@
         <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
         <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
-        <Button v-if="canRestart" label="Restart" icon="pi pi-replay" severity="secondary" outlined
-                @click="act(() => Kinotic.workloadOrchestration.restartWorkload(workloadId), 'Workload restarting', 'Failed to restart workload')" />
         <Button label="Destroy" icon="pi pi-trash" severity="danger" outlined :disabled="!workload" @click="confirmDestroy" />
       </template>
     </PageHeader>
@@ -45,8 +43,6 @@
                   <dd class="break-all font-mono">{{ command || '—' }}</dd>
                   <dt class="text-muted-color">Detached</dt>
                   <dd>{{ workload.detached ? 'Yes — a long-running service' : 'No — a one-off task' }}</dd>
-                  <dt class="text-muted-color">Auto remove</dt>
-                  <dd>{{ workload.autoRemove ? 'Yes — the VM is removed once it exits' : 'No' }}</dd>
                   <dt class="text-muted-color">Telemetry</dt>
                   <dd>{{ workload.telemetry ? 'Traces and metrics shipped through the node' : 'Off' }}</dd>
                   <dt class="text-muted-color">Log policy</dt>
@@ -96,7 +92,7 @@
         </TabPanel>
         <TabPanel value="logs">
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
-          <WorkloadLogView v-if="tab === 'logs'" :workload-id="workloadId" :workload="workload ?? undefined" class="pt-2" />
+          <WorkloadLogView v-if="tab === 'logs' && workload" :organization-id="workload.organizationId" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
         </TabPanel>
       </TabPanels>
     </Tabs>
@@ -120,9 +116,11 @@ import { useToast } from 'primevue/usetoast'
 import { Kinotic } from '@kinotic-ai/core'
 import { NetworkMode, WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast,
+         workloadRun } from '@kinotic-ai/frontend-common'
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
+import { formatCpus } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
 import { workloadSeverity } from '@/util/workloads'
 
@@ -164,9 +162,6 @@ const tab = computed<string>({
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
-// A workload stopped with autoRemove has no VM left to restart
-const canRestart = computed(() => (workload.value?.status === WorkloadStatus.STOPPED && !workload.value.autoRemove)
-    || workload.value?.status === WorkloadStatus.FAILED)
 
 const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
 const allowedHosts = computed(() => workload.value?.network?.allowedHosts ?? [])
@@ -236,7 +231,7 @@ const stats = computed<Stat[]>(() => {
     },
     {
       label: 'Resources',
-      value: `${w.vcpus} vCPU`,
+      value: `${formatCpus(w.cpus)} CPU`,
       description: `${formatMb(w.memoryMb)} memory · ${formatMb(w.diskSizeMb)} disk`,
       icon: 'pi-microchip',
       accent: 'sky'

@@ -102,7 +102,7 @@ public class DefaultSignUpService implements SignUpService {
 
     /**
      * Creates the organization (failing if the name is taken), makes {@code admin} its first
-     * member and creator, then starts provisioning it. The admin (and its credential, when
+     * member and creator. The admin (and its credential, when
      * {@code password} is non-null) is created through {@link ParticipantIdentityService#createUser}
      * so member creation has a single code path.
      */
@@ -114,11 +114,7 @@ public class DefaultSignUpService implements SignUpService {
                     return identityService.createUser(admin, password)
                             .compose(savedAdmin -> {
                                 savedOrg.setCreatedBy(savedAdmin.getId());
-                                // provisioned once the record is complete, so nothing it
-                                // records races the creator being set
-                                return organizationService.save(savedOrg)
-                                                          .compose(saved -> organizationService.provision(saved.getId()))
-                                                          .map(savedAdmin);
+                                return organizationService.save(savedOrg).map(savedAdmin);
                             });
                 });
     }

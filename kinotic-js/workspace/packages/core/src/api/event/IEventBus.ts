@@ -79,10 +79,21 @@ export interface IEvent {
 export interface IEventBus {
 
     /**
-     * Any errors emitted by this observable will be fatal and the connection will be closed.
-     * You will need to resolve the problem and reconnect.
+     * Emits when the connection ends: an established connection drops before any reconnect, a failure
+     * closes it, or {@link disconnect} is called. It carries the failure that ended the connection, or
+     * null when nothing failed. The server releases everything it held for the connection at that moment:
+     * every request made on it is failed to its caller, and every invocation it was serving is failed to
+     * its requester. An end the client reconnects from leaves {@link IEventBus#isConnectionActive} true;
+     * one that needs a fresh {@link IEventBus#connect} leaves it false.
      */
-    fatalErrors: Observable<Error>
+    connectionEnded: Observable<Error | null>
+
+    /**
+     * Emits each time a connection is established: the first {@link connect}, and every reconnect the
+     * client makes after one ends. It carries the {@link ConnectedInfo} the server issued for that
+     * connection, which names the session the requests made on it belong to.
+     */
+    connectionEstablished: Observable<ConnectedInfo>
 
     /**
      * The {@link ServerInfo} used when connecting, if connected or null
@@ -174,6 +185,13 @@ export enum EventConstants {
     CONTENT_TYPE_HEADER = 'content-type',
     CONTENT_LENGTH_HEADER = 'content-length',
     REPLY_TO_HEADER = 'reply-to',
+
+    /**
+     * The participant that sent the event, as JSON. The gateway writes it on every event it delivers to a
+     * client, from the participant authenticated on the connection the event came from, and drops any a
+     * client supplies; an event that originated inside the platform with no participant bound carries none.
+     */
+    SENDER_HEADER = 'sender',
 
     /**
      * Header provided by the server on connection to provide the {@link ConnectedInfo} as a JSON string

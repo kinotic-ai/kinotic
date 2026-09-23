@@ -29,8 +29,8 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public Future<Long> countForNode(String nodeId) {
-        return workloadRepository.countForNode(nodeId);
+    public Future<Long> countRunningForNode(String nodeId) {
+        return workloadRepository.countRunningForNode(nodeId);
     }
 
     @Override

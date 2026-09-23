@@ -1,8 +1,7 @@
-import { ExecutionStatus, DeploymentStatusType, WorkloadStatus,
-         type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
+import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
-import { organizationPath, scopePath, type Scope } from './scope'
+import { scopePath, type Scope } from './scope'
 
 /** One thing an operator has to look at, and where it is handled. */
 export interface AttentionItem {
@@ -68,6 +67,14 @@ function unfitNodes(nodes: VmNode[]): AttentionItem[] {
                 detail: node.status.healthMessage ?? 'The orchestrator places nothing new on it',
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
+        } else if (node.status.type === VmNodeStatusType.UNREACHABLE) {
+            ret.push({
+                severity: 'warn',
+                icon: 'pi-server',
+                text: `${node.name} is unreachable`,
+                detail: 'A call to its vm-manager could not be delivered; the orchestrator places nothing new on it',
+                to: `/worker-nodes/${encodeURIComponent(node.id)}`
+            })
         } else if (node.status.type === VmNodeStatusType.OFFLINE) {
             ret.push({
                 severity: 'warn',
@@ -105,39 +112,12 @@ function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
     return ret
 }
 
-function storageProblem(organization: Organization, scope: Scope): AttentionItem[] {
-    const ret: AttentionItem[] = []
-    const status = organization.storage?.status
-    const runPath = organization.provisioningJobRunId
-        ? `${scopePath(scope)}/jobs/${encodeURIComponent(organization.provisioningJobRunId)}`
-        : null
-    if (status?.type === DeploymentStatusType.FAILED) {
-        ret.push({
-            severity: 'danger',
-            icon: 'pi-cloud',
-            text: `Provisioning of ${organization.name} failed`,
-            detail: status.message ?? 'Deployments are blocked until the storage exists',
-            to: scope.organizationId ? (runPath ?? scopePath(scope)) : organizationPath(organization.id ?? '')
-        })
-    } else if (scope.organizationId && status?.type === DeploymentStatusType.PROVISIONING) {
-        ret.push({
-            severity: 'warn',
-            icon: 'pi-hourglass',
-            text: 'Storage is being provisioned',
-            detail: 'The organization cannot deploy until it is ready',
-            to: runPath ?? scopePath(scope)
-        })
-    }
-    return ret
-}
-
 /** What needs an operator across the platform, failures first. */
 export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmNode[], workloads: Workload[],
-                                  runs: JobRun[], organizations: Organization[]): AttentionItem[] {
+                                  runs: JobRun[]): AttentionItem[] {
     const scope: Scope = {}
     return [
         ...failedRuns(runs, scope),
-        ...organizations.flatMap(organization => storageProblem(organization, scope)),
         ...failedWorkloads(workloads, scope),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
@@ -148,7 +128,6 @@ export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmN
 export function organizationAttention(organization: Organization, workloads: Workload[], runs: JobRun[]): AttentionItem[] {
     const scope: Scope = { organizationId: organization.id ?? '' }
     return [
-        ...storageProblem(organization, scope),
         ...failedRuns(runs, scope),
         ...failedWorkloads(workloads, scope)
     ]

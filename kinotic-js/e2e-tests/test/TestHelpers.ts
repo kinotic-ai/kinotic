@@ -71,6 +71,12 @@ export function kinoticPort(): number {
     return inject('KINOTIC_PORT') as number
 }
 
+/** STOMP port of the second cluster node; only provided by the node-failure suite's setup. */
+export function kinoticPort2(): number {
+    // @ts-ignore
+    return inject('KINOTIC_PORT_2') as number
+}
+
 /** The gateway under test as a {@link ServerInfo} — the suite always runs without TLS. */
 export function serverUnderTest(): ServerInfo {
     return {host: kinoticHost(), port: kinoticPort(), useSSL: false}
@@ -95,9 +101,9 @@ export function postForm(url: string, params: Record<string, string>): Promise<R
     })
 }
 
-export function buildConnectOptions(credentials: CredentialsResolver): ConnectOptions {
+export function buildConnectOptions(credentials: CredentialsResolver, server: ServerInfo = serverUnderTest()): ConnectOptions {
     return {
-        server: serverUnderTest(),
+        server,
         sessionKeepAlive: SessionKeepAliveMode.NONE,
         credentials
     }
@@ -131,8 +137,8 @@ export async function shutdownKinoticClient(): Promise<void> {
  * the given (applicationId, tenantId) pair by the V4__e2e_app_fixtures migration (email
  * convention app-<applicationId>-<tenantId>@test.local, password kinotic). The caller is
  * responsible for disconnecting it when done. The instance has {@code ManagementApiPlugin} and
- * {@code PersistencePlugin} installed so it can back {@code EntityRepository} /
- * {@code AdminEntityRepository} used to act on SHARED entity data.
+ * {@code PersistencePlugin} installed so it can back an {@code EntityRepository} that acts on the
+ * SHARED entity data of its own tenant.
  */
 export async function initKinoticAppClient(applicationId: string, tenantId: string): Promise<KinoticSingleton> {
     const appKinotic = new KinoticSingleton()

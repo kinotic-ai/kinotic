@@ -79,6 +79,8 @@ public class ApiGatewayVertcleFactory {
         // SessionHandler must also cover the WebSocket path — it is not under /api/*.
         router.route(STOMP_WEBSOCKET_PATH).handler(sessionHandler);
 
+        // The library's default heartbeat, 30 s offered and expected both ways, is what the TS client offers
+        // too, so the negotiated interval is 30 s and a silent connection closes after two of them
         StompServerOptions stompServerOptions = new StompServerOptions()
                 .setWebsocketPath(STOMP_WEBSOCKET_PATH)
                 .setDebugEnabled(properties.isDebug())

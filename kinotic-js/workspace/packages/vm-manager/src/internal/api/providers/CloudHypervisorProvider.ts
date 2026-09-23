@@ -125,7 +125,9 @@ export class CloudHypervisorProvider implements IVmProvider {
             HostConfig: {
                 Runtime: KATA_CLH_RUNTIME,
                 Memory: workload.memoryMb * 1024 * 1024,
-                NanoCpus: workload.vcpus * 1_000_000_000,
+                // A fraction of a core is a CPU quota on the container's cgroup, which Kata
+                // sizes the guest's vCPUs from
+                NanoCpus: Math.round(workload.cpus * 1_000_000_000),
                 // Needs overlay2 on an XFS filesystem mounted with pquota, which the node's
                 // provisioning supplies; without it the daemon refuses the container outright
                 ...(workload.diskSizeMb > 0 ? { StorageOpt: { size: `${workload.diskSizeMb}m` } } : {}),
@@ -142,7 +144,9 @@ export class CloudHypervisorProvider implements IVmProvider {
                 },
                 NetworkMode: networkMode === NetworkMode.DISABLED ? 'none' : 'bridge',
                 // Pinned so the resolver the egress rules permit is the one the guest is given,
-                // rather than whatever the daemon happened to inject
+                // rather than whatever the daemon happened to inject — and, on a node whose
+                // resolver feeds the egress ipsets, the one whose answers a hostname in the
+                // policy is enforced against
                 ...(this.resolver !== null ? { Dns: [this.resolver] } : {}),
                 PortBindings: portBindings,
                 // The vm-manager owns restarts, so the daemon must not resurrect a workload
@@ -225,6 +229,7 @@ export class CloudHypervisorProvider implements IVmProvider {
 
             const otlp = await this.issueEndpoint(workload)
             this.requireEnforcement(workload, otlp !== null)
+            this.prepareEgressPolicy(workload)
             // The receiver is bound to the gateway, which is also where the guest reaches it
             const container = await this.docker.createContainer(
                 this.buildCreateOptions(workload, AlloyManager.guestEnvironment(workload, otlp?.listenAddress ?? '', otlp)))
@@ -239,42 +244,6 @@ export class CloudHypervisorProvider implements IVmProvider {
         } catch (error) {
             workload.status = WorkloadStatus.FAILED
             this.containers.delete(id)
-            throw error
-        } finally {
-            workload.updated = Date.now()
-            this.persist(workload)
-        }
-
-        return workload
-    }
-
-    async restart(workloadId: string): Promise<Workload> {
-        const workload = this.requireWorkload(workloadId)
-        if (workload.status !== WorkloadStatus.STOPPED) {
-            throw new Error(`Workload ${workloadId} is not stopped (status: ${workload.status})`)
-        }
-
-        workload.status = WorkloadStatus.STARTING
-        workload.updated = Date.now()
-        workload.exitCode = null
-        this.persist(workload)
-
-        try {
-            this.requireEnforcement(workload, this.alloyManager?.endpointOf(workloadId) !== null)
-            // Starting the stopped container again keeps its writable layer, so the workload
-            // resumes with the disk state it had
-            const container = this.docker.getContainer(workloadId)
-            await container.start()
-
-            const info = await container.inspect()
-            this.applyEgressPolicy(workload, info)
-            this.containers.set(workloadId, { containerId: info.Id, logPath: info.LogPath })
-
-            workload.status = WorkloadStatus.RUNNING
-            this.exitWatches.set(workloadId, this.watchExit(workload))
-        } catch (error) {
-            workload.status = WorkloadStatus.FAILED
-            this.containers.delete(workloadId)
             throw error
         } finally {
             workload.updated = Date.now()
@@ -302,21 +271,16 @@ export class CloudHypervisorProvider implements IVmProvider {
         workload.exitCode = (await container.inspect()).State.ExitCode
         this.egress.release(workloadId)
 
-        // Implements Workload.autoRemove: the container is created without Docker's own
-        // auto-remove so that a stopped workload can be restarted when the flag is off
-        if (workload.autoRemove ?? false) {
-            await this.removeContainer(workloadId)
-            this.mounts.releaseQuotas(workload)
-            this.containers.delete(workloadId)
-        }
-
         workload.status = WorkloadStatus.STOPPED
         workload.updated = Date.now()
         this.persist(workload)
     }
 
     async destroy(workloadId: string): Promise<void> {
-        const workload = this.requireWorkload(workloadId)
+        const workload = this.workloads.get(workloadId)
+        if (!workload) {
+            return
+        }
 
         await this.removeContainer(workloadId)
         this.mounts.releaseQuotas(workload)
@@ -367,7 +331,7 @@ export class CloudHypervisorProvider implements IVmProvider {
             info = await this.docker.getContainer(id).inspect()
             this.containers.set(id, { containerId: info.Id, logPath: info.LogPath })
         } catch {
-            // Removed (autoRemove) or never created — nothing on the node to attach to
+            // Removed or never created — nothing on the node to attach to
         }
         if (workload.status !== WorkloadStatus.STARTING &&
             workload.status !== WorkloadStatus.RUNNING &&
@@ -485,6 +449,17 @@ export class CloudHypervisorProvider implements IVmProvider {
         if (grants.length > 0 && !this.egress.enforces()) {
             throw new Error(`Workload ${workload.id} needs ${grants.join(' and ')}, but this node does not `
                             + 'deny workload egress by default, so it cannot grant them')
+        }
+    }
+
+    /**
+     * Readies the resolver for the workload's allowed names before its micro VM boots, so the
+     * guest's first lookup is answered by an instance that fills the sets; the rules themselves
+     * need the guest's address and follow in {@link applyEgressPolicy}.
+     */
+    private prepareEgressPolicy(workload: Workload): void {
+        if (this.egress.enforces()) {
+            this.egress.prepare(workload.id!, workload.network?.allowedHosts ?? [])
         }
     }
 

@@ -35,11 +35,11 @@ function sharedKeyHeaders(method: string, url: string, contentLength: number = 0
     return headers
 }
 
-/** A container SAS allowing create and write for an hour, signed the way the platform signs upload URLs. */
+/** A container SAS allowing create, write, delete and list for an hour, the permissions the platform's upload URL carries. */
 function containerSas(): string {
     const start = new Date(Date.now() - 5 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
     const expiry = new Date(Date.now() + 60 * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z')
-    const permissions = 'cw'
+    const permissions = 'cwdl'
     const stringToSign = [permissions, start, expiry, `/blob/${ACCOUNT}/${CONTAINER}`, '', '', 'https,http', SAS_VERSION,
                           'c', '', '', '', '', '', '', ''].join('\n')
     const signature = createHmac('sha256', Buffer.from(ACCOUNT_KEY, 'base64')).update(stringToSign, 'utf-8').digest('base64')
@@ -89,45 +89,54 @@ describe.skipIf(!azurite)('publish-ui entrypoint (against Azurite)', () => {
         rmSync(workspaceDir, { recursive: true, force: true })
     })
 
-    it('uploads dist as it is, stamped with the commit, then version.json, then index.html, with their cache policies', async () => {
+    it('uploads dist as it is into the site\'s directory, stamped with the commit, then version.json, then index.html, with their cache policies', async () => {
         const sha = 'a'.repeat(40)
-        const uploadUrl = `${ENDPOINT}/${CONTAINER}/prod/shop/ui?${containerSas()}`
+        // one upload URL per UI, each naming the site's directory
+        const uploadUrls = JSON.stringify({ admin: `${ENDPOINT}/${CONTAINER}/admin.apps.kinotic.test?${containerSas()}` })
+
+        // a file an earlier publish left behind, stamped with its commit
+        const staleUrl = `${ENDPOINT}/${CONTAINER}/admin.apps.kinotic.test/assets/old.js`
+        const stale = await fetch(staleUrl, { method: 'PUT', body: '// stale',
+            headers: sharedKeyHeaders('PUT', staleUrl, 8, { 'x-ms-blob-type': 'BlockBlob', 'x-ms-meta-commit': 'b'.repeat(40) }) })
+        expect(stale.status).toBe(201)
 
         const result = spawnSync('bun', [PUBLISH], {
-            env: { ...process.env, KINOTIC_UI_UPLOAD_URL: uploadUrl, KINOTIC_UI_COMMIT: sha, KINOTIC_WORKSPACE_DIR: workspaceDir },
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: uploadUrls, KINOTIC_UI_COMMIT: sha, KINOTIC_WORKSPACE_DIR: workspaceDir },
             encoding: 'utf-8',
         })
 
         expect(result.stderr).toBe('')
         expect(result.status).toBe(0)
 
-        const asset = await readBlob('prod/shop/ui/admin/assets/deep/style.css')
+        const asset = await readBlob('admin.apps.kinotic.test/assets/deep/style.css')
         expect(asset.status).toBe(200)
         expect(await asset.text()).toBe('body{}')
         expect(asset.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
         expect(asset.headers.get('content-type')).toContain('text/css')
         expect(asset.headers.get('x-ms-meta-commit')).toBe(sha)
 
-        const icon = await readBlob('prod/shop/ui/admin/favicon.ico')
+        const icon = await readBlob('admin.apps.kinotic.test/favicon.ico')
         expect(await icon.text()).toBe('icon')
         expect(icon.headers.get('cache-control')).toBe('no-cache')
 
-        const version = await readBlob('prod/shop/ui/admin/version.json')
+        const version = await readBlob('admin.apps.kinotic.test/version.json')
         expect(await version.json()).toEqual({ commitSha: sha })
         expect(version.headers.get('cache-control')).toBe('no-cache')
 
-        const index = await readBlob('prod/shop/ui/admin/index.html')
+        const index = await readBlob('admin.apps.kinotic.test/index.html')
         expect(await index.text()).toBe('<html>admin</html>')
         expect(index.headers.get('cache-control')).toBe('no-cache')
         expect(index.headers.get('content-type')).toContain('text/html')
         expect(index.headers.get('x-ms-meta-commit')).toBe(sha)
+
+        expect((await readBlob('admin.apps.kinotic.test/assets/old.js')).status).toBe(404)
     }, 60_000)
 
     it('fails when a UI was not built', async () => {
         rmSync(join(workspaceDir, 'packages', 'ui', 'admin', 'dist'), { recursive: true })
 
         const result = spawnSync('bun', [PUBLISH], {
-            env: { ...process.env, KINOTIC_UI_UPLOAD_URL: `${ENDPOINT}/${CONTAINER}/prod/shop/ui?${containerSas()}`,
+            env: { ...process.env, KINOTIC_UI_UPLOAD_URLS: JSON.stringify({ admin: `${ENDPOINT}/${CONTAINER}/admin.apps.kinotic.test?${containerSas()}` }),
                    KINOTIC_UI_COMMIT: 'b'.repeat(40), KINOTIC_WORKSPACE_DIR: workspaceDir },
             encoding: 'utf-8',
         })
