@@ -6,8 +6,8 @@ package org.kinotic.auth.api.engine;
  * <p>
  * Policies are registered once per action (typically at service-registration time) via
  * {@link #registerPolicy}; each request is then evaluated with {@link #isAuthorized}.
- * Implementations target a specific evaluation backend (e.g. Cedar, jCasbin) but share this
- * contract, so the same ABAC expression and request can be evaluated against any of them.
+ * Implementations target a specific evaluation backend but share this contract, so the same ABAC
+ * expression and request can be evaluated against any of them.
  */
 public interface AuthorizationEngine {
 

@@ -107,16 +107,7 @@ dependencyManagement {
         dependency "com.github.ben-manes.caffeine:caffeine:${caffeineVersion}"
         dependency "com.github.jknack:handlebars:${handlebarsVersion}"
 
-        // Overrides the Spring Boot BOM: CEL and the SpiceDB client are generated against protobuf 4.35,
-        // and the protobuf runtime refuses to load gencode newer than itself.
-        dependency "com.google.protobuf:protobuf-java:${protobufVersion}"
-        dependency "com.google.protobuf:protobuf-java-util:${protobufVersion}"
-
         dependency "commons-io:commons-io:${commonsIoVersion}"
-
-        dependency "dev.cel:cel:${celVersion}"
-
-        dependency "org.apache.commons:commons-jexl3:${commonsJexlVersion}"
 
         dependency "io.grpc:grpc-api:${grpcVersion}"
         dependency "io.grpc:grpc-context:${grpcVersion}"

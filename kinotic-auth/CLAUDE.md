@@ -17,7 +17,8 @@
 - Hand-written visitor and parsing glue code belongs in `org.kinotic.auth.parsers` (plural) — the singular `org.kinotic.auth.parser` package is reserved for ANTLR-generated files.
 - Always keep the `@AbacPolicy` annotation and `AbacPolicyDecorator` in `api` packages — they are part of the public surface consumed by `kinotic-core`, `kinotic-persistence`, and `kinotic-rpc-gateway`.
 - The `EsQueryCompiler` must only produce document field references from resource/entity paths — participant and context paths must always be resolved to concrete values at compile time via the `participantAttributes` map.
-- The `CedarCompiler` maps `participant.*` to Cedar `principal.*` and every other root (entity, method parameters) to `resource.<root>.*` — nested under the resource by name to match the request the gateway builds. `CasbinCompiler` mirrors this for jCasbin: `participant.*` → `r.sub.*`, every other root → `r.obj.<root>.*`.
+- The `SpelCompiler` maps `participant.*` to `sub.*` and every other root (entity, method parameters) to `obj.<root>.*` — nested under the named-argument map by parameter name, matching the request the gateway builds.
+- `SpelCompiler` may emit only map navigation, indexing, operators, literals and the registered `#contains`/`#like` functions — never method invocation, `T(...)`, `new` or `@bean` — because `SpelAuthorizationService` evaluates on a `SimpleEvaluationContext` that forbids all of those. Every path operand must stay null-guarded: SpEL orders null below every value, so an unguarded comparison against a missing attribute allows instead of denying.
 
 ## Package Structure
 
@@ -26,12 +27,11 @@
 | `org.kinotic.auth.api.annotations` | `@AbacPolicy` annotation for published Java service methods |
 | `org.kinotic.auth.api.decorators` | `AbacPolicyDecorator` for attaching policies to entity definitions via C3 IDL |
 | `org.kinotic.auth.api.expressions` | Sealed AST types: `PolicyExpression`, `ComparisonExpression`, `AndExpression`, `OrExpression`, `NotExpression`, `AttributePath`, `LiteralValue`, `ArrayValue` |
-| `org.kinotic.auth.api.engine` | `AuthorizationEngine` SPI and `AuthorizationRequest` — the engine-neutral contract both the Cedar and jCasbin services implement |
+| `org.kinotic.auth.api.engine` | `AuthorizationEngine` SPI and `AuthorizationRequest` — the engine-neutral contract `SpelAuthorizationService` implements |
 | `org.kinotic.auth.parser` | **ANTLR-generated** lexer, parser, visitor, and listener — do not edit |
 | `org.kinotic.auth.parsers` | Hand-written `PolicyExpressionParser` (ANTLR visitor that produces the AST) and `PolicyParseException` |
-| `org.kinotic.auth.compilers` | `CedarCompiler` (AST → Cedar condition), `CasbinCompiler` (AST → AviatorScript condition), `CelCompiler` (AST → CEL expression), `EsQueryCompiler` (AST → Elasticsearch `Query`), and the shared `GlobPattern` (`like` glob → anchored regex) |
-| `org.kinotic.auth.cedar` | `CedarAuthorizationService` — Cedar engine that calls JNI directly with streaming JSON (no POJO round-trip) |
-| `org.kinotic.auth.casbin` | `CasbinAuthorizationService` — pure-JVM engine evaluating pre-compiled AviatorScript matchers (Casbin's matcher language), no native library |
+| `org.kinotic.auth.compilers` | `SpelCompiler` (AST → SpEL expression) and `EsQueryCompiler` (AST → Elasticsearch `Query`) |
+| `org.kinotic.auth.spel` | `SpelAuthorizationService` — the allow/deny engine: sandboxed SpEL (no methods, type references, constructors, bean references or assignment) with `SpelPolicyFunctions` providing `#contains` and `#like` |
 
 ## Expression Language
 
@@ -55,12 +55,10 @@ entity.approvedBy exists
 
 | Compiler | Input | Output | Use Case |
 |---|---|---|---|
-| `CedarCompiler` | `PolicyExpression` AST | Cedar condition string (body of a `when` clause) | Gateway-level allow/deny evaluation via Cedar in-process JNI |
-| `CasbinCompiler` | `PolicyExpression` AST | AviatorScript boolean condition | Gateway-level allow/deny evaluation via pre-compiled AviatorScript (the engine Casbin uses for ABAC) |
-| `CelCompiler` | `PolicyExpression` AST | CEL boolean expression | Candidate in-process evaluator sharing SpiceDB's condition language; measured against AviatorScript in `EngineComparisonTest` |
+| `SpelCompiler` | `PolicyExpression` AST | SpEL boolean expression | Gateway-level allow/deny evaluation in-process by `SpelAuthorizationService` (the production engine) |
 | `EsQueryCompiler` | `PolicyExpression` AST + participant attributes map | Elasticsearch `Query` | Injected as filter into read queries so only authorized documents are returned |
 
-For service method policies, the gateway transforms raw JSON argument arrays into named objects using registered parameter names. The CedarCompiler maps these parameter names to `resource.*` attributes, enabling Cedar expressions like `resource.order.amount < 50000` for a method parameter named `order`.
+For service method policies, the gateway transforms raw JSON argument arrays into named objects using registered parameter names. `SpelCompiler` nests those names under `obj`, so a policy path `order.amount` evaluates as `obj.order.amount` for a method parameter named `order`.
 
 ## Module Dependencies
 
@@ -68,6 +66,6 @@ For service method policies, the gateway transforms raw JSON argument arrays int
 |---|---|
 | `kinotic-idl` | `C3Decorator`, `DecoratorTarget` used by `AbacPolicyDecorator` |
 | `co.elastic.clients:elasticsearch-java` | Elasticsearch `Query`, `BoolQuery`, `FieldValue` types used by `EsQueryCompiler` |
-| `com.cedarpolicy:cedar-java` | Cedar authorization engine for in-process policy evaluation via JNI |
-| `org.casbin:jcasbin` | Provides the AviatorScript engine used (pre-compiled) for the jCasbin-style ABAC comparison |
+| `org.springframework:spring-expression` | SpEL parser, compiler and `SimpleEvaluationContext` used by `SpelAuthorizationService` |
+| `org.springframework:spring-context` | `MapAccessor`, the only property accessor on the sandboxed SpEL context |
 | `org.antlr:antlr4-runtime` | ANTLR runtime for the generated parser |

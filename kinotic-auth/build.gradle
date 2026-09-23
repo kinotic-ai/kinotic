@@ -41,30 +41,12 @@ dependencies {
 	implementation 'org.antlr:antlr4-runtime:4.13.2'
 	antlr 'org.antlr:antlr4:4.13.2'
 
-    // Cedar (uber jar bundles the native library and old Jackson internally)
-    implementation 'com.cedarpolicy:cedar-java:4.8.0:uber'
-    // Cedar SDK uses old Jackson (com.fasterxml) for policy serialization
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.18.3'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
-    // jackson-annotations is shared with tools.jackson (Jackson 3) databind and must be at least
-    // the version tools.jackson's BOM requires (3.1.x needs 2.21, e.g. JsonSerializeAs); this
-    // explicit pin overrides the lower Jackson 2 managed version. Bump it alongside tools.jackson.
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.21'
-    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.18.3'
-
-    // jCasbin provides the AviatorScript matcher engine; CasbinAuthorizationService evaluates
-    // pre-compiled AviatorScript expressions directly (jCasbin's Enforcer recompiles per call).
-    implementation 'org.casbin:jcasbin:1.99.0'
+    // SpEL evaluator for the fine-grained gate; spring-context supplies MapAccessor
+    implementation 'org.springframework:spring-expression'
+    implementation 'org.springframework:spring-context'
 
     // Testing
     testImplementation 'org.junit.jupiter:junit-jupiter'
-    // Candidate in-process evaluators measured against Aviator in EngineComparisonTest
-    testImplementation 'dev.cel:cel'
-    testImplementation 'org.springframework:spring-expression'
-    testImplementation 'org.springframework:spring-context'
-    testImplementation 'org.apache.commons:commons-jexl3'
-    testImplementation 'org.codehaus.janino:janino'
-    testImplementation 'org.apache.tomcat.embed:tomcat-embed-el'
     // SpiceDB Java client + gRPC transport for the coarse-gate benchmark (skips without a server)
     testImplementation 'com.authzed.api:authzed'
     testImplementation 'io.grpc:grpc-api'

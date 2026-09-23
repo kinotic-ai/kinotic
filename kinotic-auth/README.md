@@ -148,44 +148,25 @@ entity.status == 'active' and entity.department == participant.department
 
 The AST produced by parsing a policy string can be compiled to multiple evaluation targets.
 
-### Cedar (`CedarCompiler`)
+### SpEL (`SpelCompiler`) — the allow/deny engine
 
-Compiles to a Cedar `when` clause body for allow/deny evaluation:
-
-```java
-PolicyExpression expr = PolicyExpressionParser.parse(
-    "participant.role contains 'finance' and order.amount < 50000");
-String cedarCondition = CedarCompiler.compile(expr);
-// → (principal.role.contains("finance") && resource.order.amount < 50000)
-```
-
-Path mapping:
-
-| Policy path | Cedar path |
-|---|---|
-| `participant.*` | `principal.*` |
-| `context.*` | `context.*` |
-| Everything else | `resource.<root>.*` |
-
-### jCasbin (`CasbinCompiler`)
-
-Compiles to an AviatorScript condition evaluated by the jCasbin engine — a pure-JVM ABAC engine that needs no native library:
+Compiles to a SpEL expression that `SpelAuthorizationService` evaluates in-process, with SpEL compiling hot expressions to bytecode:
 
 ```java
 PolicyExpression expr = PolicyExpressionParser.parse(
     "participant.role contains 'finance' and order.amount < 50000");
-String condition = CasbinCompiler.compile(expr);
-// → (r.sub.role != nil && include(r.sub.role, "finance")) && (r.obj.order.amount != nil && r.obj.order.amount < 50000)
+String spel = SpelCompiler.compile(expr);
+// → ((sub.role != null && #contains(sub.role, 'finance')) && (obj.order.amount != null && obj.order.amount < 50000L))
 ```
 
-Every path operand is guarded against `nil`: AviatorScript orders `nil` below every value, so an absent attribute would otherwise satisfy any upper bound or inequality instead of denying.
+The output uses only map navigation, indexing, operators, literals and the two registered functions `#contains` and `#like`. The service evaluates it on a `SimpleEvaluationContext` that permits nothing else — no method invocation, type references (`T(...)`), constructors, bean references or assignment — so a policy string, or a hostile value inside one, can never reach the JVM beyond the request data. Every path operand is guarded against `null` because SpEL orders `null` below every value; a missing attribute denies.
 
 Path mapping:
 
-| Policy path | AviatorScript path |
+| Policy path | SpEL path |
 |---|---|
-| `participant.*` | `r.sub.*` |
-| Everything else | `r.obj.<root>.*` |
+| `participant.*` | `sub.*` |
+| Everything else | `obj.<root>.*` |
 
 ### Elasticsearch (`EsQueryCompiler`)
 
