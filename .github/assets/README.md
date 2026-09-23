@@ -32,6 +32,12 @@ node render.js        # screenshots them at 2x into the PNGs beside it
 `render.js` finds Chromium through `CHROME`, then `PLAYWRIGHT_BROWSERS_PATH`, then the usual
 system locations. `build/` is scratch and is not committed.
 
+Before it screenshots a page, `render.js` compares each `<svg>`'s `getBBox()` against its
+`viewBox` and refuses to render if any geometry falls outside. An svg clips to its own
+viewport, so a slab drawn past the bottom edge is cropped silently at the full declared
+height — the page measures correctly and the PNG is wrong. That is how the abstraction
+layer shipped with 12px of its ground slab missing.
+
 ### Why the narrow variant renders at 3x and the wide one at 2x
 
 Each is rendered at the density the screen it lands on actually asks for:

@@ -75,7 +75,7 @@ def abstraction_layer(t):
         f'<path d="M {x} {y} L 232 {y}" stroke="{t["line"]}" stroke-width="1"/>'
         f'<circle cx="232" cy="{y}" r="2" fill="{t["line"]}"/>'
         for x, y in ((184, 135), (199, 175), (212, 250)))
-    svg = (f'<svg width="440" height="292" viewBox="0 30 440 292" role="img" '
+    svg = (f'<svg width="440" height="302" viewBox="-5 23 440 302" role="img" '
            f'aria-label="Developers and AI agents work through the Kinotic application model, '
            f'which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage">'
            f'{leaders}{g}{feed}'
@@ -90,7 +90,7 @@ def abstraction_layer(t):
            f'<text x="244" y="246" class="t-name-dim">Kubernetes · cloud</text>'
            f'<text x="244" y="263" class="t-sub">networking · storage</text>'
            f'</svg>')
-    return f'<div class="d" style="width:440px;height:316px">{svg}</div>'
+    return f'<div class="d" style="width:440px;height:326px">{svg}</div>'
 
 # ---------------------------------------------------------------- diagram 2
 
@@ -126,7 +126,7 @@ def environments(t):
             f'<path d="M 30 138 L 30 256" stroke="{t["rail"]}" stroke-width="1.5"/>'
             f'<path d="M 30 264 l -3.5 -8 h 7 z" fill="{t["rail"]}"/>')
     promote = ''.join(f'<text x="64" y="{y}" class="t-cap-up">promote</text>' for y in (180, 236))
-    svg = (f'<svg width="300" height="280" viewBox="0 8 300 280" role="img" '
+    svg = (f'<svg width="300" height="280" viewBox="-37 8 300 280" role="img" '
            f'aria-label="A feature branch gets an isolated environment that is built and tested, '
            f'then promoted through development, staging and production">'
            f'{line}{ring(24)}{ring(76)}{cubes}'
@@ -212,7 +212,7 @@ def w_abstraction_layer(t):
         f'<path d="M {x} {y} L 300 {y}" stroke="{t["line"]}" stroke-width="1"/>'
         f'<circle cx="300" cy="{y}" r="2" fill="{t["line"]}"/>'
         for x, y in ((251, 150), (269, 196), (285, 282)))
-    svg = (f'<svg width="560" height="322" viewBox="0 26 560 322" role="img" '
+    svg = (f'<svg width="560" height="344" viewBox="-15 26 560 344" role="img" '
            f'aria-label="Developers and AI agents work through the Kinotic application model, '
            f'which sits on Kinotic OS, which sits on Kubernetes, cloud, networking and storage">'
            f'{leaders}{g}{feed}'
@@ -227,7 +227,7 @@ def w_abstraction_layer(t):
            f'<text x="312" y="278" class="t-name-dim">Kubernetes · cloud</text>'
            f'<text x="312" y="295" class="t-sub">networking · storage</text>'
            f'</svg>')
-    return f'<div class="d" style="width:560px;height:346px">{svg}</div>'
+    return f'<div class="d" style="width:560px;height:368px">{svg}</div>'
 
 
 def w_core_concepts(t):
@@ -258,7 +258,7 @@ def w_environments(t):
     drop = (f'<path d="M 232 4 C 232 70 150 64 150 122" fill="none" stroke="{t["mintEdge"]}" '
             f'stroke-width="1.5" stroke-dasharray="4 4"/>'
             f'<path d="M 150 131 l -4 -8 h 8 z" fill="{t["mintEdge"]}"/>')
-    svg = (f'<svg width="620" height="214" viewBox="0 0 620 214" role="img" '
+    svg = (f'<svg width="620" height="214" viewBox="29 0 620 214" role="img" '
            f'aria-label="A feature branch gets an isolated environment that is built and tested, '
            f'then promoted through development, staging and production">'
            f'{drop}{rail}{cubes}{names}{promote}</svg>')
@@ -432,7 +432,7 @@ border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:
 # key, title, narrow (fn, w, h), wide (fn, w, h)
 SPECS = [
     ('abstraction-layer', 'A different abstraction layer',
-     (abstraction_layer, 440, 316), (w_abstraction_layer, 560, 346)),
+     (abstraction_layer, 440, 326), (w_abstraction_layer, 560, 368)),
     ('core-concepts', 'Core concepts',
      (core_concepts, 440, 280), (w_core_concepts, 620, 202)),
     ('environments', 'CI/CD environments',

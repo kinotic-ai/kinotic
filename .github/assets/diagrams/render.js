@@ -50,6 +50,26 @@ async function main() {
     await send('Emulation.setDeviceMetricsOverride',
       { width: job.w, height: job.h, deviceScaleFactor: 1, mobile: false });
     await sleep(900);
+    // An svg clips to its viewport, so geometry outside the viewBox is cropped at full
+    // declared height and no DOM measurement can see it. Compare the two directly.
+    const clipped = await send('Runtime.evaluate', {
+      returnByValue: true,
+      expression: `[...document.querySelectorAll('svg[viewBox]')]
+        .filter(s => s.getAttribute('aria-hidden') !== 'true')
+        .flatMap(s => {
+          const vb = s.getAttribute('viewBox').split(/\\s+/).map(Number);
+          const b = s.getBBox();
+          return Object.entries({
+            top: vb[1] - b.y,
+            bottom: (b.y + b.height) - (vb[1] + vb[3]),
+            left: vb[0] - b.x,
+            right: (b.x + b.width) - (vb[0] + vb[2]),
+          }).filter(([, v]) => v > 0.5).map(([k, v]) => k + ' by ' + Math.round(v) + 'px');
+        }).join(', ')`,
+    });
+    if (clipped.result.value) {
+      throw new Error(`${job.html}: geometry outside the viewBox — ${clipped.result.value}`);
+    }
     const shot = await send('Page.captureScreenshot', {
       format: 'png',
       captureBeyondViewport: true,
