@@ -1,1 +1,0 @@
-{"id":"25a706b02e8ff01ef07def52ff4e974b","fullName":"org.kinotic.test.tests.sql.CompositeTypeTest.whenInsertUnionLiteral_thenVariantStoredAndSwitchable","name":"whenInsertUnionLiteral_thenVariantStoredAndSwitchable()","status":"passed","testResultsByEnv":{"default":"60b7e7f4197891120b852b88f28a9bf3"}}
