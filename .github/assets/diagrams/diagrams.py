@@ -196,7 +196,7 @@ def vision(t):
                                ('Production', 0)], True)
     new = lane('Increasingly', [('Human', 0), ('Intent', 1), ('AI agent', 1), ('Software', 0),
                                 ('Production', 0)], False)
-    return f'<div class="d" style="width:440px;height:298px"><div class="lanes">{old}{new}</div></div>'
+    return f'<div class="d" style="width:440px;height:299px"><div class="lanes">{old}{new}</div></div>'
 
 # ================================================================ wide variants
 # Same content and type scale as the narrow set, laid out for a desktop column.
@@ -403,8 +403,8 @@ background:{t['panel']}}}
 font:500 11px 'Fira Code',monospace;letter-spacing:.04em;color:{t['muted']}}}
 {p} .lanes{{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}}
 {p} .lane{{display:flex;flex-direction:column;gap:10px}}
-{p} .lane-l{{font:600 11px 'Figtree',sans-serif;letter-spacing:.12em;text-transform:uppercase;
-color:{t['body']}}}
+{p} .lane-l{{font:600 12px 'Figtree',sans-serif;letter-spacing:.1em;text-transform:uppercase;
+color:{t['text']}}}
 {p} .lane-c{{display:flex;flex-direction:column;align-items:center;gap:3px}}
 {p} .v-chip{{font:600 13px 'Figtree',sans-serif;color:{t['text']};border:1px solid {t['line']};
 border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:center}}
@@ -423,7 +423,7 @@ border-radius:8px;padding:8px 12px;background:{t['chip']};width:100%;text-align:
 {p} .tile-core-row{{flex-direction:row;align-items:baseline;justify-content:flex-start;gap:12px}}
 {p} .lanes-row{{display:flex;flex-direction:column;gap:18px}}
 {p} .lane-row{{flex-direction:row;align-items:center;gap:14px}}
-{p} .lane-l-row{{width:104px;flex:none;text-align:right}}
+{p} .lane-l-row{{width:116px;flex:none;text-align:right}}
 {p} .lane-r{{display:flex;align-items:center;gap:8px}}
 {p} .v-arrow{{color:{t['dim']};font-size:14px}}
 {p} .v-chip-row{{width:auto}}
@@ -440,7 +440,7 @@ SPECS = [
     ('architecture', 'Architecture',
      (architecture, 440, 785), (w_architecture, 880, 498)),
     ('vision', 'The vision',
-     (vision, 440, 298), (w_vision, 660, 108)),
+     (vision, 440, 299), (w_vision, 660, 108)),
 ]
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
