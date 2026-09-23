@@ -32,6 +32,12 @@ node render.js        # screenshots them at 2x into the PNGs beside it
 `render.js` finds Chromium through `CHROME`, then `PLAYWRIGHT_BROWSERS_PATH`, then the usual
 system locations. `build/` is scratch and is not committed.
 
+Before it screenshots a page, `render.js` compares each `<svg>`'s `getBBox()` against its
+`viewBox` and refuses to render if any geometry falls outside. An svg clips to its own
+viewport, so a slab drawn past the bottom edge is cropped silently at the full declared
+height — the page measures correctly and the PNG is wrong. That is how the abstraction
+layer shipped with 12px of its ground slab missing.
+
 ### Why the narrow variant renders at 3x and the wide one at 2x
 
 Each is rendered at the density the screen it lands on actually asks for:
@@ -78,6 +84,11 @@ exactly. Package names are set in the mono face; everything else is Figtree.
 neutral ramp what a caller brings, `#2B2A32` the infrastructure underneath — dark in both
 themes, because it is not ours. Red appears only on the AI-agent cube, matching
 `marks/humans-and-agents.svg`; it never marks a component.
+
+**18px of air on top, 6px underneath.** GitHub leaves 16px between a paragraph and the
+image after it but 24px or more before the heading that follows, so a diagram with no
+padding of its own sits closer to the text above than the text below. The padding is inside
+`.d`, which is `border-box`, so every declared height carries the 24px.
 
 **Isometry only where it means something.** The abstraction layer is a stack, so it is drawn
 as isometric slabs; promotion moves forward, so its environments are cubes on a line.

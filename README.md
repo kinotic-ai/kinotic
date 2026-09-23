@@ -96,16 +96,7 @@ AI coding systems are making software creation nearly free.
 
 Kinotic provides an application-level model that understands:
 
-- applications
-- projects
-- domain models
-- services
-- APIs
-- permissions
-- artifacts
-- environments
-- deployments
-- runtime behavior
+applications&nbsp;· projects&nbsp;· domain&nbsp;models&nbsp;· services&nbsp;· APIs&nbsp;· permissions&nbsp;· artifacts&nbsp;· environments&nbsp;· deployments&nbsp;· runtime&nbsp;behavior
 
 This gives both humans and AI agents a constrained, inspectable way to create and operate software.
 
