@@ -87,7 +87,7 @@ public interface Reconcilable<S> extends Watched {
 @Getter @Setter @Accessors(chain = true) @NoArgsConstructor
 public class WatchedState {
     private List<StatusCondition> conditions = new ArrayList<>();   // one entry per type; each type names its one writer
-    private RecordRef parent;                           // told when this record changes; its deletion takes this record along
+    private RecordRef ref;                              // the record this one belongs to: told when this changes, and its deletion takes this along
 }
 
 @Getter @Setter @Accessors(chain = true) @NoArgsConstructor
@@ -101,7 +101,8 @@ public class ReconcileState<S> extends WatchedState {
 }
 
 public record StatusCondition(StatusConditionType type, String message, Date since) {}
-public record RecordRef(String type, String id) {}
+public enum RecordType { WORKLOAD, PROJECT_DEPLOYMENT, MICROSERVICE_DEPLOYMENT, UI_DEPLOYMENT, VM_NODE }
+public record RecordRef(RecordType type, String id) {}   // a closed set, so an enum, where K8s needs a kind string
 
 // the comparable core: the same small record on both sides, reusing the enums that exist
 public record DeploymentState(DeploymentStatusType phase, String commitSha) {}    // Project, Microservice and Ui deployments
@@ -119,7 +120,7 @@ public class Workload implements Watched {
 }
 
 // a reconcilable composes the same field with the extended type, so state.conditions and
-// state.parent are one path on every index
+// state.ref are one path on every index
 public class MicroserviceDeployment implements Reconcilable<DeploymentState> {
     private ReconcileState<DeploymentState> state = new ReconcileState<>();
     private String workloadId; private String machineIdentityId; private String failureMessage; ...
@@ -153,11 +154,11 @@ public class MicroserviceDeployment implements Reconcilable<DeploymentState> {
 ### Writes: two repositories, scripts, one shard operation each
 
 ```java
-// kinotic-domain: the only writer of state.conditions and state.parent on any index, and the ledger
+// kinotic-domain: the only writer of state.conditions and state.ref on any index, and the ledger
 public class WatchedStateRepository {
     Future<Void> setCondition(String indexName, String id, StatusCondition c);          // noop when the type is present
     Future<Void> clearCondition(String indexName, String id, StatusConditionType t);    // noop when absent
-    Future<Void> setParent(String indexName, String id, RecordRef parent);
+    Future<Void> setRef(String indexName, String id, RecordRef ref);
     Future<Void> record(RecordRef ref, RecordEventKind kind, String source, String message, Object value);   // the ledger, RecordChanged on the fabric
 }
 
@@ -210,7 +211,7 @@ public class ReconcileMaster implements Service {
     @SpringResource(resourceClass = ReconcilerRegistry.class) private transient ReconcilerRegistry workers;
     // init(): eventFabric.consume(RecordChanged.class, this::enqueue); resync timer. Routing reads Watched, reconciling reads Reconcilable
     // resync: for each registered repository, findUnreconciled(page) -> enqueue
-    // enqueue(event): the record's key, and its parent's key when it has one
+    // enqueue(event): the record's key, and its ref's key when it has one
     // execute(): drain the keyed queue: (type, id) -> attempts. A key in flight is not re-entered, a change
     //            during flight requeues it once, a failure backs off, Requeue.AFTER sets a timer
     private Future<Requeue> run(ReconcileKey key) {
@@ -227,23 +228,29 @@ public interface Reconciler<R extends Reconcilable<?>> {
 ```
 
 - The master knows the envelope and nothing else. It never opens a state record; it compares none
-  of their fields; it queries `state.reconciled` and routes by `parent`.
+  of their fields; it queries `state.reconciled` and routes by `ref`.
 - Workers run in the master's JVM, the Kubernetes controller-manager shape: one leader-elected
   process runs every controller, and the heavy work already runs elsewhere as grind jobs and
   workloads, so a worker is I/O. Publishing the workers over RPC would spread that I/O at the cost of
   serializing the record per call and a worker node dying mid-reconcile; nothing in `Reconciler`
   changes if that is ever wanted, so it is not designed in.
-- `parent` is the pointer up. Today `MicroserviceDeployment.workloadId` points down only; the event
+- `ref` is the pointer up and nothing else: who acts when this record changes, and whose deletion
+  takes it along. Every other relation is a field on the entity and a query by the worker that owns
+  the relation: a node's runs are `WHERE nodeId = :id`, found by `Reconciler<VmNode>` when the node
+  falls silent, the way the node lifecycle controller lists pods by `spec.nodeName`. The N condition
+  writes that fan out from one silent node emit N events, and the master's keyed queue coalesces
+  them to one call per parent.
+  Today `MicroserviceDeployment.workloadId` points down only; the event
   that must reach the microservice's worker is the workload's own report ending its run, so the child
-  names its parent. Every write emits `RecordChanged(ref, parent, kind)` on the fabric; the master
-  queues `ref` when a worker is registered for its type and `parent` whenever it is set, so an
+  names its parent. Every write emits `RecordChanged(record, ref, kind)` on the fabric; the master
+  queues `record` when a worker is registered for its type and `ref` whenever it is set, so an
   artifact's change reaches the worker that made it and nothing else. The tree is
   `ProjectDeployment` → `MicroserviceDeployment`/`UiDeployment` → `Workload`.
 - `init()` enqueues every record of every registered type once, the way an informer lists on start;
   resync enqueues `findUnreconciled`. The one time-based trigger is node liveness: `Reconciler<VmNode>`
   answers `Requeue.after(heartbeatTimeout)` for every node, so a silent node is found without a
   sweep, and the initial list restarts those timers when the master moves.
-- Deletion cascades down through `parent`, foreground: a parent's finalizer requests its children's
+- Deletion cascades down through `ref`, foreground: a parent's finalizer requests its children's
   deletion, requeues until they are gone, then deletes its own record. A project delete therefore
   writes `requestDeletion` on the `ProjectDeployment` and returns; the tree finalizes behind it, and
   the owner of a workload is what stops its VM: `stopWorkload`, and the record stays. The master
@@ -259,7 +266,7 @@ is refresh-delayed.
 
 ```java
 // kinotic-domain, recorded by WatchedStateRepository for every write to any watched record
-public record RecordEvent(Date timestamp, RecordRef ref, RecordEventKind kind,
+public record RecordEvent(Date timestamp, RecordRef record, RecordEventKind kind,
                           String source,          // the node, participant or server that caused it
                           String serverNodeId,    // where it was written
                           Long generation,        // null on an artifact
@@ -285,22 +292,22 @@ CREATE DATA STREAM kinotic_record_event (...) WITH (DATA_RETENTION = '30d', TIME
 
 Names are decided: `Reconcilable` (not `Resource`, which is CRI's word), `desired`/`observed` (not
 `spec`/`status`), `Watched`/`WatchedState` (the word `EventBusService.monitorClusterNodes` and controller-runtime's `Watches()` share) and `ReconcileState`, `StatusCondition` (it qualifies the
-status without being one), `RecordRef`, `RecordEvent`, `ReconcileMaster`, `Reconciler`, and `parent` (not `owner`, which
-`JobOwner` uses for tenancy).
+status without being one), `RecordRef`, `RecordEvent`, `ReconcileMaster`, `Reconciler`, and `ref` for the pointer up (not `owner`, which `JobOwner` uses for tenancy; not
+`parent`, since the events name the record that changed `record` and what it belongs to `ref`).
 
 ## Phases
 
 | # | Phase | Files |
 |---|---|---|
-| 1 | **Node reports outrank server inference.** (PR #605, reworked.) `Watched`, `WatchedState`, `RecordRef`, `StatusCondition`, `StatusConditionType`, `StatusConditions` (Java `find`/`has` and the Painless condition functions) in `core/api/reconcile`; `Workload.state`; `WatchedStateRepository` with `setCondition`/`clearCondition`, composed by `WorkloadRepository`, which also gains a partial `updateRunSync(id, status, exitCode)` so no path saves the whole record; the reaper sets `NODE_UNREACHABLE` and keeps the status and the room; a report from a conditioned workload is applied whatever its timestamp and clears it; an unanswered start or stop marks the workload instead of failing it; deregistering an OFFLINE node records its open runs FAILED; the microservice listing says so; V8 declares `state OBJECT (conditions OBJECT (...), parent OBJECT (...))` whole. | core ×6, `Workload`, `WatchedStateRepository`, `WorkloadRepository`, `V8__workload_state.sql`, `DefaultVmNodeOrchestrationService`, `DefaultWorkloadOrchestrationService`, the two contracts, `DefaultMicroserviceDeploymentService` + contract, `WorkloadOrchestrationTest` + stub, docs |
+| 1 | **Node reports outrank server inference.** (PR #605, reworked.) `Watched`, `WatchedState`, `RecordRef`, `StatusCondition`, `StatusConditionType`, `StatusConditions` (Java `find`/`has` and the Painless condition functions) in `core/api/reconcile`; `Workload.state`; `WatchedStateRepository` with `setCondition`/`clearCondition`, composed by `WorkloadRepository`, which also gains a partial `updateRunSync(id, status, exitCode)` so no path saves the whole record; the reaper sets `NODE_UNREACHABLE` and keeps the status and the room; a report from a conditioned workload is applied whatever its timestamp and clears it; an unanswered start or stop marks the workload instead of failing it; deregistering an OFFLINE node records its open runs FAILED; the microservice listing says so; V8 declares `state OBJECT (conditions OBJECT (...), ref OBJECT (...))` whole. | core ×6, `Workload`, `WatchedStateRepository`, `WorkloadRepository`, `V8__workload_state.sql`, `DefaultVmNodeOrchestrationService`, `DefaultWorkloadOrchestrationService`, the two contracts, `DefaultMicroserviceDeploymentService` + contract, `WorkloadOrchestrationTest` + stub, docs |
 | 2 | **The ledger.** `RecordEvent`, `RecordEventKind`, `RecordEventRepository` over `appendToDataStream`; `WatchedStateRepository.record`, called after each of Phase 1's two scripts and by the report path for `STATUS_REPORTED`, with `source` from the caller; V9 creates `kinotic_record_event`; `findForRecord(ref, page)` for the console. | domain ×3, `WatchedStateRepository`, the report path, V9, tests |
 | 3 | **The same contract in the TypeScript packages.** `Watched`, `WatchedState`, `RecordRef`, `StatusCondition`, `StatusConditionType` in `@kinotic-ai/core`, `Workload.state` in `@kinotic-ai/management-api`, version bumps and peer floors; the system console renders the condition once the packages are published. | core ×5 + package.json, management-api `Workload.ts` + package.json, peer floors, lock |
 | 4 | **`EventFabric.consume`.** `EventFabric` becomes a `core/api/event` interface with `<T> Flux<T> consume(Class<T>)`; `DefaultEventFabric` keeps the downlink refcounting and `@Consumer` wiring becomes an adapter over `consume`. | `EventFabric` (api), `DefaultEventFabric`, `BeanWiring`, `EventFabricBeanPostProcessor`, tests |
 | 5 | **`Reconcilable` through `ProjectDeployment`.** `Reconcilable<S>`, `ReconcileState<S>`, `DeploymentState`, the `RecordChanged` fabric event emitted from `WatchedStateRepository.record`; `ReconcileStateRepository` with `updateDesired`, `reportObserved`, `requestDeletion`, `findUnreconciled`, `reconciled()` and creation through `scripted_upsert`; `ProjectDeployment.state` replaces `status` and `commitSha`, `failureMessage` keeps `DeploymentStatus.message`, with every caller (job factory, orchestrator, identity and artifact services, operations service, console listing); `DefaultProjectService.beforeDelete` writes `requestDeletion` on the deployment in place of deleting it; V10 declares `state` whole; TS model; docs. | sized by the reshaping |
 | 6 | **The master.** `ReconcileMaster` as an Ignite cluster singleton, `ReconcilerRegistry`, `Reconciler`, `Requeue`: change subscription through `consume`, keyed queue, backoff, requeue-after, the initial list in `init()`, resync over `findUnreconciled`, parent routing, orphan collection. `ProjectDeployOrchestrator` becomes `Reconciler<ProjectDeployment>`: `@Consumer` calls `updateDesired`, the worker runs the job and reports `observed`, and its finalizer requests deletion of the microservice and UI deployments, stops the sync and publish workloads, then deletes the machines and its own record once the children are gone; `deployingProjects`/`pendingDeploys` go. | master, registry, `Reconciler`, `Requeue`, orchestrator, its tests |
-| 7 | **`VmNode` as a reconcilable, `Workload` as its owned artifact.** `Workload.reportedAt` (V11), creators set `state.parent`, the report path orders a report against `reportedAt` in place of the clock guard and emits `RecordChanged` so the owner's worker runs on an ended run. `VmNode.state` with `VmNodeState`: `desired` `{ONLINE}` at registration, `observed` `{ONLINE}` or `{DRAINING}` from the heartbeat with `healthMessage` staying on the entity as `failureMessage` does on deployments, `OFFLINE` and `UNREACHABLE` leave `VmNodeStatusType` for the `NODE_UNREACHABLE` condition set by silence or an undeliverable call and cleared by the heartbeat; `findAvailableNode` selects `state.reconciled = true`; the JDK reaper becomes `Reconciler<VmNode>`, which marks a silent node and its open runs and requeues itself every heartbeat timeout; `deregisterNode` refuses a reachable node with open runs, otherwise writes `requestDeletion`, and the finalizer records the open runs FAILED, which routes each to its owner, and deletes the node; registration carries the node's inventory. | sized by the reshaping |
+| 7 | **`VmNode` as a reconcilable, `Workload` as its owned artifact.** `Workload.reportedAt` (V11), creators set `state.ref`, the report path orders a report against `reportedAt` in place of the clock guard and emits `RecordChanged` so the owner's worker runs on an ended run. `VmNode.state` with `VmNodeState`: `desired` `{ONLINE}` at registration, `observed` `{ONLINE}` or `{DRAINING}` from the heartbeat with `healthMessage` staying on the entity as `failureMessage` does on deployments, `OFFLINE` and `UNREACHABLE` leave `VmNodeStatusType` for the `NODE_UNREACHABLE` condition set by silence or an undeliverable call and cleared by the heartbeat; `findAvailableNode` selects `state.reconciled = true`; the JDK reaper becomes `Reconciler<VmNode>`, which marks a silent node and its open runs and requeues itself every heartbeat timeout; `deregisterNode` refuses a reachable node with open runs, otherwise writes `requestDeletion`, and the finalizer records the open runs FAILED, which routes each to its owner, and deletes the node; registration carries the node's inventory. | sized by the reshaping |
 | 8 | **Workload records outlive their runs.** `destroyWorkload` removes the VM and leaves the record at the status the node reports for it; `deleteWorkload` is the one delete: it refuses an open run, deletes the run's log streams through `LokiClient.delete` in the organization's tenant, then the record; `DefaultDeploymentOperationsService.removeMicroservice` destroys and keeps; the retention sweep in the master deletes ended records older than `kinotic.systemApi.workload.retentionDays` through the same call; `values-loki-azure.yaml` gains the compactor retention and `delete_request_store` the delete API needs, as `values-loki.yaml` already has; `LokiClientIntegrationTest` covers the delete. | `LokiClient` + default, `WorkloadOrchestrationService` + default, operations service, properties, the sweep, helm values, test, docs |
-| 9 | **`MicroserviceDeployment` as a reconciler.** `state` with `DeploymentState`; `ensureWorkload` becomes `Reconciler<MicroserviceDeployment>.reconcile`, run on a desired change, on its workload's `RecordChanged` through `parent`, and on resync; a workload it replaces gets `stopWorkload`; console restart is `stopWorkload` plus a requeue, and the ended report routes back to redeploy; the finalizer stops its workload, then removes its machine and itself; `withRunState` goes. | sized by the reshaping |
+| 9 | **`MicroserviceDeployment` as a reconciler.** `state` with `DeploymentState`; `ensureWorkload` becomes `Reconciler<MicroserviceDeployment>.reconcile`, run on a desired change, on its workload's `RecordChanged` through `ref`, and on resync; an open run marked `NODE_UNREACHABLE` counts as possibly running, so the worker waits for the node's report or the deregistration and never deploys beside it; a workload it replaces gets `stopWorkload`; console restart is `stopWorkload` plus a requeue, and the ended report routes back to redeploy; the finalizer stops its workload, then removes its machine and itself; `withRunState` goes. | sized by the reshaping |
 | 10 | **`UiDeployment` as a reconciler.** `state` with `DeploymentState`; `provision`/`checkProvisioning` become the reconciler with `Requeue.after(30s)`; `schedulePoll`, `staleProvisioning` and `retryProvisioning` collapse into requeue and resync. | sized by the reshaping |
 | 11 | **`JobRun` liveness.** A run's node leaving `monitorClusterNodes()` sets a condition on the run; Phase 9's stale-run rule reads it. | grind, small |
 
@@ -317,10 +324,10 @@ Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8 → 9, 10; 11 afte
 - **Two contracts, one extending the other.** Multiple writers and a ledger are one concern,
   `Watched`; intent and convergence are a second that presupposes the first, `Reconcilable`.
   `ReconcileState` extends `WatchedState` rather than composing it so that `state.conditions` and
-  `state.parent` are one path on every index and one condition script serves both; a workload
+  `state.ref` are one path on every index and one condition script serves both; a workload
   composes the watched contract and nothing else.
 - **Each record's contract is declared whole in the phase that gives it one.** `WatchedState`
-  ships complete in Phase 1 with the workload, `parent` unwritten until Phase 7; `ReconcileState`
+  ships complete in Phase 1 with the workload, `ref` unwritten until Phase 7; `ReconcileState`
   ships complete in Phase 5 with `ProjectDeployment`; each `state` column is declared whole in its
   own migration. The grammar cannot grow an `OBJECT` column later, and the no-rewrite rule prefers
   a field declared once over one grown across phases. `WatchedStateRepository` has one consumer
@@ -330,7 +337,7 @@ Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8 → 9, 10; 11 afte
   from Phase 7, the node itself; the second value arrives with the runner in Phase 11. A node's own
   problems stay a message on the entity, as a deployment's failure does, so no node-owned type is
   needed yet.
-- **Deletion is intent and cascades through `parent`.** A delete on any level of the tree writes
+- **Deletion is intent and cascades through `ref`.** A delete on any level of the tree writes
   `requestDeletion`, the worker at that level finalizes foreground, and the management plane never
   needs a call into the system plane to stop a VM: it writes the deployment record, and the owner's
   worker, which lives in the system plane, calls `stopWorkload`. Today's leftovers, VMs of deleted
