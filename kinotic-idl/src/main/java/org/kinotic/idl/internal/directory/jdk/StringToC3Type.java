@@ -1,19 +1,22 @@
+
+
 package org.kinotic.idl.internal.directory.jdk;
 
-import org.kinotic.idl.api.schema.FloatC3Type;
 import org.kinotic.idl.api.schema.C3Type;
+import org.kinotic.idl.api.schema.StringC3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
 /**
- * Created by Navíd Mitchell 🤪 on 4/13/23.
+ *
+ * Created by navid on 2019-06-14.
  */
 @Component
-public class FloatTypeConverter implements SpecificTypeConverter {
+public class StringToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {float.class, Float.class};
+    private static final Class<?>[] supports = {String.class};
 
     @Override
     public Class<?>[] supports() {
@@ -23,8 +26,7 @@ public class FloatTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new FloatC3Type();
+        return new StringC3Type();
     }
 
 }
-

@@ -13,12 +13,12 @@ import org.springframework.util.Assert;
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @Component
-public class EnumTypeConverter implements GenericTypeConverter {
+public class EnumToC3Type implements GenericTypeConverter {
 
     @Override
     public boolean supports(ResolvableType resolvableType) {
         // a predicate, not an exact-class match: a concrete enum's raw class is never java.lang.Enum,
-        // and this must claim enums before the PojoTypeConverter catch-all introspects them as beans
+        // and this must claim enums before the PojoToC3Type catch-all introspects them as beans
         Class<?> rawClass = resolvableType.getRawClass();
         return rawClass != null && rawClass.isEnum();
     }

@@ -19,11 +19,11 @@ import org.springframework.stereotype.Component;
  * Created by Navíd Mitchell 🤪 on 7/22/26
  */
 @Component
-public class ReactiveTypeConverter implements GenericTypeConverter {
+public class ReactiveToC3Type implements GenericTypeConverter {
 
     private final ReactiveAdapterRegistry adapterRegistry;
 
-    public ReactiveTypeConverter(ObjectProvider<ReactiveAdapterRegistry> adapterRegistryProvider) {
+    public ReactiveToC3Type(ObjectProvider<ReactiveAdapterRegistry> adapterRegistryProvider) {
         // The Spring-managed registry carries adapters registered at runtime beyond the shared
         // instance's defaults (DefaultKinotic registers the Vert.x Future adapter on it); the shared
         // instance is the fallback for contexts without the bean

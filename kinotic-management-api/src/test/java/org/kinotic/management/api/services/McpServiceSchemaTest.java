@@ -12,25 +12,25 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
-import org.kinotic.idl.internal.directory.ReactiveTypeConverter;
-import org.kinotic.idl.internal.directory.TokenBufferTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.ArrayTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.BooleanTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.ByteTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.CharacterTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.DateTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.DoubleTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.EnumTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.FloatTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.IntegerTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.IterableTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.LongTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.MapTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.OptionalTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.ShortTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.StringTypeConverter;
-import org.kinotic.idl.internal.directory.jdk.URITypeConverter;
-import org.kinotic.idl.internal.directory.jdk.VoidTypeConverter;
+import org.kinotic.idl.internal.directory.ReactiveToC3Type;
+import org.kinotic.idl.internal.directory.TokenBufferToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ArrayToC3Type;
+import org.kinotic.idl.internal.directory.jdk.BooleanToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ByteToC3Type;
+import org.kinotic.idl.internal.directory.jdk.CharacterToC3Type;
+import org.kinotic.idl.internal.directory.jdk.DateToC3Type;
+import org.kinotic.idl.internal.directory.jdk.DoubleToC3Type;
+import org.kinotic.idl.internal.directory.jdk.EnumToC3Type;
+import org.kinotic.idl.internal.directory.jdk.FloatToC3Type;
+import org.kinotic.idl.internal.directory.jdk.IntegerToC3Type;
+import org.kinotic.idl.internal.directory.jdk.IterableToC3Type;
+import org.kinotic.idl.internal.directory.jdk.LongToC3Type;
+import org.kinotic.idl.internal.directory.jdk.MapToC3Type;
+import org.kinotic.idl.internal.directory.jdk.OptionalToC3Type;
+import org.kinotic.idl.internal.directory.jdk.ShortToC3Type;
+import org.kinotic.idl.internal.directory.jdk.StringToC3Type;
+import org.kinotic.idl.internal.directory.jdk.URIToC3Type;
+import org.kinotic.idl.internal.directory.jdk.VoidToC3Type;
 import io.vertx.core.Future;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.core.ReactiveAdapterRegistry;
@@ -148,25 +148,25 @@ public class McpServiceSchemaTest {
     }
 
     private static DefaultSchemaFactory schemaFactory() {
-        List<ResolvableTypeConverter> converters = List.of(new ArrayTypeConverter(),
-                                                           new BooleanTypeConverter(),
-                                                           new ByteTypeConverter(),
-                                                           new CharacterTypeConverter(),
-                                                           new DateTypeConverter(),
-                                                           new DoubleTypeConverter(),
-                                                           new EnumTypeConverter(),
-                                                           new FloatTypeConverter(),
-                                                           new IntegerTypeConverter(),
-                                                           new IterableTypeConverter(),
-                                                           new LongTypeConverter(),
-                                                           new MapTypeConverter(),
-                                                           new OptionalTypeConverter(),
-                                                           new ShortTypeConverter(),
-                                                           new StringTypeConverter(),
-                                                           new URITypeConverter(),
-                                                           new VoidTypeConverter(),
-                                                           new TokenBufferTypeConverter(),
-                                                           new ReactiveTypeConverter(registryProvider()));
+        List<ResolvableTypeConverter> converters = List.of(new ArrayToC3Type(),
+                                                           new BooleanToC3Type(),
+                                                           new ByteToC3Type(),
+                                                           new CharacterToC3Type(),
+                                                           new DateToC3Type(),
+                                                           new DoubleToC3Type(),
+                                                           new EnumToC3Type(),
+                                                           new FloatToC3Type(),
+                                                           new IntegerToC3Type(),
+                                                           new IterableToC3Type(),
+                                                           new LongToC3Type(),
+                                                           new MapToC3Type(),
+                                                           new OptionalToC3Type(),
+                                                           new ShortToC3Type(),
+                                                           new StringToC3Type(),
+                                                           new URIToC3Type(),
+                                                           new VoidToC3Type(),
+                                                           new TokenBufferToC3Type(),
+                                                           new ReactiveToC3Type(registryProvider()));
         return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
     }
 

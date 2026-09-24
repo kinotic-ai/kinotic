@@ -22,7 +22,7 @@ import java.lang.reflect.Method;
  * <p>
  * Created by navid on 2019-06-14.
  */
-public class PojoTypeConverter implements GenericTypeConverter {
+public class PojoToC3Type implements GenericTypeConverter {
 
     @Override
     public boolean supports(ResolvableType resolvableType) {

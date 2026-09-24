@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component;
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @Component
-public class IntegerTypeConverter implements SpecificTypeConverter {
+public class IntegerToC3Type implements SpecificTypeConverter {
 
     private static final Class<?>[] supports = {int.class, Integer.class};
 

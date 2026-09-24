@@ -1,6 +1,6 @@
 package org.kinotic.idl.internal.directory.jdk;
 
-import org.kinotic.idl.api.schema.ByteC3Type;
+import org.kinotic.idl.api.schema.DoubleC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
@@ -11,9 +11,9 @@ import org.springframework.stereotype.Component;
  * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @Component
-public class ByteTypeConverter implements SpecificTypeConverter {
+public class DoubleToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {byte.class, Byte.class};
+    private static final Class<?>[] supports = {double.class, Double.class};
 
     @Override
     public Class<?>[] supports() {
@@ -23,8 +23,7 @@ public class ByteTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new ByteC3Type();
+        return new DoubleC3Type();
     }
 
 }
-

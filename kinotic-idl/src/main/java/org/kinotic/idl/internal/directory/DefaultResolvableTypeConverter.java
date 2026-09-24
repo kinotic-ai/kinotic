@@ -22,7 +22,7 @@ public class DefaultResolvableTypeConverter extends ResolvableTypeConverterCompo
         addConverters(autowiredConverters);
 
         // This is added manually since we want it to always be used last and @Order annotation was not working properly
-        addConverter(new PojoTypeConverter());
+        addConverter(new PojoToC3Type());
     }
 
 }

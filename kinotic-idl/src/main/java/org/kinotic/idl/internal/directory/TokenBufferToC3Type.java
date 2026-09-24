@@ -14,7 +14,7 @@ import tools.jackson.databind.util.TokenBuffer;
  * Created by Navíd Mitchell 🤪 on 7/22/26
  */
 @Component
-public class TokenBufferTypeConverter implements SpecificTypeConverter {
+public class TokenBufferToC3Type implements SpecificTypeConverter {
 
     private static final Class<?>[] supports = {TokenBuffer.class};
 

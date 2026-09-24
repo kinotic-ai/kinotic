@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Created by navid on 2019-07-01.
  */
 @Component
-public class ArrayTypeConverter implements GenericTypeConverter {
+public class ArrayToC3Type implements GenericTypeConverter {
 
     @Override
     public boolean supports(ResolvableType resolvableType) {

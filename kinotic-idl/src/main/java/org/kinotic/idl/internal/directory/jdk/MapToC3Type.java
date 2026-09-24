@@ -17,7 +17,7 @@ import java.util.Map;
  * Created by navid on 2019-07-31
  */
 @Component
-public class MapTypeConverter implements GenericTypeConverter {
+public class MapToC3Type implements GenericTypeConverter {
 
     @Override
     public boolean supports(ResolvableType resolvableType) {

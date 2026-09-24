@@ -1,19 +1,22 @@
+
+
 package org.kinotic.idl.internal.directory.jdk;
 
+import org.kinotic.idl.api.schema.BooleanC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.api.schema.ShortC3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
 /**
- * Created by Navíd Mitchell 🤪 on 4/13/23.
+ *
+ * Created by navid on 2019-06-17.
  */
 @Component
-public class ShortTypeConverter implements SpecificTypeConverter {
+public class BooleanToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {short.class, Short.class};
+    private static final Class<?>[] supports = {boolean.class, Boolean.class};
 
     @Override
     public Class<?>[] supports() {
@@ -23,7 +26,6 @@ public class ShortTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new ShortC3Type();
+        return new BooleanC3Type();
     }
-
 }
