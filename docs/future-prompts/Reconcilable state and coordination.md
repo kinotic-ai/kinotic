@@ -159,6 +159,7 @@ public class WatchedStateRepository {
     Future<Void> setCondition(String indexName, String id, StatusCondition c);          // noop when the type is present
     Future<Void> clearCondition(String indexName, String id, StatusConditionType t);    // noop when absent
     Future<Void> setRef(String indexName, String id, RecordRef ref);
+    <R> Future<Page<R>> findByRef(String indexName, Class<R> type, RecordRef ref, Pageable p);   // WHERE state.ref.type = :type AND state.ref.id = :id
     Future<Void> record(RecordRef ref, RecordEventKind kind, String source, String message, Object value);   // the ledger, RecordChanged on the fabric
 }
 
@@ -240,6 +241,14 @@ public interface Reconciler<R extends Reconcilable<?>> {
   falls silent, the way the node lifecycle controller lists pods by `spec.nodeName`. The N condition
   writes that fan out from one silent node emit N events, and the master's keyed queue coalesces
   them to one call per parent.
+- A parent holds no list of its children. Each child index answers `findByRef`, so a parent with
+  children of several types, `ProjectDeployment` with its microservice deployments, UI deployments
+  and its sync and publish workloads, costs the parent nothing and its finalizer is one query per
+  child type. A change two levels down reaches the top the way it does in Kubernetes, one level
+  at a time: the child's event queues its parent, the parent's worker writes its own `observed`,
+  and that write's event queues the grandparent. A record with two things to tell is not in the
+  model; the second relation is a field and a query, as placement is, and a `ref` list is a
+  one-line change in the master if a record ever needs one.
   Today `MicroserviceDeployment.workloadId` points down only; the event
   that must reach the microservice's worker is the workload's own report ending its run, so the child
   names its parent. Every write emits `RecordChanged(record, ref, kind)` on the fabric; the master
