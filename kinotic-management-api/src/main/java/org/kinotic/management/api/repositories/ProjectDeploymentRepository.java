@@ -2,12 +2,16 @@ package org.kinotic.management.api.repositories;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.reconcile.ReconcilableRepository;
 import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
+import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
@@ -18,15 +22,50 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class ProjectDeploymentRepository extends AbstractApplicationScopedRepository<ProjectDeployment> {
+public class ProjectDeploymentRepository extends AbstractApplicationScopedRepository<ProjectDeployment>
+        implements ReconcilableRepository<ProjectDeployment> {
 
     public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.PROJECT_DEPLOYMENT, "kinotic_project_deployment");
 
+    private final WatchedStateRepository watchedStateRepository;
     private final ReconcileStateRepository reconcileStateRepository;
 
-    public ProjectDeploymentRepository(CrudServiceTemplate crudServiceTemplate, ReconcileStateRepository reconcileStateRepository) {
+    public ProjectDeploymentRepository(CrudServiceTemplate crudServiceTemplate,
+                                       WatchedStateRepository watchedStateRepository,
+                                       ReconcileStateRepository reconcileStateRepository) {
         super(WATCHED.name(), ProjectDeployment.class, crudServiceTemplate);
+        this.watchedStateRepository = watchedStateRepository;
         this.reconcileStateRepository = reconcileStateRepository;
+    }
+
+    @Override
+    public WatchedType type() {
+        return WATCHED.type();
+    }
+
+    @Override
+    public String scopeOf(ProjectDeployment record) {
+        return record.getOrganizationId();
+    }
+
+    @Override
+    public Future<ProjectDeployment> find(String id, String scope) {
+        return findById(id, scope);
+    }
+
+    @Override
+    public Future<Page<ProjectDeployment>> findDirty(Pageable pageable) {
+        return watchedStateRepository.findDirty(indexName, type, pageable);
+    }
+
+    @Override
+    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
+        return watchedStateRepository.clearDirty(document(id, scope), dirtyAt);
+    }
+
+    @Override
+    public Future<Page<ProjectDeployment>> findUnreconciled(Pageable pageable) {
+        return reconcileStateRepository.findUnreconciled(indexName, type, pageable);
     }
 
     /**

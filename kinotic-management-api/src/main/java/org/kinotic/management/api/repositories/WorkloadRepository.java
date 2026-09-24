@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.reconcile.StatusCondition;
 import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.WatchedRepository;
 import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
@@ -27,7 +28,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 @Component
-public class WorkloadRepository extends AbstractRepository<Workload> {
+public class WorkloadRepository extends AbstractRepository<Workload> implements WatchedRepository<Workload> {
 
     public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.WORKLOAD, "kinotic_workload");
 
@@ -47,6 +48,31 @@ public class WorkloadRepository extends AbstractRepository<Workload> {
     public WorkloadRepository(CrudServiceTemplate crudServiceTemplate, WatchedStateRepository watchedStateRepository) {
         super(WATCHED.name(), Workload.class, crudServiceTemplate);
         this.watchedStateRepository = watchedStateRepository;
+    }
+
+    @Override
+    public WatchedType type() {
+        return WATCHED.type();
+    }
+
+    @Override
+    public String scopeOf(Workload record) {
+        return null;
+    }
+
+    @Override
+    public Future<Workload> find(String id, String scope) {
+        return findById(id);
+    }
+
+    @Override
+    public Future<Page<Workload>> findDirty(Pageable pageable) {
+        return watchedStateRepository.findDirty(indexName, type, pageable);
+    }
+
+    @Override
+    public Future<Void> clearDirty(String id, String scope, long dirtyAt) {
+        return watchedStateRepository.clearDirty(WatchedDocument.of(WATCHED, id), dirtyAt);
     }
 
     public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {

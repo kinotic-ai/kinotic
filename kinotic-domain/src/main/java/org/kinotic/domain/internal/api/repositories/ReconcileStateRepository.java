@@ -3,6 +3,8 @@ package org.kinotic.domain.internal.api.repositories;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.reconcile.Reconcilable;
 import org.kinotic.core.api.reconcile.ReconcileState;
 import org.kinotic.domain.api.model.WatchEventKind;
@@ -68,6 +70,18 @@ public class ReconcileStateRepository {
 
     private final CrudServiceTemplate crudServiceTemplate;
     private final WatchedStateRepository watchedStateRepository;
+
+    /**
+     * @param indexName the index to search
+     * @param type      the record type
+     * @param pageable  the page to return
+     * @return the records that are not in their desired state
+     */
+    public <R> Future<Page<R>> findUnreconciled(String indexName, Class<R> type, Pageable pageable) {
+        Validate.notBlank(indexName, "indexName cannot be blank");
+        return crudServiceTemplate.search(indexName, pageable, type,
+                                          b -> b.query(crudServiceTemplate.termFilter("state.reconciled", false)));
+    }
 
     /**
      * Writes what the record should be, bumping its generation, and records it. An intent equal to
