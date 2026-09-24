@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.OrganizationScoped;
+import org.kinotic.core.api.crud.Identifiable;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -20,7 +20,7 @@ import java.util.Map;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class Workload implements OrganizationScoped<String> {
+public class Workload implements Identifiable<String> {
 
     /**
      * Unique identifier for this workload.

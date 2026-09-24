@@ -7,7 +7,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
-import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.WorkloadMonitoringService;
@@ -35,9 +34,16 @@ public class DefaultWorkloadMonitoringService implements WorkloadMonitoringServi
     public Future<Workload> findWorkload(String workloadId) {
         Validate.notBlank(workloadId, "workloadId is required");
         String organizationId = requireOrganizationId();
-        // a platform workload carries no organization, so it is as absent as another organization's
         return workloadRepository.findById(workloadId)
-                                 .map(workload -> DomainUtil.requireOwned(workload, organizationId, "Workload not found."));
+                                 .map(workload -> {
+                                     // A workload runs for an organization rather than belonging to one, and a
+                                     // platform workload names none; every miss fails alike, so the message is no
+                                     // existence oracle
+                                     if (workload == null || !organizationId.equals(workload.getOrganizationId())) {
+                                         throw new IllegalArgumentException("Workload not found.");
+                                     }
+                                     return workload;
+                                 });
     }
 
     private String requireOrganizationId() {
