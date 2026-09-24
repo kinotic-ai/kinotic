@@ -1,1 +1,0 @@
-{"id":"35cf5d79b1850d2e5bffd932dfdddb32","fullName":"org.kinotic.gateway.internal.endpoints.stomp.EndpointConnectionHandlerTests.testConnectionKeepAliveTouchesTheSessionAtConnect","name":"testConnectionKeepAliveTouchesTheSessionAtConnect()","status":"passed","testResultsByEnv":{"default":"d3af4aa1c2ea325395457ea5882bda4c"}}

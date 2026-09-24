@@ -1,0 +1,1 @@
+{"id":"824f9ee1ab9f7f81e86e1a7f7c77a9ae","fullName":"org.kinotic.test.tests.sql.executor.QueryBuilderTest.whenUsingParameterizedQueryWithoutParameters_thenExceptionThrown","name":"whenUsingParameterizedQueryWithoutParameters_thenExceptionThrown()","status":"passed","testResultsByEnv":{"default":"32c4b0c5878ec05d87736ab5c18ee42f"}}
