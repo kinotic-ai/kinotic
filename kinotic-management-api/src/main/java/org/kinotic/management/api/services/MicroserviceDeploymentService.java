@@ -8,8 +8,9 @@ import java.util.List;
 
 /**
  * The microservice deployments of the caller's organization's projects, as the console shows
- * and acts on them. Removal is the one path that destroys a microservice's VM and identity;
- * a deployment whose microservice a commit dropped stays orphaned until it is removed here.
+ * and acts on them. Removal is the one path that stops a microservice's VM for good and removes
+ * its identity; a deployment whose microservice a commit dropped stays orphaned until it is
+ * removed here.
  */
 @Publish
 public interface MicroserviceDeploymentService {
@@ -19,30 +20,28 @@ public interface MicroserviceDeploymentService {
      * ordered by microservice name. A project that has never deployed has none.
      *
      * @param projectId a project belonging to the caller's organization
-     * A deployment whose VM has since ended reads {@code FAILED} with the run's exit, whatever the
-     * deployment recorded; one whose node the orchestrator cannot reach keeps {@code DEPLOYED} with
-     * a message saying so.
      * @return a future emitting the deployments, empty when the project has none
      */
     Future<List<MicroserviceDeployment>> findAllForProject(String projectId);
 
     /**
-     * Runs the microservice in a fresh VM from the project's current deployment, stopping the
-     * VM that runs it first when one does. The ended run keeps its record and logs. Fails when
-     * the project has never been deployed.
+     * Runs the microservice in a fresh VM from the project's current deployment: a VM still
+     * running is stopped, and the deployment's worker replaces it once the run has ended, keeping
+     * the ended run's record and logs; a deployment without a running VM is deployed again. Fails
+     * when the project has never been deployed.
      *
      * @param deploymentId the deployment of a microservice of one of the caller's organization's projects
-     * @return a future emitting the deployment
+     * @return a future emitting the deployment as it stood when the restart was asked for
      */
     Future<MicroserviceDeployment> restart(String deploymentId);
 
     /**
-     * Removes the deployment: destroys the microservice's VM, removes its machine identity, and
-     * deletes the record. A microservice the project's current commit still contains is
-     * deployed again by the next deployment.
+     * Asks for the deployment's removal: its worker stops the microservice's VM, removes its
+     * machine identity, and deletes the record. A microservice the project's current commit still
+     * contains is deployed again by the next deployment.
      *
      * @param deploymentId the deployment of a microservice of one of the caller's organization's projects
-     * @return a future completing when everything is gone
+     * @return a future completing when the removal is asked for
      */
     Future<Void> remove(String deploymentId);
 

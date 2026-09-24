@@ -4,16 +4,10 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.services.security.ParticipantIdentityService;
-import org.kinotic.domain.api.model.DeploymentStatus;
-import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.management.api.model.MicroserviceDeployment;
-import org.kinotic.management.api.model.Project;
-import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
-import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.services.DeploymentOperationsService;
@@ -40,111 +34,38 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
     private final UiDeploymentRepository uiDeploymentRepository;
     private final WorkloadService workloadService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
-    private final ParticipantIdentityService participantIdentityService;
     private final UiDeploymentProvisioner uiDeploymentProvisioner;
     private final SiteStorageService siteStorageService;
     private final SiteWorkloadFactory siteWorkloadFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
-    private final ProjectRepository projectRepository;
-    private final ProjectDeployIdentityService projectDeployIdentityService;
-    private final ProjectWorkloadFactory projectWorkloadFactory;
     private final KinoticSystemApiProperties properties;
 
     @Override
     public Future<Void> restartMicroservice(String deploymentId) {
         return loadMicroservice(deploymentId)
                 .compose(deployment -> {
-                    if (deployment.getEntryPoint() == null) {
-                        throw new IllegalStateException("Microservice " + deployment.getName()
-                                + " has never been deployed; deploy the project first");
+                    Future<Void> ret;
+                    if (deployment.getState().getDesired() == null) {
+                        ret = Future.failedFuture(new IllegalStateException("Microservice " + deployment.getName()
+                                + " has never been deployed; deploy the project first"));
+                    } else if (deployment.getWorkloadId() == null) {
+                        ret = microserviceDeploymentRepository.renewDesired(deployment.getId(), "restartMicroservice");
+                    } else {
+                        // a VM still running is stopped, and the run's end brings its worker back to replace it; one
+                        // that is not asks the worker to answer the intent again
+                        ret = workloadService.findById(deployment.getWorkloadId())
+                                .compose(workload -> workload != null && workload.getStatus().isOpen()
+                                        ? workloadOrchestrationService.stopWorkload(workload.getId())
+                                        : microserviceDeploymentRepository.renewDesired(deployment.getId(), "restartMicroservice"));
                     }
-                    return Future.all(projectRepository.findById(deployment.getProjectId(), deployment.getOrganizationId()),
-                                      projectDeploymentRepository.findById(deployment.getProjectId(), deployment.getOrganizationId()))
-                            .compose(found -> {
-                                Project project = found.resultAt(0);
-                                ProjectDeployment target = found.resultAt(1);
-                                if (project == null || target == null || target.getNodeId() == null) {
-                                    throw new IllegalStateException("Project " + deployment.getProjectId()
-                                            + " has no deployment to run microservice " + deployment.getName() + " on; deploy the project first");
-                                }
-                                return stopRunningWorkload(deployment)
-                                        .compose(v -> projectDeployIdentityService.issueRuntimeCredentials(project, deployment))
-                                        .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                                                projectWorkloadFactory.runtime(project, target.getNodeId(), target.getHostDir(),
-                                                                               deployment, deployment.getEntryPoint(), credentials)))
-                                        .map(workload -> deployment.setWorkloadId(workload.getId())
-                                                                   .setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED)))
-                                        .recover(error -> {
-                                            log.error("Microservice {} of project {} could not be restarted", deployment.getName(), deployment.getProjectId(), error);
-                                            return Future.succeededFuture(deployment.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, error.getMessage())));
-                                        })
-                                        .compose(updated -> microserviceDeploymentRepository.save(updated.setUpdated(new Date())))
-                                        .compose(saved -> saved.getStatus().type() == DeploymentStatusType.FAILED
-                                                ? Future.failedFuture(new IllegalStateException(saved.getStatus().message()))
-                                                : Future.succeededFuture());
-                            });
+                    return ret;
                 });
-    }
-
-    // The node removes the VM of a run that ended, so only a running one needs stopping before its
-    // replacement takes its place; its record stays as the run's outcome
-    private Future<Void> stopRunningWorkload(MicroserviceDeployment deployment) {
-        Future<Void> ret;
-        if (deployment.getWorkloadId() == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = workloadService.findById(deployment.getWorkloadId())
-                    .compose(workload -> workload == null || workload.getStatus().isComplete()
-                            ? Future.succeededFuture()
-                            : workloadOrchestrationService.stopWorkload(workload.getId()))
-                    .recover(error -> {
-                        log.warn("Workload {} of microservice {} could not be stopped before its restart: {}",
-                                 deployment.getWorkloadId(), deployment.getName(), error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
     }
 
     @Override
     public Future<Void> removeMicroservice(String deploymentId) {
         return loadMicroservice(deploymentId)
-                .compose(deployment -> destroyWorkload(deployment)
-                        .compose(v -> removeMachine(deployment))
-                        // sync so the console's immediate re-query no longer lists it
-                        .compose(v -> microserviceDeploymentRepository.deleteByIdSync(deployment.getId())));
-    }
-
-    // The workload may already be gone: destroyed with its node, or never created
-    private Future<Void> destroyWorkload(MicroserviceDeployment deployment) {
-        Future<Void> ret;
-        if (deployment.getWorkloadId() == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = workloadOrchestrationService.destroyWorkload(deployment.getWorkloadId())
-                    .recover(error -> {
-                        log.warn("Workload {} of microservice {} could not be destroyed: {}",
-                                 deployment.getWorkloadId(), deployment.getName(), error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
-    }
-
-    // An org member may already have removed the machine from the console
-    private Future<Void> removeMachine(MicroserviceDeployment deployment) {
-        Future<Void> ret;
-        if (deployment.getMachineIdentityId() == null) {
-            ret = Future.succeededFuture();
-        } else {
-            ret = participantIdentityService.deleteById(deployment.getMachineIdentityId())
-                    .recover(error -> {
-                        log.warn("Machine {} of microservice {} could not be removed: {}",
-                                 deployment.getMachineIdentityId(), deployment.getName(), error.getMessage());
-                        return Future.succeededFuture();
-                    });
-        }
-        return ret;
+                .compose(deployment -> microserviceDeploymentRepository.requestDeletion(deployment.getId(), "removeMicroservice"));
     }
 
     @Override
