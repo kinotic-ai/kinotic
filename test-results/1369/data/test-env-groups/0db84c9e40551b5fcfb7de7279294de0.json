@@ -1,0 +1,1 @@
+{"id":"0db84c9e40551b5fcfb7de7279294de0","fullName":"@kinotic-ai/e2e-tests:test/native/SystemLogin.test.ts#System login route logs in the seeded system admin and establishes a working session","name":"logs in the seeded system admin and establishes a working session","status":"passed","testResultsByEnv":{"default":"fa8a74b0e088d22519665e75df31b1e0"}}
