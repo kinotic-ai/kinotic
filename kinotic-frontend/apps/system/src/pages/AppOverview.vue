@@ -13,7 +13,7 @@
         <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
       </div>
 
-      <DashboardSection title="Traffic · last hour" description="The calls the application's services answered.">
+      <DashboardSection title="Traffic · last hour" description="The calls the application's users and services made through the gateway.">
         <div class="grid gap-4 md:grid-cols-3">
           <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
         </div>
@@ -119,7 +119,7 @@ function lastRunOf(project: Project): JobRun | null {
 
 const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
   organizationId: props.organizationId,
-  filter: { applicationId: props.applicationId },
+  applicationId: props.applicationId,
   to: `${basePath.value}/observability`
 }))
 

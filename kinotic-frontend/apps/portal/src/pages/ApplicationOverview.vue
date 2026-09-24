@@ -21,7 +21,7 @@
             <StatTile v-for="stat in runtimeStats" :key="stat.label" v-bind="stat" />
           </div>
         </DashboardSection>
-        <DashboardSection title="Traffic · last hour" description="The calls its services answered." class="xl:col-span-3">
+        <DashboardSection title="Traffic · last hour" description="The calls its users and services made." class="xl:col-span-3">
           <div class="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3">
             <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
           </div>
@@ -158,7 +158,7 @@ const runs = ref<JobRun[] | null>(null)
 
 const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
   organizationId: organizationId.value,
-  filter: { applicationId: props.applicationId },
+  applicationId: props.applicationId,
   to: `${basePath.value}/observability`
 }))
 

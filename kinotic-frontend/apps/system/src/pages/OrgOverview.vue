@@ -17,7 +17,7 @@
         <AttentionList :items="attention" />
       </div>
 
-      <DashboardSection title="Traffic · last hour" description="The calls the organization's services answered.">
+      <DashboardSection title="Traffic · last hour" description="The calls the organization's users and services made through the gateway, across its applications.">
         <div class="grid gap-4 md:grid-cols-3">
           <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
         </div>
@@ -101,7 +101,7 @@ const attention = computed(() => organization.value ? organizationAttention(orga
 
 const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
   organizationId: props.organizationId,
-  filter: { applicationId: null },
+  applicationId: null,
   to: `${basePath.value}/observability`
 }))
 

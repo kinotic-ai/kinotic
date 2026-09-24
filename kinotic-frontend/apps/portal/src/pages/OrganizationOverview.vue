@@ -18,7 +18,7 @@
         <AttentionList :items="attention" />
       </div>
 
-      <DashboardSection title="Traffic · last hour" description="The calls your organization's services answered.">
+      <DashboardSection title="Traffic · last hour" description="The calls your organization's users and services made through the gateway, across its applications.">
         <div class="grid gap-4 md:grid-cols-3">
           <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
         </div>
@@ -84,7 +84,7 @@ const error = ref<string | null>(null)
 
 const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
   organizationId: USER_STATE.getOrganizationId(),
-  filter: { applicationId: null },
+  applicationId: null,
   to: '/observability'
 }))
 

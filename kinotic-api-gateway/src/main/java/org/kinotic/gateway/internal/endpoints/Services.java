@@ -13,6 +13,7 @@ import org.kinotic.core.internal.api.service.ExceptionConverter;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.core.api.directory.ServiceDirectory;
 import org.kinotic.gateway.internal.endpoints.stomp.DefaultStompServerHandler;
+import org.kinotic.gateway.internal.endpoints.stomp.InvocationMeter;
 import org.kinotic.gateway.internal.endpoints.stomp.StompAuthorizerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,8 @@ public class Services {
     public EventStreamService eventStreamService;
     @Autowired
     public ExceptionConverter exceptionConverter;
+    @Autowired
+    public InvocationMeter invocationMeter;
     @Autowired
     public JsonMapper jsonMapper;
     @Autowired

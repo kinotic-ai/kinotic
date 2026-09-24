@@ -55,6 +55,8 @@ export * from '@/api/model/grind/events/TasksDiscoveredEvent'
 export * from '@/api/model/log/LogQuery'
 export * from '@/api/model/telemetry/TraceQuery'
 export * from '@/api/model/telemetry/MetricQuery'
+export * from '@/api/model/telemetry/TrafficQuery'
+export * from '@/api/model/telemetry/TrafficSignal'
 
 export * from '@/api/model/workload/LogPolicy'
 export * from '@/api/model/workload/NetworkMode'

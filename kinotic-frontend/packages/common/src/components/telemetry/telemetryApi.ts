@@ -1,4 +1,5 @@
 import { Kinotic } from '@kinotic-ai/core'
+import type { TrafficSignal } from '@kinotic-ai/management-api'
 import { parseJsonBytes } from '../../util/helpers'
 import type { MetricSeries } from './MetricSeries'
 import type { RedQueries } from './RedQueries'
@@ -91,21 +92,6 @@ export function redQueries(filter: TelemetryFilter, range: TimeRange): RedQuerie
         requests: `sum by (service) (${calls})`,
         errors: `sum by (service) (${failedCalls}) / sum by (service) (${calls})`,
         latencyP95: `histogram_quantile(0.95, sum by (le, service) (rate(${SPAN_METRIC_LATENCY}${selector(filter)}[${window}])))`
-    }
-}
-
-/**
- * The same RED queries summed across every service the filter selects, one series each: the
- * headline traffic of an application, a workload, or the whole tenant. The error share reads
- * zero, not empty, while calls arrive and none fail.
- */
-export function trafficQueries(filter: TelemetryFilter, range: TimeRange): RedQueries {
-    const window = rateWindow(range)
-    const calls = `sum(rate(${SPAN_METRIC_CALLS}${selector(filter)}[${window}]))`
-    return {
-        requests: calls,
-        errors: `(sum(rate(${SPAN_METRIC_CALLS}${selector(filter, [SPAN_ERROR])}[${window}])) or vector(0)) / ${calls}`,
-        latencyP95: `histogram_quantile(0.95, sum by (le) (rate(${SPAN_METRIC_LATENCY}${selector(filter)}[${window}])))`
     }
 }
 
@@ -300,8 +286,25 @@ export function latestValue(series: MetricSeries | undefined): number | null {
 
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
-    // Raw Prometheus query_range response: {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}}
-    const body = parseJsonBytes(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
+    return parseSeries(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
+}
+
+/**
+ * Evaluates one signal of the invocations clients made through the gateway over the range: those
+ * whose callers act for the organization, summed over its applications, or for one of its
+ * applications, or every caller's when no organization is named.
+ */
+export async function queryTraffic(organizationId: string | null,
+                                   applicationId: string | null,
+                                   signal: TrafficSignal,
+                                   range: TimeRange): Promise<MetricSeries[]> {
+    return parseSeries(await Kinotic.telemetry.queryTraffic({ organizationId, applicationId, signal, start: range.start, end: range.end, step: stepSeconds(range) }))
+}
+
+// A raw Prometheus query_range response, {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}},
+// as one series per result
+function parseSeries(bytes: Uint8Array): MetricSeries[] {
+    const body = parseJsonBytes(bytes)
     if (body?.status !== 'success') {
         throw new Error(body?.error ?? 'Metric query failed')
     }

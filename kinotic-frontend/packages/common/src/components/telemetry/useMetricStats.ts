@@ -4,7 +4,7 @@ import type { Stat } from '../dashboard/Stat'
 import type { MetricSeries } from './MetricSeries'
 import type { MetricStatSpec } from './MetricStatSpec'
 import type { TimeRange } from './TimeRange'
-import { finitePoints, latestValue, queryMetrics, rangeEndingNow } from './telemetryApi'
+import { finitePoints, latestValue, rangeEndingNow } from './telemetryApi'
 
 /** How far back a metric statistic looks. */
 const STAT_WINDOW_MS = 60 * 60_000
@@ -16,21 +16,20 @@ interface Reading {
 }
 
 /**
- * Dashboard statistics fed by metric queries over the last hour, one per spec: each shows its
- * query's latest value, its peak, and its course over the hour as a sparkline. The organization
- * is whose tenant the queries read, null for the platform's own; the specs are built for the
- * hour being read, whose length their rate windows follow. load() reads them again.
+ * Dashboard statistics fed by metric series over the last hour, one per spec: each shows its
+ * series' latest value, its peak, and its course over the hour as a sparkline. The specs are read
+ * again on each load(), so they follow the view they are built from.
  */
-export function useMetricStats(organizationId: () => string | null, specs: (range: TimeRange) => MetricStatSpec[]) {
-  const shown = ref<MetricStatSpec[]>(specs(rangeEndingNow(STAT_WINDOW_MS)))
+export function useMetricStats(specs: () => MetricStatSpec[]) {
+  const shown = ref<MetricStatSpec[]>(specs())
   const readings = ref<Reading[]>([])
   const loaded = ref(false)
 
-  // A query that fails leaves its statistic reading unavailable rather than taking the others with it
-  async function read(query: string, range: TimeRange): Promise<Reading> {
+  // A read that fails leaves its statistic unavailable rather than taking the others with it
+  async function read(spec: MetricStatSpec, range: TimeRange): Promise<Reading> {
     let ret: Reading
     try {
-      ret = { series: (await queryMetrics(organizationId(), query, range))[0], failed: false }
+      ret = { series: (await spec.read(range))[0], failed: false }
     } catch {
       ret = { series: undefined, failed: true }
     }
@@ -39,8 +38,8 @@ export function useMetricStats(organizationId: () => string | null, specs: (rang
 
   async function load(): Promise<void> {
     const range = rangeEndingNow(STAT_WINDOW_MS)
-    const current = specs(range)
-    readings.value = await Promise.all(current.map(spec => read(spec.query, range)))
+    const current = specs()
+    readings.value = await Promise.all(current.map(spec => read(spec, range)))
     shown.value = current
     loaded.value = true
   }

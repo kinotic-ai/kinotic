@@ -2,12 +2,14 @@ import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import type { TraceQuery } from '@/api/model/telemetry/TraceQuery'
 import type { MetricQuery } from '@/api/model/telemetry/MetricQuery'
+import type { TrafficQuery } from '@/api/model/telemetry/TrafficQuery'
 
 /**
- * Queries the traces and metrics that the workloads of an organization exported: an organization
- * participant reads its own organization's, a system participant reads any organization's, or the
- * platform's own when it names no organization. Every method yields the raw backend response
- * bytes; the caller parses Tempo's and Prometheus's wire formats.
+ * Queries the traces and metrics that the workloads of an organization exported, and the traffic
+ * its callers sent through the gateway: an organization participant reads its own organization's, a
+ * system participant reads any organization's, or the platform's own when it names no organization.
+ * Every method yields the raw backend response bytes; the caller parses Tempo's and Prometheus's wire
+ * formats.
  */
 export interface ITelemetryService {
 
@@ -32,6 +34,15 @@ export interface ITelemetryService {
      * @param query the organization, expression, time range, and step
      */
     queryMetrics(query: MetricQuery): Promise<Uint8Array>
+
+    /**
+     * Evaluates one signal of the invocations clients made through the gateway across a time range,
+     * as the raw Prometheus query_range response: those whose callers act for an organization, summed
+     * over its applications, or for one of its applications, or, for a system participant naming no
+     * organization, every invocation on the platform.
+     * @param query the organization, application, signal, time range, and step
+     */
+    queryTraffic(query: TrafficQuery): Promise<Uint8Array>
 }
 
 export class TelemetryService implements ITelemetryService {
@@ -52,5 +63,9 @@ export class TelemetryService implements ITelemetryService {
 
     public queryMetrics(query: MetricQuery): Promise<Uint8Array> {
         return this.serviceProxy.invoke('queryMetrics', [query])
+    }
+
+    public queryTraffic(query: TrafficQuery): Promise<Uint8Array> {
+        return this.serviceProxy.invoke('queryTraffic', [query])
     }
 }

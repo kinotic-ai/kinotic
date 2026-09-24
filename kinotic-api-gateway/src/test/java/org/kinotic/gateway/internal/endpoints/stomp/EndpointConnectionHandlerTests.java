@@ -1,8 +1,15 @@
 package org.kinotic.gateway.internal.endpoints.stomp;
 
+import io.opentelemetry.api.common.AttributeKey;
+import io.opentelemetry.sdk.OpenTelemetrySdk;
+import io.opentelemetry.sdk.metrics.SdkMeterProvider;
+import io.opentelemetry.sdk.metrics.data.HistogramPointData;
+import io.opentelemetry.sdk.testing.exporter.InMemoryMetricReader;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.MultiMap;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.ext.web.RoutingContext;
@@ -31,9 +38,11 @@ import org.kinotic.core.api.event.Metadata;
 import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.service.RequestLivenessWatcher;
 import org.kinotic.core.internal.api.service.json.JacksonExceptionConverter;
+import org.kinotic.domain.api.model.security.participant.DefaultApplicationParticipant;
 import org.kinotic.domain.api.model.security.participant.DefaultOrganizationParticipant;
 import org.kinotic.gateway.api.config.ApiGatewayProperties;
 import org.kinotic.gateway.internal.endpoints.Services;
+import org.kinotic.management.api.model.InvocationMetrics;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
@@ -64,8 +73,9 @@ import static org.mockito.Mockito.when;
  * cluster is answered on the client's reply destination with the typed error, a reply that settles a
  * request releases it, a session under an open connection outlives its timeout, and a connection that closes
  * answers every invocation still outstanding on the services it published, a stream whose requester is
- * gone is cancelled on the connection producing it, and a sender header a client wrote never leaves the
- * connection.
+ * gone is cancelled on the connection producing it, a sender header a client wrote never leaves the
+ * connection, and every request the client sent is recorded once, under its caller's organization and
+ * application, with how it ended.
  *
  * Created by Navíd Mitchell 🤪 on 9/9/26.
  */
@@ -81,6 +91,7 @@ public class EndpointConnectionHandlerTests {
     private RequestLivenessWatcher requestLivenessWatcher;
     private EventConsumer replyConsumer;
     private final AtomicReference<Handler<Event<byte[]>>> replyDelivery = new AtomicReference<>();
+    private InMemoryMetricReader metricReader;
 
     // The clustered session store needs a clustered Vert.x; one Ignite node on ports of its own, so a
     // core test JVM running alongside never joins it
@@ -135,6 +146,125 @@ public class EndpointConnectionHandlerTests {
         services.requestLivenessWatcher = requestLivenessWatcher;
         services.serviceDirectoryProvider = mock(ObjectProvider.class);
         services.sessionStore = ClusteredSessionStore.create(vertx);
+        metricReader = InMemoryMetricReader.create();
+        services.invocationMeter = new InvocationMeter(OpenTelemetrySdk.builder()
+                                                                      .setMeterProvider(SdkMeterProvider.builder()
+                                                                                                        .registerMetricReader(metricReader)
+                                                                                                        .build())
+                                                                      .build());
+    }
+
+    @Test
+    public void testSettledRequestIsRecordedForItsCallersOrganization() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-1")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), completion("rec-1"), new byte[0]));
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals(1, recorded.getCount());
+        Assertions.assertEquals("acme-org", recorded.getAttributes().get(AttributeKey.stringKey(InvocationMetrics.ORGANIZATION_ID)));
+        Assertions.assertNull(recorded.getAttributes().get(AttributeKey.stringKey(InvocationMetrics.APPLICATION_ID)));
+        Assertions.assertEquals("ok", outcomeOf(recorded));
+    }
+
+    @Test
+    public void testErrorReplyIsRecordedAsAnError() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-2")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        Metadata errorMetadata = Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, "rec-2",
+                                                        EventConstants.ERROR_HEADER, "Order not found"));
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), errorMetadata, new byte[0]));
+
+        Assertions.assertEquals("error", outcomeOf(onlyRecordedInvocations()));
+    }
+
+    @Test
+    public void testUnservedRequestIsRecordedOnceAsUnavailable() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        Event<byte[]> request = request(replyTo, "rec-3");
+        when(eventBusService.sendWithAck(any())).thenReturn(Future.failedFuture(new ReplyException(ReplyFailure.NO_HANDLERS, "no handlers")));
+        handler.send(request).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        // the error the gateway answers with passes back through the reply subscription like any reply
+        ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).send(sent.capture());
+        replyDelivery.get().handle(sent.getValue());
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals(1, recorded.getCount());
+        Assertions.assertEquals("unavailable", outcomeOf(recorded));
+    }
+
+    @Test
+    public void testRequestWhoseNodeLeftIsRecordedOnceAsUnavailable() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-4")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        ArgumentCaptor<Runnable> onLost = ArgumentCaptor.forClass(Runnable.class);
+        verify(requestLivenessWatcher).watch(endsWith(":rec-4"), eq("node-2"), onLost.capture());
+
+        onLost.getValue().run();
+        ArgumentCaptor<Event<byte[]>> sent = ArgumentCaptor.forClass(Event.class);
+        verify(eventBusService).send(sent.capture());
+        replyDelivery.get().handle(sent.getValue());
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals(1, recorded.getCount());
+        Assertions.assertEquals("unavailable", outcomeOf(recorded));
+    }
+
+    @Test
+    public void testCancelledAndAbandonedRequestsAreRecordedAsCancelled() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-5")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        handler.send(request(replyTo, "rec-6")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        Metadata cancel = Metadata.create(Map.of(EventConstants.REPLY_TO_HEADER, replyTo,
+                                                 EventConstants.CORRELATION_ID_HEADER, "rec-5",
+                                                 EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_CANCEL));
+        handler.send(Event.create(CRI.create(SERVICE_DESTINATION), cancel, null)).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+        // closing the connection gives up on the request still open
+        handler.shutdown();
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals(2, recorded.getCount());
+        Assertions.assertEquals("cancelled", outcomeOf(recorded));
+    }
+
+    @Test
+    public void testStreamIsRecordedOnceWhenItEnds() throws Exception {
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-8")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        Metadata value = Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, "rec-8"));
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), value, new byte[0]));
+        Assertions.assertTrue(metricReader.collectAllMetrics().isEmpty(), "a stream was recorded before it ended");
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), completion("rec-8"), new byte[0]));
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals(1, recorded.getCount());
+        Assertions.assertEquals("ok", outcomeOf(recorded));
+    }
+
+    @Test
+    public void testApplicationCallerIsRecordedWithItsApplication() throws Exception {
+        when(services.securityService.authenticate(any())).thenReturn(Future.succeededFuture(applicationParticipant()));
+        EndpointConnectionHandler handler = connect(Map.of());
+        String replyTo = subscribeReplies(handler);
+        handler.send(request(replyTo, "rec-7")).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+
+        replyDelivery.get().handle(Event.create(CRI.create(replyTo), completion("rec-7"), new byte[0]));
+
+        HistogramPointData recorded = onlyRecordedInvocations();
+        Assertions.assertEquals("acme-org", recorded.getAttributes().get(AttributeKey.stringKey(InvocationMetrics.ORGANIZATION_ID)));
+        Assertions.assertEquals("orders-app", recorded.getAttributes().get(AttributeKey.stringKey(InvocationMetrics.APPLICATION_ID)));
     }
 
     @Test
@@ -503,6 +633,36 @@ public class EndpointConnectionHandlerTests {
 
     private Session storedSession(String id) throws Exception {
         return services.sessionStore.get(id).toCompletionStage().toCompletableFuture().get(5, TimeUnit.SECONDS);
+    }
+
+    // The invocations the gateway recorded, which the test expects under one set of attributes
+    private HistogramPointData onlyRecordedInvocations() {
+        List<HistogramPointData> points = metricReader.collectAllMetrics().stream()
+                                                      .filter(metric -> metric.getName().equals(InvocationMetrics.INSTRUMENT_NAME))
+                                                      .flatMap(metric -> metric.getHistogramData().getPoints().stream())
+                                                      .toList();
+        Assertions.assertEquals(1, points.size(), "the invocations were recorded under more than one set of attributes");
+        return points.getFirst();
+    }
+
+    private static String outcomeOf(HistogramPointData point) {
+        return point.getAttributes().get(AttributeKey.stringKey(InvocationMetrics.OUTCOME));
+    }
+
+    private static Metadata completion(String correlationId) {
+        return Metadata.create(Map.of(EventConstants.CORRELATION_ID_HEADER, correlationId,
+                                      EventConstants.CONTROL_HEADER, EventConstants.CONTROL_VALUE_COMPLETE));
+    }
+
+    // An application participant calls on behalf of one application of its organization
+    private static DefaultApplicationParticipant applicationParticipant() {
+        return DefaultApplicationParticipant.builder()
+                                            .id("app-user")
+                                            .organizationId("acme-org")
+                                            .applicationId("orders-app")
+                                            .metadata(Map.of())
+                                            .roles(List.of())
+                                            .build();
     }
 
     // An organization participant may both call and publish services in its own application zones

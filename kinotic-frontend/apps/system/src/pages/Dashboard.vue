@@ -20,7 +20,7 @@
 
       <!-- Side by side from xl, the two sections' five tiles line up as one row of equal columns -->
       <div class="grid gap-8 xl:grid-cols-5 xl:gap-4">
-        <DashboardSection title="Traffic · last hour" description="The calls the platform's own services answered." class="xl:col-span-3">
+        <DashboardSection title="Traffic · last hour" description="Every call clients made through the gateway." class="xl:col-span-3">
           <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
             <StatTile v-for="stat in traffic.stats.value" :key="stat.label" v-bind="stat" />
           </div>
@@ -124,7 +124,7 @@ const nodeStates = computed(() => {
 
 const attention = computed(() => platformAttention(cluster.value, nodes.value, workloads.value, runs.value))
 
-const traffic = useTrafficStats(() => ({ organizationId: null, filter: { applicationId: null }, to: '/observability' }))
+const traffic = useTrafficStats(() => ({ organizationId: null, applicationId: null, to: '/observability' }))
 const server = useServerStats()
 
 const allocations = computed(() => allocationBy(workloads.value, organizationOwnerOf))

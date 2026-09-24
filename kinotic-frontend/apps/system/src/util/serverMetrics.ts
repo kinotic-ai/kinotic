@@ -1,4 +1,4 @@
-import { formatPercent, rateWindow, useMetricStats, type TimeRange } from '@kinotic-ai/frontend-common'
+import { formatPercent, queryMetrics, rateWindow, useMetricStats, type TimeRange } from '@kinotic-ai/frontend-common'
 
 // Every deployment names the kinotic-server's OpenTelemetry agent kinotic-server (OTEL_SERVICE_NAME),
 // which its JVM and HTTP metrics carry as their job in the platform's tenant
@@ -42,27 +42,26 @@ export function serverQueries(range: TimeRange) {
  * server process, and the share of the servers' heap in use. Each leads to the Cluster page.
  */
 export function useServerStats() {
-    return useMetricStats(() => null, range => {
-        const queries = serverQueries(range)
-        return [
-            {
-                label: 'CPU',
-                description: 'busiest server',
-                query: queries.busiestCpu,
-                format: formatPercent,
-                icon: 'pi-microchip',
-                accent: latest => latest >= HOT_CPU ? 'red' : 'teal',
-                to: '/cluster'
-            },
-            {
-                label: 'Heap',
-                description: 'in use',
-                query: queries.heapShare,
-                format: formatPercent,
-                icon: 'pi-database',
-                accent: latest => latest >= FULL_HEAP ? 'red' : 'amber',
-                to: '/cluster'
-            }
-        ]
-    })
+    const read = (name: keyof ReturnType<typeof serverQueries>) =>
+        (range: TimeRange) => queryMetrics(null, serverQueries(range)[name], range)
+    return useMetricStats(() => [
+        {
+            label: 'CPU',
+            description: 'busiest server',
+            read: read('busiestCpu'),
+            format: formatPercent,
+            icon: 'pi-microchip',
+            accent: latest => latest >= HOT_CPU ? 'red' : 'teal',
+            to: '/cluster'
+        },
+        {
+            label: 'Heap',
+            description: 'in use',
+            read: read('heapShare'),
+            format: formatPercent,
+            icon: 'pi-database',
+            accent: latest => latest >= FULL_HEAP ? 'red' : 'amber',
+            to: '/cluster'
+        }
+    ])
 }
