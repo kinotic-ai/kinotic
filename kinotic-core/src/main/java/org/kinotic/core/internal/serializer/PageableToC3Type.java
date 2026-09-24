@@ -1,4 +1,4 @@
-package org.kinotic.core.internal.api.model.idl;
+package org.kinotic.core.internal.serializer;
 
 import org.kinotic.core.api.crud.CursorPageable;
 import org.kinotic.core.api.crud.Direction;
@@ -28,7 +28,7 @@ import java.util.Map;
  * calling a paged MCP tool can fill in a value the server accepts.
  */
 @Component
-public class PageableTypeConverter implements SpecificTypeConverter {
+public class PageableToC3Type implements SpecificTypeConverter {
 
     private static final Class<?>[] supports = {Pageable.class, OffsetPageable.class, CursorPageable.class};
 

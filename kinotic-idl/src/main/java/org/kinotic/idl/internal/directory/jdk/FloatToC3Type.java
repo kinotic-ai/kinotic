@@ -1,24 +1,19 @@
-
-
 package org.kinotic.idl.internal.directory.jdk;
 
+import org.kinotic.idl.api.schema.FloatC3Type;
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.api.schema.DateC3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
-
 /**
- *
- * Created by navid on 2019-06-14.
+ * Created by Navíd Mitchell 🤪 on 4/13/23.
  */
 @Component
-public class DateTypeConverter implements SpecificTypeConverter {
+public class FloatToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {Date.class};
+    private static final Class<?>[] supports = {float.class, Float.class};
 
     @Override
     public Class<?>[] supports() {
@@ -28,6 +23,8 @@ public class DateTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new DateC3Type();
+        return new FloatC3Type();
     }
+
 }
+

@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Created by navid on 2019-07-25.
  */
 @Component
-public class VoidTypeConverter implements SpecificTypeConverter {
+public class VoidToC3Type implements SpecificTypeConverter {
 
     private static final Class<?>[] supports = {void.class, Void.class};
 

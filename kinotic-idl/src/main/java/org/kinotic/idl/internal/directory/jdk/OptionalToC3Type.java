@@ -1,19 +1,23 @@
+
+
 package org.kinotic.idl.internal.directory.jdk;
 
-import org.kinotic.idl.api.schema.LongC3Type;
 import org.kinotic.idl.api.schema.C3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 /**
- * Created by Navíd Mitchell 🤪 on 4/13/23.
+ *
+ * Created by navid on 2019-06-14.
  */
 @Component
-public class LongTypeConverter implements SpecificTypeConverter {
+public class OptionalToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {long.class, Long.class};
+    private static final Class<?>[] supports = {Optional.class};
 
     @Override
     public Class<?>[] supports() {
@@ -23,8 +27,12 @@ public class LongTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new LongC3Type();
+
+        ResolvableType genericType = resolvableType.getGeneric(0);
+        if(genericType.equals(ResolvableType.NONE)){
+            throw new IllegalStateException("Optional found but no generic type defined");
+        }
+
+        return conversionContext.convert(genericType);
     }
-
 }
-

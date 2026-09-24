@@ -3,20 +3,22 @@
 package org.kinotic.idl.internal.directory.jdk;
 
 import org.kinotic.idl.api.schema.C3Type;
-import org.kinotic.idl.api.schema.StringC3Type;
+import org.kinotic.idl.api.schema.DateC3Type;
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
 import org.springframework.core.ResolvableType;
 import org.springframework.stereotype.Component;
+
+import java.util.Date;
 
 /**
  *
  * Created by navid on 2019-06-14.
  */
 @Component
-public class StringTypeConverter implements SpecificTypeConverter {
+public class DateToC3Type implements SpecificTypeConverter {
 
-    private static final Class<?>[] supports = {String.class};
+    private static final Class<?>[] supports = {Date.class};
 
     @Override
     public Class<?>[] supports() {
@@ -26,7 +28,6 @@ public class StringTypeConverter implements SpecificTypeConverter {
     @Override
     public C3Type convert(ResolvableType resolvableType,
                           ConversionContext conversionContext) {
-        return new StringC3Type();
+        return new DateC3Type();
     }
-
 }

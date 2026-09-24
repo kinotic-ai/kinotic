@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Created by navid on 2019-06-14.
  */
 @Component
-public class IterableTypeConverter implements GenericTypeConverter {
+public class IterableToC3Type implements GenericTypeConverter {
 
     @Override
     public boolean supports(ResolvableType resolvableType) {

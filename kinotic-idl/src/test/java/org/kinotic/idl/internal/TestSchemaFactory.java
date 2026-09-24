@@ -86,7 +86,7 @@ public class TestSchemaFactory {
         Assertions.assertEquals(2, namespaceDefinition.getComplexC3Types().size());
 
         // an enum property converts as an EnumC3Type with the constant names, not through the
-        // PojoTypeConverter catch-all (which would introspect Enum internals and fail on Class<E>)
+        // PojoToC3Type catch-all (which would introspect Enum internals and fail on Class<E>)
         C3Type statusType = findProperty(findComplexType(namespaceDefinition, "TestObject"), "status");
         Assertions.assertEquals(new EnumC3Type().setNamespace(TestStatus.class.getPackageName())
                                                 .setName(TestStatus.class.getSimpleName())
