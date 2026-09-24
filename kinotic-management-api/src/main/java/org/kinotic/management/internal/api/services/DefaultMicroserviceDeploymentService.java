@@ -3,9 +3,9 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.core.api.reconcile.Condition;
-import org.kinotic.core.api.reconcile.ConditionType;
-import org.kinotic.core.api.reconcile.Conditions;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
@@ -58,7 +58,7 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
                         MicroserviceDeployment reported;
                         if (workload != null && workload.getStatus().isComplete()) {
                             reported = deployment.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, runEnded(workload)));
-                        } else if (workload != null && Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE)) {
+                        } else if (workload != null && StatusConditions.has(workload.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE)) {
                             // the VM may well be running on the far side of a partition, so the row stays DEPLOYED
                             reported = deployment.setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED, nodeUnreachable(workload)));
                         } else {
@@ -71,7 +71,7 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
     }
 
     private static String nodeUnreachable(Workload workload) {
-        Condition condition = Conditions.find(workload.getConditions(), ConditionType.NODE_UNREACHABLE).orElseThrow();
+        StatusCondition condition = StatusConditions.find(workload.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE).orElseThrow();
         return condition.message() + " (since " + condition.since().toInstant() + ")";
     }
 

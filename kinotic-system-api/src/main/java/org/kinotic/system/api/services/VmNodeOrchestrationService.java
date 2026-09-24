@@ -50,7 +50,7 @@ public interface VmNodeOrchestrationService {
      * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
      * periodic full snapshot for reconciliation. Reports older than the workload's last
      * transition, or for workloads that no longer exist, are ignored — except for a workload marked
-     * {@link org.kinotic.core.api.reconcile.ConditionType#NODE_UNREACHABLE}: the report ends the
+     * {@link org.kinotic.core.api.reconcile.StatusConditionType#NODE_UNREACHABLE}: the report ends the
      * silence the condition was inferred from, so it is applied whatever its timestamp and clears
      * the condition.
      *

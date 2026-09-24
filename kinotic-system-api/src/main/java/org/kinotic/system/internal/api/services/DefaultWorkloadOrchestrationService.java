@@ -3,9 +3,8 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
-import org.kinotic.core.api.reconcile.Condition;
-import org.kinotic.core.api.reconcile.ConditionType;
-import org.kinotic.core.api.reconcile.Conditions;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -86,7 +85,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                 verifyingNodeOnFailure(node.getId(), vmManagerProxy.startWorkload(node.getId(), savedWorkload))
                                         .compose(this::applyStartReply)
                                         .recover(error -> {
-                                            Future<Workload> recorded;
+                                            Future<Void> recorded;
                                             if (error instanceof RpcServiceUnavailableException) {
                                                 // The node may have started it: the record keeps STARTING and
                                                 // its room, and the node's next report settles it
@@ -97,7 +96,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                             } else {
                                                 log.error("Failed to start workload {} on node {}",
                                                           savedWorkload.getId(), node.getId(), error);
-                                                recorded = recordRunEnded(savedWorkload, WorkloadStatus.FAILED);
+                                                recorded = recordRunEnded(savedWorkload, WorkloadStatus.FAILED).mapEmpty();
                                             }
                                             return recorded.transform(_ -> Future.failedFuture(error));
                                         })
@@ -117,20 +116,20 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     workload.setStatus(WorkloadStatus.STOPPING);
-                    return workloadService.saveSync(workload);
+                    return workloadService.updateRunSync(workloadId, WorkloadStatus.STOPPING, null).map(workload);
                 })
                 .compose(workload ->
                     verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId))
                             .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED))
                             .recover(error -> {
-                                Future<Workload> recorded;
+                                Future<Void> recorded;
                                 if (error instanceof RpcServiceUnavailableException) {
                                     // The node may have stopped it: the record keeps STOPPING and the
                                     // node's next report settles it
                                     recorded = markUnreachable(workload,
                                                                "Node " + workload.getNodeId() + " did not answer the stop");
                                 } else {
-                                    recorded = Future.succeededFuture(workload);
+                                    recorded = Future.succeededFuture();
                                 }
                                 return recorded.transform(_ -> Future.failedFuture(error));
                             })
@@ -176,7 +175,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
                         // gets here, and must not be clobbered.
-                        ret = persistRedacted(startedWorkload);
+                        ret = workloadService.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode())
+                                             .map(startedWorkload);
                     } else {
                         ret = Future.succeededFuture(current);
                     }
@@ -253,25 +253,25 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      * Records that the node's answer for the workload is unknown: its status and its room stay as they
      * are, marked NODE_UNREACHABLE until the node's next report.
      */
-    private Future<Workload> markUnreachable(Workload workload, String message) {
-        workload.setConditions(Conditions.with(workload.getConditions(),
-                                               new Condition(ConditionType.NODE_UNREACHABLE, message, new Date())));
-        return persistRedacted(workload);
+    private Future<Void> markUnreachable(Workload workload, String message) {
+        return workloadService.setCondition(workload.getId(),
+                                            new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()))
+                              .mapEmpty();
     }
 
     /**
-     * Persists the terminal status of a run and gives its room back to the node. The record stays
+     * Records the terminal status of a run and gives its room back to the node. The record stays
      * as the run's outcome; the node removes the VM on its own once the run has ended.
      */
     private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status) {
         workload.setStatus(status);
-        return persistRedacted(workload)
-                .compose(persisted -> vmNodeService.releaseSync(persisted.getNodeId(), persisted.getId())
-                                                   .map(persisted));
+        return workloadService.updateRunSync(workload.getId(), status, workload.getExitCode())
+                .compose(v -> vmNodeService.releaseSync(workload.getNodeId(), workload.getId()))
+                .map(workload);
     }
 
     /**
-     * Persists the workload with every secret value replaced by
+     * Creates the workload's record with every secret value replaced by
      * {@value REDACTED_SECRET_VALUE}, then restores the real values on the object — the
      * record never holds a secret value, while dispatch to the node still carries them.
      */

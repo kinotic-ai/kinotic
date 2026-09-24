@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
-import org.kinotic.core.api.reconcile.Condition;
+import org.kinotic.core.api.reconcile.Watched;
+import org.kinotic.core.api.reconcile.WatchedState;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -21,7 +21,7 @@ import java.util.Map;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class Workload implements Identifiable<String> {
+public class Workload implements Watched {
 
     /**
      * Unique identifier for this workload.
@@ -121,11 +121,10 @@ public class Workload implements Identifiable<String> {
     private Integer exitCode;
 
     /**
-     * What the orchestrator has inferred about this workload without the node confirming it, such as
-     * the node falling silent while the run was live. Empty when every status transition came from
-     * the node's own report.
+     * What the platform keeps on this workload beside the node's own report: what it inferred, such
+     * as the node falling silent while the run was live, and the deployment the workload belongs to.
      */
-    private List<Condition> conditions = new ArrayList<>();
+    private WatchedState state = new WatchedState();
 
     /**
      * Optional environment variables to pass to the VM. Persisted verbatim on the workload

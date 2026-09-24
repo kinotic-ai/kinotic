@@ -8,9 +8,9 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.CRI;
-import org.kinotic.core.api.reconcile.Condition;
-import org.kinotic.core.api.reconcile.ConditionType;
-import org.kinotic.core.api.reconcile.Conditions;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -37,8 +37,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Consumer;
-import java.util.function.Predicate;
+import java.util.function.Function;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -188,10 +187,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                      .mapEmpty();
     }
 
-    private Future<Workload> applyStatusReport(String nodeId, WorkloadStatusReport report) {
+    private Future<Void> applyStatusReport(String nodeId, WorkloadStatusReport report) {
         return workloadService.findById(report.getWorkloadId())
                 .compose(workload -> {
-                    Future<Workload> ret;
+                    Future<Void> ret;
 
                     if (workload == null) {
                         // Destroyed since the node recorded the status — stale report
@@ -199,28 +198,27 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     } else if (!nodeId.equals(workload.getNodeId())) {
                         log.warn("Ignoring status report from node {} for workload {} deployed on node {}",
                                  nodeId, report.getWorkloadId(), workload.getNodeId());
-                        ret = Future.succeededFuture(workload);
-                    } else if (Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE)) {
+                        ret = Future.succeededFuture();
+                    } else if (StatusConditions.has(workload.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE)) {
                         // The condition was set from the node's silence, on the server's clock, so the
                         // report that ends the silence is applied whatever the timestamps say and whether
                         // or not the status moved: the node is the authority on its run
                         log.info("Workload {} status {} -> {} per report from node {}, reachable again",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
-                        workload.setConditions(Conditions.without(workload.getConditions(), ConditionType.NODE_UNREACHABLE));
-                        ret = applyReport(nodeId, workload, report);
+                        ret = workloadService.clearCondition(workload.getId(), StatusConditionType.NODE_UNREACHABLE)
+                                             .compose(cleared -> applyReport(nodeId, workload, report));
                     } else if (workload.getStatus() == report.getStatus()) {
                         // Same state; still adopt an exit code the record lacks — stopWorkload
-                        // persists STOPPED before the node's exit-code-bearing report arrives
+                        // records STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
-                            workload.setExitCode(report.getExitCode());
-                            ret = workloadService.saveSync(workload);
+                            ret = workloadService.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode());
                         } else {
-                            ret = Future.succeededFuture(workload);
+                            ret = Future.succeededFuture();
                         }
                     } else if (workload.getUpdated() != null
                             && report.getUpdated() <= workload.getUpdated().getTime()) {
                         // A report older than the record's last transition must not clobber it
-                        ret = Future.succeededFuture(workload);
+                        ret = Future.succeededFuture();
                     } else {
                         log.info("Workload {} status {} -> {} per report from node {}",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
@@ -231,13 +229,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 });
     }
 
-    // Persists the report's status and exit code, and returns the run's room once the report says it ended
-    private Future<Workload> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
-        workload.setStatus(report.getStatus());
-        workload.setExitCode(report.getExitCode());
-        Future<Workload> ret = workloadService.saveSync(workload);
+    // Records the report's status and exit code, and returns the run's room once the report says it ended
+    private Future<Void> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
+        Future<Void> ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode());
         if (report.getStatus().isComplete()) {
-            ret = ret.compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()).map(saved));
+            ret = ret.compose(v -> vmNodeService.releaseSync(nodeId, workload.getId()));
         }
         return ret;
     }
@@ -253,10 +249,10 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // The operator's word that the node is not coming back settles what its silence
                         // left open. The node record and its ledger go with it, so no room is returned.
                         log.info("Deregistering OFFLINE VmNode {}: its open runs are recorded FAILED", nodeId);
-                        ret = updateOpenRuns(nodeId, workload -> true, workload -> {
+                        ret = forEachOpenRun(nodeId, workload -> {
                             log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                                      workload.getId(), nodeId, workload.getStatus());
-                            workload.setStatus(WorkloadStatus.FAILED);
+                            return workloadService.updateRunSync(workload.getId(), WorkloadStatus.FAILED, null);
                         }).compose(v -> vmNodeService.deleteById(nodeId));
                     } else {
                         ret = workloadService.countRunningForNode(nodeId)
@@ -351,29 +347,26 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     // the record keeps its status and its room; the node's next report settles both, and a
     // deregistration settles them when the node is not coming back
     private Future<Void> markNodeWorkloadsUnreachable(String nodeId) {
-        return updateOpenRuns(nodeId,
-                              workload -> !Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE),
-                              workload -> {
-                                  log.warn("Marking workload {} unreachable: node {} missed its heartbeat",
-                                           workload.getId(), nodeId);
-                                  workload.setConditions(Conditions.with(workload.getConditions(),
-                                                                         new Condition(ConditionType.NODE_UNREACHABLE,
-                                                                                       "Node " + nodeId + " missed its heartbeat",
-                                                                                       new Date())));
-                              });
+        StatusCondition unreachable = new StatusCondition(StatusConditionType.NODE_UNREACHABLE,
+                                                          "Node " + nodeId + " missed its heartbeat",
+                                                          new Date());
+        return forEachOpenRun(nodeId, workload -> workloadService.setCondition(workload.getId(), unreachable)
+                .onSuccess(set -> {
+                    if (set) {
+                        log.warn("Marked workload {} unreachable: node {} missed its heartbeat", workload.getId(), nodeId);
+                    }
+                })
+                .mapEmpty());
     }
 
-    // Applies the change to every open run on the node the predicate selects, one save at a time
-    private Future<Void> updateOpenRuns(String nodeId, Predicate<Workload> selects, Consumer<Workload> change) {
+    // Applies the change to every open run on the node, one at a time
+    private Future<Void> forEachOpenRun(String nodeId, Function<Workload, Future<Void>> change) {
         return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(page -> {
                     Future<Void> chain = Future.succeededFuture();
                     for (Workload workload : page.getContent()) {
-                        if (runOpen(workload) && selects.test(workload)) {
-                            chain = chain.compose(v -> {
-                                change.accept(workload);
-                                return workloadService.saveSync(workload).mapEmpty();
-                            });
+                        if (runOpen(workload)) {
+                            chain = chain.compose(v -> change.apply(workload));
                         }
                     }
                     return chain;

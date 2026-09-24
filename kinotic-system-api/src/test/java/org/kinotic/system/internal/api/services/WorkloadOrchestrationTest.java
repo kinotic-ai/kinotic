@@ -17,8 +17,8 @@ import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.EventBusService;
-import org.kinotic.core.api.reconcile.ConditionType;
-import org.kinotic.core.api.reconcile.Conditions;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -232,7 +232,7 @@ public class WorkloadOrchestrationTest {
         reportAt(deployed.getId(), WorkloadStatus.RUNNING, null, System.currentTimeMillis() - 60_000);
 
         Workload stored = workloads.saved.get(deployed.getId());
-        assertFalse(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertFalse(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
         assertEquals(WorkloadStatus.RUNNING, stored.getStatus());
         assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus(), "the room was never released");
     }
@@ -244,7 +244,7 @@ public class WorkloadOrchestrationTest {
         reportAt(deployed.getId(), WorkloadStatus.STOPPED, 0, System.currentTimeMillis() - 60_000);
 
         Workload stored = workloads.saved.get(deployed.getId());
-        assertFalse(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertFalse(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
         assertEquals(WorkloadStatus.STOPPED, stored.getStatus());
         assertEquals(0, stored.getExitCode());
         assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
@@ -259,14 +259,14 @@ public class WorkloadOrchestrationTest {
 
         Workload stored = workloads.saved.values().iterator().next();
         assertEquals(WorkloadStatus.STARTING, stored.getStatus());
-        assertTrue(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertTrue(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
         assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus(), "the node may be running it");
 
         // the node's report settles it
         report(stored.getId(), WorkloadStatus.RUNNING, null);
         Workload settled = workloads.saved.get(stored.getId());
         assertEquals(WorkloadStatus.RUNNING, settled.getStatus());
-        assertFalse(Conditions.has(settled.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertFalse(StatusConditions.has(settled.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
     }
 
     @Test
@@ -279,7 +279,7 @@ public class WorkloadOrchestrationTest {
 
         Workload stored = workloads.saved.get(deployed.getId());
         assertEquals(WorkloadStatus.STOPPING, stored.getStatus());
-        assertTrue(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertTrue(StatusConditions.has(stored.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE));
         assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus());
     }
 
@@ -599,7 +599,7 @@ public class WorkloadOrchestrationTest {
     }
 
     private boolean unreachable(String workloadId) {
-        return Conditions.has(workloads.saved.get(workloadId).getConditions(), ConditionType.NODE_UNREACHABLE);
+        return StatusConditions.has(workloads.saved.get(workloadId).getState().getConditions(), StatusConditionType.NODE_UNREACHABLE);
     }
 
     /**
