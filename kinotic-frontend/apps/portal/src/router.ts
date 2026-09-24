@@ -4,7 +4,7 @@ import pagesRoutes from '@/pages/routes'
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
-        redirect: '/applications'
+        redirect: '/overview'
     },
     {
         path: '/404',

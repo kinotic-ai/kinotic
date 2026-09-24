@@ -13,11 +13,12 @@ export interface IWorkloadService extends ICrudServiceProxy<Workload> {
     findAllForNode(nodeId: string, pageable: Pageable): Promise<IterablePage<Workload>>
 
     /**
-     * Counts all workloads deployed on the given node.
+     * Counts the workloads on the given node whose run has not ended: the ones still holding a VM
+     * there.
      * @param nodeId the id of the node to count workloads for
-     * @return a Promise resolving to the number of workloads
+     * @return a Promise resolving to the number of running workloads
      */
-    countForNode(nodeId: string): Promise<number>
+    countRunningForNode(nodeId: string): Promise<number>
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -43,8 +44,8 @@ export class WorkloadServiceProxy extends CrudServiceProxy<Workload> implements 
         return this.serviceProxy.invoke('findAllForNode', [nodeId, pageable])
     }
 
-    public countForNode(nodeId: string): Promise<number> {
-        return this.serviceProxy.invoke('countForNode', [nodeId])
+    public countRunningForNode(nodeId: string): Promise<number> {
+        return this.serviceProxy.invoke('countRunningForNode', [nodeId])
     }
 
     public syncIndex(): Promise<void> {

@@ -4,8 +4,11 @@ import type { Workload } from '@kinotic-ai/management-api'
 import { scanWorkloadPages, type ViewScope } from '@kinotic-ai/frontend-common'
 import { organizationPath } from './scope'
 
-/** The organization filter value that keeps the platform's own workloads, the ones with no organization. */
-export const PLATFORM_ONLY = 'platform'
+/**
+ * The organization filter value that keeps the platform's own workloads, the ones with no
+ * organization. Ids are lowercase letters, digits and dashes, so no organization can take it.
+ */
+export const PLATFORM_ONLY = '_platform'
 
 /**
  * Names the platform's own workloads where workloads are grouped by organization. Ids are
