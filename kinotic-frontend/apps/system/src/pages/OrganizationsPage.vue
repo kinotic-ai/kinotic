@@ -26,6 +26,10 @@
         {{ item.members ?? '—' }}
       </template>
 
+      <template #item.allocated="{ item }">
+        <span class="whitespace-nowrap">{{ item.allocated ?? '—' }}</span>
+      </template>
+
       <template #item.created="{ item }">
         {{ formatDate(item.created) }}
       </template>
@@ -43,6 +47,8 @@ import {
   CrudTable,
   PageHeader,
   DatetimeUtil,
+  allocationBy,
+  formatAllocation,
   useCrudTablePage,
   type CrudHeader,
   type DescriptiveIdentifiable
@@ -57,6 +63,8 @@ interface OrganizationRow extends DescriptiveIdentifiable {
   name: string
   applications: number | null
   running: number
+  /** What the organization's running workloads hold of the worker nodes, when they hold any. */
+  allocated: string | null
   members: number | null
   created: number | null
 }
@@ -69,12 +77,14 @@ const headers: CrudHeader[] = [
   { field: 'id', header: 'Id', sortable: false, optional: true },
   { field: 'applications', header: 'Apps', sortable: false, optional: true },
   { field: 'running', header: 'Running', sortable: false, optional: true },
+  { field: 'allocated', header: 'Allocated', sortable: false, optional: true },
   { field: 'members', header: 'Members', sortable: false, optional: true },
   { field: 'created', header: 'Created', sortable: true, optional: true }
 ]
 
-// Running workloads per organization, from one scan shared by every page of the table
+// Running workloads and what they hold per organization, from one scan shared by every page of the table
 const runningByOrganization = ref<Record<string, number>>({})
+const allocatedByOrganization = ref<Record<string, string>>({})
 
 const { tableSearch, dataSource, refreshTable } = useCrudTablePage(load)
 
@@ -104,6 +114,7 @@ async function toRow(org: Organization): Promise<OrganizationRow> {
     name: org.name,
     applications,
     running: runningByOrganization.value[id] ?? 0,
+    allocated: allocatedByOrganization.value[id] ?? null,
     members,
     created: org.created
   }
@@ -116,12 +127,16 @@ function openOrganization(row: DescriptiveIdentifiable) {
 onMounted(async () => {
   try {
     const counts: Record<string, number> = {}
-    for (const workload of await scanWorkloads({})) {
+    const workloads = await scanWorkloads({})
+    for (const workload of workloads) {
       if (workload.organizationId && workload.status === WorkloadStatus.RUNNING) {
         counts[workload.organizationId] = (counts[workload.organizationId] ?? 0) + 1
       }
     }
     runningByOrganization.value = counts
+    // the platform's own workloads carry no organization, so they group under the empty id no row has
+    allocatedByOrganization.value = Object.fromEntries(
+        allocationBy(workloads, workload => workload.organizationId ?? '').map(allocation => [allocation.owner, formatAllocation(allocation)]))
     refreshTable()
   } catch {
     // The column shows zero; the organizations themselves still list

@@ -32,6 +32,8 @@
       />
     </div>
 
+    <CallsTable :organization-id="organizationId" :application-id="applicationId" :workload-id="workloadId" :range="range" />
+
     <div class="flex flex-col gap-3">
       <div class="flex items-center gap-2">
         <InputText
@@ -61,6 +63,7 @@ import Button from 'primevue/button'
 import InputText from 'primevue/inputtext'
 
 import { errorMessage } from '../../util/helpers'
+import CallsTable from './CallsTable.vue'
 import MetricChart from './MetricChart.vue'
 import type { MetricSeries } from './MetricSeries'
 import type { TimeRange } from './TimeRange'
@@ -68,13 +71,15 @@ import { queryMetrics, redQueries } from './telemetryApi'
 import { formatDuration, formatPercent, formatRate } from './telemetryDisplay'
 
 /**
- * The RED metrics of the organization's services — or of one application's — over the given
- * range, and a free PromQL query over the same tenant beneath them. Emits show-failed-traces
- * when the user asks to see the traces behind the error rate.
+ * The RED metrics of the organization's services — or of one application's, or one
+ * workload's — over the given range, their busiest calls, and a free PromQL query over the
+ * same tenant beneath them. Emits show-failed-traces when the user asks to see the traces
+ * behind the error rate.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
+  workloadId?: string | null
   range: TimeRange
 }>()
 
@@ -117,7 +122,7 @@ async function load(target: Panel, query: string) {
 }
 
 function loadRed() {
-  const queries = redQueries(props.applicationId, props.range)
+  const queries = redQueries({ applicationId: props.applicationId, workloadId: props.workloadId }, props.range)
   load(requests, queries.requests)
   load(errors, queries.errors)
   load(latency, queries.latencyP95)

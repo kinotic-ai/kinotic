@@ -30,3 +30,15 @@ export function formatRate(perSecond: number): string {
 export function formatPercent(fraction: number): string {
     return `${(fraction * 100).toFixed(fraction * 100 < 10 ? 2 : 1)}%`
 }
+
+export function formatBytes(bytes: number): string {
+    let ret: string
+    if (bytes >= 1024 ** 3) {
+        ret = `${(bytes / 1024 ** 3).toFixed(1)} GB`
+    } else if (bytes >= 1024 ** 2) {
+        ret = `${(bytes / 1024 ** 2).toFixed(0)} MB`
+    } else {
+        ret = `${(bytes / 1024).toFixed(0)} KB`
+    }
+    return ret
+}

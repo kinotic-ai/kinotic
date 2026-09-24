@@ -10,7 +10,7 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-3">
+    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <RouterLink :to="`${basePath}/deployment`" :class="tileClass">
         <div class="flex items-center gap-2 text-xs text-muted-color"><i class="pi pi-cloud-upload" />Deployment</div>
         <Skeleton v-if="loading" height="1.5rem" width="5rem" class="mt-2" />
@@ -25,6 +25,13 @@
           </template>
           <template v-else>Pushing to the default branch deploys it</template>
         </div>
+      </RouterLink>
+
+      <RouterLink :to="`${basePath}/workloads`" :class="tileClass">
+        <div class="flex items-center gap-2 text-xs text-muted-color"><i class="pi pi-box" />Workloads</div>
+        <Skeleton v-if="workloads === null" height="1.75rem" width="3rem" class="mt-2" />
+        <div v-else class="mt-2 text-2xl font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ runningWorkloads }}</div>
+        <div class="mt-1 text-xs text-muted-color">running of {{ workloads?.length ?? '—' }}</div>
       </RouterLink>
 
       <RouterLink :to="`${basePath}/entities`" :class="tileClass">
@@ -96,13 +103,17 @@ import Message from 'primevue/message'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
-import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
+import { type Project, type ProjectDeployment, RepositoryConnectionStatus, type UiDeployment, type Workload,
+         WorkloadStatus } from '@kinotic-ai/management-api'
 import { DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
+import { USER_STATE } from '@/states/IUserState'
+import { scanWorkloads } from '@/util/workloads'
 
 /**
- * The landing page of one project: its repository, its deployment state, how many entities
- * it defines, the UIs it has published with their sites, and the facts that identify it. Each
- * tile leads to the page with the detail.
+ * The landing page of one project: its repository, its deployment state, how many of the
+ * workloads its deployments started are running, how many entities it defines, the UIs it has
+ * published with their sites, and the facts that identify it. Each tile leads to the page with
+ * the detail.
  */
 const props = defineProps<{
   applicationId: string
@@ -121,8 +132,11 @@ const deployment = ref<ProjectDeployment | null>(null)
 const microserviceCount = ref(0)
 const uis = ref<UiDeployment[]>([])
 const entityCount = ref<number | null>(null)
+const workloads = ref<Workload[] | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+const runningWorkloads = computed(() => (workloads.value ?? []).filter(workload => workload.status === WorkloadStatus.RUNNING).length)
 
 const workloadSummary = computed(() => {
   const parts: string[] = []
@@ -145,6 +159,8 @@ async function load(): Promise<void> {
   microserviceCount.value = 0
   uis.value = []
   entityCount.value = null
+  workloads.value = null
+  void loadWorkloads()
   try {
     const [loadedProject, loadedDeployment, microservices, loadedUis, count] = await Promise.all([
       Kinotic.projects.findById(props.projectId),
@@ -162,6 +178,19 @@ async function load(): Promise<void> {
     error.value = err instanceof Error ? err.message : String(err)
   } finally {
     loading.value = false
+  }
+}
+
+// Read beside the project's records, so a slow scan keeps its tile loading without holding the rest
+async function loadWorkloads(): Promise<void> {
+  try {
+    workloads.value = await scanWorkloads({
+      organizationId: USER_STATE.getOrganizationId(),
+      applicationId: props.applicationId,
+      projectId: props.projectId
+    })
+  } catch {
+    workloads.value = []
   }
 }
 </script>

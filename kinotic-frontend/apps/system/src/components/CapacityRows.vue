@@ -12,10 +12,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { formatMb } from '@kinotic-ai/frontend-common'
+import { CapacityBar, formatCpus, formatMb } from '@kinotic-ai/frontend-common'
 
-import CapacityBar from './CapacityBar.vue'
-import { formatCpus, percentOf, type Capacity } from '@/util/nodes'
+import { percentOf, type Capacity } from '@/util/nodes'
 
 /** CPU, memory and disk gauges: allocated over total. */
 const props = defineProps<{

@@ -7,16 +7,26 @@
       </template>
     </PageHeader>
 
-    <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <RouterLink v-for="tile in tiles" :key="tile.label" :to="tile.to" :class="tileClass">
-        <div class="flex items-center gap-2 text-xs text-muted-color">
-          <i :class="tile.icon" />
-          {{ tile.label }}
-        </div>
-        <Skeleton v-if="tile.value === null" height="1.75rem" width="3rem" class="mt-2" />
-        <div v-else class="mt-2 text-2xl font-semibold tabular-nums text-surface-950 dark:text-surface-0">{{ tile.value }}</div>
-        <div class="mt-1 text-xs text-muted-color">{{ tile.detail }}</div>
-      </RouterLink>
+    <!-- What the application holds opens the page; how it runs follows in titled groups -->
+    <div class="mb-8 flex flex-col gap-8">
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+      </div>
+
+      <!-- Side by side from xl, the two groups' five tiles line up as one row of equal columns, and each
+           group's grid fills the row so tiles without a sparkline match the height of those with one -->
+      <div class="grid gap-8 xl:grid-cols-5 xl:gap-4">
+        <DashboardSection title="Runtime" description="Its workloads and job runs." class="xl:col-span-2">
+          <div class="grid flex-1 grid-cols-2 gap-4">
+            <StatTile v-for="stat in runtimeStats" :key="stat.label" v-bind="stat" />
+          </div>
+        </DashboardSection>
+        <DashboardSection title="Traffic · last hour" description="The calls its services answered." class="xl:col-span-3">
+          <div class="grid flex-1 grid-cols-2 gap-4 sm:grid-cols-3">
+            <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
+          </div>
+        </DashboardSection>
+      </div>
     </div>
 
     <div class="grid gap-4 lg:grid-cols-2">
@@ -98,17 +108,21 @@ import Button from 'primevue/button'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
-import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
+import { type JobRun, type Project, type UiDeployment, type Workload, DeploymentStatusType, ExecutionStatus,
+         RepositoryConnectionStatus, WorkloadStatus } from '@kinotic-ai/management-api'
+import { createDebug, DashboardSection, DatetimeUtil, deploymentStatusSeverity, PageHeader, scanJobRuns, StatTile,
+         useTrafficStats, type Stat } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
+import { scanWorkloads } from '@/util/workloads'
 
 const debug = createDebug('application-overview')
 
 /**
- * The landing page of one application: how much it holds, each count leading to its list,
- * its projects with their deployment state, the facts that identify it, and every UI its
- * projects have published with its site.
+ * The landing page of one application: how much it holds and how it runs — its workloads, its
+ * job runs and its traffic — each figure leading to its page, its projects with their
+ * deployment state, the facts that identify it, and every UI its projects have published with
+ * its site.
  */
 const props = defineProps<{
   applicationId: string
@@ -117,10 +131,13 @@ const props = defineProps<{
 /** How many projects the overview lists before pointing at the Projects page. */
 const PROJECT_PREVIEW_COUNT = 5
 
+const DAY_MS = 24 * 60 * 60 * 1000
+/** How far back the Jobs tile counts runs. */
+const RUN_WINDOW_DAYS = 7
+
 const router = useRouter()
 const RepoStatus = RepositoryConnectionStatus
 
-const tileClass = 'rounded-2xl border border-surface-200 bg-surface-0 px-5 py-4 transition-colors hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-800/30 dark:hover:bg-surface-800/60'
 const cardClass = 'rounded-2xl border border-surface-200 bg-surface-0 px-5 py-4 dark:border-surface-700 dark:bg-surface-800/30'
 
 const organizationId = computed(() => USER_STATE.getOrganizationId())
@@ -136,8 +153,16 @@ const deploymentStatus = ref<Record<string, DeploymentStatusType>>({})
 const uis = ref<UiDeployment[]>([])
 const usersCount = ref<number | null>(null)
 const machinesCount = ref<number | null>(null)
+const workloads = ref<Workload[] | null>(null)
+const runs = ref<JobRun[] | null>(null)
 
-const tiles = computed(() => {
+const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
+  organizationId: organizationId.value,
+  filter: { applicationId: props.applicationId },
+  to: `${basePath.value}/observability`
+}))
+
+const stats = computed<Stat[]>(() => {
   const countsLoaded = application.value !== null && APPLICATION_STATE.countsLoaded
   const deploying = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.DEPLOYING).length
   const failed = Object.values(deploymentStatus.value).filter(s => s === DeploymentStatusType.FAILED).length
@@ -150,14 +175,26 @@ const tiles = computed(() => {
     health = 'deployments healthy'
   }
   return [
-    { label: 'Projects', icon: 'pi pi-folder', to: `${basePath.value}/projects`,
-      value: countsLoaded ? APPLICATION_STATE.projectsCount : null, detail: health },
-    { label: 'Entities', icon: 'pi pi-table', to: `${basePath.value}/entities`,
-      value: countsLoaded ? APPLICATION_STATE.entityDefinitionsCount : null, detail: 'across all projects' },
-    { label: 'Users', icon: 'pi pi-users', to: `${basePath.value}/users`,
-      value: usersCount.value, detail: 'people who sign in to this application' },
-    { label: 'Machines', icon: 'pi pi-server', to: `${basePath.value}/machines`,
-      value: machinesCount.value, detail: 'client-credential callers' }
+    { label: 'Projects', icon: 'pi-folder', accent: 'sky', to: `${basePath.value}/projects`,
+      value: countsLoaded ? `${APPLICATION_STATE.projectsCount}` : '—', description: health },
+    { label: 'Entities', icon: 'pi-table', accent: 'teal', to: `${basePath.value}/entities`,
+      value: countsLoaded ? `${APPLICATION_STATE.entityDefinitionsCount}` : '—', description: 'across all projects' },
+    { label: 'Users', icon: 'pi-users', accent: 'green', to: `${basePath.value}/users`,
+      value: usersCount.value?.toString() ?? '—', description: 'people who sign in to this application' },
+    { label: 'Machines', icon: 'pi-server', accent: 'violet', to: `${basePath.value}/machines`,
+      value: machinesCount.value?.toString() ?? '—', description: 'client-credential callers' }
+  ]
+})
+
+const runtimeStats = computed<Stat[]>(() => {
+  const runningWorkloads = workloads.value?.filter(workload => workload.status === WorkloadStatus.RUNNING).length ?? 0
+  const failedRuns = runs.value?.filter(run => run.status === ExecutionStatus.FAILED).length ?? 0
+  const runningRuns = runs.value?.filter(run => run.status === ExecutionStatus.RUNNING).length ?? 0
+  return [
+    { label: 'Workloads', icon: 'pi-box', accent: 'amber', to: `${basePath.value}/workloads`,
+      value: workloads.value ? `${runningWorkloads}` : '—', description: `running of ${workloads.value?.length ?? '—'}` },
+    { label: `Jobs · ${RUN_WINDOW_DAYS} d`, icon: 'pi-list-check', accent: 'violet', to: `${basePath.value}/jobs`,
+      value: runs.value ? `${runs.value.length}` : '—', description: `${failedRuns} failed · ${runningRuns} running` }
   ]
 })
 
@@ -170,7 +207,23 @@ async function load(): Promise<void> {
   uis.value = []
   usersCount.value = null
   machinesCount.value = null
-  await Promise.all([loadProjects(), loadUsersCount(), loadMachinesCount()])
+  workloads.value = null
+  runs.value = null
+  await Promise.all([loadProjects(), loadUsersCount(), loadMachinesCount(), loadRuntime(), loadTraffic()])
+}
+
+async function loadRuntime(): Promise<void> {
+  const scope = { organizationId: organizationId.value, applicationId: props.applicationId }
+  try {
+    const [workloadList, runList] = await Promise.all([
+      scanWorkloads(scope),
+      scanJobRuns({ ...scope, since: Date.now() - RUN_WINDOW_DAYS * DAY_MS })
+    ])
+    workloads.value = workloadList
+    runs.value = runList
+  } catch (error) {
+    debug('Failed to load workloads and runs: %O', error)
+  }
 }
 
 async function loadProjects(): Promise<void> {

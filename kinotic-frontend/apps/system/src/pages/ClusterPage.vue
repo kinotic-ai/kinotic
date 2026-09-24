@@ -55,6 +55,14 @@
         </DataTable>
       </div>
 
+      <section class="rounded-lg border border-surface p-4">
+        <h2 class="text-base font-semibold">Server runtime</h2>
+        <p class="mt-1 mb-3 text-xs text-muted-color">
+          What the servers' OpenTelemetry agent reports from inside each JVM, from the system tenant.
+        </p>
+        <ServerMetricsPanel />
+      </section>
+
       <div class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-lg border border-surface p-4">
           <h2 class="text-base font-semibold">Platform observability</h2>
@@ -91,10 +99,10 @@ import Tag from 'primevue/tag'
 
 import { Kinotic } from '@kinotic-ai/core'
 import type { KinoticClusterInfo } from '@kinotic-ai/system-api'
-import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, StatTile, errorMessage, type Stat } from '@kinotic-ai/frontend-common'
 
 import LogLevelDialog from '@/components/LogLevelDialog.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
+import ServerMetricsPanel from '@/components/ServerMetricsPanel.vue'
 import { PLATFORM_ONLY } from '@/util/workloads'
 
 const router = useRouter()
@@ -121,15 +129,6 @@ const mixedVersions = computed(() => new Set((cluster.value?.nodes ?? []).map(no
 function splitVersion(version: string): { release: string; build: string | null } {
   const at = version.indexOf('#')
   return at < 0 ? { release: version, build: null } : { release: version.slice(0, at), build: version.slice(at + 1) }
-}
-
-interface Stat {
-  label: string
-  value: string
-  description: string
-  tag?: string
-  icon?: string
-  accent?: StatTileAccent
 }
 
 const stats = computed<Stat[]>(() => [

@@ -23,7 +23,10 @@ import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import VChart from 'vue-echarts'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { DatetimeUtil, accentColor, chartGridColor, chartLegend, chartTextColor, isDark } from '@kinotic-ai/frontend-common'
+
+import { accentColor, chartGridColor, chartLegend, chartTextColor } from '../../charts/chartTheme'
+import { isDark } from '../../composables/useTheme'
+import DatetimeUtil from '../../util/DatetimeUtil'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 

@@ -9,7 +9,8 @@
 import { computed } from 'vue'
 import VChart from 'vue-echarts'
 
-import { accentColor, isDark } from '@kinotic-ai/frontend-common'
+import { accentColor } from '../../charts/chartTheme'
+import { isDark } from '../../composables/useTheme'
 
 /**
  * A single gauge: the percentage fills a surface-colored track. An allocation gauge turns

@@ -45,7 +45,8 @@
             <RouterLink :to="{ path: '/workloads', query: { node: nodeId } }"
                         class="whitespace-nowrap text-sm text-muted-color hover:text-color">Filter workloads</RouterLink>
           </div>
-          <WorkloadsTable :workloads="workloads" :scope="{}" :show-node="false" @changed="load" />
+          <WorkloadsTable :workloads="workloads" :scope="{}" :workload-route="id => workloadPath({}, id)"
+                          :operations="Kinotic.workloadOrchestration" @changed="load" />
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
@@ -70,6 +71,10 @@
             <CapacityRows :capacity="capacityOf([node])" />
           </div>
         </div>
+
+        <AllocationCard title="Capacity by organization"
+                        description="What each organization's running workloads hold of this node."
+                        :allocations="allocations" :owner-route="organizationOwnerRoute" />
       </div>
     </template>
   </div>
@@ -84,13 +89,13 @@ import Tag from 'primevue/tag'
 import { Kinotic } from '@kinotic-ai/core'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, errorMessage, formatMb } from '@kinotic-ai/frontend-common'
+import { AllocationCard, DatetimeUtil, PageHeader, StatTile, WorkloadsTable, allocationBy, errorMessage, formatCpus,
+         formatMb, type Stat } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { capacityOf, formatCpus, nodeSeverity, percentOf } from '@/util/nodes'
-import { scanWorkloads } from '@/util/workloads'
+import { capacityOf, nodeSeverity, percentOf } from '@/util/nodes'
+import { workloadPath } from '@/util/scope'
+import { organizationOwnerOf, organizationOwnerRoute, scanWorkloads } from '@/util/workloads'
 
 /**
  * One worker node: its health explained, its capacity, the workloads placed on it, and what it
@@ -107,14 +112,7 @@ const workloads = ref<Workload[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-interface Stat {
-  label: string
-  value: string
-  description: string
-  to?: object
-  icon?: string
-  accent?: StatTileAccent
-}
+const allocations = computed(() => allocationBy(workloads.value, organizationOwnerOf))
 
 const stats = computed<Stat[]>(() => {
   const n = node.value

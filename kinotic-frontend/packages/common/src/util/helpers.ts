@@ -86,3 +86,8 @@ export function shortSha(sha: string): string {
 export function formatMb(mb: number): string {
     return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
 }
+
+/** A CPU allotment in cores, with a fraction shown to the hundredth and no trailing zeros: 4, 0.5, 2.25. */
+export function formatCpus(cpus: number): string {
+    return String(Math.round(cpus * 100) / 100)
+}

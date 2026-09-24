@@ -36,7 +36,8 @@
           The microservice VMs this project's deployments have left running, where the platform
           placed them, and what an operator can do about each.
         </p>
-        <WorkloadsTable v-if="services.length > 0" :workloads="services" :scope="scope" :node-names="nodeNames" @changed="load" />
+        <WorkloadsTable v-if="services.length > 0" :workloads="services" :scope="scope" :workload-route="id => workloadPath(scope, id)"
+                        :node-route="nodePath" :node-names="nodeNames" :operations="Kinotic.workloadOrchestration" @changed="load" />
         <div v-else class="text-sm text-muted-color">No microservice workload is running for this project.</div>
       </section>
 
@@ -75,15 +76,15 @@ import DataTable from 'primevue/datatable'
 import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
+import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail,
-         errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail, WorkloadsTable,
+         commitShaOf, errorMessage, executionStatusSeverity, isDeployRun, scanJobRuns, shortSha,
+         type ViewScope } from '@kinotic-ai/frontend-common'
 
-import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { loadNodes } from '@/util/nodes'
-import { commitShaOf, isDeployRun } from '@/util/runs'
-import { projectPath, type Scope } from '@/util/scope'
+import { loadNodes, nodePath } from '@/util/nodes'
+import { projectPath, workloadPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
 /**
@@ -101,7 +102,7 @@ const router = useRouter()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
 
-const scope = computed<Scope>(() => ({
+const scope = computed<ViewScope>(() => ({
   organizationId: props.organizationId,
   applicationId: props.applicationId,
   projectId: props.projectId

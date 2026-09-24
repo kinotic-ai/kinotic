@@ -26,9 +26,10 @@ import { useRouter } from 'vue-router'
 import Button from 'primevue/button'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail, createDebug } from '@kinotic-ai/frontend-common'
+import { JobRunProgress, PageHeader, ProjectDeployStores, ProjectDeployTaskDetail, createDebug,
+         type ViewScope } from '@kinotic-ai/frontend-common'
 
-import { organizationPath, scopePath, type Scope } from '@/util/scope'
+import { organizationPath, scopePath } from '@/util/scope'
 
 const debug = createDebug('job-run-page')
 
@@ -45,7 +46,7 @@ const props = defineProps<{
 
 const router = useRouter()
 
-const scope = computed<Scope>(() => ({
+const scope = computed<ViewScope>(() => ({
   organizationId: props.organizationId,
   applicationId: props.applicationId,
   projectId: props.projectId

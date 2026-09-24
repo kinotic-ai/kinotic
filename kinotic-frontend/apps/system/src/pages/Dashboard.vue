@@ -8,45 +8,70 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <!-- The page reads in bands, one kind of content per row: how much, what needs me, how
-         healthy, what happened -->
-    <div class="flex flex-col gap-4">
-      <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+    <!-- What an operator checks first opens the page: the platform's vitals and what needs them.
+         Titled sections follow, most urgent first: the last hour, then workloads, then jobs -->
+    <div class="flex flex-col gap-8">
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+          <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+        </div>
+        <AttentionList :items="attention" />
       </div>
 
-      <AttentionList :items="attention" />
+      <!-- Side by side from xl, the two sections' five tiles line up as one row of equal columns -->
+      <div class="grid gap-8 xl:grid-cols-5 xl:gap-4">
+        <DashboardSection title="Traffic · last hour" description="The calls the platform's own services answered." class="xl:col-span-3">
+          <div class="grid grid-cols-2 gap-4 md:grid-cols-3">
+            <StatTile v-for="stat in traffic.stats.value" :key="stat.label" v-bind="stat" />
+          </div>
+        </DashboardSection>
+        <DashboardSection title="Servers · last hour" description="The kinotic-server processes' headroom." class="xl:col-span-2">
+          <div class="grid grid-cols-2 gap-4">
+            <StatTile v-for="stat in server.stats.value" :key="stat.label" v-bind="stat" />
+          </div>
+        </DashboardSection>
+      </div>
 
-      <div class="grid gap-4 lg:grid-cols-3">
-        <div class="rounded-lg border border-surface p-4">
-          <div class="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-base font-semibold">Worker capacity</h2>
-              <p class="text-xs text-muted-color">Allocated on the nodes that are online.</p>
+      <DashboardSection title="Workloads and capacity">
+        <div class="grid gap-4 lg:grid-cols-3">
+          <WorkloadStateCard :workloads="workloads" description="Every workload on the platform." view-all-to="/workloads" />
+
+          <AllocationCard title="Capacity by organization"
+                          description="What each organization's running workloads hold of the worker nodes."
+                          :allocations="allocations" :owner-route="organizationOwnerRoute" view-all-to="/organizations" />
+
+          <div class="rounded-lg border border-surface p-4">
+            <div class="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <h2 class="text-base font-semibold">Worker capacity</h2>
+                <p class="text-xs text-muted-color">Allocated on the nodes that are online.</p>
+              </div>
+              <RouterLink to="/worker-nodes" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
             </div>
-            <RouterLink to="/worker-nodes" class="whitespace-nowrap text-sm text-muted-color hover:text-color">Nodes</RouterLink>
-          </div>
-          <div v-if="nodes.length === 0" class="py-6 text-center text-sm text-muted-color">
-            No worker nodes registered
-          </div>
-          <div v-else-if="onlineNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
-            None of the {{ nodes.length }} registered worker nodes are online
-          </div>
-          <CapacityRows v-else :capacity="capacity" />
-          <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-color">
-            <span v-for="state in nodeStates" :key="state.label" class="flex items-center gap-1.5">
-              <span class="h-2.5 w-2.5 rounded-full" :style="{ background: state.color }" />
-              {{ state.label }} <b class="font-semibold text-color">{{ state.count }}</b>
-            </span>
+            <div v-if="nodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+              No worker nodes registered
+            </div>
+            <div v-else-if="onlineNodes.length === 0" class="py-6 text-center text-sm text-muted-color">
+              None of the {{ nodes.length }} registered worker nodes are online
+            </div>
+            <CapacityRows v-else :capacity="capacity" />
+            <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-color">
+              <span v-for="state in nodeStates" :key="state.label" class="flex items-center gap-1.5">
+                <span class="h-2.5 w-2.5 rounded-full" :style="{ background: state.color }" />
+                {{ state.label }} <b class="font-semibold text-color">{{ state.count }}</b>
+              </span>
+            </div>
           </div>
         </div>
+      </DashboardSection>
 
-        <WorkloadStateCard :workloads="workloads" description="Every workload on the platform." view-all-to="/workloads" />
-
-        <JobRunsByDayChart :runs="runs" view-all-to="/jobs" />
-      </div>
-
-      <RecentRunsTable :runs="recentRuns" :scope="{}" />
+      <DashboardSection title="Jobs">
+        <div class="grid gap-4 lg:grid-cols-3">
+          <JobRunsByDayChart :runs="runs" :days="RUN_WINDOW_DAYS" view-all-to="/jobs" class="lg:col-span-2" />
+          <JobOutcomesCard :runs="runs" :days="RUN_WINDOW_DAYS" view-all-to="/jobs" />
+        </div>
+        <RecentRunsTable :runs="recentRuns" :scope="{}" jobs-path="/jobs" />
+      </DashboardSection>
     </div>
   </div>
 </template>
@@ -59,17 +84,15 @@ import Message from 'primevue/message'
 import { Kinotic } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, accentColor, errorMessage, isDark, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { AllocationCard, AttentionList, DashboardSection, DatetimeUtil, JobOutcomesCard, JobRunsByDayChart, PageHeader,
+         RecentRunsTable, StatTile, WorkloadStateCard, accentColor, allocationBy, errorMessage, isDark, scanJobRuns,
+         useTrafficStats, type Stat } from '@kinotic-ai/frontend-common'
 
-import AttentionList from '@/components/AttentionList.vue'
 import CapacityRows from '@/components/CapacityRows.vue'
-import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
-import RecentRunsTable from '@/components/RecentRunsTable.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import { platformAttention } from '@/util/attention'
 import { capacityOf, loadNodes } from '@/util/nodes'
-import { scanWorkloads } from '@/util/workloads'
+import { useServerStats } from '@/util/serverMetrics'
+import { organizationOwnerOf, organizationOwnerRoute, scanWorkloads } from '@/util/workloads'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** How far back the runs chart and the recent-runs list look. */
@@ -101,17 +124,12 @@ const nodeStates = computed(() => {
 
 const attention = computed(() => platformAttention(cluster.value, nodes.value, workloads.value, runs.value))
 
-const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
+const traffic = useTrafficStats(() => ({ organizationId: null, filter: { applicationId: null }, to: '/observability' }))
+const server = useServerStats()
 
-interface Stat {
-  label: string
-  value: string
-  description: string
-  tag?: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
-}
+const allocations = computed(() => allocationBy(workloads.value, organizationOwnerOf))
+
+const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 
 const stats = computed<Stat[]>(() => {
   const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
@@ -178,7 +196,9 @@ async function load() {
     scanJobRuns({ since: Date.now() - RUN_WINDOW_DAYS * DAY_MS }).then(list => { runs.value = list })
                                                                   .catch(err => failures.push(errorMessage(err, 'Failed to load job runs'))),
     Kinotic.systemOrganizations.countOrganizations().then(count => { organizationCount.value = count })
-           .catch(() => { /* the tile shows an em dash */ })
+           .catch(() => { /* the tile shows an em dash */ }),
+    traffic.load(),
+    server.load()
   ])
   error.value = failures.length > 0 ? failures.join('. ') : null
   loading.value = false

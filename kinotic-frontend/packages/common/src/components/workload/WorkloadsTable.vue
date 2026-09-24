@@ -24,7 +24,7 @@
       </template>
 
       <template #item.node="{ item }">
-        <RouterLink v-if="item.nodeId" :to="`/worker-nodes/${encodeURIComponent(item.nodeId)}`"
+        <RouterLink v-if="item.nodeId && nodeRoute" :to="nodeRoute(item.nodeId)"
                     class="hover:underline" @click.stop>{{ item.node }}</RouterLink>
         <span v-else>—</span>
       </template>
@@ -56,35 +56,45 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter, type RouteLocationRaw } from 'vue-router'
 import Tag from 'primevue/tag'
 import type { MenuItem } from 'primevue/menuitem'
 import { useConfirm } from 'primevue/useconfirm'
 
-import { Direction, FunctionalIterablePage, Kinotic, Order,
+import { Direction, FunctionalIterablePage, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
-         type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 
-import { formatCpus } from '@/util/nodes'
-import { scopePath, type Scope } from '@/util/scope'
-import { shortImage, workloadSeverity } from '@/util/workloads'
+import CrudTable from '../CrudTable.vue'
+import WorkloadLogsDialog from '../WorkloadLogsDialog.vue'
+import { pageNumberOf, useCrudTablePage } from '../useCrudTablePage'
+import type { CrudHeader } from '../../types/CrudHeader'
+import type { DescriptiveIdentifiable } from '../../types/DescriptiveIdentifiable'
+import type { ViewScope } from '../../types/ViewScope'
+import DatetimeUtil from '../../util/DatetimeUtil'
+import { formatCpus, formatMb } from '../../util/helpers'
+import type { WorkloadOperations } from './WorkloadOperations'
+import { shortImage, workloadSeverity } from './workloadDisplay'
 
 /**
- * The given workloads as a searchable, sortable table whose rows open the workload's page
- * under the scope, with a menu that shows its logs, stops, restarts or destroys it. The owner
- * column names what the scope leaves unsaid: the organization on the platform, the
- * application inside an organization, nothing deeper. Emits changed after an action so the
- * caller can read the workloads again.
+ * The given workloads as a searchable, sortable table whose rows open the workload's page,
+ * with a menu that shows its logs and, given {@code operations}, stops or destroys it. The
+ * owner column names what the scope leaves unsaid: the organization on the platform, the
+ * application inside an organization, nothing deeper. Given {@code nodeRoute} it also shows
+ * the node each workload runs on. Emits changed after an operation so the caller can read the
+ * workloads again.
  */
 const props = withDefaults(defineProps<{
   workloads: Workload[]
-  scope: Scope
+  scope: ViewScope
+  /** Where a row leads: the workload's page. */
+  workloadRoute: (workloadId: string) => RouteLocationRaw
+  /** Where a node leads; given one, the table has a node column. */
+  nodeRoute?: (nodeId: string) => RouteLocationRaw
   /** Node names by id, for the node column; an id without one shows as is. */
   nodeNames?: Record<string, string>
-  showNode?: boolean
-}>(), { nodeNames: () => ({}), showNode: true })
+  operations?: WorkloadOperations
+}>(), { nodeNames: () => ({}) })
 
 const emit = defineEmits<{
   (e: 'changed'): void
@@ -132,7 +142,7 @@ const headers = computed<CrudHeader[]>(() => {
     { field: 'name', header: 'Name', sortable: true },
     { field: 'status', header: 'Status', sortable: true }
   ]
-  if (props.showNode) {
+  if (props.nodeRoute) {
     ret.push({ field: 'node', header: 'Node', sortable: false, optional: true })
   }
   if (ownerHeader.value) {
@@ -207,7 +217,7 @@ function toRow(workload: Workload): WorkloadRow {
 }
 
 function open(row: DescriptiveIdentifiable) {
-  router.push(`${scopePath(props.scope)}/workloads/${encodeURIComponent(row.id ?? '')}`)
+  router.push(props.workloadRoute(row.id ?? ''))
 }
 
 function act(action: () => Promise<unknown>, successMessage: string, failureMessage: string): Promise<void> {
@@ -225,25 +235,28 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       }
     }
   ]
-  if (item.status === WorkloadStatus.RUNNING || item.status === WorkloadStatus.STARTING) {
+  const operations = props.operations
+  if (operations) {
+    if (item.status === WorkloadStatus.RUNNING || item.status === WorkloadStatus.STARTING) {
+      actions.push({
+        label: 'Stop',
+        icon: 'pi pi-stop-circle',
+        command: () => act(() => operations.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
+      })
+    }
     actions.push({
-      label: 'Stop',
-      icon: 'pi pi-stop-circle',
-      command: () => act(() => Kinotic.workloadOrchestration.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
+      label: 'Destroy',
+      icon: 'pi pi-trash',
+      command: () => confirm.require({
+        header: 'Confirm destroy',
+        message: `Destroy workload ${item.name}? Its VM and disk are removed permanently.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptProps: { label: 'Destroy', severity: 'danger' },
+        rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+        accept: () => act(() => operations.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
+      })
     })
   }
-  actions.push({
-    label: 'Destroy',
-    icon: 'pi pi-trash',
-    command: () => confirm.require({
-      header: 'Confirm destroy',
-      message: `Destroy workload ${item.name}? Its VM and disk are removed permanently.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Destroy', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
-    })
-  })
   return actions
 }
 
