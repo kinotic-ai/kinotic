@@ -35,7 +35,8 @@
       </div>
     </div>
 
-    <WorkloadsTable :workloads="shown" :scope="scope" :node-names="nodeNames" @changed="load" />
+    <WorkloadsTable :workloads="shown" :scope="scope" :workload-route="id => workloadPath(scope, id)" :node-route="nodePath"
+                    :node-names="nodeNames" :operations="Kinotic.workloadOrchestration" @changed="load" />
   </div>
 </template>
 
@@ -49,13 +50,12 @@ import Select from 'primevue/select'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { WorkloadStatus, type Organization, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { PageHeader, StatusChips, WORKLOAD_STATES, WorkloadsTable, countByStatus, errorMessage, workloadStateLabel,
+         type StatusChip, type ViewScope } from '@kinotic-ai/frontend-common'
 
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
-import WorkloadsTable from '@/components/WorkloadsTable.vue'
-import { loadNodes } from '@/util/nodes'
-import { scopeName, type Scope } from '@/util/scope'
-import { PLATFORM_ONLY, WORKLOAD_STATES, countByStatus, scanWorkloads, workloadStateLabel } from '@/util/workloads'
+import { loadNodes, nodePath } from '@/util/nodes'
+import { scopeName, workloadPath } from '@/util/scope'
+import { PLATFORM_ONLY, scanWorkloads } from '@/util/workloads'
 
 /**
  * The workloads of the scope the route names — the whole platform, an organization, an
@@ -74,7 +74,7 @@ const ORGANIZATION_PAGE_SIZE = 100
 const route = useRoute()
 const router = useRouter()
 
-const scope = computed<Scope>(() => ({
+const scope = computed<ViewScope>(() => ({
   organizationId: props.organizationId,
   applicationId: props.applicationId,
   projectId: props.projectId
@@ -142,7 +142,7 @@ async function load() {
   try {
     // On the platform the organization filter narrows the scan itself
     const org = scope.value.organizationId ? null : organizationFilter.value
-    const scanScope: Scope = org && org !== PLATFORM_ONLY ? { organizationId: org } : scope.value
+    const scanScope: ViewScope = org && org !== PLATFORM_ONLY ? { organizationId: org } : scope.value
     const [list, nodeList] = await Promise.all([
       scanWorkloads(scanScope, { platformOnly: org === PLATFORM_ONLY, nodeId: nodeFilter.value ?? undefined }),
       loadNodes()

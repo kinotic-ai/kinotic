@@ -5,12 +5,14 @@ import io.vertx.core.buffer.Buffer;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.MetricQuery;
 import org.kinotic.management.api.model.TraceQuery;
+import org.kinotic.management.api.model.TrafficQuery;
 
 /**
- * Queries the traces and metrics that the workloads of an organization exported: an organization
- * participant reads its own organization's, a system participant reads any organization's, or the
- * platform's own when it names no organization. Every method returns the raw backend response bytes;
- * the caller parses Tempo's and Prometheus's wire formats.
+ * Queries the traces and metrics that the workloads of an organization exported, and the traffic its
+ * callers sent through the gateway: an organization participant reads its own organization's, a system
+ * participant reads any organization's, or the platform's own when it names no organization. Every
+ * method returns the raw backend response bytes; the caller parses Tempo's and Prometheus's wire
+ * formats.
  */
 @Publish
 public interface TelemetryService {
@@ -40,4 +42,15 @@ public interface TelemetryService {
      * @return a {@link Future} emitting the raw Prometheus {@code query_range} response
      */
     Future<Buffer> queryMetrics(MetricQuery query);
+
+    /**
+     * Evaluates one signal of the invocations clients made through the gateway across a time range:
+     * those whose callers act for an organization, summed over its applications, or for one of its
+     * applications, or, for a system participant naming no organization, every invocation on the
+     * platform.
+     *
+     * @param query the {@link TrafficQuery} naming the organization, application, signal, time range, and step
+     * @return a {@link Future} emitting the raw Prometheus {@code query_range} response
+     */
+    Future<Buffer> queryTraffic(TrafficQuery query);
 }

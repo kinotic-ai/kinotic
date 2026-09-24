@@ -1,13 +1,4 @@
-/**
- * Where a console page sits: the platform when nothing is set, an organization, one of its
- * applications, or one of its projects. Pages that exist in every scope (workloads, jobs,
- * observability) take one as their props and nest their paths under {@link scopePath}.
- */
-export interface Scope {
-    organizationId?: string
-    applicationId?: string
-    projectId?: string
-}
+import type { ViewScope } from '@kinotic-ai/frontend-common'
 
 export function organizationPath(organizationId: string): string {
     return `/organizations/${encodeURIComponent(organizationId)}`
@@ -22,7 +13,7 @@ export function projectPath(organizationId: string, applicationId: string, proje
 }
 
 /** The path every page of the scope nests under; empty for the platform. */
-export function scopePath(scope: Scope): string {
+export function scopePath(scope: ViewScope): string {
     let ret: string
     if (scope.organizationId && scope.applicationId && scope.projectId) {
         ret = projectPath(scope.organizationId, scope.applicationId, scope.projectId)
@@ -37,6 +28,11 @@ export function scopePath(scope: Scope): string {
 }
 
 /** How a sentence names the scope: the id of the narrowest thing set, or the platform. */
-export function scopeName(scope: Scope): string {
+export function scopeName(scope: ViewScope): string {
     return scope.projectId ?? scope.applicationId ?? scope.organizationId ?? 'the platform'
+}
+
+/** The page of one workload, under the scope's Workloads list. */
+export function workloadPath(scope: ViewScope, workloadId: string): string {
+    return `${scopePath(scope)}/workloads/${encodeURIComponent(workloadId)}`
 }

@@ -45,10 +45,9 @@ import Message from 'primevue/message'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, errorMessage, executionStatusSeverity, scanJobRuns, shortSha } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, StatTile, commitShaOf, errorMessage, executionStatusSeverity, isDeployRun, scanJobRuns,
+         shortSha, type Stat } from '@kinotic-ai/frontend-common'
 
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import { commitShaOf, isDeployRun } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
@@ -74,16 +73,6 @@ const lastRun = ref<JobRun | null>(null)
 const workloads = ref<Workload[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
-
-interface Stat {
-  label: string
-  value: string
-  description: string
-  tag?: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
-}
 
 const stats = computed<Stat[]>(() => {
   const run = lastRun.value

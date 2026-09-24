@@ -2,7 +2,7 @@
   <div class="rounded-lg border border-surface">
     <div class="flex items-start justify-between gap-3 px-4 pt-4 pb-2">
       <h2 class="text-base font-semibold">Recent runs</h2>
-      <RouterLink :to="listPath" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
+      <RouterLink :to="jobsPath" class="whitespace-nowrap text-sm text-muted-color hover:text-color">View all</RouterLink>
     </div>
     <div v-if="runs.length === 0" class="px-4 pb-6 pt-2 text-center text-sm text-muted-color">No runs yet</div>
     <DataTable v-else :value="runs" size="small" class="text-sm" row-hover @row-click="open($event.data)">
@@ -35,31 +35,31 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
 import type { JobRun } from '@kinotic-ai/management-api'
-import { DatetimeUtil, executionStatusSeverity } from '@kinotic-ai/frontend-common'
 
-import { scopePath, type Scope } from '@/util/scope'
+import type { ViewScope } from '../../types/ViewScope'
+import DatetimeUtil from '../../util/DatetimeUtil'
+import { executionStatusSeverity } from './jobRunDisplay'
 
 /**
- * The latest few runs of a scope as a compact card whose rows open the run under that scope.
- * The owner column names the organization on the platform, the application and project inside
- * an organization.
+ * The latest few runs of a scope as a compact card whose rows open the run under
+ * {@code jobsPath}, the scope's Jobs list. The owner column names the organization on the
+ * platform, the application and project inside an organization.
  */
 const props = defineProps<{
   runs: JobRun[]
-  scope: Scope
+  scope: ViewScope
+  jobsPath: string
 }>()
 
 const router = useRouter()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 const formatDuration = DatetimeUtil.formatDuration
-
-const listPath = computed(() => `${scopePath(props.scope)}/jobs`)
 
 const ownerHeader = computed(() => props.scope.organizationId ? 'Application / Project' : 'Organization')
 const ownerFallback = computed(() => props.scope.organizationId ? 'organization' : 'platform')
@@ -75,6 +75,6 @@ function ownerOf(run: JobRun): string | null {
 }
 
 function open(run: JobRun) {
-  router.push(`${listPath.value}/${encodeURIComponent(run.id ?? '')}`)
+  router.push(`${props.jobsPath}/${encodeURIComponent(run.id ?? '')}`)
 }
 </script>

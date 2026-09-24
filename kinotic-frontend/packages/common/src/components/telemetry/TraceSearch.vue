@@ -92,14 +92,15 @@ import { searchTraces, traceQl, type TraceFilters } from './telemetryApi'
 import { formatDuration } from './telemetryDisplay'
 
 /**
- * Searches the organization's traces — or one application's — over the given range, and opens
- * the one picked from the results: on the page {@code traceRoute} names when given, otherwise
- * in a dialog over the results. searchErrors() narrows the search to the traces with a failed
- * span and runs it.
+ * Searches the organization's traces — or one application's, or one workload's — over the
+ * given range, and opens the one picked from the results: on the page {@code traceRoute} names
+ * when given, otherwise in a dialog over the results. searchErrors() narrows the search to the
+ * traces with a failed span and runs it.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
+  workloadId?: string | null
   range: TimeRange
   traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
@@ -109,8 +110,8 @@ const router = useRouter()
 /** How many traces one search returns. */
 const SEARCH_LIMIT = 50
 
-// What the user narrows by; the application comes from the props at query time
-const filters = reactive<Omit<TraceFilters, 'applicationId'>>({
+// What the user narrows by; the application and workload come from the props at query time
+const filters = reactive<Omit<TraceFilters, 'applicationId' | 'workloadId'>>({
   service: '',
   spanName: '',
   onlyErrors: false,
@@ -125,7 +126,7 @@ const error = ref<string | null>(null)
 const selectedTraceId = ref<string | null>(null)
 const detailVisible = ref(false)
 
-const query = computed(() => traceQl({ ...filters, applicationId: props.applicationId }))
+const query = computed(() => traceQl({ ...filters, applicationId: props.applicationId, workloadId: props.workloadId }))
 const formatDateFromEpoch = DatetimeUtil.formatDateFromEpoch
 
 const detailHeader = computed(() => {

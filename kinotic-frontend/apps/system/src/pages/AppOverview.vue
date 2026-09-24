@@ -8,10 +8,16 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-8">
       <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
         <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
       </div>
+
+      <DashboardSection title="Traffic · last hour" description="The calls the application's users and services made through the gateway.">
+        <div class="grid gap-4 md:grid-cols-3">
+          <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
+        </div>
+      </DashboardSection>
 
       <div class="grid gap-4 lg:grid-cols-2">
         <section class="rounded-lg border border-surface p-4">
@@ -73,10 +79,9 @@ import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, RepositoryConnectionStatus, WorkloadStatus,
          type Application, type JobRun, type Project, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, errorMessage, executionStatusSeverity, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { DashboardSection, DatetimeUtil, PageHeader, StatTile, deployRunsByProject, errorMessage, executionStatusSeverity,
+         scanJobRuns, useTrafficStats, type Stat } from '@kinotic-ai/frontend-common'
 
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import { deployRunsByProject } from '@/util/runs'
 import { applicationPath, organizationPath, projectPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
@@ -112,14 +117,11 @@ function lastRunOf(project: Project): JobRun | null {
   return runsByProject.value.get(project.id ?? '')?.[0] ?? null
 }
 
-interface Stat {
-  label: string
-  value: string
-  description: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
-}
+const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
+  organizationId: props.organizationId,
+  applicationId: props.applicationId,
+  to: `${basePath.value}/observability`
+}))
 
 const stats = computed<Stat[]>(() => {
   const deployed = projects.value.filter(project => lastRunOf(project) !== null).length
@@ -176,7 +178,8 @@ async function load() {
       Kinotic.systemOrganizations.findMembers(orgId, appId, firstPage),
       Kinotic.systemOrganizations.findPendingInvites(orgId, appId, firstPage),
       scanWorkloads({ organizationId: orgId, applicationId: appId }),
-      scanJobRuns({ organizationId: orgId, applicationId: appId })
+      scanJobRuns({ organizationId: orgId, applicationId: appId }),
+      loadTraffic()
     ])
     application.value = (apps.content ?? []).find(app => app.id === appId) ?? null
     projects.value = (orgProjects.content ?? []).filter(project => project.applicationId === appId)

@@ -22,12 +22,12 @@
       <TabPanels>
         <TabPanel value="traces">
           <KeepAlive>
-            <TraceSearch v-if="activeTab === 'traces'" ref="traceSearch" :organization-id="organizationId" :application-id="applicationId" :range="range" :trace-route="traceRoute" />
+            <TraceSearch v-if="activeTab === 'traces'" ref="traceSearch" :organization-id="organizationId" :application-id="applicationId" :workload-id="workloadId" :range="range" :trace-route="traceRoute" />
           </KeepAlive>
         </TabPanel>
         <TabPanel value="metrics">
           <KeepAlive>
-            <MetricsPanel v-if="activeTab === 'metrics'" :organization-id="organizationId" :application-id="applicationId" :range="range" @show-failed-traces="showFailedTraces" />
+            <MetricsPanel v-if="activeTab === 'metrics'" :organization-id="organizationId" :application-id="applicationId" :workload-id="workloadId" :range="range" @show-failed-traces="showFailedTraces" />
           </KeepAlive>
         </TabPanel>
       </TabPanels>
@@ -54,15 +54,16 @@ import { TIME_RANGE_PRESETS, rangeEndingNow } from './telemetryApi'
 
 /**
  * The traces and metrics of an organization's workloads over a chosen time range, narrowed to
- * one application when one is given. The organization is the one whose tenant the signed-in
- * user may read: an organization user's own, or the one the system console is drilled into;
- * null reads the system tenant, the platform's own telemetry, which only a platform operator
- * may. A trace picked from the search opens on the page {@code traceRoute} names, or in a
- * dialog when there is none.
+ * one application or one workload when one is given. The organization is the one whose tenant
+ * the signed-in user may read: an organization user's own, or the one the system console is
+ * drilled into; null reads the system tenant, the platform's own telemetry, which only a
+ * platform operator may. A trace picked from the search opens on the page {@code traceRoute}
+ * names, or in a dialog when there is none.
  */
 const props = defineProps<{
   organizationId: string | null
   applicationId: string | null
+  workloadId?: string | null
   traceRoute?: (traceId: string) => RouteLocationRaw
 }>()
 
@@ -87,5 +88,5 @@ async function showFailedTraces() {
 }
 
 watch(presetMs, refresh)
-watch(() => [props.organizationId, props.applicationId], refresh)
+watch(() => [props.organizationId, props.applicationId, props.workloadId], refresh)
 </script>

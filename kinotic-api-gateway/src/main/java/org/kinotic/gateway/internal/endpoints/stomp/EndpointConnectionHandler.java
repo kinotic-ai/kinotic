@@ -21,6 +21,7 @@ import org.kinotic.core.api.security.SecurityService;
 import org.kinotic.core.api.utils.KinoticUtil;
 import org.kinotic.core.internal.utils.EventUtil;
 import org.kinotic.gateway.internal.endpoints.Services;
+import org.kinotic.management.api.model.InvocationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import tools.jackson.core.JacksonException;
@@ -193,7 +194,7 @@ public class EndpointConnectionHandler {
                 // the stream is whichever one took the request, and the others ignore an id they do not hold
                 if (incomingEvent.metadata().contains(EventConstants.CONTROL_HEADER)) {
                     if (EventConstants.CONTROL_VALUE_CANCEL.equals(incomingEvent.metadata().get(EventConstants.CONTROL_HEADER))) {
-                        incomingInvocationTracker.requestFinished(correlationId);
+                        incomingInvocationTracker.requestFinished(correlationId, InvocationOutcome.CANCELLED);
                     }
                     services.eventBusService.publish(incomingEvent);
                     return Future.succeededFuture();
@@ -205,7 +206,7 @@ public class EndpointConnectionHandler {
                         .onSuccess(nodeId -> incomingInvocationTracker.requestAccepted(correlationId, nodeId, incomingEvent.cri()))
                         .recover(throwable -> {
                             // no reply will come for a request that never left
-                            incomingInvocationTracker.requestFinished(correlationId);
+                            incomingInvocationTracker.requestFinished(correlationId, InvocationOutcome.UNAVAILABLE);
                             throwable = KinoticUtil.mapSendFailure(throwable,
                                                                    incomingEvent.cri(),
                                                                    services.serviceDirectoryProvider.getIfAvailable());

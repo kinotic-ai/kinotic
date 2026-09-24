@@ -46,7 +46,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
             name: applicationId,
             kind: 'Application',
             icon: 'pi-th-large',
-            backTo: '/applications',
+            backTo: '/overview',
             backLabel: organizationId
         }
     } else if (group === 'project' && applicationId && projectId) {
@@ -63,7 +63,7 @@ function scopeFor(group: string | null): SidebarScopeProps {
             kind: 'Account',
             initials: PROFILE_STATE.initials || undefined,
             icon: 'pi-user',
-            backTo: '/applications',
+            backTo: '/overview',
             backLabel: organizationId
         }
     } else {

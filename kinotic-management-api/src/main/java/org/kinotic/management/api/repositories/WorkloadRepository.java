@@ -2,6 +2,7 @@ package org.kinotic.management.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
 import java.util.List;
@@ -24,6 +25,24 @@ public class WorkloadRepository extends AbstractRepository<Workload> {
 
     public Future<Page<Workload>> findAllForNode(String nodeId, Pageable pageable) {
         return findAll(pageable, b -> b.query(termFilter("nodeId", nodeId)));
+    }
+
+    /**
+     * Finds the workloads that run on behalf of the organization, those of its applications included.
+     */
+    public Future<Page<Workload>> findAllForOrganization(String organizationId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        return findAll(pageable, b -> b.query(termFilter("organizationId", organizationId)));
+    }
+
+    /**
+     * Finds the workloads that run on behalf of one application of the organization.
+     */
+    public Future<Page<Workload>> findAllForApplication(String organizationId, String applicationId, Pageable pageable) {
+        Validate.notBlank(organizationId, "organizationId cannot be blank");
+        Validate.notBlank(applicationId, "applicationId cannot be blank");
+        return findAll(pageable, b -> b.query(composeFilter(termFilter("organizationId", organizationId),
+                                                            termFilter("applicationId", applicationId))));
     }
 
     /**

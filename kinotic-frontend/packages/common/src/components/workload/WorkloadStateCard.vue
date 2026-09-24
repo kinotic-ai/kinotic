@@ -28,10 +28,11 @@ import { computed } from 'vue'
 import { RouterLink, type RouteLocationRaw } from 'vue-router'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { accentColor, isDark, type ChartAccent } from '@kinotic-ai/frontend-common'
 
-import CapacityBar from './CapacityBar.vue'
-import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from '@/util/workloads'
+import { accentColor, type ChartAccent } from '../../charts/chartTheme'
+import { isDark } from '../../composables/useTheme'
+import CapacityBar from '../dashboard/CapacityBar.vue'
+import { WORKLOAD_STATES, countByStatus, workloadStateLabel } from './workloadDisplay'
 
 // Theme accents validated for adjacent-pair separation in both modes; STOPPED is a deliberate
 // achromatic neutral, and every row carries its label and count, so identity is never color alone

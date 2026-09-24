@@ -21,6 +21,7 @@
       <TabList>
         <Tab value="overview"><i class="pi pi-objects-column mr-2" />Overview</Tab>
         <Tab value="logs"><i class="pi pi-align-left mr-2" />Logs</Tab>
+        <Tab v-if="workload?.telemetry" value="telemetry"><i class="pi pi-chart-line mr-2" />Telemetry</Tab>
       </TabList>
       <TabPanels>
         <TabPanel value="overview">
@@ -33,66 +34,18 @@
               The VM exited{{ workload.exitCode !== null ? ` with code ${workload.exitCode}` : '' }}. Its last log lines are on the Logs tab.
             </Message>
 
-            <div class="grid gap-4 lg:grid-cols-2">
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Runtime</h2>
-                <dl class="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
-                  <dt class="text-muted-color">Image</dt>
-                  <dd class="break-all font-mono">{{ workload.image }}</dd>
-                  <dt class="text-muted-color">Command</dt>
-                  <dd class="break-all font-mono">{{ command || '—' }}</dd>
-                  <dt class="text-muted-color">Detached</dt>
-                  <dd>{{ workload.detached ? 'Yes — a long-running service' : 'No — a one-off task' }}</dd>
-                  <dt class="text-muted-color">Telemetry</dt>
-                  <dd>{{ workload.telemetry ? 'Traces and metrics shipped through the node' : 'Off' }}</dd>
-                  <dt class="text-muted-color">Log policy</dt>
-                  <dd>{{ workload.logPolicy ? `${workload.logPolicy.maxSizeMb} MB × ${workload.logPolicy.maxFiles} files` : '—' }}</dd>
-                  <dt class="text-muted-color">Created</dt>
-                  <dd>{{ formatEpochDateTime(workload.created) }}</dd>
-                  <dt class="text-muted-color">Updated</dt>
-                  <dd>{{ formatEpochDateTime(workload.updated) }}</dd>
-                </dl>
-              </div>
-
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Network</h2>
-                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Allowed hosts</div>
-                <div v-if="workload.network?.mode === NetworkMode.DISABLED" class="text-sm text-muted-color">Networking is disabled for this VM.</div>
-                <div v-else-if="allowedHosts.length === 0" class="text-sm text-muted-color">No host is allowed; the node adds the resolver and, for telemetry, its own OTLP endpoint.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="host in allowedHosts" :key="host" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ host }}</span>
-                </div>
-                <p class="mt-2 mb-4 text-xs text-muted-color">Every other destination is blocked.</p>
-                <div class="mb-1 text-xs font-medium uppercase tracking-wide text-muted-color">Ports</div>
-                <div v-if="ports.length === 0" class="text-sm text-muted-color">None published</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="port in ports" :key="port" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ port }}</span>
-                </div>
-              </div>
-
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Environment</h2>
-                <div v-if="environmentNames.length === 0" class="text-sm text-muted-color">No environment variables.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="name in environmentNames" :key="name" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ name }}</span>
-                </div>
-                <p class="mt-2 text-xs text-muted-color">Names only. Values and secrets are not shown.</p>
-              </div>
-
-              <div class="rounded-lg border border-surface p-4">
-                <h2 class="mb-2 text-base font-semibold">Volumes</h2>
-                <div v-if="volumes.length === 0" class="text-sm text-muted-color">No volume mounts; the VM has its own disk only.</div>
-                <div v-else class="flex flex-wrap gap-1.5">
-                  <span v-for="volume in volumes" :key="volume" class="rounded-md bg-emphasis px-2 py-0.5 font-mono text-xs">{{ volume }}</span>
-                </div>
-              </div>
-            </div>
+            <WorkloadDetails :workload="workload" />
           </div>
           <div v-else-if="loading" class="p-6 text-sm text-muted-color">Loading workload…</div>
         </TabPanel>
         <TabPanel value="logs">
           <!-- Mounted with the tab, so a return starts a fresh history load and tail -->
           <WorkloadLogView v-if="tab === 'logs' && workload" :organization-id="workload.organizationId" :workload-id="workloadId" :run="workloadRun(workload)" class="pt-2" />
+        </TabPanel>
+        <TabPanel value="telemetry">
+          <!-- The traces and span metrics the workload exported; a trace opens in a dialog over them -->
+          <TelemetryPanel v-if="tab === 'telemetry' && workload" :organization-id="workload.organizationId"
+                          :application-id="null" :workload-id="workloadId" class="pt-2" />
         </TabPanel>
       </TabPanels>
     </Tabs>
@@ -114,15 +67,13 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 
 import { Kinotic } from '@kinotic-ai/core'
-import { NetworkMode, WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import type { VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, showErrorToast,
-         workloadRun } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, StatTile, TelemetryPanel, WorkloadDetails, WorkloadLogView, errorMessage, formatCpus,
+         formatMb, showErrorToast, workloadRun, workloadSeverity, type Stat, type ViewScope } from '@kinotic-ai/frontend-common'
 
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import { formatCpus } from '@/util/nodes'
-import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
-import { workloadSeverity } from '@/util/workloads'
+import { nodePath } from '@/util/nodes'
+import { applicationPath, organizationPath, scopePath } from '@/util/scope'
 
 /**
  * One workload, opened from a Workloads list: its state with the exit code, where it runs and
@@ -142,7 +93,7 @@ const toast = useToast()
 const confirm = useConfirm()
 const formatEpochDateTime = DatetimeUtil.formatEpochDateTime
 
-const scope = computed<Scope>(() => ({
+const scope = computed<ViewScope>(() => ({
   organizationId: props.organizationId,
   applicationId: props.applicationId,
   projectId: props.projectId
@@ -157,29 +108,14 @@ const error = ref<string | null>(null)
 
 // The tab lives in the URL so a row menu can open the logs directly
 const tab = computed<string>({
-  get: () => route.query.tab === 'logs' ? 'logs' : 'overview',
-  set: value => { router.replace({ query: { ...route.query, tab: value === 'logs' ? 'logs' : undefined } }) }
+  get: () => {
+    const value = route.query.tab
+    return value === 'logs' || value === 'telemetry' ? value : 'overview'
+  },
+  set: value => { router.replace({ query: { ...route.query, tab: value === 'overview' ? undefined : value } }) }
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
-
-const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
-const allowedHosts = computed(() => workload.value?.network?.allowedHosts ?? [])
-const ports = computed(() => (workload.value?.portMappings ?? []).map(port =>
-    `${port.hostIp ? `${port.hostIp}:` : ''}${port.hostPort ?? port.guestPort}→${port.guestPort}/${(port.protocol ?? 'TCP').toLowerCase()}`))
-const environmentNames = computed(() => Object.keys(workload.value?.environment ?? {}).sort())
-const volumes = computed(() => (workload.value?.volumeMounts ?? []).map(volume =>
-    `${volume.hostPath} → ${volume.guestPath}${volume.readOnly ? ' (ro)' : ''}`))
-
-interface Stat {
-  label: string
-  value: string
-  description: string
-  tag?: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
-}
 
 const stats = computed<Stat[]>(() => {
   const w = workload.value
@@ -217,7 +153,7 @@ const stats = computed<Stat[]>(() => {
       label: 'Node',
       value: node.value?.name ?? w.nodeId ?? '—',
       description: node.value ? `${node.value.status.type.toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
-      to: w.nodeId ? `/worker-nodes/${encodeURIComponent(w.nodeId)}` : undefined,
+      to: w.nodeId ? nodePath(w.nodeId) : undefined,
       icon: 'pi-server',
       accent: 'amber'
     },

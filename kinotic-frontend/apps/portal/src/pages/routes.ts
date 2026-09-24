@@ -6,8 +6,8 @@ import type { SidebarItemMeta } from '@kinotic-ai/frontend-common'
  * organization, one application, one project, and the signed-in account. A route's
  * scope is the {@code sidebarGroup} of its layout record; the sidebar items are the
  * routes that declare a {@link SidebarItemMeta} for that group. Pages opened from a
- * list (a job run, an entity, a trace) nest under the list's path so the sidebar keeps
- * the list highlighted and the page header can point back to it.
+ * list (a workload, a job run, an entity, a trace) nest under the list's path so the
+ * sidebar keeps the list highlighted and the page header can point back to it.
  */
 
 const layout = () => import('@/layouts/LayoutForPage.vue')
@@ -20,8 +20,8 @@ function applicationItem(label: string, icon: string, order: number, section?: s
   return { group: 'application', section, label, icon, order }
 }
 
-function projectItem(label: string, icon: string, order: number): SidebarItemMeta {
-  return { group: 'project', label, icon, order }
+function projectItem(label: string, icon: string, order: number, section?: string): SidebarItemMeta {
+  return { group: 'project', section, label, icon, order }
 }
 
 function accountItem(label: string, icon: string, order: number): SidebarItemMeta {
@@ -38,7 +38,51 @@ function organizationPage(path: string, sidebar: SidebarItemMeta, children: Rout
   }
 }
 
+/**
+ * The workloads and job runs of an application or a project, with their detail pages, as
+ * children of the scope's layout record.
+ */
+function runtimeRoutes(name: string, item: (label: string, icon: string, order: number, section?: string) => SidebarItemMeta,
+                       order: number): RouteRecordRaw[] {
+  return [
+    {
+      name: `${name}-workloads`,
+      path: 'workloads',
+      meta: { sidebar: item('Workloads', 'pi-box', order, 'Runtime') } as RouteMeta,
+      component: () => import('@/pages/WorkloadsPage.vue'),
+      props: true
+    },
+    {
+      name: `${name}-workload`,
+      path: 'workloads/:workloadId',
+      component: () => import('@/pages/WorkloadPage.vue'),
+      props: true
+    },
+    {
+      name: `${name}-jobs`,
+      path: 'jobs',
+      meta: { sidebar: item('Jobs', 'pi-list-check', order + 1, 'Runtime') } as RouteMeta,
+      component: () => import('@/pages/JobsPage.vue'),
+      props: true
+    },
+    {
+      name: `${name}-job-run`,
+      path: 'jobs/:jobRunId',
+      component: () => import('@/pages/JobRunPage.vue'),
+      props: true
+    }
+  ]
+}
+
 const pageRoutes: RouteRecordRaw[] = [
+  organizationPage('/overview', organizationItem('Overview', 'pi-objects-column', 5, 'Organization'), [
+    {
+      name: 'organization-overview',
+      path: '',
+      component: () => import('@/pages/OrganizationOverview.vue')
+    }
+  ]),
+
   organizationPage('/applications', organizationItem('Applications', 'pi-th-large', 10, 'Organization'), [
     {
       name: 'applications',
@@ -47,7 +91,29 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/jobs', organizationItem('Jobs', 'pi-list-check', 20, 'Organization'), [
+  organizationPage('/projects', organizationItem('Projects', 'pi-folder', 15, 'Organization'), [
+    {
+      name: 'organization-projects',
+      path: '',
+      component: () => import('@/pages/OrganizationProjectsPage.vue')
+    }
+  ]),
+
+  organizationPage('/workloads', organizationItem('Workloads', 'pi-box', 20, 'Runtime'), [
+    {
+      name: 'workloads',
+      path: '',
+      component: () => import('@/pages/WorkloadsPage.vue')
+    },
+    {
+      name: 'workload',
+      path: ':workloadId',
+      component: () => import('@/pages/WorkloadPage.vue'),
+      props: true
+    }
+  ]),
+
+  organizationPage('/jobs', organizationItem('Jobs', 'pi-list-check', 25, 'Runtime'), [
     {
       name: 'jobs',
       path: '',
@@ -61,7 +127,7 @@ const pageRoutes: RouteRecordRaw[] = [
     }
   ]),
 
-  organizationPage('/observability', organizationItem('Observability', 'pi-chart-line', 30, 'Organization'), [
+  organizationPage('/observability', organizationItem('Observability', 'pi-chart-line', 30, 'Runtime'), [
     {
       name: 'organization-observability',
       path: '',
@@ -158,10 +224,11 @@ const pageRoutes: RouteRecordRaw[] = [
         component: () => import('@/pages/EntityDetailPage.vue'),
         props: true
       },
+      ...runtimeRoutes('application', applicationItem, 38),
       {
         name: 'application-observability',
         path: 'observability',
-        meta: { sidebar: applicationItem('Observability', 'pi-chart-line', 40) } as RouteMeta,
+        meta: { sidebar: applicationItem('Observability', 'pi-chart-line', 40, 'Runtime') } as RouteMeta,
         component: () => import('@/pages/ObservabilityPage.vue'),
         props: true
       },
@@ -226,7 +293,8 @@ const pageRoutes: RouteRecordRaw[] = [
         meta: { sidebar: projectItem('Deployment', 'pi-cloud-upload', 30) } as RouteMeta,
         component: () => import('@/pages/ProjectDeploymentPage.vue'),
         props: true
-      }
+      },
+      ...runtimeRoutes('project', projectItem, 40)
     ]
   },
 

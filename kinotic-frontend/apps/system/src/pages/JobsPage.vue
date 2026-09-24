@@ -23,10 +23,9 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 
 import { ExecutionStatus, type JobRun } from '@kinotic-ai/management-api'
-import { JobRunsTable, PageHeader, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { JobRunsTable, PageHeader, StatusChips, scanJobRuns, type StatusChip, type ViewScope } from '@kinotic-ai/frontend-common'
 
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
-import { scopeName, scopePath, type Scope } from '@/util/scope'
+import { scopeName, scopePath } from '@/util/scope'
 
 /**
  * The job runs of the scope the route names: every run on the platform, or the deployments of
@@ -45,7 +44,7 @@ const route = useRoute()
 const router = useRouter()
 const jobRunsTable = ref<InstanceType<typeof JobRunsTable>>()
 
-const scope = computed<Scope>(() => ({
+const scope = computed<ViewScope>(() => ({
   organizationId: props.organizationId,
   applicationId: props.applicationId,
   projectId: props.projectId

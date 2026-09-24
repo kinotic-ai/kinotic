@@ -26,6 +26,10 @@ export interface Capacity {
     usedDiskMb: number
 }
 
+export function nodePath(nodeId: string): string {
+    return `/worker-nodes/${encodeURIComponent(nodeId)}`
+}
+
 /** Every registered worker node, the ones fit for placement first. */
 export async function loadNodes(): Promise<VmNode[]> {
     const page = await Kinotic.vmNodes.findAll(Pageable.create(0, NODE_PAGE_SIZE, NODE_SORT))
@@ -47,11 +51,6 @@ export function nodeSeverity(status: VmNodeStatusType): string {
 
 export function percentOf(part: number, total: number): number {
     return total > 0 ? Math.round((part / total) * 100) : 0
-}
-
-/** A CPU allotment in cores, with a fraction shown to the hundredth and no trailing zeros: 4, 0.5, 2.25. */
-export function formatCpus(cpus: number): string {
-    return String(Math.round(cpus * 100) / 100)
 }
 
 /** The capacity of the nodes added up: what they promised at registration, less what is placed on them. */

@@ -1,6 +1,9 @@
 import { Kinotic } from '@kinotic-ai/core'
+import type { TrafficSignal } from '@kinotic-ai/management-api'
 import { parseJsonBytes } from '../../util/helpers'
 import type { MetricSeries } from './MetricSeries'
+import type { RedQueries } from './RedQueries'
+import type { TelemetryFilter } from './TelemetryFilter'
 import type { TimeRange } from './TimeRange'
 import type { TraceSpan } from './TraceSpan'
 import type { TraceSpanEvent } from './TraceSpanEvent'
@@ -9,6 +12,7 @@ import type { TraceSummary } from './TraceSummary'
 /** The spans of an application's, or a whole organization's, services, as Tempo derives them into metrics. */
 const SPAN_METRIC_CALLS = 'traces_spanmetrics_calls_total'
 const SPAN_METRIC_LATENCY = 'traces_spanmetrics_latency_bucket'
+const SPAN_ERROR = 'status_code="STATUS_CODE_ERROR"'
 
 /** How many points a range query aims to return, whatever its range. */
 const POINTS_PER_RANGE = 120
@@ -31,8 +35,7 @@ export function rangeEndingNow(ms: number): TimeRange {
 }
 
 /** What the trace search narrows by; each set filter becomes one TraceQL clause. */
-export interface TraceFilters {
-    applicationId: string | null
+export interface TraceFilters extends TelemetryFilter {
     service: string
     spanName: string
     onlyErrors: boolean
@@ -46,6 +49,7 @@ export interface TraceFilters {
 export function traceQl(filters: TraceFilters): string {
     const clauses = [
         ...(filters.applicationId ? [`resource.application_id = ${JSON.stringify(filters.applicationId)}`] : []),
+        ...(filters.workloadId ? [`resource.workload_id = ${JSON.stringify(filters.workloadId)}`] : []),
         ...(filters.service.trim() ? [`resource.service.name = ${JSON.stringify(filters.service.trim())}`] : []),
         ...(filters.spanName.trim() ? [`name = ${JSON.stringify(filters.spanName.trim())}`] : []),
         ...(filters.onlyErrors ? ['status = error'] : []),
@@ -59,32 +63,53 @@ function stepSeconds(range: TimeRange): number {
     return Math.max(15, Math.round((range.end - range.start) / 1000 / POINTS_PER_RANGE))
 }
 
-// A rate needs several samples in its window, so it spans a few steps and never less than a minute
-function rateWindow(range: TimeRange): string {
+/**
+ * The window a rate over the range is taken across: a few of the range query's steps, so each
+ * point averages several samples, and never less than a minute.
+ */
+export function rateWindow(range: TimeRange): string {
     return `${Math.max(60, 4 * stepSeconds(range))}s`
 }
 
-function selector(applicationId: string | null, extra: string[] = []): string {
+function selector(filter: TelemetryFilter, extra: string[] = []): string {
     const labels = [
-        ...(applicationId ? [`application_id=${JSON.stringify(applicationId)}`] : []),
+        ...(filter.applicationId ? [`application_id=${JSON.stringify(filter.applicationId)}`] : []),
+        ...(filter.workloadId ? [`workload_id=${JSON.stringify(filter.workloadId)}`] : []),
         ...extra
     ]
     return labels.length > 0 ? `{${labels.join(', ')}}` : ''
 }
 
 /**
- * The RED queries — rate, errors, duration — of an application's services, or of every
- * service in the organization when no application is named, from the span metrics Tempo
- * derives from the traces the node ships.
+ * The RED queries — rate, errors, duration — of the services the filter selects, one series
+ * per service, from the span metrics Tempo derives from the traces the node ships.
  */
-export function redQueries(applicationId: string | null, range: TimeRange): { requests: string; errors: string; latencyP95: string } {
+export function redQueries(filter: TelemetryFilter, range: TimeRange): RedQueries {
     const window = rateWindow(range)
-    const calls = `rate(${SPAN_METRIC_CALLS}${selector(applicationId)}[${window}])`
-    const failedCalls = `rate(${SPAN_METRIC_CALLS}${selector(applicationId, ['status_code="STATUS_CODE_ERROR"'])}[${window}])`
+    const calls = `rate(${SPAN_METRIC_CALLS}${selector(filter)}[${window}])`
+    const failedCalls = `rate(${SPAN_METRIC_CALLS}${selector(filter, [SPAN_ERROR])}[${window}])`
     return {
         requests: `sum by (service) (${calls})`,
         errors: `sum by (service) (${failedCalls}) / sum by (service) (${calls})`,
-        latencyP95: `histogram_quantile(0.95, sum by (le, service) (rate(${SPAN_METRIC_LATENCY}${selector(applicationId)}[${window}])))`
+        latencyP95: `histogram_quantile(0.95, sum by (le, service) (rate(${SPAN_METRIC_LATENCY}${selector(filter)}[${window}])))`
+    }
+}
+
+/** How many calls a breakdown of calls names. */
+export const TOP_CALLS = 10
+
+/**
+ * The calls the filter selects, one series per service and span name, each averaged over the
+ * whole range and meant to be read at its end: the {@link TOP_CALLS} busiest by rate, the error
+ * share of each call with a failed span, and the 95th percentile duration of every call.
+ */
+export function callQueries(filter: TelemetryFilter, range: TimeRange): RedQueries {
+    const window = `${Math.max(60, Math.round((range.end - range.start) / 1000))}s`
+    const calls = `sum by (service, span_name) (rate(${SPAN_METRIC_CALLS}${selector(filter)}[${window}]))`
+    return {
+        requests: `topk(${TOP_CALLS}, ${calls})`,
+        errors: `sum by (service, span_name) (rate(${SPAN_METRIC_CALLS}${selector(filter, [SPAN_ERROR])}[${window}])) / ${calls}`,
+        latencyP95: `histogram_quantile(0.95, sum by (le, service, span_name) (rate(${SPAN_METRIC_LATENCY}${selector(filter)}[${window}])))`
     }
 }
 
@@ -248,26 +273,57 @@ function anyValueToString(value: any): string {
     return ret
 }
 
+/** The points of a series that hold a number; a quantile over no calls reads NaN, which draws nothing. */
+export function finitePoints(series: MetricSeries | undefined): Array<[number, number]> {
+    return (series?.points ?? []).filter(([, value]) => Number.isFinite(value))
+}
+
+/** The last number a series holds, or null when it holds none. */
+export function latestValue(series: MetricSeries | undefined): number | null {
+    const points = finitePoints(series)
+    return points.length > 0 ? points[points.length - 1]![1] : null
+}
+
 /** Evaluates a PromQL expression over the range, one series per result. */
 export async function queryMetrics(organizationId: string | null, query: string, range: TimeRange): Promise<MetricSeries[]> {
-    // Raw Prometheus query_range response: {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}}
-    const body = parseJsonBytes(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
+    return parseSeries(await Kinotic.telemetry.queryMetrics({ organizationId, query, start: range.start, end: range.end, step: stepSeconds(range) }))
+}
+
+/**
+ * Evaluates one signal of the invocations clients made through the gateway over the range: those
+ * whose callers act for the organization, summed over its applications, or for one of its
+ * applications, or every caller's when no organization is named.
+ */
+export async function queryTraffic(organizationId: string | null,
+                                   applicationId: string | null,
+                                   signal: TrafficSignal,
+                                   range: TimeRange): Promise<MetricSeries[]> {
+    return parseSeries(await Kinotic.telemetry.queryTraffic({ organizationId, applicationId, signal, start: range.start, end: range.end, step: stepSeconds(range) }))
+}
+
+// A raw Prometheus query_range response, {status, data: {resultType: 'matrix', result: [{metric, values: [[seconds, "value"]]}]}},
+// as one series per result
+function parseSeries(bytes: Uint8Array): MetricSeries[] {
+    const body = parseJsonBytes(bytes)
     if (body?.status !== 'success') {
         throw new Error(body?.error ?? 'Metric query failed')
     }
-    return ((body.data?.result ?? []) as any[]).map(result => ({
-        name: seriesName(result.metric ?? {}),
-        points: ((result.values ?? []) as Array<[number | string, string]>).map(([seconds, value]) => [Number(seconds) * 1000, Number(value)] as [number, number])
-    }))
+    return ((body.data?.result ?? []) as any[]).map(result => {
+        const { __name__, ...labels } = (result.metric ?? {}) as Record<string, string>
+        return {
+            name: seriesName(__name__, labels),
+            labels,
+            points: ((result.values ?? []) as Array<[number | string, string]>).map(([seconds, value]) => [Number(seconds) * 1000, Number(value)] as [number, number])
+        }
+    })
 }
 
 // A series is named by its labels: the one label's value when there is one, every pair otherwise
-function seriesName(metric: Record<string, string>): string {
-    const { __name__, ...labels } = metric
+function seriesName(metricName: string | undefined, labels: Record<string, string>): string {
     const entries = Object.entries(labels)
     let ret: string
     if (entries.length === 0) {
-        ret = __name__ ?? 'value'
+        ret = metricName ?? 'value'
     } else if (entries.length === 1) {
         ret = entries[0]![1]
     } else {

@@ -18,6 +18,7 @@ import { ProfileService, type IProfileService } from '@/api/services/IProfileSer
 import { MachineService, type IMachineService } from '@/api/services/IMachineService'
 import { GitHubAppInstallationService, type IGitHubAppInstallationService } from '@/api/services/IGitHubAppInstallationService'
 import { JobMonitoringService, type IJobMonitoringService } from '@/api/services/IJobMonitoringService'
+import { WorkloadMonitoringService, type IWorkloadMonitoringService } from '@/api/services/IWorkloadMonitoringService'
 
 export interface IManagementApiExtension {
     applications: IApplicationService
@@ -30,6 +31,7 @@ export interface IManagementApiExtension {
     migrations: IMigrationService
     dataInsights: IDataInsightsService
     jobMonitoring: IJobMonitoringService
+    workloadMonitoring: IWorkloadMonitoringService
     logs: ILogService
     telemetry: ITelemetryService
     members: IMemberService
@@ -54,6 +56,7 @@ export const ManagementApiPlugin: KinoticPlugin<IManagementApiExtension> = {
             migrations: new MigrationService(kinotic),
             dataInsights: new DataInsightsService(kinotic),
             jobMonitoring: new JobMonitoringService(kinotic),
+            workloadMonitoring: new WorkloadMonitoringService(kinotic),
             logs: new LogService(kinotic),
             telemetry: new TelemetryService(kinotic),
             members: new MemberService(kinotic),

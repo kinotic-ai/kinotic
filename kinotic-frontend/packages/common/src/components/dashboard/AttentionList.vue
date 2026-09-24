@@ -10,7 +10,7 @@
     </div>
     <div v-if="items.length === 0" class="flex items-center gap-2 px-4 py-3.5 text-sm text-green-600 dark:text-green-400">
       <i class="pi pi-check-circle" />
-      Nothing needs an operator right now
+      Nothing needs attention right now
     </div>
     <RouterLink
       v-for="item in items"
@@ -33,9 +33,9 @@
 </template>
 
 <script setup lang="ts">
-import type { AttentionItem } from '@/util/attention'
+import type { AttentionItem } from './AttentionItem'
 
-/** The list of what an operator has to look at, each row leading to the page where it is handled. */
+/** The list of what needs looking at, each row leading to the page where it is handled. */
 defineProps<{
   items: AttentionItem[]
 }>()

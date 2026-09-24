@@ -19,12 +19,7 @@
 </template>
 
 <script setup lang="ts">
-/** One chip: a state and how many items are in it; a null value stands for every state. */
-export interface StatusChip {
-  label: string
-  value: string | null
-  count: number
-}
+import type { StatusChip } from './StatusChip'
 
 /** A row of state filters with their counts; the selected value is the model. */
 defineProps<{

@@ -64,10 +64,9 @@ import Tag from 'primevue/tag'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil, PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
+import { DatetimeUtil, PageHeader, StatusChips, errorMessage, type StatusChip } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
-import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
 import { capacityOf, loadNodes, nodeSeverity } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 

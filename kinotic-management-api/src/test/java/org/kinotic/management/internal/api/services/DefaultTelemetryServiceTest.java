@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.management.api.model.MetricQuery;
 import org.kinotic.management.api.model.TraceQuery;
+import org.kinotic.management.api.model.TrafficQuery;
+import org.kinotic.management.api.model.TrafficSignal;
 import org.kinotic.management.api.services.MimirClient;
 import org.kinotic.management.api.services.TempoClient;
 
@@ -15,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 /**
  * Covers {@link DefaultTelemetryService} authorization and tenant resolution: organization
  * participants read their own organization's tenant and no other, system participants read any
- * organization's and the platform's when they name none.
+ * organization's and the platform's when they name none. Traffic is read from the platform tenant
+ * with an expression selecting only the organization the caller may read.
  */
 class DefaultTelemetryServiceTest extends ParticipantCallTest {
 
@@ -80,6 +83,55 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
                          failureOf(ACME_USER, () -> service.queryMetrics(metricQuery("acme").setStep(0))));
     }
 
+    @Test
+    void organizationTrafficIsReadFromThePlatformTenantForTheCallersOrganization() throws Throwable {
+        callAs(ACME_USER, () -> service.queryTraffic(trafficQuery("acme", null, TrafficSignal.REQUESTS)));
+
+        assertEquals(TenantAccess.SYSTEM_TENANT, mimirClient.tenant);
+        assertEquals("sum(rate(kinotic_gateway_invocation_duration_seconds_count{organization_id=\"acme\"}[60s]))",
+                     mimirClient.query);
+        assertEquals(1_000L, mimirClient.start);
+        assertEquals(2_000L, mimirClient.end);
+        assertEquals(15L, mimirClient.step);
+    }
+
+    @Test
+    void applicationTrafficNarrowsToItsApplicationAndCountsFailuresOverEveryCall() throws Throwable {
+        callAs(ACME_USER, () -> service.queryTraffic(trafficQuery("acme", "shop", TrafficSignal.ERRORS)));
+
+        assertEquals("(sum(rate(kinotic_gateway_invocation_duration_seconds_count"
+                     + "{organization_id=\"acme\", application_id=\"shop\", outcome=~\"error|unavailable\"}[60s])) or vector(0))"
+                     + " / sum(rate(kinotic_gateway_invocation_duration_seconds_count{organization_id=\"acme\", application_id=\"shop\"}[60s]))",
+                     mimirClient.query);
+    }
+
+    @Test
+    void systemParticipantReadsEveryInvocationWhenNamingNoOrganization() throws Throwable {
+        callAs(PLATFORM_OPERATOR, () -> service.queryTraffic(trafficQuery(null, null, TrafficSignal.LATENCY_P95)));
+
+        assertEquals(TenantAccess.SYSTEM_TENANT, mimirClient.tenant);
+        assertEquals("histogram_quantile(0.95, sum by (le) (rate(kinotic_gateway_invocation_duration_seconds_bucket[60s])))",
+                     mimirClient.query);
+    }
+
+    @Test
+    void organizationParticipantMayNotReadAnotherOrganizationsTrafficOrThePlatforms() {
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(ACME_USER, () -> service.queryTraffic(trafficQuery("globex", null, TrafficSignal.REQUESTS))));
+        assertInstanceOf(AuthorizationException.class,
+                         failureOf(ACME_USER, () -> service.queryTraffic(trafficQuery(null, null, TrafficSignal.REQUESTS))));
+    }
+
+    @Test
+    void trafficIdsMustBeZoneLabelsAndAnApplicationNeedsItsOrganization() {
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(ACME_USER, () -> service.queryTraffic(trafficQuery("acme\"} or vector(1) #", null, TrafficSignal.REQUESTS))));
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(ACME_USER, () -> service.queryTraffic(trafficQuery("acme", "Shop", TrafficSignal.REQUESTS))));
+        assertInstanceOf(IllegalArgumentException.class,
+                         failureOf(PLATFORM_OPERATOR, () -> service.queryTraffic(trafficQuery(null, "shop", TrafficSignal.REQUESTS))));
+    }
+
     private static TraceQuery traceQuery(String organizationId) {
         return new TraceQuery().setOrganizationId(organizationId)
                                .setQuery("{ status = error }")
@@ -94,6 +146,15 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
                                 .setStart(1_000L)
                                 .setEnd(2_000L)
                                 .setStep(15L);
+    }
+
+    private static TrafficQuery trafficQuery(String organizationId, String applicationId, TrafficSignal signal) {
+        return new TrafficQuery().setOrganizationId(organizationId)
+                                 .setApplicationId(applicationId)
+                                 .setSignal(signal)
+                                 .setStart(1_000L)
+                                 .setEnd(2_000L)
+                                 .setStep(15L);
     }
 
     private static class RecordingTempoClient implements TempoClient {

@@ -1,60 +1,8 @@
-import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
+import type { JobRun, Organization, Workload } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
-import { DatetimeUtil } from '@kinotic-ai/frontend-common'
-import { scopePath, type Scope } from './scope'
-
-/** One thing an operator has to look at, and where it is handled. */
-export interface AttentionItem {
-    severity: 'danger' | 'warn'
-    icon: string
-    text: string
-    detail: string
-    to: string
-}
-
-/** How many failed runs and workloads a list names before it stops. */
-const MAX_PER_KIND = 5
-
-function relative(epochMillis: number | null): string {
-    return epochMillis ? DatetimeUtil.formatRelativeDate(epochMillis).toLowerCase() : ''
-}
-
-function ownerOf(run: { organizationId: string | null; applicationId: string | null; projectId?: string | null }, scope: Scope): string {
-    const parts: string[] = []
-    if (!scope.organizationId && run.organizationId) parts.push(run.organizationId)
-    if (!scope.applicationId && run.applicationId) parts.push(run.applicationId)
-    if (!scope.projectId && run.projectId) parts.push(run.projectId)
-    return parts.length > 0 ? parts.join(' / ') : (run.organizationId ? 'organization' : 'platform')
-}
-
-function failedRuns(runs: JobRun[], scope: Scope): AttentionItem[] {
-    return runs.filter(run => run.status === ExecutionStatus.FAILED)
-               .slice(0, MAX_PER_KIND)
-               .map(run => ({
-                   severity: 'danger',
-                   icon: 'pi-exclamation-circle',
-                   text: `${run.description ?? run.name} failed`,
-                   detail: [ownerOf(run, scope), run.error, relative(run.started)].filter(Boolean).join(' · '),
-                   to: `${scopePath(scope)}/jobs/${encodeURIComponent(run.id ?? '')}`
-               }))
-}
-
-function failedWorkloads(workloads: Workload[], scope: Scope): AttentionItem[] {
-    return workloads.filter(workload => workload.status === WorkloadStatus.FAILED)
-                    .slice(0, MAX_PER_KIND)
-                    .map(workload => ({
-                        severity: 'danger',
-                        icon: 'pi-box',
-                        text: `Workload ${workload.name} failed`,
-                        detail: [
-                            ownerOf(workload, scope),
-                            workload.exitCode !== null ? `exit code ${workload.exitCode}` : null,
-                            workload.nodeId ? `on ${workload.nodeId}` : null,
-                            relative(workload.created)
-                        ].filter(Boolean).join(' · '),
-                        to: `${scopePath(scope)}/workloads/${encodeURIComponent(workload.id ?? '')}`
-                    }))
-}
+import { DatetimeUtil, failedRunAttention, failedWorkloadAttention, type AttentionItem, type ViewScope } from '@kinotic-ai/frontend-common'
+import { nodePath } from './nodes'
+import { scopePath } from './scope'
 
 function unfitNodes(nodes: VmNode[]): AttentionItem[] {
     const ret: AttentionItem[] = []
@@ -65,7 +13,7 @@ function unfitNodes(nodes: VmNode[]): AttentionItem[] {
                 icon: 'pi-server',
                 text: `${node.name} is draining`,
                 detail: node.status.healthMessage ?? 'The orchestrator places nothing new on it',
-                to: `/worker-nodes/${encodeURIComponent(node.id)}`
+                to: nodePath(node.id)
             })
         } else if (node.status.type === VmNodeStatusType.UNREACHABLE) {
             ret.push({
@@ -73,15 +21,15 @@ function unfitNodes(nodes: VmNode[]): AttentionItem[] {
                 icon: 'pi-server',
                 text: `${node.name} is unreachable`,
                 detail: 'A call to its vm-manager could not be delivered; the orchestrator places nothing new on it',
-                to: `/worker-nodes/${encodeURIComponent(node.id)}`
+                to: nodePath(node.id)
             })
         } else if (node.status.type === VmNodeStatusType.OFFLINE) {
             ret.push({
                 severity: 'warn',
                 icon: 'pi-server',
                 text: `${node.name} is offline`,
-                detail: [`${node.providerType} on ${node.hostname}`, node.lastSeen ? `last heartbeat ${relative(node.lastSeen)}` : null].filter(Boolean).join(' · '),
-                to: `/worker-nodes/${encodeURIComponent(node.id)}`
+                detail: [`${node.providerType} on ${node.hostname}`, node.lastSeen ? `last heartbeat ${DatetimeUtil.formatRelativeDate(node.lastSeen).toLowerCase()}` : null].filter(Boolean).join(' · '),
+                to: nodePath(node.id)
             })
         }
     }
@@ -112,13 +60,19 @@ function versionSkew(cluster: KinoticClusterInfo | null): AttentionItem[] {
     return ret
 }
 
+function failures(scope: ViewScope, workloads: Workload[], runs: JobRun[]): AttentionItem[] {
+    const base = scopePath(scope)
+    return [
+        ...failedRunAttention(runs, scope, `${base}/jobs`),
+        ...failedWorkloadAttention(workloads, scope, `${base}/workloads`)
+    ]
+}
+
 /** What needs an operator across the platform, failures first. */
 export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmNode[], workloads: Workload[],
                                   runs: JobRun[]): AttentionItem[] {
-    const scope: Scope = {}
     return [
-        ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope),
+        ...failures({}, workloads, runs),
         ...unfitNodes(nodes),
         ...versionSkew(cluster)
     ]
@@ -126,9 +80,5 @@ export function platformAttention(cluster: KinoticClusterInfo | null, nodes: VmN
 
 /** What needs an operator within one organization, failures first. */
 export function organizationAttention(organization: Organization, workloads: Workload[], runs: JobRun[]): AttentionItem[] {
-    const scope: Scope = { organizationId: organization.id ?? '' }
-    return [
-        ...failedRuns(runs, scope),
-        ...failedWorkloads(workloads, scope)
-    ]
+    return failures({ organizationId: organization.id ?? '' }, workloads, runs)
 }

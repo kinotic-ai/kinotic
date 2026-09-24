@@ -8,20 +8,37 @@
 
     <Message v-if="error" severity="error" :closable="false" class="mb-4">{{ error }}</Message>
 
-    <!-- The same bands as the dashboard: tiles, attention, charts, runs, then the records -->
-    <div class="flex flex-col gap-4">
-      <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+    <!-- The dashboard's order: the vitals and what needs looking at, then titled sections, then the record -->
+    <div class="flex flex-col gap-8">
+      <div class="flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
+        </div>
+        <AttentionList :items="attention" />
       </div>
 
-      <AttentionList :items="attention" />
+      <DashboardSection title="Traffic · last hour" description="The calls the organization's users and services made through the gateway, across its applications.">
+        <div class="grid gap-4 md:grid-cols-3">
+          <StatTile v-for="stat in trafficStats" :key="stat.label" v-bind="stat" />
+        </div>
+      </DashboardSection>
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <WorkloadStateCard :workloads="workloads" description="The organization's workloads." :view-all-to="`${basePath}/workloads`" />
-        <JobRunsByDayChart :runs="runs" :view-all-to="`${basePath}/jobs`" />
-      </div>
+      <DashboardSection title="Workloads">
+        <div class="grid gap-4 lg:grid-cols-2">
+          <WorkloadStateCard :workloads="workloads" description="The organization's workloads." :view-all-to="`${basePath}/workloads`" />
+          <AllocationCard title="Capacity by application"
+                          description="What each application's running workloads hold of the worker nodes."
+                          :allocations="allocations" :owner-route="applicationRoute" :view-all-to="`${basePath}/workloads`" />
+        </div>
+      </DashboardSection>
 
-      <RecentRunsTable :runs="recentRuns" :scope="{ organizationId }" />
+      <DashboardSection title="Jobs">
+        <div class="grid gap-4 lg:grid-cols-3">
+          <JobRunsByDayChart :runs="runs" :days="RUN_WINDOW_DAYS" :view-all-to="`${basePath}/jobs`" class="lg:col-span-2" />
+          <JobOutcomesCard :runs="runs" :days="RUN_WINDOW_DAYS" :view-all-to="`${basePath}/jobs`" />
+        </div>
+        <RecentRunsTable :runs="recentRuns" :scope="{ organizationId }" :jobs-path="`${basePath}/jobs`" />
+      </DashboardSection>
 
       <div class="flex flex-col gap-2 rounded-lg border border-surface p-4">
         <h2 class="text-base font-semibold">Details</h2>
@@ -49,15 +66,12 @@ import Message from 'primevue/message'
 
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { DatetimeUtil, PageHeader, errorMessage, scanJobRuns } from '@kinotic-ai/frontend-common'
+import { AllocationCard, AttentionList, DashboardSection, DatetimeUtil, JobOutcomesCard, JobRunsByDayChart, PageHeader,
+         RecentRunsTable, ORGANIZATION_OWNER, StatTile, WorkloadStateCard, allocationBy, applicationOwnerOf, errorMessage,
+         scanJobRuns, useTrafficStats, type Stat } from '@kinotic-ai/frontend-common'
 
-import AttentionList from '@/components/AttentionList.vue'
-import JobRunsByDayChart from '@/components/JobRunsByDayChart.vue'
-import RecentRunsTable from '@/components/RecentRunsTable.vue'
-import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import WorkloadStateCard from '@/components/WorkloadStateCard.vue'
 import { organizationAttention } from '@/util/attention'
-import { organizationPath } from '@/util/scope'
+import { applicationPath, organizationPath } from '@/util/scope'
 import { scanWorkloads } from '@/util/workloads'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -84,17 +98,19 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 const attention = computed(() => organization.value ? organizationAttention(organization.value, workloads.value, runs.value) : [])
-const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 
-interface Stat {
-  label: string
-  value: string
-  description: string
-  tag?: string
-  to?: string
-  icon?: string
-  accent?: StatTileAccent
+const { stats: trafficStats, load: loadTraffic } = useTrafficStats(() => ({
+  organizationId: props.organizationId,
+  applicationId: null,
+  to: `${basePath.value}/observability`
+}))
+
+const allocations = computed(() => allocationBy(workloads.value, applicationOwnerOf))
+
+function applicationRoute(owner: string): string | undefined {
+  return owner === ORGANIZATION_OWNER ? undefined : applicationPath(props.organizationId, owner)
 }
+const recentRuns = computed(() => runs.value.slice(0, RECENT_RUN_COUNT))
 
 const stats = computed<Stat[]>(() => {
   const running = workloads.value.filter(workload => workload.status === WorkloadStatus.RUNNING).length
@@ -149,7 +165,8 @@ async function load() {
       Kinotic.systemOrganizations.findMembers(orgId, null, firstPage),
       Kinotic.systemOrganizations.findPendingInvites(orgId, null, firstPage),
       scanWorkloads({ organizationId: orgId }),
-      scanJobRuns({ organizationId: orgId, since: Date.now() - RUN_WINDOW_DAYS * DAY_MS })
+      scanJobRuns({ organizationId: orgId, since: Date.now() - RUN_WINDOW_DAYS * DAY_MS }),
+      loadTraffic()
     ])
     organization.value = org
     applicationCount.value = apps.totalElements ?? 0

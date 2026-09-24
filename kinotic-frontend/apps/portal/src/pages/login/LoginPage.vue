@@ -167,7 +167,7 @@ async function handleSubmit() {
     await postCredentials('/api/auth/org/login', email.value, password.value)
     // Open the realtime connection, authenticated by the freshly set session cookie.
     await userState.login()
-    const referer = (route.query.referer as string | undefined) || '/applications'
+    const referer = (route.query.referer as string | undefined) || '/overview'
     await CONTINUUM_UI.navigate(referer)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Invalid credentials'

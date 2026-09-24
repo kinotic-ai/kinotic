@@ -53,16 +53,24 @@ public class TenantAccess {
      * @throws AuthorizationException when the participant may not read that tenant
      */
     public String readableTenant(Participant participant, String organizationId) {
-        String ret;
-        if (participant instanceof SystemParticipant) {
-            ret = organizationId != null ? organizationId : SYSTEM_TENANT;
-        } else if (participant instanceof OrganizationParticipant op && op.getOrganizationId().equals(organizationId)) {
-            ret = organizationId;
-        } else {
+        requireReadable(participant, organizationId);
+        return organizationId != null ? organizationId : SYSTEM_TENANT;
+    }
+
+    /**
+     * Checks the participant may read the given organization's telemetry: a system participant any
+     * organization's and the platform's, an organization participant its own organization's only.
+     *
+     * @param participant    the caller
+     * @param organizationId the organization whose telemetry is wanted, or null for the platform's
+     * @throws AuthorizationException when the participant may not read it
+     */
+    public void requireReadable(Participant participant, String organizationId) {
+        if (!(participant instanceof SystemParticipant)
+                && !(participant instanceof OrganizationParticipant op && op.getOrganizationId().equals(organizationId))) {
             // Log the mismatch server-side; surface only a generic message to the caller
             log.error("Participant {} may not read the telemetry of organization {}", participant.getId(), organizationId);
             throw new AuthorizationException("Access denied");
         }
-        return ret;
     }
 }

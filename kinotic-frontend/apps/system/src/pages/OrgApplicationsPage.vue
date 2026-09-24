@@ -24,6 +24,10 @@
         <span class="block max-w-[22rem] truncate" :title="item.description">{{ item.description || '—' }}</span>
       </template>
 
+      <template #item.allocated="{ item }">
+        <span class="whitespace-nowrap">{{ item.allocated ?? '—' }}</span>
+      </template>
+
       <template #item.updated="{ item }">
         {{ item.updated ? formatDate(item.updated) : '—' }}
       </template>
@@ -42,7 +46,9 @@ import {
   CrudTable,
   PageHeader,
   DatetimeUtil,
+  allocationBy,
   errorMessage,
+  formatAllocation,
   filteredPageLoader,
   useCrudTablePage,
   type CrudHeader,
@@ -68,12 +74,14 @@ const headers: CrudHeader[] = [
   { field: 'description', header: 'Description', sortable: false, optional: true },
   { field: 'projects', header: 'Projects', sortable: false, optional: true },
   { field: 'running', header: 'Running', sortable: false, optional: true },
+  { field: 'allocated', header: 'Allocated', sortable: false, optional: true },
   { field: 'updated', header: 'Updated', sortable: false }
 ]
 
 // Per-application counts, read once for the organization and shared by every page of the table
 const projectsByApplication = ref<Record<string, number>>({})
 const runningByApplication = ref<Record<string, number>>({})
+const allocatedByApplication = ref<Record<string, string>>({})
 const error = ref<string | null>(null)
 
 function fetchPage(pageable: Pageable): Promise<IterablePage<Application>> {
@@ -91,6 +99,7 @@ const { tableSearch, dataSource, refreshTable } = useCrudTablePage(
           description: app.description,
           projects: projectsByApplication.value[app.id] ?? 0,
           running: runningByApplication.value[app.id] ?? 0,
+          allocated: allocatedByApplication.value[app.id] ?? null,
           updated: app.updated
         }),
         row => [row.name ?? null, row.id, row.description ?? null]
@@ -119,6 +128,9 @@ async function loadCounts() {
     }
     projectsByApplication.value = projectCounts
     runningByApplication.value = runningCounts
+    // the organization's own workloads carry no application, so they group under the empty id no row has
+    allocatedByApplication.value = Object.fromEntries(
+        allocationBy(workloads, workload => workload.applicationId ?? '').map(allocation => [allocation.owner, formatAllocation(allocation)]))
   } catch (err) {
     error.value = errorMessage(err, 'Failed to count the organization\'s projects and workloads')
   }

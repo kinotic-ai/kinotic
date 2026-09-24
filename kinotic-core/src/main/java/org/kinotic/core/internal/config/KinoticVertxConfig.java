@@ -68,8 +68,9 @@ public class KinoticVertxConfig {
         // JacksonModule bean the modules contribute (including vertxJackson3Module for the vertx types)
         VertxJackson3Codec.setMapper(jsonMapper);
 
-        // The agent bridges Micrometer's global registry onto the OTLP exporter, so Vert.x's meters
-        // need no exporter of their own. With no agent attached the registry has no backends.
+        // Vert.x's meters go to Micrometer's global registry, which the agent exports over OTLP only when
+        // its Micrometer bridge is enabled (OTEL_INSTRUMENTATION_MICROMETER_ENABLED=true); the deployments
+        // leave it off, since the agent reports the JVM and HTTP server metrics itself
         VertxOptions options = new VertxOptions()
                 .setMetricsOptions(new MicrometerMetricsOptions().setEnabled(true));
 

@@ -10,13 +10,13 @@
         <span class="pi pi-bars"></span>
       </button>
 
-      <RouterLink to="/applications" class="flex items-center gap-2">
+      <RouterLink to="/overview" class="flex items-center gap-2">
         <img src="@/assets/header-logo.svg" class="h-6 w-[27px]" alt="Kinotic" />
       </RouterLink>
 
       <!-- On small screens only the deepest segment stays; the sidebar's back row names the rest -->
       <span :class="['text-lg text-surface-600', applicationId ? 'hidden md:inline' : '']">/</span>
-      <RouterLink to="/applications"
+      <RouterLink to="/overview"
         :class="['items-center gap-1.5 text-sm font-medium text-surface-300 transition-opacity hover:opacity-80', applicationId ? 'hidden md:flex' : 'flex']">
         {{ organizationId }}
         <span class="text-[11px] font-normal text-surface-500">org</span>
