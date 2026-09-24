@@ -16,13 +16,13 @@ importers:
     dependencies:
       '@kinotic-ai/core':
         specifier: ^5.0.0-beta.13
-        version: 5.0.0-beta.13
+        version: 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/management-api':
         specifier: ^5.0.0-beta.32
-        version: 5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13)
+        version: 5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       '@kinotic-ai/persistence':
         specifier: ^5.0.0-beta.11
-        version: 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13)
+        version: 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       vue:
         specifier: ^3.5.41
         version: 3.5.41(typescript@5.9.3)
@@ -35,10 +35,10 @@ importers:
         version: 5.0.0-beta.1
       '@kinotic-ai/kinotic-cli':
         specifier: ^5.2.0-beta.17
-        version: 5.2.0-beta.17(@types/node@25.9.5)(magicast@0.5.4)
+        version: 5.2.0-beta.17(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)
       '@modelcontextprotocol/sdk':
         specifier: ^1.30.0
-        version: 1.30.0(zod@4.4.3)
+        version: 1.30.0(supports-color@8.1.1)(zod@4.4.3)
       '@types/node':
         specifier: ^25.9.5
         version: 25.9.5
@@ -68,13 +68,13 @@ importers:
         version: 3.10.2(@vitest/runner@4.1.10)(vitest@4.1.10)
       axios:
         specifier: 1.18.0
-        version: 1.18.0
+        version: 1.18.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
       testcontainers:
         specifier: ^11.14.0
-        version: 11.14.0
+        version: 11.14.0(supports-color@8.1.1)
       tslib:
         specifier: ^2.8.1
         version: 2.8.1
@@ -798,6 +798,11 @@ packages:
 
   '@volar/typescript@2.4.28':
     resolution: {integrity: sha512-Ja6yvWrbis2QtN4ClAKreeUZPVYMARDYZl9LMEv1iQ1QdepB6wn0jTRxA9MftYmYa4DQ4k/DaSZpFPUfxl8giw==}
+    peerDependencies:
+      typescript: '*'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
 
   '@vue/compiler-core@3.5.41':
     resolution: {integrity: sha512-q0Xtv/F9w2YO/7htQhtiL+Ev2WCJbe5N2hc+XfgyKkEKqWpSxknmT8QOuGdEKNdjPq0c3F7rNpFkTo3Kfrm7pg==}
@@ -1339,8 +1344,8 @@ packages:
   fast-string-width@3.0.2:
     resolution: {integrity: sha512-gX8LrtNEI5hq8DVUfRQMbr5lpaS4nMIWV+7XEbXk2b8kiQIizgnlr12B4dA3ZEx3308ze0O4Q1R+cHts8kyUJg==}
 
-  fast-uri@3.1.5:
-    resolution: {integrity: sha512-gHwA1O9LDIcKunMKhObS/HimwtehO1nPUECKAu5TpKgaO19fcWEl4bliWe1jWxVFvIXztJjjQ4L8XQ1EU9f7Jw==}
+  fast-uri@3.1.8:
+    resolution: {integrity: sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==}
 
   fast-wrap-ansi@0.2.2:
     resolution: {integrity: sha512-7F2Fl+TjRSenLqlU3UjSH0iyqopqoZIu7eZVpEirP2g1GtWa2G/ecEmBdgz31+Mxr+ELclgg6sokpSFIQiZ02Q==}
@@ -2531,7 +2536,7 @@ snapshots:
 
   '@js-sdsl/ordered-map@4.4.2': {}
 
-  '@kinotic-ai/core@5.0.0-beta.13':
+  '@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1)':
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.43.0
@@ -2550,13 +2555,13 @@ snapshots:
 
   '@kinotic-ai/idl@5.0.0-beta.1': {}
 
-  '@kinotic-ai/kinotic-cli@5.2.0-beta.17(@types/node@25.9.5)(magicast@0.5.4)':
+  '@kinotic-ai/kinotic-cli@5.2.0-beta.17(@types/node@25.9.5)(magicast@0.5.4)(supports-color@8.1.1)':
     dependencies:
       '@inquirer/prompts': 8.5.2(@types/node@25.9.5)
-      '@kinotic-ai/core': 5.0.0-beta.13
+      '@kinotic-ai/core': 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/management-api': 5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13)
-      '@kinotic-ai/persistence': 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13)
+      '@kinotic-ai/management-api': 5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
+      '@kinotic-ai/persistence': 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       '@kinotic-ai/spawn': 5.0.0-beta.1
       '@oclif/core': 4.13.3
       c12: 3.3.4(magicast@0.5.4)
@@ -2565,7 +2570,7 @@ snapshots:
       open: 11.0.0
       p-timeout: 7.0.1
       radash: 12.1.1
-      simple-git: 3.36.0
+      simple-git: 3.36.0(supports-color@8.1.1)
       ts-morph: 27.0.2
     transitivePeerDependencies:
       - '@types/node'
@@ -2574,16 +2579,16 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@kinotic-ai/management-api@5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13)':
+  '@kinotic-ai/management-api@5.0.0-beta.32(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.13
+      '@kinotic-ai/core': 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
-      '@kinotic-ai/persistence': 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13)
+      '@kinotic-ai/persistence': 5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))
       rxjs: 7.8.2
 
-  '@kinotic-ai/persistence@5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13)':
+  '@kinotic-ai/persistence@5.0.0-beta.11(@kinotic-ai/core@5.0.0-beta.13(supports-color@8.1.1))':
     dependencies:
-      '@kinotic-ai/core': 5.0.0-beta.13
+      '@kinotic-ai/core': 5.0.0-beta.13(supports-color@8.1.1)
       '@kinotic-ai/idl': 5.0.0-beta.1
       rxjs: 7.8.2
 
@@ -2592,7 +2597,7 @@ snapshots:
       liquidjs: 10.28.0
       zod: 4.4.3
 
-  '@kwsites/file-exists@1.1.1':
+  '@kwsites/file-exists@1.1.1(supports-color@8.1.1)':
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
@@ -2600,7 +2605,7 @@ snapshots:
 
   '@kwsites/promise-deferred@1.1.1': {}
 
-  '@modelcontextprotocol/sdk@1.30.0(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.30.0(supports-color@8.1.1)(zod@4.4.3)':
     dependencies:
       '@hono/node-server': 2.1.0(hono@4.13.0)
       ajv: 8.20.0
@@ -2610,8 +2615,8 @@ snapshots:
       cross-spawn: 7.0.6
       eventsource: 3.0.7
       eventsource-parser: 3.1.0
-      express: 5.2.1
-      express-rate-limit: 8.6.2(express@5.2.1)
+      express: 5.2.1(supports-color@8.1.1)
+      express-rate-limit: 8.6.2(express@5.2.1(supports-color@8.1.1))(supports-color@8.1.1)
       hono: 4.13.0
       jose: 6.2.8
       json-schema-typed: 8.0.2
@@ -2897,11 +2902,13 @@ snapshots:
 
   '@volar/source-map@2.4.28': {}
 
-  '@volar/typescript@2.4.28':
+  '@volar/typescript@2.4.28(typescript@5.9.3)':
     dependencies:
       '@volar/language-core': 2.4.28
       path-browserify: 1.0.1
       vscode-uri: 3.1.0
+    optionalDependencies:
+      typescript: 5.9.3
 
   '@vue/compiler-core@3.5.41':
     dependencies:
@@ -2981,7 +2988,7 @@ snapshots:
       mime-types: 3.0.2
       negotiator: 1.0.0
 
-  agent-base@6.0.2:
+  agent-base@6.0.2(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
@@ -2994,7 +3001,7 @@ snapshots:
   ajv@8.20.0:
     dependencies:
       fast-deep-equal: 3.1.3
-      fast-uri: 3.1.5
+      fast-uri: 3.1.8
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
 
@@ -3070,11 +3077,11 @@ snapshots:
 
   asynckit@0.4.0: {}
 
-  axios@1.18.0:
+  axios@1.18.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1):
     dependencies:
-      follow-redirects: 1.16.0
+      follow-redirects: 1.16.0(debug@4.4.3(supports-color@8.1.1))
       form-data: 4.0.6
-      https-proxy-agent: 5.0.1
+      https-proxy-agent: 5.0.1(supports-color@8.1.1)
       proxy-from-env: 2.1.0
     transitivePeerDependencies:
       - debug
@@ -3127,7 +3134,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  body-parser@2.3.0:
+  body-parser@2.3.0(supports-color@8.1.1):
     dependencies:
       bytes: 3.1.2
       content-type: 2.0.0
@@ -3320,7 +3327,7 @@ snapshots:
     dependencies:
       yaml: 2.9.0
 
-  docker-modem@5.0.7:
+  docker-modem@5.0.7(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       readable-stream: 3.6.2
@@ -3329,12 +3336,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  dockerode@4.0.12:
+  dockerode@4.0.12(supports-color@8.1.1):
     dependencies:
       '@balena/dockerignore': 1.0.2
       '@grpc/grpc-js': 1.14.4
       '@grpc/proto-loader': 0.7.15
-      docker-modem: 5.0.7
+      docker-modem: 5.0.7(supports-color@8.1.1)
       protobufjs: 7.6.5
       tar-fs: 2.1.5
       uuid: 10.0.0
@@ -3447,18 +3454,18 @@ snapshots:
 
   expect-type@1.4.0: {}
 
-  express-rate-limit@8.6.2(express@5.2.1):
+  express-rate-limit@8.6.2(express@5.2.1(supports-color@8.1.1))(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
-      express: 5.2.1
+      express: 5.2.1(supports-color@8.1.1)
       ip-address: 10.4.0
     transitivePeerDependencies:
       - supports-color
 
-  express@5.2.1:
+  express@5.2.1(supports-color@8.1.1):
     dependencies:
       accepts: 2.0.0
-      body-parser: 2.3.0
+      body-parser: 2.3.0(supports-color@8.1.1)
       content-disposition: 1.1.0
       content-type: 1.0.5
       cookie: 0.7.2
@@ -3468,7 +3475,7 @@ snapshots:
       encodeurl: 2.0.0
       escape-html: 1.0.3
       etag: 1.8.1
-      finalhandler: 2.1.1
+      finalhandler: 2.1.1(supports-color@8.1.1)
       fresh: 2.0.0
       http-errors: 2.0.1
       merge-descriptors: 2.0.0
@@ -3479,9 +3486,9 @@ snapshots:
       proxy-addr: 2.0.7
       qs: 6.15.3
       range-parser: 1.3.0
-      router: 2.2.0
-      send: 1.2.1
-      serve-static: 2.2.1
+      router: 2.2.0(supports-color@8.1.1)
+      send: 1.2.1(supports-color@8.1.1)
+      serve-static: 2.2.1(supports-color@8.1.1)
       statuses: 2.0.2
       type-is: 2.1.0
       vary: 1.1.2
@@ -3500,7 +3507,7 @@ snapshots:
     dependencies:
       fast-string-truncated-width: 3.0.3
 
-  fast-uri@3.1.5: {}
+  fast-uri@3.1.8: {}
 
   fast-wrap-ansi@0.2.2:
     dependencies:
@@ -3516,7 +3523,7 @@ snapshots:
     dependencies:
       minimatch: 5.1.9
 
-  finalhandler@2.1.1:
+  finalhandler@2.1.1(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
@@ -3529,7 +3536,9 @@ snapshots:
 
   flatted@3.4.4: {}
 
-  follow-redirects@1.16.0: {}
+  follow-redirects@1.16.0(debug@4.4.3(supports-color@8.1.1)):
+    optionalDependencies:
+      debug: 4.4.3(supports-color@8.1.1)
 
   foreground-child@3.3.1:
     dependencies:
@@ -3618,9 +3627,9 @@ snapshots:
       statuses: 2.0.2
       toidentifier: 1.0.1
 
-  https-proxy-agent@5.0.1:
+  https-proxy-agent@5.0.1(supports-color@8.1.1):
     dependencies:
-      agent-base: 6.0.2
+      agent-base: 6.0.2(supports-color@8.1.1)
       debug: 4.4.3(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
@@ -3873,9 +3882,9 @@ snapshots:
       retry: 0.12.0
       signal-exit: 3.0.7
 
-  properties-reader@3.0.1:
+  properties-reader@3.0.1(supports-color@8.1.1):
     dependencies:
-      '@kwsites/file-exists': 1.1.1
+      '@kwsites/file-exists': 1.1.1(supports-color@8.1.1)
       mkdirp: 3.0.1
     transitivePeerDependencies:
       - supports-color
@@ -3995,7 +4004,7 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.62.4
       fsevents: 2.3.3
 
-  router@2.2.0:
+  router@2.2.0(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       depd: 2.0.0
@@ -4019,7 +4028,7 @@ snapshots:
 
   semver@7.8.5: {}
 
-  send@1.2.1:
+  send@1.2.1(supports-color@8.1.1):
     dependencies:
       debug: 4.4.3(supports-color@8.1.1)
       encodeurl: 2.0.0
@@ -4035,12 +4044,12 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  serve-static@2.2.1:
+  serve-static@2.2.1(supports-color@8.1.1):
     dependencies:
       encodeurl: 2.0.0
       escape-html: 1.0.3
       parseurl: 1.3.3
-      send: 1.2.1
+      send: 1.2.1(supports-color@8.1.1)
     transitivePeerDependencies:
       - supports-color
 
@@ -4086,9 +4095,9 @@ snapshots:
 
   signal-exit@4.1.0: {}
 
-  simple-git@3.36.0:
+  simple-git@3.36.0(supports-color@8.1.1):
     dependencies:
-      '@kwsites/file-exists': 1.1.1
+      '@kwsites/file-exists': 1.1.1(supports-color@8.1.1)
       '@kwsites/promise-deferred': 1.1.1
       '@simple-git/args-pathspec': 1.0.3
       '@simple-git/argv-parser': 1.1.1
@@ -4215,7 +4224,7 @@ snapshots:
       - bare-abort-controller
       - react-native-b4a
 
-  testcontainers@11.14.0:
+  testcontainers@11.14.0(supports-color@8.1.1):
     dependencies:
       '@balena/dockerignore': 1.0.2
       '@types/dockerode': 4.0.1
@@ -4224,10 +4233,10 @@ snapshots:
       byline: 5.0.0
       debug: 4.4.3(supports-color@8.1.1)
       docker-compose: 1.4.2
-      dockerode: 4.0.12
+      dockerode: 4.0.12(supports-color@8.1.1)
       get-port: 7.2.0
       proper-lockfile: 4.1.2
-      properties-reader: 3.0.1
+      properties-reader: 3.0.1(supports-color@8.1.1)
       ssh-remote-port-forward: 1.0.4
       tar-fs: 3.1.3
       tmp: 0.2.7
@@ -4346,7 +4355,7 @@ snapshots:
 
   vue-tsc@3.3.9(typescript@5.9.3):
     dependencies:
-      '@volar/typescript': 2.4.28
+      '@volar/typescript': 2.4.28(typescript@5.9.3)
       '@vue/language-core': 3.3.9
       typescript: 5.9.3
 
