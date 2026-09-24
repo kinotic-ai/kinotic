@@ -100,9 +100,9 @@ Dependency spine: 1 → 2; 3 → 5; 4 → 5 → 6, 7; 4 → 8; 1 → 8; 9 after 
 - **`ConditionType` has one value in Phase 1.** Its second and third arrive with the site deadline in
   Phase 7 and the runner in Phase 9; the enum exists now because the record's shape must not be
   reshaped later.
-- **Migrations are appended.** PR #588 added V6/V7 rather than editing V1, because running
-  environments had applied V1–V5. Phase 1 follows that precedent with V8. `CLAUDE.md`'s snapshot rule
-  still says to edit V1 in place; one of the two is to be updated by the owner.
+- **Migrations are appended.** A test server runs everything and has applied the migration files
+  that exist, so a schema change is a new versioned file, as PR #588 did with V6/V7 and Phase 1 does
+  with V8; `CLAUDE.md` records the rule.
 - **The TypeScript mirror is its own phase.** The wire shape leads from Java; the packages bump and
   publish as a unit, and the console change waits on the publish, as the console's `UNREACHABLE`
   handling did in the node-failure series.
