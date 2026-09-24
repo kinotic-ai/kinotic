@@ -1,4 +1,4 @@
-package org.kinotic.persistence.internal.api.model.idl;
+package org.kinotic.persistence.internal.serializer;
 
 import org.kinotic.idl.api.directory.ConversionContext;
 import org.kinotic.idl.api.directory.SpecificTypeConverter;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
  * Created by Navíd Mitchell 🤪 on 7/22/26
  */
 @Component
-public class FastestTypeConverter implements SpecificTypeConverter {
+public class FastestTypeToC3Type implements SpecificTypeConverter {
 
     private static final Class<?>[] supports = {FastestType.class};
 
