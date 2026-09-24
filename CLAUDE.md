@@ -152,6 +152,11 @@ migration file with the `ALTER TABLE` — see above). For DDL syntax and column
 types, see `website/content/01.apps/09.reference/02.migration-sql-grammar.md` or the
 `kinotic-sql` module.
 
+A `List<POJO>` field is an `OBJECT` column: Elasticsearch stores a list under an object mapping and
+a query on one sub-field matches across it. `NESTED` is only for a query that must match two
+sub-fields of the same element, and that query must exist in the change that introduces the
+column; the grammar reference explains what each nested element costs.
+
 ## Keep docs in sync with code
 
 When a change alters something the docs describe — a wire contract, public API signature, REST route, auth mechanism, configuration option, or user-facing behavior — update the affected docs in the same change. `website/content/**` must always reflect the correct and current shape of the system; stale docs are a defect, not a follow-up. Before finishing, grep `website/content` for the symbols, routes, and field names you changed and reconcile every hit. If a change is genuinely too large to document in the same pass, say so explicitly rather than leaving the docs silently wrong.
