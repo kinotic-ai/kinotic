@@ -17,6 +17,8 @@ import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.EventBusService;
+import org.kinotic.core.api.reconcile.ConditionType;
+import org.kinotic.core.api.reconcile.Conditions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -175,7 +177,10 @@ public class WorkloadOrchestrationTest {
         nodeOrchestration.init();
         try {
             assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
-            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
+            // the run may still be live on the far side of the partition: the record keeps its status and its room
+            assertTrue(awaitWorkloadUnreachable(deployed.getId(), true));
+            assertEquals(WorkloadStatus.RUNNING, workloads.saved.get(deployed.getId()).getStatus());
+            assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus());
         } finally {
             nodeOrchestration.destroy();
         }
@@ -199,7 +204,7 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
-    public void silentNodeFailsItsStoppingWorkload() throws Exception {
+    public void silentNodeMarksItsStoppingWorkloadUnreachable() throws Exception {
         properties.getSystemApi().getVmNode().setHealthCheckIntervalSeconds(1);
         properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
         // a stop whose reply never came back from the node leaves the record STOPPING
@@ -212,10 +217,92 @@ public class WorkloadOrchestrationTest {
         nodeOrchestration.init();
         try {
             assertEquals(VmNodeStatusType.OFFLINE, awaitNodeStatus(VmNodeStatusType.OFFLINE));
-            assertEquals(WorkloadStatus.FAILED, awaitWorkloadStatus(deployed.getId(), WorkloadStatus.FAILED));
+            assertTrue(awaitWorkloadUnreachable(deployed.getId(), true));
+            assertEquals(WorkloadStatus.STOPPING, workloads.saved.get(deployed.getId()).getStatus());
         } finally {
             nodeOrchestration.destroy();
         }
+    }
+
+    @Test
+    public void reportFromANodeHeardAgainOutranksTheSilence() throws Exception {
+        Workload deployed = markedUnreachableByTheReaper();
+
+        // the node's clock says the run started long before the server inferred the silence
+        reportAt(deployed.getId(), WorkloadStatus.RUNNING, null, System.currentTimeMillis() - 60_000);
+
+        Workload stored = workloads.saved.get(deployed.getId());
+        assertFalse(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertEquals(WorkloadStatus.RUNNING, stored.getStatus());
+        assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus(), "the room was never released");
+    }
+
+    @Test
+    public void reportOfAnEndedRunFromANodeHeardAgainReleasesItsRoom() throws Exception {
+        Workload deployed = markedUnreachableByTheReaper();
+
+        reportAt(deployed.getId(), WorkloadStatus.STOPPED, 0, System.currentTimeMillis() - 60_000);
+
+        Workload stored = workloads.saved.get(deployed.getId());
+        assertFalse(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertEquals(WorkloadStatus.STOPPED, stored.getStatus());
+        assertEquals(0, stored.getExitCode());
+        assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
+    }
+
+    @Test
+    public void unansweredStartLeavesTheWorkloadStartingAndUnreachable() throws Exception {
+        when(eventBus.monitorListenerStatus(any())).thenReturn(Flux.just(ListenerStatus.ACTIVE));
+        vmManager.failStartWith = new RpcServiceUnavailableException("the node left mid-call");
+
+        assertThrows(Exception.class, () -> await(orchestration.deployWorkload(newWorkload())));
+
+        Workload stored = workloads.saved.values().iterator().next();
+        assertEquals(WorkloadStatus.STARTING, stored.getStatus());
+        assertTrue(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus(), "the node may be running it");
+
+        // the node's report settles it
+        report(stored.getId(), WorkloadStatus.RUNNING, null);
+        Workload settled = workloads.saved.get(stored.getId());
+        assertEquals(WorkloadStatus.RUNNING, settled.getStatus());
+        assertFalse(Conditions.has(settled.getConditions(), ConditionType.NODE_UNREACHABLE));
+    }
+
+    @Test
+    public void unansweredStopLeavesTheWorkloadStoppingAndUnreachable() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        when(eventBus.monitorListenerStatus(any())).thenReturn(Flux.just(ListenerStatus.ACTIVE));
+        vmManager.failStopWith = new RpcServiceUnavailableException("the node left mid-call");
+
+        assertThrows(Exception.class, () -> await(orchestration.stopWorkload(deployed.getId())));
+
+        Workload stored = workloads.saved.get(deployed.getId());
+        assertEquals(WorkloadStatus.STOPPING, stored.getStatus());
+        assertTrue(Conditions.has(stored.getConditions(), ConditionType.NODE_UNREACHABLE));
+        assertEquals(3, nodes.saved.get(NODE_ID).getFreeCpus());
+    }
+
+    @Test
+    public void deregisteringAnOfflineNodeRecordsItsOpenRunsFailed() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setStatus(new VmNodeStatus(VmNodeStatusType.OFFLINE, null));
+        nodes.saveSync(node);
+
+        await(nodeOrchestration.deregisterNode(NODE_ID));
+
+        assertEquals(WorkloadStatus.FAILED, workloads.saved.get(deployed.getId()).getStatus());
+        assertNull(nodes.saved.get(NODE_ID));
+    }
+
+    @Test
+    public void deregisteringAnOnlineNodeWithRunningWorkloadsIsRefused() throws Exception {
+        await(orchestration.deployWorkload(newWorkload()));
+
+        assertThrows(Exception.class, () -> await(nodeOrchestration.deregisterNode(NODE_ID)));
+
+        assertEquals(VmNodeStatusType.ONLINE, nodes.saved.get(NODE_ID).getStatus().getType());
     }
 
     @Test
@@ -499,16 +586,41 @@ public class WorkloadOrchestrationTest {
     }
 
     /**
-     * Returns the stored status of a workload once it is {@code expected}, or whatever it is when the wait
-     * runs out. The reaper writes a node's workloads FAILED after its OFFLINE write completes, on its
-     * scheduler thread, so the workload lags the node status a test already waited for.
+     * Returns whether a stored workload carries NODE_UNREACHABLE once that is {@code expected}, or
+     * whatever it is when the wait runs out. The reaper marks a node's workloads after its OFFLINE write
+     * completes, on its scheduler thread, so the workload lags the node status a test already waited for.
      */
-    private WorkloadStatus awaitWorkloadStatus(String workloadId, WorkloadStatus expected) throws Exception {
+    private boolean awaitWorkloadUnreachable(String workloadId, boolean expected) throws Exception {
         long deadline = System.currentTimeMillis() + 10_000;
-        while (workloads.saved.get(workloadId).getStatus() != expected && System.currentTimeMillis() < deadline) {
+        while (unreachable(workloadId) != expected && System.currentTimeMillis() < deadline) {
             Thread.sleep(50);
         }
-        return workloads.saved.get(workloadId).getStatus();
+        return unreachable(workloadId);
+    }
+
+    private boolean unreachable(String workloadId) {
+        return Conditions.has(workloads.saved.get(workloadId).getConditions(), ConditionType.NODE_UNREACHABLE);
+    }
+
+    /**
+     * Deploys a workload and runs the reaper against its node with the heartbeat overdue, returning the
+     * workload once the reaper has marked it unreachable.
+     */
+    private Workload markedUnreachableByTheReaper() throws Exception {
+        properties.getSystemApi().getVmNode().setHealthCheckIntervalSeconds(1);
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        VmNode node = nodes.saved.get(NODE_ID);
+        node.setLastSeen(new Date(System.currentTimeMillis() - 10_000));
+        nodes.saveSync(node);
+
+        nodeOrchestration.init();
+        try {
+            assertTrue(awaitWorkloadUnreachable(deployed.getId(), true));
+        } finally {
+            nodeOrchestration.destroy();
+        }
+        return deployed;
     }
 
     private static Workload newWorkload() {
@@ -524,11 +636,16 @@ public class WorkloadOrchestrationTest {
      * the report applies even when both happen within the same millisecond.
      */
     private void report(String workloadId, WorkloadStatus status, Integer exitCode) {
+        reportAt(workloadId, status, exitCode, System.currentTimeMillis() + 1000);
+    }
+
+    /** Simulates the node pushing a status report stamped by the node's own clock. */
+    private void reportAt(String workloadId, WorkloadStatus status, Integer exitCode, long updated) {
         WorkloadStatusReport statusReport = new WorkloadStatusReport()
                 .setWorkloadId(workloadId)
                 .setStatus(status)
                 .setExitCode(exitCode)
-                .setUpdated(System.currentTimeMillis() + 1000);
+                .setUpdated(updated);
         nodeOrchestration.reportWorkloadStatus(NODE_ID, List.of(statusReport));
     }
 }

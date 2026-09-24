@@ -8,6 +8,9 @@ import org.kinotic.core.api.service.ServiceIdentifier;
 import org.kinotic.core.api.event.ListenerStatus;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.CRI;
+import org.kinotic.core.api.reconcile.Condition;
+import org.kinotic.core.api.reconcile.ConditionType;
+import org.kinotic.core.api.reconcile.Conditions;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -122,11 +127,18 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private static List<WorkloadReservation> reservationsOf(List<Workload> workloads) {
         List<WorkloadReservation> ret = new ArrayList<>();
         for (Workload workload : workloads) {
-            if (workload.getStatus() != WorkloadStatus.PENDING && !workload.getStatus().isComplete()) {
+            if (runOpen(workload)) {
                 ret.add(WorkloadReservation.forRun(workload));
             }
         }
         return ret;
+    }
+
+    // A STOPPING workload is one whose stop never got an answer from the node
+    private static boolean runOpen(Workload workload) {
+        return workload.getStatus() == WorkloadStatus.STARTING
+                || workload.getStatus() == WorkloadStatus.RUNNING
+                || workload.getStatus() == WorkloadStatus.STOPPING;
     }
 
     @Override
@@ -188,6 +200,14 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         log.warn("Ignoring status report from node {} for workload {} deployed on node {}",
                                  nodeId, report.getWorkloadId(), workload.getNodeId());
                         ret = Future.succeededFuture(workload);
+                    } else if (Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE)) {
+                        // The condition was set from the node's silence, on the server's clock, so the
+                        // report that ends the silence is applied whatever the timestamps say and whether
+                        // or not the status moved: the node is the authority on its run
+                        log.info("Workload {} status {} -> {} per report from node {}, reachable again",
+                                 report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
+                        workload.setConditions(Conditions.without(workload.getConditions(), ConditionType.NODE_UNREACHABLE));
+                        ret = applyReport(nodeId, workload, report);
                     } else if (workload.getStatus() == report.getStatus()) {
                         // Same state; still adopt an exit code the record lacks — stopWorkload
                         // persists STOPPED before the node's exit-code-bearing report arrives
@@ -204,32 +224,56 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                     } else {
                         log.info("Workload {} status {} -> {} per report from node {}",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
-
-                        workload.setStatus(report.getStatus());
-                        workload.setExitCode(report.getExitCode());
-                        ret = workloadService.saveSync(workload);
-                        if (report.getStatus().isComplete()) {
-                            ret = ret.compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()).map(saved));
-                        }
+                        ret = applyReport(nodeId, workload, report);
                     }
 
                     return ret;
                 });
     }
 
+    // Persists the report's status and exit code, and returns the run's room once the report says it ended
+    private Future<Workload> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
+        workload.setStatus(report.getStatus());
+        workload.setExitCode(report.getExitCode());
+        Future<Workload> ret = workloadService.saveSync(workload);
+        if (report.getStatus().isComplete()) {
+            ret = ret.compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()).map(saved));
+        }
+        return ret;
+    }
+
     @Override
     public Future<Void> deregisterNode(String nodeId) {
         Validate.notNull(nodeId, "Node id cannot be null");
 
-        return workloadService.countRunningForNode(nodeId)
-                .compose(count -> {
-                    if (count > 0) {
-                        return Future.failedFuture(
-                                new IllegalStateException("Cannot deregister node with running workloads. "
-                                        + "Stop or destroy the workloads running on node " + nodeId + " first."));
+        return vmNodeService.findById(nodeId)
+                .compose(node -> {
+                    Future<Void> ret;
+                    if (node != null && node.getStatus().getType() == VmNodeStatusType.OFFLINE) {
+                        // The operator's word that the node is not coming back settles what its silence
+                        // left open. The node record and its ledger go with it, so no room is returned.
+                        log.info("Deregistering OFFLINE VmNode {}: its open runs are recorded FAILED", nodeId);
+                        ret = updateOpenRuns(nodeId, workload -> true, workload -> {
+                            log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
+                                     workload.getId(), nodeId, workload.getStatus());
+                            workload.setStatus(WorkloadStatus.FAILED);
+                        }).compose(v -> vmNodeService.deleteById(nodeId));
+                    } else {
+                        ret = workloadService.countRunningForNode(nodeId)
+                                .compose(count -> {
+                                    Future<Void> deleted;
+                                    if (count > 0) {
+                                        deleted = Future.failedFuture(
+                                                new IllegalStateException("Cannot deregister node with running workloads. "
+                                                        + "Stop or destroy the workloads running on node " + nodeId + " first."));
+                                    } else {
+                                        log.info("Deregistering VmNode: {}", nodeId);
+                                        deleted = vmNodeService.deleteById(nodeId);
+                                    }
+                                    return deleted;
+                                });
                     }
-                    log.info("Deregistering VmNode: {}", nodeId);
-                    return vmNodeService.deleteById(nodeId);
+                    return ret;
                 });
     }
 
@@ -269,7 +313,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     /**
      * Periodically marks every node that has not sent a heartbeat within the timeout OFFLINE, whatever it
-     * reported last, and marks every workload still on it FAILED.
+     * reported last, and marks every workload whose run is still open on it NODE_UNREACHABLE.
      */
     private void checkNodeHealth() {
         try {
@@ -292,7 +336,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                                 // the node keeps its lastSeen
                                 vmNodeService.updateStatusSync(node.getId(),
                                                                new VmNodeStatus(VmNodeStatusType.OFFLINE, node.getStatus().getHealthMessage()))
-                                        .compose(v -> markNodeWorkloadsFailed(node.getId()))
+                                        .compose(v -> markNodeWorkloadsUnreachable(node.getId()))
                                         .onFailure(error -> log.error("Error handling offline node {}", node.getId(), error));
                             }
                         }
@@ -303,21 +347,32 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         }
     }
 
-    private Future<Void> markNodeWorkloadsFailed(String nodeId) {
+    // A run the node last reported open may still be running on the other side of a partition, so
+    // the record keeps its status and its room; the node's next report settles both, and a
+    // deregistration settles them when the node is not coming back
+    private Future<Void> markNodeWorkloadsUnreachable(String nodeId) {
+        return updateOpenRuns(nodeId,
+                              workload -> !Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE),
+                              workload -> {
+                                  log.warn("Marking workload {} unreachable: node {} missed its heartbeat",
+                                           workload.getId(), nodeId);
+                                  workload.setConditions(Conditions.with(workload.getConditions(),
+                                                                         new Condition(ConditionType.NODE_UNREACHABLE,
+                                                                                       "Node " + nodeId + " missed its heartbeat",
+                                                                                       new Date())));
+                              });
+    }
+
+    // Applies the change to every open run on the node the predicate selects, one save at a time
+    private Future<Void> updateOpenRuns(String nodeId, Predicate<Workload> selects, Consumer<Workload> change) {
         return workloadService.findAllForNode(nodeId, Pageable.create(0, WORKLOAD_PAGE_SIZE, null))
                 .compose(page -> {
                     Future<Void> chain = Future.succeededFuture();
                     for (Workload workload : page.getContent()) {
-                        // a STOPPING workload is one whose stop never got an answer from the node
-                        if (workload.getStatus() == WorkloadStatus.RUNNING
-                                || workload.getStatus() == WorkloadStatus.STARTING
-                                || workload.getStatus() == WorkloadStatus.STOPPING) {
+                        if (runOpen(workload) && selects.test(workload)) {
                             chain = chain.compose(v -> {
-                                log.warn("Marking workload {} as FAILED due to node {} going offline",
-                                         workload.getId(), nodeId);
-                                workload.setStatus(WorkloadStatus.FAILED);
-                                return workloadService.saveSync(workload)
-                                                      .compose(saved -> vmNodeService.releaseSync(nodeId, saved.getId()));
+                                change.accept(workload);
+                                return workloadService.saveSync(workload).mapEmpty();
                             });
                         }
                     }

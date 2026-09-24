@@ -49,7 +49,10 @@ public interface VmNodeOrchestrationService {
      * report whenever a workload changes state on the node — including transitions the
      * orchestrator did not initiate, such as recovery after a vm-manager restart — and a
      * periodic full snapshot for reconciliation. Reports older than the workload's last
-     * transition, or for workloads that no longer exist, are ignored.
+     * transition, or for workloads that no longer exist, are ignored — except for a workload marked
+     * {@link org.kinotic.core.api.reconcile.ConditionType#NODE_UNREACHABLE}: the report ends the
+     * silence the condition was inferred from, so it is applied whatever its timestamp and clears
+     * the condition.
      *
      * @param nodeId the id of the reporting node
      * @param reports one report per workload
@@ -58,7 +61,9 @@ public interface VmNodeOrchestrationService {
     Future<Void> reportWorkloadStatus(String nodeId, List<WorkloadStatusReport> reports);
 
     /**
-     * Removes a node from the orchestrator. The node must have no active workloads.
+     * Removes a node from the orchestrator. An {@link VmNodeStatusType#OFFLINE} node is taken as not
+     * coming back: every run still open on it is recorded {@code FAILED} and the node is removed
+     * with its capacity ledger. Any other node must have no running workloads.
      *
      * @param nodeId the id of the node to deregister
      * @return a future that will complete when the node has been removed

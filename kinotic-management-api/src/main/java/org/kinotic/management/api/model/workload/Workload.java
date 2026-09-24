@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.core.api.reconcile.Condition;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -118,6 +119,13 @@ public class Workload implements Identifiable<String> {
      * down first. FAILED alone does not distinguish that from code that threw.
      */
     private Integer exitCode;
+
+    /**
+     * What the orchestrator has inferred about this workload without the node confirming it, such as
+     * the node falling silent while the run was live. Empty when every status transition came from
+     * the node's own report.
+     */
+    private List<Condition> conditions = new ArrayList<>();
 
     /**
      * Optional environment variables to pass to the VM. Persisted verbatim on the workload

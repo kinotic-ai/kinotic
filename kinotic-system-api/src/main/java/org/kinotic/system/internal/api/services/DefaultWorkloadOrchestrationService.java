@@ -3,6 +3,9 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
 import org.kinotic.core.api.exceptions.RpcMissingServiceException;
+import org.kinotic.core.api.reconcile.Condition;
+import org.kinotic.core.api.reconcile.ConditionType;
+import org.kinotic.core.api.reconcile.Conditions;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
@@ -18,6 +21,7 @@ import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -82,10 +86,20 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                 verifyingNodeOnFailure(node.getId(), vmManagerProxy.startWorkload(node.getId(), savedWorkload))
                                         .compose(this::applyStartReply)
                                         .recover(error -> {
-                                            log.error("Failed to start workload {} on node {}",
-                                                      savedWorkload.getId(), node.getId(), error);
-                                            return recordRunEnded(savedWorkload, WorkloadStatus.FAILED)
-                                                    .transform(_ -> Future.failedFuture(error));
+                                            Future<Workload> recorded;
+                                            if (error instanceof RpcServiceUnavailableException) {
+                                                // The node may have started it: the record keeps STARTING and
+                                                // its room, and the node's next report settles it
+                                                log.warn("Start of workload {} on node {} went unanswered",
+                                                         savedWorkload.getId(), node.getId(), error);
+                                                recorded = markUnreachable(savedWorkload,
+                                                                           "Node " + node.getId() + " did not answer the start");
+                                            } else {
+                                                log.error("Failed to start workload {} on node {}",
+                                                          savedWorkload.getId(), node.getId(), error);
+                                                recorded = recordRunEnded(savedWorkload, WorkloadStatus.FAILED);
+                                            }
+                                            return recorded.transform(_ -> Future.failedFuture(error));
                                         })
                             );
                 });
@@ -108,6 +122,18 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                 .compose(workload ->
                     verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId))
                             .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED))
+                            .recover(error -> {
+                                Future<Workload> recorded;
+                                if (error instanceof RpcServiceUnavailableException) {
+                                    // The node may have stopped it: the record keeps STOPPING and the
+                                    // node's next report settles it
+                                    recorded = markUnreachable(workload,
+                                                               "Node " + workload.getNodeId() + " did not answer the stop");
+                                } else {
+                                    recorded = Future.succeededFuture(workload);
+                                }
+                                return recorded.transform(_ -> Future.failedFuture(error));
+                            })
                 )
                 .mapEmpty();
     }
@@ -221,6 +247,16 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     private Future<Boolean> reserve(VmNode node, Workload workload) {
         return vmNodeService.reserveSync(node.getId(), WorkloadReservation.forRun(workload));
+    }
+
+    /**
+     * Records that the node's answer for the workload is unknown: its status and its room stay as they
+     * are, marked NODE_UNREACHABLE until the node's next report.
+     */
+    private Future<Workload> markUnreachable(Workload workload, String message) {
+        workload.setConditions(Conditions.with(workload.getConditions(),
+                                               new Condition(ConditionType.NODE_UNREACHABLE, message, new Date())));
+        return persistRedacted(workload);
     }
 
     /**

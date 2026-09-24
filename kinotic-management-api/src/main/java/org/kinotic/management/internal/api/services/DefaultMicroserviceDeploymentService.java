@@ -3,6 +3,9 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.reconcile.Condition;
+import org.kinotic.core.api.reconcile.ConditionType;
+import org.kinotic.core.api.reconcile.Conditions;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
@@ -43,7 +46,7 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
     /**
      * The deployment as its VM stands: a row records the outcome of deploying, and the workload
      * the outcome of running, so a row still reading DEPLOYED whose run has ended is reported
-     * FAILED with the run's exit.
+     * FAILED with the run's exit, and one whose node the orchestrator cannot reach says so.
      */
     private Future<MicroserviceDeployment> withRunState(MicroserviceDeployment deployment) {
         Future<MicroserviceDeployment> ret;
@@ -51,11 +54,25 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
             ret = Future.succeededFuture(deployment);
         } else {
             ret = workloadRepository.findById(deployment.getWorkloadId())
-                    .map(workload -> workload != null && workload.getStatus().isComplete()
-                            ? deployment.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, runEnded(workload)))
-                            : deployment);
+                    .map(workload -> {
+                        MicroserviceDeployment reported;
+                        if (workload != null && workload.getStatus().isComplete()) {
+                            reported = deployment.setStatus(new DeploymentStatus(DeploymentStatusType.FAILED, runEnded(workload)));
+                        } else if (workload != null && Conditions.has(workload.getConditions(), ConditionType.NODE_UNREACHABLE)) {
+                            // the VM may well be running on the far side of a partition, so the row stays DEPLOYED
+                            reported = deployment.setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED, nodeUnreachable(workload)));
+                        } else {
+                            reported = deployment;
+                        }
+                        return reported;
+                    });
         }
         return ret;
+    }
+
+    private static String nodeUnreachable(Workload workload) {
+        Condition condition = Conditions.find(workload.getConditions(), ConditionType.NODE_UNREACHABLE).orElseThrow();
+        return condition.message() + " (since " + condition.since().toInstant() + ")";
     }
 
     private static String runEnded(Workload workload) {

@@ -20,7 +20,8 @@ public interface MicroserviceDeploymentService {
      *
      * @param projectId a project belonging to the caller's organization
      * A deployment whose VM has since ended reads {@code FAILED} with the run's exit, whatever the
-     * deployment recorded.
+     * deployment recorded; one whose node the orchestrator cannot reach keeps {@code DEPLOYED} with
+     * a message saying so.
      * @return a future emitting the deployments, empty when the project has none
      */
     Future<List<MicroserviceDeployment>> findAllForProject(String projectId);
