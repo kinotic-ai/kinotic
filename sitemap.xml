@@ -114,4 +114,7 @@
   <url>
     <loc>/platform/development-server</loc>
   </url>
+  <url>
+    <loc>/platform/supply-chain-security</loc>
+  </url>
 </urlset>
