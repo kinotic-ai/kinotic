@@ -1,6 +1,7 @@
 import { ExecutionStatus, WorkloadStatus, type JobRun, type Organization, type Workload } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type KinoticClusterInfo, type VmNode } from '@kinotic-ai/system-api'
+import type { KinoticClusterInfo, VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil } from '@kinotic-ai/frontend-common'
+import { NodeHealth, nodeHealth, nodeUnreachable as nodeMark } from './nodes'
 import { scopePath, type Scope } from './scope'
 import { nodeUnreachable } from './workloads'
 
@@ -77,28 +78,23 @@ function unreachableWorkloads(workloads: Workload[], scope: Scope): AttentionIte
 function unfitNodes(nodes: VmNode[]): AttentionItem[] {
     const ret: AttentionItem[] = []
     for (const node of nodes) {
-        if (node.status.type === VmNodeStatusType.DRAINING) {
-            ret.push({
-                severity: 'warn',
-                icon: 'pi-server',
-                text: `${node.name} is draining`,
-                detail: node.status.healthMessage ?? 'The orchestrator places nothing new on it',
-                to: `/worker-nodes/${encodeURIComponent(node.id)}`
-            })
-        } else if (node.status.type === VmNodeStatusType.UNREACHABLE) {
+        const health = nodeHealth(node)
+        if (health === NodeHealth.UNREACHABLE) {
+            const mark = nodeMark(node)
             ret.push({
                 severity: 'warn',
                 icon: 'pi-server',
                 text: `${node.name} is unreachable`,
-                detail: 'A call to its vm-manager could not be delivered; the orchestrator places nothing new on it',
+                detail: [mark?.message, node.lastSeen ? `last heartbeat ${relative(node.lastSeen)}` : null,
+                         'the orchestrator places nothing new on it'].filter(Boolean).join(' · '),
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
-        } else if (node.status.type === VmNodeStatusType.OFFLINE) {
+        } else if (health === NodeHealth.DRAINING) {
             ret.push({
                 severity: 'warn',
                 icon: 'pi-server',
-                text: `${node.name} is offline`,
-                detail: [`${node.providerType} on ${node.hostname}`, node.lastSeen ? `last heartbeat ${relative(node.lastSeen)}` : null].filter(Boolean).join(' · '),
+                text: `${node.name} is draining`,
+                detail: node.healthMessage ?? 'The orchestrator places nothing new on it',
                 to: `/worker-nodes/${encodeURIComponent(node.id)}`
             })
         }

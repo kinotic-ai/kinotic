@@ -26,24 +26,24 @@
                   class="flex flex-col gap-2 rounded-lg border border-surface p-4 text-color no-underline transition-colors hover:bg-emphasis">
         <div class="flex items-center justify-between gap-2">
           <span class="truncate font-semibold">{{ node.name }}</span>
-          <Tag :value="node.status.type" :severity="nodeSeverity(node.status.type)" />
+          <Tag :value="nodeHealth(node)" :severity="nodeSeverity(nodeHealth(node))" />
         </div>
         <div class="flex flex-wrap items-center gap-2 text-xs text-muted-color">
           <Tag :value="node.providerType" severity="secondary" />
           <span class="break-all font-mono">{{ node.hostname }}</span>
         </div>
 
-        <div v-if="node.status.type === VmNodeStatusType.OFFLINE" class="py-2 text-sm text-muted-color">
-          No heartbeat since {{ formatEpochDateTime(node.lastSeen) }}.
+        <div v-if="nodeHealth(node) === NodeHealth.UNREACHABLE" class="py-2 text-sm text-muted-color">
+          {{ nodeUnreachable(node)?.message }}. Nothing is placed here until its next heartbeat.
           {{ workloadsOn(node.id).length > 0 ? `Its ${workloadsOn(node.id).length} workloads are unreachable with it.` : '' }}
-        </div>
-        <div v-else-if="node.status.type === VmNodeStatusType.UNREACHABLE" class="py-2 text-sm text-muted-color">
-          A call to its vm-manager could not be delivered. Nothing is placed here until its next heartbeat.
         </div>
         <CapacityRows v-else :capacity="capacityOf([node])" class="mt-1" />
 
-        <Message v-if="node.status.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
-          {{ node.status.healthMessage }}
+        <Message v-if="node.healthMessage" severity="warn" :closable="false" class="mt-1 text-xs">
+          {{ node.healthMessage }}
+        </Message>
+        <Message v-if="node.state.deletionRequested" severity="info" :closable="false" class="mt-1 text-xs">
+          Deregistering
         </Message>
 
         <div class="mt-1 flex flex-wrap justify-between gap-x-3 text-xs text-muted-color">
@@ -63,15 +63,15 @@ import Message from 'primevue/message'
 import Tag from 'primevue/tag'
 
 import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
-import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
+import type { VmNode } from '@kinotic-ai/system-api'
 import { DatetimeUtil, PageHeader, errorMessage } from '@kinotic-ai/frontend-common'
 
 import CapacityRows from '@/components/CapacityRows.vue'
 import StatusChips, { type StatusChip } from '@/components/StatusChips.vue'
-import { capacityOf, loadNodes, nodeSeverity } from '@/util/nodes'
+import { NodeHealth, capacityOf, loadNodes, nodeHealth, nodeSeverity, nodeUnreachable } from '@/util/nodes'
 import { scanWorkloads } from '@/util/workloads'
 
-const NODE_STATES = [VmNodeStatusType.ONLINE, VmNodeStatusType.DRAINING, VmNodeStatusType.UNREACHABLE, VmNodeStatusType.OFFLINE]
+const NODE_STATES = [NodeHealth.ONLINE, NodeHealth.DRAINING, NodeHealth.UNREACHABLE]
 
 const route = useRoute()
 const router = useRouter()
@@ -84,7 +84,7 @@ const error = ref<string | null>(null)
 
 // The filter lives in the URL so a tile can link straight to the offline nodes
 const statusFilter = computed<string | null>({
-  get: () => NODE_STATES.includes(route.query.status as VmNodeStatusType) ? route.query.status as string : null,
+  get: () => NODE_STATES.includes(route.query.status as NodeHealth) ? route.query.status as string : null,
   set: value => { router.replace({ query: { ...route.query, status: value ?? undefined } }) }
 })
 
@@ -93,12 +93,12 @@ const chips = computed<StatusChip[]>(() => [
   ...NODE_STATES.map(state => ({
     label: state.charAt(0) + state.slice(1).toLowerCase(),
     value: state,
-    count: nodes.value.filter(node => node.status.type === state).length
+    count: nodes.value.filter(node => nodeHealth(node) === state).length
   }))
 ])
 
 const shown = computed(() => statusFilter.value
-    ? nodes.value.filter(node => node.status.type === statusFilter.value)
+    ? nodes.value.filter(node => nodeHealth(node) === statusFilter.value)
     : nodes.value)
 
 function workloadsOn(nodeId: string): Workload[] {

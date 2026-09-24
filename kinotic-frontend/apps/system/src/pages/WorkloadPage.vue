@@ -125,7 +125,7 @@ import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, show
          workloadRun } from '@kinotic-ai/frontend-common'
 
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
-import { formatCpus } from '@/util/nodes'
+import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
 import { nodeUnreachable, workloadSeverity } from '@/util/workloads'
 
@@ -222,7 +222,7 @@ const stats = computed<Stat[]>(() => {
     {
       label: 'Node',
       value: node.value?.name ?? w.nodeId ?? '—',
-      description: node.value ? `${node.value.status.type.toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
+      description: node.value ? `${nodeHealth(node.value).toLowerCase()} · ${node.value.providerType}` : 'not placed yet',
       to: w.nodeId ? `/worker-nodes/${encodeURIComponent(w.nodeId)}` : undefined,
       icon: 'pi-server',
       accent: 'amber'

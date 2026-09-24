@@ -25,9 +25,11 @@ import java.util.Optional;
  * service grid. It knows the envelope every watched record carries and nothing of any record's
  * fields: it finds the records written since it last looked, queues each one's worker and the worker
  * of what the record belongs to, and on a longer period queues every record not in its desired
- * state. A worker is never called twice at once for one record; a record written while its worker
- * runs is queued once more when the worker returns; a worker that fails is retried with backoff; a
- * worker that asks to be called again is.
+ * state. When it starts it queues every reconcilable record once, so a worker that keeps its own
+ * timer going, such as the node's heartbeat watch, starts it on the node now hosting the master. A
+ * worker is never called twice at once for one record; a record written while its worker runs is
+ * queued once more when the worker returns; a worker that fails is retried with backoff; a worker
+ * that asks to be called again is.
  */
 @Slf4j
 public class ReconcileMaster implements Service {
@@ -71,6 +73,7 @@ public class ReconcileMaster implements Service {
         // this instance was serialized to the hosting node, so runtime state is created here rather
         // than in field initializers, which do not run on deserialization
         queue = new HashMap<>();
+        registry.reconcilableRepositories().forEach(repository -> enqueueAll(repository, 0));
         tick();
         resync();
         tickTimerId = vertx.setPeriodic(TICK_MS, id -> tick());
@@ -135,6 +138,18 @@ public class ReconcileMaster implements Service {
                   .onSuccess(page -> page.getContent().forEach(
                           record -> enqueue(new Key(repository.type(), record.getId(), repository.scopeOf(record)))))
                   .onFailure(error -> log.error("Resync of {} failed", repository.type(), error));
+    }
+
+    // The one look at every record: page by page, since a kind may hold more than a scan reads
+    private <R extends Reconcilable<?>> void enqueueAll(ReconcilableRepository<R> repository, int pageNumber) {
+        repository.findAll(Pageable.create(pageNumber, PAGE_SIZE, null))
+                  .onSuccess(page -> {
+                      page.getContent().forEach(record -> enqueue(new Key(repository.type(), record.getId(), repository.scopeOf(record))));
+                      if (page.getContent().size() == PAGE_SIZE) {
+                          enqueueAll(repository, pageNumber + 1);
+                      }
+                  })
+                  .onFailure(error -> log.error("Initial list of {} failed", repository.type(), error));
     }
 
     private synchronized void enqueue(Key key) {

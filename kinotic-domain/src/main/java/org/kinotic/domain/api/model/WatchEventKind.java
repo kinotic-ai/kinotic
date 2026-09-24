@@ -29,5 +29,10 @@ public enum WatchEventKind {
     /**
      * The record's authority reported what it is.
      */
-    OBSERVED_REPORTED
+    OBSERVED_REPORTED,
+
+    /**
+     * The record's deletion was asked for; its worker finalizes it.
+     */
+    DELETION_REQUESTED
 }

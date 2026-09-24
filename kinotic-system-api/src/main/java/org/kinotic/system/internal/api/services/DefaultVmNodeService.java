@@ -2,9 +2,11 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatus;
+import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
@@ -27,10 +29,55 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     }
 
     @Override
-    public Future<Void> updateStatusSync(String nodeId, VmNodeStatus status) {
+    public Future<Void> recordInventorySync(VmNode node) {
+        Validate.notNull(node, "VmNode cannot be null");
+        Validate.notNull(node.getId(), "VmNode id cannot be null");
+        return vmNodeRepository.recordInventorySync(node);
+    }
+
+    @Override
+    public Future<Void> recordHeartbeat(String nodeId, String healthMessage) {
         Validate.notNull(nodeId, "VmNode id cannot be null");
-        Validate.notNull(status, "VmNode status cannot be null");
-        return vmNodeRepository.updateStatusSync(nodeId, status);
+        return vmNodeRepository.recordHeartbeat(nodeId, healthMessage);
+    }
+
+    @Override
+    public Future<VmNode> updateDesired(String nodeId, VmNodeState desired, String source) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notNull(desired, "Desired state cannot be null");
+        Validate.notBlank(source, "Source cannot be blank");
+        return vmNodeRepository.updateDesired(nodeId, desired, source);
+    }
+
+    @Override
+    public Future<Void> reportObserved(String nodeId, VmNodeState observed, long seen, String source) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notNull(observed, "Observed state cannot be null");
+        Validate.notBlank(source, "Source cannot be blank");
+        return vmNodeRepository.reportObserved(nodeId, observed, seen, source);
+    }
+
+    @Override
+    public Future<Boolean> setCondition(String nodeId, StatusCondition condition, String source) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notNull(condition, "Condition cannot be null");
+        Validate.notBlank(source, "Source cannot be blank");
+        return vmNodeRepository.setCondition(nodeId, condition, source);
+    }
+
+    @Override
+    public Future<Boolean> clearCondition(String nodeId, StatusConditionType type, String source) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notNull(type, "Condition type cannot be null");
+        Validate.notBlank(source, "Source cannot be blank");
+        return vmNodeRepository.clearCondition(nodeId, type, source);
+    }
+
+    @Override
+    public Future<Void> requestDeletion(String nodeId, String source) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notBlank(source, "Source cannot be blank");
+        return vmNodeRepository.requestDeletion(nodeId, source);
     }
 
     @Override

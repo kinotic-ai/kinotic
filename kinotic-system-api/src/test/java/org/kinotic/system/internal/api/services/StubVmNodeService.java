@@ -3,14 +3,20 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatus;
+import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.system.api.services.VmNodeService;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
@@ -19,9 +25,9 @@ import java.util.function.Consumer;
  * {@link #findAvailableNode} always places on {@link #availableNode}. Records are stored and
  * returned as serialization round-trips the way Elasticsearch documents are, so a caller's
  * mutation of an entity after a save never alters the stored record, and a full save writes
- * back exactly what the caller's copy holds. The partial updates change only their fields on
- * the stored record, atomically per node, and fail when the node has no record, as the real
- * updates do.
+ * back exactly what the caller's copy holds. The partial and state updates change only their
+ * fields on the stored record, atomically per node, recompute the reconciled flag the way the
+ * state scripts do, and fail when the node has no record, as the real updates do.
  */
 public class StubVmNodeService implements VmNodeService {
 
@@ -37,8 +43,93 @@ public class StubVmNodeService implements VmNodeService {
     }
 
     @Override
-    public Future<Void> updateStatusSync(String nodeId, VmNodeStatus status) {
-        return update(nodeId, node -> node.setStatus(status));
+    public Future<Void> recordInventorySync(VmNode node) {
+        saved.compute(node.getId(), (_, existing) -> {
+            VmNode target = existing == null ? new VmNode(node.getId(), node.getName(), node.getHostname()) : existing;
+            target.setName(node.getName())
+                  .setHostname(node.getHostname())
+                  .setProviderType(node.getProviderType())
+                  .setTotalCpus(node.getTotalCpus())
+                  .setTotalMemoryMb(node.getTotalMemoryMb())
+                  .setTotalDiskMb(node.getTotalDiskMb())
+                  .setFreeCpus(node.getFreeCpus())
+                  .setFreeMemoryMb(node.getFreeMemoryMb())
+                  .setFreeDiskMb(node.getFreeDiskMb())
+                  .setReservations(node.getReservations())
+                  .setWorkloadDataDir(node.getWorkloadDataDir())
+                  .setLastSeen(new Date());
+            return snapshot(target);
+        });
+        return Future.succeededFuture();
+    }
+
+    @Override
+    public Future<Void> recordHeartbeat(String nodeId, String healthMessage) {
+        return update(nodeId, node -> node.setLastSeen(new Date()).setHealthMessage(healthMessage));
+    }
+
+    @Override
+    public Future<VmNode> updateDesired(String nodeId, VmNodeState desired, String source) {
+        return update(nodeId, node -> {
+            ReconcileState<VmNodeState> state = node.getState();
+            if (!desired.equals(state.getDesired())) {
+                state.setDesired(desired).setGeneration(state.getGeneration() + 1);
+                touched(state);
+            }
+        }).compose(v -> findById(nodeId));
+    }
+
+    @Override
+    public Future<Void> reportObserved(String nodeId, VmNodeState observed, long seen, String source) {
+        return update(nodeId, node -> {
+            ReconcileState<VmNodeState> state = node.getState();
+            if (!observed.equals(state.getObserved()) || state.getObservedGeneration() != seen) {
+                state.setObserved(observed).setObservedGeneration(seen);
+                touched(state);
+            }
+        });
+    }
+
+    @Override
+    public Future<Boolean> setCondition(String nodeId, StatusCondition condition, String source) {
+        boolean[] set = new boolean[1];
+        return update(nodeId, node -> {
+            set[0] = !StatusConditions.has(node.getState().getConditions(), condition.type());
+            if (set[0]) {
+                node.getState().getConditions().add(condition);
+                touched(node.getState());
+            }
+        }).map(v -> set[0]);
+    }
+
+    @Override
+    public Future<Boolean> clearCondition(String nodeId, StatusConditionType type, String source) {
+        boolean[] cleared = new boolean[1];
+        return update(nodeId, node -> {
+            cleared[0] = node.getState().getConditions().removeIf(condition -> condition.type() == type);
+            if (cleared[0]) {
+                touched(node.getState());
+            }
+        }).map(v -> cleared[0]);
+    }
+
+    @Override
+    public Future<Void> requestDeletion(String nodeId, String source) {
+        return update(nodeId, node -> {
+            if (node.getState().getDeletionRequested() == null) {
+                node.getState().setDeletionRequested(new Date());
+                touched(node.getState());
+            }
+        });
+    }
+
+    // What the state scripts' touched function does: marks the write and recomputes reconciled
+    private static void touched(ReconcileState<VmNodeState> state) {
+        state.setReconciled(Objects.equals(state.getDesired(), state.getObserved())
+                                    && state.getGeneration() == state.getObservedGeneration()
+                                    && state.getConditions().isEmpty()
+                                    && state.getDeletionRequested() == null);
+        state.setDirty(true).setDirtyAt(System.currentTimeMillis());
     }
 
     @Override

@@ -11,6 +11,7 @@ import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -68,6 +69,17 @@ public class ReconcileStateRepository {
             }
             """;
 
+    // A deletion already asked for keeps its date: what matters is when it was first asked
+    private static final String REQUEST_DELETION = RECONCILE_FUNCTIONS + """
+            def s = reconcileState(ctx._source);
+            if (s.deletionRequested != null) {
+                ctx.op = 'noop';
+            } else {
+                s.deletionRequested = params.at;
+                touched(s, params.now);
+            }
+            """;
+
     private final CrudServiceTemplate crudServiceTemplate;
     private final WatchedStateRepository watchedStateRepository;
 
@@ -86,31 +98,34 @@ public class ReconcileStateRepository {
     /**
      * Writes what the record should be, bumping its generation, and records it. An intent equal to
      * the one already written leaves the record as it is. A record that does not exist yet is created
-     * from {@code upsert} with the intent applied, so the first intent for a record is what creates it.
-     * Visible to search on completion.
+     * from {@code upsert} with the intent applied, so the first intent for a record is what creates it;
+     * without an upsert, the write fails for a record that does not exist. Visible to search on
+     * completion.
      *
      * @param document the record
      * @param desired  what the record should be
-     * @param upsert   the record to create when none exists, without its intent
+     * @param upsert   the record to create when none exists, without its intent, or null when a
+     *                 missing record is an error
      * @param source   what caused it, for the ledger
      * @return the record as written, or null when the intent was already in place
      */
     public Future<Map<String, Object>> updateDesired(WatchedDocument document, Object desired, Object upsert, String source) {
         Validate.notNull(document, "document cannot be null");
         Validate.notNull(desired, "desired cannot be null");
-        Validate.notNull(upsert, "upsert cannot be null");
         Validate.notBlank(source, "source cannot be blank");
         Map<String, Object> params = new HashMap<>();
         params.put("desired", desired);
         params.put("now", System.currentTimeMillis());
         @SuppressWarnings("unchecked")
-        Map<String, Object> upsertDocument = crudServiceTemplate.getObjectMapper().convertValue(upsert, Map.class);
+        Map<String, Object> upsertDocument = upsert == null ? null : crudServiceTemplate.getObjectMapper().convertValue(upsert, Map.class);
         return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), UPDATE_DESIRED, params,
                                                                      u -> {
                                                                          if (document.routing() != null) {
                                                                              u.routing(document.routing());
                                                                          }
-                                                                         u.upsert(upsertDocument).scriptedUpsert(true);
+                                                                         if (upsertDocument != null) {
+                                                                             u.upsert(upsertDocument).scriptedUpsert(true);
+                                                                         }
                                                                      })
                                   .compose(written -> recorded(document, written,
                                                                new WatchedChange(WatchEventKind.DESIRED_UPDATED, source,
@@ -140,6 +155,28 @@ public class ReconcileStateRepository {
                                      .compose(written -> recorded(document, written,
                                                                   new WatchedChange(WatchEventKind.OBSERVED_REPORTED, source,
                                                                                     "Observed " + observed, observed)));
+    }
+
+    /**
+     * Writes that the record should be deleted, and records it. Deletion is intent: the record's
+     * worker finalizes it and deletes the record. A deletion already asked for is left as it is.
+     * Visible to search on completion.
+     *
+     * @param document the record
+     * @param source   what caused it, for the ledger
+     * @return the record as written, or null when its deletion was already asked for
+     */
+    public Future<Map<String, Object>> requestDeletion(WatchedDocument document, String source) {
+        Validate.notNull(document, "document cannot be null");
+        Validate.notBlank(source, "source cannot be blank");
+        Date at = new Date();
+        Map<String, Object> params = new HashMap<>();
+        params.put("at", at.toInstant().toString());
+        params.put("now", System.currentTimeMillis());
+        return watchedStateRepository.run(document, REQUEST_DELETION, params)
+                                     .compose(written -> recorded(document, written,
+                                                                  new WatchedChange(WatchEventKind.DELETION_REQUESTED, source,
+                                                                                    "Deletion requested", at)));
     }
 
     // A script that declined returns no document, and a write that did not happen is not recorded

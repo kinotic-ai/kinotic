@@ -381,7 +381,7 @@ public class ProjectDeployJobDefinitionFactory {
                                                  String entryPoint) {
         return projectDeployIdentityService.issueRuntimeCredentials(project, deployment)
                 .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                        projectWorkloadFactory.runtime(project, target.nodeId(), target.hostDir(), deployment.getName(), entryPoint, credentials)))
+                        projectWorkloadFactory.runtime(project, target.nodeId(), target.hostDir(), deployment, entryPoint, credentials)))
                 .map(Workload::getId);
     }
 

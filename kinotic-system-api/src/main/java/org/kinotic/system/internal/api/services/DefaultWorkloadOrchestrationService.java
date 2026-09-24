@@ -14,7 +14,6 @@ import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.api.workload.VmManagerProxy;
 import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
@@ -220,8 +219,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     }
 
     /**
-     * Reserves the workload's room on its pre-assigned node, failing unless the node is registered, ONLINE,
-     * and has that room, the same gates placement applies when it picks a node.
+     * Reserves the workload's room on its pre-assigned node, failing unless the node is registered, in its
+     * desired state, and has that room, the same gates placement applies when it picks a node.
      */
     private Future<VmNode> reserveOnPinnedNode(Workload workload) {
         String nodeId = workload.getNodeId();
@@ -231,10 +230,11 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     if (node == null) {
                         ret = Future.failedFuture(
                                 new IllegalArgumentException("Node not registered: " + nodeId));
-                    } else if (node.getStatus().getType() != VmNodeStatusType.ONLINE) {
+                    } else if (!node.getState().isReconciled()) {
                         ret = Future.failedFuture(new IllegalStateException(
-                                "Node " + nodeId + " is not taking workloads (status: "
-                                        + node.getStatus().getType() + ")"));
+                                "Node " + nodeId + " is not taking workloads (reported "
+                                        + (node.getState().getObserved() == null ? null : node.getState().getObserved().phase())
+                                        + ", conditions " + node.getState().getConditions() + ")"));
                     } else {
                         ret = reserve(node, workload)
                                 .compose(reserved -> reserved
