@@ -37,24 +37,27 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
-    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode) {
+    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(status, "Workload status cannot be null");
-        return workloadRepository.updateRunSync(workloadId, status, exitCode);
+        Validate.notBlank(source, "Source cannot be blank");
+        return workloadRepository.updateRunSync(workloadId, status, exitCode, source);
     }
 
     @Override
-    public Future<Boolean> setCondition(String workloadId, StatusCondition condition) {
+    public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(condition, "Condition cannot be null");
-        return workloadRepository.setCondition(workloadId, condition);
+        Validate.notBlank(source, "Source cannot be blank");
+        return workloadRepository.setCondition(workloadId, condition, source);
     }
 
     @Override
-    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type) {
+    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(type, "Condition type cannot be null");
-        return workloadRepository.clearCondition(workloadId, type);
+        Validate.notBlank(source, "Source cannot be blank");
+        return workloadRepository.clearCondition(workloadId, type, source);
     }
 
     @Override

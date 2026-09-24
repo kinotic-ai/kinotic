@@ -34,32 +34,36 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
     Future<Long> countRunningForNode(String nodeId);
 
     /**
-     * Records the status and exit code of the workload's run, leaving every other field as it is;
-     * visible to search on completion.
+     * Records the status and exit code of the workload's run and enters the change in the ledger,
+     * leaving every other field as it is; visible to search on completion.
      * @param workloadId the workload whose run is reported
      * @param status the run's status
      * @param exitCode the run's exit code, or null to leave the recorded one as it is
+     * @param source what caused it, for the ledger: the node that reported, the operator, the call
      * @return a future that will complete when the run is recorded
      */
-    Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode);
+    Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source);
 
     /**
-     * Marks the workload with the given condition, beside the status its node reports. A workload
-     * already carrying a condition of that type keeps it as it is.
+     * Marks the workload with the given condition, beside the status its node reports, and enters
+     * it in the ledger. A workload already carrying a condition of that type keeps it as it is.
      * @param workloadId the workload to mark
      * @param condition the condition to set
+     * @param source what caused it, for the ledger
      * @return a future that will complete with true when the condition was set, false when the
      *         workload already carried one of its type
      */
-    Future<Boolean> setCondition(String workloadId, StatusCondition condition);
+    Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source);
 
     /**
-     * Clears the workload's condition of the given type. A workload carrying none is left as it is.
+     * Clears the workload's condition of the given type and enters it in the ledger. A workload
+     * carrying none is left as it is.
      * @param workloadId the workload to clear
      * @param type the type to clear
+     * @param source what caused it, for the ledger
      * @return a future that will complete with true when a condition was cleared, false when the
      *         workload carried none of the type
      */
-    Future<Boolean> clearCondition(String workloadId, StatusConditionType type);
+    Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source);
 
 }

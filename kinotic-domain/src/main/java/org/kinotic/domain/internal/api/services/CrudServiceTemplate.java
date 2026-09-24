@@ -647,16 +647,52 @@ public class CrudServiceTemplate {
                                               String id,
                                               String source,
                                               Map<String, Object> params) {
+        return scriptedUpdate(indexName, id, source, params, false)
+                .map(response -> response.result() != Result.NoOp);
+    }
+
+    /**
+     * As {@link #scriptedUpdateSync(String, String, String, Map)}, and completes with the document as the
+     * script left it, or null when the script declined.
+     *
+     * @param indexName name of the index
+     * @param id        of the document to update
+     * @param source    the Painless source, reading its inputs from {@code params}
+     * @param params    the values the script reads as {@code params.<name>}
+     * @return a {@link Future} that will complete with the updated document's source, or null when the
+     * script left the document as it was, or fail when the document does not exist
+     */
+    @SuppressWarnings("unchecked")
+    public Future<Map<String, Object>> scriptedUpdateReturningSourceSync(String indexName,
+                                                                         String id,
+                                                                         String source,
+                                                                         Map<String, Object> params) {
+        return scriptedUpdate(indexName, id, source, params, true)
+                .map(response -> response.result() == Result.NoOp || response.get() == null
+                        ? null
+                        : (Map<String, Object>) response.get().source());
+    }
+
+    @SuppressWarnings("rawtypes")
+    private Future<UpdateResponse<Map>> scriptedUpdate(String indexName,
+                                                       String id,
+                                                       String source,
+                                                       Map<String, Object> params,
+                                                       boolean returnSource) {
         Map<String, JsonData> scriptParams = new HashMap<>();
         params.forEach((name, value) -> scriptParams.put(name, JsonData.of(value)));
-        return toFuture(esAsyncClient.update(u -> u.index(indexName)
-                                                        .id(id)
-                                                        .script(s -> s.source(src -> src.scriptString(source))
-                                                                      .params(scriptParams))
-                                                        .retryOnConflict(UPDATE_CONFLICT_RETRIES)
-                                                        .refresh(Refresh.WaitFor),
-                                                  Map.class)
-                                          .thenApply(response -> response.result() != Result.NoOp));
+        return toFuture(esAsyncClient.update(u -> {
+            u.index(indexName)
+             .id(id)
+             .script(s -> s.source(src -> src.scriptString(source))
+                           .params(scriptParams))
+             .retryOnConflict(UPDATE_CONFLICT_RETRIES)
+             .refresh(Refresh.WaitFor);
+            if (returnSource) {
+                u.source(sc -> sc.fetch(true));
+            }
+            return u;
+        }, Map.class));
     }
 
     /**

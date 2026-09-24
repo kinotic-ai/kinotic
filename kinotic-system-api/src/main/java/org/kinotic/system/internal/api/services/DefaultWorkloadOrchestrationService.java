@@ -96,7 +96,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                                             } else {
                                                 log.error("Failed to start workload {} on node {}",
                                                           savedWorkload.getId(), node.getId(), error);
-                                                recorded = recordRunEnded(savedWorkload, WorkloadStatus.FAILED).mapEmpty();
+                                                recorded = recordRunEnded(savedWorkload, WorkloadStatus.FAILED, "start failed").mapEmpty();
                                             }
                                             return recorded.transform(_ -> Future.failedFuture(error));
                                         })
@@ -116,11 +116,11 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     }
 
                     workload.setStatus(WorkloadStatus.STOPPING);
-                    return workloadService.updateRunSync(workloadId, WorkloadStatus.STOPPING, null).map(workload);
+                    return workloadService.updateRunSync(workloadId, WorkloadStatus.STOPPING, null, "stopWorkload").map(workload);
                 })
                 .compose(workload ->
                     verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.stopWorkload(workload.getNodeId(), workloadId))
-                            .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED))
+                            .compose(v -> recordRunEnded(workload, WorkloadStatus.STOPPED, "stopWorkload"))
                             .recover(error -> {
                                 Future<Void> recorded;
                                 if (error instanceof RpcServiceUnavailableException) {
@@ -170,12 +170,13 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
                     } else if (startedWorkload.getStatus().isComplete()) {
                         // A terminal reply — a non-detached run that already ended — is the
                         // node's final word
-                        ret = recordRunEnded(startedWorkload, startedWorkload.getStatus());
+                        ret = recordRunEnded(startedWorkload, startedWorkload.getStatus(), "node " + startedWorkload.getNodeId());
                     } else if (current.getStatus() == WorkloadStatus.STARTING) {
                         // A RUNNING reply only promotes from STARTING: a short-lived detached
                         // workload's terminal status report can be applied before the reply
                         // gets here, and must not be clobbered.
-                        ret = workloadService.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode())
+                        ret = workloadService.updateRunSync(startedWorkload.getId(), startedWorkload.getStatus(), startedWorkload.getExitCode(),
+                                                            "node " + startedWorkload.getNodeId())
                                              .map(startedWorkload);
                     } else {
                         ret = Future.succeededFuture(current);
@@ -255,7 +256,8 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      */
     private Future<Void> markUnreachable(Workload workload, String message) {
         return workloadService.setCondition(workload.getId(),
-                                            new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()))
+                                            new StatusCondition(StatusConditionType.NODE_UNREACHABLE, message, new Date()),
+                                            "unanswered call")
                               .mapEmpty();
     }
 
@@ -263,9 +265,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
      * Records the terminal status of a run and gives its room back to the node. The record stays
      * as the run's outcome; the node removes the VM on its own once the run has ended.
      */
-    private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status) {
+    private Future<Workload> recordRunEnded(Workload workload, WorkloadStatus status, String source) {
         workload.setStatus(status);
-        return workloadService.updateRunSync(workload.getId(), status, workload.getExitCode())
+        return workloadService.updateRunSync(workload.getId(), status, workload.getExitCode(), source)
                 .compose(v -> vmNodeService.releaseSync(workload.getNodeId(), workload.getId()))
                 .map(workload);
     }

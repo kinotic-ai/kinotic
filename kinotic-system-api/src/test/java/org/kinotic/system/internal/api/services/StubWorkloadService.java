@@ -108,7 +108,7 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
-    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode) {
+    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
         Workload stored = saved.get(workloadId);
         stored.setStatus(status);
         if (exitCode != null) {
@@ -120,7 +120,7 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
-    public Future<Boolean> setCondition(String workloadId, StatusCondition condition) {
+    public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
         Workload stored = saved.get(workloadId);
         boolean set = !StatusConditions.has(stored.getState().getConditions(), condition.type());
         if (set) {
@@ -131,7 +131,7 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
-    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type) {
+    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source) {
         Workload stored = saved.get(workloadId);
         boolean cleared = stored.getState().getConditions().removeIf(condition -> condition.type() == type);
         if (cleared) {
