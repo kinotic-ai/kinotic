@@ -4,6 +4,7 @@ import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.SerializedState;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
+import org.kinotic.core.api.reconcile.WatchedParent;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.VertxInternal;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class RunRecorder implements RunListener {
     public RunRecorder(String jobRunId,
                        DefaultJobDefinition definition,
                        JobOwner owner,
+                       WatchedParent parent,
                        String resumedFrom,
                        String nodeId,
                        JobRunRepository repository,
@@ -61,6 +63,7 @@ public class RunRecorder implements RunListener {
                                   .setDescription(definition.getDescription())
                                   .setResumedFrom(resumedFrom)
                                   .setNodeId(nodeId);
+        jobRun.getState().setParent(parent);
         if (owner != null) {
             jobRun.setOrganizationId(owner.getOrganizationId())
                   .setApplicationId(owner.getApplicationId())
@@ -69,13 +72,14 @@ public class RunRecorder implements RunListener {
     }
 
     /**
-     * Records the owner once it is known, for a resume where the owner comes from the
-     * original run loaded after this recorder was created.
+     * Records the owner and what the run was made by once they are known, for a resume where
+     * both come from the original run loaded after this recorder was created.
      */
-    public void ownerResolved(String organizationId, String applicationId, String projectId) {
+    public void ownerResolved(String organizationId, String applicationId, String projectId, WatchedParent parent) {
         jobRun.setOrganizationId(organizationId)
               .setApplicationId(applicationId)
               .setProjectId(projectId);
+        jobRun.getState().setParent(parent);
     }
 
     @Override
@@ -155,26 +159,19 @@ public class RunRecorder implements RunListener {
 
     @Override
     public void runCompleted() {
-        jobRun.setStatus(ExecutionStatus.COMPLETED)
-              .setFinished(new Date());
-        awaitWrite(this::saveRun);
+        awaitWrite(() -> recordOutcome(ExecutionStatus.COMPLETED, null));
     }
 
     @Override
     public void runFailed(Throwable error) {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
-        jobRun.setStatus(ExecutionStatus.FAILED)
-              .setError(error.toString())
-              .setFinished(new Date());
-        awaitWrite(this::saveRun);
+        awaitWrite(() -> recordOutcome(ExecutionStatus.FAILED, error.toString()));
     }
 
     @Override
     public void runCancelled() {
         finishRemainingRecords(ExecutionStatus.CANCELLED);
-        jobRun.setStatus(ExecutionStatus.CANCELLED)
-              .setFinished(new Date());
-        awaitWrite(this::saveRun);
+        awaitWrite(() -> recordOutcome(ExecutionStatus.CANCELLED, null));
     }
 
     /**
@@ -198,6 +195,13 @@ public class RunRecorder implements RunListener {
     private Future<JobRun> saveRun() {
         return repository.saveRun(jobRun)
                          .onFailure(error -> log.warn("Failed to persist run {}", jobRunId, error));
+    }
+
+    // The terminal write leaves what the platform keeps on the run as it is, since the run's record was
+    // created whole at its start and may have been marked since
+    private Future<Void> recordOutcome(ExecutionStatus status, String error) {
+        return repository.recordOutcome(jobRunId, status, error, new Date(), "node " + jobRun.getNodeId())
+                         .onFailure(failure -> log.warn("Failed to persist the outcome of run {}", jobRunId, failure));
     }
 
     private Future<TaskRecord> saveTask(TaskRecord record) {

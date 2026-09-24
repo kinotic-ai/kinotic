@@ -4,7 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.crud.Identifiable;
+import org.kinotic.core.api.reconcile.Watched;
+import org.kinotic.core.api.reconcile.WatchedState;
 
 import java.util.Date;
 
@@ -16,7 +17,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class JobRun implements Identifiable<String> {
+public class JobRun implements Watched {
 
     /**
      * Unique identifier for this run.
@@ -83,5 +84,11 @@ public class JobRun implements Identifiable<String> {
      * When the run reached a terminal status.
      */
     private Date finished;
+
+    /**
+     * What the platform keeps on this run beside the executing node's own record: that the node left
+     * the cluster while the run was live, and the deployment the run was made by.
+     */
+    private WatchedState state = new WatchedState();
 
 }

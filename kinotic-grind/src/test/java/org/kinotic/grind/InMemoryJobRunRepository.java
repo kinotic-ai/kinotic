@@ -3,11 +3,13 @@ package org.kinotic.grind;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.model.TaskRecord;
 
 import java.util.Comparator;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,13 +27,21 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public final Map<String, TaskRecord> savedTasks = new LinkedHashMap<>();
 
     public InMemoryJobRunRepository() {
-        super(null, null);
+        super(null, null, null);
     }
 
     @Override
     public synchronized Future<JobRun> saveRun(JobRun jobRun) {
         savedRuns.put(jobRun.getId(), jobRun);
         return completedOffThread(jobRun);
+    }
+
+    @Override
+    public synchronized Future<Void> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
+        JobRun run = savedRuns.get(jobRunId);
+        run.setStatus(status).setError(error).setFinished(finished);
+        run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+        return completedOffThread(null);
     }
 
     @Override

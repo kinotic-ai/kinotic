@@ -9,5 +9,12 @@ export enum StatusConditionType {
      * the node reported, not what the node is doing now. Set by the orchestrator; cleared by the
      * node's next report of the record.
      */
-    NODE_UNREACHABLE = 'NODE_UNREACHABLE'
+    NODE_UNREACHABLE = 'NODE_UNREACHABLE',
+    /**
+     * The server node running the record's execution left the cluster while it ran, so no node
+     * will ever report its end: what the record says of the execution is the last that node wrote.
+     * Set by the cluster membership watch on every node; never cleared, since the execution does
+     * not resume.
+     */
+    SERVER_NODE_LEFT = 'SERVER_NODE_LEFT'
 }
