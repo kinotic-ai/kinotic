@@ -225,7 +225,7 @@ is refresh-delayed.
 
 ```java
 // kinotic-domain, appended by ReconcileStateRepository after every script that changed the document
-public record ReconcileEvent(Date timestamp, ReconcilableRef ref, ReconcileEventKind kind,
+public record ReconcileEvent(Date timestamp, RecordRef ref, ReconcileEventKind kind,
                              String source,          // the node, participant or server that caused it
                              String serverNodeId,    // where it was written
                              long generation, String message, Object value) {}
