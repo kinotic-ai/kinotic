@@ -102,7 +102,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     </td>
     
     <td>
-      Every build of the images: each push to <code>
+      Every build of the images: each pull request into <code>
         develop
       </code>
       
@@ -110,7 +110,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         main
       </code>
       
-       that changes application code, and nightly.
+      , each push to them that changes application code, and nightly.
     </td>
   </tr>
   
@@ -188,7 +188,7 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
     </td>
     
     <td>
-      Every build and nightly. The nightly run checks newly published advisories against the current images.
+      Every build, including each pull request, and nightly. The nightly run checks newly published advisories against the current images.
     </td>
   </tr>
   
@@ -242,7 +242,15 @@ Every Kinotic service image is inventoried and scanned for known vulnerabilities
         Critical
       </strong>
       
-       vulnerability with a published fix. Only an image from a fully passing build is promoted from the staging registry (ghcr.io) to Docker Hub.
+       vulnerability with a published fix. On a pull request, the failure is reported on the change before it merges. Only an image from a fully passing build of <code>
+        develop
+      </code>
+      
+       or <code>
+        main
+      </code>
+      
+       is promoted from the staging registry (ghcr.io) to Docker Hub.
     </td>
   </tr>
   
