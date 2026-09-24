@@ -1,0 +1,1 @@
+{"id":"8158533125c12ed8e39741756cfbc348","fullName":"org.kinotic.management.internal.api.services.github.DefaultGitHubAppInstallationServiceTest.rejectsAMissingUserAuthorizationCode","name":"rejectsAMissingUserAuthorizationCode()","status":"passed","testResultsByEnv":{"default":"23fdc59648619e4f61a534bb13ee07fa"}}
