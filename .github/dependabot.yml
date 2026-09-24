@@ -13,3 +13,21 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # Security updates only: open-pull-requests-limit 0 turns off version updates, which security
+  # updates are not subject to. Each fix PR runs the whole Build and Publish pipeline, so the group
+  # batches them instead of opening one PR per vulnerable package.
+  - package-ecosystem: npm
+    directories:
+      - /kinotic-frontend
+      - /kinotic-js/e2e-tests
+      - /kinotic-js/kinotic-cli
+      - /kinotic-js/load-generator
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    groups:
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
