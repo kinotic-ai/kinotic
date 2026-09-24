@@ -2,11 +2,11 @@
 
 ## Building in Claude Code Cloud
 
-The cloud environment has JDK 21 installed, but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist):
+The cloud environment has JDK 21 installed, but the project requires JDK 25. Download it first if not already present (Oracle CDN is in the egress allowlist). The URL serves the latest JDK 25 update, so the archive's versioned top-level directory is stripped and the JDK always lands in `/tmp/jdk25`:
 
 ```bash
 curl -sL "https://download.oracle.com/java/25/latest/jdk-25_linux-x64_bin.tar.gz" -o /tmp/jdk25.tar.gz
-cd /tmp && tar xzf jdk25.tar.gz
+mkdir -p /tmp/jdk25 && tar xzf /tmp/jdk25.tar.gz -C /tmp/jdk25 --strip-components=1
 ```
 
 Then build with JDK 21 as the Gradle daemon (has the egress proxy CA certs) and JDK 25 for compilation:
@@ -14,7 +14,7 @@ Then build with JDK 21 as the Gradle daemon (has the egress proxy CA certs) and 
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 ./gradlew :kinotic-core:compileJava \
-  -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.2
+  -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
 If the build fails resolving jreleaser or node-gradle plugins (403 from the Gradle plugin portal), add `CLAUDE_CLOUD_COMPILE=true`. This swaps to convention plugins that omit jreleaser/publishing and excludes kinotic-frontend:
@@ -22,7 +22,7 @@ If the build fails resolving jreleaser or node-gradle plugins (403 from the Grad
 ```bash
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 CLAUDE_CLOUD_COMPILE=true ./gradlew :kinotic-core:compileJava \
-  -Porg.gradle.java.installations.paths=/tmp/jdk-25.0.2
+  -Porg.gradle.java.installations.paths=/tmp/jdk25
 ```
 
 This flag has no effect on normal builds — omitting it uses the default Java 25 toolchain with full publishing and frontend support.
