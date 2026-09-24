@@ -57,7 +57,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
@@ -95,7 +95,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
@@ -164,7 +164,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
@@ -290,7 +290,7 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Cache Bun install cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('kinotic-js/workspace/bun.lock') }}
@@ -347,7 +347,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
@@ -359,7 +359,7 @@ jobs:
       # pnpm under the project's own .gradle dir — outside the Gradle User Home that setup-gradle
       # caches, so without this they are re-downloaded on every run.
       - name: Cache Node and pnpm toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             kinotic-js/e2e-tests/.gradle/nodejs
@@ -367,7 +367,7 @@ jobs:
           key: e2e-node-${{ runner.os }}-${{ hashFiles('kinotic-js/e2e-tests/build.gradle') }}
 
       - name: Cache pnpm store
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.local/share/pnpm/store
           key: e2e-pnpm-${{ runner.os }}-${{ hashFiles('kinotic-js/e2e-tests/pnpm-lock.yaml') }}
@@ -424,7 +424,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: ${{ env.JAVA_VERSION }}
