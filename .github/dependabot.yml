@@ -1,0 +1,15 @@
+# Keeps the workflow actions current, including the ones pinned to commit SHAs, whose trailing
+# version comment Dependabot rewrites along with the SHA.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - /
+      - /.github/actions/collect-allure
+      - /.github/actions/load-staged-images
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -192,6 +192,78 @@ jobs:
         with:
           name: kinotic-test
 
+  # Inventories each staged image as a CycloneDX SBOM and scans that SBOM, so the scan covers exactly
+  # the recorded inventory. Every finding goes to code scanning; a Critical with a published fix fails
+  # the job, and the results job then withholds the image from Docker Hub. The job holds no secrets
+  # and its third-party actions are pinned to commit SHAs, so a compromised scanner release has
+  # neither a repointed tag to arrive through nor a credential to take.
+  sbom_scan:
+    name: SBOM and Vulnerability Scan (${{ matrix.image }})
+    needs: [build, migration_image]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [kinotic-migration, kinotic-server]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Generate CycloneDX SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}:sha-${{ github.sha }}
+          registry-username: ${{ github.actor }}
+          registry-password: ${{ secrets.GITHUB_TOKEN }}
+          format: cyclonedx-json
+          output-file: ${{ matrix.image }}.cdx.json
+          artifact-name: sbom-${{ matrix.image }}.cdx.json
+          upload-artifact-retention: 90
+
+      - name: Scan SBOM for known vulnerabilities
+        id: scan
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: ${{ matrix.image }}.cdx.json
+          fail-build: false
+          output-format: sarif
+          cache-db: true
+
+      - name: Record findings in code scanning
+        if: ${{ !cancelled() && steps.scan.outputs.sarif != '' }}
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+          category: image-${{ matrix.image }}
+
+      # A second pass because only-fixed also filters what is reported; the pass above records
+      # everything, this one gates on the findings a dependency upgrade can remediate.
+      - name: Fail on Critical vulnerabilities with an available fix
+        id: gate
+        uses: anchore/scan-action@27805bf3b4e84b4a5c980df22ed233c00390a439 # v7.4.2
+        with:
+          sbom: ${{ matrix.image }}.cdx.json
+          fail-build: true
+          severity-cutoff: critical
+          only-fixed: true
+          output-format: table
+          output-file: fixable-${{ matrix.image }}.txt
+          cache-db: true
+
+      - name: Summarize fixable vulnerabilities
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Fixable vulnerabilities in ${{ matrix.image }}"
+            echo '```'
+            cat "fixable-${{ matrix.image }}.txt" 2>/dev/null || echo "No report produced"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # USE_GATEWAY_DOCKER makes the @kinotic-ai/core suite start the server image via testcontainers;
   # the other suites ignore it.
   js_workspace_tests:
@@ -372,7 +444,7 @@ jobs:
   # here so the promotion is the last thing the pipeline does and can gate on every suite at once.
   results:
     name: Build Result
-    needs: [migration_image, build, kinotic_test, js_workspace_tests, e2e_tests, publish]
+    needs: [migration_image, build, sbom_scan, kinotic_test, js_workspace_tests, e2e_tests, publish]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
@@ -384,7 +456,7 @@ jobs:
       # outage should not hold back an image every suite has already validated. The ref guard keeps a
       # workflow_dispatch run on some other branch from advancing the published tag to a build off
       # that branch.
-      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
+      PROMOTE: ${{ (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main') && needs.migration_image.result == 'success' && needs.build.result == 'success' && needs.sbom_scan.result == 'success' && needs.kinotic_test.result == 'success' && needs.js_workspace_tests.result == 'success' && needs.e2e_tests.result == 'success' }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -427,6 +499,7 @@ jobs:
           }
           check "Migration image" "${{ needs.migration_image.result }}"
           check "Build" "${{ needs.build.result }}"
+          check "SBOM and vulnerability scan" "${{ needs.sbom_scan.result }}"
           check "Kinotic integration tests" "${{ needs.kinotic_test.result }}"
           check "JS workspace tests" "${{ needs.js_workspace_tests.result }}"
           check "E2E tests" "${{ needs.e2e_tests.result }}"

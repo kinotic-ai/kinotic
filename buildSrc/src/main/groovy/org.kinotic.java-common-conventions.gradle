@@ -86,7 +86,11 @@ dependencyManagement {
         mavenBom "io.opentelemetry.instrumentation:opentelemetry-instrumentation-bom:${otelInstrumentationBomVersion}"
         mavenBom "net.openhft:chronicle-bom:${chronicleBomVersion}"
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
-        mavenBom "org.springframework.boot:spring-boot-dependencies:${springBootVersion}"
+        mavenBom("org.springframework.boot:spring-boot-dependencies:${springBootVersion}") {
+            // Raised above the Boot-managed versions to clear known vulnerabilities; Vert.x also requires Netty 4.2.17
+            bomProperty 'netty.version', nettyVersion
+            bomProperty 'httpcore5.version', httpcore5Version
+        }
         mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }
     dependencies {
