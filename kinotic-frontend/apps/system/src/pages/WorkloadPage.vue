@@ -8,6 +8,7 @@
       </template>
       <template #actions>
         <Tag v-if="workload" :value="workload.status" :severity="workloadSeverity(workload.status)" />
+        <Tag v-if="unreachable" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle" />
         <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
         <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
@@ -29,6 +30,10 @@
               <StatTile v-for="stat in stats" :key="stat.label" v-bind="stat" />
             </div>
 
+            <Message v-if="unreachable" severity="warn" :closable="false">
+              {{ unreachable.message }}, {{ DatetimeUtil.formatRelativeDate(unreachable.since).toLowerCase() }}. The status is the last the node
+              reported; the VM may still be running, so its room stays held. The node's next report of the workload settles it.
+            </Message>
             <Message v-if="workload.status === WorkloadStatus.FAILED" severity="error" :closable="false">
               The VM exited{{ workload.exitCode !== null ? ` with code ${workload.exitCode}` : '' }}. Its last log lines are on the Logs tab.
             </Message>
@@ -122,7 +127,7 @@ import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, show
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { formatCpus } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
-import { workloadSeverity } from '@/util/workloads'
+import { nodeUnreachable, workloadSeverity } from '@/util/workloads'
 
 /**
  * One workload, opened from a Workloads list: its state with the exit code, where it runs and
@@ -162,6 +167,7 @@ const tab = computed<string>({
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
+const unreachable = computed(() => workload.value ? nodeUnreachable(workload.value) : undefined)
 
 const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
 const allowedHosts = computed(() => workload.value?.network?.allowedHosts ?? [])

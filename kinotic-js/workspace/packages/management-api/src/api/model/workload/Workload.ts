@@ -1,4 +1,4 @@
-import type { Identifiable } from '@kinotic-ai/core'
+import { WatchedState, type Watched } from '@kinotic-ai/core'
 import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
 import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 import type { PortMapping } from '@/api/model/workload/PortMapping'
@@ -9,7 +9,7 @@ import { LogPolicy } from '@/api/model/workload/LogPolicy'
  * Represents a workload to be managed by the VM manager.
  * A workload defines the configuration for a micro VM instance.
  */
-export class Workload implements Identifiable<string> {
+export class Workload implements Watched {
 
     /**
      * Unique identifier for this workload.
@@ -106,6 +106,12 @@ export class Workload implements Identifiable<string> {
      * shut down first. FAILED alone does not distinguish that from code that threw.
      */
     public exitCode: number | null = null
+
+    /**
+     * What the platform keeps on this workload beside the node's own report: what it inferred, such
+     * as the node falling silent while the run was live, and the deployment the workload belongs to.
+     */
+    public state: WatchedState = new WatchedState()
 
     /**
      * Optional environment variables to pass to the VM. Persisted verbatim on the workload
