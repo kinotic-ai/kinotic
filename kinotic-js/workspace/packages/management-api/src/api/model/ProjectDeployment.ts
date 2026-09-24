@@ -1,15 +1,15 @@
-import type { Identifiable } from '@kinotic-ai/core'
+import { ReconcileState, type Reconcilable } from '@kinotic-ai/core'
 import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
-import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
+import type { DeploymentState } from '@/api/model/DeploymentState'
 
 /**
  * Records where a Project's code is deployed: the node holding the checkout, the sync workload
- * and identity of its deployments, the artifacts of the synced commit, and the commit currently
- * live. The microservices themselves are recorded one per MicroserviceDeployment. One row per
+ * and identity of its deployments, the artifacts of the synced commit, and what it should be
+ * beside what it is. The microservices themselves are recorded one per MicroserviceDeployment. One row per
  * project; the id equals the project id. Absence of a row means the project has never been
  * deployed.
  */
-export class ProjectDeployment implements Identifiable<string> {
+export class ProjectDeployment implements Reconcilable<DeploymentState> {
 
     /**
      * The id of the deployment, always equal to the id of the deployed project.
@@ -52,11 +52,6 @@ export class ProjectDeployment implements Identifiable<string> {
     public syncMachineIdentityId: string | null = null
 
     /**
-     * Sha of the last commit successfully synced to the node.
-     */
-    public commitSha: string | null = null
-
-    /**
      * The artifacts the sync workload found in the checkout of artifactsCommitSha, or null
      * before a sync has reported any.
      */
@@ -72,7 +67,17 @@ export class ProjectDeployment implements Identifiable<string> {
      */
     public lastJobRunId: string | null = null
 
-    public status!: DeploymentStatus
+    /**
+     * Why the last deployment failed, or null when it did not.
+     */
+    public failureMessage: string | null = null
+
+    /**
+     * What the deployment should be, the commit its last qualifying push asked for, beside what it
+     * is, the phase it is in and the commit it serves, with what the platform keeps on every
+     * watched record.
+     */
+    public state: ReconcileState<DeploymentState> = new ReconcileState()
 
     public created: number | null = null
 

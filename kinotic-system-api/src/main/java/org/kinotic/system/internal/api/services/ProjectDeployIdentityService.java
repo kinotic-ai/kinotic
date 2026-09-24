@@ -52,10 +52,8 @@ public class ProjectDeployIdentityService {
                         ret = Future.failedFuture(new IllegalStateException(
                                 "No deployment record for project " + project.getId()));
                     } else {
-                        ret = issue(project, "deploy sync", deployment.getSyncMachineIdentityId(), identityId -> {
-                            deployment.setSyncMachineIdentityId(identityId).setUpdated(new Date());
-                            return projectDeploymentRepository.save(deployment, deployment.getOrganizationId()).mapEmpty();
-                        });
+                        ret = issue(project, "deploy sync", deployment.getSyncMachineIdentityId(),
+                                    identityId -> projectDeploymentRepository.recordSyncMachine(project.getId(), project.getOrganizationId(), identityId));
                     }
                     return ret;
                 });

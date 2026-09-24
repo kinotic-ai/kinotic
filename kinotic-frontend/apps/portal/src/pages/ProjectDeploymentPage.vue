@@ -10,16 +10,18 @@
 
     <template v-if="deployment">
       <div class="mb-4 flex flex-wrap items-center gap-4">
-        <Tag :value="deployment.status.type" :severity="deploymentStatusSeverity(deployment.status.type)" />
-        <span v-if="deployment.commitSha" class="font-mono text-sm text-muted-color"
-              :title="deployment.commitSha">{{ shortSha(deployment.commitSha) }}</span>
+        <Tag :value="phase ?? 'UNKNOWN'" :severity="phase ? deploymentStatusSeverity(phase) : 'secondary'" />
+        <span v-if="liveCommit" class="font-mono text-sm text-muted-color"
+              :title="liveCommit">{{ shortSha(liveCommit) }}</span>
+        <span v-if="phase === StatusType.DEPLOYING && deployment.state.desired?.commitSha" class="text-xs text-muted-color"
+              :title="deployment.state.desired.commitSha">deploying {{ shortSha(deployment.state.desired.commitSha) }}</span>
         <span v-if="deployment.updated" class="text-xs text-muted-color">
           Updated {{ DatetimeUtil.formatRelativeDate(deployment.updated) }}
         </span>
       </div>
 
-      <Message v-if="deployment.status.type === StatusType.FAILED && deployment.status.message"
-               severity="error" :closable="false" class="mb-4">{{ deployment.status.message }}</Message>
+      <Message v-if="phase === StatusType.FAILED && deployment.failureMessage"
+               severity="error" :closable="false" class="mb-4">{{ deployment.failureMessage }}</Message>
 
       <JobRunProgress v-if="deployment.lastJobRunId"
                       :key="deployment.lastJobRunId"
@@ -135,6 +137,10 @@ const organizationId = KinoticStates.getUserState().getOrganizationId()
 const StatusType = DeploymentStatusType
 
 const deployment = ref<ProjectDeployment | null>(null)
+/** The phase the deployment reports it is in, or null for a record with no report yet. */
+const phase = computed(() => deployment.value?.state.observed?.phase ?? null)
+/** The commit the deployment serves, or null while none is served. */
+const liveCommit = computed(() => deployment.value?.state.observed?.commitSha ?? null)
 const microservices = ref<MicroserviceDeployment[]>([])
 const uis = ref<UiDeployment[]>([])
 const machines = ref<MachineRow[]>([])

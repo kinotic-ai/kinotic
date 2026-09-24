@@ -11,6 +11,7 @@ import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.internal.api.repositories.AbstractRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedChange;
+import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -85,23 +86,23 @@ public class WorkloadRepository extends AbstractRepository<Workload> {
         run.put("exitCode", exitCode);
         return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, workloadId, UPDATE_RUN, params)
                                   .compose(document -> watchedStateRepository.record(
-                                          WATCHED, workloadId, document,
+                                          WatchedDocument.of(WATCHED, workloadId), document,
                                           new WatchedChange(WatchEventKind.STATUS_CHANGED, source,
                                                             exitCode != null ? "Run " + status + " with exit code " + exitCode : "Run " + status,
                                                             run)));
     }
 
     /**
-     * @see WatchedStateRepository#setCondition(WatchedIndex, String, StatusCondition, String)
+     * @see WatchedStateRepository#setCondition(WatchedDocument, StatusCondition, String)
      */
     public Future<Boolean> setCondition(String workloadId, StatusCondition condition, String source) {
-        return watchedStateRepository.setCondition(WATCHED, workloadId, condition, source);
+        return watchedStateRepository.setCondition(WatchedDocument.of(WATCHED, workloadId), condition, source);
     }
 
     /**
-     * @see WatchedStateRepository#clearCondition(WatchedIndex, String, StatusConditionType, String)
+     * @see WatchedStateRepository#clearCondition(WatchedDocument, StatusConditionType, String)
      */
     public Future<Boolean> clearCondition(String workloadId, StatusConditionType type, String source) {
-        return watchedStateRepository.clearCondition(WATCHED, workloadId, type, source);
+        return watchedStateRepository.clearCondition(WatchedDocument.of(WATCHED, workloadId), type, source);
     }
 }

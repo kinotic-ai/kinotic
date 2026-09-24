@@ -19,5 +19,15 @@ public enum WatchEventKind {
     /**
      * The record's status changed: the node reported it, or the platform recorded it.
      */
-    STATUS_CHANGED
+    STATUS_CHANGED,
+
+    /**
+     * What the record should be changed.
+     */
+    DESIRED_UPDATED,
+
+    /**
+     * The record's authority reported what it is.
+     */
+    OBSERVED_REPORTED
 }
