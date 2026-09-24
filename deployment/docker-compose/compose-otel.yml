@@ -31,8 +31,10 @@ services:
     ports:
       - "3100:3100"  # Loki API (logs) — also serves /otlp for OTLP ingestion
     # Multi-tenant: X-Scope-OrgID routes each org's workload logs to its own tenant;
-    # multi-tenant queries let platform operators read across tenants (orgA|kinotic-system)
-    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true
+    # multi-tenant queries let platform operators read across tenants (orgA|kinotic-system).
+    # The compactor's retention and delete request store enable the deletion API, which deletes a
+    # workload's logs with its record.
+    command: -config.file=/etc/loki/local-config.yaml -auth.enabled=true -querier.multi-tenant-queries-enabled=true -compactor.retention-enabled=true -compactor.delete-request-store=filesystem -compactor.working-directory=/tmp/loki/compactor
 
   mimir:
     image: grafana/mimir:2.14.3

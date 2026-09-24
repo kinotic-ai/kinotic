@@ -8,6 +8,9 @@ import org.kinotic.core.api.reconcile.StatusConditionType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.apache.ignite.Ignite;
+import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.services.LokiClient;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
@@ -17,6 +20,8 @@ import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -41,6 +46,14 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
+    private final LokiClient lokiClient;
+    private final Ignite ignite;
+
+    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployRetentionSweep() {
+        ignite.services().deployClusterSingleton(WorkloadRetentionSweeper.SINGLETON_NAME, new WorkloadRetentionSweeper());
+    }
 
     // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;
     // the orchestrator checks the node at once instead of waiting for the heartbeat timeout
@@ -142,15 +155,46 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
         return workloadService.findById(workloadId)
                 .compose(workload -> {
+                    Future<Void> ret;
                     if (workload == null) {
-                        return Future.failedFuture(
-                                new IllegalArgumentException("Workload not found: " + workloadId));
+                        ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadId));
+                    } else if (workload.getNodeId() == null) {
+                        // never placed: there is nothing on any node
+                        ret = Future.succeededFuture();
+                    } else {
+                        String nodeId = workload.getNodeId();
+                        ret = verifyingNodeOnFailure(nodeId, vmManagerProxy.destroyWorkload(nodeId, workloadId))
+                                // the destroy ended a run the node will not report the end of; an
+                                // ended run holds no room, so the release is for one never reported
+                                .compose(v -> workload.getStatus().isOpen()
+                                        ? recordRunEnded(workload, WorkloadStatus.STOPPED, "destroyWorkload").mapEmpty()
+                                        : vmNodeService.releaseSync(nodeId, workloadId));
                     }
+                    return ret;
+                });
+    }
 
-                    // Dispatch destroy to the VmManager on the workload's node
-                    return verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId))
-                            .compose(v -> vmNodeService.releaseSync(workload.getNodeId(), workloadId))
-                            .compose(v -> workloadService.deleteById(workloadId));
+    @Override
+    public Future<Void> deleteWorkload(String workloadId) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+
+        return workloadService.findById(workloadId)
+                .compose(workload -> {
+                    Future<Void> ret;
+                    if (workload == null) {
+                        ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadId));
+                    } else if (workload.getStatus().isOpen()) {
+                        ret = Future.failedFuture(new IllegalStateException("Workload " + workloadId + " is " + workload.getStatus()
+                                + "; stop or destroy it before deleting it"));
+                    } else {
+                        // the logs go first: a record without logs is an ended run like any other, while
+                        // logs without a record could never be found again
+                        ret = lokiClient.delete(TelemetryTenant.of(workload.getOrganizationId()),
+                                                TelemetryTenant.workloadLogSelector(workloadId),
+                                                0, System.currentTimeMillis())
+                                        .compose(v -> workloadService.deleteByIdSync(workloadId));
+                    }
+                    return ret;
                 });
     }
 

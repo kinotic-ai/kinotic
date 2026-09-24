@@ -60,6 +60,7 @@ public class WorkloadOrchestrationTest {
     private StubWorkloadService workloads;
     private StubVmNodeService nodes;
     private StubVmManagerProxy vmManager;
+    private StubLokiClient loki;
     private EventBusService eventBus;
     private Vertx vertx;
     private KinoticSystemApiProperties properties;
@@ -76,14 +77,16 @@ public class WorkloadOrchestrationTest {
                            .setFreeCpus(4).setFreeMemoryMb(4096).setFreeDiskMb(10240);
         nodes.saveSync(nodes.availableNode);
         vmManager = new StubVmManagerProxy();
+        loki = new StubLokiClient();
         // the node's vm-manager registration, as the cluster reports it: absent unless a test says otherwise
         eventBus = mock(EventBusService.class);
         when(eventBus.monitorListenerStatus(any())).thenReturn(Flux.just(ListenerStatus.INACTIVE));
         properties = new KinoticSystemApiProperties();
         vertx = Vertx.vertx();
         nodeOrchestration = new DefaultVmNodeOrchestrationService(properties, nodes, workloads, eventBus, vertx);
+        // the retention sweep is deployed on the Ignite service grid, which these tests do not run
         orchestration = new DefaultWorkloadOrchestrationService(nodeOrchestration, vmManager,
-                                                                nodes, workloads);
+                                                                nodes, workloads, loki, null);
     }
 
     @AfterEach
@@ -530,6 +533,41 @@ public class WorkloadOrchestrationTest {
         assertEquals(4096, nodes.saved.get(NODE_ID).getFreeMemoryMb());
         assertEquals(10240, nodes.saved.get(NODE_ID).getFreeDiskMb());
         assertTrue(nodes.saved.get(NODE_ID).getReservations().isEmpty());
+        // the destroy ended the run; the record is its outcome
+        assertEquals(List.of(deployed.getId()), vmManager.destroyed);
+        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus());
+    }
+
+    @Test
+    public void deleteRefusesAnOpenRun() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+
+        assertThrows(Exception.class, () -> await(orchestration.deleteWorkload(deployed.getId())));
+
+        assertNotNull(workloads.saved.get(deployed.getId()));
+        assertNull(loki.deletedQuery);
+    }
+
+    @Test
+    public void deleteRemovesTheRecordWithItsLogs() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload().setOrganizationId("acme")));
+        await(orchestration.stopWorkload(deployed.getId()));
+
+        await(orchestration.deleteWorkload(deployed.getId()));
+
+        assertNull(workloads.saved.get(deployed.getId()));
+        assertEquals("acme", loki.deletedTenant);
+        assertEquals("{workload_id=\"" + deployed.getId() + "\"}", loki.deletedQuery);
+    }
+
+    @Test
+    public void platformWorkloadLogsLiveInTheSystemTenant() throws Exception {
+        Workload deployed = await(orchestration.deployWorkload(newWorkload()));
+        await(orchestration.stopWorkload(deployed.getId()));
+
+        await(orchestration.deleteWorkload(deployed.getId()));
+
+        assertEquals("kinotic-system", loki.deletedTenant);
     }
 
     @Test
@@ -551,7 +589,7 @@ public class WorkloadOrchestrationTest {
         assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
         await(orchestration.destroyWorkload(deployed.getId()));
         assertEquals(4, nodes.saved.get(NODE_ID).getFreeCpus());
-        assertNull(workloads.saved.get(deployed.getId()));
+        assertEquals(WorkloadStatus.STOPPED, workloads.saved.get(deployed.getId()).getStatus(), "the record outlives the run");
     }
 
     @Test

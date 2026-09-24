@@ -1,5 +1,6 @@
 package org.kinotic.management.internal.api.services;
 
+import org.kinotic.management.api.model.TelemetryTenant;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.Test;
@@ -58,7 +59,7 @@ class DefaultTelemetryServiceTest extends ParticipantCallTest {
     void systemParticipantReadsThePlatformTenantWhenNamingNone() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.queryMetrics(metricQuery(null)));
 
-        assertEquals(TenantAccess.SYSTEM_TENANT, mimirClient.tenant);
+        assertEquals(TelemetryTenant.SYSTEM, mimirClient.tenant);
     }
 
     @Test

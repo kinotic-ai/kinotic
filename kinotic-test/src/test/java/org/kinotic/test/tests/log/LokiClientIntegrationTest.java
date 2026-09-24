@@ -33,9 +33,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Exercises {@link DefaultLokiClient} against a real multi-tenant Loki: query_range and tail
- * round-trips, and tenant isolation via the X-Scope-OrgID header. Skips when Docker is
- * unavailable.
+ * Exercises {@link DefaultLokiClient} against a real multi-tenant Loki: query_range, tail and delete
+ * round-trips, and tenant isolation via the X-Scope-OrgID header. Loki runs the way the compose file
+ * runs it, with the compactor's retention and delete request store the deletion API needs. Skips when
+ * Docker is unavailable.
  */
 class LokiClientIntegrationTest {
 
@@ -54,7 +55,10 @@ class LokiClientIntegrationTest {
                 .withExposedPorts(3100)
                 .withCommand("-config.file=/etc/loki/local-config.yaml",
                              "-auth.enabled=true",
-                             "-querier.multi-tenant-queries-enabled=true")
+                             "-querier.multi-tenant-queries-enabled=true",
+                             "-compactor.retention-enabled=true",
+                             "-compactor.delete-request-store=filesystem",
+                             "-compactor.working-directory=/tmp/loki/compactor")
                 .waitingFor(Wait.forHttp("/ready").forPort(3100)
                                 .withStartupTimeout(Duration.ofMinutes(3)));
         loki.start();
@@ -118,6 +122,26 @@ class LokiClientIntegrationTest {
         }
     }
 
+    @Test
+    void deleteRemovesAWorkloadsLinesFromItsTenantAlone() throws Exception {
+        String deleted = "delete-marker-" + UUID.randomUUID();
+        String kept = "kept-marker-" + UUID.randomUUID();
+        push("org-a", "wl-delete", deleted);
+        push("org-a", "wl-keep", kept);
+        push("org-b", "wl-delete", deleted);
+        awaitQueryContains("org-a", "wl-delete", deleted);
+        awaitQueryContains("org-a", "wl-keep", kept);
+        awaitQueryContains("org-b", "wl-delete", deleted);
+
+        lokiClient.delete("org-a", "{workload_id=\"wl-delete\"}", 0, System.currentTimeMillis())
+                  .toCompletionStage().toCompletableFuture().get(10, TimeUnit.SECONDS);
+
+        // Loki filters the deleted range out of query results once its queriers load the request
+        awaitQueryLacks("org-a", "wl-delete", deleted);
+        assertTrue(queryRange("org-a", "wl-keep").contains(kept), "another workload's lines in the same tenant stay");
+        assertTrue(queryRange("org-b", "wl-delete").contains(deleted), "the same workload id in another tenant stays");
+    }
+
     /**
      * The compose file is the canonical Loki version declaration (helm pins the same tag),
      * so this test always runs against the version the platform deploys.
@@ -156,6 +180,16 @@ class LokiClientIntegrationTest {
                          .toCompletionStage().toCompletableFuture()
                          .get(10, TimeUnit.SECONDS)
                          .toString();
+    }
+
+    private static void awaitQueryLacks(String tenant, String workloadId, String marker) throws Exception {
+        for (int i = 0; i < 240; i++) {
+            if (!queryRange(tenant, workloadId).contains(marker)) {
+                return;
+            }
+            Thread.sleep(500);
+        }
+        fail("Line deleted from tenant '" + tenant + "' is still returned");
     }
 
     private static void awaitQueryContains(String tenant, String workloadId, String marker) throws Exception {

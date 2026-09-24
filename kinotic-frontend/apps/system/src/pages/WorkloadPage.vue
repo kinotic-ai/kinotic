@@ -12,7 +12,8 @@
         <Button label="View logs" icon="pi pi-align-left" severity="secondary" outlined @click="tab = 'logs'" />
         <Button v-if="canStop" label="Stop" icon="pi pi-stop-circle" severity="secondary" outlined
                 @click="act(() => Kinotic.workloadOrchestration.stopWorkload(workloadId), 'Workload stopping', 'Failed to stop workload')" />
-        <Button label="Destroy" icon="pi pi-trash" severity="danger" outlined :disabled="!workload" @click="confirmDestroy" />
+        <Button v-if="canDestroy" label="Destroy" icon="pi pi-power-off" severity="danger" outlined @click="confirmDestroy" />
+        <Button v-else label="Delete" icon="pi pi-trash" severity="danger" outlined :disabled="!workload" @click="confirmDelete" />
       </template>
     </PageHeader>
 
@@ -127,7 +128,7 @@ import { DatetimeUtil, PageHeader, WorkloadLogView, errorMessage, formatMb, show
 import StatTile, { type StatTileAccent } from '@/components/StatTile.vue'
 import { formatCpus, nodeHealth } from '@/util/nodes'
 import { applicationPath, organizationPath, scopePath, type Scope } from '@/util/scope'
-import { nodeUnreachable, workloadSeverity } from '@/util/workloads'
+import { nodeUnreachable, runOpen, workloadSeverity } from '@/util/workloads'
 
 /**
  * One workload, opened from a Workloads list: its state with the exit code, where it runs and
@@ -167,6 +168,8 @@ const tab = computed<string>({
 })
 
 const canStop = computed(() => workload.value?.status === WorkloadStatus.RUNNING || workload.value?.status === WorkloadStatus.STARTING)
+// A run holding a VM is destroyed; an ended one is deleted with its logs
+const canDestroy = computed(() => workload.value !== null && runOpen(workload.value.status))
 const unreachable = computed(() => workload.value ? nodeUnreachable(workload.value) : undefined)
 
 const command = computed(() => [...(workload.value?.entrypoint ?? []), ...(workload.value?.cmd ?? [])].join(' '))
@@ -271,17 +274,28 @@ async function act(action: () => Promise<unknown>, successMessage: string, failu
 function confirmDestroy() {
   confirm.require({
     header: 'Confirm destroy',
-    message: `Destroy workload ${workload.value?.name}? Its VM and disk are removed permanently.`,
+    message: `Destroy workload ${workload.value?.name}? Its VM and disk are removed permanently; its record and logs stay.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Destroy', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+    accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(props.workloadId), 'Workload destroyed', 'Failed to destroy workload')
+  })
+}
+
+function confirmDelete() {
+  confirm.require({
+    header: 'Confirm delete',
+    message: `Delete workload ${workload.value?.name}? Its record and its logs are removed permanently.`,
+    icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Delete', severity: 'danger' },
+    rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
     accept: async () => {
       try {
-        await Kinotic.workloadOrchestration.destroyWorkload(props.workloadId)
-        toast.add({ severity: 'success', summary: 'Workload destroyed', life: 4000 })
+        await Kinotic.workloadOrchestration.deleteWorkload(props.workloadId)
+        toast.add({ severity: 'success', summary: 'Workload deleted', life: 4000 })
         router.push(listPath.value)
       } catch (err) {
-        showErrorToast(toast, 'Failed to destroy workload', err, { life: 8000 })
+        showErrorToast(toast, 'Failed to delete workload', err, { life: 8000 })
       }
     }
   })

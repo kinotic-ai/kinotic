@@ -27,11 +27,23 @@ export interface IWorkloadOrchestrationService {
     stopWorkload(workloadId: string): Promise<void>
 
     /**
-     * Destroys a workload, removing it from the node and cleaning up all resources.
+     * Destroys a workload's VM on its node, with its disk, and returns its room. A run still open is
+     * recorded STOPPED. The record stays as the run's outcome, and its logs stay in the log store,
+     * until deleteWorkload.
      * @param workloadId the id of the workload to destroy
-     * @return a Promise that resolves when the workload has been destroyed
+     * @return a Promise that resolves when the VM has been destroyed
      */
     destroyWorkload(workloadId: string): Promise<void>
+
+    /**
+     * Deletes a workload's record and every log line it wrote from the organization's log store, the
+     * one way either is removed. A run still open on its node — starting, running, or a stop the node
+     * has not answered — is refused: stop or destroy it first.
+     * @param workloadId the id of the workload to delete
+     * @return a Promise that resolves when the record and its logs are gone, or rejects if the run is
+     *         still open
+     */
+    deleteWorkload(workloadId: string): Promise<void>
 
 }
 
@@ -53,6 +65,10 @@ export class WorkloadOrchestrationService implements IWorkloadOrchestrationServi
 
     public destroyWorkload(workloadId: string): Promise<void> {
         return this.serviceProxy.invoke('destroyWorkload', [workloadId])
+    }
+
+    public deleteWorkload(workloadId: string): Promise<void> {
+        return this.serviceProxy.invoke('deleteWorkload', [workloadId])
     }
 
 }

@@ -28,6 +28,14 @@ public enum WorkloadStatus {
     }
 
     /**
+     * True while the run holds a VM on its node: started and not yet ended. A stop the node has not
+     * answered counts, since the VM may still be there.
+     */
+    public boolean isOpen() {
+        return this == STARTING || this == RUNNING || this == STOPPING;
+    }
+
+    /**
      * True when this status comes later in a run than {@code other}, so a report of it moves the run
      * forward.
      */

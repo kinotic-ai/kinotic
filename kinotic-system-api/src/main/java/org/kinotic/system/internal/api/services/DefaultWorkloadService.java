@@ -37,6 +37,12 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     }
 
     @Override
+    public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {
+        Validate.notNull(cutoff, "Cutoff cannot be null");
+        return workloadRepository.findEndedBefore(cutoff, pageable);
+    }
+
+    @Override
     public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode, String source) {
         Validate.notNull(workloadId, "Workload id cannot be null");
         Validate.notNull(status, "Workload status cannot be null");

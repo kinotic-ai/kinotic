@@ -19,8 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Vert.x-backed {@link LokiClient}: the tenant-scoped {@code WebClient} for {@code query_range} and a
- * {@link WebSocketClient} for the {@code tail} stream.
+ * Vert.x-backed {@link LokiClient}: the tenant-scoped {@code WebClient} for {@code query_range} and
+ * {@code delete}, and a {@link WebSocketClient} for the {@code tail} stream.
  */
 @Slf4j
 @Component
@@ -28,6 +28,7 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
 
     private static final String QUERY_RANGE_PATH = "/loki/api/v1/query_range";
     private static final String TAIL_PATH = "/loki/api/v1/tail";
+    private static final String DELETE_PATH = "/loki/api/v1/delete";
 
     private final String lokiUrl;
     private WebSocketClient webSocketClient;
@@ -77,6 +78,17 @@ public class DefaultLokiClient extends AbstractTenantScopedClient implements Lok
                     sink.onCancel(ws::close);
                 })
                 .onFailure(sink::error));
+    }
+
+    @Override
+    public Future<Void> delete(String tenant, String query, long start, long end) {
+        // the delete API takes its range in epoch seconds
+        return post(lokiUrl + DELETE_PATH,
+                    Map.of("query", query,
+                           "start", Long.toString(msToSeconds(start)),
+                           "end", Long.toString(msToSeconds(end))),
+                    tenant,
+                    "Loki delete");
     }
 
     private WebSocketConnectOptions tailOptions(String tenant, String query) {

@@ -59,11 +59,25 @@ public interface WorkloadOrchestrationService {
     Future<Void> stopWorkload(String workloadId);
 
     /**
-     * Destroys a workload, removing it from the node and cleaning up all resources.
+     * Destroys a workload's VM on its node, with its disk, and returns its room. A run still open is
+     * recorded {@link WorkloadStatus#STOPPED}. The record stays as the run's outcome, and its logs stay
+     * in the log store, until {@link #deleteWorkload(String)}.
      *
      * @param workloadId the id of the workload to destroy
-     * @return a future that will complete when the workload has been destroyed
+     * @return a future that will complete when the VM has been destroyed
      */
     Future<Void> destroyWorkload(String workloadId);
+
+    /**
+     * Deletes a workload's record and every log line it wrote from the organization's log store, the
+     * one way either is removed. A run still open on its node — starting, running, or a stop the node
+     * has not answered — is refused: stop or destroy it first. The retention sweep calls this for every
+     * record whose run ended longer ago than {@code kinotic.systemApi.workload.retentionDays}.
+     *
+     * @param workloadId the id of the workload to delete
+     * @return a future that will complete when the record and its logs are gone, or fail if the run is
+     *         still open
+     */
+    Future<Void> deleteWorkload(String workloadId);
 
 }

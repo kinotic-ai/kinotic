@@ -5,6 +5,7 @@ import io.vertx.core.buffer.Buffer;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.model.LogQuery;
+import org.kinotic.management.api.model.TelemetryTenant;
 import org.kinotic.management.api.services.LogService;
 import org.kinotic.management.api.services.LokiClient;
 import org.springframework.stereotype.Component;
@@ -28,7 +29,7 @@ public class DefaultLogService implements LogService {
             Validate.notBlank(workloadId, "workloadId cannot be blank");
             // Authorization runs before subscription: the participant is read from the calling Vert.x context
             String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), organizationId);
-            ret = lokiClient.tail(tenant, logQlFor(workloadId));
+            ret = lokiClient.tail(tenant, TelemetryTenant.workloadLogSelector(workloadId));
         } catch (Exception e) {
             ret = Flux.error(e);
         }
@@ -43,7 +44,7 @@ public class DefaultLogService implements LogService {
             Validate.notBlank(query.getWorkloadId(), "workloadId cannot be blank");
             String tenant = tenantAccess.readableTenant(tenantAccess.currentParticipant(), query.getOrganizationId());
             ret = lokiClient.queryRange(tenant,
-                                        logQlFor(query.getWorkloadId()),
+                                        TelemetryTenant.workloadLogSelector(query.getWorkloadId()),
                                         query.getStart(),
                                         query.getEnd(),
                                         query.getLimit());
@@ -51,10 +52,5 @@ public class DefaultLogService implements LogService {
             ret = Future.failedFuture(e);
         }
         return ret;
-    }
-
-    // The id is quoted into a label matcher, so a quote or backslash in it cannot widen the selector
-    private static String logQlFor(String workloadId) {
-        return "{workload_id=\"" + workloadId.replace("\\", "\\\\").replace("\"", "\\\"") + "\"}";
     }
 }

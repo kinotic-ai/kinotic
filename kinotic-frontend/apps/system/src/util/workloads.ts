@@ -52,6 +52,11 @@ export function workloadSeverity(status: WorkloadStatus): string {
  * The mark the orchestrator left on a workload whose node stopped answering, or undefined when the
  * node has answered for it since. The status is then the last the node reported, not what it is doing.
  */
+/** Whether a run still holds a VM on its node: started and not yet ended, a pending stop included. */
+export function runOpen(status: WorkloadStatus): boolean {
+    return status === WorkloadStatus.STARTING || status === WorkloadStatus.RUNNING || status === WorkloadStatus.STOPPING
+}
+
 export function nodeUnreachable(workload: Workload): StatusCondition | undefined {
     return findStatusCondition(workload.state.conditions, StatusConditionType.NODE_UNREACHABLE)
 }

@@ -1,6 +1,7 @@
 package org.kinotic.management.api.repositories;
 
 import co.elastic.clients.elasticsearch._types.FieldValue;
+import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
@@ -21,10 +22,12 @@ import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 @Component
@@ -85,11 +88,27 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
      * Counts the workloads on a node whose run has not ended: the ones still holding a VM there.
      */
     public Future<Long> countRunningForNode(String nodeId) {
-        List<FieldValue> running = Stream.of(WorkloadStatus.STARTING, WorkloadStatus.RUNNING, WorkloadStatus.STOPPING)
-                                         .map(status -> FieldValue.of(status.name()))
-                                         .toList();
         return count(b -> b.query(composeFilter(termFilter("nodeId", nodeId),
-                                                Query.of(q -> q.terms(t -> t.field("status").terms(v -> v.value(running)))))));
+                                                statusIn(status -> status.isOpen()))));
+    }
+
+    /**
+     * The workloads whose run ended before the cutoff, oldest first: the ones the retention sweep
+     * deletes.
+     */
+    public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {
+        String before = cutoff.toInstant().toString();
+        return findAll(pageable, b -> b.query(composeFilter(statusIn(WorkloadStatus::isComplete),
+                                                            Query.of(q -> q.range(r -> r.date(d -> d.field("updated").lt(before))))))
+                                       .sort(so -> so.field(f -> f.field("updated").order(SortOrder.Asc))));
+    }
+
+    private static Query statusIn(Predicate<WorkloadStatus> which) {
+        List<FieldValue> statuses = Stream.of(WorkloadStatus.values())
+                                          .filter(which)
+                                          .map(status -> FieldValue.of(status.name()))
+                                          .toList();
+        return Query.of(q -> q.terms(t -> t.field("status").terms(v -> v.value(statuses))));
     }
 
     /**
