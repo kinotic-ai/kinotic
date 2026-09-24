@@ -48,11 +48,11 @@
       <section class="mt-8">
         <h2 class="text-base font-medium mb-1">UIs</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
-          Each UI the deployment has published is served from a site of its own. A failed site
-          can be provisioned again; Remove takes the site down and deletes its files — a UI the
-          current commit still contains comes back with the next deployment, at a new site.
+          Each UI the deployment has published is served from a site of its own, checked until
+          it serves the published commit. Remove takes the site down and deletes its files — a UI
+          the current commit still contains comes back with the next deployment, at a new site.
         </p>
-        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @retry="retryUi" @remove="confirmRemoveUi" />
+        <UiDeploymentsTable v-if="uis.length" :deployments="uis" @remove="confirmRemoveUi" />
         <div v-else class="text-sm text-muted-color">No UI has been published yet.</div>
       </section>
 
@@ -157,10 +157,10 @@ async function loadDeployment(): Promise<void> {
     error.value = null
     // a deployment ensures the microservices, publishes the UIs and provisions the machines it
     // needs, so the listings only change with a run, or with an action taken here; a site
-    // keeps provisioning after the run, so those are watched until they settle
+    // keeps being checked after the run, so those are watched until they are reconciled
     if (deployment.value !== null && deployment.value.lastJobRunId !== previousJobRunId) {
       await loadDetails()
-    } else if (uis.value.some(ui => ui.status.type === DeploymentStatusType.PROVISIONING)) {
+    } else if (uis.value.some(ui => !ui.state.reconciled)) {
       await loadUis()
     }
   } catch (err) {
@@ -219,13 +219,8 @@ function confirmRemove(microservice: MicroserviceDeployment): void {
                  () => Kinotic.microserviceDeployments.remove(microservice.id!))
 }
 
-function retryUi(ui: UiDeployment): void {
-  void run(() => Kinotic.uiDeployments.retryProvisioning(ui.id!),
-           `Provisioning ${ui.name} again`, `Failed to provision ${ui.name} again`)
-}
-
 function confirmRemoveUi(ui: UiDeployment): void {
-  confirmRemoval(ui.name, ui.status.type === DeploymentStatusType.ORPHANED, 'Remove UI',
+  confirmRemoval(ui.name, ui.state.observed?.phase === DeploymentStatusType.ORPHANED, 'Remove UI',
                  `Remove ${ui.name}? Its site is taken down and its files deleted. The next deployment publishes it again, at a new site, while the commit still contains it.`,
                  () => Kinotic.uiDeployments.remove(ui.id!))
 }

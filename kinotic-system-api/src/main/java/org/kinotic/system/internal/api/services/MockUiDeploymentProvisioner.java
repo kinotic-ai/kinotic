@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 /**
  * Fallback {@link UiDeploymentProvisioner} used when site provisioning is disabled
  * ({@code kinotic.systemApi.uiDeployment.disableProvisioner=true}). Nothing serves, and
- * every deployment is marked ready at once so publishing completes in development and tests
+ * every deployment reads ready at once so publishing completes in development and tests
  * without Front Door.
  */
 @Slf4j
@@ -21,14 +21,9 @@ import org.springframework.stereotype.Component;
 public class MockUiDeploymentProvisioner implements UiDeploymentProvisioner {
 
     @Override
-    public Future<UiDeployment> provision(UiDeployment deployment) {
-        log.debug("MockUiDeploymentProvisioner marked site {} ready", deployment.getId());
-        return Future.succeededFuture(deployment.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
-    }
-
-    @Override
-    public Future<UiDeployment> checkProvisioning(UiDeployment deployment) {
-        return Future.succeededFuture(deployment.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
+    public Future<DeploymentStatus> check(UiDeployment deployment, String commitSha) {
+        log.debug("MockUiDeploymentProvisioner reads site {} ready", deployment.getId());
+        return Future.succeededFuture(new DeploymentStatus(DeploymentStatusType.READY));
     }
 
 }

@@ -4,21 +4,23 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.core.api.reconcile.Reconcilable;
+import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
 
 /**
- * The standing deployment of one UI artifact of a {@link Project}: the site serving it, the
- * commit it serves, and its status. One row per UI a deployment has published; a row outlives
- * the artifact until the deployment is removed.
+ * The standing deployment of one UI artifact of a {@link Project}: the site serving it, and
+ * what the deployment should be beside what it is. One row per UI a deployment has published;
+ * a row outlives the artifact until the deployment is removed.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class UiDeployment implements OrganizationScoped<String> {
+public class UiDeployment implements Reconcilable<DeploymentState>, OrganizationScoped<String> {
 
     /**
      * The site's hostname label under the platform's sites domain, minted once when the UI
@@ -49,14 +51,19 @@ public class UiDeployment implements OrganizationScoped<String> {
     private String url;
 
     /**
-     * Sha of the commit the site serves, or {@code null} until the first publish completes.
+     * Why the site does not yet serve what it should, as last observed, or {@code null} when it
+     * does.
      */
-    private String commitSha;
+    private String failureMessage;
 
-    private DeploymentStatus status;
+    /**
+     * What the deployment should be, the commit its project's last deployment published to the
+     * site, beside what it is, the phase it is in and the commit the site serves, with what the
+     * platform keeps on every watched record: the project deployment it belongs to.
+     */
+    private ReconcileState<DeploymentState> state = new ReconcileState<>();
 
     private Date created;
 
     private Date updated;
-
 }

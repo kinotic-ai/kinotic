@@ -2,7 +2,6 @@ package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
-import org.kinotic.management.api.model.UiDeployment;
 
 /**
  * The operations on the platform's infrastructure behind the management plane's deployment
@@ -33,28 +32,11 @@ public interface DeploymentOperationsService {
     Future<Void> removeMicroservice(String deploymentId);
 
     /**
-     * Advances a provisioning site through its provisioner and records what it found.
+     * Asks for the deployment's removal: its worker takes the site down, deletes the UI's published
+     * files, and deletes the record. What is already gone is not a failure.
      *
      * @param deploymentId the UI deployment
-     * @return a future emitting the deployment with its status
-     */
-    Future<UiDeployment> checkUiSite(String deploymentId);
-
-    /**
-     * Provisions the site again, completing whatever an earlier attempt left missing, and
-     * records the outcome.
-     *
-     * @param deploymentId the UI deployment
-     * @return a future emitting the deployment with its status
-     */
-    Future<UiDeployment> provisionUiSite(String deploymentId);
-
-    /**
-     * Takes the site down, deletes the UI's published files, and deletes the record. What is
-     * already gone is not a failure.
-     *
-     * @param deploymentId the UI deployment
-     * @return a future completing when everything is gone
+     * @return a future completing when the removal is asked for
      */
     Future<Void> removeUiSite(String deploymentId);
 

@@ -13,11 +13,18 @@ import org.kinotic.core.api.reconcile.Requeue;
 import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.DeploymentStatusType;
+import org.kinotic.domain.api.services.security.ParticipantIdentityService;
+import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
+import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.grind.api.model.JobOwner;
+import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
+import org.kinotic.management.api.repositories.UiDeploymentRepository;
+import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -28,7 +35,9 @@ import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Date;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,6 +56,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * record holds only the latest intent, and the master calls the worker once more when the run ends.
  * Intermediate commits are skipped, and GitHub redeliveries of the same commit are harmless because
  * an intent already in place is not written twice.
+ * <p>
+ * A deployment whose removal was asked for, which a project's deletion asks, is finalized bottom-up:
+ * the removal of its microservice and UI deployments is asked for and their workers carry it out,
+ * then the sync and publish workloads are stopped, the sync machine removed and the record deleted.
  */
 @Slf4j
 @Component
@@ -56,10 +69,18 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     /** The sha GitHub sends as {@code after} when a push deletes a ref. */
     private static final String ZERO_SHA = "0".repeat(40);
 
+    /** How long between looks at children whose removal is under way. */
+    private static final Duration CHILDREN_WAIT = Duration.ofSeconds(5);
+
     private final JobService jobService;
     private final ProjectDeployJobDefinitionFactory jobDefinitionFactory;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepository projectRepository;
+    private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
+    private final UiDeploymentRepository uiDeploymentRepository;
+    private final WorkloadService workloadService;
+    private final WorkloadOrchestrationService workloadOrchestrationService;
+    private final ParticipantIdentityService participantIdentityService;
 
     // The projects whose deployment job this node is running, so a record left DEPLOYING by a master
     // that died mid-run is told apart from one this master is running
@@ -135,7 +156,9 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         boolean abandoned = observed != null && observed.phase() == DeploymentStatusType.DEPLOYING
                 && !running.contains(current.getId());
         Future<Requeue> ret;
-        if (desired == null || desired.commitSha() == null) {
+        if (state.getDeletionRequested() != null) {
+            ret = finalizeRemoval(current);
+        } else if (desired == null || desired.commitSha() == null) {
             ret = Future.succeededFuture(Requeue.NONE);
         } else if (intentSeen && !abandoned) {
             // deployed, or failed and waiting for the next push: a build that failed is not retried
@@ -203,6 +226,75 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                     });
                         }));
         return outcome.future();
+    }
+
+    /**
+     * Asks for the removal of every microservice and UI deployment of the project and waits for their
+     * workers to finish, then stops the sync and publish workloads, removes the sync machine and
+     * deletes the record. What is already gone is not a failure.
+     */
+    private Future<Requeue> finalizeRemoval(ProjectDeployment current) {
+        String projectId = current.getId();
+        String source = "removal of project " + projectId;
+        return Future.all(microserviceDeploymentRepository.findAllForProject(projectId),
+                          uiDeploymentRepository.findAllForProject(projectId))
+                .compose(found -> {
+                    List<MicroserviceDeployment> microservices = found.resultAt(0);
+                    List<UiDeployment> uis = found.resultAt(1);
+                    Future<Requeue> ret;
+                    if (microservices.isEmpty() && uis.isEmpty()) {
+                        log.info("Removing the deployment of project {}: its children are gone", projectId);
+                        ret = stopIfOpen(current.getSyncWorkloadId())
+                                .compose(v -> stopIfOpen(current.getUiPublishWorkloadId()))
+                                .compose(v -> removeMachine(current.getSyncMachineIdentityId()))
+                                .compose(v -> projectDeploymentRepository.deleteByIdSync(projectId, current.getOrganizationId()))
+                                .map(Requeue.NONE);
+                    } else {
+                        // asked once each; a child whose removal was already asked for keeps its request
+                        Future<Void> asked = Future.succeededFuture();
+                        for (MicroserviceDeployment microservice : microservices) {
+                            asked = asked.compose(v -> microserviceDeploymentRepository.requestDeletion(microservice.getId(), source));
+                        }
+                        for (UiDeployment ui : uis) {
+                            asked = asked.compose(v -> uiDeploymentRepository.requestDeletion(ui.getId(), source));
+                        }
+                        ret = asked.map(Requeue.after(CHILDREN_WAIT));
+                    }
+                    return ret;
+                });
+    }
+
+    // A run still open is stopped; the node removes what the ended run leaves, and the record stays
+    private Future<Void> stopIfOpen(String workloadId) {
+        Future<Void> ret;
+        if (workloadId == null) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = workloadService.findById(workloadId)
+                    .compose(workload -> workload != null && workload.getStatus().isOpen()
+                            ? workloadOrchestrationService.stopWorkload(workloadId)
+                            : Future.succeededFuture())
+                    .recover(error -> {
+                        log.warn("Workload {} could not be stopped: {}", workloadId, error.getMessage());
+                        return Future.succeededFuture();
+                    });
+        }
+        return ret;
+    }
+
+    // An org member may already have removed the machine from the console
+    private Future<Void> removeMachine(String machineIdentityId) {
+        Future<Void> ret;
+        if (machineIdentityId == null) {
+            ret = Future.succeededFuture();
+        } else {
+            ret = participantIdentityService.deleteById(machineIdentityId)
+                    .recover(error -> {
+                        log.warn("Machine {} could not be removed: {}", machineIdentityId, error.getMessage());
+                        return Future.succeededFuture();
+                    });
+        }
+        return ret;
     }
 
     // The run reports that it is deploying, which generation of intent it answers, and the commit

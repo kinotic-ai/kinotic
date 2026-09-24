@@ -5,9 +5,10 @@
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span :title="data.status.message ?? undefined">
-          <Tag :value="data.status.type" :severity="deploymentStatusSeverity(data.status.type)" />
+        <span :title="data.failureMessage ?? undefined">
+          <Tag :value="phaseOf(data)" :severity="phaseSeverity(data)" />
         </span>
+        <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
       </template>
     </Column>
     <Column header="Site" style="width: 34%">
@@ -17,16 +18,14 @@
     </Column>
     <Column header="Commit" style="width: 12%">
       <template #body="{ data }">
-        <span class="font-mono text-sm text-muted-color" :title="data.commitSha ?? undefined">
-          {{ data.commitSha ? shortSha(data.commitSha) : '—' }}
+        <span class="font-mono text-sm text-muted-color" :title="data.state.observed?.commitSha ?? undefined">
+          {{ data.state.observed?.commitSha ? shortSha(data.state.observed.commitSha) : '—' }}
         </span>
       </template>
     </Column>
     <Column style="width: 20%">
       <template #body="{ data }">
         <div class="flex justify-end gap-1">
-          <Button label="Retry" icon="pi pi-refresh" size="small" severity="secondary" text
-                  :disabled="data.status.type !== DeploymentStatusType.FAILED" @click="emit('retry', data)" />
           <Button label="Remove" icon="pi pi-trash" size="small" severity="danger" text
                   @click="emit('remove', data)" />
         </div>
@@ -41,19 +40,27 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
-import { DeploymentStatusType, type UiDeployment } from '@kinotic-ai/management-api'
+import type { UiDeployment } from '@kinotic-ai/management-api'
 
 /**
- * The UIs a project's deployments have published, one row each with its site, its status,
- * the commit the site serves, and the actions the console offers: provisioning a failed site
- * again, and removal.
+ * The UIs a project's deployments have published, one row each with its site, the phase it
+ * reports, the commit the site serves, and the one action the console offers: removal.
  */
 defineProps<{
   deployments: UiDeployment[]
 }>()
 
 const emit = defineEmits<{
-  retry: [deployment: UiDeployment]
   remove: [deployment: UiDeployment]
 }>()
+
+/** The phase the deployment reports, or what it has yet to report. */
+function phaseOf(deployment: UiDeployment): string {
+  return deployment.state.observed?.phase ?? 'PENDING'
+}
+
+function phaseSeverity(deployment: UiDeployment): string {
+  const phase = deployment.state.observed?.phase
+  return phase ? deploymentStatusSeverity(phase) : 'secondary'
+}
 </script>

@@ -115,6 +115,15 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     }
 
     /**
+     * @see ReconcileStateRepository#requestDeletion(WatchedDocument, String)
+     */
+    public Future<Void> requestDeletion(String projectId, String orgId, String source) {
+        Validate.notBlank(projectId, "projectId cannot be blank");
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return reconcileStateRepository.requestDeletion(document(projectId, orgId), source).mapEmpty();
+    }
+
+    /**
      * Records the job run deploying the project, leaving every other field as it is.
      */
     public Future<Void> recordJobRun(String projectId, String orgId, String jobRunId) {

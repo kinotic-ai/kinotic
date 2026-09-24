@@ -4,7 +4,6 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Proxy;
 import org.kinotic.core.api.annotations.Zone;
 import org.kinotic.domain.api.utils.DomainUtil;
-import org.kinotic.management.api.model.UiDeployment;
 
 /**
  * The management server's way to the system server's {@code DeploymentOperationsService}:
@@ -20,9 +19,7 @@ public interface DeploymentOperationsProxy {
 
     Future<Void> removeMicroservice(String deploymentId);
 
-    Future<UiDeployment> checkUiSite(String deploymentId);
 
-    Future<UiDeployment> provisionUiSite(String deploymentId);
 
     Future<Void> removeUiSite(String deploymentId);
 

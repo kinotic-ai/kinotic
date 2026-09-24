@@ -92,7 +92,7 @@ class AzureProvisioningIntegrationTest {
 
         vertx = Vertx.vertx();
         credential = new DefaultAzureCredentialBuilder().build();
-        siteProvisioner = new FrontDoorUiDeploymentProvisioner(vertx, properties, new StubUiDeploymentRepository());
+        siteProvisioner = new FrontDoorUiDeploymentProvisioner(vertx, properties);
         siteStorage = new AzureSiteStorageService(vertx, properties);
     }
 
@@ -117,19 +117,17 @@ class AzureProvisioningIntegrationTest {
                                                     .setApplicationId(APPLICATION_ID)
                                                     .setProjectId(PROJECT_ID)
                                                     .setName(UI_NAME)
-                                                    .setCommitSha(COMMIT_SHA)
-                                                    .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING))
                                                     .setCreated(new Date())
                                                     .setUpdated(new Date());
 
-        UiDeployment site = await(siteProvisioner.provision(deployment));
-
-        // nothing is provisioned per site: the wildcard domain serves the hostname from its first request
-        while (site.getStatus().type() == DeploymentStatusType.PROVISIONING) {
+        // nothing is provisioned per site: the wildcard domain serves the hostname from its first
+        // request, and the deployment's worker asks the same question until it is answered
+        DeploymentStatus site = await(siteProvisioner.check(deployment, COMMIT_SHA));
+        while (site.type() == DeploymentStatusType.PROVISIONING) {
             Thread.sleep(SITE_POLL_MS);
-            site = await(siteProvisioner.checkProvisioning(site));
+            site = await(siteProvisioner.check(deployment, COMMIT_SHA));
         }
-        assertEquals(DeploymentStatusType.READY, site.getStatus().type(), site.getStatus().message());
+        assertEquals(DeploymentStatusType.READY, site.type(), site.message());
 
         String url = uiProperties().resolveSiteUrl(SITE_LABEL);
         assertEquals(new JsonObject().put("commitSha", COMMIT_SHA).encode(), get(url + "/version.json").body(), "a file is served as it is");
