@@ -20,6 +20,9 @@ permissions:
 jobs:
   publish_test_report:
     name: Publish Allure Report
+    # Pull request runs are left out of the published history, which tracks develop and main. This job
+    # also holds contents: write, so it never consumes artifacts a pull request's code produced.
+    if: ${{ github.event.workflow_run.event != 'pull_request' }}
     runs-on: ubuntu-latest
     env:
       # Allure 3 CLI version, pinned for reproducible report output and history handling.

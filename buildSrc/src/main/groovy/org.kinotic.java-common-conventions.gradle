@@ -88,8 +88,12 @@ dependencyManagement {
         mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
         mavenBom("org.springframework.boot:spring-boot-dependencies:${springBootVersion}") {
             // Raised above the Boot-managed versions to clear known vulnerabilities; Vert.x also requires Netty 4.2.17
-            bomProperty 'netty.version', nettyVersion
+            bomProperty 'httpclient5.version', httpclient5Version
             bomProperty 'httpcore5.version', httpcore5Version
+            bomProperty 'jackson-2-bom.version', jackson2Version
+            bomProperty 'jackson-bom.version', jacksonVersion
+            bomProperty 'log4j2.version', log4j2Version
+            bomProperty 'netty.version', nettyVersion
         }
         mavenBom "org.testcontainers:testcontainers-bom:${testcontainersBomVersion}"
     }

@@ -15,6 +15,14 @@ on:
       - 'kinotic-js/kinotic-cli/**'
       - 'kinotic-js/load-generator/**'
       - 'website/**'
+  # Runs every suite and the image scan against the merge result before a change lands. No path
+  # filter: Build Result is the check a merge waits on, and a run skipped by a filter never reports it.
+  # Staging to ghcr.io needs packages: write, which GitHub withholds from pull requests opened from
+  # forks, so those runs fail at staging; push the branch to this repository to build it.
+  pull_request:
+    branches:
+      - develop
+      - main
   # Nightly full run. This is what refreshes the 5.0.0-SNAPSHOT jars on Sonatype: the publish job
   # below is deliberately off the per-push path because its ~3.5 min of uploads gates nothing else.
   schedule:
@@ -230,8 +238,10 @@ jobs:
         with:
           sbom: ${{ matrix.image }}.cdx.json
           fail-build: false
+          # With fail-build off this sets only the annotation and SARIF result levels, so the run warns
+          # only on a Critical. Code scanning ranks the alerts by their security-severity instead.
+          severity-cutoff: critical
           output-format: sarif
-          cache-db: true
 
       - name: Record findings in code scanning
         if: ${{ !cancelled() && steps.scan.outputs.sarif != '' }}
@@ -252,7 +262,6 @@ jobs:
           only-fixed: true
           output-format: table
           output-file: fixable-${{ matrix.image }}.txt
-          cache-db: true
 
       - name: Summarize fixable vulnerabilities
         if: ${{ !cancelled() }}
