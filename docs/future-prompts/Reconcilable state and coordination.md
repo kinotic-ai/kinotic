@@ -121,10 +121,16 @@ public class Workload implements Identifiable<String> {
   never against a server-stamped `updated`, which is the comparison the partition trap was made of.
 - Entities stay dumb. The convergence predicate exists once, in Painless, and is stored as
   `state.reconciled`; the master asks the index, not the record.
-- A workload's lifecycle is its owner's: the owner creates it through `deployWorkload`, stops it
+- A workload's run is its owner's: the owner creates it through `deployWorkload`, stops it
   through `stopWorkload`, and decides what its end means. `Reconciler<MicroserviceDeployment>`
   replaces a workload that ended; the deploy job records a failed sync as a failed deployment and
   never reruns it. No worker exists for a workload, and no restart policy lives on it.
+- A workload's record is not its owner's to delete. It is the only link to the run's logs, which
+  Loki holds under `{workload_id="..."}` in the organization's tenant, so it outlives the run and
+  its owner, and is deleted only by an operator or by the retention sweep. Deleting it deletes those
+  logs: `LokiClient.delete` posts `/loki/api/v1/delete` for the selector over the run's time
+  range in the tenant, which Loki filters out of every query at once and removes from storage at
+  its next compaction. Every path that deletes a workload record goes through that one operation.
 
 ### Writes: one repository, scripts, one shard operation each
 
@@ -212,10 +218,10 @@ public interface Reconciler<R extends Reconcilable<?>> {
 - Deletion cascades down through `owner`, foreground: a parent's finalizer requests its children's
   deletion, requeues until they are gone, then deletes its own record. A project delete therefore
   writes `requestDeletion` on the `ProjectDeployment` and returns; the tree finalizes behind it, and
-  the owner of a workload is what stops its VM: `stopWorkload`, then the record deleted when the
-  node's ended report routes back. The master collects orphans on resync: a record whose `owner` no
-  longer exists gets `requestDeletion` when it is reconcilable and is handed to no one when it is
-  an artifact, so an artifact is only ever unmade by its owner or by the operator.
+  the owner of a workload is what stops its VM: `stopWorkload`, and the record stays. The master
+  collects orphans on resync: a record whose `owner` no longer exists gets `requestDeletion` when
+  it is reconcilable and is left alone when it is an artifact, so a workload record is only ever
+  deleted by an operator or by retention.
 
 ### The event stream: history and provenance
 
@@ -260,13 +266,14 @@ Names are decided: `Reconcilable` (not `Resource`, which is CRI's word), `desire
 | 3 | **The same contract in the TypeScript packages.** `StatusCondition`, `StatusConditionType` in `@kinotic-ai/core`, `Workload.conditions` in `@kinotic-ai/management-api`, version bumps and peer floors; the system console renders the condition once the packages are published. | core ×2 + package.json, management-api `Workload.ts` + package.json, peer floors, lock |
 | 4 | **`EventFabric.consume`.** `EventFabric` becomes a `core/api/event` interface with `<T> Flux<T> consume(Class<T>)`; `DefaultEventFabric` keeps the downlink refcounting and `@Consumer` wiring becomes an adapter over `consume`. | `EventFabric` (api), `DefaultEventFabric`, `BeanWiring`, `EventFabricBeanPostProcessor`, tests |
 | 5 | **`Reconcilable` through `ProjectDeployment`.** `Reconcilable<S>`, `ReconcileState<S>`, `RecordRef`, `DeploymentState`, the `RecordChanged` fabric event; `ReconcileStateRepository` with `updateDesired`, `reportObserved`, `setCondition`, `clearCondition`, `requestDeletion`, `findUnreconciled`, `reconciled()` and creation through `scripted_upsert`, its condition scripts sharing `StatusConditions`' Painless functions with `WorkloadRepository`; `ProjectDeployment.state` replaces `status` and `commitSha`, `failureMessage` keeps `DeploymentStatus.message`, with every caller (job factory, orchestrator, identity and artifact services, operations service, console listing); `DefaultProjectService.beforeDelete` writes `requestDeletion` on the deployment in place of deleting it; V10 declares `state` whole; TS model; docs. | sized by the reshaping |
-| 6 | **The master.** `ReconcileMaster` as an Ignite cluster singleton, `ReconcilerRegistry`, `Reconciler`, `Requeue`: change subscription through `consume`, keyed queue, backoff, requeue-after, the initial list in `init()`, resync over `findUnreconciled`, owner routing, orphan collection. `ProjectDeployOrchestrator` becomes `Reconciler<ProjectDeployment>`: `@Consumer` calls `updateDesired`, the worker runs the job and reports `observed`, and its finalizer requests deletion of the microservice and UI deployments, stops the sync and publish workloads and deletes their records on the ended report, then the machines and its own record once they are gone; `deployingProjects`/`pendingDeploys` go. | master, registry, `Reconciler`, `Requeue`, orchestrator, its tests |
+| 6 | **The master.** `ReconcileMaster` as an Ignite cluster singleton, `ReconcilerRegistry`, `Reconciler`, `Requeue`: change subscription through `consume`, keyed queue, backoff, requeue-after, the initial list in `init()`, resync over `findUnreconciled`, owner routing, orphan collection. `ProjectDeployOrchestrator` becomes `Reconciler<ProjectDeployment>`: `@Consumer` calls `updateDesired`, the worker runs the job and reports `observed`, and its finalizer requests deletion of the microservice and UI deployments, stops the sync and publish workloads, then deletes the machines and its own record once the children are gone; `deployingProjects`/`pendingDeploys` go. | master, registry, `Reconciler`, `Requeue`, orchestrator, its tests |
 | 7 | **`VmNode` as a reconcilable, `Workload` as its owned artifact.** `Workload.owner` and `reportedAt` (V11), creators set `owner`, the report path orders a report against `reportedAt` in place of the clock guard and emits `RecordChanged` so the owner's worker runs on an ended run. `VmNode.state` with `VmNodeState`: `desired` `{ONLINE}` at registration, `observed` `{ONLINE}` or `{DRAINING}` from the heartbeat with `healthMessage` staying on the entity as `failureMessage` does on deployments, `OFFLINE` and `UNREACHABLE` leave `VmNodeStatusType` for the `NODE_UNREACHABLE` condition set by silence or an undeliverable call and cleared by the heartbeat; `findAvailableNode` selects `state.reconciled = true`; the JDK reaper becomes `Reconciler<VmNode>`, which marks a silent node and its open runs and requeues itself every heartbeat timeout; `deregisterNode` refuses a reachable node with open runs, otherwise writes `requestDeletion`, and the finalizer records the open runs FAILED, which routes each to its owner, and deletes the node; registration carries the node's inventory. | sized by the reshaping |
-| 8 | **`MicroserviceDeployment` as a reconciler.** `state` with `DeploymentState`; `ensureWorkload` becomes `Reconciler<MicroserviceDeployment>.reconcile`, run on a desired change, on its workload's `RecordChanged` through `owner`, and on resync; a workload it replaces gets `stopWorkload`; console restart is `stopWorkload` plus a requeue, and the ended report routes back to redeploy; the finalizer stops its workload, deletes the record on the ended report, then its machine and itself; `withRunState` goes. | sized by the reshaping |
-| 9 | **`UiDeployment` as a reconciler.** `state` with `DeploymentState`; `provision`/`checkProvisioning` become the reconciler with `Requeue.after(30s)`; `schedulePoll`, `staleProvisioning` and `retryProvisioning` collapse into requeue and resync. | sized by the reshaping |
-| 10 | **`JobRun` liveness.** A run's node leaving `monitorClusterNodes()` sets a condition on the run; Phase 8's stale-run rule reads it. | grind, small |
+| 8 | **Workload records outlive their runs.** `destroyWorkload` removes the VM and leaves the record at the status the node reports for it; `deleteWorkload` is the one delete: it refuses an open run, deletes the run's log streams through `LokiClient.delete` in the organization's tenant, then the record; `DefaultDeploymentOperationsService.removeMicroservice` destroys and keeps; the retention sweep in the master deletes ended records older than `kinotic.systemApi.workload.retentionDays` through the same call; `values-loki-azure.yaml` gains the compactor retention and `delete_request_store` the delete API needs, as `values-loki.yaml` already has; `LokiClientIntegrationTest` covers the delete. | `LokiClient` + default, `WorkloadOrchestrationService` + default, operations service, properties, the sweep, helm values, test, docs |
+| 9 | **`MicroserviceDeployment` as a reconciler.** `state` with `DeploymentState`; `ensureWorkload` becomes `Reconciler<MicroserviceDeployment>.reconcile`, run on a desired change, on its workload's `RecordChanged` through `owner`, and on resync; a workload it replaces gets `stopWorkload`; console restart is `stopWorkload` plus a requeue, and the ended report routes back to redeploy; the finalizer stops its workload, then removes its machine and itself; `withRunState` goes. | sized by the reshaping |
+| 10 | **`UiDeployment` as a reconciler.** `state` with `DeploymentState`; `provision`/`checkProvisioning` become the reconciler with `Requeue.after(30s)`; `schedulePoll`, `staleProvisioning` and `retryProvisioning` collapse into requeue and resync. | sized by the reshaping |
+| 11 | **`JobRun` liveness.** A run's node leaving `monitorClusterNodes()` sets a condition on the run; Phase 9's stale-run rule reads it. | grind, small |
 
-Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8, 9; 10 after 6.
+Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8 → 9, 10; 11 after 6.
 
 ## Decisions
 
@@ -274,14 +281,14 @@ Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8, 9; 10 after 6.
   and unmade by the deployment that owns it, and what its end means is the owner's rule, replace for
   a microservice, record and stop for a sync. It carries the node's word, the platform's inference
   and its owner, and no `state`, no worker, no restart policy. A job run is the same shape
-  (Phase 10). This is the Pod: every controller in Kubernetes reads the same Pod status and each
+  (Phase 11). This is the Pod: every controller in Kubernetes reads the same Pod status and each
   applies its own rule to it.
 - **Each reconcilable's contract is declared whole in the phase that gives it one.**
   `ReconcileState` ships complete in Phase 5 with `ProjectDeployment`, and each `state` column is
   declared whole in its own migration; the grammar cannot grow an `OBJECT` column later, and the
   no-rewrite rule prefers a field declared once over one grown across phases.
 - **`StatusConditionType` has one value in Phase 1.** `NODE_UNREACHABLE` serves the workload and,
-  from Phase 7, the node itself; the second value arrives with the runner in Phase 10. A node's own
+  from Phase 7, the node itself; the second value arrives with the runner in Phase 11. A node's own
   problems stay a message on the entity, as a deployment's failure does, so no node-owned type is
   needed yet.
 - **Deletion is intent and cascades through `owner`.** A delete on any level of the tree writes
@@ -289,9 +296,14 @@ Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8, 9; 10 after 6.
   needs a call into the system plane to stop a VM: it writes the deployment record, and the owner's
   worker, which lives in the system plane, calls `stopWorkload`. Today's leftovers, VMs of deleted
   projects, are stopped by their owners' finalizers once the owners are reconcilable.
-- **Ended runs keep their records.** An ended workload is nothing to the master, so its record
-  stays as today, with its exit code, until its owner deletes it in its own finalization; its
-  history is in the event stream from Phase 2.
+- **Workload records are deleted only by hand or by retention, and their logs go with them.** The
+  record is the only link to the run's logs, so no owner, finalizer or replace path deletes one;
+  `deleteWorkload` is the single delete, it takes the Loki streams with the record, and the
+  retention sweep and the console both call it. The Loki delete API needs the compactor's
+  `retention_enabled` and a `delete_request_store` on every deployment, and a delete is filtered
+  from queries at once and removed from storage after `delete_request_cancel_period`, so the
+  record and the logs disappear together from the operator's view. Traces and metrics have no
+  per-workload delete in Tempo or Mimir and follow their own retention.
 - **The state records reuse the existing enums.** `DeploymentState(DeploymentStatusType,
   commitSha)`, `VmNodeState(VmNodeStatusType)`: the field `status` retires into
   `state.observed.phase` on reconcilables; the enums do not move, so the wire values and the TS
@@ -313,7 +325,7 @@ Dependency spine: 1 → 2 → 3; 4 → 6; 5 → 6 → 7 → 8, 9; 10 after 6.
   worker is driven by its workload's `RecordChanged`, which the report path emits from Phase 7.
 - **No edge repair loop.** PR #588 removed restart-in-place: an ended run leaves nothing on the node
   and a restart is a fresh VM from `ProjectWorkloadFactory`. Repair is therefore the server-side
-  `Reconciler<MicroserviceDeployment>` of Phase 8, and the vm-manager keeps its role: observe, report,
+  `Reconciler<MicroserviceDeployment>` of Phase 9, and the vm-manager keeps its role: observe, report,
   clean up.
 
 ## Already closed on develop
