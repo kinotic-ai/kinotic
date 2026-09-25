@@ -14,21 +14,21 @@ import org.kinotic.management.api.model.UiDeployment;
 public interface DeploymentOperationsService {
 
     /**
-     * Restarts the microservice's VM in place: a running VM is stopped and booted again with
-     * its disk intact, a stopped or failed one is booted again. Fails when the deployment has
-     * no VM, which the next deployment of the project resolves.
+     * Runs the microservice in a fresh VM: a VM still running is stopped, and its deployment's worker
+     * replaces it once the run has ended; a deployment without a running VM has its intent renewed,
+     * so the worker deploys it again. Fails when the project has never been deployed.
      *
      * @param deploymentId the microservice deployment
-     * @return a future completing once the VM is booting again
+     * @return a future completing once the restart is asked for
      */
     Future<Void> restartMicroservice(String deploymentId);
 
     /**
-     * Removes the deployment: destroys the microservice's VM, removes its machine identity,
-     * and deletes the record. What is already gone is not a failure.
+     * Asks for the deployment's removal: its worker stops the microservice's VM, removes its machine
+     * identity, and deletes the record. What is already gone is not a failure.
      *
      * @param deploymentId the microservice deployment
-     * @return a future completing when everything is gone
+     * @return a future completing when the removal is asked for
      */
     Future<Void> removeMicroservice(String deploymentId);
 

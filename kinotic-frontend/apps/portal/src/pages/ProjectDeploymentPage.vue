@@ -35,8 +35,9 @@
       <section class="mt-8">
         <h2 class="text-base font-medium mb-1">Microservices</h2>
         <p class="text-sm text-muted-color mt-0 mb-3">
-          Each microservice the deployment has ensured runs in a VM of its own. Restart runs it
-          in a fresh VM; Remove destroys the VM and its machine identity — a microservice the
+          Each microservice the deployment has ensured runs in a VM of its own, kept running by
+          the platform: a VM that exits is replaced. Restart stops the VM and a fresh one takes
+          its place; Remove stops the VM and deletes its machine identity — a microservice the
           current commit still contains comes back with the next deployment.
         </p>
         <MicroserviceDeploymentsTable v-if="microservices.length" :deployments="microservices"
@@ -202,7 +203,7 @@ function openLogs(microservice: MicroserviceDeployment): void {
 function confirmRestart(microservice: MicroserviceDeployment): void {
   confirm.require({
     header: 'Restart microservice',
-    message: `Restart ${microservice.name}? It runs again in a fresh VM and the service is unavailable meanwhile.`,
+    message: `Restart ${microservice.name}? Its VM is stopped and a fresh one started, and the service is unavailable meanwhile.`,
     icon: 'pi pi-exclamation-triangle',
     acceptProps: { label: 'Restart', severity: 'danger' },
     rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
@@ -212,9 +213,9 @@ function confirmRestart(microservice: MicroserviceDeployment): void {
 }
 
 function confirmRemove(microservice: MicroserviceDeployment): void {
-  confirmRemoval(microservice.name, microservice.status.type === DeploymentStatusType.ORPHANED,
+  confirmRemoval(microservice.name, microservice.state.observed?.phase === DeploymentStatusType.ORPHANED,
                  'Remove microservice',
-                 `Remove ${microservice.name}? Its VM is destroyed and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
+                 `Remove ${microservice.name}? Its VM is stopped and its machine identity deleted. The next deployment brings it back while the commit still contains it.`,
                  () => Kinotic.microserviceDeployments.remove(microservice.id!))
 }
 

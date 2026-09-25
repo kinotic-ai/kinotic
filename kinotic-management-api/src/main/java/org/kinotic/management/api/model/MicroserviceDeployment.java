@@ -4,22 +4,24 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.core.api.reconcile.Reconcilable;
+import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;
 
 /**
  * The standing deployment of one microservice artifact of a {@link Project}: the VM running
- * it, the machine identity that VM connects as, the commit it was last ensured for, and its
- * status. One row per microservice a deployment has ensured; a row outlives the artifact until
+ * it, the machine identity that VM connects as, and what the deployment should be beside what
+ * it is. One row per microservice a deployment has ensured; a row outlives the artifact until
  * the deployment is removed.
  */
 @Getter
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class MicroserviceDeployment implements OrganizationScoped<String> {
+public class MicroserviceDeployment implements Reconcilable<DeploymentState>, OrganizationScoped<String> {
 
     /**
      * Unique id of the deployment.
@@ -42,8 +44,8 @@ public class MicroserviceDeployment implements OrganizationScoped<String> {
     private String name;
 
     /**
-     * The id of the workload running the microservice, or {@code null} when the deployment
-     * could not create one.
+     * The id of the workload running the microservice, or {@code null} while none has been
+     * created.
      */
     private String workloadId;
 
@@ -61,14 +63,20 @@ public class MicroserviceDeployment implements OrganizationScoped<String> {
     private String entryPoint;
 
     /**
-     * Sha of the commit the deployment was last ensured for.
+     * Why the microservice is not running as it should, or {@code null} when it is: the failure
+     * of its last deployment, or the exit of a VM that is being started again.
      */
-    private String commitSha;
+    private String failureMessage;
 
-    private DeploymentStatus status;
+    /**
+     * What the deployment should be, the commit its project's last deployment asked it to run,
+     * beside what it is, the phase it is in and the commit it serves, with what the platform
+     * keeps on every watched record: that the node running it cannot be reached, and the
+     * project deployment it belongs to.
+     */
+    private ReconcileState<DeploymentState> state = new ReconcileState<>();
 
     private Date created;
 
     private Date updated;
-
 }

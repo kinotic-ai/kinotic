@@ -2,6 +2,10 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.DeploymentState;
+import org.kinotic.core.api.reconcile.WatchedType;
+import org.kinotic.core.api.reconcile.WatchedParent;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +30,6 @@ import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.services.SiteStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
 import org.kinotic.system.api.services.UiDeploymentProvisioner;
-import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -58,9 +61,9 @@ import java.util.stream.Collectors;
 /**
  * Creates the grind {@link JobDefinition} that deploys one commit of a project: resolve
  * the target node and checkout directory, bring the checkout to the commit with a
- * foreground sync workload, bind the artifacts that workload found into the run, ensure
- * the organization's storage, ensure one long-lived runtime workload per microservice of
- * the commit, and publish its UIs. The resolved {@link DeployTarget}, the artifacts, the
+ * foreground sync workload, bind the artifacts that workload found into the run, ask for one
+ * long-lived runtime workload per microservice of the commit and wait for the microservices'
+ * workers to answer, and publish its UIs. The resolved {@link DeployTarget}, the artifacts, the
  * microservice deployments and the UI deployments are stored in the job scope under the
  * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
  * {@code TaskRecord}s carry them to the caller and the console.
@@ -74,10 +77,13 @@ public class ProjectDeployJobDefinitionFactory {
     private static final int MAX_LABEL_LENGTH = 63;
     /** Longer than any upload takes, and short enough that a leaked URL is soon worthless. */
     private static final Duration UPLOAD_URL_TTL = Duration.ofHours(1);
+    /** Longer than placing and booting every microservice's VM takes. */
+    private static final Duration MICROSERVICE_CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
+    private static final Duration MICROSERVICE_POLL_INTERVAL = Duration.ofSeconds(2);
 
+    private final Vertx vertx;
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
-    private final WorkloadService workloadService;
     private final ProjectRepoTokenProvider projectRepoTokenProvider;
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
@@ -131,20 +137,17 @@ public class ProjectDeployJobDefinitionFactory {
                                          () -> resolveArtifacts(project, commitSha)
                                                  .toCompletionStage().toCompletableFuture()),
                       Store.state(ProjectDeployStores.ARTIFACTS).wire())
-                // Store.state: the rows carry what the pass created, so a resume keeps them
-                // rather than provisioning again; wired so the console lists each microservice's
-                // workload as soon as the pass ends
+                // Store.state: the rows carry what the pass left, so a resume keeps them rather
+                // than asking again; wired so the console lists each microservice's workload as
+                // soon as the pass ends
                 .task(Tasks.fromCallable("Ensure runtime workloads", new Callable<CompletableFuture<MicroserviceDeployments>>() {
-
-                    @Autowired
-                    private DeployTarget target;
 
                     @Autowired
                     private ProjectArtifacts artifacts;
 
                     @Override
                     public CompletableFuture<MicroserviceDeployments> call() {
-                        return ensureRuntimeWorkloads(project, target, artifacts, commitSha)
+                        return ensureRuntimeWorkloads(project, artifacts, commitSha)
                                 .toCompletionStage().toCompletableFuture();
                     }
                 }), Store.state(ProjectDeployStores.MICROSERVICE_DEPLOYMENTS).wire())
@@ -263,141 +266,78 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * Leaves every microservice of the deployed commit with a runtime workload serving it from
-     * the synced checkout, one VM and one machine identity each, and records the outcome on the
-     * microservice's {@link MicroserviceDeployment}. A running workload is kept: its supervisor
-     * picks the new commit up through the reload sentinel the sync workload wrote. One whose run
-     * ended — stopped by hand or crashed — gets a new VM, and one whose entry module moved is
-     * stopped and gets a new VM; the ended run's record stays as its outcome. A
-     * microservice without a deployment gets one; a deployment whose microservice the commit
-     * no longer contains is marked orphaned and left running. A microservice that cannot be
-     * left running is recorded failed and the others still deploy; the task then fails naming
-     * the failed ones.
+     * Writes what every microservice of the deployed commit should be — running the commit, one
+     * VM and one machine identity each — and what every microservice the commit no longer contains
+     * should be, orphaned and left running, then waits for the microservices' workers to answer:
+     * a running VM is kept and picks the new commit up through the reload sentinel the sync
+     * workload wrote, one whose run ended or whose entry module moved gets a new VM, and a
+     * microservice without a deployment gets one. A microservice that cannot be left running is
+     * recorded failed and the others still deploy; the task then fails naming the failed ones, or
+     * the ones whose worker gave no answer in time.
      */
-    private Future<MicroserviceDeployments> ensureRuntimeWorkloads(Project project,
-                                                                   DeployTarget target,
-                                                                   ProjectArtifacts artifacts,
-                                                                   String commitSha) {
+    private Future<MicroserviceDeployments> ensureRuntimeWorkloads(Project project, ProjectArtifacts artifacts, String commitSha) {
+        String source = "deploy of " + commitSha;
         return microserviceDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {
                     Map<String, MicroserviceDeployment> unmatched = new HashMap<>();
                     existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
-                    // sequential: each microservice issues credentials and places a VM on the
-                    // one node, and a failure must not stop the others from deploying
-                    return sequentially(artifacts.microservices(),
-                                        artifact -> ensureMicroservice(project, target, artifact, unmatched.remove(artifact.name()), commitSha))
-                            .compose(rows -> orphan(new ArrayList<>(unmatched.values()))
-                            .map(orphans -> {
-                                rows.addAll(orphans);
-                                rows.sort(Comparator.comparing(MicroserviceDeployment::getName));
-                                return rows;
-                            }));
+                    return sequentially(artifacts.microservices(), artifact -> {
+                                unmatched.remove(artifact.name());
+                                return microserviceDeploymentRepository.updateDesired(deploymentId(project, artifact), new DeploymentState(DeploymentStatusType.DEPLOYED, commitSha),
+                                                                                      newDeployment(project, artifact), source);
+                            })
+                            .compose(rows -> sequentially(new ArrayList<>(unmatched.values()),
+                                                          orphan -> microserviceDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha),
+                                                                                                                   null, source)));
                 })
+                .compose(v -> awaitAnswered(project.getId(), System.currentTimeMillis() + MICROSERVICE_CONVERGENCE_TIMEOUT.toMillis()))
                 .compose(rows -> requireNoneFailed(rows,
-                                                   row -> row.getStatus().type() == DeploymentStatusType.FAILED,
-                                                   row -> row.getName() + ": " + row.getStatus().message(),
+                                                   row -> row.getState().getObserved().phase() == DeploymentStatusType.FAILED,
+                                                   row -> row.getName() + ": " + row.getFailureMessage(),
                                                    "Microservices of project " + project.getId() + " could not be deployed"))
                 .map(MicroserviceDeployments::new);
     }
 
-    /**
-     * Ensures one microservice's workload and records the result on its deployment, creating
-     * the deployment on the microservice's first appearance. The deployment is keyed by project
-     * and name, so a duplicate create fails in the store rather than deploying twice.
-     */
-    private Future<MicroserviceDeployment> ensureMicroservice(Project project,
-                                                              DeployTarget target,
-                                                              MicroserviceArtifact artifact,
-                                                              MicroserviceDeployment existing,
-                                                              String commitSha) {
-        String entryPoint = artifact.dir() + "/" + artifact.entry();
-        Future<MicroserviceDeployment> deployment;
-        if (existing != null) {
-            deployment = Future.succeededFuture(existing);
-        } else {
-            deployment = microserviceDeploymentRepository.create(new MicroserviceDeployment()
-                    .setId(project.getId() + ":" + artifact.name())
-                    .setOrganizationId(project.getOrganizationId())
-                    .setApplicationId(project.getApplicationId())
-                    .setProjectId(project.getId())
-                    .setName(artifact.name())
-                    .setStatus(new DeploymentStatus(DeploymentStatusType.FAILED,
-                                                                "Deployment in progress"))
-                    .setCreated(new Date())
-                    .setUpdated(new Date()));
-        }
-        return deployment.compose(current -> ensureWorkload(project, target, current, entryPoint)
-                .map(workloadId -> current.setWorkloadId(workloadId)
-                                          .setEntryPoint(entryPoint)
-                                          .setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED)))
-                .recover(error -> {
-                    log.error("Microservice {} of project {} could not be deployed", artifact.name(), project.getId(), error);
-                    return Future.succeededFuture(current.setStatus(new DeploymentStatus(
-                            DeploymentStatusType.FAILED, error.getMessage())));
-                })
-                .compose(updated -> microserviceDeploymentRepository.save(updated.setCommitSha(commitSha)
-                                                                                 .setUpdated(new Date()))));
+    private static String deploymentId(Project project, MicroserviceArtifact artifact) {
+        return project.getId() + ":" + artifact.name();
+    }
+
+    // The record a microservice's first intent creates, belonging to the project's deployment
+    private static MicroserviceDeployment newDeployment(Project project, MicroserviceArtifact artifact) {
+        MicroserviceDeployment deployment = new MicroserviceDeployment()
+                .setId(deploymentId(project, artifact))
+                .setOrganizationId(project.getOrganizationId())
+                .setApplicationId(project.getApplicationId())
+                .setProjectId(project.getId())
+                .setName(artifact.name())
+                .setCreated(new Date())
+                .setUpdated(new Date());
+        deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
+        return deployment;
     }
 
     /**
-     * Leaves the microservice with a running workload: the recorded one when it is up and still
-     * starts the same entry point, otherwise a new one, stopping the recorded one first when it
-     * is still running.
+     * The project's microservice deployments once every one's worker has answered its intent, read
+     * again every few seconds until then; fails naming the ones still unanswered at the deadline.
      */
-    private Future<String> ensureWorkload(Project project, DeployTarget target, MicroserviceDeployment deployment, String entryPoint) {
-        Future<String> ret;
-        if (deployment.getWorkloadId() == null) {
-            ret = deployRuntimeWorkload(project, target, deployment, entryPoint);
-        } else {
-            ret = workloadService.findById(deployment.getWorkloadId())
-                    .compose(existing -> {
-                        Future<String> ensured;
-                        WorkloadStatus status = existing != null ? existing.getStatus() : null;
-                        boolean running = status == WorkloadStatus.RUNNING || status == WorkloadStatus.STARTING;
-                        if (running && entryPoint.equals(deployment.getEntryPoint())) {
-                            // The running supervisor picks the new commit up through the
-                            // reload sentinel the sync workload wrote — nothing to deploy
-                            ensured = Future.succeededFuture(existing.getId());
-                        } else if (running) {
-                            ensured = workloadOrchestrationService.stopWorkload(existing.getId())
-                                    .recover(error -> {
-                                        log.warn("Runtime workload {} of microservice {} of project {} could not be stopped: {}",
-                                                 existing.getId(), deployment.getName(), project.getId(), error.getMessage());
-                                        return Future.succeededFuture();
-                                    })
-                                    .compose(v -> deployRuntimeWorkload(project, target, deployment, entryPoint));
-                        } else {
-                            ensured = deployRuntimeWorkload(project, target, deployment, entryPoint);
-                        }
-                        return ensured;
-                    });
-        }
-        return ret;
-    }
-
-    private Future<String> deployRuntimeWorkload(Project project,
-                                                 DeployTarget target,
-                                                 MicroserviceDeployment deployment,
-                                                 String entryPoint) {
-        return projectDeployIdentityService.issueRuntimeCredentials(project, deployment)
-                .compose(credentials -> workloadOrchestrationService.deployWorkload(
-                        projectWorkloadFactory.runtime(project, target.nodeId(), target.hostDir(), deployment, entryPoint, credentials)))
-                .map(Workload::getId);
-    }
-
-    /** Marks the deployments of microservices the commit no longer contains, leaving their workloads running. */
-    private Future<List<MicroserviceDeployment>> orphan(List<MicroserviceDeployment> deployments) {
-        List<Future<MicroserviceDeployment>> saves = new ArrayList<>();
-        for (MicroserviceDeployment deployment : deployments) {
-            if (deployment.getStatus().type() == DeploymentStatusType.ORPHANED) {
-                saves.add(Future.succeededFuture(deployment));
-            } else {
-                saves.add(microserviceDeploymentRepository.save(deployment
-                        .setStatus(new DeploymentStatus(DeploymentStatusType.ORPHANED))
-                        .setUpdated(new Date())));
-            }
-        }
-        return Future.all(saves).map(CompositeFuture::list);
+    private Future<List<MicroserviceDeployment>> awaitAnswered(String projectId, long deadline) {
+        return microserviceDeploymentRepository.findAllForProject(projectId)
+                .compose(rows -> {
+                    List<String> unanswered = rows.stream()
+                                                  .filter(row -> row.getState().getObservedGeneration() < row.getState().getGeneration())
+                                                  .map(MicroserviceDeployment::getName)
+                                                  .toList();
+                    Future<List<MicroserviceDeployment>> ret;
+                    if (unanswered.isEmpty()) {
+                        ret = Future.succeededFuture(rows);
+                    } else if (System.currentTimeMillis() >= deadline) {
+                        ret = Future.failedFuture(new IllegalStateException("Microservices of project " + projectId
+                                + " were not deployed within " + MICROSERVICE_CONVERGENCE_TIMEOUT.toMinutes() + " minutes: " + String.join(", ", unanswered)));
+                    } else {
+                        ret = vertx.timer(MICROSERVICE_POLL_INTERVAL.toMillis()).compose(id -> awaitAnswered(projectId, deadline));
+                    }
+                    return ret;
+                });
     }
 
     /**

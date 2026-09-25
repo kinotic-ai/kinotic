@@ -27,6 +27,11 @@ public enum WatchEventKind {
     DESIRED_UPDATED,
 
     /**
+     * What the record should be was written again as new, so its worker answers it again.
+     */
+    DESIRED_RENEWED,
+
+    /**
      * The record's authority reported what it is.
      */
     OBSERVED_REPORTED,

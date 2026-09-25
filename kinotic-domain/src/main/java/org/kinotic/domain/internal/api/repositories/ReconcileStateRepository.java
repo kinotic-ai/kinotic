@@ -69,6 +69,17 @@ public class ReconcileStateRepository {
             }
             """;
 
+    // A record with no intent has nothing to answer again
+    private static final String RENEW_DESIRED = RECONCILE_FUNCTIONS + """
+            def s = reconcileState(ctx._source);
+            if (s.desired == null) {
+                ctx.op = 'noop';
+            } else {
+                s.generation = (long) s.generation + 1;
+                touched(s, params.now);
+            }
+            """;
+
     // A deletion already asked for keeps its date: what matters is when it was first asked
     private static final String REQUEST_DELETION = RECONCILE_FUNCTIONS + """
             def s = reconcileState(ctx._source);
@@ -155,6 +166,26 @@ public class ReconcileStateRepository {
                                      .compose(written -> recorded(document, written,
                                                                   new WatchedChange(WatchEventKind.OBSERVED_REPORTED, source,
                                                                                     "Observed " + observed, observed)));
+    }
+
+    /**
+     * Writes the record's intent again as new, bumping its generation without changing what it is, so
+     * the worker answers it once more: what a restart from the console asks for. A record with no
+     * intent is left as it is. Visible to search on completion.
+     *
+     * @param document the record
+     * @param source   what caused it, for the ledger
+     * @return the record as written, or null when it holds no intent
+     */
+    public Future<Map<String, Object>> renewDesired(WatchedDocument document, String source) {
+        Validate.notNull(document, "document cannot be null");
+        Validate.notBlank(source, "source cannot be blank");
+        Map<String, Object> params = new HashMap<>();
+        params.put("now", System.currentTimeMillis());
+        return watchedStateRepository.run(document, RENEW_DESIRED, params)
+                                     .compose(written -> recorded(document, written,
+                                                                  new WatchedChange(WatchEventKind.DESIRED_RENEWED, source,
+                                                                                    "Desired renewed", null)));
     }
 
     /**

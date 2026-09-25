@@ -13,7 +13,6 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.function.Function;
 
 /**
@@ -73,8 +72,8 @@ public class ProjectDeployIdentityService {
         Validate.notNull(project, "project is required");
         Validate.notNull(deployment, "deployment is required");
         return issue(project, "runtime " + deployment.getName(), deployment.getMachineIdentityId(), identityId -> {
-            deployment.setMachineIdentityId(identityId).setUpdated(new Date());
-            return microserviceDeploymentRepository.save(deployment).mapEmpty();
+            deployment.setMachineIdentityId(identityId);
+            return microserviceDeploymentRepository.recordMachine(deployment.getId(), identityId);
         });
     }
 
