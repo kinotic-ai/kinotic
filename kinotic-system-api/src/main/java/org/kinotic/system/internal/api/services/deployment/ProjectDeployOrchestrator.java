@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
@@ -27,7 +27,7 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;

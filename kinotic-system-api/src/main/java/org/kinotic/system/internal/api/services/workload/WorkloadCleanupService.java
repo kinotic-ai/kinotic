@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -9,7 +9,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 
 import java.time.Duration;
 import java.util.Date;

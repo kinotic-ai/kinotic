@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.exceptions.RpcServiceUnavailableException;
@@ -12,10 +12,10 @@ import org.apache.ignite.Ignite;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.kinotic.management.api.services.telemetry.LokiClient;
-import org.kinotic.system.api.services.VmNodeOrchestrationService;
+import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
-import org.kinotic.system.api.workload.VmManagerProxy;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.workload.VmManagerProxy;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;

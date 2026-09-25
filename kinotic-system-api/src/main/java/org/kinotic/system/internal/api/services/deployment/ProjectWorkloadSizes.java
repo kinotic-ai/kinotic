@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 /**
  * How large the VMs of a project deployment are. The same in every environment: what differs

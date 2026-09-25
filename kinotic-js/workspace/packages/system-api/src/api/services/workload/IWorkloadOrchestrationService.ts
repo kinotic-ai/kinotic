@@ -62,7 +62,7 @@ export class WorkloadOrchestrationService implements IWorkloadOrchestrationServi
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.WorkloadOrchestrationService`)
+        this.serviceProxy = kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.workload.WorkloadOrchestrationService`)
     }
 
     public deployWorkload(workload: Workload): Promise<Workload> {

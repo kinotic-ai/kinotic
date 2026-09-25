@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.config.KinoticDomainProperties;

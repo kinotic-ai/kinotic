@@ -1,6 +1,6 @@
 import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
-import { KinoticClusterInfo } from '@/api/model/KinoticClusterInfo'
+import { KinoticClusterInfo } from '@/api/model/cluster/KinoticClusterInfo'
 
 /**
  * Queries the kinotic-server cluster's topology and state.

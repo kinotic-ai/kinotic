@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
@@ -15,8 +15,8 @@ import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.model.deployment.DeployTarget;
-import org.kinotic.system.api.services.SiteStorageService;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.deployment.SiteStorageService;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

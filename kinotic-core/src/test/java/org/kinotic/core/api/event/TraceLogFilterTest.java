@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class TraceLogFilterTest {
 
-    private static final String SERVICE = "srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService";
+    private static final String SERVICE = "srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService";
     private static final String OTHER_SERVICE = "srv://system-api~org.kinotic.system.api.services.KinoticClusterInfoService";
     private static final String REPLY_CRI = "reply://0b5b4516:a8a95015@kinotic.js.EventBus/replyHandler";
 
@@ -44,10 +44,10 @@ public class TraceLogFilterTest {
 
     @Test
     public void aScopedInvocationNeedsTheScopeWildcard() {
-        String scopedCri = "srv://dev-node-1@system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/heartbeat";
+        String scopedCri = "srv://dev-node-1@system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/heartbeat";
 
         assertFalse(excluding(SERVICE + "/*").isExcluded(scopedCri));
-        assertTrue(excluding("srv://*@system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/*").isExcluded(scopedCri));
+        assertTrue(excluding("srv://*@system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/*").isExcluded(scopedCri));
     }
 
     @Test

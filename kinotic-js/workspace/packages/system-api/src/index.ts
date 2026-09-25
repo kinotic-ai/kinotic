@@ -7,14 +7,14 @@ export * from '@/api/model/workload/VmNode'
 export * from '@/api/model/workload/VmNodeState'
 export * from '@/api/model/workload/VmNodeStatusType'
 export * from '@/api/model/workload/VmProviderType'
-export * from '@/api/model/VmNodeRegistration'
-export * from '@/api/model/WorkloadStatusReport'
+export * from '@/api/model/workload/VmNodeRegistration'
+export * from '@/api/model/workload/WorkloadStatusReport'
 
 // Services
-export * from '@/api/services/IVmNodeService'
-export * from '@/api/services/IWorkloadService'
-export * from '@/api/services/IWorkloadOrchestrationService'
-export * from '@/api/services/VmNodeOrchestrationServiceProxy'
+export * from '@/api/services/workload/IVmNodeService'
+export * from '@/api/services/workload/IWorkloadService'
+export * from '@/api/services/workload/IWorkloadOrchestrationService'
+export * from '@/api/services/workload/VmNodeOrchestrationServiceProxy'
 
 // Plugin
 export * from '@/api/SystemApiPlugin'
@@ -26,8 +26,8 @@ declare module '@kinotic-ai/core' {
 }
 export * from '@/api/services/ILogManager'
 export * from '@/api/services/LogManager'
-export * from '@/api/model/KinoticClusterInfo'
-export * from '@/api/model/KinoticNodeInfo'
+export * from '@/api/model/cluster/KinoticClusterInfo'
+export * from '@/api/model/cluster/KinoticNodeInfo'
 export * from '@/api/services/IKinoticClusterInfoService'
 export * from '@/api/services/ISystemOrganizationService'
 export * from '@/api/services/ISystemMemberService'

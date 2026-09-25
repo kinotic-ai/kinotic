@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import java.util.function.Supplier;
@@ -27,8 +27,8 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
 import org.kinotic.grind.api.model.Tasks;
-import org.kinotic.system.api.services.VmNodeOrchestrationService;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.MicroserviceDeployments;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;

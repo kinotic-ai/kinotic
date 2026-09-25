@@ -26,7 +26,7 @@ export interface IVmNodeService extends ICrudServiceProxy<VmNode> {
 export class VmNodeServiceProxy extends CrudServiceProxy<VmNode> implements IVmNodeService {
 
     constructor(kinotic: IKinotic) {
-        super(kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.VmNodeService`))
+        super(kinotic.serviceProxy(`${SYSTEM_API_ZONE}~org.kinotic.system.api.services.workload.VmNodeService`))
     }
 
     public async findHistory(nodeId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {

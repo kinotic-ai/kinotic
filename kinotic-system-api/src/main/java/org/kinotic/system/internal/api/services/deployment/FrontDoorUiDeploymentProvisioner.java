@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -13,7 +13,7 @@ import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.services.UiDeploymentProvisioner;
+import org.kinotic.system.api.services.deployment.UiDeploymentProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 

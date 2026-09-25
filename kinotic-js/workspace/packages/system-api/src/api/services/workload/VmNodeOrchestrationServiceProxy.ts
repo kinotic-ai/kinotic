@@ -1,8 +1,8 @@
 import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
 import { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 import type { VmNode } from '@/api/model/workload/VmNode'
-import type { VmNodeRegistration } from '@/api/model/VmNodeRegistration'
-import type { WorkloadStatusReport } from '@/api/model/WorkloadStatusReport'
+import type { VmNodeRegistration } from '@/api/model/workload/VmNodeRegistration'
+import type { WorkloadStatusReport } from '@/api/model/workload/WorkloadStatusReport'
 
 /**
  * Proxy for communicating with the VmNodeOrchestrationService on the Kinotic server.
@@ -14,7 +14,7 @@ export class VmNodeOrchestrationServiceProxy {
 
     constructor(kinotic: IKinotic) {
         this.serviceProxy = kinotic.serviceProxy(
-            `${SYSTEM_API_ZONE}~org.kinotic.system.api.services.VmNodeOrchestrationService`)
+            `${SYSTEM_API_ZONE}~org.kinotic.system.api.services.workload.VmNodeOrchestrationService`)
     }
 
     /**

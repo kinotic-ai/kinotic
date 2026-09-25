@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -25,10 +25,10 @@ import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.services.VmNodeOrchestrationService;
-import org.kinotic.system.api.workload.VmManagerProxy;
-import org.kinotic.system.api.workload.VmNodeRegistration;
-import org.kinotic.system.api.workload.WorkloadStatusReport;
+import org.kinotic.system.api.services.workload.VmNodeOrchestrationService;
+import org.kinotic.system.api.services.workload.VmManagerProxy;
+import org.kinotic.system.api.model.workload.VmNodeRegistration;
+import org.kinotic.system.api.model.workload.WorkloadStatusReport;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
 

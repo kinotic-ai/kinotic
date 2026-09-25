@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import com.azure.core.credential.TokenCredential;
 import com.azure.identity.DefaultAzureCredentialBuilder;
@@ -14,8 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.services.SiteStorageService;
-import org.kinotic.system.api.services.UiStoragePaths;
+import org.kinotic.system.api.services.deployment.SiteStorageService;
+import org.kinotic.system.api.services.deployment.UiStoragePaths;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

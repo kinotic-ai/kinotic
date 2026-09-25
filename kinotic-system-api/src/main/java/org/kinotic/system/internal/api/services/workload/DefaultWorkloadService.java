@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -8,7 +8,7 @@ import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.repositories.WorkloadRepository;
-import org.kinotic.system.api.services.WorkloadService;
+import org.kinotic.system.api.services.workload.WorkloadService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

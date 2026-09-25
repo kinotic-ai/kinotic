@@ -1,4 +1,4 @@
-import { KinoticNodeInfo } from '@/api/model/KinoticNodeInfo'
+import { KinoticNodeInfo } from '@/api/model/cluster/KinoticNodeInfo'
 
 /**
  * The kinotic-server cluster's current topology and state. Mirrors the server's

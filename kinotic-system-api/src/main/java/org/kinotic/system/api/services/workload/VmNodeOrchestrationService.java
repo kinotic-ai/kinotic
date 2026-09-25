@@ -1,11 +1,11 @@
-package org.kinotic.system.api.services;
+package org.kinotic.system.api.services.workload;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
-import org.kinotic.system.api.workload.VmNodeRegistration;
-import org.kinotic.system.api.workload.WorkloadStatusReport;
+import org.kinotic.system.api.model.workload.VmNodeRegistration;
+import org.kinotic.system.api.model.workload.WorkloadStatusReport;
 
 import java.util.List;
 

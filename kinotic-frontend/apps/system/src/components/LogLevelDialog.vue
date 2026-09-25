@@ -46,7 +46,7 @@
           class="w-full font-mono text-xs"
           rows="3"
           :disabled="loadingTraceLog"
-          placeholder="srv://system-api~org.kinotic.system.api.services.VmNodeOrchestrationService/*"
+          placeholder="srv://system-api~org.kinotic.system.api.services.workload.VmNodeOrchestrationService/*"
         />
       </div>
       <div>

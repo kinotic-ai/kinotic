@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectRepository;
 import org.kinotic.management.api.repositories.WorkloadRepository;
-import org.kinotic.system.api.services.WorkloadOrchestrationService;
+import org.kinotic.system.api.services.workload.WorkloadOrchestrationService;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;

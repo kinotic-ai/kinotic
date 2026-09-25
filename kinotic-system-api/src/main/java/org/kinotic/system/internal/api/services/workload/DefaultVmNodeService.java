@@ -1,4 +1,4 @@
-package org.kinotic.system.internal.api.services;
+package org.kinotic.system.internal.api.services.workload;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.services.VmNodeService;
+import org.kinotic.system.api.services.workload.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
 

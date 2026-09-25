@@ -11,7 +11,7 @@ import org.kinotic.domain.api.utils.DomainUtil;
  * services. Method for method the same contract; the management plane authorizes a request
  * before making a call, since the service trusts its callers.
  */
-@Proxy(namespace = "org.kinotic.system.api.services", name = "DeploymentOperationsService")
+@Proxy(namespace = "org.kinotic.system.api.services.deployment", name = "DeploymentOperationsService")
 @Zone(DomainUtil.SYSTEM_API_ZONE)
 public interface DeploymentOperationsProxy {
 
