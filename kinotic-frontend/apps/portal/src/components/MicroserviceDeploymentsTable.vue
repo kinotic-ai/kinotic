@@ -6,7 +6,7 @@
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
         <span :title="data.failureMessage ?? undefined">
-          <Tag :value="phaseOf(data)" :severity="phaseSeverity(data)" />
+          <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
         </span>
         <Tag v-if="unreachable(data)" value="node unreachable" severity="warn" icon="pi pi-exclamation-triangle"
              class="ml-1" :title="unreachable(data)?.message" />
@@ -44,7 +44,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 import { StatusConditionType, findStatusCondition, type MicroserviceDeployment, type StatusCondition } from '@kinotic-ai/management-api'
-import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
+import { observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
 
 /**
  * The microservices a project's deployments have ensured, one row each with the phase it reports,
@@ -54,16 +54,6 @@ import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
 defineProps<{
   deployments: MicroserviceDeployment[]
 }>()
-
-/** The phase the deployment reports, or what it has yet to report. */
-function phaseOf(deployment: MicroserviceDeployment): string {
-  return deployment.state.observed?.phase ?? 'PENDING'
-}
-
-function phaseSeverity(deployment: MicroserviceDeployment): string {
-  const phase = deployment.state.observed?.phase
-  return phase ? deploymentStatusSeverity(phase) : 'secondary'
-}
 
 /** The mark that the node running the microservice has not answered, or undefined while it does. */
 function unreachable(deployment: MicroserviceDeployment): StatusCondition | undefined {

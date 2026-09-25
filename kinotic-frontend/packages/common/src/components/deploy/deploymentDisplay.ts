@@ -1,4 +1,4 @@
-import type { DeploymentStatusType } from '@kinotic-ai/management-api'
+import type { DeploymentState, DeploymentStatusType } from '@kinotic-ai/management-api'
 
 /** Tag severity by status type name. */
 const SEVERITY_BY_TYPE: Record<string, string> = {
@@ -15,4 +15,14 @@ const SEVERITY_BY_TYPE: Record<string, string> = {
  */
 export function deploymentStatusSeverity(type: DeploymentStatusType): string {
   return SEVERITY_BY_TYPE[type] ?? 'info'
+}
+
+/** The phase a deployment reports, or PENDING while its worker has yet to answer. */
+export function observedPhase(observed: DeploymentState | null | undefined): string {
+  return observed?.phase ?? 'PENDING'
+}
+
+/** The Tag severity of the phase a deployment reports, secondary while its worker has yet to answer. */
+export function observedPhaseSeverity(observed: DeploymentState | null | undefined): string {
+  return observed ? deploymentStatusSeverity(observed.phase) : 'secondary'
 }

@@ -84,7 +84,7 @@
             </div>
             <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
           </div>
-          <Tag :value="ui.state.observed?.phase ?? 'PENDING'" :severity="ui.state.observed ? deploymentStatusSeverity(ui.state.observed.phase) : 'secondary'" />
+          <Tag :value="observedPhase(ui.state.observed)" :severity="observedPhaseSeverity(ui.state.observed)" />
         </li>
       </ul>
     </section>
@@ -99,7 +99,7 @@ import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import { Kinotic, Pageable } from '@kinotic-ai/core'
 import { type Project, DeploymentStatusType, RepositoryConnectionStatus, type UiDeployment } from '@kinotic-ai/management-api'
-import { createDebug, DatetimeUtil, deploymentStatusSeverity, PageHeader } from '@kinotic-ai/frontend-common'
+import { createDebug, DatetimeUtil, deploymentStatusSeverity, observedPhase, observedPhaseSeverity, PageHeader } from '@kinotic-ai/frontend-common'
 import { APPLICATION_STATE } from '@/states/IApplicationState'
 import { USER_STATE } from '@/states/IUserState'
 

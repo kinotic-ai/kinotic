@@ -6,7 +6,7 @@
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
         <span :title="data.observation ?? undefined">
-          <Tag :value="phaseOf(data)" :severity="phaseSeverity(data)" />
+          <Tag :value="observedPhase(data.state.observed)" :severity="observedPhaseSeverity(data.state.observed)" />
         </span>
         <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />
       </template>
@@ -39,7 +39,7 @@ import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
-import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
+import { observedPhase, observedPhaseSeverity, shortSha } from '@kinotic-ai/frontend-common'
 import type { UiDeployment } from '@kinotic-ai/management-api'
 
 /**
@@ -53,14 +53,4 @@ defineProps<{
 const emit = defineEmits<{
   remove: [deployment: UiDeployment]
 }>()
-
-/** The phase the deployment reports, or what it has yet to report. */
-function phaseOf(deployment: UiDeployment): string {
-  return deployment.state.observed?.phase ?? 'PENDING'
-}
-
-function phaseSeverity(deployment: UiDeployment): string {
-  const phase = deployment.state.observed?.phase
-  return phase ? deploymentStatusSeverity(phase) : 'secondary'
-}
 </script>
