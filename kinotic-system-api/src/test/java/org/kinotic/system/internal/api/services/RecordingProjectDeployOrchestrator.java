@@ -13,7 +13,7 @@ public class RecordingProjectDeployOrchestrator extends ProjectDeployOrchestrato
     public final List<String> deployedShas = new ArrayList<>();
 
     public RecordingProjectDeployOrchestrator() {
-        super(null, null, null, null, null, null, null, null, null);
+        super(null, null, null, null, null, null, null, null, null, null);
     }
 
     @Override

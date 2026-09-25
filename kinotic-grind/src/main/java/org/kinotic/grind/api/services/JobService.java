@@ -1,5 +1,6 @@
 package org.kinotic.grind.api.services;
 
+import org.kinotic.core.api.reconcile.WatchedParent;
 import org.kinotic.grind.api.model.*;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import reactor.core.publisher.Flux;
@@ -24,6 +25,16 @@ public interface JobService {
      * @return the prepared {@link JobRunHandle}
      */
     JobRunHandle run(JobDefinition jobDefinition, JobOwner owner);
+
+    /**
+     * As {@link #run(JobDefinition, JobOwner)}, recording what the run was made by, so a change to
+     * the run reaches that record's worker.
+     * @param jobDefinition to execute, its {@link JobDefinition#getName()} must be set
+     * @param owner the hierarchy this run executes on behalf of
+     * @param parent the record whose worker made the run
+     * @return the prepared {@link JobRunHandle}
+     */
+    JobRunHandle run(JobDefinition jobDefinition, JobOwner owner, WatchedParent parent);
 
     /**
      * Prepares a recorded execution that resumes a previous run: tasks the original run

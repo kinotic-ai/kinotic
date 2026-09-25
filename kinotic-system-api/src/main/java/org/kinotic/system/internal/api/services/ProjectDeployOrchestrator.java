@@ -10,6 +10,9 @@ import org.kinotic.core.api.annotations.Consumer;
 import org.kinotic.core.api.reconcile.ReconcileState;
 import org.kinotic.core.api.reconcile.Reconciler;
 import org.kinotic.core.api.reconcile.Requeue;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
+import org.kinotic.core.api.reconcile.WatchedParent;
 import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.DeploymentStatusType;
@@ -27,9 +30,11 @@ import org.kinotic.system.api.services.WorkloadOrchestrationService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.management.api.model.GitHubProjectEvent;
 import org.kinotic.management.api.model.GitHubWebhookEvent;
+import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobRunHandle;
 import org.kinotic.grind.api.model.events.TaskCompletedEvent;
+import org.kinotic.grind.api.repositories.JobRunRepository;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
@@ -48,7 +53,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * the event fabric, so a push is recorded no matter which node received the webhook, as what the
  * project's {@link ProjectDeployment} should be: the commit, running. The reconcile master then
  * calls this worker, on one node, which runs each qualifying commit as a grind job created by
- * {@link ProjectDeployJobDefinitionFactory} and reports the outcome on the record. The project's
+ * {@link ProjectDeployJobDefinitionFactory}, made by the record so a change to the run reaches this
+ * worker, and reports the outcome on the record. The project's
  * own repository has no CI, this job is it, so a commit whose build fails never reaches the runtime
  * workloads.
  * <p>
@@ -81,9 +87,10 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
     private final WorkloadService workloadService;
     private final WorkloadOrchestrationService workloadOrchestrationService;
     private final ParticipantIdentityService participantIdentityService;
+    private final JobRunRepository jobRunRepository;
 
     // The projects whose deployment job this node is running, so a record left DEPLOYING by a master
-    // that died mid-run is told apart from one this master is running
+    // that died mid-run is told apart from one this master is running without a read of the run
     private final Set<String> running = ConcurrentHashMap.newKeySet();
 
     /**
@@ -152,22 +159,48 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         DeploymentState desired = state.getDesired();
         DeploymentState observed = state.getObserved();
         boolean intentSeen = state.getObservedGeneration() >= state.getGeneration();
-        // a run this node is not running left the record DEPLOYING: the master that ran it is gone
-        boolean abandoned = observed != null && observed.phase() == DeploymentStatusType.DEPLOYING
-                && !running.contains(current.getId());
+        boolean deploying = observed != null && observed.phase() == DeploymentStatusType.DEPLOYING;
         Future<Requeue> ret;
         if (state.getDeletionRequested() != null) {
             ret = finalizeRemoval(current);
         } else if (desired == null || desired.commitSha() == null) {
             ret = Future.succeededFuture(Requeue.NONE);
-        } else if (intentSeen && !abandoned) {
+        } else if (intentSeen && !deploying) {
             // deployed, or failed and waiting for the next push: a build that failed is not retried
             ret = Future.succeededFuture(Requeue.NONE);
+        } else if (deploying && running.contains(current.getId())) {
+            ret = Future.succeededFuture(Requeue.NONE);
         } else {
-            ret = projectRepository.findById(current.getId(), current.getOrganizationId())
-                    .compose(project -> project == null
-                            ? Future.succeededFuture(Requeue.NONE)
-                            : runDeployJob(project, current, desired.commitSha()).map(Requeue.NONE));
+            // a record left DEPLOYING by a run this node is not running is deployed again once that run
+            // is known to be dead: the master that ran it is gone with its node
+            Future<Boolean> abandoned = deploying ? runDead(current.getLastJobRunId()) : Future.succeededFuture(true);
+            ret = abandoned.compose(dead -> {
+                Future<Requeue> decided;
+                if (!dead) {
+                    decided = Future.succeededFuture(Requeue.NONE);
+                } else {
+                    decided = projectRepository.findById(current.getId(), current.getOrganizationId())
+                            .compose(project -> project == null
+                                    ? Future.succeededFuture(Requeue.NONE)
+                                    : runDeployJob(project, current, desired.commitSha()).map(Requeue.NONE));
+                }
+                return decided;
+            });
+        }
+        return ret;
+    }
+
+    // A run is dead when its record is gone or ended without the outcome reaching the deployment, or
+    // when the node running it left the cluster; one still executing on a live node is left to finish
+    private Future<Boolean> runDead(String jobRunId) {
+        Future<Boolean> ret;
+        if (jobRunId == null) {
+            ret = Future.succeededFuture(true);
+        } else {
+            ret = jobRunRepository.findRun(jobRunId)
+                                  .map(run -> run == null
+                                          || run.getStatus() != ExecutionStatus.RUNNING
+                                          || StatusConditions.has(run.getState().getConditions(), StatusConditionType.SERVER_NODE_LEFT));
         }
         return ret;
     }
@@ -179,7 +212,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         JobRunHandle handle = jobService.run(definition,
                                              JobOwner.ofApplication(project.getOrganizationId(),
                                                                     project.getApplicationId(),
-                                                                    projectId));
+                                                                    projectId),
+                                             new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, projectId));
         String jobRunId = handle.getJobRunId();
         log.debug("Deploying project {} at commit {} in job run {}", projectId, commitSha, jobRunId);
         running.add(projectId);

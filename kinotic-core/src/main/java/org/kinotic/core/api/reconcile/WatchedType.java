@@ -8,5 +8,6 @@ public enum WatchedType {
     PROJECT_DEPLOYMENT,
     MICROSERVICE_DEPLOYMENT,
     UI_DEPLOYMENT,
-    VM_NODE
+    VM_NODE,
+    JOB_RUN
 }
