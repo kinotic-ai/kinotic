@@ -7,6 +7,7 @@ import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
@@ -61,6 +62,21 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
             }
             """;
 
+    // A condition describes the run, so a run that has ended declines one: the node's worker marks the
+    // runs a search found open, and a run that ended between the search and the write keeps its outcome
+    private static final String SET_CONDITION_ON_OPEN_RUN = WatchedStateRepository.STATE_FUNCTIONS + """
+            if (params.open.contains(ctx._source.status)) {
+            """ + WatchedStateRepository.ADD_CONDITION + """
+            } else {
+                ctx.op = 'noop';
+            }
+            """;
+
+    private static final List<String> OPEN_STATUSES = Stream.of(WorkloadStatus.values())
+                                                            .filter(WorkloadStatus::isOpen)
+                                                            .map(Enum::name)
+                                                            .toList();
+
     public WorkloadRepository(CrudServiceTemplate crudServiceTemplate,
                               WatchedStateRepository watchedStateRepository,
                               WatchEventRepository watchEventRepository) {
@@ -70,6 +86,22 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
     @Override
     public String scopeOf(Workload record) {
         return record.getOrganizationId();
+    }
+
+    /**
+     * Sets the condition on the workload while its run is open and records it; a run that has ended
+     * keeps its outcome and declines the condition, as does a workload already carrying one of its
+     * type. Visible to search on completion.
+     *
+     * @param id        the workload
+     * @param condition the condition to set
+     * @param source    what caused it, for the ledger
+     * @return true when the condition was set
+     */
+    @Override
+    public Future<Boolean> setCondition(String id, StatusCondition condition, String source) {
+        return watchedStateRepository.setCondition(document(id), condition, source, SET_CONDITION_ON_OPEN_RUN,
+                                                   Map.of("open", OPEN_STATUSES));
     }
 
     @Override

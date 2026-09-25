@@ -17,6 +17,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -69,8 +70,15 @@ public class WatchedStateRepository {
             }
             """;
 
-    // A condition already present is kept as it is: what matters is when the inference was first made
-    private static final String SET_CONDITION = STATE_FUNCTIONS + """
+    /**
+     * The statements that add the condition {@code params.type}, {@code params.message} and
+     * {@code params.since} name beside the record's state and touch it, on a script opened by
+     * {@link #STATE_FUNCTIONS}. A condition already present is kept as it is: what matters is when the
+     * inference was first made. A record kind with a rule of its own on when a condition may be set
+     * puts that rule first and passes the script to
+     * {@link #setCondition(WatchedDocument, StatusCondition, String, String, Map)}.
+     */
+    public static final String ADD_CONDITION = """
             def s = state(ctx._source);
             if (condition(s, params.type) != null) {
                 ctx.op = 'noop';
@@ -79,6 +87,8 @@ public class WatchedStateRepository {
                 touched(s, params.now);
             }
             """;
+
+    private static final String SET_CONDITION = STATE_FUNCTIONS + ADD_CONDITION;
 
     private static final String CLEAR_CONDITION = STATE_FUNCTIONS + """
             def s = state(ctx._source);
@@ -140,16 +150,39 @@ public class WatchedStateRepository {
      * @return true when the condition was set, false when the record already carried one of its type
      */
     public Future<Boolean> setCondition(WatchedDocument document, StatusCondition condition, String source) {
+        return setCondition(document, condition, source, SET_CONDITION, Map.of());
+    }
+
+    /**
+     * As {@link #setCondition(WatchedDocument, StatusCondition, String)}, through a script built on
+     * {@link #ADD_CONDITION} that reads the given parameters beside the condition's own.
+     *
+     * @param document     the record
+     * @param condition    the condition to set
+     * @param source       what caused it, for the ledger
+     * @param script       the Painless source, opened by {@link #STATE_FUNCTIONS} and ending in {@link #ADD_CONDITION}
+     * @param scriptParams the values the script's own rule reads as {@code params.<name>}
+     * @return true when the condition was set, false when the script declined
+     */
+    public Future<Boolean> setCondition(WatchedDocument document,
+                                        StatusCondition condition,
+                                        String source,
+                                        String script,
+                                        Map<String, Object> scriptParams) {
         Validate.notNull(document, "document cannot be null");
         Validate.notNull(condition, "condition cannot be null");
         Validate.notNull(condition.type(), "condition type cannot be null");
         Validate.notNull(condition.message(), "condition message cannot be null");
         Validate.notNull(condition.since(), "condition since cannot be null");
         Validate.notBlank(source, "source cannot be blank");
-        return run(document, SET_CONDITION, Map.of("type", condition.type().name(),
-                                                  "message", condition.message(),
-                                                  "since", condition.since().toInstant().toString(),
-                                                  "now", System.currentTimeMillis()))
+        Validate.notBlank(script, "script cannot be blank");
+        Validate.notNull(scriptParams, "scriptParams cannot be null");
+        Map<String, Object> params = new HashMap<>(scriptParams);
+        params.put("type", condition.type().name());
+        params.put("message", condition.message());
+        params.put("since", condition.since().toInstant().toString());
+        params.put("now", System.currentTimeMillis());
+        return run(document, script, params)
                 .compose(written -> recorded(document, written,
                                              new WatchedChange(WatchEventKind.CONDITION_SET, source,
                                                                condition.message(), condition)));
