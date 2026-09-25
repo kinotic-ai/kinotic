@@ -1,0 +1,1 @@
+{"id":"f10ca673507fad84d2a0c4d572bd3af4","fullName":"org.kinotic.test.tests.sql.TypeMapperTest.whenMapUnionInsideObject_thenUnionMergedCorrectly","name":"whenMapUnionInsideObject_thenUnionMergedCorrectly()","status":"passed","testResultsByEnv":{"default":"db4d6c4cd76dbfc23d99d0178912d15d"}}

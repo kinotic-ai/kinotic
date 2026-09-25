@@ -1,0 +1,1 @@
+{"id":"bd8be3260e237c50405277c7cc9aecd6","fullName":"@kinotic-ai/core:test/ConnectionLifecycle.test.ts#connection lifecycle reports the end with its reason when the failure lands with no socket open","name":"reports the end with its reason when the failure lands with no socket open","status":"passed","testResultsByEnv":{"default":"6cf152abbce1aac1e33f69fcb70d8bc6"}}
