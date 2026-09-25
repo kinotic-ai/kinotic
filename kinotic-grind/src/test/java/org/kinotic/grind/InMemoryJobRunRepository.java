@@ -3,6 +3,7 @@ package org.kinotic.grind;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.repositories.JobRunRepository;
@@ -40,6 +41,7 @@ public class InMemoryJobRunRepository extends JobRunRepository {
     public synchronized Future<Void> recordOutcome(String jobRunId, ExecutionStatus status, String error, Date finished, String source) {
         JobRun run = savedRuns.get(jobRunId);
         run.setStatus(status).setError(error).setFinished(finished);
+        run.getState().getConditions().removeIf(condition -> condition.type() == StatusConditionType.SERVER_NODE_LEFT);
         run.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
         return completedOffThread(null);
     }

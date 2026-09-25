@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.repositories.WatchedRepository;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.WatchEventKind;
@@ -43,11 +44,17 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
 
     // The run's outcome is the executing node's; the state the platform keeps is touched the way
     // every other write touches it, in the same shard operation
+    // An outcome disproves a SERVER_NODE_LEFT mark: the node that left came back and finished the run
     private static final String RECORD_OUTCOME = WatchedStateRepository.STATE_FUNCTIONS + """
             ctx._source.status = params.status;
             ctx._source.error = params.error;
             ctx._source.finished = params.finished;
-            touched(state(ctx._source), params.now);
+            def s = state(ctx._source);
+            def left = condition(s, params.nodeLeft);
+            if (left != null) {
+                s.conditions.remove(s.conditions.indexOf(left));
+            }
+            touched(s, params.now);
             """;
 
     private final TaskRecordRepository taskRecordRepository;
@@ -92,6 +99,7 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
      * Records the run's terminal status, its error and when it finished, and enters the change in the
      * ledger, leaving every other field as it is; visible to search on completion.
      *
+     * A SERVER_NODE_LEFT mark goes with it: the node that left came back and finished the run.
      * @param jobRunId the run
      * @param status   the run's terminal status
      * @param error    why it failed, or null
@@ -106,6 +114,7 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
         params.put("status", status.name());
         params.put("error", error);
         params.put("finished", finished.toInstant().toString());
+        params.put("nodeLeft", StatusConditionType.SERVER_NODE_LEFT.name());
         params.put("now", System.currentTimeMillis());
         return crudServiceTemplate.scriptedUpdateReturningSourceSync(indexName, jobRunId, RECORD_OUTCOME, params)
                                   .compose(document -> watchedStateRepository.record(

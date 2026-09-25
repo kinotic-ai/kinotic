@@ -17,8 +17,8 @@ public enum StatusConditionType {
     /**
      * The server node running the record's execution left the cluster while it ran, so no node
      * will ever report its end: what the record says of the execution is the last that node wrote.
-     * Set by the cluster membership watch on every node; never cleared, since the execution does
-     * not resume.
+     * Set by the cluster membership watch on every node; cleared by the run's own outcome, when the
+     * node that left came back and finished it.
      */
     SERVER_NODE_LEFT
 }
