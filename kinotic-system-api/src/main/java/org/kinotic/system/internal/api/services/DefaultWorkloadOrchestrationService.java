@@ -24,8 +24,10 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -40,6 +42,9 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
     // Placements a deploy may make before it gives up on the room concurrent deploys keep taking
     private static final int PLACEMENT_ATTEMPTS = 3;
+
+    // Workload ids one Loki delete request names: the selector travels in the URL
+    private static final int LOG_DELETE_BATCH = 50;
 
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -177,25 +182,55 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     @Override
     public Future<Void> deleteWorkload(String workloadId) {
         Validate.notNull(workloadId, "Workload id cannot be null");
+        return deleteWorkloads(List.of(workloadId));
+    }
 
-        return workloadService.findById(workloadId)
-                .compose(workload -> {
-                    Future<Void> ret;
-                    if (workload == null) {
-                        ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadId));
-                    } else if (workload.getStatus().isOpen()) {
-                        ret = Future.failedFuture(new IllegalStateException("Workload " + workloadId + " is " + workload.getStatus()
-                                + "; stop or destroy it before deleting it"));
-                    } else {
+    @Override
+    public Future<Void> deleteWorkloads(List<String> workloadIds) {
+        Validate.notEmpty(workloadIds, "Workload ids cannot be empty");
+
+        return Future.all(workloadIds.stream().map(workloadService::findById).toList())
+                .compose(found -> {
+                    List<Workload> workloads = found.list();
+                    Future<Void> ret = Future.succeededFuture();
+                    for (int i = 0; i < workloads.size() && ret.succeeded(); i++) {
+                        Workload workload = workloads.get(i);
+                        if (workload == null) {
+                            ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadIds.get(i)));
+                        } else if (workload.getStatus().isOpen()) {
+                            ret = Future.failedFuture(new IllegalStateException("Workload " + workload.getId() + " is " + workload.getStatus()
+                                    + "; stop or destroy it before deleting it"));
+                        }
+                    }
+                    if (ret.succeeded()) {
                         // the logs go first: a record without logs is an ended run like any other, while
                         // logs without a record could never be found again
-                        ret = lokiClient.delete(TelemetryTenant.of(workload.getOrganizationId()),
-                                                TelemetryTenant.workloadLogSelector(workloadId),
-                                                0, System.currentTimeMillis())
-                                        .compose(v -> workloadService.deleteByIdSync(workloadId));
+                        ret = deleteLogs(workloads)
+                                .compose(v -> Future.all(workloads.stream().map(workload -> workloadService.deleteById(workload.getId())).toList()))
+                                // one refresh for the batch, so a listing made right after no longer shows any of them
+                                .compose(v -> workloadService.syncIndex());
                     }
                     return ret;
                 });
+    }
+
+    // One delete request per organization, in selectors of bounded length: Loki filters every pending
+    // request against every query in the tenant until its compactor has applied it
+    private Future<Void> deleteLogs(List<Workload> workloads) {
+        Map<String, List<String>> idsByTenant = new LinkedHashMap<>();
+        for (Workload workload : workloads) {
+            idsByTenant.computeIfAbsent(TelemetryTenant.of(workload.getOrganizationId()), tenant -> new ArrayList<>()).add(workload.getId());
+        }
+        long now = System.currentTimeMillis();
+        Future<Void> ret = Future.succeededFuture();
+        for (Map.Entry<String, List<String>> tenant : idsByTenant.entrySet()) {
+            List<String> ids = tenant.getValue();
+            for (int from = 0; from < ids.size(); from += LOG_DELETE_BATCH) {
+                List<String> batch = ids.subList(from, Math.min(ids.size(), from + LOG_DELETE_BATCH));
+                ret = ret.compose(v -> lokiClient.delete(tenant.getKey(), TelemetryTenant.workloadLogSelector(batch), 0, now));
+            }
+        }
+        return ret;
     }
 
     /**

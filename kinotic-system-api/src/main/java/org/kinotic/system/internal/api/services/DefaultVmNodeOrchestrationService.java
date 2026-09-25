@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.event.CRI;
 import org.kinotic.core.api.event.EventBusService;
 import org.kinotic.core.api.event.ListenerStatus;
+import org.kinotic.core.api.reconcile.ReconcileState;
 import org.kinotic.core.api.reconcile.Reconciler;
 import org.kinotic.core.api.reconcile.Requeue;
 import org.kinotic.core.api.reconcile.StatusCondition;
@@ -124,8 +125,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         ret = Future.failedFuture(
                                 new IllegalArgumentException("Node not registered: " + nodeId));
                     } else {
-                        if (!reported.equals(node.getState().getObserved())
-                                || !Objects.equals(node.getHealthMessage(), message)) {
+                        ReconcileState<VmNodeState> state = node.getState();
+                        boolean reportChanged = !reported.equals(state.getObserved())
+                                || state.getObservedGeneration() != state.getGeneration();
+                        boolean marked = StatusConditions.has(state.getConditions(), StatusConditionType.NODE_UNREACHABLE);
+                        if (reportChanged || !Objects.equals(node.getHealthMessage(), message)) {
                             if (message != null) {
                                 log.warn("VmNode {} is not fit for workloads: {}", nodeId, message);
                             } else {
@@ -133,11 +137,20 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                             }
                         }
                         // a heartbeat is the only evidence the node is alive; no other write stamps lastSeen
-                        ret = vmNodeService.recordHeartbeat(nodeId, message)
-                                .compose(v -> vmNodeService.reportObserved(nodeId, reported, node.getState().getGeneration(), "heartbeat"))
-                                // the heartbeat ends whatever silence or undelivered call the condition was inferred from
-                                .compose(v -> vmNodeService.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "heartbeat"))
-                                .compose(v -> vmNodeService.findById(nodeId));
+                        Future<Void> written = vmNodeService.recordHeartbeat(nodeId, message);
+                        // the state is written only when the heartbeat changes it, which the read just made
+                        // tells: the common heartbeat is one read and one write
+                        if (reportChanged) {
+                            written = written.compose(v -> vmNodeService.reportObserved(nodeId, reported, state.getGeneration(), "heartbeat"));
+                        }
+                        if (marked) {
+                            // the heartbeat ends whatever silence or undelivered call the condition was inferred from
+                            written = written.compose(v -> vmNodeService.clearCondition(nodeId, StatusConditionType.NODE_UNREACHABLE, "heartbeat")
+                                                                       .mapEmpty());
+                        }
+                        ret = written.compose(v -> reportChanged || marked
+                                ? vmNodeService.findById(nodeId)
+                                : Future.succeededFuture(node.setLastSeen(new Date()).setHealthMessage(message)));
                     }
                     return ret;
                 });

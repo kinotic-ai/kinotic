@@ -102,9 +102,11 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
             // it; the node's next report, or its deregistration, brings the record back here
             ret = microserviceDeploymentRepository.setCondition(current.getId(), unreachable, "workload " + workload.getId())
                                                   .map(Requeue.NONE);
-        } else {
+        } else if (StatusConditions.has(current.getState().getConditions(), StatusConditionType.NODE_UNREACHABLE)) {
             ret = microserviceDeploymentRepository.clearCondition(current.getId(), StatusConditionType.NODE_UNREACHABLE, "workload reachable")
                                                   .compose(cleared -> decide(current, desired, workload, target));
+        } else {
+            ret = decide(current, desired, workload, target);
         }
         return ret;
     }

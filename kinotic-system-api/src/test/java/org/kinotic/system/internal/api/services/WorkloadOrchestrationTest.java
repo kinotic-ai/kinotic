@@ -561,6 +561,35 @@ public class WorkloadOrchestrationTest {
     }
 
     @Test
+    public void deletingABatchAsksTheLogStoreOncePerTenant() throws Exception {
+        Workload first = await(orchestration.deployWorkload(newWorkload().setOrganizationId("acme")));
+        Workload second = await(orchestration.deployWorkload(newWorkload().setOrganizationId("acme")));
+        Workload other = await(orchestration.deployWorkload(newWorkload().setOrganizationId("globex")));
+        for (Workload workload : List.of(first, second, other)) {
+            await(orchestration.stopWorkload(workload.getId()));
+        }
+
+        await(orchestration.deleteWorkloads(List.of(first.getId(), second.getId(), other.getId())));
+
+        assertEquals(List.of("acme {workload_id=~\"" + first.getId() + "|" + second.getId() + "\"}",
+                             "globex {workload_id=\"" + other.getId() + "\"}"),
+                     loki.deletes);
+        assertTrue(workloads.saved.isEmpty());
+    }
+
+    @Test
+    public void deletingABatchWithAnOpenRunDeletesNothing() throws Exception {
+        Workload ended = await(orchestration.deployWorkload(newWorkload()));
+        await(orchestration.stopWorkload(ended.getId()));
+        Workload running = await(orchestration.deployWorkload(newWorkload()));
+
+        assertThrows(Exception.class, () -> await(orchestration.deleteWorkloads(List.of(ended.getId(), running.getId()))));
+
+        assertEquals(2, workloads.saved.size());
+        assertTrue(loki.deletes.isEmpty());
+    }
+
+    @Test
     public void platformWorkloadLogsLiveInTheSystemTenant() throws Exception {
         Workload deployed = await(orchestration.deployWorkload(newWorkload()));
         await(orchestration.stopWorkload(deployed.getId()));
