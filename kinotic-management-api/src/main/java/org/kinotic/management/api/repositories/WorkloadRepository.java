@@ -93,7 +93,7 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
     }
 
     /**
-     * The workloads whose run ended before the cutoff, oldest first: the ones the retention sweep
+     * The workloads whose run ended before the cutoff, oldest first: the ones the cleanup
      * deletes.
      */
     public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {

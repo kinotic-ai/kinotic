@@ -57,7 +57,7 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     // Every node requests the deployment; Ignite elects a single host for it cluster-wide
     @EventListener(ApplicationReadyEvent.class)
     public void deployRetentionSweep() {
-        ignite.services().deployClusterSingleton(WorkloadRetentionSweeper.SINGLETON_NAME, new WorkloadRetentionSweeper());
+        ignite.services().deployClusterSingleton(WorkloadCleanupService.SINGLETON_NAME, new WorkloadCleanupService());
     }
 
     // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;

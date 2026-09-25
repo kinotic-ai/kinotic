@@ -17,7 +17,7 @@ public class WorkloadProperties {
 
     /**
      * How long (in days) the record of a run that has ended is kept, with its logs, before the
-     * retention sweep deletes it.
+     * cleanup deletes it.
      */
     private int retentionDays = 30;
 

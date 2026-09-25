@@ -84,7 +84,7 @@ public class WorkloadOrchestrationTest {
         properties = new KinoticSystemApiProperties();
         vertx = Vertx.vertx();
         nodeOrchestration = new DefaultVmNodeOrchestrationService(properties, nodes, workloads, eventBus, vertx);
-        // the retention sweep is deployed on the Ignite service grid, which these tests do not run
+        // WorkloadCleanupService is deployed on the Ignite service grid, which these tests do not run
         orchestration = new DefaultWorkloadOrchestrationService(nodeOrchestration, vmManager,
                                                                 nodes, workloads, loki, null);
     }

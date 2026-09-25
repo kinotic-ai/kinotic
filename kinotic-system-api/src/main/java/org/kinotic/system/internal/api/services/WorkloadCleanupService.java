@@ -21,9 +21,9 @@ import java.util.List;
  * runs as one HA cluster singleton on the Ignite service grid, once when it starts and hourly after.
  */
 @Slf4j
-public class WorkloadRetentionSweeper implements Service {
+public class WorkloadCleanupService implements Service {
 
-    static final String SINGLETON_NAME = "workload-retention";
+    static final String SINGLETON_NAME = "workload-cleanup";
 
     private static final long SWEEP_MS = 3_600_000;
     private static final int PAGE_SIZE = 100;
@@ -45,7 +45,7 @@ public class WorkloadRetentionSweeper implements Service {
 
     @Override
     public void init() {
-        log.info("Starting workload retention sweep singleton");
+        log.info("Starting workload cleanup singleton");
         sweep();
         timerId = vertx.setPeriodic(SWEEP_MS, id -> sweep());
     }
@@ -57,7 +57,7 @@ public class WorkloadRetentionSweeper implements Service {
 
     @Override
     public void cancel() {
-        log.info("Stopping workload retention sweep singleton");
+        log.info("Stopping workload cleanup singleton");
         vertx.cancelTimer(timerId);
     }
 
@@ -65,7 +65,7 @@ public class WorkloadRetentionSweeper implements Service {
         int retentionDays = properties.getSystemApi().getWorkload().getRetentionDays();
         Date cutoff = new Date(System.currentTimeMillis() - Duration.ofDays(retentionDays).toMillis());
         sweepPage(cutoff, retentionDays, 1)
-                .onFailure(error -> log.error("Workload retention sweep failed; what it left is taken by the next sweep", error));
+                .onFailure(error -> log.error("Workload cleanup failed; what it left is taken by the next run", error));
     }
 
     // The oldest page is deleted as one batch, and the next page read once it is gone, until a page
