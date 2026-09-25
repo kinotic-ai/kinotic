@@ -11,14 +11,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Event handling over scripted deliveries: only pushes to the default branch deploy, and
- * per-project serialization collapses queued pushes to the newest commit.
+ * Event handling over scripted deliveries: only pushes to the default branch deploy.
  */
 public class ProjectDeployOrchestratorTest {
 
     private static final String SHA_1 = "1".repeat(40);
     private static final String SHA_2 = "2".repeat(40);
-    private static final String SHA_3 = "3".repeat(40);
 
     private RecordingProjectDeployOrchestrator deploys;
 
@@ -36,25 +34,6 @@ public class ProjectDeployOrchestratorTest {
         deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
 
         assertEquals(List.of(SHA_2), deploys.deployedShas);
-    }
-
-    @Test
-    public void pushesDuringADeploymentCollapseToTheNewestCommit() {
-        deploys.onEvent(event("proj-1", push(SHA_1, "refs/heads/main", "main", false)));
-        deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
-        deploys.onEvent(event("proj-1", push(SHA_3, "refs/heads/main", "main", false)));
-        assertEquals(List.of(SHA_1), deploys.deployedShas);
-
-        // Finishing the first run deploys only the newest queued commit; SHA_2 is skipped
-        deploys.outcomes.get(0).complete();
-        assertEquals(List.of(SHA_1, SHA_3), deploys.deployedShas);
-
-        // With nothing queued, completing the last run leaves the project idle
-        deploys.outcomes.get(1).complete();
-        assertEquals(2, deploys.deployedShas.size());
-
-        deploys.onEvent(event("proj-1", push(SHA_2, "refs/heads/main", "main", false)));
-        assertEquals(List.of(SHA_1, SHA_3, SHA_2), deploys.deployedShas);
     }
 
     private static GitHubProjectEvent event(String projectId, GitHubWebhookEvent webhook) {

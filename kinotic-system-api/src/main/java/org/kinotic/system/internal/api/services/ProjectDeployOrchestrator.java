@@ -7,6 +7,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.annotations.Consumer;
+import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.core.api.reconcile.Reconciler;
+import org.kinotic.core.api.reconcile.Requeue;
+import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.management.api.model.Project;
@@ -22,34 +26,32 @@ import org.kinotic.grind.api.model.events.TaskCompletedEvent;
 import org.kinotic.grind.api.services.JobService;
 import org.kinotic.system.api.model.deployment.DeployTarget;
 import org.kinotic.system.api.model.deployment.ProjectDeployStores;
-import org.kinotic.system.internal.api.model.deployment.PendingDeploy;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Deploys a project whenever a commit lands on its repository's default branch. Consumes
- * the verified {@link GitHubProjectEvent}s the management module publishes to the event
- * fabric — so a push deploys no matter which node received the webhook — runs each
- * qualifying push as a grind job created by {@link ProjectDeployJobDefinitionFactory},
- * and records the outcome on the project's {@link ProjectDeployment}. The project's own
- * repository has no CI — this job is it, so a commit whose build fails never reaches the
- * runtime workloads.
+ * Deploys a project whenever a commit lands on its repository's default branch, and keeps it
+ * deployed. Consumes the verified {@link GitHubProjectEvent}s the management module publishes to
+ * the event fabric, so a push is recorded no matter which node received the webhook, as what the
+ * project's {@link ProjectDeployment} should be: the commit, running. The reconcile master then
+ * calls this worker, on one node, which runs each qualifying commit as a grind job created by
+ * {@link ProjectDeployJobDefinitionFactory} and reports the outcome on the record. The project's
+ * own repository has no CI, this job is it, so a commit whose build fails never reaches the runtime
+ * workloads.
  * <p>
- * Deployments are serialized per project with latest-wins: pushes arriving while a
- * deployment runs collapse to the newest commit, which deploys next — intermediate commits
- * are skipped, and GitHub redeliveries of the same commit are harmless because syncing a
- * commit twice converges to the same checkout.
+ * Pushes arriving while a deployment runs collapse to the newest commit, which deploys next: the
+ * record holds only the latest intent, and the master calls the worker once more when the run ends.
+ * Intermediate commits are skipped, and GitHub redeliveries of the same commit are harmless because
+ * an intent already in place is not written twice.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class ProjectDeployOrchestrator {
+public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> {
 
     /** The sha GitHub sends as {@code after} when a push deletes a ref. */
     private static final String ZERO_SHA = "0".repeat(40);
@@ -59,19 +61,18 @@ public class ProjectDeployOrchestrator {
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final ProjectRepository projectRepository;
 
-    private final Set<String> deployingProjects = new HashSet<>();
-    private final Map<String, PendingDeploy> pendingDeploys = new HashMap<>();
+    // The projects whose deployment job this node is running, so a record left DEPLOYING by a master
+    // that died mid-run is told apart from one this master is running
+    private final Set<String> running = ConcurrentHashMap.newKeySet();
 
     /**
-     * Deploys the given commit of the project, completing when the deployment has finished
-     * and its {@link ProjectDeployment} record reflects the outcome. Fails when the sync
-     * workload's run fails — the workload is then kept so its logs can be inspected — or
-     * when any other task of the deployment fails.
+     * Records that the given commit of the project should be deployed. The deployment itself runs
+     * once the reconcile master calls this worker for the record.
      *
      * @param organizationId the organization owning the project
      * @param projectId the project to deploy
      * @param commitSha the commit to bring the node's checkout to
-     * @return a future that completes when the deployment has finished
+     * @return a future that completes once the intent is recorded
      */
     public Future<Void> deployProject(String organizationId, String projectId, String commitSha) {
         Validate.notBlank(organizationId, "organizationId cannot be blank");
@@ -83,8 +84,16 @@ public class ProjectDeployOrchestrator {
                     if (project == null) {
                         ret = Future.failedFuture(new IllegalArgumentException("Project not found: " + projectId));
                     } else {
-                        ret = projectDeploymentRepository.findById(projectId, organizationId)
-                                                         .compose(existing -> runDeployJob(project, existing, commitSha));
+                        ProjectDeployment upsert = new ProjectDeployment()
+                                .setId(project.getId())
+                                .setOrganizationId(project.getOrganizationId())
+                                .setApplicationId(project.getApplicationId())
+                                .setCreated(new Date())
+                                .setUpdated(new Date());
+                        ret = projectDeploymentRepository.updateDesired(projectId, organizationId,
+                                                                        new DeploymentState(DeploymentStatusType.RUNNING, commitSha),
+                                                                        upsert, "push of " + commitSha)
+                                                         .mapEmpty();
                     }
                     return ret;
                 });
@@ -104,58 +113,67 @@ public class ProjectDeployOrchestrator {
                     && defaultBranch != null
                     && ("refs/heads/" + defaultBranch).equals(payload.getString("ref"));
             if (deploys) {
-                enqueue(event.getOrganizationId(), event.getProjectId(), commitSha);
+                deployProject(event.getOrganizationId(), event.getProjectId(), commitSha)
+                        .onFailure(error -> log.error("Could not record the push of {} to project {}",
+                                                      commitSha, event.getProjectId(), error));
             }
         }
     }
 
-    private synchronized void enqueue(String organizationId, String projectId, String commitSha) {
-        if (deployingProjects.contains(projectId)) {
-            // latest-wins: only the newest commit waits, older queued ones are superseded
-            log.debug("Project {} is already deploying; commit {} queued behind it", projectId, commitSha);
-            pendingDeploys.put(projectId, new PendingDeploy(organizationId, commitSha));
-        } else {
-            deployingProjects.add(projectId);
-            deployAndContinue(organizationId, projectId, commitSha);
-        }
+    @Override
+    public WatchedType type() {
+        return WatchedType.PROJECT_DEPLOYMENT;
     }
 
-    private void deployAndContinue(String organizationId, String projectId, String commitSha) {
-        log.debug("Deploying project {} at commit {}", projectId, commitSha);
-        deployProject(organizationId, projectId, commitSha)
-                .onSuccess(unused -> log.debug("Deployed project {} at commit {}", projectId, commitSha))
-                .onFailure(error -> log.error("Deployment of project {} at commit {} failed",
-                                              projectId, commitSha, error))
-                .onComplete(unused -> deployNextOrRelease(projectId));
-    }
-
-    private synchronized void deployNextOrRelease(String projectId) {
-        PendingDeploy next = pendingDeploys.remove(projectId);
-        if (next != null) {
-            deployAndContinue(next.organizationId(), projectId, next.commitSha());
+    @Override
+    public Future<Requeue> reconcile(ProjectDeployment current) {
+        ReconcileState<DeploymentState> state = current.getState();
+        DeploymentState desired = state.getDesired();
+        DeploymentState observed = state.getObserved();
+        boolean intentSeen = state.getObservedGeneration() >= state.getGeneration();
+        // a run this node is not running left the record DEPLOYING: the master that ran it is gone
+        boolean abandoned = observed != null && observed.phase() == DeploymentStatusType.DEPLOYING
+                && !running.contains(current.getId());
+        Future<Requeue> ret;
+        if (desired == null || desired.commitSha() == null) {
+            ret = Future.succeededFuture(Requeue.NONE);
+        } else if (intentSeen && !abandoned) {
+            // deployed, or failed and waiting for the next push: a build that failed is not retried
+            ret = Future.succeededFuture(Requeue.NONE);
         } else {
-            deployingProjects.remove(projectId);
+            ret = projectRepository.findById(current.getId(), current.getOrganizationId())
+                    .compose(project -> project == null
+                            ? Future.succeededFuture(Requeue.NONE)
+                            : runDeployJob(project, current, desired.commitSha()).map(Requeue.NONE));
         }
+        return ret;
     }
 
     private Future<Void> runDeployJob(Project project, ProjectDeployment existing, String commitSha) {
+        String projectId = project.getId();
+        long generation = existing.getState().getGeneration();
         JobDefinition definition = jobDefinitionFactory.createJobDefinition(project, existing, commitSha);
         JobRunHandle handle = jobService.run(definition,
                                              JobOwner.ofApplication(project.getOrganizationId(),
                                                                     project.getApplicationId(),
-                                                                    project.getId()));
+                                                                    projectId));
         String jobRunId = handle.getJobRunId();
+        log.debug("Deploying project {} at commit {} in job run {}", projectId, commitSha, jobRunId);
+        running.add(projectId);
 
         // Captured from the run's TaskCompletedEvents as the task stores it in the job scope,
         // so the outcome record reflects how far the run got whatever the outcome
         AtomicReference<DeployTarget> target = new AtomicReference<>();
 
         Promise<Void> outcome = Promise.promise();
-        recordDeploying(project, commitSha, jobRunId)
-                .onFailure(outcome::fail)
+        recordDeploying(existing, jobRunId, generation)
+                .onFailure(error -> {
+                    running.remove(projectId);
+                    outcome.fail(error);
+                })
                 // The job starts when its events are subscribed, so the DEPLOYING record
                 // is in place before any task runs
-                .onSuccess(deployment -> handle.getEvents().subscribe(
+                .onSuccess(unused -> handle.getEvents().subscribe(
                         event -> {
                             if (event instanceof TaskCompletedEvent completed) {
                                 if (ProjectDeployStores.DEPLOY_TARGET.equals(completed.storedName())
@@ -164,34 +182,38 @@ public class ProjectDeployOrchestrator {
                                 }
                             }
                         },
-                        error -> recordOutcome(deployment, jobRunId, target.get(),
-                                               new DeploymentState(DeploymentStatusType.FAILED, liveCommit(deployment)),
-                                               error.getMessage())
-                                .onComplete(unused -> outcome.fail(error)),
-                        () -> recordOutcome(deployment, jobRunId, target.get(),
-                                            new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null)
-                                .onComplete(outcome)));
+                        error -> {
+                            log.error("Deployment of project {} at commit {} failed", projectId, commitSha, error);
+                            recordOutcome(existing, jobRunId, generation, target.get(),
+                                          new DeploymentState(DeploymentStatusType.FAILED, liveCommit(existing)),
+                                          error.getMessage())
+                                    .onComplete(recorded -> {
+                                        running.remove(projectId);
+                                        // the run's failure is the record's, not the worker's: a retry waits for the next push
+                                        outcome.complete();
+                                    });
+                        },
+                        () -> {
+                            log.debug("Deployed project {} at commit {}", projectId, commitSha);
+                            recordOutcome(existing, jobRunId, generation, target.get(),
+                                          new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null)
+                                    .onComplete(recorded -> {
+                                        running.remove(projectId);
+                                        outcome.handle(recorded);
+                                    });
+                        }));
         return outcome.future();
     }
 
-    // The intent creates the record on the project's first deployment; the run then reports that it
-    // is deploying, which generation of intent it answers, and the commit that stays live meanwhile
-    private Future<ProjectDeployment> recordDeploying(Project project, String commitSha, String jobRunId) {
-        ProjectDeployment upsert = new ProjectDeployment()
-                .setId(project.getId())
-                .setOrganizationId(project.getOrganizationId())
-                .setApplicationId(project.getApplicationId())
-                .setCreated(new Date())
-                .setUpdated(new Date());
-        return projectDeploymentRepository.updateDesired(project.getId(), project.getOrganizationId(),
-                                                         new DeploymentState(DeploymentStatusType.RUNNING, commitSha),
-                                                         upsert, "push of " + commitSha)
-                .compose(deployment -> projectDeploymentRepository.recordJobRun(project.getId(), project.getOrganizationId(), jobRunId)
-                        .compose(v -> projectDeploymentRepository.reportObserved(project.getId(), project.getOrganizationId(),
-                                                                                new DeploymentState(DeploymentStatusType.DEPLOYING, liveCommit(deployment)),
-                                                                                deployment.getState().getGeneration(),
-                                                                                "deploy job " + jobRunId))
-                        .map(deployment));
+    // The run reports that it is deploying, which generation of intent it answers, and the commit
+    // that stays live meanwhile
+    private Future<Void> recordDeploying(ProjectDeployment deployment, String jobRunId, long generation) {
+        String projectId = deployment.getId();
+        String organizationId = deployment.getOrganizationId();
+        return projectDeploymentRepository.recordJobRun(projectId, organizationId, jobRunId)
+                .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId,
+                                                                        new DeploymentState(DeploymentStatusType.DEPLOYING, liveCommit(deployment)),
+                                                                        generation, "deploy job " + jobRunId));
     }
 
     // The commit the deployment serves as the record stood before this run: a failed run leaves it live
@@ -204,6 +226,7 @@ public class ProjectDeployOrchestrator {
     // by field rather than from the copy captured before the job started
     private Future<Void> recordOutcome(ProjectDeployment deployment,
                                        String jobRunId,
+                                       long generation,
                                        DeployTarget target,
                                        DeploymentState observed,
                                        String failure) {
@@ -217,8 +240,7 @@ public class ProjectDeployOrchestrator {
             ret = Future.succeededFuture();
         }
         return ret.compose(v -> projectDeploymentRepository.recordFailure(projectId, organizationId, failure))
-                  .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId, observed,
-                                                                           deployment.getState().getGeneration(),
+                  .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId, observed, generation,
                                                                            "deploy job " + jobRunId))
                   .onFailure(error -> log.error("Failed to record deployment outcome for project {}", projectId, error));
     }

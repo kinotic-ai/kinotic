@@ -4,6 +4,8 @@ import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.Kinotic;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.reconcile.StatusCondition;
 import org.kinotic.core.api.reconcile.StatusConditionType;
 import org.kinotic.core.api.reconcile.Watched;
@@ -89,9 +91,43 @@ public class WatchedStateRepository {
             }
             """;
 
+    // The master's bookkeeping, not a change to the record, so it is not entered in the ledger. A write
+    // that landed since the scan stamped a later dirtyAt and keeps its mark.
+    private static final String CLEAR_DIRTY = STATE_FUNCTIONS + """
+            def s = state(ctx._source);
+            if (s.dirty != true || s.dirtyAt == null || (long) s.dirtyAt != (long) params.dirtyAt) {
+                ctx.op = 'noop';
+            } else {
+                s.dirty = false;
+            }
+            """;
+
     private final CrudServiceTemplate crudServiceTemplate;
     private final WatchEventRepository watchEventRepository;
     private final Kinotic kinotic;
+
+    /**
+     * @param indexName the index to search
+     * @param type      the record type
+     * @param pageable  the page to return
+     * @return the records written since the reconcile master last saw them
+     */
+    public <R> Future<Page<R>> findDirty(String indexName, Class<R> type, Pageable pageable) {
+        Validate.notBlank(indexName, "indexName cannot be blank");
+        return crudServiceTemplate.search(indexName, pageable, type,
+                                          b -> b.query(crudServiceTemplate.termFilter("state.dirty", true)));
+    }
+
+    /**
+     * Marks the write the reconcile master saw as seen. A record written again since keeps its mark.
+     *
+     * @param document the record
+     * @param dirtyAt  the write the master saw, as the record's state stamped it
+     */
+    public Future<Void> clearDirty(WatchedDocument document, long dirtyAt) {
+        Validate.notNull(document, "document cannot be null");
+        return run(document, CLEAR_DIRTY, Map.of("dirtyAt", dirtyAt)).mapEmpty();
+    }
 
     /**
      * Sets the condition on the record, beside the fields its authority writes, and records it. A
