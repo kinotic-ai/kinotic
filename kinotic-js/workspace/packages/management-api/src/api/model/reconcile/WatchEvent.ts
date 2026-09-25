@@ -30,6 +30,6 @@ export interface WatchEvent {
     generation: number | null
     /** Why, for an operator. */
     message: string
-    /** What was written. */
+    /** What was written, as JSON. */
     value: unknown
 }

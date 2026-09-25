@@ -1,6 +1,7 @@
 package org.kinotic.domain.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import tools.jackson.databind.JsonNode;
 
 import java.util.Date;
 
@@ -19,7 +20,7 @@ import java.util.Date;
  * @param serverNodeId the server node that wrote it
  * @param generation   the record's generation when written, null for a record that carries none
  * @param message      why, for an operator
- * @param value        what was written, as an object
+ * @param value        what was written, as JSON
  */
 public record WatchEvent(@JsonProperty("@timestamp") Date timestamp,
                          WatchedType type,
@@ -31,5 +32,5 @@ public record WatchEvent(@JsonProperty("@timestamp") Date timestamp,
                          String serverNodeId,
                          Long generation,
                          String message,
-                         Object value) {
+                         JsonNode value) {
 }

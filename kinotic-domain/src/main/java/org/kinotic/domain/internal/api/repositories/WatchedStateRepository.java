@@ -205,7 +205,8 @@ public class WatchedStateRepository {
         String scope = (String) written.get(AbstractOrganizationScopedRepository.ORGANIZATION_ID_FIELD);
         return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), scope,
                                                           parent, change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
-                                                          generation, change.message(), change.value()));
+                                                          generation, change.message(),
+                                                          crudServiceTemplate.getObjectMapper().valueToTree(change.value())));
     }
 
     /**

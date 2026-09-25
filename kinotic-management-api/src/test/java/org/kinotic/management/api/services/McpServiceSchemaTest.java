@@ -12,6 +12,7 @@ import org.kinotic.idl.api.schema.ServiceDefinition;
 import org.kinotic.idl.api.schema.decorators.McpToolC3Decorator;
 import org.kinotic.idl.internal.directory.DefaultResolvableTypeConverter;
 import org.kinotic.idl.internal.directory.DefaultSchemaFactory;
+import org.kinotic.idl.internal.directory.JsonNodeToC3Type;
 import org.kinotic.idl.internal.directory.ReactiveToC3Type;
 import org.kinotic.idl.internal.directory.TokenBufferToC3Type;
 import org.kinotic.idl.internal.directory.jdk.ArrayToC3Type;
@@ -166,6 +167,7 @@ public class McpServiceSchemaTest {
                                                            new URIToC3Type(),
                                                            new VoidToC3Type(),
                                                            new TokenBufferToC3Type(),
+                                                           new JsonNodeToC3Type(),
                                                            new ReactiveToC3Type(registryProvider()));
         return new DefaultSchemaFactory(new DefaultResolvableTypeConverter(converters));
     }
