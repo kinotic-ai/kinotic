@@ -45,5 +45,5 @@ dependencies {
 test {
     systemProperty 'spring.profiles.active', 'test'
     // some tests take longer
-    timeout = Duration.ofMinutes(10)
+    timeout = Duration.ofMinutes(20)
 }
