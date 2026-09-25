@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.core.api.reconcile.Reconcilable;
-import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.model.Reconcilable;
+import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.OrganizationScoped;
 

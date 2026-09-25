@@ -2,10 +2,10 @@ package org.kinotic.system.internal.api.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.ignite.Ignite;
-import org.kinotic.core.api.reconcile.ReconcilableRepository;
-import org.kinotic.core.api.reconcile.Reconciler;
-import org.kinotic.core.api.reconcile.WatchedRepository;
-import org.kinotic.core.api.reconcile.WatchedType;
+import org.kinotic.domain.api.repositories.ReconcilableRepository;
+import org.kinotic.domain.api.services.Reconciler;
+import org.kinotic.domain.api.repositories.WatchedRepository;
+import org.kinotic.domain.api.model.WatchedType;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;

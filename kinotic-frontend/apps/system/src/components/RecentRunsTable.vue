@@ -44,8 +44,7 @@ import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
 
-import { StatusConditionType, findStatusCondition, type StatusCondition } from '@kinotic-ai/core'
-import type { JobRun } from '@kinotic-ai/management-api'
+import { StatusConditionType, findStatusCondition, type JobRun, type StatusCondition } from '@kinotic-ai/management-api'
 import { DatetimeUtil, executionStatusSeverity } from '@kinotic-ai/frontend-common'
 
 import { scopePath, type Scope } from '@/util/scope'

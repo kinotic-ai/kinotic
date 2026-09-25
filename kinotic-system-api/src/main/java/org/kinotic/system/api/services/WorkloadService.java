@@ -5,8 +5,8 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.core.api.reconcile.StatusCondition;
-import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 

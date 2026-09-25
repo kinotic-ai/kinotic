@@ -1,4 +1,5 @@
-import { ReconcileState, type Reconcilable } from '@kinotic-ai/core'
+import type { Reconcilable } from '@/api/model/Reconcilable'
+import { ReconcileState } from '@/api/model/ReconcileState'
 import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
 import type { DeploymentState } from '@/api/model/DeploymentState'
 

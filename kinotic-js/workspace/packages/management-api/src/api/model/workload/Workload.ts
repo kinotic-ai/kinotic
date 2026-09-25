@@ -1,4 +1,5 @@
-import { WatchedState, type Watched } from '@kinotic-ai/core'
+import type { Watched } from '@/api/model/Watched'
+import { WatchedState } from '@/api/model/WatchedState'
 import { WorkloadStatus } from '@/api/model/workload/WorkloadStatus'
 import type { VolumeMount } from '@/api/model/workload/VolumeMount'
 import type { PortMapping } from '@/api/model/workload/PortMapping'

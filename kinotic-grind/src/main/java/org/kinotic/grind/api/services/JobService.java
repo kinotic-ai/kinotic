@@ -1,6 +1,6 @@
 package org.kinotic.grind.api.services;
 
-import org.kinotic.core.api.reconcile.WatchedParent;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.grind.api.model.*;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import reactor.core.publisher.Flux;

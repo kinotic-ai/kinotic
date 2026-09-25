@@ -1,5 +1,5 @@
-import { Direction, Kinotic, Order, Pageable, Sort, StatusConditionType, findStatusCondition,
-         type StatusCondition } from '@kinotic-ai/core'
+import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
+import { StatusConditionType, findStatusCondition, type StatusCondition } from '@kinotic-ai/management-api'
 import { VmNodeStatusType, type VmNode } from '@kinotic-ai/system-api'
 
 /** How many worker nodes the console reads; a platform with more shows the first page of them. */

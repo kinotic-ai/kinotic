@@ -1,5 +1,5 @@
-import { Direction, Kinotic, Order, Pageable, Sort, StatusConditionType, findStatusCondition, type StatusCondition } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { Direction, Kinotic, Order, Pageable, Sort } from '@kinotic-ai/core'
+import { StatusConditionType, WorkloadStatus, findStatusCondition, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
 import type { Scope } from './scope'
 
 /**

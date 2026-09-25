@@ -43,9 +43,8 @@ import Button from 'primevue/button'
 import Column from 'primevue/column'
 import DataTable from 'primevue/datatable'
 import Tag from 'primevue/tag'
-import { StatusConditionType, findStatusCondition, type StatusCondition } from '@kinotic-ai/core'
+import { StatusConditionType, findStatusCondition, type MicroserviceDeployment, type StatusCondition } from '@kinotic-ai/management-api'
 import { deploymentStatusSeverity, shortSha } from '@kinotic-ai/frontend-common'
-import type { MicroserviceDeployment } from '@kinotic-ai/management-api'
 
 /**
  * The microservices a project's deployments have ensured, one row each with the phase it reports,

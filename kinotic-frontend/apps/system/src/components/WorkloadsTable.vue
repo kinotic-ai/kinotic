@@ -65,8 +65,7 @@ import { useConfirm } from 'primevue/useconfirm'
 
 import { Direction, FunctionalIterablePage, Kinotic, Order,
          type IterablePage, type Page, type Pageable, type Sort } from '@kinotic-ai/core'
-import type { StatusCondition } from '@kinotic-ai/core'
-import { WorkloadStatus, type Workload } from '@kinotic-ai/management-api'
+import { WorkloadStatus, type StatusCondition, type Workload } from '@kinotic-ai/management-api'
 import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, useCrudTablePage,
          type CrudHeader, type DescriptiveIdentifiable } from '@kinotic-ai/frontend-common'
 

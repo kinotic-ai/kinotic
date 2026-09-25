@@ -5,7 +5,7 @@ import org.kinotic.core.api.Kinotic;
 import org.kinotic.grind.api.model.ExecutionStatus;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.JobOwner;
-import org.kinotic.core.api.reconcile.WatchedParent;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.grind.api.model.JobRun;
 import org.kinotic.grind.api.model.events.JobRunEvent;
 import org.kinotic.grind.api.model.JobRunHandle;

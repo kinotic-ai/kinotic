@@ -4,7 +4,7 @@ import org.kinotic.grind.internal.api.model.DefaultJobDefinition;
 import org.kinotic.grind.internal.model.SerializedState;
 import io.vertx.core.Context;
 import io.vertx.core.Future;
-import org.kinotic.core.api.reconcile.WatchedParent;
+import org.kinotic.domain.api.model.WatchedParent;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.VertxInternal;
 import lombok.extern.slf4j.Slf4j;
