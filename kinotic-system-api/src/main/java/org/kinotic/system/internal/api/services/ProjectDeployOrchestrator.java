@@ -242,7 +242,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                         error -> {
                             log.error("Deployment of project {} at commit {} failed", projectId, commitSha, error);
                             recordOutcome(existing, jobRunId, generation, target.get(),
-                                          new DeploymentState(DeploymentStatusType.FAILED, liveCommit(existing)),
+                                          new DeploymentState(DeploymentStatusType.FAILED, DeploymentState.commitOf(existing.getState().getObserved())),
                                           error.getMessage())
                                     .onComplete(recorded -> {
                                         running.remove(projectId);
@@ -339,14 +339,8 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
         String organizationId = deployment.getOrganizationId();
         return projectDeploymentRepository.recordJobRun(projectId, organizationId, jobRunId)
                 .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId,
-                                                                        new DeploymentState(DeploymentStatusType.DEPLOYING, liveCommit(deployment)),
+                                                                        new DeploymentState(DeploymentStatusType.DEPLOYING, DeploymentState.commitOf(deployment.getState().getObserved())),
                                                                         generation, "deploy job " + jobRunId));
-    }
-
-    // The commit the deployment serves as the record stood before this run: a failed run leaves it live
-    private static String liveCommit(ProjectDeployment deployment) {
-        DeploymentState observed = deployment.getState().getObserved();
-        return observed != null ? observed.commitSha() : null;
     }
 
     // The run's own tasks write the record's entity fields as they go, so the outcome is written field

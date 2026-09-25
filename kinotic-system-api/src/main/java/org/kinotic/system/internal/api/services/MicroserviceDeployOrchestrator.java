@@ -218,13 +218,7 @@ public class MicroserviceDeployOrchestrator implements Reconciler<MicroserviceDe
     }
 
     private Future<Requeue> failIntent(MicroserviceDeployment current, DeploymentState desired, String message) {
-        return answered(current, desired, new DeploymentState(DeploymentStatusType.FAILED, liveCommit(current)), message);
-    }
-
-    // The commit the microservice serves as the record stood: a failed deployment leaves it live
-    private static String liveCommit(MicroserviceDeployment deployment) {
-        DeploymentState observed = deployment.getState().getObserved();
-        return observed != null ? observed.commitSha() : null;
+        return answered(current, desired, new DeploymentState(DeploymentStatusType.FAILED, DeploymentState.commitOf(current.getState().getObserved())), message);
     }
 
     /**

@@ -10,4 +10,12 @@ package org.kinotic.domain.api.model;
  * @param commitSha the commit, or null while none is served
  */
 public record DeploymentState(DeploymentStatusType phase, String commitSha) {
+
+    /**
+     * The commit a state serves, or null when there is no state: what stays live through a
+     * deployment that has not finished, or failed.
+     */
+    public static String commitOf(DeploymentState state) {
+        return state == null ? null : state.commitSha();
+    }
 }

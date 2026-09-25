@@ -91,7 +91,7 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
                                                                         state.getGeneration(), "site check"))
                     .map(Requeue.NONE);
         } else {
-            DeploymentState observed = new DeploymentState(DeploymentStatusType.PROVISIONING, liveCommit(current));
+            DeploymentState observed = new DeploymentState(DeploymentStatusType.PROVISIONING, DeploymentState.commitOf(current.getState().getObserved()));
             // the observation changes with every check and is worth a write only when it says something new
             Future<Void> noted = Objects.equals(status.message(), current.getFailureMessage())
                     ? Future.succeededFuture()
@@ -100,12 +100,6 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
                        .map(Requeue.after(CHECK_INTERVAL));
         }
         return ret;
-    }
-
-    // The commit the site serves as the record stood: a publish not yet served leaves it live
-    private static String liveCommit(UiDeployment deployment) {
-        DeploymentState observed = deployment.getState().getObserved();
-        return observed != null ? observed.commitSha() : null;
     }
 
     /**
