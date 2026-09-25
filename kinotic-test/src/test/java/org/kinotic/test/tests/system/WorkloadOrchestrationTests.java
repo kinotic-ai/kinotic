@@ -231,6 +231,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
     public void silentNodeAlreadyMarkedKeepsItsMark() throws Exception {
         Workload deployed = markedUnreachableBySilence();
         Date since = nodeUnreachableSince();
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
 
         Requeue requeue = await(nodeWorker.reconcile(node()));
 
@@ -751,7 +752,9 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
 
     /**
      * Deploys a workload and calls the node's worker with the heartbeat overdue, as the master does,
-     * returning the workload once the worker has marked it unreachable.
+     * returning the workload once the worker has marked it unreachable. The default heartbeat standard
+     * is back in force on return: the master keeps calling the worker for the node, and by the
+     * one-second standard a node is silent again before its own registration has finished writing.
      */
     private Workload markedUnreachableBySilence() throws Exception {
         properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(1);
@@ -759,6 +762,7 @@ public class WorkloadOrchestrationTests extends KinoticTestBase {
         silentFor(Duration.ofSeconds(10));
 
         await(nodeWorker.reconcile(node()));
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(DEFAULT_HEARTBEAT_TIMEOUT_SECONDS);
 
         assertTrue(nodeUnreachable());
         assertTrue(unreachable(deployed.getId()));
