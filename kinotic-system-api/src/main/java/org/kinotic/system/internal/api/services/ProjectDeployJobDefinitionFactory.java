@@ -2,6 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
+import java.util.function.Supplier;
+import org.kinotic.core.api.reconcile.Reconcilable;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.core.api.reconcile.WatchedParent;
@@ -29,7 +31,6 @@ import org.kinotic.management.api.repositories.UiDeploymentRepository;
 import org.kinotic.system.api.config.UiDeploymentProperties;
 import org.kinotic.system.api.services.SiteStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
-import org.kinotic.system.api.services.UiDeploymentProvisioner;
 import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
@@ -63,7 +64,7 @@ import java.util.stream.Collectors;
  * the target node and checkout directory, bring the checkout to the commit with a
  * foreground sync workload, bind the artifacts that workload found into the run, ask for one
  * long-lived runtime workload per microservice of the commit and wait for the microservices'
- * workers to answer, and publish its UIs. The resolved {@link DeployTarget}, the artifacts, the
+ * workers to answer, and upload its UIs and ask for their sites to serve them. The resolved {@link DeployTarget}, the artifacts, the
  * microservice deployments and the UI deployments are stored in the job scope under the
  * {@link ProjectDeployStores} names, so the run's {@code TaskCompletedEvent}s and
  * {@code TaskRecord}s carry them to the caller and the console.
@@ -77,9 +78,9 @@ public class ProjectDeployJobDefinitionFactory {
     private static final int MAX_LABEL_LENGTH = 63;
     /** Longer than any upload takes, and short enough that a leaked URL is soon worthless. */
     private static final Duration UPLOAD_URL_TTL = Duration.ofHours(1);
-    /** Longer than placing and booting every microservice's VM takes. */
-    private static final Duration MICROSERVICE_CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
-    private static final Duration MICROSERVICE_POLL_INTERVAL = Duration.ofSeconds(2);
+    /** Longer than placing and booting every microservice's VM, or a first look at every site, takes. */
+    private static final Duration CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
+    private static final Duration CONVERGENCE_POLL_INTERVAL = Duration.ofSeconds(2);
 
     private final Vertx vertx;
     private final VmNodeOrchestrationService vmNodeOrchestrationService;
@@ -90,7 +91,6 @@ public class ProjectDeployJobDefinitionFactory {
     private final UiDeploymentRepository uiDeploymentRepository;
     private final OrganizationService organizationService;
     private final SiteStorageService siteStorageService;
-    private final UiDeploymentProvisioner uiDeploymentProvisioner;
     private final SiteWorkloadFactory siteWorkloadFactory;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
@@ -290,7 +290,8 @@ public class ProjectDeployJobDefinitionFactory {
                                                           orphan -> microserviceDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha),
                                                                                                                    null, source)));
                 })
-                .compose(v -> awaitAnswered(project.getId(), System.currentTimeMillis() + MICROSERVICE_CONVERGENCE_TIMEOUT.toMillis()))
+                .compose(v -> awaitAnswered("Microservices of project " + project.getId(), () -> microserviceDeploymentRepository.findAllForProject(project.getId()),
+                                            MicroserviceDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .compose(rows -> requireNoneFailed(rows,
                                                    row -> row.getState().getObserved().phase() == DeploymentStatusType.FAILED,
                                                    row -> row.getName() + ": " + row.getFailureMessage(),
@@ -317,67 +318,61 @@ public class ProjectDeployJobDefinitionFactory {
     }
 
     /**
-     * The project's microservice deployments once every one's worker has answered its intent, read
-     * again every few seconds until then; fails naming the ones still unanswered at the deadline.
+     * The listed deployments once every one's worker has answered its intent, listed again every
+     * few seconds until then; fails naming the ones still unanswered at the deadline.
      */
-    private Future<List<MicroserviceDeployment>> awaitAnswered(String projectId, long deadline) {
-        return microserviceDeploymentRepository.findAllForProject(projectId)
+    private <R extends Reconcilable<?>> Future<List<R>> awaitAnswered(String what, Supplier<Future<List<R>>> listing,
+                                                                     Function<R, String> nameOf, long deadline) {
+        return listing.get()
                 .compose(rows -> {
                     List<String> unanswered = rows.stream()
                                                   .filter(row -> row.getState().getObservedGeneration() < row.getState().getGeneration())
-                                                  .map(MicroserviceDeployment::getName)
+                                                  .map(nameOf)
                                                   .toList();
-                    Future<List<MicroserviceDeployment>> ret;
+                    Future<List<R>> ret;
                     if (unanswered.isEmpty()) {
                         ret = Future.succeededFuture(rows);
                     } else if (System.currentTimeMillis() >= deadline) {
-                        ret = Future.failedFuture(new IllegalStateException("Microservices of project " + projectId
-                                + " were not deployed within " + MICROSERVICE_CONVERGENCE_TIMEOUT.toMinutes() + " minutes: " + String.join(", ", unanswered)));
+                        ret = Future.failedFuture(new IllegalStateException(what + " were not answered within "
+                                + CONVERGENCE_TIMEOUT.toMinutes() + " minutes: " + String.join(", ", unanswered)));
                     } else {
-                        ret = vertx.timer(MICROSERVICE_POLL_INTERVAL.toMillis()).compose(id -> awaitAnswered(projectId, deadline));
+                        ret = vertx.timer(CONVERGENCE_POLL_INTERVAL.toMillis()).compose(id -> awaitAnswered(what, listing, nameOf, deadline));
                     }
                     return ret;
                 });
     }
 
     /**
-     * Leaves every UI of the deployed commit published and served: uploads the built UIs
-     * through a foreground publish workload holding nothing but a short-lived upload URL,
-     * then records the outcome on each UI's {@link UiDeployment}. A UI's first publish mints
-     * its site's hostname label and provisions the site; a later publish keeps the site and
-     * records the new commit, deleting the files of older ones. A UI the commit no longer
-     * contains is marked orphaned and
-     * keeps serving; one that returns is adopted. A commit without UIs publishes nothing. A
-     * site that cannot be provisioned is recorded failed and the others still publish; the
-     * task then fails naming the failed ones.
+     * Uploads the built UIs of the deployed commit through a foreground publish workload holding
+     * nothing but a short-lived upload URL per site, then writes what every UI's deployment should
+     * be — serving the commit — and what every UI the commit no longer contains should be, orphaned
+     * and still serving, and waits for the deployments' workers to answer. A UI's first publish mints
+     * its site's hostname label; the site serves as soon as its files are up, which the worker keeps
+     * checking. A commit without UIs publishes nothing.
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
         // nothing serves a site while the provisioner is disabled, so nothing is uploaded either
         boolean serving = !uiDeployment().isDisableProvisioner();
+        String source = "deploy of " + commitSha;
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {
                     Map<String, UiDeployment> unmatched = new HashMap<>();
                     existing.forEach(deployment -> unmatched.put(deployment.getName(), deployment));
-                    Future<List<UiDeployment>> published;
+                    Future<Void> published;
                     if (artifacts.uis().isEmpty()) {
-                        published = Future.succeededFuture(new ArrayList<>());
+                        published = Future.succeededFuture();
                     } else {
                         // a site's directory is its hostname, so a first publish mints the label first
                         published = sequentially(artifacts.uis(), ui -> deploymentFor(project, ui, unmatched.remove(ui.name())))
                                 .compose(rows -> (serving ? uploadUis(project, target, rows, commitSha) : Future.<Void>succeededFuture())
-                                        .compose(v -> sequentially(rows, row -> finalizeUi(row, commitSha))));
+                                        .compose(v -> sequentially(rows, row -> uiDeploymentRepository.updateDesired(row.getId(), new DeploymentState(DeploymentStatusType.READY, commitSha), source))))
+                                .mapEmpty();
                     }
-                    return published.compose(rows -> orphanUis(new ArrayList<>(unmatched.values()))
-                            .map(orphans -> {
-                                rows.addAll(orphans);
-                                rows.sort(Comparator.comparing(UiDeployment::getName));
-                                return rows;
-                            }));
+                    return published.compose(v -> sequentially(new ArrayList<>(unmatched.values()),
+                                                               orphan -> uiDeploymentRepository.updateDesired(orphan.getId(), new DeploymentState(DeploymentStatusType.ORPHANED, commitSha), source)));
                 })
-                .compose(rows -> requireNoneFailed(rows,
-                                                   row -> row.getStatus().type() == DeploymentStatusType.FAILED,
-                                                   row -> row.getName() + ": " + row.getStatus().message(),
-                                                   "UIs of project " + project.getId() + " could not be published"))
+                .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId()),
+                                            UiDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .map(UiDeployments::new);
     }
 
@@ -405,24 +400,6 @@ public class ProjectDeployJobDefinitionFactory {
                 .mapEmpty();
     }
 
-    /**
-     * Records a published UI once its files are up: the commit it now serves and the site's
-     * status.
-     */
-    private Future<UiDeployment> finalizeUi(UiDeployment row, String commitSha) {
-        row.setCommitSha(commitSha);
-        Future<UiDeployment> deployment;
-        if (row.getStatus().type() == DeploymentStatusType.ORPHANED) {
-            // the site never stopped serving, so the UI's return needs no check
-            deployment = Future.succeededFuture(row.setStatus(new DeploymentStatus(DeploymentStatusType.READY)));
-        } else if (row.getStatus().type() == DeploymentStatusType.READY) {
-            deployment = Future.succeededFuture(row);
-        } else {
-            deployment = uiDeploymentProvisioner.provision(row);
-        }
-        return deployment.compose(saved -> uiDeploymentRepository.save(saved.setUpdated(new Date())));
-    }
-
     private String hostname(UiDeployment row) {
         return uiDeployment().resolveHostname(row.getId());
     }
@@ -446,36 +423,22 @@ public class ProjectDeployJobDefinitionFactory {
                     + " of application " + project.getApplicationId() + " of organization " + project.getOrganizationId()
                     + " is longer than " + MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
         } else {
-            ret = uiDeploymentRepository.create(new UiDeployment()
-                            .setId(label)
-                            .setUrl(uiDeployment().resolveSiteUrl(label))
-                            .setOrganizationId(project.getOrganizationId())
-                            .setApplicationId(project.getApplicationId())
-                            .setProjectId(project.getId())
-                            .setName(ui.name())
-                            .setStatus(new DeploymentStatus(DeploymentStatusType.PROVISIONING))
-                            .setCreated(new Date())
-                            .setUpdated(new Date()))
+            UiDeployment deployment = new UiDeployment()
+                    .setId(label)
+                    .setUrl(uiDeployment().resolveSiteUrl(label))
+                    .setOrganizationId(project.getOrganizationId())
+                    .setApplicationId(project.getApplicationId())
+                    .setProjectId(project.getId())
+                    .setName(ui.name())
+                    .setCreated(new Date())
+                    .setUpdated(new Date());
+            deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
+            ret = uiDeploymentRepository.create(deployment)
                     .recover(error -> error instanceof AlreadyExistsException
                             ? mintWithSuffix(project, ui, base, attempt + 1)
                             : Future.failedFuture(error));
         }
         return ret;
-    }
-
-    /** Marks the deployments of UIs the commit no longer contains, leaving their sites serving. */
-    private Future<List<UiDeployment>> orphanUis(List<UiDeployment> deployments) {
-        List<Future<UiDeployment>> saves = new ArrayList<>();
-        for (UiDeployment deployment : deployments) {
-            if (deployment.getStatus().type() == DeploymentStatusType.ORPHANED) {
-                saves.add(Future.succeededFuture(deployment));
-            } else {
-                saves.add(uiDeploymentRepository.save(deployment
-                        .setStatus(new DeploymentStatus(DeploymentStatusType.ORPHANED))
-                        .setUpdated(new Date())));
-            }
-        }
-        return Future.all(saves).map(CompositeFuture::list);
     }
 
     /**

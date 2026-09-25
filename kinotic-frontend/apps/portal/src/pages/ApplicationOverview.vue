@@ -84,7 +84,7 @@
             </div>
             <a :href="ui.url" target="_blank" rel="noopener" class="block truncate font-mono text-xs text-primary-500 hover:underline">{{ ui.url }}</a>
           </div>
-          <Tag :value="ui.status.type" :severity="deploymentStatusSeverity(ui.status.type)" />
+          <Tag :value="ui.state.observed?.phase ?? 'PENDING'" :severity="ui.state.observed ? deploymentStatusSeverity(ui.state.observed.phase) : 'secondary'" />
         </li>
       </ul>
     </section>
@@ -189,8 +189,8 @@ async function loadDeploymentStatus(project: Project): Promise<void> {
   if (!project.id) return
   try {
     const deployment = await Kinotic.projects.findDeployment(project.id)
-    if (deployment) {
-      deploymentStatus.value[project.id] = deployment.status.type
+    if (deployment?.state.observed) {
+      deploymentStatus.value[project.id] = deployment.state.observed.phase
     }
   } catch (error) {
     debug('Failed to load deployment for %s: %O', project.id, error)

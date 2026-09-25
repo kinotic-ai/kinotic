@@ -17,8 +17,7 @@ public interface UiDeploymentService {
 
     /**
      * Lists the UI deployments of one of the caller's organization's projects, ordered by UI
-     * name, advancing any left provisioning whose site has since become ready or failed. A
-     * project that has never published a UI has none.
+     * name. A project that has never published a UI has none.
      *
      * @param projectId a project belonging to the caller's organization
      * @return a future emitting the deployments, empty when the project has none
@@ -26,22 +25,12 @@ public interface UiDeploymentService {
     Future<List<UiDeployment>> findAllForProject(String projectId);
 
     /**
-     * Provisions the deployment's site again, completing whatever an earlier attempt left
-     * missing and validating its hostname again when that lapsed. The deployment comes back
-     * ready, provisioning or failed with the reason.
+     * Asks for the deployment's removal: its worker takes the site down, deletes the UI's
+     * published files, and deletes the record. A UI the project's current commit still contains
+     * is published again, at a site minted anew, by the next deployment.
      *
      * @param deploymentId the deployment of a UI of one of the caller's organization's projects
-     * @return a future emitting the deployment with its status
-     */
-    Future<UiDeployment> retryProvisioning(String deploymentId);
-
-    /**
-     * Removes the deployment: takes its site down, deletes the UI's published files, and
-     * deletes the record. A UI the project's current commit still contains is published
-     * again, at a site minted anew, by the next deployment.
-     *
-     * @param deploymentId the deployment of a UI of one of the caller's organization's projects
-     * @return a future completing when everything is gone
+     * @return a future completing when the removal is asked for
      */
     Future<Void> remove(String deploymentId);
 

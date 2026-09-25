@@ -1,12 +1,12 @@
-import type { Identifiable } from '@kinotic-ai/core'
-import type { DeploymentStatus } from '@/api/model/DeploymentStatus'
+import { ReconcileState, type Reconcilable } from '@kinotic-ai/core'
+import type { DeploymentState } from '@/api/model/DeploymentState'
 
 /**
- * The standing deployment of one UI artifact of a Project: the site serving it, the commit
- * it serves, and its status. One row per UI a deployment has published; a row outlives the
+ * The standing deployment of one UI artifact of a Project: the site serving it, and what the
+ * deployment should be beside what it is. One row per UI a deployment has published; a row outlives the
  * artifact until the deployment is removed.
  */
-export class UiDeployment implements Identifiable<string> {
+export class UiDeployment implements Reconcilable<DeploymentState> {
 
     /**
      * The site's hostname label under the platform's sites domain, minted once when the UI
@@ -35,11 +35,16 @@ export class UiDeployment implements Identifiable<string> {
     public url!: string
 
     /**
-     * Sha of the commit the site serves, or null until the first publish completes.
+     * Why the site does not yet serve what it should, as last observed, or null when it does.
      */
-    public commitSha: string | null = null
+    public failureMessage: string | null = null
 
-    public status!: DeploymentStatus
+    /**
+     * What the deployment should be, the commit its project's last deployment published to the
+     * site, beside what it is, the phase it is in and the commit the site serves, with what the
+     * platform keeps on every watched record: the project deployment it belongs to.
+     */
+    public state: ReconcileState<DeploymentState> = new ReconcileState()
 
     public created: number | null = null
 
