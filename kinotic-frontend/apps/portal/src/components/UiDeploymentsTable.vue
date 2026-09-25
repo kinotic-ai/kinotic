@@ -5,7 +5,7 @@
     </Column>
     <Column header="Status" style="width: 14%">
       <template #body="{ data }">
-        <span :title="data.failureMessage ?? undefined">
+        <span :title="data.observation ?? undefined">
           <Tag :value="phaseOf(data)" :severity="phaseSeverity(data)" />
         </span>
         <Tag v-if="data.state.deletionRequested" value="removing" severity="secondary" class="ml-1" />

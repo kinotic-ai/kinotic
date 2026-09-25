@@ -86,16 +86,16 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
         Future<Requeue> ret;
         if (status.type() == DeploymentStatusType.READY) {
             log.info("Site {} serves UI {} of project {} at commit {}", current.getId(), current.getName(), current.getProjectId(), desired.commitSha());
-            ret = uiDeploymentRepository.recordFailure(current.getId(), null)
+            ret = uiDeploymentRepository.recordObservation(current.getId(), null)
                     .compose(v -> uiDeploymentRepository.reportObserved(current.getId(), new DeploymentState(DeploymentStatusType.READY, desired.commitSha()),
                                                                         state.getGeneration(), "site check"))
                     .map(Requeue.NONE);
         } else {
             DeploymentState observed = new DeploymentState(DeploymentStatusType.PROVISIONING, DeploymentState.commitOf(current.getState().getObserved()));
             // the observation changes with every check and is worth a write only when it says something new
-            Future<Void> noted = Objects.equals(status.message(), current.getFailureMessage())
+            Future<Void> noted = Objects.equals(status.message(), current.getObservation())
                     ? Future.succeededFuture()
-                    : uiDeploymentRepository.recordFailure(current.getId(), status.message());
+                    : uiDeploymentRepository.recordObservation(current.getId(), status.message());
             ret = noted.compose(v -> uiDeploymentRepository.reportObserved(current.getId(), observed, state.getGeneration(), "site check"))
                        .map(Requeue.after(CHECK_INTERVAL));
         }

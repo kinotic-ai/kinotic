@@ -128,13 +128,13 @@ public class UiDeploymentRepository extends AbstractRepository<UiDeployment> imp
     }
 
     /**
-     * Records why the site does not yet serve what it should, or clears it with null, leaving every
-     * other field as it is.
+     * Records what the site answered when last checked, or clears it with null, leaving every other
+     * field as it is.
      */
-    public Future<Void> recordFailure(String id, String message) {
+    public Future<Void> recordObservation(String id, String observation) {
         Validate.notBlank(id, "id cannot be blank");
         Map<String, Object> fields = new HashMap<>();
-        fields.put("failureMessage", message);
+        fields.put("observation", observation);
         fields.put("updated", new Date());
         return crudServiceTemplate.partialUpdateSync(indexName, id, fields, false);
     }

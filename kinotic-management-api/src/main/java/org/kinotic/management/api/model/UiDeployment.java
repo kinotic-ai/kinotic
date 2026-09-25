@@ -51,10 +51,10 @@ public class UiDeployment implements Reconcilable<DeploymentState>, Organization
     private String url;
 
     /**
-     * Why the site does not yet serve what it should, as last observed, or {@code null} when it
-     * does.
+     * What the site answered when last checked, while it does not yet serve what it should, or
+     * {@code null} once it does.
      */
-    private String failureMessage;
+    private String observation;
 
     /**
      * What the deployment should be, the commit its project's last deployment published to the

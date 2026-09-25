@@ -36,9 +36,10 @@ export class UiDeployment implements Reconcilable<DeploymentState> {
     public url!: string
 
     /**
-     * Why the site does not yet serve what it should, as last observed, or null when it does.
+     * What the site answered when last checked, while it does not yet serve what it should, or
+     * null once it does.
      */
-    public failureMessage: string | null = null
+    public observation: string | null = null
 
     /**
      * What the deployment should be, the commit its project's last deployment published to the

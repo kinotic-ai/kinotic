@@ -25,9 +25,9 @@ ALTER TABLE kinotic_microservice_deployment ADD COLUMN state OBJECT (conditions 
 ALTER TABLE kinotic_microservice_deployment ADD COLUMN failureMessage TEXT ;
 
 -- A UI's deployment: desired is serving the commit its project's last deployment published, or left
--- as the commit dropped it. failureMessage keeps why the site does not yet serve what it should.
+-- as the commit dropped it. observation keeps what the site answered when last checked.
 ALTER TABLE kinotic_ui_deployment ADD COLUMN state OBJECT (conditions OBJECT (type KEYWORD, message TEXT, since DATE), parent KEYWORD, dirty BOOLEAN, dirtyAt LONG, desired OBJECT (phase KEYWORD, commitSha KEYWORD), observed OBJECT (phase KEYWORD, commitSha KEYWORD), generation LONG, observedGeneration LONG, deletionRequested DATE, reconciled BOOLEAN) ;
-ALTER TABLE kinotic_ui_deployment ADD COLUMN failureMessage TEXT ;
+ALTER TABLE kinotic_ui_deployment ADD COLUMN observation TEXT ;
 
 -- A node: desired is taking workloads; observed is taking workloads or draining, with
 -- NODE_UNREACHABLE set by silence or an undelivered call. healthMessage keeps the reason a node
