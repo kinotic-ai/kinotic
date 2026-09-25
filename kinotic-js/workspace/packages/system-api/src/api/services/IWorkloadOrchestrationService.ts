@@ -45,6 +45,16 @@ export interface IWorkloadOrchestrationService {
      */
     deleteWorkload(workloadId: string): Promise<void>
 
+    /**
+     * Deletes the given workloads' records and every log line they wrote, as deleteWorkload does for
+     * one, with the log store asked once per organization. Any run still open refuses the whole batch
+     * before anything is deleted.
+     * @param workloadIds the ids of the workloads to delete
+     * @return a Promise that resolves when the records and their logs are gone, or rejects if any run
+     *         is still open
+     */
+    deleteWorkloads(workloadIds: string[]): Promise<void>
+
 }
 
 export class WorkloadOrchestrationService implements IWorkloadOrchestrationService {
@@ -69,6 +79,10 @@ export class WorkloadOrchestrationService implements IWorkloadOrchestrationServi
 
     public deleteWorkload(workloadId: string): Promise<void> {
         return this.serviceProxy.invoke('deleteWorkload', [workloadId])
+    }
+
+    public deleteWorkloads(workloadIds: string[]): Promise<void> {
+        return this.serviceProxy.invoke('deleteWorkloads', [workloadIds])
     }
 
 }
