@@ -5,10 +5,13 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.repositories.ReconcilableRepository;
+import org.kinotic.domain.api.model.WatchEvent;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
+import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
@@ -28,14 +31,34 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     public static final WatchedIndex WATCHED = new WatchedIndex(WatchedType.PROJECT_DEPLOYMENT, "kinotic_project_deployment");
 
     private final WatchedStateRepository watchedStateRepository;
+    private final WatchEventRepository watchEventRepository;
     private final ReconcileStateRepository reconcileStateRepository;
 
     public ProjectDeploymentRepository(CrudServiceTemplate crudServiceTemplate,
                                        WatchedStateRepository watchedStateRepository,
+                                       WatchEventRepository watchEventRepository,
                                        ReconcileStateRepository reconcileStateRepository) {
         super(WATCHED.name(), ProjectDeployment.class, crudServiceTemplate);
         this.watchedStateRepository = watchedStateRepository;
+        this.watchEventRepository = watchEventRepository;
         this.reconcileStateRepository = reconcileStateRepository;
+    }
+
+    /**
+     * Lists what happened to the project's deployment and to the records it made, the deployment
+     * jobs, build VMs, microservice deployments and UI deployments, newest first.
+     *
+     * @param projectId the project the deployment belongs to
+     * @param orgId     the organization the project belongs to
+     * @param pageable  the page to return
+     * @return a future emitting a page of ledger entries, empty when the project has never been deployed
+     */
+    public Future<Page<WatchEvent>> findHistory(String projectId, String orgId, Pageable pageable) {
+        Validate.notBlank(projectId, "projectId cannot be blank");
+        Validate.notBlank(orgId, "orgId cannot be blank");
+        return watchEventRepository.findHistory(document(projectId, orgId),
+                                                new WatchedParent(WATCHED.type(), orgId, projectId),
+                                                pageable);
     }
 
     @Override

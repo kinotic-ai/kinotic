@@ -5,6 +5,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
 import org.kinotic.management.api.model.workload.Workload;
@@ -36,6 +37,11 @@ public class StubVmNodeService implements VmNodeService {
     public final Map<String, VmNode> saved = new ConcurrentHashMap<>();
 
     public VmNode availableNode;
+
+    @Override
+    public Future<Page<WatchEvent>> findHistory(String nodeId, Pageable pageable) {
+        throw new UnsupportedOperationException();
+    }
 
     @Override
     public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {

@@ -1,11 +1,14 @@
 package org.kinotic.domain.internal.api.repositories;
 
 import io.vertx.core.Future;
+import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.Watched;
+import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.repositories.WatchedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -14,7 +17,7 @@ import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
  * Elasticsearch CRUD over one index of {@link Watched} records stored by id alone, with what the
  * reconcile master reads of them and the writes every watched record shares: marking a write as
  * seen, and setting or clearing a condition. Each write is one shard operation that enters the
- * ledger.
+ * ledger, and the ledger is read back per record.
  *
  * @param <T> the kind of record
  */
@@ -22,14 +25,17 @@ public abstract class AbstractWatchedRepository<T extends Watched> extends Abstr
 
     protected final WatchedIndex watched;
     protected final WatchedStateRepository watchedStateRepository;
+    protected final WatchEventRepository watchEventRepository;
 
     protected AbstractWatchedRepository(WatchedIndex watched,
                                         Class<T> type,
                                         CrudServiceTemplate crudServiceTemplate,
-                                        WatchedStateRepository watchedStateRepository) {
+                                        WatchedStateRepository watchedStateRepository,
+                                        WatchEventRepository watchEventRepository) {
         super(watched.name(), type, crudServiceTemplate);
         this.watched = watched;
         this.watchedStateRepository = watchedStateRepository;
+        this.watchEventRepository = watchEventRepository;
     }
 
     @Override
@@ -65,6 +71,21 @@ public abstract class AbstractWatchedRepository<T extends Watched> extends Abstr
      */
     public Future<Boolean> clearCondition(String id, StatusConditionType type, String source) {
         return watchedStateRepository.clearCondition(document(id), type, source);
+    }
+
+    /**
+     * Lists what happened to the record and to the records it made, newest first.
+     *
+     * @param record   the record
+     * @param pageable the page to return
+     * @return a future emitting a page of ledger entries, empty when nothing has happened to the record
+     */
+    public Future<Page<WatchEvent>> findHistory(T record, Pageable pageable) {
+        Validate.notNull(record, "record cannot be null");
+        String scope = scopeOf(record);
+        // a pointer names its parent by scope, so a record stored under none is named by nothing
+        WatchedParent asParent = scope == null ? null : new WatchedParent(watched.type(), scope, record.getId());
+        return watchEventRepository.findHistory(document(record.getId()), asParent, pageable);
     }
 
     /**

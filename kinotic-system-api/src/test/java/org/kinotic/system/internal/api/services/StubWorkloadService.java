@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.StatusConditions;
@@ -158,6 +159,11 @@ public class StubWorkloadService implements WorkloadService {
 
     private static void touched(Workload stored) {
         stored.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
+    }
+
+    @Override
+    public Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable) {
+        throw new UnsupportedOperationException();
     }
 
     @Override

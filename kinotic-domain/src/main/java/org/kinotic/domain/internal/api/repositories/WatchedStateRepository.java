@@ -200,8 +200,8 @@ public class WatchedStateRepository {
                 generation = ((Number) state.get("generation")).longValue();
             }
         }
-        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), parent,
-                                                          change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
+        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), document.routing(),
+                                                          parent, change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
                                                           generation, change.message(), change.value()));
     }
 

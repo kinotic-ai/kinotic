@@ -7,6 +7,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
@@ -52,6 +53,16 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @return a future that will complete with a page of workloads
      */
     Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable);
+
+    /**
+     * Lists what happened to the workload, newest first: each status its run passed through and each
+     * mark set beside it, with what caused it.
+     * @param workloadId the workload
+     * @param pageable the page to return
+     * @return a future that will complete with a page of ledger entries, empty when the workload does
+     * not exist
+     */
+    Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable);
 
     /**
      * Records the status and exit code of the workload's run and enters the change in the ledger,

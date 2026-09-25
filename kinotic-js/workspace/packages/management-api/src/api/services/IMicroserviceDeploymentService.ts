@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
-import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
+import { FunctionalIterablePage, type IKinotic, type IServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { MicroserviceDeployment } from '@/api/model/MicroserviceDeployment'
+import type { WatchEvent } from '@/api/model/WatchEvent'
 
 /**
  * The microservice deployments of the caller's organization's projects, as the console shows
@@ -16,6 +17,16 @@ export interface IMicroserviceDeploymentService {
      * @param projectId a project belonging to the caller's organization
      */
     findAllForProject(projectId: string): Promise<MicroserviceDeployment[]>
+
+    /**
+     * Lists what happened to one of the caller's organization's microservice deployments and to
+     * the VMs it ran, newest first: each change of what the deployment should be and of what it
+     * is, each status a VM's run passed through, and each mark set beside them, with what caused
+     * it.
+     * @param deploymentId the deployment of a microservice of one of the caller's organization's projects
+     * @param pageable the page to return
+     */
+    findHistory(deploymentId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
      * Runs the microservice in a fresh VM from the project's current deployment, stopping the VM
@@ -45,6 +56,16 @@ export class MicroserviceDeploymentService implements IMicroserviceDeploymentSer
 
     public findAllForProject(projectId: string): Promise<MicroserviceDeployment[]> {
         return this.serviceProxy.invoke('findAllForProject', [projectId])
+    }
+
+    public async findHistory(deploymentId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {
+        const page: Page<WatchEvent> = await this.findHistorySinglePage(deploymentId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findHistorySinglePage(deploymentId, pageable))
+    }
+
+    public findHistorySinglePage(deploymentId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
+        return this.serviceProxy.invoke('findHistory', [deploymentId, pageable])
     }
 
     public restart(deploymentId: string): Promise<MicroserviceDeployment> {

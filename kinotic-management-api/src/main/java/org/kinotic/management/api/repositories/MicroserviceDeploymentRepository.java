@@ -7,6 +7,7 @@ import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
+import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedDocument;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
@@ -35,8 +36,9 @@ public class MicroserviceDeploymentRepository extends AbstractReconcilableReposi
 
     public MicroserviceDeploymentRepository(CrudServiceTemplate crudServiceTemplate,
                                             WatchedStateRepository watchedStateRepository,
+                                            WatchEventRepository watchEventRepository,
                                             ReconcileStateRepository reconcileStateRepository) {
-        super(WATCHED, MicroserviceDeployment.class, crudServiceTemplate, watchedStateRepository, reconcileStateRepository);
+        super(WATCHED, MicroserviceDeployment.class, crudServiceTemplate, watchedStateRepository, watchEventRepository, reconcileStateRepository);
     }
 
     @Override

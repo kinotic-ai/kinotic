@@ -11,6 +11,7 @@ import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
+import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedChange;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
@@ -59,8 +60,10 @@ public class WorkloadRepository extends AbstractWatchedRepository<Workload> {
             }
             """;
 
-    public WorkloadRepository(CrudServiceTemplate crudServiceTemplate, WatchedStateRepository watchedStateRepository) {
-        super(WATCHED, Workload.class, crudServiceTemplate, watchedStateRepository);
+    public WorkloadRepository(CrudServiceTemplate crudServiceTemplate,
+                              WatchedStateRepository watchedStateRepository,
+                              WatchEventRepository watchEventRepository) {
+        super(WATCHED, Workload.class, crudServiceTemplate, watchedStateRepository, watchEventRepository);
     }
 
     @Override

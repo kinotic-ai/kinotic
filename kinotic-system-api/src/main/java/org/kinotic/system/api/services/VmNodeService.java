@@ -3,8 +3,11 @@ package org.kinotic.system.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.core.api.crud.IdentifiableCrudService;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;
@@ -25,6 +28,16 @@ public interface VmNodeService extends IdentifiableCrudService<VmNode, String> {
      * @return a future that will complete with a suitable node, or null if none available
      */
     Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb);
+
+    /**
+     * Lists what happened to the node, newest first: each change of what it should be and of what it
+     * reports, and each mark set beside them, with what caused it.
+     * @param nodeId the id of the node
+     * @param pageable the page to return
+     * @return a future that will complete with a page of ledger entries, empty when the node is not
+     * registered
+     */
+    Future<Page<WatchEvent>> findHistory(String nodeId, Pageable pageable);
 
     /**
      * Writes what a node reports at registration and the ledger rebuilt from its workload records —

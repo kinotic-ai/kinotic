@@ -9,6 +9,7 @@ import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.WatchEventKind;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractWatchedRepository;
+import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedChange;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
@@ -58,8 +59,9 @@ public class JobRunRepository extends AbstractWatchedRepository<JobRun> {
 
     public JobRunRepository(CrudServiceTemplate crudServiceTemplate,
                             TaskRecordRepository taskRecordRepository,
-                            WatchedStateRepository watchedStateRepository) {
-        super(WATCHED, JobRun.class, crudServiceTemplate, watchedStateRepository);
+                            WatchedStateRepository watchedStateRepository,
+                            WatchEventRepository watchEventRepository) {
+        super(WATCHED, JobRun.class, crudServiceTemplate, watchedStateRepository, watchEventRepository);
         this.taskRecordRepository = taskRecordRepository;
     }
 

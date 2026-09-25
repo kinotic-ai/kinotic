@@ -6,6 +6,7 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
+import org.kinotic.domain.internal.api.repositories.WatchEventRepository;
 import org.kinotic.domain.internal.api.repositories.WatchedIndex;
 import org.kinotic.domain.internal.api.repositories.WatchedStateRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -54,8 +55,9 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
 
     public VmNodeRepository(CrudServiceTemplate crudServiceTemplate,
                             WatchedStateRepository watchedStateRepository,
+                            WatchEventRepository watchEventRepository,
                             ReconcileStateRepository reconcileStateRepository) {
-        super(WATCHED, VmNode.class, crudServiceTemplate, watchedStateRepository, reconcileStateRepository);
+        super(WATCHED, VmNode.class, crudServiceTemplate, watchedStateRepository, watchEventRepository, reconcileStateRepository);
     }
 
     // A node belongs to the platform, not to an organization

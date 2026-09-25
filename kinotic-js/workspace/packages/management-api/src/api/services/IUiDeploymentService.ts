@@ -1,6 +1,7 @@
 import { MANAGEMENT_API_ZONE } from '@/api/PlatformZones'
-import type { IKinotic, IServiceProxy } from '@kinotic-ai/core'
+import { FunctionalIterablePage, type IKinotic, type IServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 import type { UiDeployment } from '@/api/model/UiDeployment'
+import type { WatchEvent } from '@/api/model/WatchEvent'
 
 /**
  * The UI deployments of the caller's organization's projects, as the console shows and acts
@@ -16,6 +17,15 @@ export interface IUiDeploymentService {
      * @param projectId a project belonging to the caller's organization
      */
     findAllForProject(projectId: string): Promise<UiDeployment[]>
+
+    /**
+     * Lists what happened to one of the caller's organization's UI deployments and to the uploads
+     * it ran, newest first: each change of what the deployment should be and of what it is, each
+     * status an upload's run passed through, and each mark set beside them, with what caused it.
+     * @param deploymentId the deployment of a UI of one of the caller's organization's projects
+     * @param pageable the page to return
+     */
+    findHistory(deploymentId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
      * Asks for the deployment's removal: its worker takes the site down, deletes the UI's
@@ -37,6 +47,16 @@ export class UiDeploymentService implements IUiDeploymentService {
 
     public findAllForProject(projectId: string): Promise<UiDeployment[]> {
         return this.serviceProxy.invoke('findAllForProject', [projectId])
+    }
+
+    public async findHistory(deploymentId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {
+        const page: Page<WatchEvent> = await this.findHistorySinglePage(deploymentId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findHistorySinglePage(deploymentId, pageable))
+    }
+
+    public findHistorySinglePage(deploymentId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
+        return this.serviceProxy.invoke('findHistory', [deploymentId, pageable])
     }
 
     public remove(deploymentId: string): Promise<void> {

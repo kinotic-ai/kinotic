@@ -25,8 +25,9 @@ public abstract class AbstractReconcilableRepository<T extends Reconcilable<S>, 
                                              Class<T> type,
                                              CrudServiceTemplate crudServiceTemplate,
                                              WatchedStateRepository watchedStateRepository,
+                                             WatchEventRepository watchEventRepository,
                                              ReconcileStateRepository reconcileStateRepository) {
-        super(watched, type, crudServiceTemplate, watchedStateRepository);
+        super(watched, type, crudServiceTemplate, watchedStateRepository, watchEventRepository);
         this.reconcileStateRepository = reconcileStateRepository;
     }
 

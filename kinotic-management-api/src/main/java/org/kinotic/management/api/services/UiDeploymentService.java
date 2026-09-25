@@ -2,6 +2,9 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.management.api.model.UiDeployment;
 
@@ -25,6 +28,18 @@ public interface UiDeploymentService {
      */
     @McpTool
     Future<List<UiDeployment>> findAllForProject(String projectId);
+
+    /**
+     * Lists what happened to one of the caller's organization's UI deployments and to the uploads
+     * it ran, newest first: each change of what the deployment should be and of what it is, each
+     * status an upload's run passed through, and each mark set beside them, with what caused it.
+     *
+     * @param deploymentId the deployment of a UI of one of the caller's organization's projects
+     * @param pageable     the page to return
+     * @return a future emitting a page of ledger entries, empty when nothing has happened to the deployment
+     */
+    @McpTool
+    Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable);
 
     /**
      * Asks for the deployment's removal: its worker takes the site down, deletes the UI's

@@ -3,7 +3,10 @@ package org.kinotic.management.internal.api.services;
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.MicroserviceDeployment;
@@ -31,6 +34,14 @@ public class DefaultMicroserviceDeploymentService implements MicroserviceDeploym
                 .map(deployments -> deployments.stream()
                                                .filter(deployment -> participant.getOrganizationId().equals(deployment.getOrganizationId()))
                                                .toList());
+    }
+
+    @Override
+    public Future<Page<WatchEvent>> findHistory(String deploymentId, Pageable pageable) {
+        Validate.notNull(pageable, "pageable is required");
+        OrganizationParticipant participant = requireOrgParticipant();
+        return loadOwned(deploymentId, participant)
+                .compose(deployment -> microserviceDeploymentRepository.findHistory(deployment, pageable));
     }
 
     @Override

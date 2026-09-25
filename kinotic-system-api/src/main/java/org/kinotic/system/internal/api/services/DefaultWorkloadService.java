@@ -6,6 +6,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.management.api.model.workload.Workload;
@@ -15,6 +16,7 @@ import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Component
@@ -47,6 +49,15 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {
         Validate.notNull(cutoff, "Cutoff cannot be null");
         return workloadRepository.findEndedBefore(cutoff, pageable);
+    }
+
+    @Override
+    public Future<Page<WatchEvent>> findHistory(String workloadId, Pageable pageable) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        Validate.notNull(pageable, "Pageable cannot be null");
+        return findById(workloadId).compose(workload -> workload == null
+                ? Future.succeededFuture(new Page<>(List.of(), 0L))
+                : workloadRepository.findHistory(workload, pageable));
     }
 
     @Override

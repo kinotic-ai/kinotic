@@ -39,4 +39,4 @@ ALTER TABLE kinotic_vm_node ADD COLUMN healthMessage TEXT ;
 
 -- The ledger: one entry per write to a watched record, saying what happened, from where and why.
 -- The record says what it is now; its entries say how it got there. @timestamp is the write's time.
-CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, parent KEYWORD, kind KEYWORD, source KEYWORD, serverNodeId KEYWORD, generation LONG, message TEXT, value JSON NOT INDEXED) WITH (DATA_RETENTION = '30d') ;
+CREATE DATA STREAM kinotic_watch_event (type KEYWORD, id KEYWORD, scope KEYWORD, parent KEYWORD, kind KEYWORD, source KEYWORD, serverNodeId KEYWORD, generation LONG, message TEXT, value JSON NOT INDEXED) WITH (DATA_RETENTION = '30d') ;

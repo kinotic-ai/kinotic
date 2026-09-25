@@ -2,6 +2,9 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.services.ApplicationScopedCrudService;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
@@ -44,6 +47,18 @@ public interface ProjectService extends ApplicationScopedCrudService<Project, St
      *         project has never been deployed
      */
     Future<ProjectDeployment> findDeployment(String projectId);
+
+    /**
+     * Lists what happened to the deployment of the given project in the current participant's
+     * organization and to the records it made, the deployment jobs, build VMs, microservice
+     * deployments and UI deployments, newest first, with what caused each.
+     *
+     * @param projectId id of the project the deployment belongs to
+     * @param pageable  the page to return
+     * @return a {@link Future} emitting a page of ledger entries, empty when the project has never
+     *         been deployed
+     */
+    Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable);
 
     /**
      * Re-runs repository initialization for a project left

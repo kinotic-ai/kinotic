@@ -2,8 +2,11 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.system.api.model.workload.VmNode;
@@ -12,6 +15,7 @@ import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 
 @Component
 public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements VmNodeService {
@@ -26,6 +30,15 @@ public class DefaultVmNodeService extends AbstractCrudService<VmNode> implements
     @Override
     public Future<VmNode> findAvailableNode(double requiredCpus, int requiredMemoryMb, int requiredDiskMb) {
         return vmNodeRepository.findAvailableNode(requiredCpus, requiredMemoryMb, requiredDiskMb);
+    }
+
+    @Override
+    public Future<Page<WatchEvent>> findHistory(String nodeId, Pageable pageable) {
+        Validate.notNull(nodeId, "VmNode id cannot be null");
+        Validate.notNull(pageable, "Pageable cannot be null");
+        return findById(nodeId).compose(node -> node == null
+                ? Future.succeededFuture(new Page<>(List.of(), 0L))
+                : vmNodeRepository.findHistory(node, pageable));
     }
 
     @Override

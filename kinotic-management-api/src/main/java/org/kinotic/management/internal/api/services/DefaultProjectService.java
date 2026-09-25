@@ -3,8 +3,11 @@ package org.kinotic.management.internal.api.services;
 import com.github.slugify.Slugify;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
+import org.kinotic.core.api.crud.Page;
+import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.core.api.exceptions.AlreadyExistsException;
 import org.kinotic.core.api.security.SecurityContext;
+import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
 import org.kinotic.management.api.model.RepositoryConnectionStatus;
@@ -96,6 +99,13 @@ public class DefaultProjectService extends AbstractApplicationScopedService<Proj
     public Future<ProjectDeployment> findDeployment(String projectId) {
         Validate.notBlank(projectId, "projectId must not be blank");
         return projectDeploymentRepository.findById(projectId, requireOrganizationId());
+    }
+
+    @Override
+    public Future<Page<WatchEvent>> findDeploymentHistory(String projectId, Pageable pageable) {
+        Validate.notBlank(projectId, "projectId must not be blank");
+        Validate.notNull(pageable, "pageable must not be null");
+        return projectDeploymentRepository.findHistory(projectId, requireOrganizationId(), pageable);
     }
 
     @Override

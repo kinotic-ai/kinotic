@@ -1,4 +1,4 @@
-import { SYSTEM_API_ZONE, Workload } from '@kinotic-ai/management-api'
+import { SYSTEM_API_ZONE, Workload, type WatchEvent } from '@kinotic-ai/management-api'
 import { CrudServiceProxy, FunctionalIterablePage, type IKinotic, type ICrudServiceProxy, type IterablePage, type Page, type Pageable } from '@kinotic-ai/core'
 
 
@@ -18,6 +18,15 @@ export interface IWorkloadService extends ICrudServiceProxy<Workload> {
      * @return a Promise resolving to the number of workloads
      */
     countForNode(nodeId: string): Promise<number>
+
+    /**
+     * Lists what happened to the workload, newest first: each status its run passed through and each
+     * mark set beside it, with what caused it.
+     * @param workloadId the workload
+     * @param pageable the page to return
+     * @return a Promise resolving to a page of ledger entries, empty when the workload does not exist
+     */
+    findHistory(workloadId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>>
 
     /**
      * This operation makes all the recent writes immediately available for search.
@@ -45,6 +54,16 @@ export class WorkloadServiceProxy extends CrudServiceProxy<Workload> implements 
 
     public countForNode(nodeId: string): Promise<number> {
         return this.serviceProxy.invoke('countForNode', [nodeId])
+    }
+
+    public async findHistory(workloadId: string, pageable: Pageable): Promise<IterablePage<WatchEvent>> {
+        const page: Page<WatchEvent> = await this.findHistorySinglePage(workloadId, pageable)
+        return new FunctionalIterablePage(pageable, page,
+            (pageable: Pageable) => this.findHistorySinglePage(workloadId, pageable))
+    }
+
+    public findHistorySinglePage(workloadId: string, pageable: Pageable): Promise<Page<WatchEvent>> {
+        return this.serviceProxy.invoke('findHistory', [workloadId, pageable])
     }
 
     public syncIndex(): Promise<void> {
