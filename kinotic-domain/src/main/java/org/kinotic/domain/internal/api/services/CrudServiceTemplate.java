@@ -1,5 +1,6 @@
 package org.kinotic.domain.internal.api.services;
 
+import lombok.Getter;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.ErrorResponse;
@@ -67,6 +68,7 @@ public class CrudServiceTemplate {
     private static final Logger log = LoggerFactory.getLogger(CrudServiceTemplate.class);
 
     private final ElasticsearchAsyncClient esAsyncClient;
+    @Getter
     private final ObjectMapper objectMapper;
     private final RawJsonJsonpDeserializer rawJsonJsonpDeserializer;
 
@@ -619,14 +621,37 @@ public class CrudServiceTemplate {
                                                      String id,
                                                      Map<String, Object> partial,
                                                      boolean upsert) {
-        return toFuture(esAsyncClient.update(u -> u.index(indexName)
-                                                        .id(id)
-                                                        .doc(partial)
-                                                        .docAsUpsert(upsert)
-                                                        .retryOnConflict(UPDATE_CONFLICT_RETRIES)
-                                                        .refresh(Refresh.WaitFor),
-                                                  Map.class)
-                                          .thenApply(response -> null));
+        return partialUpdateSync(indexName, id, partial, upsert, null);
+    }
+
+    /**
+     * As {@link #partialUpdateSync(String, String, Map, boolean)}, with full {@link UpdateRequest}
+     * customization, such as the routing a scoped index stores its documents under.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to update
+     * @param partial         the fields to merge into the document
+     * @param upsert          true to create the document from {@code partial} when it does not exist
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
+     * @return a {@link Future} that will complete when the update is applied
+     */
+    public Future<Void> partialUpdateSync(String indexName,
+                                          String id,
+                                          Map<String, Object> partial,
+                                          boolean upsert,
+                                          Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
+            u.index(indexName)
+             .id(id)
+             .doc(partial)
+             .docAsUpsert(upsert)
+             .retryOnConflict(UPDATE_CONFLICT_RETRIES)
+             .refresh(Refresh.WaitFor);
+            if (builderConsumer != null) {
+                builderConsumer.accept(u);
+            }
+            return u;
+        }, Map.class)).mapEmpty();
     }
 
     /**
@@ -647,7 +672,7 @@ public class CrudServiceTemplate {
                                               String id,
                                               String source,
                                               Map<String, Object> params) {
-        return scriptedUpdate(indexName, id, source, params, false)
+        return scriptedUpdate(indexName, id, source, params, false, null)
                 .map(response -> response.result() != Result.NoOp);
     }
 
@@ -662,12 +687,35 @@ public class CrudServiceTemplate {
      * @return a {@link Future} that will complete with the updated document's source, or null when the
      * script left the document as it was, or fail when the document does not exist
      */
-    @SuppressWarnings("unchecked")
     public Future<Map<String, Object>> scriptedUpdateReturningSourceSync(String indexName,
                                                                          String id,
                                                                          String source,
                                                                          Map<String, Object> params) {
-        return scriptedUpdate(indexName, id, source, params, true)
+        return scriptedUpdateReturningSourceSync(indexName, id, source, params, null);
+    }
+
+    /**
+     * As {@link #scriptedUpdateReturningSourceSync(String, String, String, Map)}, with full
+     * {@link UpdateRequest} customization: the routing a scoped index stores its documents under, or an
+     * upsert document the script runs against when the document does not exist yet
+     * ({@code scriptedUpsert}), in which case the future completes with the created document instead of
+     * failing.
+     *
+     * @param indexName       name of the index
+     * @param id              of the document to update
+     * @param source          the Painless source, reading its inputs from {@code params}
+     * @param params          the values the script reads as {@code params.<name>}
+     * @param builderConsumer to customize the {@link UpdateRequest}, or null if no customization is needed
+     * @return a {@link Future} that will complete with the updated document's source, or null when the
+     * script left the document as it was
+     */
+    @SuppressWarnings("unchecked")
+    public Future<Map<String, Object>> scriptedUpdateReturningSourceSync(String indexName,
+                                                                         String id,
+                                                                         String source,
+                                                                         Map<String, Object> params,
+                                                                         Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
+        return scriptedUpdate(indexName, id, source, params, true, builderConsumer)
                 .map(response -> response.result() == Result.NoOp || response.get() == null
                         ? null
                         : (Map<String, Object>) response.get().source());
@@ -678,10 +726,11 @@ public class CrudServiceTemplate {
                                                        String id,
                                                        String source,
                                                        Map<String, Object> params,
-                                                       boolean returnSource) {
+                                                       boolean returnSource,
+                                                       Consumer<UpdateRequest.Builder<Map, Map<String, Object>>> builderConsumer) {
         Map<String, JsonData> scriptParams = new HashMap<>();
         params.forEach((name, value) -> scriptParams.put(name, JsonData.of(value)));
-        return toFuture(esAsyncClient.update(u -> {
+        return toFuture(esAsyncClient.update((UpdateRequest.Builder<Map, Map<String, Object>> u) -> {
             u.index(indexName)
              .id(id)
              .script(s -> s.source(src -> src.scriptString(source))
@@ -690,6 +739,9 @@ public class CrudServiceTemplate {
              .refresh(Refresh.WaitFor);
             if (returnSource) {
                 u.source(sc -> sc.fetch(true));
+            }
+            if (builderConsumer != null) {
+                builderConsumer.accept(u);
             }
             return u;
         }, Map.class));

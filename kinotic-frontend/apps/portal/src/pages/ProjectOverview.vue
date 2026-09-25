@@ -15,7 +15,8 @@
         <div class="flex items-center gap-2 text-xs text-muted-color"><i class="pi pi-cloud-upload" />Deployment</div>
         <Skeleton v-if="loading" height="1.5rem" width="5rem" class="mt-2" />
         <div v-else class="mt-2">
-          <Tag v-if="deployment" :value="deployment.status.type" :severity="deploymentStatusSeverity(deployment.status.type)" />
+          <Tag v-if="deployment" :value="deployment.state.observed?.phase ?? 'UNKNOWN'"
+               :severity="deployment.state.observed ? deploymentStatusSeverity(deployment.state.observed.phase) : 'secondary'" />
           <Tag v-else value="Never deployed" severity="secondary" />
         </div>
         <div class="mt-1 text-xs text-muted-color">

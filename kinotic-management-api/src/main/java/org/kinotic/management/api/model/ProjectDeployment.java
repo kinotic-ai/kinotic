@@ -1,7 +1,9 @@
 package org.kinotic.management.api.model;
 
 import org.kinotic.domain.api.model.ApplicationScoped;
-import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.core.api.reconcile.Reconcilable;
+import org.kinotic.core.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.model.DeploymentState;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -12,8 +14,8 @@ import java.util.Date;
 
 /**
  * Records where a {@link Project}'s code is deployed: the node holding the checkout, the sync
- * workload and identity of its deployments, the artifacts of the synced commit, and the commit
- * currently live. The microservices themselves are recorded one per
+ * workload and identity of its deployments, the artifacts of the synced commit, and what the
+ * deployment should be beside what it is. The microservices themselves are recorded one per
  * {@link MicroserviceDeployment}. One row per project; {@link #id} equals the project id.
  * Absence of a row means the project has never been deployed.
  */
@@ -21,7 +23,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @NoArgsConstructor
-public class ProjectDeployment implements ApplicationScoped<String> {
+public class ProjectDeployment implements Reconcilable<DeploymentState>, ApplicationScoped<String> {
 
     /**
      * The id of the deployment, always equal to the id of the deployed project.
@@ -65,11 +67,6 @@ public class ProjectDeployment implements ApplicationScoped<String> {
     private String syncMachineIdentityId;
 
     /**
-     * Sha of the last commit successfully synced to the node.
-     */
-    private String commitSha;
-
-    /**
      * The artifacts the sync workload found in the checkout of {@link #artifactsCommitSha},
      * or {@code null} before a sync has reported any.
      */
@@ -85,7 +82,17 @@ public class ProjectDeployment implements ApplicationScoped<String> {
      */
     private String lastJobRunId;
 
-    private DeploymentStatus status;
+    /**
+     * Why the last deployment failed, or {@code null} when it did not.
+     */
+    private String failureMessage;
+
+    /**
+     * What the deployment should be, the commit its last qualifying push asked for, beside what it is,
+     * the phase it is in and the commit it serves, with what the platform keeps on every watched
+     * record.
+     */
+    private ReconcileState<DeploymentState> state = new ReconcileState<>();
 
     private Date created;
 

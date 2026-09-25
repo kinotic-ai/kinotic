@@ -15,7 +15,6 @@ import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.services.ProjectArtifactService;
 import org.springframework.stereotype.Component;
 
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -46,12 +45,8 @@ public class DefaultProjectArtifactService implements ProjectArtifactService {
                                   participant.getId(), projectId);
                         throw new AuthorizationException("Access denied");
                     }
-                    deployment.setArtifacts(artifacts);
-                    deployment.setArtifactsCommitSha(commitSha);
-                    deployment.setUpdated(new Date());
-                    return projectDeploymentRepository.save(deployment, deployment.getOrganizationId());
-                })
-                .mapEmpty();
+                    return projectDeploymentRepository.recordArtifacts(projectId, participant.getOrganizationId(), artifacts, commitSha);
+                });
     }
 
     // A name becomes a workload name and a hostname label, and two artifacts of one kind with

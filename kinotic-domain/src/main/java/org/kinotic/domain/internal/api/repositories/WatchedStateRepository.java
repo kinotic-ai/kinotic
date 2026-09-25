@@ -98,70 +98,62 @@ public class WatchedStateRepository {
      * record already carrying a condition of the same type keeps it as it is. Visible to search on
      * completion.
      *
-     * @param index     where the record lives
-     * @param id        the record's id
+     * @param document  the record
      * @param condition the condition to set
      * @param source    what caused it, for the ledger
      * @return true when the condition was set, false when the record already carried one of its type
      */
-    public Future<Boolean> setCondition(WatchedIndex index, String id, StatusCondition condition, String source) {
-        Validate.notNull(index, "index cannot be null");
-        Validate.notBlank(id, "id cannot be blank");
+    public Future<Boolean> setCondition(WatchedDocument document, StatusCondition condition, String source) {
+        Validate.notNull(document, "document cannot be null");
         Validate.notNull(condition, "condition cannot be null");
         Validate.notNull(condition.type(), "condition type cannot be null");
         Validate.notNull(condition.message(), "condition message cannot be null");
         Validate.notNull(condition.since(), "condition since cannot be null");
         Validate.notBlank(source, "source cannot be blank");
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(index.name(), id, SET_CONDITION,
-                                                                     Map.of("type", condition.type().name(),
-                                                                            "message", condition.message(),
-                                                                            "since", condition.since().toInstant().toString(),
-                                                                            "now", System.currentTimeMillis()))
-                                  .compose(document -> recorded(index, id, document,
-                                                                new WatchedChange(WatchEventKind.CONDITION_SET, source,
-                                                                                  condition.message(), condition)));
+        return run(document, SET_CONDITION, Map.of("type", condition.type().name(),
+                                                  "message", condition.message(),
+                                                  "since", condition.since().toInstant().toString(),
+                                                  "now", System.currentTimeMillis()))
+                .compose(written -> recorded(document, written,
+                                             new WatchedChange(WatchEventKind.CONDITION_SET, source,
+                                                               condition.message(), condition)));
     }
 
     /**
      * Clears the record's condition of the given type and records it. A record carrying none is left
      * as it is. Visible to search on completion.
      *
-     * @param index  where the record lives
-     * @param id     the record's id
-     * @param type   the type to clear
-     * @param source what caused it, for the ledger
+     * @param document the record
+     * @param type     the type to clear
+     * @param source   what caused it, for the ledger
      * @return true when a condition was cleared, false when the record carried none of the type
      */
-    public Future<Boolean> clearCondition(WatchedIndex index, String id, StatusConditionType type, String source) {
-        Validate.notNull(index, "index cannot be null");
-        Validate.notBlank(id, "id cannot be blank");
+    public Future<Boolean> clearCondition(WatchedDocument document, StatusConditionType type, String source) {
+        Validate.notNull(document, "document cannot be null");
         Validate.notNull(type, "type cannot be null");
         Validate.notBlank(source, "source cannot be blank");
-        return crudServiceTemplate.scriptedUpdateReturningSourceSync(index.name(), id, CLEAR_CONDITION,
-                                                                     Map.of("type", type.name(),
-                                                                            "now", System.currentTimeMillis()))
-                                  .compose(document -> recorded(index, id, document,
-                                                                new WatchedChange(WatchEventKind.CONDITION_CLEARED, source,
-                                                                                  type + " cleared", Map.of("type", type))));
+        return run(document, CLEAR_CONDITION, Map.of("type", type.name(),
+                                                    "now", System.currentTimeMillis()))
+                .compose(written -> recorded(document, written,
+                                             new WatchedChange(WatchEventKind.CONDITION_CLEARED, source,
+                                                               type + " cleared", Map.of("type", type))));
     }
 
     /**
      * Records a write to the record in the ledger, naming what the record belongs to and its
      * generation as the write left them.
      *
-     * @param index    where the record lives
-     * @param id       the record's id
-     * @param document the record as the write left it
+     * @param document the record
+     * @param written  the record as the write left it
      * @param change   what the write was
      * @return a future that completes once the entry is accepted
      */
-    public Future<Void> record(WatchedIndex index, String id, Map<String, Object> document, WatchedChange change) {
-        Validate.notNull(index, "index cannot be null");
-        Validate.notBlank(id, "id cannot be blank");
+    public Future<Void> record(WatchedDocument document, Map<String, Object> written, WatchedChange change) {
         Validate.notNull(document, "document cannot be null");
+        Validate.notNull(written, "written cannot be null");
         Validate.notNull(change, "change cannot be null");
         @SuppressWarnings("unchecked")
-        Map<String, Object> state = (Map<String, Object>) document.get("state");
+        Map<String, Object> state = (Map<String, Object>) written.get("state");
         WatchedParent parent = null;
         Long generation = null;
         if (state != null) {
@@ -172,18 +164,36 @@ public class WatchedStateRepository {
                 generation = ((Number) state.get("generation")).longValue();
             }
         }
-        return watchEventRepository.record(new WatchEvent(new Date(), index.type(), id, parent, change.kind(),
-                                                          change.source(), kinotic.serverInfo().getNodeId(),
+        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), parent,
+                                                          change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
                                                           generation, change.message(), change.value()));
     }
 
+    /**
+     * Runs a state script against the record, on the document id and routing its repository stores it
+     * under, and completes with the record as the script left it, or null when the script declined.
+     *
+     * @param document the record
+     * @param script   the Painless source, reading its inputs from {@code params}
+     * @param params   the values the script reads as {@code params.<name>}
+     * @return the record as written, or null when the script left it as it was
+     */
+    public Future<Map<String, Object>> run(WatchedDocument document, String script, Map<String, Object> params) {
+        return crudServiceTemplate.scriptedUpdateReturningSourceSync(document.index().name(), document.documentId(), script, params,
+                                                                     u -> {
+                                                                         if (document.routing() != null) {
+                                                                             u.routing(document.routing());
+                                                                         }
+                                                                     });
+    }
+
     // A script that declined returns no document, and a write that did not happen is not recorded
-    private Future<Boolean> recorded(WatchedIndex index, String id, Map<String, Object> document, WatchedChange change) {
+    private Future<Boolean> recorded(WatchedDocument document, Map<String, Object> written, WatchedChange change) {
         Future<Boolean> ret;
-        if (document == null) {
+        if (written == null) {
             ret = Future.succeededFuture(false);
         } else {
-            ret = record(index, id, document, change).map(true);
+            ret = record(document, written, change).map(true);
         }
         return ret;
     }

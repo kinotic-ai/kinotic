@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.annotations.Consumer;
-import org.kinotic.domain.api.model.DeploymentStatus;
+import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.DeploymentStatusType;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectDeployment;
@@ -144,13 +144,14 @@ public class ProjectDeployOrchestrator {
                                              JobOwner.ofApplication(project.getOrganizationId(),
                                                                     project.getApplicationId(),
                                                                     project.getId()));
+        String jobRunId = handle.getJobRunId();
 
         // Captured from the run's TaskCompletedEvents as the task stores it in the job scope,
         // so the outcome record reflects how far the run got whatever the outcome
         AtomicReference<DeployTarget> target = new AtomicReference<>();
 
         Promise<Void> outcome = Promise.promise();
-        recordDeploying(project, existing, handle.getJobRunId())
+        recordDeploying(project, commitSha, jobRunId)
                 .onFailure(outcome::fail)
                 // The job starts when its events are subscribed, so the DEPLOYING record
                 // is in place before any task runs
@@ -163,55 +164,63 @@ public class ProjectDeployOrchestrator {
                                 }
                             }
                         },
-                        error -> recordOutcome(deployment, target.get(), null,
-                                               new DeploymentStatus(DeploymentStatusType.FAILED,
-                                                                           error.getMessage()))
+                        error -> recordOutcome(deployment, jobRunId, target.get(),
+                                               new DeploymentState(DeploymentStatusType.FAILED, liveCommit(deployment)),
+                                               error.getMessage())
                                 .onComplete(unused -> outcome.fail(error)),
-                        () -> recordOutcome(deployment, target.get(), commitSha,
-                                            new DeploymentStatus(DeploymentStatusType.RUNNING, null))
-                                .<Void>mapEmpty()
+                        () -> recordOutcome(deployment, jobRunId, target.get(),
+                                            new DeploymentState(DeploymentStatusType.RUNNING, commitSha), null)
                                 .onComplete(outcome)));
         return outcome.future();
     }
 
-    private Future<ProjectDeployment> recordDeploying(Project project, ProjectDeployment existing, String jobRunId) {
-        ProjectDeployment deployment = existing != null ? existing : new ProjectDeployment()
+    // The intent creates the record on the project's first deployment; the run then reports that it
+    // is deploying, which generation of intent it answers, and the commit that stays live meanwhile
+    private Future<ProjectDeployment> recordDeploying(Project project, String commitSha, String jobRunId) {
+        ProjectDeployment upsert = new ProjectDeployment()
                 .setId(project.getId())
                 .setOrganizationId(project.getOrganizationId())
                 .setApplicationId(project.getApplicationId())
-                .setCreated(new Date());
-        deployment.setLastJobRunId(jobRunId);
-        deployment.setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYING, null));
-        deployment.setUpdated(new Date());
-        return projectDeploymentRepository.save(deployment, deployment.getOrganizationId());
+                .setCreated(new Date())
+                .setUpdated(new Date());
+        return projectDeploymentRepository.updateDesired(project.getId(), project.getOrganizationId(),
+                                                         new DeploymentState(DeploymentStatusType.RUNNING, commitSha),
+                                                         upsert, "push of " + commitSha)
+                .compose(deployment -> projectDeploymentRepository.recordJobRun(project.getId(), project.getOrganizationId(), jobRunId)
+                        .compose(v -> projectDeploymentRepository.reportObserved(project.getId(), project.getOrganizationId(),
+                                                                                new DeploymentState(DeploymentStatusType.DEPLOYING, liveCommit(deployment)),
+                                                                                deployment.getState().getGeneration(),
+                                                                                "deploy job " + jobRunId))
+                        .map(deployment));
     }
 
-    private Future<ProjectDeployment> recordOutcome(ProjectDeployment deployment,
-                                                    DeployTarget target,
-                                                    String syncedCommitSha,
-                                                    DeploymentStatus status) {
-        // The run's own tasks write to this record — provisioning the sync machine records its
-        // id before handing the credential out, the sync workload reports the artifacts — so the
-        // copy captured before the job started is stale by now and writing it back would drop
-        // what they wrote.
-        return projectDeploymentRepository.findById(deployment.getId(), deployment.getOrganizationId())
-                .map(current -> current != null ? current : deployment)
-                .compose(current -> {
-                    if (target != null) {
-                        current.setNodeId(target.nodeId());
-                        current.setHostDir(target.hostDir());
-                        current.setSyncWorkloadId(target.syncWorkloadId());
-                        current.setUiPublishWorkloadId(target.uiPublishWorkloadId());
-                    }
-                    if (syncedCommitSha != null) {
-                        current.setCommitSha(syncedCommitSha);
-                    }
-                    current.setStatus(status);
-                    current.setUpdated(new Date());
-                    return projectDeploymentRepository.save(current, current.getOrganizationId());
-                })
-                .onFailure(error -> log.error("Failed to record deployment outcome for project {}",
-                                              deployment.getId(), error));
+    // The commit the deployment serves as the record stood before this run: a failed run leaves it live
+    private static String liveCommit(ProjectDeployment deployment) {
+        DeploymentState observed = deployment.getState().getObserved();
+        return observed != null ? observed.commitSha() : null;
+    }
+
+    // The run's own tasks write the record's entity fields as they go, so the outcome is written field
+    // by field rather than from the copy captured before the job started
+    private Future<Void> recordOutcome(ProjectDeployment deployment,
+                                       String jobRunId,
+                                       DeployTarget target,
+                                       DeploymentState observed,
+                                       String failure) {
+        String projectId = deployment.getId();
+        String organizationId = deployment.getOrganizationId();
+        Future<Void> ret;
+        if (target != null) {
+            ret = projectDeploymentRepository.recordTarget(projectId, organizationId, target.nodeId(), target.hostDir(),
+                                                           target.syncWorkloadId(), target.uiPublishWorkloadId());
+        } else {
+            ret = Future.succeededFuture();
+        }
+        return ret.compose(v -> projectDeploymentRepository.recordFailure(projectId, organizationId, failure))
+                  .compose(v -> projectDeploymentRepository.reportObserved(projectId, organizationId, observed,
+                                                                           deployment.getState().getGeneration(),
+                                                                           "deploy job " + jobRunId))
+                  .onFailure(error -> log.error("Failed to record deployment outcome for project {}", projectId, error));
     }
 
 }
