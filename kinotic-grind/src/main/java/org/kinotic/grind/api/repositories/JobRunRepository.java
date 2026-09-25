@@ -73,11 +73,10 @@ public class JobRunRepository extends AbstractRepository<JobRun> implements Watc
         return WATCHED.type();
     }
 
-    // Stored by id alone; the organization is what the repository of the deployment a run was made
-    // by needs to find that
+    // Stored by id alone
     @Override
     public String scopeOf(JobRun record) {
-        return record.getOrganizationId();
+        return null;
     }
 
     @Override

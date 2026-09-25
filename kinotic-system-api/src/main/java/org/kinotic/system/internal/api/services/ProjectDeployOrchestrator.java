@@ -213,7 +213,7 @@ public class ProjectDeployOrchestrator implements Reconciler<ProjectDeployment> 
                                              JobOwner.ofApplication(project.getOrganizationId(),
                                                                     project.getApplicationId(),
                                                                     projectId),
-                                             new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, projectId));
+                                             new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), projectId));
         String jobRunId = handle.getJobRunId();
         log.debug("Deploying project {} at commit {} in job run {}", projectId, commitSha, jobRunId);
         running.add(projectId);

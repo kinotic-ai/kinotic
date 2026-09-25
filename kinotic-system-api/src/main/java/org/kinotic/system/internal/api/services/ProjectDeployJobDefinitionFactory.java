@@ -313,7 +313,7 @@ public class ProjectDeployJobDefinitionFactory {
                 .setName(artifact.name())
                 .setCreated(new Date())
                 .setUpdated(new Date());
-        deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
+        deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
         return deployment;
     }
 
@@ -432,7 +432,7 @@ public class ProjectDeployJobDefinitionFactory {
                     .setName(ui.name())
                     .setCreated(new Date())
                     .setUpdated(new Date());
-            deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
+            deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
             ret = uiDeploymentRepository.create(deployment)
                     .recover(error -> error instanceof AlreadyExistsException
                             ? mintWithSuffix(project, ui, base, attempt + 1)

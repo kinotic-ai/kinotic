@@ -73,11 +73,10 @@ public class WorkloadRepository extends AbstractRepository<Workload> implements 
         return WATCHED.type();
     }
 
-    // Workloads are stored by id alone; the organization is what the repository of a workload's
-    // parent, a deployment, needs to find it
+    // Stored by id alone
     @Override
     public String scopeOf(Workload record) {
-        return record.getOrganizationId();
+        return null;
     }
 
     @Override

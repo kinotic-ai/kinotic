@@ -43,7 +43,7 @@ public class ProjectWorkloadFactory {
         Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setId(target.syncWorkloadId());
         workload.setDescription("Checkout and entity sync for project " + project.getId());
-        workload.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
+        workload.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
         workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
@@ -82,7 +82,7 @@ public class ProjectWorkloadFactory {
         Workload workload = new Workload("project-runtime-" + project.getId() + "-" + microservice.getName(),
                                          deployment.getWorkloadRunnerImage());
         workload.setDescription("Microservice " + microservice.getName() + " of project " + project.getId());
-        workload.getState().setParent(new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, microservice.getId()));
+        workload.getState().setParent(new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, microservice.getOrganizationId(), microservice.getId()));
         workload.setNodeId(nodeId);
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());

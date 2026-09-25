@@ -128,10 +128,9 @@ public class ReconcileMaster implements Service {
         if (registry.workerFor(repository.type()).isPresent()) {
             enqueue(new Key(repository.type(), record.getId(), scope));
         }
-        // a parent lives in the same scope as what it made, which is all the master knows of it
         WatchedParent parent = record.getState().getParent();
         if (parent != null && registry.workerFor(parent.type()).isPresent()) {
-            enqueue(new Key(parent.type(), parent.id(), scope));
+            enqueue(new Key(parent.type(), parent.id(), parent.scope()));
         }
         // compare-and-clear: a write that landed between the scan and this keeps the record dirty
         repository.clearDirty(record.getId(), scope, record.getState().getDirtyAt())

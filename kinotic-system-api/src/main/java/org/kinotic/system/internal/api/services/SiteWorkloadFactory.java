@@ -34,7 +34,7 @@ public class SiteWorkloadFactory {
      */
     public Workload publish(Project project, DeployTarget target, JsonObject uploadUrls, String commitSha) {
         Workload workload = siteWorkload("project-ui-publish-" + project.getId(), "UI publish for project " + project.getId(),
-                                         new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()),
+                                         new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()),
                                          target.nodeId(), project.getOrganizationId(), project.getApplicationId(), "src/publish-ui.ts");
         workload.setId(target.uiPublishWorkloadId());
         workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
@@ -53,7 +53,7 @@ public class SiteWorkloadFactory {
      */
     public Workload removal(UiDeployment deployment, String nodeId, String removalUrl) {
         Workload workload = siteWorkload("site-remove-" + deployment.getId(), "Removal of site " + deployment.getId(),
-                                         new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getId()),
+                                         new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getOrganizationId(), deployment.getId()),
                                          nodeId, deployment.getOrganizationId(), deployment.getApplicationId(), "src/remove-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_REMOVAL_URL", removalUrl);
         allowSitesAccount(workload, removalUrl);

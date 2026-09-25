@@ -15,7 +15,7 @@ public class WatchEventTest {
     public void carriesTheDataStreamTimeFieldUnderItsRequiredName() {
         JsonMapper mapper = JsonMapper.builder().build();
         WatchEvent event = new WatchEvent(new Date(), WatchedType.WORKLOAD, "w1",
-                                          new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, "svc-a"),
+                                          new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, "org-1", "svc-a"),
                                           WatchEventKind.STATUS_CHANGED, "node n1", "server-1", null,
                                           "Run STOPPED", Map.of("status", "STOPPED"));
 
