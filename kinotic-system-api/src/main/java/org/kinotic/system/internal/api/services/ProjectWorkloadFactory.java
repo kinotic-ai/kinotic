@@ -2,7 +2,10 @@ package org.kinotic.system.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
+import org.kinotic.core.api.reconcile.WatchedParent;
+import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
+import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectRepoToken;
 import org.kinotic.management.api.model.workload.VolumeMount;
@@ -40,6 +43,7 @@ public class ProjectWorkloadFactory {
         Workload workload = new Workload("project-sync-" + project.getId(), deployment.getWorkloadRunnerImage());
         workload.setId(target.syncWorkloadId());
         workload.setDescription("Checkout and entity sync for project " + project.getId());
+        workload.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()));
         workload.setNodeId(target.nodeId());
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());
@@ -65,18 +69,20 @@ public class ProjectWorkloadFactory {
 
     /**
      * The runtime workload of one microservice: serves {@code entryPoint} from the checkout
-     * mounted read-only at {@code /app} on the node holding it.
+     * mounted read-only at {@code /app} on the node holding it, belonging to the microservice's
+     * deployment.
      */
     public Workload runtime(Project project,
                             String nodeId,
                             String hostDir,
-                            String microserviceName,
+                            MicroserviceDeployment microservice,
                             String entryPoint,
                             MachineProvisionResult credentials) {
         DeploymentProperties deployment = deployment();
-        Workload workload = new Workload("project-runtime-" + project.getId() + "-" + microserviceName,
+        Workload workload = new Workload("project-runtime-" + project.getId() + "-" + microservice.getName(),
                                          deployment.getWorkloadRunnerImage());
-        workload.setDescription("Microservice " + microserviceName + " of project " + project.getId());
+        workload.setDescription("Microservice " + microservice.getName() + " of project " + project.getId());
+        workload.getState().setParent(new WatchedParent(WatchedType.MICROSERVICE_DEPLOYMENT, microservice.getId()));
         workload.setNodeId(nodeId);
         workload.setOrganizationId(project.getOrganizationId());
         workload.setApplicationId(project.getApplicationId());

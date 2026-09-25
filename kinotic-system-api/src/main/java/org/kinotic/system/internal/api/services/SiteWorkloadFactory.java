@@ -2,6 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
+import org.kinotic.core.api.reconcile.WatchedParent;
+import org.kinotic.core.api.reconcile.WatchedType;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.model.workload.VolumeMount;
@@ -32,6 +34,7 @@ public class SiteWorkloadFactory {
      */
     public Workload publish(Project project, DeployTarget target, JsonObject uploadUrls, String commitSha) {
         Workload workload = siteWorkload("project-ui-publish-" + project.getId(), "UI publish for project " + project.getId(),
+                                         new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getId()),
                                          target.nodeId(), project.getOrganizationId(), project.getApplicationId(), "src/publish-ui.ts");
         workload.setId(target.uiPublishWorkloadId());
         workload.getEnvironment().put("KINOTIC_UI_COMMIT", commitSha);
@@ -50,16 +53,19 @@ public class SiteWorkloadFactory {
      */
     public Workload removal(UiDeployment deployment, String nodeId, String removalUrl) {
         Workload workload = siteWorkload("site-remove-" + deployment.getId(), "Removal of site " + deployment.getId(),
+                                         new WatchedParent(WatchedType.UI_DEPLOYMENT, deployment.getId()),
                                          nodeId, deployment.getOrganizationId(), deployment.getApplicationId(), "src/remove-ui.ts");
         workload.getSecrets().put("KINOTIC_UI_REMOVAL_URL", removalUrl);
         allowSitesAccount(workload, removalUrl);
         return workload;
     }
 
-    private Workload siteWorkload(String name, String description, String nodeId, String organizationId, String applicationId, String entrypoint) {
+    private Workload siteWorkload(String name, String description, WatchedParent parent, String nodeId,
+                                  String organizationId, String applicationId, String entrypoint) {
         DeploymentProperties deployment = kinoticProperties.getSystemApi().getDeployment();
         Workload workload = new Workload(name, deployment.getWorkloadRunnerImage());
         workload.setDescription(description);
+        workload.getState().setParent(parent);
         workload.setNodeId(nodeId);
         workload.setOrganizationId(organizationId);
         workload.setApplicationId(applicationId);

@@ -19,8 +19,9 @@ public interface WatchedRepository<R extends Watched> {
 
     /**
      * @param record a record of this kind
-     * @return the scope the record is stored under, such as its organization, or null when its kind
-     * is not scoped; what {@link #find(String, String)} needs beside the id
+     * @return the scope the record belongs to, such as its organization, or null when its kind has
+     * none; what {@link #find(String, String)} needs beside the id, and what the repository of the
+     * record's parent needs beside the parent's id, since a record and its parent share a scope
      */
     String scopeOf(R record);
 

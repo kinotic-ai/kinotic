@@ -71,7 +71,7 @@ public class DefaultDeploymentOperationsService implements DeploymentOperationsS
                                         .compose(v -> projectDeployIdentityService.issueRuntimeCredentials(project, deployment))
                                         .compose(credentials -> workloadOrchestrationService.deployWorkload(
                                                 projectWorkloadFactory.runtime(project, target.getNodeId(), target.getHostDir(),
-                                                                               deployment.getName(), deployment.getEntryPoint(), credentials)))
+                                                                               deployment, deployment.getEntryPoint(), credentials)))
                                         .map(workload -> deployment.setWorkloadId(workload.getId())
                                                                    .setStatus(new DeploymentStatus(DeploymentStatusType.DEPLOYED)))
                                         .recover(error -> {

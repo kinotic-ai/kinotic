@@ -5,7 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.system.api.model.workload.VmNode;
-import org.kinotic.system.api.model.workload.VmNodeStatus;
+import org.kinotic.system.api.model.workload.VmNodeState;
 import org.kinotic.system.api.model.workload.VmNodeStatusType;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.management.api.model.workload.Workload;
@@ -74,7 +74,9 @@ public class VmNodePlacementTests extends KinoticTestBase {
     @Test
     public void skipsNodesThatAreNotTakingWorkloads() throws Exception {
         VmNode draining = node("placement-draining", 8, 8192, 20480, 8, 8192, 20480);
-        draining.setStatus(new VmNodeStatus(VmNodeStatusType.DRAINING, "under maintenance"));
+        // a node reporting a problem is not in its desired state, and placement selects on that
+        draining.getState().setObserved(new VmNodeState(VmNodeStatusType.DRAINING)).setReconciled(false);
+        draining.setHealthMessage("under maintenance");
         await(vmNodeService.save(draining));
         indexNodes();
 
@@ -110,8 +112,8 @@ public class VmNodePlacementTests extends KinoticTestBase {
         VmNode registered = await(vmNodeOrchestrationService.registerNode(
                 registration("placement-live", 16, 131072, 1902788)));
         created.add(registered.getId());
-        Assertions.assertEquals(VmNodeStatusType.ONLINE, registered.getStatus().getType(),
-                                "a freshly registered node must be online to be placeable");
+        Assertions.assertTrue(registered.getState().isReconciled(),
+                              "a freshly registered node must be in its desired state to be placeable");
         indexNodes();
 
         VmNode chosen = await(vmNodeOrchestrationService.findAvailableNode(1, 2048, 1024));
@@ -197,8 +199,13 @@ public class VmNodePlacementTests extends KinoticTestBase {
             .setTotalDiskMb(totalDiskMb)
             .setFreeCpus(freeCpus)
             .setFreeMemoryMb(freeMemoryMb)
-            .setFreeDiskMb(freeDiskMb)
-            .setStatus(new VmNodeStatus(VmNodeStatusType.ONLINE, null));
+            .setFreeDiskMb(freeDiskMb);
+        // as a registered node that heartbeats stands: taking workloads, and reconciled on that
+        node.getState().setDesired(new VmNodeState(VmNodeStatusType.ONLINE))
+            .setObserved(new VmNodeState(VmNodeStatusType.ONLINE))
+            .setGeneration(1)
+            .setObservedGeneration(1)
+            .setReconciled(true);
         created.add(id);
         return await(vmNodeService.save(node));
     }

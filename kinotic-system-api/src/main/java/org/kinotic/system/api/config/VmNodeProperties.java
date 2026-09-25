@@ -16,13 +16,9 @@ import lombok.experimental.Accessors;
 public class VmNodeProperties {
 
     /**
-     * How long (in seconds) since the last heartbeat before a node is considered stale and marked OFFLINE.
+     * How long (in seconds) since the last heartbeat before a node is considered silent and marked
+     * unreachable with every run still open on it.
      */
     private long heartbeatTimeoutSeconds = 90;
-
-    /**
-     * How often (in seconds) the health check runs to look for stale nodes.
-     */
-    private long healthCheckIntervalSeconds = 30;
 
 }

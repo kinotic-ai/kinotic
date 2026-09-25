@@ -68,6 +68,12 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
         return reconcileStateRepository.findUnreconciled(indexName, type, pageable);
     }
 
+    // Every organization's deployments, which the scoped listing cannot give: the master's one look at each
+    @Override
+    public Future<Page<ProjectDeployment>> findAll(Pageable pageable) {
+        return crudServiceTemplate.search(indexName, pageable, type, null);
+    }
+
     /**
      * Writes what the project's deployment should be, creating the record from {@code upsert} on the
      * project's first deployment, and enters the change in the ledger; visible to search on completion.

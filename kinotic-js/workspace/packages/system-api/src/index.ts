@@ -4,7 +4,7 @@ export { SYSTEM_API_ZONE } from '@kinotic-ai/management-api'
 
 // Models
 export * from '@/api/model/workload/VmNode'
-export * from '@/api/model/workload/VmNodeStatus'
+export * from '@/api/model/workload/VmNodeState'
 export * from '@/api/model/workload/VmNodeStatusType'
 export * from '@/api/model/workload/WorkloadReservation'
 export * from '@/api/model/workload/VmProviderType'
