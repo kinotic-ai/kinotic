@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model;
+package org.kinotic.management.api.model.deployment;
 
 /**
  * The lifecycle states a {@link DeploymentStatus} carries. One set serves every deployed

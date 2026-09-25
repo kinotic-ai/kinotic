@@ -2,8 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.DeploymentStatus;
-import org.kinotic.domain.api.model.DeploymentStatusType;
+import org.kinotic.management.api.model.deployment.DeploymentStatus;
+import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 import org.kinotic.system.api.services.UiDeploymentProvisioner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

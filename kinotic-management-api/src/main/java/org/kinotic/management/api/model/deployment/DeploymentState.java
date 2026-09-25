@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model;
+package org.kinotic.management.api.model.deployment;
 
 /**
  * The reconciled state of something the platform deploys from a commit: the shape both the intent

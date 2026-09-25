@@ -3,7 +3,7 @@ package org.kinotic.management.api.repositories;
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Pageable;
-import org.kinotic.domain.api.model.DeploymentState;
+import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.repositories.AbstractReconcilableRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;

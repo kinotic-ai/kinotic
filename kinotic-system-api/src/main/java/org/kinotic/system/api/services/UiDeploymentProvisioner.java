@@ -1,8 +1,8 @@
 package org.kinotic.system.api.services;
 
 import io.vertx.core.Future;
-import org.kinotic.domain.api.model.DeploymentStatus;
-import org.kinotic.domain.api.model.DeploymentStatusType;
+import org.kinotic.management.api.model.deployment.DeploymentStatus;
+import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 import org.kinotic.management.api.model.deployment.UiDeployment;
 
 /**

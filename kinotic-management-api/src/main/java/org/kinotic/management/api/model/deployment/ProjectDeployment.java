@@ -4,7 +4,6 @@ import org.kinotic.management.api.model.Project;
 import org.kinotic.domain.api.model.ApplicationScoped;
 import org.kinotic.domain.api.model.Reconcilable;
 import org.kinotic.domain.api.model.ReconcileState;
-import org.kinotic.domain.api.model.DeploymentState;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

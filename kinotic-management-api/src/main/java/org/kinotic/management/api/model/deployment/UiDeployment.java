@@ -7,7 +7,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import org.kinotic.domain.api.model.Reconcilable;
 import org.kinotic.domain.api.model.ReconcileState;
-import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.OrganizationScoped;
 
 import java.util.Date;

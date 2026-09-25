@@ -7,7 +7,7 @@ import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.repositories.ReconcilableRepository;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedType;
-import org.kinotic.domain.api.model.DeploymentState;
+import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
 import org.kinotic.domain.internal.api.repositories.ReconcileStateRepository;
 import org.kinotic.domain.internal.api.repositories.WatchEventRepository;

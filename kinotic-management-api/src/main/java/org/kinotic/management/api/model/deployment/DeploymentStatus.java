@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.model;
+package org.kinotic.management.api.model.deployment;
 
 /**
  * Lifecycle state of something the platform deploys, and why when something is wrong. One

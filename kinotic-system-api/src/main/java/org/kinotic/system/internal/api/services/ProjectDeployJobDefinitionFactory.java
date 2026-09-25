@@ -3,13 +3,13 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import java.util.function.Supplier;
 import org.kinotic.domain.api.model.Reconcilable;
-import org.kinotic.domain.api.model.DeploymentState;
+import org.kinotic.management.api.model.deployment.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.WatchedParent;
 import io.vertx.core.Vertx;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.domain.api.model.DeploymentStatusType;
+import org.kinotic.management.api.model.deployment.DeploymentStatusType;
 
 import org.kinotic.management.api.model.deployment.MicroserviceArtifact;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
