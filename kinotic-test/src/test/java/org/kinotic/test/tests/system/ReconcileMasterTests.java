@@ -59,6 +59,9 @@ public class ReconcileMasterTests extends KinoticTestBase {
         assertTrue(awaitUntil(() -> nodeUnreachable()), "the master never marked the silent node");
         assertFalse(await(nodes.findById(NODE_ID)).getState().isReconciled(), "nothing is placed on it");
 
+        // by the one-second standard the node is silent again a second after any heartbeat, and the
+        // master keeps looking; the default standard is back before the heartbeat that ends the silence
+        properties.getSystemApi().getVmNode().setHeartbeatTimeoutSeconds(DEFAULT_HEARTBEAT_TIMEOUT_SECONDS);
         await(runAsOrganization(() -> nodeOrchestration.heartbeat(NODE_ID, List.of())));
 
         assertFalse(nodeUnreachable(), "the heartbeat ends the silence");
