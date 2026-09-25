@@ -2,8 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import lombok.RequiredArgsConstructor;
 import org.kinotic.domain.api.config.KinoticDomainProperties;
-import org.kinotic.domain.api.reconcile.WatchedParent;
-import org.kinotic.domain.api.reconcile.WatchedType;
+import org.kinotic.domain.api.model.WatchedParent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.security.identity.MachineProvisionResult;
 import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;

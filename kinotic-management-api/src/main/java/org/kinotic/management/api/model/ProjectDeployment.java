@@ -1,8 +1,8 @@
 package org.kinotic.management.api.model;
 
 import org.kinotic.domain.api.model.ApplicationScoped;
-import org.kinotic.domain.api.reconcile.Reconcilable;
-import org.kinotic.domain.api.reconcile.ReconcileState;
+import org.kinotic.domain.api.model.Reconcilable;
+import org.kinotic.domain.api.model.ReconcileState;
 import org.kinotic.domain.api.model.DeploymentState;
 
 import lombok.Getter;

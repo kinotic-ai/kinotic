@@ -3,7 +3,7 @@ package org.kinotic.system.api.model.workload;
 /**
  * Whether a {@link VmNode} is taking workloads, as the node reports it. A node the platform cannot
  * reach is not a phase the node can report: it carries the condition
- * {@link org.kinotic.domain.api.reconcile.StatusConditionType#NODE_UNREACHABLE} beside what it last
+ * {@link org.kinotic.domain.api.model.StatusConditionType#NODE_UNREACHABLE} beside what it last
  * reported.
  */
 public enum VmNodeStatusType {

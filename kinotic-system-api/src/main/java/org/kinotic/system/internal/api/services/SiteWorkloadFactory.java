@@ -2,8 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
-import org.kinotic.domain.api.reconcile.WatchedParent;
-import org.kinotic.domain.api.reconcile.WatchedType;
+import org.kinotic.domain.api.model.WatchedParent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.model.workload.VolumeMount;

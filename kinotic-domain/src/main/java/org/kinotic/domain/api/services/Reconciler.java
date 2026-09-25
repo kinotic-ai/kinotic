@@ -1,6 +1,9 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.services;
 
 import io.vertx.core.Future;
+import org.kinotic.domain.api.model.Reconcilable;
+import org.kinotic.domain.api.model.Requeue;
+import org.kinotic.domain.api.model.WatchedType;
 
 /**
  * The worker for one kind of {@link Reconcilable} record: given the record as it stands, acts to bring

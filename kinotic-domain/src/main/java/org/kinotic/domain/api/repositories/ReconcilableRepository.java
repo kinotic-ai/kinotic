@@ -1,8 +1,9 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.repositories;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.domain.api.model.Reconcilable;
 
 /**
  * What the reconcile master needs from the repository of one kind of {@link Reconcilable} record

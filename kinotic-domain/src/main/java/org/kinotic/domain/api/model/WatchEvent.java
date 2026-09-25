@@ -1,8 +1,6 @@
 package org.kinotic.domain.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import org.kinotic.domain.api.reconcile.WatchedParent;
-import org.kinotic.domain.api.reconcile.WatchedType;
 
 import java.util.Date;
 

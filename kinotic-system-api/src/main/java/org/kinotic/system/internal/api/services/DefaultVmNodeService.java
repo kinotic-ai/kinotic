@@ -2,8 +2,8 @@ package org.kinotic.system.internal.api.services;
 
 import io.vertx.core.Future;
 import org.apache.commons.lang3.Validate;
-import org.kinotic.domain.api.reconcile.StatusCondition;
-import org.kinotic.domain.api.reconcile.StatusConditionType;
+import org.kinotic.domain.api.model.StatusCondition;
+import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
 import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.VmNodeState;

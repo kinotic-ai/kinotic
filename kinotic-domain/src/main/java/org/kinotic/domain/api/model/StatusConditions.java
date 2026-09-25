@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.model;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,11 +1,11 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.model;
 
 import org.apache.commons.lang3.Validate;
 
 import java.time.Duration;
 
 /**
- * What a {@link Reconciler} asks of the reconcile master once it has acted: nothing until the record
+ * What a {@link org.kinotic.domain.api.services.Reconciler} asks of the reconcile master once it has acted: nothing until the record
  * changes again, another call at once, or another call after a delay.
  *
  * @param after how long to wait before the next call, zero for at once, null for no call

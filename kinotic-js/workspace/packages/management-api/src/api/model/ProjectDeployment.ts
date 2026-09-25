@@ -1,5 +1,5 @@
-import type { Reconcilable } from '@/api/reconcile/Reconcilable'
-import { ReconcileState } from '@/api/reconcile/ReconcileState'
+import type { Reconcilable } from '@/api/model/Reconcilable'
+import { ReconcileState } from '@/api/model/ReconcileState'
 import type { ProjectArtifacts } from '@/api/model/ProjectArtifacts'
 import type { DeploymentState } from '@/api/model/DeploymentState'
 

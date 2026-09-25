@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.model;
 
 /**
  * What a watcher can infer about a record without its authority confirming it. Each value documents

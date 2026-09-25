@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.model;
 
 /**
  * The kinds of {@link Watched} record, the first half of a {@link WatchedParent}.

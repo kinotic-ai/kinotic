@@ -1,4 +1,4 @@
-package org.kinotic.domain.api.reconcile;
+package org.kinotic.domain.api.model;
 
 /**
  * A {@link Watched} record that also carries intent: what it should be, beside what its authority

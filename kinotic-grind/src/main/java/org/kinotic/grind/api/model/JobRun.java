@@ -4,8 +4,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import org.kinotic.domain.api.reconcile.Watched;
-import org.kinotic.domain.api.reconcile.WatchedState;
+import org.kinotic.domain.api.model.Watched;
+import org.kinotic.domain.api.model.WatchedState;
 
 import java.util.Date;
 
