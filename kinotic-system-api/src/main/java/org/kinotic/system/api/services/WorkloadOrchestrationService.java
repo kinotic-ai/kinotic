@@ -32,6 +32,13 @@ public interface WorkloadOrchestrationService {
      * it is stopped or destroyed. Whichever way a run ends, the node removes its VM and its
      * room on the node is released; the record stays with the run's outcome, and its logs stay
      * in the log store under its id.
+     * <p>
+     * A start the node's vm-manager never answered — it took the call and then left the cluster,
+     * or the acknowledgement was lost — fails the returned future with
+     * {@link org.kinotic.core.api.exceptions.RpcServiceUnavailableException} and leaves the record
+     * {@link WorkloadStatus#STARTING}, marked {@link org.kinotic.core.api.reconcile.StatusConditionType#NODE_UNREACHABLE}
+     * and holding its room: the node may be running it, and its next report settles the record
+     * either way. A start no vm-manager took is recorded {@link WorkloadStatus#FAILED}.
      *
      * @param workload the workload configuration to deploy
      * @return a future that will complete with the deployed workload (including assigned nodeId and id)
@@ -40,7 +47,11 @@ public interface WorkloadOrchestrationService {
 
     /**
      * Stops a running workload.
-     * Delegates to the VmManager on the node where the workload is deployed.
+     * Delegates to the VmManager on the node where the workload is deployed. A stop the vm-manager
+     * never answered fails the returned future and leaves the record
+     * {@link WorkloadStatus#STOPPING}, marked
+     * {@link org.kinotic.core.api.reconcile.StatusConditionType#NODE_UNREACHABLE} until the node's next
+     * report says whether it stopped.
      *
      * @param workloadId the id of the workload to stop
      * @return a future that will complete when the workload has been stopped

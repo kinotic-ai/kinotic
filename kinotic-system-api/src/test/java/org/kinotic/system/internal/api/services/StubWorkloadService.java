@@ -3,7 +3,11 @@ package org.kinotic.system.internal.api.services;
 import io.vertx.core.Future;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
+import org.kinotic.core.api.reconcile.StatusConditions;
 import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.services.WorkloadService;
 import tools.jackson.databind.ObjectMapper;
 
@@ -101,6 +105,43 @@ public class StubWorkloadService implements WorkloadService {
                                        .filter(workload -> nodeId.equals(workload.getNodeId()))
                                        .toList();
         return Future.succeededFuture(new Page<>(matching, (long) matching.size()));
+    }
+
+    @Override
+    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode) {
+        Workload stored = saved.get(workloadId);
+        stored.setStatus(status);
+        if (exitCode != null) {
+            stored.setExitCode(exitCode);
+        }
+        stored.setUpdated(new Date());
+        touched(stored);
+        return Future.succeededFuture();
+    }
+
+    @Override
+    public Future<Boolean> setCondition(String workloadId, StatusCondition condition) {
+        Workload stored = saved.get(workloadId);
+        boolean set = !StatusConditions.has(stored.getState().getConditions(), condition.type());
+        if (set) {
+            stored.getState().getConditions().add(condition);
+            touched(stored);
+        }
+        return Future.succeededFuture(set);
+    }
+
+    @Override
+    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type) {
+        Workload stored = saved.get(workloadId);
+        boolean cleared = stored.getState().getConditions().removeIf(condition -> condition.type() == type);
+        if (cleared) {
+            touched(stored);
+        }
+        return Future.succeededFuture(cleared);
+    }
+
+    private static void touched(Workload stored) {
+        stored.getState().setDirty(true).setDirtyAt(System.currentTimeMillis());
     }
 
     @Override

@@ -38,6 +38,9 @@ public class StubVmManagerProxy implements VmManagerProxy {
     /** When set, every start fails with this error instead of starting. */
     public Exception failStartWith;
 
+    /** When set, every stop fails with it, the way a stop to a node that left mid-call does. */
+    public Exception failStopWith;
+
     @Override
     public Future<Workload> startWorkload(String nodeId, Workload workload) {
         if (failStartWith != null) {
@@ -55,7 +58,7 @@ public class StubVmManagerProxy implements VmManagerProxy {
 
     @Override
     public Future<Void> stopWorkload(String nodeId, String workloadId) {
-        return Future.succeededFuture();
+        return failStopWith != null ? Future.failedFuture(failStopWith) : Future.succeededFuture();
     }
 
     @Override

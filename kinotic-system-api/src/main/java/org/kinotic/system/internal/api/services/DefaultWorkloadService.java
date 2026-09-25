@@ -5,7 +5,10 @@ import org.apache.commons.lang3.Validate;
 import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.internal.api.services.AbstractCrudService;
+import org.kinotic.core.api.reconcile.StatusCondition;
+import org.kinotic.core.api.reconcile.StatusConditionType;
 import org.kinotic.management.api.model.workload.Workload;
+import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.management.api.repositories.WorkloadRepository;
 import org.springframework.stereotype.Component;
@@ -31,6 +34,27 @@ public class DefaultWorkloadService extends AbstractCrudService<Workload> implem
     @Override
     public Future<Long> countRunningForNode(String nodeId) {
         return workloadRepository.countRunningForNode(nodeId);
+    }
+
+    @Override
+    public Future<Void> updateRunSync(String workloadId, WorkloadStatus status, Integer exitCode) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        Validate.notNull(status, "Workload status cannot be null");
+        return workloadRepository.updateRunSync(workloadId, status, exitCode);
+    }
+
+    @Override
+    public Future<Boolean> setCondition(String workloadId, StatusCondition condition) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        Validate.notNull(condition, "Condition cannot be null");
+        return workloadRepository.setCondition(workloadId, condition);
+    }
+
+    @Override
+    public Future<Boolean> clearCondition(String workloadId, StatusConditionType type) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        Validate.notNull(type, "Condition type cannot be null");
+        return workloadRepository.clearCondition(workloadId, type);
     }
 
     @Override
