@@ -205,13 +205,13 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         // or not the status moved: the node is the authority on its run
                         log.info("Workload {} status {} -> {} per report from node {}, reachable again",
                                  report.getWorkloadId(), workload.getStatus(), report.getStatus(), nodeId);
-                        ret = workloadService.clearCondition(workload.getId(), StatusConditionType.NODE_UNREACHABLE)
+                        ret = workloadService.clearCondition(workload.getId(), StatusConditionType.NODE_UNREACHABLE, "node " + nodeId)
                                              .compose(cleared -> applyReport(nodeId, workload, report));
                     } else if (workload.getStatus() == report.getStatus()) {
                         // Same state; still adopt an exit code the record lacks — stopWorkload
                         // records STOPPED before the node's exit-code-bearing report arrives
                         if (report.getExitCode() != null && workload.getExitCode() == null) {
-                            ret = workloadService.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode());
+                            ret = workloadService.updateRunSync(workload.getId(), workload.getStatus(), report.getExitCode(), "node " + nodeId);
                         } else {
                             ret = Future.succeededFuture();
                         }
@@ -231,7 +231,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
 
     // Records the report's status and exit code, and returns the run's room once the report says it ended
     private Future<Void> applyReport(String nodeId, Workload workload, WorkloadStatusReport report) {
-        Future<Void> ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode());
+        Future<Void> ret = workloadService.updateRunSync(workload.getId(), report.getStatus(), report.getExitCode(), "node " + nodeId);
         if (report.getStatus().isComplete()) {
             ret = ret.compose(v -> vmNodeService.releaseSync(nodeId, workload.getId()));
         }
@@ -252,7 +252,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                         ret = forEachOpenRun(nodeId, workload -> {
                             log.warn("Recording workload {} FAILED: node {} was deregistered while it was {}",
                                      workload.getId(), nodeId, workload.getStatus());
-                            return workloadService.updateRunSync(workload.getId(), WorkloadStatus.FAILED, null);
+                            return workloadService.updateRunSync(workload.getId(), WorkloadStatus.FAILED, null, "deregistration of node " + nodeId);
                         }).compose(v -> vmNodeService.deleteById(nodeId));
                     } else {
                         ret = workloadService.countRunningForNode(nodeId)
@@ -350,7 +350,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
         StatusCondition unreachable = new StatusCondition(StatusConditionType.NODE_UNREACHABLE,
                                                           "Node " + nodeId + " missed its heartbeat",
                                                           new Date());
-        return forEachOpenRun(nodeId, workload -> workloadService.setCondition(workload.getId(), unreachable)
+        return forEachOpenRun(nodeId, workload -> workloadService.setCondition(workload.getId(), unreachable, "heartbeat timeout")
                 .onSuccess(set -> {
                     if (set) {
                         log.warn("Marked workload {} unreachable: node {} missed its heartbeat", workload.getId(), nodeId);
