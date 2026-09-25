@@ -10,6 +10,8 @@ import org.kinotic.core.api.reconcile.StatusConditionType;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
+import java.util.Date;
+
 /**
  * Service for managing {@link Workload} entities.
  * Tracks all workloads that have been deployed across the cluster.
@@ -32,6 +34,14 @@ public interface WorkloadService extends IdentifiableCrudService<Workload, Strin
      * @return a future that will complete with the number of running workloads
      */
     Future<Long> countRunningForNode(String nodeId);
+
+    /**
+     * Finds the workloads whose run ended before the cutoff, oldest first.
+     * @param cutoff the moment a run must have ended before
+     * @param pageable the page to return
+     * @return a future that will complete with a page of workloads
+     */
+    Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable);
 
     /**
      * Records the status and exit code of the workload's run and enters the change in the ledger,

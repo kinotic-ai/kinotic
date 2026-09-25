@@ -72,7 +72,7 @@ import { CrudTable, DatetimeUtil, WorkloadLogsDialog, formatMb, pageNumberOf, us
 
 import { formatCpus } from '@/util/nodes'
 import { scopePath, type Scope } from '@/util/scope'
-import { nodeUnreachable, shortImage, workloadSeverity } from '@/util/workloads'
+import { nodeUnreachable, runOpen, shortImage, workloadSeverity } from '@/util/workloads'
 
 /**
  * The given workloads as a searchable, sortable table whose rows open the workload's page
@@ -238,18 +238,34 @@ function rowActions(item: WorkloadRow): MenuItem[] {
       command: () => act(() => Kinotic.workloadOrchestration.stopWorkload(item.id), 'Workload stopping', 'Failed to stop workload')
     })
   }
-  actions.push({
-    label: 'Destroy',
-    icon: 'pi pi-trash',
-    command: () => confirm.require({
-      header: 'Confirm destroy',
-      message: `Destroy workload ${item.name}? Its VM and disk are removed permanently.`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptProps: { label: 'Destroy', severity: 'danger' },
-      rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
-      accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
+  // A run holding a VM is destroyed; an ended one is deleted with its logs
+  if (runOpen(item.status)) {
+    actions.push({
+      label: 'Destroy',
+      icon: 'pi pi-power-off',
+      command: () => confirm.require({
+        header: 'Confirm destroy',
+        message: `Destroy workload ${item.name}? Its VM and disk are removed permanently; its record and logs stay.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptProps: { label: 'Destroy', severity: 'danger' },
+        rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+        accept: () => act(() => Kinotic.workloadOrchestration.destroyWorkload(item.id), 'Workload destroyed', 'Failed to destroy workload')
+      })
     })
-  })
+  } else {
+    actions.push({
+      label: 'Delete',
+      icon: 'pi pi-trash',
+      command: () => confirm.require({
+        header: 'Confirm delete',
+        message: `Delete workload ${item.name}? Its record and its logs are removed permanently.`,
+        icon: 'pi pi-exclamation-triangle',
+        acceptProps: { label: 'Delete', severity: 'danger' },
+        rejectProps: { label: 'Cancel', severity: 'secondary', outlined: true },
+        accept: () => act(() => Kinotic.workloadOrchestration.deleteWorkload(item.id), 'Workload deleted', 'Failed to delete workload')
+      })
+    })
+  }
   return actions
 }
 

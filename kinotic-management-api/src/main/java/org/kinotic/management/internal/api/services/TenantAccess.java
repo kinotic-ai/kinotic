@@ -7,26 +7,19 @@ import org.kinotic.core.api.security.Participant;
 import org.kinotic.core.api.security.SecurityContext;
 import org.kinotic.domain.api.model.security.participant.OrganizationParticipant;
 import org.kinotic.domain.api.model.security.participant.SystemParticipant;
+import org.kinotic.management.api.model.TelemetryTenant;
 import org.springframework.stereotype.Component;
 
 /**
  * Decides which telemetry tenant a caller may read. Every organization's workload logs,
  * traces, and metrics live in a tenant named by the organization id, and the platform's own
- * in {@link #SYSTEM_TENANT}; an organization participant reads its own organization's tenant
- * alone, a system participant any.
+ * in {@link TelemetryTenant#SYSTEM}; an organization participant reads its own organization's
+ * tenant alone, a system participant any.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class TenantAccess {
-
-    /**
-     * Tenant that receives the logs, traces, and metrics of platform workloads with no organization
-     * (SYSTEM scope). Must match the tenant the vm-manager's AlloyManager ships them under;
-     * organization ids can never take this value — ids beginning with "kinotic" are reserved for
-     * the platform.
-     */
-    public static final String SYSTEM_TENANT = "kinotic-system";
 
     private final SecurityContext securityContext;
 
@@ -55,7 +48,7 @@ public class TenantAccess {
     public String readableTenant(Participant participant, String organizationId) {
         String ret;
         if (participant instanceof SystemParticipant) {
-            ret = organizationId != null ? organizationId : SYSTEM_TENANT;
+            ret = TelemetryTenant.of(organizationId);
         } else if (participant instanceof OrganizationParticipant op && op.getOrganizationId().equals(organizationId)) {
             ret = organizationId;
         } else {

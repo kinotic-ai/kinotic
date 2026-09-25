@@ -5,6 +5,7 @@ import io.vertx.core.buffer.Buffer;
 import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.management.api.model.LogQuery;
+import org.kinotic.management.api.model.TelemetryTenant;
 import org.kinotic.management.api.services.LokiClient;
 import reactor.core.publisher.Flux;
 
@@ -56,7 +57,7 @@ class DefaultLogServiceTest extends ParticipantCallTest {
     void platformWorkloadsResolveToTheSystemTenant() throws Throwable {
         callAs(PLATFORM_OPERATOR, () -> service.history(query(null, "wl-platform")));
 
-        assertEquals(TenantAccess.SYSTEM_TENANT, lokiClient.tenant);
+        assertEquals(TelemetryTenant.SYSTEM, lokiClient.tenant);
     }
 
     @Test
@@ -109,6 +110,11 @@ class DefaultLogServiceTest extends ParticipantCallTest {
             this.tenant = tenant;
             this.query = query;
             return Flux.empty();
+        }
+
+        @Override
+        public Future<Void> delete(String tenant, String query, long start, long end) {
+            throw new UnsupportedOperationException();
         }
     }
 }

@@ -5,6 +5,8 @@ import org.kinotic.core.api.annotations.Publish;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 
+import java.util.List;
+
 /**
  * Service responsible for orchestrating workload deployment across the cluster.
  * Acts as the intermediary between clients and VmManager instances running on each node.
@@ -59,11 +61,37 @@ public interface WorkloadOrchestrationService {
     Future<Void> stopWorkload(String workloadId);
 
     /**
-     * Destroys a workload, removing it from the node and cleaning up all resources.
+     * Destroys a workload's VM on its node, with its disk, and returns its room. A run still open is
+     * recorded {@link WorkloadStatus#STOPPED}. The record stays as the run's outcome, and its logs stay
+     * in the log store, until {@link #deleteWorkload(String)}.
      *
      * @param workloadId the id of the workload to destroy
-     * @return a future that will complete when the workload has been destroyed
+     * @return a future that will complete when the VM has been destroyed
      */
     Future<Void> destroyWorkload(String workloadId);
+
+    /**
+     * Deletes a workload's record and every log line it wrote from the organization's log store, the
+     * one way either is removed. A run still open on its node — starting, running, or a stop the node
+     * has not answered — is refused: stop or destroy it first.
+     *
+     * @param workloadId the id of the workload to delete
+     * @return a future that will complete when the record and its logs are gone, or fail if the run is
+     *         still open
+     */
+    Future<Void> deleteWorkload(String workloadId);
+
+    /**
+     * Deletes the given workloads' records and every log line they wrote, as {@link #deleteWorkload}
+     * does for one, with the log store asked once per organization for all of its workloads in the
+     * batch. Any run still open refuses the whole batch before anything is deleted. The retention
+     * sweep calls this for the records whose runs ended longer ago than
+     * {@code kinotic.systemApi.workload.retentionDays}.
+     *
+     * @param workloadIds the ids of the workloads to delete
+     * @return a future that will complete when the records and their logs are gone, or fail if any run
+     *         is still open
+     */
+    Future<Void> deleteWorkloads(List<String> workloadIds);
 
 }

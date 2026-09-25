@@ -22,6 +22,11 @@ public class SystemApiProperties {
     private VmNodeProperties vmNode = new VmNodeProperties();
 
     /**
+     * Retention of the records of workload runs.
+     */
+    private WorkloadProperties workload = new WorkloadProperties();
+
+    /**
      * Deployment of customer project workloads from GitHub pushes.
      */
     @Valid

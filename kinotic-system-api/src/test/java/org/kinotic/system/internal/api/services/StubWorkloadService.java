@@ -145,6 +145,15 @@ public class StubWorkloadService implements WorkloadService {
     }
 
     @Override
+    public Future<Page<Workload>> findEndedBefore(Date cutoff, Pageable pageable) {
+        List<Workload> ended = saved.values().stream()
+                                    .filter(workload -> workload.getStatus().isComplete() && workload.getUpdated().before(cutoff))
+                                    .map(StubWorkloadService::snapshot)
+                                    .toList();
+        return Future.succeededFuture(new Page<>(ended, (long) ended.size()));
+    }
+
+    @Override
     public Future<Long> countRunningForNode(String nodeId) {
         return findAllForNode(nodeId, null).map(page -> page.getContent().stream()
                                                              .filter(workload -> !workload.getStatus().isComplete())

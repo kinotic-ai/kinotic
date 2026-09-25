@@ -8,6 +8,9 @@ import org.kinotic.core.api.reconcile.StatusConditionType;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.Validate;
+import org.apache.ignite.Ignite;
+import org.kinotic.management.api.model.TelemetryTenant;
+import org.kinotic.management.api.services.LokiClient;
 import org.kinotic.system.api.services.VmNodeService;
 import org.kinotic.system.api.services.WorkloadService;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
@@ -17,10 +20,14 @@ import org.kinotic.system.api.model.workload.VmNode;
 import org.kinotic.system.api.model.workload.WorkloadReservation;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,11 +43,22 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
     // Placements a deploy may make before it gives up on the room concurrent deploys keep taking
     private static final int PLACEMENT_ATTEMPTS = 3;
 
+    // Workload ids one Loki delete request names: the selector travels in the URL
+    private static final int LOG_DELETE_BATCH = 50;
+
     private final VmNodeOrchestrationService nodeOrchestrationService;
     @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
     private final VmManagerProxy vmManagerProxy;
     private final VmNodeService vmNodeService;
     private final WorkloadService workloadService;
+    private final LokiClient lokiClient;
+    private final Ignite ignite;
+
+    // Every node requests the deployment; Ignite elects a single host for it cluster-wide
+    @EventListener(ApplicationReadyEvent.class)
+    public void deployRetentionSweep() {
+        ignite.services().deployClusterSingleton(WorkloadRetentionSweeper.SINGLETON_NAME, new WorkloadRetentionSweeper());
+    }
 
     // A call the bus could not deliver, or whose serving node left, is the earliest sign a node is gone;
     // the orchestrator checks the node at once instead of waiting for the heartbeat timeout
@@ -142,16 +160,77 @@ public class DefaultWorkloadOrchestrationService implements WorkloadOrchestratio
 
         return workloadService.findById(workloadId)
                 .compose(workload -> {
+                    Future<Void> ret;
                     if (workload == null) {
-                        return Future.failedFuture(
-                                new IllegalArgumentException("Workload not found: " + workloadId));
+                        ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadId));
+                    } else if (workload.getNodeId() == null) {
+                        // never placed: there is nothing on any node
+                        ret = Future.succeededFuture();
+                    } else {
+                        String nodeId = workload.getNodeId();
+                        ret = verifyingNodeOnFailure(nodeId, vmManagerProxy.destroyWorkload(nodeId, workloadId))
+                                // the destroy ended a run the node will not report the end of; an
+                                // ended run holds no room, so the release is for one never reported
+                                .compose(v -> workload.getStatus().isOpen()
+                                        ? recordRunEnded(workload, WorkloadStatus.STOPPED, "destroyWorkload").mapEmpty()
+                                        : vmNodeService.releaseSync(nodeId, workloadId));
                     }
-
-                    // Dispatch destroy to the VmManager on the workload's node
-                    return verifyingNodeOnFailure(workload.getNodeId(), vmManagerProxy.destroyWorkload(workload.getNodeId(), workloadId))
-                            .compose(v -> vmNodeService.releaseSync(workload.getNodeId(), workloadId))
-                            .compose(v -> workloadService.deleteById(workloadId));
+                    return ret;
                 });
+    }
+
+    @Override
+    public Future<Void> deleteWorkload(String workloadId) {
+        Validate.notNull(workloadId, "Workload id cannot be null");
+        return deleteWorkloads(List.of(workloadId));
+    }
+
+    @Override
+    public Future<Void> deleteWorkloads(List<String> workloadIds) {
+        Validate.notEmpty(workloadIds, "Workload ids cannot be empty");
+
+        return Future.all(workloadIds.stream().map(workloadService::findById).toList())
+                .compose(found -> {
+                    List<Workload> workloads = found.list();
+                    Future<Void> ret = Future.succeededFuture();
+                    for (int i = 0; i < workloads.size() && ret.succeeded(); i++) {
+                        Workload workload = workloads.get(i);
+                        if (workload == null) {
+                            ret = Future.failedFuture(new IllegalArgumentException("Workload not found: " + workloadIds.get(i)));
+                        } else if (workload.getStatus().isOpen()) {
+                            ret = Future.failedFuture(new IllegalStateException("Workload " + workload.getId() + " is " + workload.getStatus()
+                                    + "; stop or destroy it before deleting it"));
+                        }
+                    }
+                    if (ret.succeeded()) {
+                        // the logs go first: a record without logs is an ended run like any other, while
+                        // logs without a record could never be found again
+                        ret = deleteLogs(workloads)
+                                .compose(v -> Future.all(workloads.stream().map(workload -> workloadService.deleteById(workload.getId())).toList()))
+                                // one refresh for the batch, so a listing made right after no longer shows any of them
+                                .compose(v -> workloadService.syncIndex());
+                    }
+                    return ret;
+                });
+    }
+
+    // One delete request per organization, in selectors of bounded length: Loki filters every pending
+    // request against every query in the tenant until its compactor has applied it
+    private Future<Void> deleteLogs(List<Workload> workloads) {
+        Map<String, List<String>> idsByTenant = new LinkedHashMap<>();
+        for (Workload workload : workloads) {
+            idsByTenant.computeIfAbsent(TelemetryTenant.of(workload.getOrganizationId()), tenant -> new ArrayList<>()).add(workload.getId());
+        }
+        long now = System.currentTimeMillis();
+        Future<Void> ret = Future.succeededFuture();
+        for (Map.Entry<String, List<String>> tenant : idsByTenant.entrySet()) {
+            List<String> ids = tenant.getValue();
+            for (int from = 0; from < ids.size(); from += LOG_DELETE_BATCH) {
+                List<String> batch = ids.subList(from, Math.min(ids.size(), from + LOG_DELETE_BATCH));
+                ret = ret.compose(v -> lokiClient.delete(tenant.getKey(), TelemetryTenant.workloadLogSelector(batch), 0, now));
+            }
+        }
+        return ret;
     }
 
     /**

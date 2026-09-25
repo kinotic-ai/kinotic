@@ -104,18 +104,11 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
     private static List<WorkloadReservation> reservationsOf(List<Workload> workloads) {
         List<WorkloadReservation> ret = new ArrayList<>();
         for (Workload workload : workloads) {
-            if (runOpen(workload)) {
+            if (workload.getStatus().isOpen()) {
                 ret.add(WorkloadReservation.forRun(workload));
             }
         }
         return ret;
-    }
-
-    // A STOPPING workload is one whose stop never got an answer from the node
-    private static boolean runOpen(Workload workload) {
-        return workload.getStatus() == WorkloadStatus.STARTING
-                || workload.getStatus() == WorkloadStatus.RUNNING
-                || workload.getStatus() == WorkloadStatus.STOPPING;
     }
 
     @Override
@@ -367,7 +360,7 @@ public class DefaultVmNodeOrchestrationService implements VmNodeOrchestrationSer
                 .compose(page -> {
                     Future<Void> chain = Future.succeededFuture();
                     for (Workload workload : page.getContent()) {
-                        if (runOpen(workload)) {
+                        if (workload.getStatus().isOpen()) {
                             chain = chain.compose(v -> change.apply(workload));
                         }
                     }

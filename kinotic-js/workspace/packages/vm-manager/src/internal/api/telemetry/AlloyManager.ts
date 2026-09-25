@@ -25,7 +25,7 @@ const DOWNLOAD_TIMEOUT_MS = 120_000
 const DOWNLOAD_ATTEMPTS = 3
 
 // Tenant for platform workloads with no organization (SYSTEM scope), for logs, traces, and
-// metrics alike; must match TenantAccess.SYSTEM_TENANT on the server
+// metrics alike; must match TelemetryTenant.SYSTEM on the server
 const SYSTEM_TENANT = 'kinotic-system'
 
 /**
