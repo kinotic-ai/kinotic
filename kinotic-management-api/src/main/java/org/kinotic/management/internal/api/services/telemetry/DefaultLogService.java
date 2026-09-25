@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
@@ -6,8 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.model.telemetry.LogQuery;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
-import org.kinotic.management.api.services.LogService;
-import org.kinotic.management.api.services.LokiClient;
+import org.kinotic.management.api.services.telemetry.LogService;
+import org.kinotic.management.api.services.telemetry.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 

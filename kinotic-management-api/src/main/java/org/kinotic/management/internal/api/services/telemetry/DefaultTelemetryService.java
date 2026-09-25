@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
@@ -6,9 +6,9 @@ import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.model.telemetry.MetricQuery;
 import org.kinotic.management.api.model.telemetry.TraceQuery;
-import org.kinotic.management.api.services.MimirClient;
-import org.kinotic.management.api.services.TelemetryService;
-import org.kinotic.management.api.services.TempoClient;
+import org.kinotic.management.api.services.telemetry.MimirClient;
+import org.kinotic.management.api.services.telemetry.TelemetryService;
+import org.kinotic.management.api.services.telemetry.TempoClient;
 import org.springframework.stereotype.Component;
 
 /**

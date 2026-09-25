@@ -39,7 +39,7 @@ export class TelemetryService implements ITelemetryService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.TelemetryService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.telemetry.TelemetryService`)
     }
 
     public searchTraces(query: TraceQuery): Promise<Uint8Array> {

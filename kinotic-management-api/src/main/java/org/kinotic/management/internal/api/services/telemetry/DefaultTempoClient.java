@@ -1,11 +1,11 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import org.apache.commons.lang3.Validate;
 import org.kinotic.management.api.config.ManagementApiProperties;
-import org.kinotic.management.api.services.TempoClient;
+import org.kinotic.management.api.services.telemetry.TempoClient;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

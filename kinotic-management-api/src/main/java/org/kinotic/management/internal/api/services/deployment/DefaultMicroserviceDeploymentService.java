@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.deployment;
 
 import io.vertx.core.Future;
 import lombok.RequiredArgsConstructor;
@@ -11,8 +11,8 @@ import org.kinotic.domain.api.model.security.participant.OrganizationParticipant
 import org.kinotic.domain.api.utils.DomainUtil;
 import org.kinotic.management.api.model.deployment.MicroserviceDeployment;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
-import org.kinotic.management.api.services.DeploymentOperationsProxy;
-import org.kinotic.management.api.services.MicroserviceDeploymentService;
+import org.kinotic.management.api.services.deployment.DeploymentOperationsProxy;
+import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

@@ -33,7 +33,7 @@ export class LogService implements ILogService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.LogService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.telemetry.LogService`)
     }
 
     public tail(organizationId: string | null, workloadId: string): Observable<Uint8Array> {

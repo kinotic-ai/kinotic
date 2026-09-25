@@ -29,7 +29,7 @@ export class ProjectArtifactService implements IProjectArtifactService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.ProjectArtifactService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.deployment.ProjectArtifactService`)
     }
 
     public recordArtifacts(projectId: string, commitSha: string, artifacts: ProjectArtifacts): Promise<void> {

@@ -1,4 +1,4 @@
-package org.kinotic.management.api.services;
+package org.kinotic.management.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;

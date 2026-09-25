@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Context;
 import io.vertx.core.Future;

@@ -1,4 +1,4 @@
-package org.kinotic.management.api.services;
+package org.kinotic.management.api.services.deployment;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;

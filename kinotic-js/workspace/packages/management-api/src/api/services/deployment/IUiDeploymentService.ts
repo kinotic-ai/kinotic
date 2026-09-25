@@ -42,7 +42,7 @@ export class UiDeploymentService implements IUiDeploymentService {
     private readonly serviceProxy: IServiceProxy
 
     constructor(kinotic: IKinotic) {
-        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.UiDeploymentService`)
+        this.serviceProxy = kinotic.serviceProxy(`${MANAGEMENT_API_ZONE}~org.kinotic.management.api.services.deployment.UiDeploymentService`)
     }
 
     public findAllForProject(projectId: string): Promise<UiDeployment[]> {

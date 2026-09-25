@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import io.vertx.core.Future;
@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.kinotic.core.api.exceptions.AuthorizationException;
 import org.kinotic.management.api.model.telemetry.MetricQuery;
 import org.kinotic.management.api.model.telemetry.TraceQuery;
-import org.kinotic.management.api.services.MimirClient;
-import org.kinotic.management.api.services.TempoClient;
+import org.kinotic.management.api.services.telemetry.MimirClient;
+import org.kinotic.management.api.services.telemetry.TempoClient;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -1,10 +1,10 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import org.kinotic.management.api.config.ManagementApiProperties;
-import org.kinotic.management.api.services.MimirClient;
+import org.kinotic.management.api.services.telemetry.MimirClient;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;

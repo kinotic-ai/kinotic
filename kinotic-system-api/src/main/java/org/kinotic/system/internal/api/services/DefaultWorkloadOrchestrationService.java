@@ -11,7 +11,7 @@ import org.apache.commons.lang3.Validate;
 import org.apache.ignite.Ignite;
 import org.kinotic.management.api.model.telemetry.TelemetryTenant;
 import org.kinotic.management.api.repositories.WorkloadRepository;
-import org.kinotic.management.api.services.LokiClient;
+import org.kinotic.management.api.services.telemetry.LokiClient;
 import org.kinotic.system.api.services.VmNodeOrchestrationService;
 import org.kinotic.system.internal.api.repositories.VmNodeRepository;
 import org.kinotic.system.api.workload.VmManagerProxy;

@@ -1,4 +1,4 @@
-package org.kinotic.management.internal.api.services;
+package org.kinotic.management.internal.api.services.telemetry;
 
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -9,7 +9,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.kinotic.management.api.config.ManagementApiProperties;
-import org.kinotic.management.api.services.LokiClient;
+import org.kinotic.management.api.services.telemetry.LokiClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 

@@ -4,8 +4,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.kinotic.idl.api.directory.ServiceDeclaration;
 import org.kinotic.idl.api.directory.ResolvableTypeConverter;
+import org.kinotic.management.api.services.deployment.MicroserviceDeploymentService;
+import org.kinotic.management.api.services.deployment.UiDeploymentService;
 import org.kinotic.management.internal.api.services.DefaultApplicationService;
 import org.kinotic.management.internal.api.services.DefaultProjectService;
+import org.kinotic.management.internal.api.services.deployment.DefaultMicroserviceDeploymentService;
+import org.kinotic.management.internal.api.services.deployment.DefaultUiDeploymentService;
 import org.kinotic.idl.api.schema.FunctionDefinition;
 import org.kinotic.idl.api.schema.NamespaceDefinition;
 import org.kinotic.idl.api.schema.ServiceDefinition;
@@ -52,10 +56,12 @@ public class McpServiceSchemaTest {
     public void mcpExposedServicesConvert() {
         NamespaceDefinition namespaceDefinition =
                 schemaFactory().createForServices(List.of(new ServiceDeclaration(ProjectService.class, DefaultProjectService.class),
-                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class)));
+                                                           new ServiceDeclaration(ApplicationService.class, DefaultApplicationService.class),
+                                                           new ServiceDeclaration(MicroserviceDeploymentService.class, DefaultMicroserviceDeploymentService.class),
+                                                           new ServiceDeclaration(UiDeploymentService.class, DefaultUiDeploymentService.class)));
 
         // createForServices omits any service that fails conversion, so a shrunken count is the failure signal
-        Assertions.assertEquals(2, namespaceDefinition.getServices().size());
+        Assertions.assertEquals(4, namespaceDefinition.getServices().size());
     }
 
     @Test
