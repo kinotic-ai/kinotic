@@ -1,6 +1,5 @@
 package org.kinotic.system.internal.api.services;
 
-import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import java.util.function.Supplier;
 import org.kinotic.domain.api.model.Reconcilable;
@@ -8,12 +7,8 @@ import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.WatchedParent;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonObject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.kinotic.core.api.exceptions.AlreadyExistsException;
-import org.kinotic.core.api.utils.ZoneUtil;
-import org.kinotic.domain.api.model.DeploymentStatus;
 import org.kinotic.domain.api.model.DeploymentStatusType;
 
 import org.kinotic.management.api.model.MicroserviceArtifact;
@@ -21,17 +16,13 @@ import org.kinotic.management.api.model.MicroserviceDeployment;
 import org.kinotic.management.api.model.Project;
 import org.kinotic.management.api.model.ProjectArtifacts;
 import org.kinotic.management.api.model.ProjectDeployment;
-import org.kinotic.management.api.model.UiArtifact;
 import org.kinotic.management.api.model.UiDeployment;
 import org.kinotic.management.api.model.workload.Workload;
 import org.kinotic.management.api.model.workload.WorkloadStatus;
 import org.kinotic.management.api.repositories.MicroserviceDeploymentRepository;
 import org.kinotic.management.api.repositories.ProjectDeploymentRepository;
 import org.kinotic.management.api.repositories.UiDeploymentRepository;
-import org.kinotic.system.api.config.UiDeploymentProperties;
-import org.kinotic.system.api.services.SiteStorageService;
 import org.kinotic.management.api.services.ProjectRepoTokenProvider;
-import org.kinotic.domain.api.services.OrganizationService;
 import org.kinotic.system.api.config.KinoticSystemApiProperties;
 import org.kinotic.grind.api.model.JobDefinition;
 import org.kinotic.grind.api.model.Store;
@@ -47,7 +38,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -74,10 +64,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProjectDeployJobDefinitionFactory {
 
-    /** Hostname labels are limited by DNS. */
-    private static final int MAX_LABEL_LENGTH = 63;
-    /** Longer than any upload takes, and short enough that a leaked URL is soon worthless. */
-    private static final Duration UPLOAD_URL_TTL = Duration.ofHours(1);
     /** Longer than placing and booting every microservice's VM, or a first look at every site, takes. */
     private static final Duration CONVERGENCE_TIMEOUT = Duration.ofMinutes(10);
     private static final Duration CONVERGENCE_POLL_INTERVAL = Duration.ofSeconds(2);
@@ -89,9 +75,7 @@ public class ProjectDeployJobDefinitionFactory {
     private final ProjectDeploymentRepository projectDeploymentRepository;
     private final MicroserviceDeploymentRepository microserviceDeploymentRepository;
     private final UiDeploymentRepository uiDeploymentRepository;
-    private final OrganizationService organizationService;
-    private final SiteStorageService siteStorageService;
-    private final SiteWorkloadFactory siteWorkloadFactory;
+    private final UiSitePublisher uiSitePublisher;
     private final ProjectDeployIdentityService projectDeployIdentityService;
     private final ProjectWorkloadFactory projectWorkloadFactory;
     private final KinoticSystemApiProperties properties;
@@ -352,7 +336,7 @@ public class ProjectDeployJobDefinitionFactory {
      */
     private Future<UiDeployments> publishUis(Project project, DeployTarget target, ProjectArtifacts artifacts, String commitSha) {
         // nothing serves a site while the provisioner is disabled, so nothing is uploaded either
-        boolean serving = !uiDeployment().isDisableProvisioner();
+        boolean serving = !properties.getSystemApi().getUiDeployment().isDisableProvisioner();
         String source = "deploy of " + commitSha;
         return uiDeploymentRepository.findAllForProject(project.getId())
                 .compose(existing -> {
@@ -363,8 +347,12 @@ public class ProjectDeployJobDefinitionFactory {
                         published = Future.succeededFuture();
                     } else {
                         // a site's directory is its hostname, so a first publish mints the label first
-                        published = sequentially(artifacts.uis(), ui -> deploymentFor(project, ui, unmatched.remove(ui.name())))
-                                .compose(rows -> (serving ? uploadUis(project, target, rows, commitSha) : Future.<Void>succeededFuture())
+                        published = sequentially(artifacts.uis(), ui -> uiSitePublisher.deploymentFor(project, ui, unmatched.remove(ui.name())))
+                                .compose(rows -> (serving
+                                                ? uiSitePublisher.upload(project, target, rows, commitSha)
+                                                                 .compose(finished -> requireSucceeded(finished, "UI publish"))
+                                                                 .mapEmpty()
+                                                : Future.<Void>succeededFuture())
                                         .compose(v -> sequentially(rows, row -> uiDeploymentRepository.updateDesired(row.getId(), new DeploymentState(DeploymentStatusType.READY, commitSha), null, source))))
                                 .mapEmpty();
                     }
@@ -374,71 +362,6 @@ public class ProjectDeployJobDefinitionFactory {
                 .compose(v -> awaitAnswered("UIs of project " + project.getId(), () -> uiDeploymentRepository.findAllForProject(project.getId()),
                                             UiDeployment::getName, System.currentTimeMillis() + CONVERGENCE_TIMEOUT.toMillis()))
                 .map(UiDeployments::new);
-    }
-
-    /** The row a UI publishes to: its existing site, or one minted for its first publish. */
-    private Future<UiDeployment> deploymentFor(Project project, UiArtifact ui, UiDeployment existing) {
-        return existing == null ? mintDeployment(project, ui) : Future.succeededFuture(existing);
-    }
-
-    /**
-     * Runs the publish workload with one upload URL per site, each scoped to that site's
-     * directory in the sites account.
-     */
-    private Future<Void> uploadUis(Project project, DeployTarget target, List<UiDeployment> rows, String commitSha) {
-        return Future.all(rows.stream()
-                              .map(row -> siteStorageService.issueUploadUrl(hostname(row), UPLOAD_URL_TTL)
-                                                            .map(url -> Map.entry(row.getName(), url)))
-                              .toList())
-                .map(all -> {
-                    JsonObject urls = new JsonObject();
-                    all.<Map.Entry<String, String>>list().forEach(entry -> urls.put(entry.getKey(), entry.getValue()));
-                    return siteWorkloadFactory.publish(project, target, urls, commitSha);
-                })
-                .compose(workloadOrchestrationService::deployWorkload)
-                .compose(finished -> requireSucceeded(finished, "UI publish"))
-                .mapEmpty();
-    }
-
-    private String hostname(UiDeployment row) {
-        return uiDeployment().resolveHostname(row.getId());
-    }
-
-    /**
-     * Mints the site's label, {@code <org>-<app>-<ui>}, taking the first free numeric suffix
-     * when another site holds it, and its URL under the sites domain. The store enforces the
-     * label's uniqueness on create.
-     */
-    private Future<UiDeployment> mintDeployment(Project project, UiArtifact ui) {
-        String base = project.getOrganizationId() + "-" + project.getApplicationId() + "-" + ui.name();
-        ZoneUtil.validateLabel(base);
-        return mintWithSuffix(project, ui, base, 1);
-    }
-
-    private Future<UiDeployment> mintWithSuffix(Project project, UiArtifact ui, String base, int attempt) {
-        String label = attempt == 1 ? base : base + "-" + attempt;
-        Future<UiDeployment> ret;
-        if (label.length() > MAX_LABEL_LENGTH) {
-            ret = Future.failedFuture(new IllegalStateException("The hostname label " + label + " for UI " + ui.name()
-                    + " of application " + project.getApplicationId() + " of organization " + project.getOrganizationId()
-                    + " is longer than " + MAX_LABEL_LENGTH + " characters; shorten the application or UI name"));
-        } else {
-            UiDeployment deployment = new UiDeployment()
-                    .setId(label)
-                    .setUrl(uiDeployment().resolveSiteUrl(label))
-                    .setOrganizationId(project.getOrganizationId())
-                    .setApplicationId(project.getApplicationId())
-                    .setProjectId(project.getId())
-                    .setName(ui.name())
-                    .setCreated(new Date())
-                    .setUpdated(new Date());
-            deployment.getState().setParent(new WatchedParent(WatchedType.PROJECT_DEPLOYMENT, project.getOrganizationId(), project.getId()));
-            ret = uiDeploymentRepository.create(deployment)
-                    .recover(error -> error instanceof AlreadyExistsException
-                            ? mintWithSuffix(project, ui, base, attempt + 1)
-                            : Future.failedFuture(error));
-        }
-        return ret;
     }
 
     /**
@@ -469,10 +392,6 @@ public class ProjectDeployJobDefinitionFactory {
             ret = Future.failedFuture(new IllegalStateException(what + ": " + failures));
         }
         return ret;
-    }
-
-    private UiDeploymentProperties uiDeployment() {
-        return properties.getSystemApi().getUiDeployment();
     }
 
 }
