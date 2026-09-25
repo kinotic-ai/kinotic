@@ -13,7 +13,6 @@ import java.util.List;
  * its identity; a deployment whose microservice a commit dropped stays orphaned until it is
  * removed here.
  */
-@McpTool
 @Publish
 public interface MicroserviceDeploymentService {
 
@@ -24,6 +23,7 @@ public interface MicroserviceDeploymentService {
      * @param projectId a project belonging to the caller's organization
      * @return a future emitting the deployments, empty when the project has none
      */
+    @McpTool
     Future<List<MicroserviceDeployment>> findAllForProject(String projectId);
 
     /**
@@ -35,6 +35,7 @@ public interface MicroserviceDeploymentService {
      * @param deploymentId the deployment of a microservice of one of the caller's organization's projects
      * @return a future emitting the deployment as it stood when the restart was asked for
      */
+    @McpTool
     Future<MicroserviceDeployment> restart(String deploymentId);
 
     /**

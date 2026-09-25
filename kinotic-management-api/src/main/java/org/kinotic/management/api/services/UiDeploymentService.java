@@ -13,7 +13,6 @@ import java.util.List;
  * down and deletes its files; a deployment whose UI a commit dropped stays orphaned, still
  * serving, until it is removed here.
  */
-@McpTool
 @Publish
 public interface UiDeploymentService {
 
@@ -24,6 +23,7 @@ public interface UiDeploymentService {
      * @param projectId a project belonging to the caller's organization
      * @return a future emitting the deployments, empty when the project has none
      */
+    @McpTool
     Future<List<UiDeployment>> findAllForProject(String projectId);
 
     /**
