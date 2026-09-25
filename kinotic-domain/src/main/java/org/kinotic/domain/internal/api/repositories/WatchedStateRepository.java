@@ -176,8 +176,8 @@ public class WatchedStateRepository {
     }
 
     /**
-     * Records a write to the record in the ledger, naming what the record belongs to and its
-     * generation as the write left them.
+     * Records a write to the record in the ledger, naming the scope the record is addressed under,
+     * what it belongs to and its generation as the write left them.
      *
      * @param document the record
      * @param written  the record as the write left it
@@ -200,7 +200,10 @@ public class WatchedStateRepository {
                 generation = ((Number) state.get("generation")).longValue();
             }
         }
-        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), document.routing(),
+        // the scope a record is addressed under is its organization, the field every organization-owned
+        // record carries and a node has not: what its repository's scopeOf gives and a pointer to it carries
+        String scope = (String) written.get(AbstractOrganizationScopedRepository.ORGANIZATION_ID_FIELD);
+        return watchEventRepository.record(new WatchEvent(new Date(), document.index().type(), document.id(), scope,
                                                           parent, change.kind(), change.source(), kinotic.serverInfo().getNodeId(),
                                                           generation, change.message(), change.value()));
     }

@@ -14,8 +14,8 @@ export interface WatchEvent {
     /** The record's id. */
     id: string
     /**
-     * The scope the record is stored under: its organization for a record stored under one, null for
-     * a record its id alone finds.
+     * The scope the record is addressed under, as its repository gives it: its organization for a
+     * record an organization owns, null for a node.
      */
     scope: string | null
     /** What the record belongs to, null for a record the platform made on its own. */

@@ -6,7 +6,6 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.repositories.ReconcilableRepository;
 import org.kinotic.domain.api.model.WatchEvent;
-import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.model.DeploymentState;
 import org.kinotic.domain.internal.api.repositories.AbstractApplicationScopedRepository;
@@ -56,9 +55,7 @@ public class ProjectDeploymentRepository extends AbstractApplicationScopedReposi
     public Future<Page<WatchEvent>> findHistory(String projectId, String orgId, Pageable pageable) {
         Validate.notBlank(projectId, "projectId cannot be blank");
         Validate.notBlank(orgId, "orgId cannot be blank");
-        return watchEventRepository.findHistory(document(projectId, orgId),
-                                                new WatchedParent(WATCHED.type(), orgId, projectId),
-                                                pageable);
+        return watchEventRepository.findHistory(WATCHED.type(), orgId, projectId, pageable);
     }
 
     @Override

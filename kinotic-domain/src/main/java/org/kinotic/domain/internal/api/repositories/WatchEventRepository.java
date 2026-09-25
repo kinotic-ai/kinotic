@@ -9,6 +9,7 @@ import org.kinotic.core.api.crud.Page;
 import org.kinotic.core.api.crud.Pageable;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.WatchedParent;
+import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
 import org.springframework.stereotype.Component;
 
@@ -40,26 +41,27 @@ public class WatchEventRepository {
     /**
      * Lists what happened to a record and to the records it made, newest first.
      *
-     * @param document the record as Elasticsearch addresses it
-     * @param asParent the record as the records it made name it, null for a record nothing names
+     * @param type     the record's kind
+     * @param scope    the scope the record is addressed under, as its repository's {@code scopeOf} gives it
+     * @param id       the record's id
      * @param pageable the page to return
      * @return a future emitting a page of entries, empty when nothing has happened to the record
      */
-    public Future<Page<WatchEvent>> findHistory(WatchedDocument document, WatchedParent asParent, Pageable pageable) {
-        Validate.notNull(document, "document cannot be null");
+    public Future<Page<WatchEvent>> findHistory(WatchedType type, String scope, String id, Pageable pageable) {
+        Validate.notNull(type, "type cannot be null");
+        Validate.notBlank(id, "id cannot be blank");
         Validate.notNull(pageable, "pageable cannot be null");
         List<Query> own = new ArrayList<>();
-        own.add(crudServiceTemplate.termFilter("type", document.index().type().name()));
-        own.add(crudServiceTemplate.termFilter("id", document.id()));
-        // an id is unique only within the scope its record is stored under, so a scoped record's entries are read under it
-        if (document.routing() != null) {
-            own.add(crudServiceTemplate.termFilter("scope", document.routing()));
-        }
+        own.add(crudServiceTemplate.termFilter("type", type.name()));
+        own.add(crudServiceTemplate.termFilter("id", id));
         List<Query> about = new ArrayList<>();
-        about.add(crudServiceTemplate.composeFilter(own.toArray(Query[]::new)));
-        if (asParent != null) {
-            about.add(crudServiceTemplate.termFilter("parent", asParent.value()));
+        if (scope != null) {
+            // an id is unique within the scope its record is addressed under, so the entries are read under it,
+            // and a pointer names its parent by scope, so the record's own pointer form finds what it made
+            own.add(crudServiceTemplate.termFilter("scope", scope));
+            about.add(crudServiceTemplate.termFilter("parent", new WatchedParent(type, scope, id).value()));
         }
+        about.add(crudServiceTemplate.composeFilter(own.toArray(Query[]::new)));
         return crudServiceTemplate.search(DATA_STREAM, pageable, WatchEvent.class,
                                           b -> b.query(q -> q.bool(bq -> bq.should(about).minimumShouldMatch("1")))
                                                 .sort(so -> so.field(f -> f.field("@timestamp").order(SortOrder.Desc))));

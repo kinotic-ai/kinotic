@@ -8,7 +8,6 @@ import org.kinotic.domain.api.model.StatusCondition;
 import org.kinotic.domain.api.model.StatusConditionType;
 import org.kinotic.domain.api.model.WatchEvent;
 import org.kinotic.domain.api.model.Watched;
-import org.kinotic.domain.api.model.WatchedParent;
 import org.kinotic.domain.api.model.WatchedType;
 import org.kinotic.domain.api.repositories.WatchedRepository;
 import org.kinotic.domain.internal.api.services.CrudServiceTemplate;
@@ -82,10 +81,7 @@ public abstract class AbstractWatchedRepository<T extends Watched> extends Abstr
      */
     public Future<Page<WatchEvent>> findHistory(T record, Pageable pageable) {
         Validate.notNull(record, "record cannot be null");
-        String scope = scopeOf(record);
-        // a pointer names its parent by scope, so a record stored under none is named by nothing
-        WatchedParent asParent = scope == null ? null : new WatchedParent(watched.type(), scope, record.getId());
-        return watchEventRepository.findHistory(document(record.getId()), asParent, pageable);
+        return watchEventRepository.findHistory(watched.type(), scopeOf(record), record.getId(), pageable);
     }
 
     /**

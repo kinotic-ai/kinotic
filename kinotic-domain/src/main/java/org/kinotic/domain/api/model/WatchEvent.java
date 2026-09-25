@@ -11,8 +11,8 @@ import java.util.Date;
  * @param timestamp    when the write landed, the data stream's time field
  * @param type         the kind of record that changed
  * @param id           the record's id
- * @param scope        the scope the record is stored under: its organization for a record stored under
- *                     one, null for a record its id alone finds
+ * @param scope        the scope the record is addressed under, as its repository's {@code scopeOf} gives
+ *                     it: its organization for a record an organization owns, null for a node
  * @param parent       what the record belongs to, null for a record the platform made on its own
  * @param kind         what happened
  * @param source       what caused it: the node that reported, the operator, the orchestrator's inference
