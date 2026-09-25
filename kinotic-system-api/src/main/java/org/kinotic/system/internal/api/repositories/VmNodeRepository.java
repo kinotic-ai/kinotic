@@ -88,6 +88,8 @@ public class VmNodeRepository extends AbstractReconcilableRepository<VmNode, VmN
         Validate.notNull(node, "node cannot be null");
         Validate.notBlank(node.getId(), "node id cannot be blank");
         Map<String, Object> inventory = new HashMap<>();
+        // the upsert creates the document from this map alone, and a read returns _source as it is
+        inventory.put("id", node.getId());
         inventory.put("name", node.getName());
         inventory.put("hostname", node.getHostname());
         inventory.put("providerType", node.getProviderType());
