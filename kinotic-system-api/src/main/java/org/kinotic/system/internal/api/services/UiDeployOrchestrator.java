@@ -69,6 +69,10 @@ public class UiDeployOrchestrator implements Reconciler<UiDeployment> {
             // the commit dropped the UI: the site keeps serving until the deployment is removed
             ret = uiDeploymentRepository.reportObserved(current.getId(), desired, state.getGeneration(), "orphaned by the commit")
                                         .map(Requeue.NONE);
+        } else if (state.getObservedGeneration() >= state.getGeneration() && desired.equals(state.getObserved())) {
+            // the site was seen serving this publish; the next publish, not the master's initial list or
+            // resync, is what asks the site again
+            ret = Future.succeededFuture(Requeue.NONE);
         } else {
             ret = uiDeploymentProvisioner.check(current, desired.commitSha())
                                          .compose(status -> record(current, desired, status));
