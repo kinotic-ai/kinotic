@@ -58,6 +58,7 @@ class LokiClientIntegrationTest {
                              "-querier.multi-tenant-queries-enabled=true",
                              "-compactor.retention-enabled=true",
                              "-compactor.delete-request-store=filesystem",
+                             "-compactor.delete-request-cancel-period=1h",
                              "-compactor.working-directory=/tmp/loki/compactor")
                 .waitingFor(Wait.forHttp("/ready").forPort(3100)
                                 .withStartupTimeout(Duration.ofMinutes(3)));
