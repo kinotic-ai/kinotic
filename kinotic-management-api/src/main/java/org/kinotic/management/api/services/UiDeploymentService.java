@@ -2,6 +2,7 @@ package org.kinotic.management.api.services;
 
 import io.vertx.core.Future;
 import org.kinotic.core.api.annotations.Publish;
+import org.kinotic.idl.api.annotations.McpTool;
 import org.kinotic.management.api.model.UiDeployment;
 
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
  * down and deletes its files; a deployment whose UI a commit dropped stays orphaned, still
  * serving, until it is removed here.
  */
+@McpTool
 @Publish
 public interface UiDeploymentService {
 
